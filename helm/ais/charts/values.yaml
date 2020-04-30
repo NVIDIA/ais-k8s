@@ -323,6 +323,7 @@ ais_config_common:
   rebalance:
     enabled:         true
     compression:     never
+    dont_run_time:   0m
     dest_retry_time: 2m
     quiescent:       20s
     multiplier:      4
