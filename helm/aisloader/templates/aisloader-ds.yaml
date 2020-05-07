@@ -1,0 +1,81 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    app.kubernetes.io/name: {{ include "chart.name" . }}
+    helm.sh/chart: {{ include "chart.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "chart.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "chart.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      imagePullSecrets:
+        - name: {{ .Values.image.pullSecret }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: MY_NODE
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: MY_HOSTIP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP 
+            - name: STATSD_CONF_FILE
+              value: "/var/statsd_config/statsd.json"
+            - name: RUNSCRIPTSOURCE
+              value: "/var/aisloader_scripts/aisloader_client_logic.sh"
+            - name: REDISHOST
+              value: "{{ .Release.Name }}-redis-master"
+          volumeMounts:
+            - name: statsd-config
+              mountPath: "/var/statsd_config"
+            - name: aisloader-scripts
+              mountPath: "/var/aisloader_scripts"
+            - name: results
+              mountPath: /tmp/results
+          lifecycle:
+            preStop:
+              exec:
+                command: [ "/bin/bash", "-c", "/usr/bin/pkill -SIGINT aisloader" ]
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      serviceAccount: {{ template "chart.name" . }}-sa
+      securityContext:
+        sysctls:
+        - name: net.core.somaxconn
+          value: {{ .Values.sysctls.somaxconn | quote }}
+        - name: net.ipv4.ip_local_port_range
+          value: "10240 65535"
+      volumes:
+        - name: statsd-config
+          configMap:
+            name: {{ template "chart.name" . }}-statsd
+        - name: aisloader-scripts
+          configMap:
+            name: {{ template "chart.name" . }}-scripts
+        - name: results
+          {{ if .Values.results_pvc -}}
+          persistentVolumeClaim:
+            claimName: {{ required "Provide an exisintg PVC for results" .Values.results_pvc | quote }}
+          {{- else -}}
+          emptyDir: {}
+          {{- end }}
+      nodeSelector:
+        aisloader: "{{ .Values.ais_release }}"
+    {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}

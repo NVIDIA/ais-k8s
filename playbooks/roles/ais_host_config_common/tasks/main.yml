@@ -1,0 +1,135 @@
+#
+# Add host packages - these are only for debug, so usually skipped (tagged never)
+#
+- block:
+  #
+  # With nvidia-docker2, nvidia-container-runtime dependent on specific Docker versions
+  # we prefer not to have automatic updates. Easier than freezing versions, for now.
+  # Besides, automatic updates of production bits are undesirable in general.
+  #
+    - name: Disable unattended upgrades
+      apt:
+        update_cache: no
+        name: unattended-upgrades
+        state: absent
+    - name: Install desired packages
+      apt:
+        update_cache: yes
+        name: '{{ ais_debug_packages }}'
+        state: present
+  tags: [ never, aisdev, debugpkgs ]
+
+#
+# Required to open many files at once in serving large nodes
+#
+- name: Configure ulimits for host
+  tags: [ aisrequired, ulimits ]
+  pam_limits:
+    domain: '*'
+    limit_item: "{{ item.limit_item }}"
+    limit_type: "{{ item.limit_type }}"
+    value: "{{ item.value }}"
+  with_items:
+    - "{{ ais_pam_limits }}"
+
+- name: Tweak sysctl.conf - required tweaks
+  tags: [ aisrequired, sysctlrequired ]
+  sysctl:
+    sysctl_file: /etc/sysctl.d/90-ais.conf
+    reload: yes
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    state: "{{ item.state }}"
+  with_items:
+    - "{{ ais_host_sysctl_required }}"
+
+- name: Tweak sysctl.conf - optional network tweaks
+  tags: [ never, nvidiastd, sysctlnetwork ]
+  sysctl:
+    sysctl_file: /etc/sysctl.d/90-ais.conf
+    reload: yes
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    state: "{{ item.state }}"
+  with_items:
+    - "{{ ais_host_sysctl_network }}"
+
+- name: Tweak sysctl.conf - optional misc bits
+  tags: [ never, nvidiastd, sysctlnetmisc ]
+  sysctl:
+    sysctl_file: /etc/sysctl.d/90-ais.conf
+    reload: yes
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    state: "{{ item.state }}"
+  with_items:
+    - "{{ ais_host_sysctl_misc }}"
+
+- name: Set host mtu in netplan
+  tags: [ never, aisdev, nvidiastd, mtu ]
+  template:
+    src: 01-netcfg.yaml.j2
+    dest: /etc/netplan/01-netcfg.yaml
+    owner: root
+    group: root
+    mode: 0644
+  with_items:
+    - "{{ ais_host_mtu }}"
+  register: netplan
+
+- name: Apply netplan if changed
+  tags: [ never, aisdev, nvidiastd, mtu ]
+  command: netplan apply
+  when: netplan.changed
+
+- block:
+    - name: Install packages required for cpupower
+      apt:
+        update_cache: yes
+        name: '{{ ais_cpufreq.packages }}'
+        state: present
+
+    - name: Set CPU frequency governor to requested mode
+      command: cpupower frequency-set -r -g {{ ais_cpufreq.governor }}
+
+    - name: Persist CPU governor choice
+      lineinfile:
+        path: /etc/init.d/cpufrequtils
+        line: GOVERNOR={{ ais_cpufreq.governor }}
+        create: yes
+        mode: 0444
+  tags: [ never, nvidiastd, cpufreq ]
+
+- block:
+  - name: Make sure we have a /usr/local/bin
+    file:
+      dest: /usr/local/bin
+      state: directory
+      mode: 0755
+      owner: root
+      group: root
+  
+  - name: Install /usr/local/bin/ais_host_config.sh
+    template:
+      src: ais_host_config.sh.j2
+      dest: /usr/local/bin/ais_host_config.sh
+      owner: root
+      group: root
+      mode: 0755
+    register: configscript
+  
+  - name: Create aishostconfig systemctl unit
+    copy:
+      src: aishostconfig.service
+      dest: /etc/systemd/system
+      mode: 0444
+    register: configservice
+  
+  - name: (Re)start aishostconfig service
+    systemd:
+      name: aishostconfig
+      daemon-reload: yes
+      enabled: yes
+      state: restarted
+    when: configservice.changed or configscript.changed
+  tags: [ never, nvidiastd, iosched_ethtool ]

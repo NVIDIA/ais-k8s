@@ -128,8 +128,10 @@ spec:
 {{ toYaml .Values.target.resources | indent 12 }}
       securityContext:
         sysctls:
+        {{ if .Values.k8s.sysctls.somaxconn }}
         - name: net.core.somaxconn
           value: {{ .Values.aiscluster.k8s.sysctls.somaxconn | quote }}
+        {{ end }}
         - name: net.ipv4.ip_local_port_range
           value: "10240 65535"
       serviceAccount: {{ template "ais.name" . }}-sa

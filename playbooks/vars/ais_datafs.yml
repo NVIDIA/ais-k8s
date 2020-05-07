@@ -1,0 +1,16 @@
+#
+# Vars for playbooks ais_datafs_*
+#
+
+#
+# It is recommended that you do *not* include ais_hosts here - it becomes too
+# easy to mkfs all filesystems by mistake (eg when extending a cluster).
+#
+
+#
+# Devices under /dev on which we will build XFS filesystems. Defaults must
+# be replaced or over-ridden with -e 
+#
+# Examples on an HDD system: sda, sdb, sdc, ...
+#
+ais_devices: []

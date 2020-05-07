@@ -1,0 +1,39 @@
+#
+# Vars unique to GPU nodes - only consulted if using the ais_gpuhost_config.yml
+# playbook to configure a GPU node.
+#
+
+ais_gpu_packages:
+  - gcc
+  - linux-headers-{{ ansible_kernel }}
+
+#
+# CUDA and nvidia-docker install details - versions etc matched to host OS. We require just the drivers,
+# not the CUDA runtime.
+# XXX should be able to use ansible vars here; note that the repo servers are case-sensitive
+#
+cuda_repo_deb: https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/cuda-repo-ubuntu1804_10.1.105-1_amd64.deb
+cuda_repo_key: https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub
+nvidia_docker_key: 'https://nvidia.github.io/nvidia-docker/gpgkey'
+libnvidia_container_key: 'https://nvidia.github.io/libnvidia-container/gpgkey'
+
+#
+# nvidia-docker2 and nvidia-container-runtime versions to install. These must correspond
+# to the version of Docker in use. Kubespray today is using Docker 18.09.5~3-ce. Having
+# configured their repos as above, use
+#
+#   apt-cache madison nvidia-docker2 nvidia-container-runtime
+#
+# to see available versions and choose those matching our Docker version.
+#
+# Note that recent versions of Kubespray may offer a more elegant solution here -
+# installing the required NVIDIA software from an initcontainer run in a DaemonSet
+# delivered by some Google repo. See group_vars/k8s-cluster/k8s-cluster.yml in Kubespray.
+#
+nvidia_docker2_version: 2.0.3+docker18.09.5-3
+nvidia_container_runtime_version: 2.0.0+docker18.09.5-3
+
+#
+# NVIDIA device plugin daemonset location
+#
+nvidia_device_plugin_url: 'https://raw.githubusercontent.com/NVIDIA/k8s-device-plugin/v1.11/nvidia-device-plugin.yml'

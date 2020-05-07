@@ -38,17 +38,6 @@
 # - Container images are sourced from private repos on quay.io using a pre-installed
 #   secret named 'ais-pull-secret' which exist in the same namespace we intend to
 #   deploy AIStore to [aiscluster.image.*]
-# - We will configure an Ingress with externalIP 10.150.172.62 (satisfied by metallb
-#   in our case) and external port 51080. This is where external clients will contact
-#   the AIStore gateway/proxy service. We direct the traffic to the same port number
-#   internally [aiscluster.ingress.gateway]
-# - Creating that external ingress will also cause us to use a hostPort on target pods 
-#   using host port 51081; if not creating an external ingress set this to 0 to avoid
-#   opening a host port to the target pod
-# - The k8s cluster was created with a CIDR of 192.168.0.0/18; AIStore will recognize
-#   client source IPs outside this range as being external to the cluster, and proxy
-#   redirects to targets will be to the hostIP:hostPort (internal clients, if any,
-#   are directed to the podIP:podPort) [aiscluster.k8s.cluster_cidr]
 # - All target nodes have 10 x distinct filesystems for our use, all mounted at
 #   /ais/sd[a-j] on each node [aiscluster.target.mountPaths]
 # - We will deploy internal monitoring - Graphite, Grafana, Prometheus
@@ -86,7 +75,7 @@ aiscluster:
   #
   ingress:
     gateway:
-      externalIP: "10.150.172.62"        # metallb external IP for ingress
+      externalIP: ""                     # metallb external IP for ingress
       port:       51080                  # external ingress port
       targetPort: 51080                  # port used within pod
     grafana:
@@ -103,18 +92,24 @@ aiscluster:
   # and we apply to aisnode pods with the value below.
   #
   k8s:
-    cluster_cidr:           "192.168.0.0/18"    # must be set when using ingress with metlalb
+    cluster_cidr:           ""    # must be set when using ingress with metlalb
     container_capabilities:
       # Needed for debug if you wish to run delve within a pod (or look into kubesquash etc)
       #- SYS_PTRACE
     sysctls:
-      somaxconn: 100000
+      # Set this to 100000 *if* you also change kubelet.env to include
+      #   --allowed-unsafe-sysctls='net.core.somaxconn'
+      # You *will* need this under extreme HTTP GET/PUT load
+      somaxconn: 0
   #
   # Mount paths on each target node to be used for AIS bucket data. These should be
   # precreated filesystems, and no two paths must reside in the same filesystem.
   #
   target:
-    hostPort: 51081
+    # external access to target pods is via a hostPort - set this to 51081
+    # (or other chosen hostport) is needed; will require privileged
+    # containers
+    hostPort: 0
     mountPaths:
       - /ais/sda
       - /ais/sdb

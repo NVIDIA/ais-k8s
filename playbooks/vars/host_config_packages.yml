@@ -1,0 +1,71 @@
+#
+# Packages (Ubuntu names only, where different) that we install on nodes for
+# debug etc. None of these are required for AIStore to run on the k8s node.
+#
+# The playbook will not install these packages unless specifically requested
+# by tags - to keep them off of production setups if undesired. The task which
+# consumes this list is tagged [ never, aisdev, debugpkgs ] 
+#
+ais_debug_packages:
+  - dstat
+  - ethtool
+  - iproute2
+  - net-tools
+  - sysstat
+  - util-linux
+  - lshw
+  - util-linux
+  - dmidecode
+  - lsscsi
+  - smartmontools
+  - sdparm
+  - iotop
+  - procps
+  - iftop
+  - nicstat
+  - linux-tools-common
+  - linux-tools-{{ ansible_kernel }}
+  - procps
+  - sysstat
+  - tcpdump
+  - htop
+  - atop
+  - nmon
+  - strace
+  - bpfcc-tools
+  - linux-headers-{{ ansible_kernel }}
+  - systemtap
+  - fio
+  - iperf
+  - attr
+  - xfsprogs
+  - vim
+  - traceroute
+  - curl
+  - python
+  - net-tools
+  - jq
+  - make
+  - gcc
+  - g++
+  - tk
+  - graphviz
+  - debhelper
+  - m4
+  - gfortran
+  - dpatch
+  - autoconf
+  - tcl
+  - swig
+  - chrpath
+  - flex
+  - libgfortran3
+  - bison
+  - quilt
+  - automake
+  - libltdl-dev
+  - autotools-dev
+  - ntp
+  - tcptrack
+  - conntrack
+  - lsof

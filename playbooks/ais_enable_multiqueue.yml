@@ -1,0 +1,9 @@
+#
+# Enable the multiqueue schedulers in Ubuntu 18.04 - requires reboot for effect.
+#
+---
+- hosts: '{{ playhosts | default("cpu-worker-node") }}'
+
+  gather_facts: false
+  roles:
+          - { role: ais_enable_multiqueue }

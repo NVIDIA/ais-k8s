@@ -1,0 +1,39 @@
+diff -r sample/group_vars/k8s-cluster/addons.yml ais/group_vars/k8s-cluster/addons.yml
+7c7
+< helm_enabled: false
+---
+> helm_enabled: true
+16c16
+< metrics_server_enabled: false
+---
+> metrics_server_enabled: true
+diff -r sample/group_vars/k8s-cluster/k8s-cluster.yml ais/group_vars/k8s-cluster/k8s-cluster.yml
+81c81
+< kube_service_addresses: 10.233.0.0/18
+---
+> kube_service_addresses: 192.168.0.0/18
+86c86
+< kube_pods_subnet: 10.233.64.0/18
+---
+> kube_pods_subnet: 192.168.64.0/18
+131c131
+< cluster_name: cluster.local
+---
+> cluster_name: aiscluster.local
+232c232
+< # kubeconfig_localhost: false
+---
+> kubeconfig_localhost: true
+234c234
+< # kubectl_localhost: false
+---
+> kubectl_localhost: true
+diff -r sample/group_vars/k8s-cluster/k8s-net-calico.yml ais/group_vars/k8s-cluster/k8s-net-calico.yml
+9c9
+< # nat_outgoing: true
+---
+> nat_outgoing: true
+26c26
+< # calico_mtu: 1500
+---
+> calico_mtu: 8980
