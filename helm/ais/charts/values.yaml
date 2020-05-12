@@ -242,9 +242,10 @@ external_monitoring:
 #
 ais_config_common:
   auth:
-    secret:  NotInUse
-    enabled: false
-    creddir: ""
+    enabled:     false
+    secret:      NotInUse
+    creddir:     ""
+    allow_guest: false
   checksum:
     type: xxhash
     validate_cold_get: true

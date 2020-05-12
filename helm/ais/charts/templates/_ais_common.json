@@ -1,9 +1,10 @@
 {{- define "common.config" -}}
 {{ with .Values.ais_config_common }}
 "auth": {
-        "secret":       {{ .auth.secret | quote }},
         "enabled":      {{ .auth.enabled }},
-        "creddir":      {{ .auth.creddir | quote }}
+        "secret":       {{ .auth.secret | quote }},
+        "creddir":      {{ .auth.creddir | quote }},
+        "allow_guest":  {{ .auth.allow_guest }}
 },
 "checksum": {
         "type":                 {{ .checksum.type | quote }},
