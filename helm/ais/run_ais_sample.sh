@@ -71,9 +71,9 @@ MEM_LIMITS=""			# eg 140Gi
 # This has only been tested using metallb - if using a cloud provider
 # LoadBalancer then some work may be required.
 #
-AIS_K8S_CLUSTER_CIDR=""			# eg 192.168.0.0/18
-AIS_TARGET_HOSTPORT=51081		# don't change unless really necessary
-AIS_GATEWAY_EXTERNAL_IP=""		# must be in metalLB pool range if used
+AIS_K8S_CLUSTER_CIDR=""     # eg 192.168.0.0/18
+AIS_HOST_PORT=51081         # don't change unless really necessary
+AIS_GATEWAY_EXTERNAL_IP=""  # must be in metalLB pool range if used
 
 #
 # Similarly for ingress to Grafana. We also create a NodePort service
@@ -129,7 +129,7 @@ helm install \
 	${MEM_REQUESTS:+ --set-string target.resources.requests.memory=${MEM_REQUESTS}} \
 	${MEM_LIMITS:+ --set-string target.resources.limits.memory=${MEM_LIMITS}} \
 	${AIS_K8S_CLUSTER_CIDR:+ --set aiscluster.k8s.cluster_cidr="${AIS_K8S_CLUSTER_CIDR}"} \
-	${AIS_TARGET_HOSTPORT:+ --set-string aiscluster.target.hostPort=${AIS_TARGET_HOSTPORT}} \
+	${AIS_HOST_PORT:+ --set-string aiscluster.target.hostPort=${AIS_HOST_PORT}} \
 	${AIS_GATEWAY_EXTERNAL_IP:+ --set-string aiscluster.ingress.gateway.externalIP=${AIS_GATEWAY_EXTERNAL_IP}} \
 	${AIS_GRAFANA_EXTERNAL_IP:+ --set-string AIS_K8S_CLUSTER_CIDR.ingress.grafana.externalIP=${AIS_GRAFANA_EXTERNAL_IP}} \
 	charts/.

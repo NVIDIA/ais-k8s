@@ -36,8 +36,8 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-            - name : ROLE
-              value : "target"
+            - name: AIS_NODE_ROLE
+              value: "target"
           command:
             - "/bin/bash"
           args: [ "-c", "/bin/bash /var/ais_config/set_uuid_env.sh" ]
@@ -60,25 +60,25 @@ spec:
                 - {{ . }}
                 {{ end }}
           env:
-            - name : CONFFILE
+            - name : AIS_CONF_FILE
               value : "/var/ais_config/ais.json"
-            - name: STATSDCONF
+            - name: STATSD_CONF_FILE
               value: "/var/statsd_config/statsd.json"
-            - name : ROLE
-              value : "target"
+            - name: AIS_NODE_ROLE
+              value: "target"
             - name: AIS_PODIP
               valueFrom:
                 fieldRef:
                   fieldPath: status.podIP
-            - name: AIS_HOSTIP
+            - name: AIS_HOST_IP
               valueFrom:
                 fieldRef:
                   fieldPath: status.hostIP
-            - name: AIS_TARGET_HOSTPORT
+            - name: AIS_HOST_PORT
               value: {{ .Values.aiscluster.target.hostPort | quote }}
-            - name: AIS_NODISKIO
+            - name: AIS_NO_DISK_IO
               value: {{ .Values.target.config.nodiskio.enabled | quote }}
-            - name: AIS_DRYOBJSIZE
+            - name: AIS_DRY_OBJ_SIZE
               value: {{ .Values.target.config.nodiskio.dryobjsize | quote }}
             - name: CLUSTERIP_PROXY_SERVICE_HOSTNAME
               value: {{ template "ais.fullname" . }}-proxy

@@ -37,8 +37,8 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-            - name : ROLE
-              value : "proxy"
+            - name: AIS_NODE_ROLE
+              value: "proxy"
             - name: CLUSTERIP_PROXY_SERVICE_HOSTNAME
               value: {{ template "ais.fullname" . }}-proxy
             - name: CLUSTERIP_PROXY_SERVICE_PORT
@@ -63,15 +63,15 @@ spec:
                 - {{ . }}
                 {{ end }}
           env:
-            - name : CONFFILE
-              value : "/var/ais_config/ais.json"
-            - name: STATSDCONF
+            - name: AIS_CONF_FILE
+              value: "/var/ais_config/ais.json"
+            - name: STATSD_CONF_FILE
               value: "/var/statsd_config/statsd.json"
-            - name : ROLE
-              value : "proxy"
-            - name : TARGETS
-              value : {{ .Values.aiscluster.expected_target_nodes | quote }}
-            - name: AIS_HOSTIP
+            - name: AIS_NODE_ROLE
+              value: "proxy"
+            - name: TARGETS
+              value: {{ .Values.aiscluster.expected_target_nodes | quote }}
+            - name: AIS_HOST_IP
               valueFrom:
                 fieldRef:
                   fieldPath: status.hostIP
