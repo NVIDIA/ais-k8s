@@ -119,7 +119,7 @@ spec:
 {{ toYaml .Values.proxy.resources | indent 12 }}
       securityContext:
         sysctls:
-        {{ if .Values.k8s.sysctls.somaxconn }}
+        {{ if .Values.aiscluster.k8s.sysctls.somaxconn }}
         - name: net.core.somaxconn
           value: {{ .Values.aiscluster.k8s.sysctls.somaxconn | quote }}
         {{ end }}
