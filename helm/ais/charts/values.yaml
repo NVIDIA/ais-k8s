@@ -61,15 +61,15 @@ aiscluster:
   #
   image:
     aisnode:
-      repository: "quay.io/nvidia/aisnode"
-      tag: "20200429.1"
+      repository: "gmaltby/aisnode"
+      tag: "20200521.1"
     kubectl:
-      repository: quay.io/nvidia/ais-kubectl
+      repository: gmaltby/ais-kubectl
       tag: 1
     pullPolicy: IfNotPresent
     pullSecretNames:
       # k8s secret name to use in pulling images; secret populated manually
-      - ais-pull-secret
+      #- ais-pull-secret
   #
   # Ingress to the proxy/gateway service and to any Grafana instance
   #

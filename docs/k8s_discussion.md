@@ -124,7 +124,7 @@ ingress to direct traffic to the AIStore proxy clusterIP service - we don't requ
 load-balancing as Kubeproxy/IPVS will do that for us. With many proxy pods backing the clusterIP
 service this effectively provides an HA proxy endpoint.
 
-For baremetal on-premises deployments we use [metallb](XXX). If running in cloud you can use
+For baremetal on-premises deployments we use [metallb](https://metallb.universe.tf/). If running in cloud you can use
 the cloud provider loadbalancer services - a standard HTTP loadbalancer will do.
 
 The target pods respond *directly* to clients, and only the target pod that the proxy redirects

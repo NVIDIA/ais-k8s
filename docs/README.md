@@ -61,7 +61,7 @@ sustaining high loads.
    - Use an `xfs` filesystem if you can - playbooks [ais_datafs_*.yml](../playbooks) can assist;
    we use `xfs` with mount options `noatime,nodiratime,logbufs=8,logbsize=256k,largeio,inode64,swalloc,allocsize=131072k,nobarrier`
 1. Container images
-   - we will publish major release container images at XXX TBD
+   - we major release container images on github - see planning doc
    - if building your own, see [the main AIStore repo](https://github.com/NVIDIA/aistore/tree/master/deploy/prod/k8s/aisnode_container)
 1. Edit `helm/ais/charts/value.yaml` to reflect the choices above (including those in the planning table)
    - You only need to visit sections `aiscluster` and the couple of small sections after it (if you don't want our monitoring trio of Prometheus/Graphite/Grafana), all at the top of the file
