@@ -25,7 +25,8 @@ if [[ "$uuid" =~ ^[A-F0-9a-f]{8}-[A-F0-9a-f]{4}-[A-F0-9a-f]{4}-[A-F0-9a-f]{4}-[A
    uuid_hash=$(echo $uuid | sha256sum | awk -F ' ' '{print $1}')
    echo ${uuid_hash:56} > $envfile
    echo "Labeling pod $MY_POD for ais-daemon-id=${AIS_NODE_ROLE::1}${uuid_hash:56}"
-   kubectl label pod $MY_POD ais-daemon-id="${AIS_NODE_ROLE::1}${uuid_hash:56}"
+   kubectl label pod $MY_POD ais-daemon-id="${AIS_NODE_ROLE::1}${uuid_hash:56}" --overwrite
 fi
 
+exit 0
 {{end}}
