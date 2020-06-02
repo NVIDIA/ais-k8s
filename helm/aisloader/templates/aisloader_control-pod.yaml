@@ -1,23 +1,33 @@
-apiVersion: v1
-kind: Pod
+apiVersion: apps/v1
+kind: Deployment
 metadata:
-  name: {{ .Release.Name }}-control
+  name: {{ .Release.Name }}-control-deployment
   labels:
+    app: {{ template "chart.name" . }}-control
 spec:
-  imagePullSecrets:
-    - name: ais-pull-secret
-  containers:
-  - name: mycont
-    image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-    imagePullPolicy: IfNotPresent
-    env:
-      - name: REDISHOST
-        value: "{{ .Release.Name }}-redis-master"
-    volumeMounts:
-      - name: aisloader-scripts
-        mountPath: "/var/aisloader_scripts"
-    command: [ "/bin/bash", "/var/aisloader_scripts/aisloader_control_logic.sh" ]
-  volumes:
-    - name: aisloader-scripts
-      configMap:
-        name: {{ template "chart.name" . }}-scripts
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ template "chart.name" . }}-control
+  template:
+    metadata:
+      labels:
+        app: {{ template "chart.name" . }}-control
+    spec:
+      imagePullSecrets:
+        - name: ais-pull-secret
+      containers:
+      - name: control
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: IfNotPresent
+        env:
+          - name: REDISHOST
+            value: "{{ .Release.Name }}-redis-master"
+        volumeMounts:
+          - name: aisloader-scripts
+            mountPath: "/var/aisloader_scripts"
+        command: [ "/bin/bash", "/var/aisloader_scripts/aisloader_control_logic.sh" ]
+      volumes:
+        - name: aisloader-scripts
+          configMap:
+            name: {{ template "chart.name" . }}-scripts
