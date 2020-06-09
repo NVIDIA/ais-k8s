@@ -239,7 +239,6 @@ ais_config_common:
   auth:
     enabled:     false
     secret:      NotInUse
-    allow_guest: false
   checksum:
     type: xxhash
     validate_cold_get: true

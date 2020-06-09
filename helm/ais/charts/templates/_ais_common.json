@@ -2,8 +2,7 @@
 {{ with .Values.ais_config_common }}
 "auth": {
         "enabled":      {{ .auth.enabled }},
-        "secret":       {{ .auth.secret | quote }},
-        "allow_guest":  {{ .auth.allow_guest }}
+        "secret":       {{ .auth.secret | quote }}
 },
 "checksum": {
         "type":                 {{ .checksum.type | quote }},
