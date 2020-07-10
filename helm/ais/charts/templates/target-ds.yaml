@@ -66,6 +66,10 @@ spec:
               value: "/var/statsd_config/statsd.json"
             - name: AIS_NODE_ROLE
               value: "target"
+            - name: AIS_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
             - name: AIS_PODIP
               valueFrom:
                 fieldRef:
@@ -121,7 +125,7 @@ spec:
               path: /v1/health
               port: {{ .Values.target.service.port }}
             initialDelaySeconds: 5
-            periodSeconds: 30 
+            periodSeconds: 30
             failureThreshold: 3
             timeoutSeconds: 5
           resources:
@@ -153,7 +157,7 @@ spec:
         {{ range .Values.aiscluster.target.mountPaths }}
         - name: fspath{{ . | replace "/" "-" }}
           hostPath:
-            path: {{ . }} 
+            path: {{ . }}
         {{ end }}
     {{- with .Values.affinity }}
       affinity:
