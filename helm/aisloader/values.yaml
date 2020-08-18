@@ -46,8 +46,6 @@ controller:
 # In each case we first look for an argument indexed by node name, and fall back to the
 # default.
 #
-# 'ip' default is not listed below, it defaults to "{{ .Values.ais_release}}-ais-proxy }}"
-#
 config:
   bucket:           # AIStore bucket to use in run; %s, if present, is replaced by node name; created is absent
     default: "stressbkt"
@@ -91,13 +89,10 @@ config:
   seed:             # random seed; fromhostip => last component of host IP, random => $RANDOM), 0 => time in ns
     default: "fromhostip"
     specific: []
-  ip:               # IP/hostname of AIS proxy service - usually derived from AIS instance info
-    # no default - see above
-    specific: []
   port:             # Port number for AIS proxy service
     default: "51080"
-    specific: []
   readertype:       # Reader type; sg, file, inmem, read
+    specific: []
     default: "sg"
     specific: []
   statsinterval:    # Graphite stats reporting interval

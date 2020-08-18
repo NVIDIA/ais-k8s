@@ -10,7 +10,11 @@ postrun_snooze="{{ .Values.controller.postrun_snooze }}"
 
 ais_rel={{ required "AIStore release name (.Values.ais_release) is required" .Values.ais_release | quote }}
 ais_ns={{ required "AIStore release namespace (.Values.ais_namespace) is required" .Values.ais_namespace | quote }}
-ipdefault="${ais_rel}-ais-proxy.${ais_ns}"
+
+#
+# All clients target the same AIS instance
+#
+endpoint="http://${ais_rel}-ais-proxy.${ais_ns}:{{ .Values.config.port.default }}"
 
 #
 # Initialize associative arrays with default arguments
@@ -21,8 +25,6 @@ declare -A pctput=( [_default]="{{ .Values.config.pctput.default }}" )
 declare -A cleanup=( [_default]="{{ .Values.config.cleanup.default }}" )
 declare -A readertype=( [_default]="{{ .Values.config.readertype.default }}" )
 declare -A numworkers=( [_default]="{{ .Values.config.numworkers.default }}" )
-declare -A ip=( [_default]=$ipdefault )
-declare -A port=( [_default]="{{ .Values.config.port.default }}" )
 declare -A minsize=( [_default]="{{ .Values.config.minsize.default }}" )
 declare -A maxsize=( [_default]="{{ .Values.config.maxsize.default }}" )
 declare -A seed=( [_default]="{{ .Values.config.seed.default }}" )
@@ -61,16 +63,6 @@ readertype[{{ .node }}]={{ .value | quote }}
 # Node-specific values for numworkers, if any
 {{ range .Values.config.numworkers.specific }}
 numworkers[{{ .node }}]={{ .value | quote }}
-{{ end }}
-
-# Node-specific values for ip, if any
-{{ range .Values.config.ip.specific }}
-ip[{{ .node }}]={{ .value | quote }}
-{{ end }}
-
-# Node-specific values for port, if any
-{{ range .Values.config.port.specific }}
-port[{{ .node }}]={{ .value | quote }}
 {{ end }}
 
 # Node-specific values for minsize, if any
@@ -158,7 +150,8 @@ function do_aisloader {
         ;;
     esac
 
-    stdbuf -o0  aisloader \
+    set -x
+    env AIS_ENDPOINT=${endpoint} stdbuf -o0  aisloader \
         -bucket=$mybkt \
         -check-statsd=true \
         -seed=$SEED \
@@ -167,8 +160,6 @@ function do_aisloader {
         -cleanup=${cleanup[$n]:-${cleanup['_default']}} \
         -readertype=${readertype[$n]:-${readertype['_default']}} \
         -numworkers=${numworkers[$n]:-${numworkers['_default']}} \
-        -ip=${ip[$n]:-${ip['_default']}} \
-        -port=${port[$n]:-${port['_default']}} \
         -minsize=${minsize[$n]:-${minsize['_default']}} \
         -maxsize=${maxsize[$n]:-${maxsize['_default']}} \
         -statsinterval=${statsinterval[$n]:-${statsinterval['_default']}} \
