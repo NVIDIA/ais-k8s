@@ -11,8 +11,6 @@
                 "sndrcv_buf_size":      {{ .net.l4.sndrcv_buf_size }}
         },
         "http": {
-                "rproxy":            "",
-                "rproxy_cache":      true,
                 "server_crt":        "server.crt",
                 "server_key":        "server.key",
                 "write_buffer_size": {{ .net.http.write_buffer_size }},
