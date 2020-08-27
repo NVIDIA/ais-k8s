@@ -66,7 +66,7 @@ spec:
               value: "/var/statsd_config/statsd.json"
             - name: AIS_NODE_ROLE
               value: "target"
-            - name: AIS_NODE_NAME
+            - name: K8S_HOST_NAME
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
