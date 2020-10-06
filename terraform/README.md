@@ -3,18 +3,17 @@ See: https://learn.hashicorp.com/tutorials/terraform/gke?in=terraform/kubernetes
 # Learn Terraform - Provision a GKE Cluster
 
 This repo is a companion repo to the [Provision a GKE Cluster learn guide](https://learn.hashicorp.com/terraform/kubernetes/provision-gke-cluster), containing
-Terraform configuration files to provision an GKE cluster on
-GCP.
+Terraform configuration files to provision an GKE cluster on GCP.
 
-This sample repo also creates a VPC and subnet for the GKE cluster. This is not
-required but highly recommended to keep your GKE cluster isolated.
+This sample repo also creates a VPC and subnet for the GKE cluster.
+This is not required but highly recommended to keep your GKE cluster isolated.
 
 ## Install and configure GCloud
 
 First, install the [Google Cloud CLI](https://cloud.google.com/sdk/docs/quickstarts) 
 and initialize it.
 
-```shell
+```console
 $ gcloud init
 ```
 
@@ -22,7 +21,7 @@ Once you've initialized gcloud (signed in, selected project), add your account
 to the Application Default Credentials (ADC). This will allow Terraform to access
 these credentials to provision resources on GCloud.
 
-```shell
+```console
 $ gcloud auth application-default login
 ```
 
@@ -36,7 +35,7 @@ you can find a full list of gcloud regions [here](https://cloud.google.com/compu
 After you've done this, initalize your Terraform workspace, which will download 
 the provider and initialize it with the values provided in the `terraform.tfvars` file.
 
-```shell
+```console
 $ terraform init
 
 Initializing the backend...
@@ -51,7 +50,7 @@ Terraform has been successfully initialized!
 Then, provision your AKS cluster by running `terraform apply`. This will 
 take approximately 10 minutes.
 
-```shell
+```console
 $ terraform apply
 
 # Output truncated...
@@ -74,9 +73,9 @@ region = us-central1
 
 ## Configure kubectl
 
-To configure kubetcl, by running the following command. 
+To configure `kubectl`, by running the following command. 
 
-```shell
+```console
 $ gcloud container clusters get-credentials dos-terraform-edu-gke --region us-central1
 ```
 
@@ -90,8 +89,8 @@ and [Region](https://github.com/hashicorp/learn-terraform-provision-gke-cluster/
 To deploy the Kubernetes dashboard, run the following command. This will schedule 
 the resources necessary for the dashboard.
 
-```shell
-kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v2.0.0-beta8/aio/deploy/recommended.yaml
+```console
+$ kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v2.0.0-beta8/aio/deploy/recommended.yaml
 namespace/kubernetes-dashboard created
 serviceaccount/kubernetes-dashboard created
 service/kubernetes-dashboard created
@@ -110,24 +109,23 @@ deployment.apps/dashboard-metrics-scraper created
 
 Finally, to access the Kubernetes dashboard, run the following command:
 
-```plaintext
+```console
 $ kubectl proxy
 Starting to serve on 127.0.0.1:8001
 ```
 
- You should be
-able to access the Kubernetes dashboard at [http://127.0.0.1:8001/api/v1/namespaces/kubernetes-dashboard/services/https:kubernetes-dashboard:/proxy/](http://127.0.0.1:8001/api/v1/namespaces/kubernetes-dashboard/services/https:kubernetes-dashboard:/proxy/).
+You should be able to access the Kubernetes dashboard at [http://127.0.0.1:8001/api/v1/namespaces/kubernetes-dashboard/services/https:kubernetes-dashboard:/proxy/](http://127.0.0.1:8001/api/v1/namespaces/kubernetes-dashboard/services/https:kubernetes-dashboard:/proxy/).
 
 ## Authenticate to Kubernetes Dashboard
 
 To view the Kubernetes dashboard, you need to provide an authorization token. 
-Authenticating using `kubeconfig` is **not** an option. You can read more about
-it in the [Kubernetes documentation](https://kubernetes.io/docs/tasks/access-application-cluster/web-ui-dashboard/#accessing-the-dashboard-ui).
+Authenticating using `kubeconfig` is **not** an option.
+You can read more about it in the [Kubernetes documentation](https://kubernetes.io/docs/tasks/access-application-cluster/web-ui-dashboard/#accessing-the-dashboard-ui).
 
 Generate the token in another terminal (do not close the `kubectl proxy` process).
 
-```plaintext
-kubectl -n kube-system describe secret $(kubectl -n kube-system get secret | grep service-controller-token | awk '{print $1}')
+```console
+$ kubectl -n kube-system describe secret $(kubectl -n kube-system get secret | grep service-controller-token | awk '{print $1}')
 
 Name:         service-controller-token-m8m7j
 Namespace:    kube-system
@@ -146,5 +144,6 @@ ca.crt:     1119 bytes
 
 Select "Token" then copy and paste the entire token you receive into the 
 [dashboard authentication screen](http://127.0.0.1:8001/api/v1/namespaces/kubernetes-dashboard/services/https:kubernetes-dashboard:/proxy/) 
-to sign in. You are now signed in to the dashboard for your Kubernetes cluster.
+to sign in.
+You are now signed in to the dashboard for your Kubernetes cluster.
 
