@@ -1,21 +1,36 @@
+provider "google" {
+  project = var.project_id
+  region  = var.region
+}
+
 variable "gke_username" {
   default     = ""
-  description = "gke username"
+  description = "GKE username"
 }
 
 variable "gke_password" {
   default     = ""
-  description = "gke password"
+  description = "GKE password"
 }
 
 variable "gke_num_nodes" {
   default     = 1
-  description = "number of gke nodes"
+  description = "number of GKE nodes"
 }
 
-# GKE cluster
+variable "project_id" {
+  description = "project id"
+}
+
+variable "region" {
+  type        = string
+  default     = "us-central1"
+  description = "region"
+}
+
+# GKE cluster.
 resource "google_container_cluster" "primary" {
-  name     = "${var.project_id}-gke"
+  name     = "ais"
   location = var.region
 
   remove_default_node_pool = true
@@ -34,7 +49,7 @@ resource "google_container_cluster" "primary" {
   }
 }
 
-# Separately Managed Node Pool
+# Separately managed node pool.
 resource "google_container_node_pool" "primary_nodes" {
   name       = "${google_container_cluster.primary.name}-node-pool"
   location   = var.region
@@ -51,18 +66,16 @@ resource "google_container_node_pool" "primary_nodes" {
       env = var.project_id
     }
 
-    preemptible  = true # important: lowers price approximately 3 times.
-    machine_type = "n1-standard-1" # 1vCPU + 3.75GB MEM
-    disk_size_gb = 50 # single 50GB disk each node
+    preemptible     = true # IMPORTANT: Lowers price approximately 3 times.
+    machine_type    = "n1-standard-1" # 1vCPU + 3.75GB MEM
+    image_type      = "COS" # TODO: Change to some Ubuntu version.
+    # disk_type       = "" # TODO: set the disk type.
+    disk_size_gb    = 40 # Single 50GB disk each node.
+    local_ssd_count = 0
 
-    tags         = ["gke-node", "${var.project_id}-gke"]
+    tags     = ["ais-node", "ais"]
     metadata = {
       disable-legacy-endpoints = "true"
     }
   }
-}
-
-output "kubernetes_cluster_name" {
-  value       = google_container_cluster.primary.name
-  description = "GKE Cluster Name"
 }
