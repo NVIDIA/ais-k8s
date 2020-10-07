@@ -32,7 +32,7 @@ elif [[ ${cloud_provider} == "gcp" ]]; then
   terraform_args=(-var "project_id=${project_id}")
 fi
 
-terraform destroy -auto-approve "${terraform_args[@]}" -var-file="${cloud_provider}/terraform.tfvars" "${cloud_provider}"
+terraform destroy -auto-approve "${terraform_args[@]}" "${cloud_provider}"
 
 echo -e "\nUnsetting kubectl context..."
 context="$(kubectl config get-contexts | grep 'ais' | awk '{print $2}')"
