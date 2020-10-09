@@ -28,16 +28,32 @@ variable "region" {
   description = "region"
 }
 
+variable "cluster" {
+  type = string
+  default = "ais"
+}
+
+variable "user" {
+  type = string
+  description = "google username"
+}
+
+variable "ssh-key" {
+  type = string
+  description = "ssh public key path"
+  default = "~/.ssh/id_rsa.pub"
+}
+
 # GKE cluster.
 resource "google_container_cluster" "primary" {
-  name     = "ais"
+  name     = var.cluster
   location = var.region
 
   remove_default_node_pool = true
   initial_node_count       = 1
 
-  network    = google_compute_network.vpc.name
-  subnetwork = google_compute_subnetwork.subnet.name
+  # TODO: uncomment when we are able to run VPC + ssh
+  # network    = google_compute_network.vpc.name
 
   master_auth {
     username = var.gke_username
@@ -48,6 +64,7 @@ resource "google_container_cluster" "primary" {
     }
   }
 }
+
 
 # Separately managed node pool.
 resource "google_container_node_pool" "primary_nodes" {
@@ -68,14 +85,17 @@ resource "google_container_node_pool" "primary_nodes" {
 
     preemptible     = true # IMPORTANT: Lowers price approximately 3 times.
     machine_type    = "n1-standard-1" # 1vCPU + 3.75GB MEM
-    image_type      = "COS" # TODO: Change to some Ubuntu version.
-    # disk_type       = "" # TODO: set the disk type.
-    disk_size_gb    = 40 # Single 50GB disk each node.
+    image_type      = "ubuntu"
+    disk_type       = "pd-standard"
+    disk_size_gb    = 50 # Single 50GB disk each node.
     local_ssd_count = 0
 
     tags     = ["ais-node", "ais"]
     metadata = {
       disable-legacy-endpoints = "true"
+
+      ssh-keys = "${var.user}:${file(var.ssh-key)}"
     }
   }
 }
+
