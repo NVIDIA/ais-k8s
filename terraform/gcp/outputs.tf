@@ -7,3 +7,8 @@ output "region" {
   value       = var.region
   description = "region"
 }
+
+output "external_ip" {
+  value       = google_compute_address.static.address
+  description = "External IP to access the AIStore cluster"
+}

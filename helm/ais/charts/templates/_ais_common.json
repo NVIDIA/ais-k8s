@@ -89,8 +89,9 @@
         "enabled":      {{ .mirror.enabled }}
 },
 "periodic": {
-        "stats_time":           {{ .periodic.stats_time | quote }},
-        "retry_sync_time":      {{ .periodic.retry_sync_time | quote }}
+        "stats_time":      {{ .periodic.stats_time | quote }},
+        "notif_time":      {{ .periodic.notif_time | quote }},
+        "retry_sync_time": {{ .periodic.retry_sync_time | quote }}
 },
 "rebalance": {
         "enabled":         {{ .rebalance.enabled }},

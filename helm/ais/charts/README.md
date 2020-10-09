@@ -4,14 +4,14 @@ This repo includes all the definition of launching a AIS proxy and target on a K
 
 ### Prerequisites
 
-One (and only one) of the nodes in the K8s cluster must have a label `"nvidia.com/ais-initial-primary-proxy"` with value `<release-name>`.
+One (and only one) of the nodes in the K8s cluster must have a label `"nvidia.com/ais-initial-primary-proxy"` with value `<release-name>-ais`.
 This can be set by command:
 
 ```console
-kubectl label nodes <A-node-name> nvidia.com/ais-initial-primary-proxy=demo
+$ kubectl label nodes <A-node-name> nvidia.com/ais-initial-primary-proxy=demo-ais
 ```
 
-assuming you're using `helm install --name=demo ...`
+assuming you're using `$ helm install --name=demo ...`
 
 ### Installation
 
@@ -27,7 +27,7 @@ assuming you're using `helm install --name=demo ...`
    * To install AIS with Graphite/Grafana metrics but with no persistence of Graphite/Grafana metrics and state:
 
         ```console
-        helm install --name=devops-ais \
+        $ helm install --name=devops-ais \
            --set image.dockerRepoToken=<token-to-pull-docker-image> \
            --set graphite.persistence.enabled=false \
            --set grafana.persistence.enabled=false \
@@ -38,7 +38,7 @@ assuming you're using `helm install --name=demo ...`
      Persistence is enabled by default, but you need to supply a path to a pre-created area in which to persist data. In the example below these areas are /data/{graphite,grafana} on node cpu01.
 
         ```console
-        helm install --name=devops-ais \
+        $ helm install --name=devops-ais \
            --set image.dockerRepoToken=<token-to-pull-docker-image> \
            --set graphite.ais.pv.path=/data/graphite \
            --set graphite.ais.pv.node=cpu01 \
@@ -52,7 +52,7 @@ assuming you're using `helm install --name=demo ...`
    * To install AIS using an external instance of Graphite:
 
         ```console
-        helm install --name=devops-ais \
+        $ helm install --name=devops-ais \
            --set image.dockerRepoToken=<token-to-pull-docker-image> \
            --set tags.builtin_monitoring=false \
            --set external_monitoring.graphite_host=... \
@@ -65,7 +65,7 @@ assuming you're using `helm install --name=demo ...`
 You can delete the release using:
 
 ```console
-helm delete --purge devops-ais
+$ helm uninstall devops-ais
 ```
 This will not delete buckets and objects stored in AIS filesystems, but it will forfeit AIS state.
 

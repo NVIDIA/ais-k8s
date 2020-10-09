@@ -1,0 +1,34 @@
+{{ if .Values.admin.enabled }}
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ template "ais.fullname" . }}-admin
+  labels:
+    app: {{ template "ais.name" . }}
+    chart: {{ template "ais.chart" . }}
+    component: "{{ .Values.admin.name }}"
+    release: {{ .Release.Name }}
+spec:
+  selector:
+    matchLabels:
+      release: {{ .Release.Name }}
+  updateStrategy:
+    rollingUpdate:
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: {{ template "ais.name" . }}
+        component: "{{ .Values.admin.name }}"
+        release: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: admin
+          image: "{{ .Values.admin.image.repository }}:{{ .Values.admin.image.tag }}"
+          env:
+            - name: AIS_ENDPOINT
+              value: http://{{ template "ais.fullname" . }}-proxy:{{ .Values.proxy.service.port }}
+      nodeSelector:
+        {{ .Values.admin.nodeSelector.key }}: {{ template "ais.fullname" . }}
+{{ end }}

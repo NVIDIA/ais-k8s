@@ -74,10 +74,10 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: status.podIP
-            - name: AIS_HOST_IP
-              valueFrom:
-                fieldRef:
-                  fieldPath: status.hostIP
+#            - name: AIS_HOST_IP
+#              valueFrom:
+#                fieldRef:
+#                  fieldPath: status.hostIP
             - name: AIS_HOST_PORT
               value: {{ .Values.aiscluster.target.hostPort | quote }}
             - name: AIS_NO_DISK_IO

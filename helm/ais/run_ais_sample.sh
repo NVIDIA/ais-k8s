@@ -13,14 +13,14 @@
 #
 # AIS cluster name, k8s namespace (must already exist)
 #
-AIS_NAME=demo
+AIS_NAME=${AIS_NAME:-demo}
 AIS_NAMESPACE=default
 
 #
 # Container images - select aisnode version, the kubectl version rarely changes
 #
-AISNODE_IMAGE=quay.io/nvidia/aisnode:20200218
-KUBECTL_IMAGE=quay.io/nvidia/ais-kubectl:1
+AISNODE_IMAGE=${AISNODE_IMAGE:-quay.io/nvidia/aisnode:20200218}
+KUBECTL_IMAGE=${KUBECTL_IMAGE:-quay.io/nvidia/ais-kubectl:1}
 
 #
 # *If* the images require a pull secret, then install the pull secret in k8s
@@ -37,7 +37,7 @@ PULLSECRETNAME=""
 # are used on all nodes - this is a restriction of the chart, not of AIS itself.
 #
 #MOUNTPATHS='{/ais/sda,/ais/sdb,/ais/sdc,/ais/sdd,/ais/sde,/ais/sdf,/ais/sdg,/ais/sdh,/ais/sdi,/ais/sdj}'
-MOUNTPATHS=""
+MOUNTPATHS=${MOUNTPATHS:-}
 
 #
 # Grafana & Graphite storage - the chart will create hostName PVs for these.
@@ -47,8 +47,8 @@ MOUNTPATHS=""
 # the chart bundles a local-storage PV which will require some modification
 # if provisioning from another source.
 #
-INSTALL_MONITORING=true
-STATS_NODENAME="cpu01"
+INSTALL_MONITORING=${INSTALL_MONITORING:-true}
+STATS_NODENAME=${STATS_NODENAME:-cpu01}
 STATS_BASEPATH="/data"
 STATS_SIZE="250Gi"
 
@@ -71,9 +71,9 @@ MEM_LIMITS=""			# eg 140Gi
 # This has only been tested using metallb - if using a cloud provider
 # LoadBalancer then some work may be required.
 #
-AIS_K8S_CLUSTER_CIDR=""     # eg 192.168.0.0/18
+AIS_K8S_CLUSTER_CIDR=${AIS_K8S_CLUSTER_CIDR:-}     # eg 192.168.0.0/18
 AIS_HOST_PORT=51081         # don't change unless really necessary
-AIS_GATEWAY_EXTERNAL_IP=""  # must be in metalLB pool range if used
+AIS_GATEWAY_EXTERNAL_IP=${AIS_GATEWAY_EXTERNAL_IP:-}  # must be in metalLB pool range if used
 
 #
 # Similarly for ingress to Grafana. We also create a NodePort service
@@ -109,7 +109,6 @@ else
 fi
 
 helm install \
-	$AIS_NAME \
 	--namespace=$AIS_NAMESPACE \
 	--set aiscluster.image.pullPolicy=IfNotPresent \
 	--set-string aiscluster.image.aisnode.repository=$(echo $AISNODE_IMAGE | cut -d: -f1) \
@@ -128,8 +127,10 @@ helm install \
 	${CPU_LIMITS:+ --set-string target.resources.limits.cpu=${CPU_LIMIT}} \
 	${MEM_REQUESTS:+ --set-string target.resources.requests.memory=${MEM_REQUESTS}} \
 	${MEM_LIMITS:+ --set-string target.resources.limits.memory=${MEM_LIMITS}} \
-	${AIS_K8S_CLUSTER_CIDR:+ --set aiscluster.k8s.cluster_cidr="${AIS_K8S_CLUSTER_CIDR}"} \
+	${AIS_K8S_CLUSTER_CIDR:+ --set-string aiscluster.k8s.cluster_cidr="${AIS_K8S_CLUSTER_CIDR}"} \
 	${AIS_HOST_PORT:+ --set-string aiscluster.target.hostPort=${AIS_HOST_PORT}} \
 	${AIS_GATEWAY_EXTERNAL_IP:+ --set-string aiscluster.ingress.gateway.externalIP=${AIS_GATEWAY_EXTERNAL_IP}} \
-	${AIS_GRAFANA_EXTERNAL_IP:+ --set-string AIS_K8S_CLUSTER_CIDR.ingress.grafana.externalIP=${AIS_GRAFANA_EXTERNAL_IP}} \
+	${AIS_GRAFANA_EXTERNAL_IP:+ --set-string aiscluster.ingress.grafana.externalIP=${AIS_GRAFANA_EXTERNAL_IP}} \
+	${HELM_ARGS} \
+	"${AIS_NAME}" \
 	charts/.

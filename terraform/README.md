@@ -1,6 +1,6 @@
 ## Start AIStore cluster on the cloud
 
-This directory contains Terraform files and scripts that allow deploying AIStore cluster on the Kuberentes in the cloud.
+This directory contains Terraform files and scripts that allow deploying AIStore cluster on the Kubernetes in the cloud.
 These main script `deploy.sh` will walk you through required steps to set up the AIStore cluster.
 
 Note that in this tutorial we expect that you have `terraform` and `kubectl` commands installed.
@@ -25,16 +25,16 @@ Internally, the script will use the required commands so be sure you have them i
 
 ### Deploy
 
-Deployment consists of setting up the Kuberentes cluster on specified cloud provider and deploying AIStore on the Kubernetes nodes.
+Deployment consists of setting up the Kubernetes cluster on specified cloud provider and deploying AIStore on the Kubernetes nodes.
 `deploy.sh` is a one-place script that does everything for you.
 After successful run the AIStore cluster should be accessible and ready to be used.
 
-To deploy just run `./deploy.sh` script and follow the instructions.
+To deploy just run `./deploy.sh --all` script and follow the instructions.
 
 ### Destroy
 
-To remove and cleanup the cluster, we have created `destroy.sh` script.
-Similarly, to the deploy script it will walk you through required steps and the cleanup automatically.
+To remove and cleanup the cluster, we have created `destroy.sh --all` script.
+Similarly, to the deploy script, it will walk you through required steps and the cleanup automatically.
 
 
 ### Example
@@ -42,7 +42,7 @@ Similarly, to the deploy script it will walk you through required steps and the 
 Let's try to run `deploy.sh` script on Google Cloud.
 
 ```console
-$ ./deploy.sh
+$ ./deploy.sh --all
 Select cloud provider (aws, azure, gcp): gcp
 
 Initializing the backend...
@@ -63,3 +63,17 @@ Terraform has been successfully initialized!
 
 <TODO>
 ```
+
+
+## Troubleshooting
+
+### Google
+
+> Error: Error creating Network: googleapi: Error 403: Required 'compute.networks.create' permission for '...', forbidden
+
+1. Try to run:
+```console
+$ gcloud auth application-default login
+```
+2. Make sure `GOOGLE_APPLICATION_CREDENTIALS` is not set to credentials for other project/account.
+3. Make sure you have right permissions set for your account in [Google Console](https://console.cloud.google.com).

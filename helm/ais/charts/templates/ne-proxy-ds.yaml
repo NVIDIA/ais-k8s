@@ -64,10 +64,10 @@ spec:
               value: "/var/statsd_config/statsd.json"
             - name: AIS_NODE_ROLE
               value: "proxy"
-            - name: AIS_HOST_IP
-              valueFrom:
-                fieldRef:
-                  fieldPath: status.hostIP
+#            - name: AIS_HOST_IP
+#              valueFrom:
+#                fieldRef:
+#                  fieldPath: status.hostIP
             - name: CLUSTERIP_PROXY_SERVICE_HOSTNAME
               value: {{ template "ais.fullname" . }}-proxy
             - name: CLUSTERIP_PROXY_SERVICE_PORT

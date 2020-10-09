@@ -16,3 +16,12 @@ check_providers() {
     print_error "invalid provider specified"
   fi
 }
+
+remove_nodes_labels() {
+  kubectl label nodes --all \
+    nvidia.com/ais-admin- \
+    nvidia.com/ais-target- \
+    nvidia.com/ais-proxy- \
+    nvidia.com/ais-initial-primary-proxy- \
+    1>/dev/null
+}

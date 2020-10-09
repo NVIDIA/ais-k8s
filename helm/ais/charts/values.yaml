@@ -313,6 +313,7 @@ ais_config_common:
     enabled:           false
   periodic:
     stats_time:      10s
+    notif_time:      30s
     retry_sync_time: 2s
   rebalance:
     enabled:         true
@@ -394,7 +395,7 @@ ne_proxy:
   resources: {}
 
 target:
-  name : "target"   # A component label for selector
+  name: "target"   # A component label for selector
   config:
     proxy:
       non_electable: false
@@ -425,6 +426,23 @@ target:
   resources: {}
 
 #
+# Values to describe admin container which should be deployed on one of the
+# nodes in the cluster. By default it is disabled as it is not the integral
+# part of the cluster but rather additional entity.
+#
+# Admin container is deployed on the node that is labeled with
+# [nvidia.com/ais-admin=foo-ais] where `foo` is the deployment name.
+#
+admin:
+  name: "admin"
+  enabled: false
+  image:
+    repository: "aistore/aisadmin"
+    tag:        "3.2.2"
+  nodeSelector:
+    key: nvidia.com/ais-admin
+
+#
 # Note that out target/proxy/ne_proxy DaemonSets use any resource values from their
 # respective values sections.
 #
@@ -432,7 +450,7 @@ resources: {}
 
 tolerations: {}
 
-# Make sure the DFC target only deploy to the node that are marked with a label that signify a hi-perf
+# Make sure the AIS target only deploy to the node that are marked with a label that signify a hi-perf
 # storage
 # target-node-key-name : target-node
 affinity: {}
