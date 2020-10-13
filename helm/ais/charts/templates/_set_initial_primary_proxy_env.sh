@@ -18,27 +18,20 @@ rm -f $envfile
 # We recognize an established cluster as one for which we can retrieve an smap
 # ping from *any* proxy behind the proxy clusterIP service.
 #
-ping -c 1 -w 10 $CLUSTERIP_PROXY_SERVICE_HOSTNAME
-if [[ $? -eq 0 ]]; then
-    # Ping means the service is defined, does not necessarily have any endpoints.
-
-    elapsed=0
-    proxy_ok=false
-    url="http://${CLUSTERIP_PROXY_SERVICE_HOSTNAME}:${CLUSTERIP_PROXY_SERVICE_PORT}/v1/daemon?what=smap"
-    echo "Checking for a 200 result on ${url}"
-    elapsed=0
-    while [[ $elapsed -lt 10 ]]; do
-        code=$(curl -X GET -o /dev/null --silent -w "%{http_code}" $url)
-        if [[ "$code" == "200" ]]; then
-            echo "   ... success after ${elapsed}s; this is not initial cluster deployment"
-            exit 0
-        else
-            echo "   ... failed ($code) at ${elapsed}s, trying for up to 5s"
-            elapsed=$((elapsed + 1))
-            sleep 1
-        fi
-    done
-fi
+url="http://${CLUSTERIP_PROXY_SERVICE_HOSTNAME}:${CLUSTERIP_PROXY_SERVICE_PORT}/v1/daemon?what=smap"
+echo "Checking for a 200 result on ${url}"
+elapsed=0
+while [[ $elapsed -lt 30 ]]; do
+    code=$(curl -X GET -o /dev/null --silent -w "%{http_code}" $url)
+    if [[ "$code" == "200" ]]; then
+        echo "   ... success after ${elapsed}s; this is not initial cluster deployment"
+        exit 0
+    else
+        echo "   ... failed ($code) at ${elapsed}s, trying for up to 30s"
+        elapsed=$((elapsed + 1))
+        sleep 1
+    fi
+done
 
 #
 # Most likely initial cluster deployment time, or a very sick cluster in which no
