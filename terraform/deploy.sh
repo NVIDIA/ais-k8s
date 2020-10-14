@@ -34,7 +34,7 @@ deploy_ais() {
     AIS_K8S_CLUSTER_CIDR="10.64.0.0/14" \
     AISNODE_IMAGE="aistore/aisnode-k8s:v7" \
     KUBECTL_IMAGE="gmaltby/ais-kubectl:1" \
-    MOUNTPATHS="{/tmp}" \
+    EXTERNAL_VOLUMES_COUNT=3 \
     STATS_NODENAME="${primary_node}" \
     HELM_ARGS="--set tags.builtin_monitoring=false,tags.prometheus=false,aiscluster.expected_target_nodes=$(kubectl get nodes --no-headers | wc -l | xargs),admin.enabled=true" \
     ./run_ais_sample.sh
@@ -66,14 +66,21 @@ deploy_k8s() {
     if [[ -z ${project_id} ]]; then
       print_error "project id is not set in 'gcloud'"
     fi
-    terraform_args=(-var "project_id=${project_id}")
+
+    username=$(gcloud config get-value account)
+    if [[ -z ${username} ]]; then
+      print_error "username is not set in 'gcloud'"
+    fi
+
+    terraform_args=(-var "project_id=${project_id}" -var "user=${username}")
   fi
 
   # Initialize terraform and download necessary plugins.
-  terraform init -input=false "${cloud_provider}"
+  echo "Initializing terraform cluster environment"
+  terraform init -input=false "${cloud_provider}" 1>/dev/null
 
   # Execute terraform plan. The approved automatically as we assume that everything is correct.
-  echo "🔥 Starting Kubernetes cluster..."
+  echo "🔥 Starting Kubernetes cluster (${username}/${project_id})..."
   terraform apply -input=false -auto-approve "${terraform_args[@]}" "${cloud_provider}"
 
   echo "🔄 Updating kubectl config..."
@@ -86,7 +93,16 @@ deploy_k8s() {
     echo "✅ kubectl configured to use '$(kubectl config current-context)' context"
   fi
 
-  echo "🔄 Setting up kubectl..."
+  pushd k8s/
+  echo "Initializing persistent storage"
+  terraform init -input=false "${cloud_provider}" 1>/dev/null
+  terraform apply -input=false -auto-approve "${cloud_provider}"
+
+  popd
+}
+
+deploy_dashboard() {
+  echo "🔄 Setting up k8s dashboard..."
   kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v2.0.0-beta8/aio/deploy/recommended.yaml
   kubectl proxy &
   echo "✅ kubectl proxy started"
@@ -114,6 +130,9 @@ case $1 in
   check_command helm
 
   deploy_ais
+  ;;
+--dashboard)
+  deploy_dashboard
   ;;
 *)
   print_error "unknown argument provided"

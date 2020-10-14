@@ -28,6 +28,7 @@ stop_k8s() {
     terraform_args=(-var "project_id=${project_id}")
   fi
 
+  terraform -auto-approve "${terraform_args[@]}" "k8s/${cloud_provider}"
   terraform destroy -auto-approve "${terraform_args[@]}" "${cloud_provider}"
 
   echo -e "\n☠️  Stopping 'kubectl proxy'..."
@@ -43,6 +44,8 @@ stop_k8s() {
 stop_ais() {
   echo "☠️  Stopping AIStore cluster..."
   helm uninstall demo
+  kubectl delete pv --all
+  kubectl delete pvc --all # TODO: We should reuse them on restart.
   remove_nodes_labels
 }
 

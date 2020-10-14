@@ -1,5 +1,6 @@
+{{- $root := . -}}
 apiVersion: apps/v1
-kind: DaemonSet
+kind: StatefulSet # TODO: this might not work with DGX deployment.
 metadata:
   name: {{ template "ais.fullname" . }}-target
   labels:
@@ -9,13 +10,25 @@ metadata:
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
 spec:
+  replicas: {{ .Values.aiscluster.expected_target_nodes }}
+  serviceName: {{ template "ais.fullname" . }}-target
   selector:
     matchLabels:
       release: {{ .Release.Name }}
-  updateStrategy:
-    rollingUpdate:
-      maxUnavailable: 1
-    type: RollingUpdate
+  {{ if .Values.aiscluster.target.externalVolumes }}
+  volumeClaimTemplates:
+    {{ range .Values.aiscluster.target.mountPaths }}
+    - metadata:
+        name: ais-pv-{{ . | replace "/" "-" }}
+      spec:
+        storageClassName: "ais"
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: {{ $root.Values.aiscluster.target.externalVolumesSize }}
+    {{ end }}
+  {{ end }}
   template:
     metadata:
       labels:
@@ -46,7 +59,6 @@ spec:
               mountPath: "/var/ais_config"
             - name: env-mount
               mountPath: "/var/ais_env"
-
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.aiscluster.image.aisnode.repository }}:{{ .Values.aiscluster.image.aisnode.tag }}"
@@ -104,9 +116,16 @@ spec:
               mountPath: "/var/ais_config"
             - name: statsd-config
               mountPath: "/var/statsd_config"
+            {{ if .Values.aiscluster.target.externalVolumes }}
             {{ range .Values.aiscluster.target.mountPaths }}
-            - name: fspath{{ . | replace "/" "-" }}
+            - name: ais-pv-{{ . | replace "/" "-" }}
+              mountPath: {{ . }}
+              {{ end }}
+            {{ else }}
+              {{ range .Values.aiscluster.target.mountPaths }}
+            - name: fspath{{ . | replace "/" "." }}
               mountPath: "{{ . }}"
+              {{ end }}
             {{ end }}
           lifecycle:
             preStop:
@@ -154,10 +173,12 @@ spec:
         - name: statsd-config
           configMap:
             name: {{ template "ais.name" . }}-statsd
+        {{ if not .Values.aiscluster.target.externalVolumes }}
         {{ range .Values.aiscluster.target.mountPaths }}
         - name: fspath{{ . | replace "/" "-" }}
           hostPath:
             path: {{ . }}
+        {{ end }}
         {{ end }}
     {{- with .Values.affinity }}
       affinity:

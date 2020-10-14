@@ -110,6 +110,12 @@ aiscluster:
     # (or other chosen hostport) is needed; will require privileged
     # containers
     hostPort: 0
+
+    # Defines if specified mountpaths are supposed to be used for external persistent volume.
+    externalVolumes: false
+    # Each external volume will be this size. Omitted when externalVolumes == false.
+    externalVolumesSize: 50Gi
+
     mountPaths:
       - /ais/sda
       - /ais/sdb

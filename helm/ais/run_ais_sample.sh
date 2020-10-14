@@ -39,6 +39,15 @@ PULLSECRETNAME=""
 #MOUNTPATHS='{/ais/sda,/ais/sdb,/ais/sdc,/ais/sdd,/ais/sde,/ais/sdf,/ais/sdg,/ais/sdh,/ais/sdi,/ais/sdj}'
 MOUNTPATHS=${MOUNTPATHS:-}
 
+EXTERNAL_VOLUMES_COUNT=${EXTERNAL_VOLUMES_COUNT:-0}
+EXTERNAL_VOLUMES=$(( $EXTERNAL_VOLUMES_COUNT > 0 ))
+
+if [[ ${EXTERNAL_VOLUMES} ]]; then
+  mpaths="$(seq -f "/ais/%d" -s "," 1 $EXTERNAL_VOLUMES_COUNT)"
+  MOUNTPATHS="{${mpaths::-1}}"
+fi
+
+
 #
 # Grafana & Graphite storage - the chart will create hostName PVs for these.
 # Grafana is small (just worksheets etc) so assume they're to come from the
@@ -89,6 +98,7 @@ if [[ $? -ne 0 ]]; then
 	exit 2
 fi
 
+
 if [[ -z "$MOUNTPATHS" ]]; then
 	echo "Please fill MOUNTPATHS" >&2
 	exit 2
@@ -115,8 +125,9 @@ helm install \
 	--set-string aiscluster.image.aisnode.tag=$(echo $AISNODE_IMAGE | cut -d: -f2) \
 	--set-string aiscluster.image.kubectl.repository=$(echo $KUBECTL_IMAGE | cut -d: -f1) \
 	--set-string aiscluster.image.kubectl.tag=$(echo $KUBECTL_IMAGE | cut -d: -f2) \
-	${PULLSECRETNAME:+ --set-string aiscluster.image.pullSecretNames="{$PULLSECRETNAME}"} \
-	--set-string aiscluster.target.mountPaths="$MOUNTPATHS" \
+	${PULLSECRETNAME:+ --set-string aiscluster.image.pullSecretNames="${PULLSECRETNAME}"} \
+	--set-string aiscluster.target.mountPaths="${MOUNTPATHS}" \
+	--set aiscluster.target.externalVolumes="${EXTERNAL_VOLUMES}" \
 	${NO_MONITORING:+ --set-string graphite.ais.pv.node=$STATS_NODENAME} \
 	${NO_MONITORING:+ --set-string graphite.ais.pv.path=${STATS_BASEPATH}/graphite} \
 	${NO_MONITORING:+ --set-string graphite.ais.pv.capacity=${STATS_SIZE}} \
