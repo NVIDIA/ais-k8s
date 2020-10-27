@@ -34,7 +34,7 @@ deploy_ais() {
     AIS_K8S_CLUSTER_CIDR="10.64.0.0/14" \
     AISNODE_IMAGE="aistore/aisnode-k8s:v7" \
     KUBECTL_IMAGE="gmaltby/ais-kubectl:1" \
-    EXTERNAL_VOLUMES_COUNT=3 \
+    EXTERNAL_VOLUMES_COUNT="${disk_cnt}" \
     STATS_NODENAME="${primary_node}" \
     HELM_ARGS="--set tags.builtin_monitoring=false,tags.prometheus=false,aiscluster.expected_target_nodes=$(kubectl get nodes --no-headers | wc -l | xargs),admin.enabled=true" \
     ./run_ais_sample.sh
@@ -72,7 +72,7 @@ deploy_k8s() {
       print_error "username is not set in 'gcloud'"
     fi
 
-    terraform_args=(-var "project_id=${project_id}" -var "user=${username}")
+    terraform_args=(-var "project_id=${project_id}" -var "user=${username}" -var "node_count=${node_cnt}")
   fi
 
   # Initialize terraform and download necessary plugins.
@@ -97,7 +97,6 @@ deploy_k8s() {
   echo "Initializing persistent storage"
   terraform init -input=false "${cloud_provider}" 1>/dev/null
   terraform apply -input=false -auto-approve "${cloud_provider}"
-
   popd
 }
 
@@ -117,13 +116,13 @@ case $1 in
   check_command kubectl
   check_command helm
 
-  check_providers
+  select_provider
+  select_node_count
+  select_disk_count
 
   deploy_k8s
   sleep 10
   deploy_ais
-
-  wait # Wait indefinitely for `kubectl proxy`.
   ;;
 --ais)
   check_command kubectl
@@ -133,6 +132,7 @@ case $1 in
   ;;
 --dashboard)
   deploy_dashboard
+  wait # Wait indefinitely for `kubectl proxy`.
   ;;
 *)
   print_error "unknown argument provided"

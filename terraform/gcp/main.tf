@@ -3,6 +3,11 @@ provider "google" {
   region  = var.region
 }
 
+variable "cluster" {
+  type    = string
+  default = "ais"
+}
+
 variable "gke_username" {
   default     = ""
   description = "GKE username"
@@ -13,8 +18,8 @@ variable "gke_password" {
   description = "GKE password"
 }
 
-variable "gke_num_nodes" {
-  default     = 1
+variable "node_count" {
+  type        = number
   description = "number of GKE nodes"
 }
 
@@ -28,20 +33,15 @@ variable "region" {
   description = "region"
 }
 
-variable "cluster" {
-  type = string
-  default = "ais"
-}
-
 variable "user" {
-  type = string
+  type        = string
   description = "google username"
 }
 
 variable "ssh-key" {
-  type = string
+  type        = string
   description = "ssh public key path"
-  default = "~/.ssh/id_rsa.pub"
+  default     = "~/.ssh/id_rsa.pub"
 }
 
 # GKE cluster.
@@ -52,7 +52,7 @@ resource "google_container_cluster" "primary" {
   remove_default_node_pool = true
   initial_node_count       = 1
 
-  # TODO: uncomment when we are able to run VPC + ssh
+  # TODO: Uncomment when we are able to run VPC + ssh.
   # network    = google_compute_network.vpc.name
 
   master_auth {
@@ -71,7 +71,7 @@ resource "google_container_node_pool" "primary_nodes" {
   name       = "${google_container_cluster.primary.name}-node-pool"
   location   = var.region
   cluster    = google_container_cluster.primary.name
-  node_count = var.gke_num_nodes
+  node_count = var.node_count
 
   node_config {
     oauth_scopes = [

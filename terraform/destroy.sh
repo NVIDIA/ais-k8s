@@ -25,10 +25,16 @@ stop_k8s() {
     if [[ -z ${project_id} ]]; then
       print_error "project id is not set in 'gcloud'"
     fi
-    terraform_args=(-var "project_id=${project_id}")
+
+    username=$(gcloud config get-value account)
+    if [[ -z ${username} ]]; then
+      print_error "username is not set in 'gcloud'"
+    fi
+
+    terraform_args=(-var "project_id=${project_id}" -var "user=${username}")
   fi
 
-  terraform -auto-approve "${terraform_args[@]}" "k8s/${cloud_provider}"
+  terraform destroy -auto-approve "k8s/${cloud_provider}"
   terraform destroy -auto-approve "${terraform_args[@]}" "${cloud_provider}"
 
   echo -e "\n☠️  Stopping 'kubectl proxy'..."
@@ -54,10 +60,10 @@ case $1 in
 --all)
   check_command terraform
   check_command kubectl
-  check_command killall
   check_command helm
+  check_command killall
 
-  check_providers
+  select_provider
 
   stop_ais
   stop_k8s

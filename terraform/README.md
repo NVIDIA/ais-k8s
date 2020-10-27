@@ -3,15 +3,14 @@
 This directory contains Terraform files and scripts that allow deploying AIStore cluster on the Kubernetes in the cloud.
 These main script `deploy.sh` will walk you through required steps to set up the AIStore cluster.
 
-Note that in this tutorial we expect that you have `terraform` and `kubectl` commands installed.
-The Terraform is used to deploy the Kubernetes on specified cloud provider and `kubectl` for deploying the AIStore.
+Note that in this tutorial we expect that you have `terraform`, `kubectl` and `helm` commands installed.
+The Terraform is used to deploy the Kubernetes on specified cloud provider and `kubectl`/`helm` are used for deploying the AIStore.
 
 
 ### Cloud providers
 
 The cluster will be deployed on one of the supported cloud providers.
 Below you can check which cloud providers are supported and what is required to use them.
-
 
 | Provider | ID | Required Commands |
 | -------- | --- | ----------------- |
@@ -21,7 +20,7 @@ Below you can check which cloud providers are supported and what is required to 
 
 
 When using `deploy.sh` script you will be asked to specify provider ID.
-Internally, the script will use the required commands so be sure you have them installed beforehand.
+Internally, the script will use the required commands - be sure you have them installed beforehand!
 
 ### Deploy
 
@@ -31,45 +30,31 @@ After successful run the AIStore cluster should be accessible and ready to be us
 
 To deploy just run `./deploy.sh --all` script and follow the instructions.
 
+#### Supported arguments
+
+| Flag | Description |
+| ---- | ----------- |
+| `--all` | Starts nodes on specified provider, starts K8s cluster and deploys AIStore on K8s nodes. |
+| `--ais` | Only deploy AIStore on K8s nodes, assumes that K8s cluster is already deployed. |
+| `--dashboard` | Starts [K8s dashboard](https://kubernetes.io/docs/tasks/access-application-cluster/web-ui-dashboard) connected to started K8s cluster. |
+
 ### Destroy
 
 To remove and cleanup the cluster, we have created `destroy.sh --all` script.
 Similarly, to the deploy script, it will walk you through required steps and the cleanup automatically.
 
+#### Supported arguments
 
-### Example
-
-Let's try to run `deploy.sh` script on Google Cloud.
-
-```console
-$ ./deploy.sh --all
-Select cloud provider (aws, azure, gcp): gcp
-
-Initializing the backend...
-
-Initializing provider plugins...
-- Using previously-installed hashicorp/google v3.42.0
-
-The following providers do not have any version constraints in configuration,
-so the latest version was installed.
-
-To prevent automatic upgrades to new major versions that may contain breaking
-changes, we recommend adding version constraints in a required_providers block
-in your configuration, with the constraint strings suggested below.
-
-* hashicorp/google: version = "~> 3.42.0"
-
-Terraform has been successfully initialized!
-
-<TODO>
-```
-
+| Flag | Description |
+| ---- | ----------- |
+| `--all` | Stops K8s pods, and destroys started nodes. |
+| `--ais` | Only stops AIStore Pods so the cluster can be redeployed. |
 
 ## Troubleshooting
 
 ### Google
 
-> Error: Error creating Network: googleapi: Error 403: Required 'compute.networks.create' permission for '...', forbidden
+> Error: googleapi: Error 403: Required '...' permission(s) for '...', forbidden
 
 1. Try to run:
 ```console

@@ -1,5 +1,5 @@
 // TODO: uncomment when we figure out problem with ssh and VPC
-# VPC
+//# VPC
 //resource "google_compute_network" "vpc" {
 //  name                    = "ais-vpc"
 //  auto_create_subnetworks = "false"
@@ -14,5 +14,3 @@
 //
 //  private_ip_google_access = true
 //}
-//
-//
