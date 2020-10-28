@@ -28,7 +28,9 @@ stop_k8s() {
   fi
 
   if [[ -n $(get_state_var "VOLUMES_DEPLOYED") ]]; then
-    terraform destroy -auto-approve "k8s/${cloud_provider}"
+    pushd k8s/ 1>/dev/null
+    terraform destroy -auto-approve "${cloud_provider}"
+    popd 1>/dev/null
     unset_state_var "VOLUMES_DEPLOYED"
   fi
   terraform destroy -auto-approve "${terraform_args[@]}" "${cloud_provider}"

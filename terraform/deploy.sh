@@ -24,7 +24,7 @@ deploy_ais() {
     1>/dev/null
 
   external_ip=$(terraform output external_ip)
-  pushd ../helm/ais > /dev/null
+  pushd ../helm/ais 1>/dev/null
 
   AIS_GATEWAY_EXTERNAL_IP="${external_ip}" \
     AIS_K8S_CLUSTER_CIDR="10.64.0.0/14" \
@@ -35,7 +35,7 @@ deploy_ais() {
     HELM_ARGS="--set tags.builtin_monitoring=false,tags.prometheus=false,aiscluster.expected_target_nodes=$(kubectl get nodes --no-headers | wc -l | xargs),admin.enabled=true" \
     ./run_ais_sample.sh
 
-  popd > /dev/null
+  popd 1>/dev/null
 
   set_state_var "AIS_DEPLOYED" "true"
 }
@@ -94,11 +94,11 @@ deploy_k8s() {
     echo "✅ kubectl configured to use '$(kubectl config current-context)' context"
   fi
 
-  pushd k8s/
+  pushd k8s/ 1>/dev/null
   echo "Initializing persistent storage"
   terraform init -input=false "${cloud_provider}" 1>/dev/null
   terraform apply -input=false -auto-approve "${cloud_provider}"
-  popd
+  popd 1>/dev/null
 
   set_state_var "VOLUMES_DEPLOYED" "true"
 }
