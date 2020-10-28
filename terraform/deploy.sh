@@ -2,10 +2,6 @@
 
 set -eo pipefail
 
-# TODO: It seems like a good idea to remember stuff that user entered so that
-#  using `destroy.sh` would be automatic. For example we could remember cloud,
-#  project ids, flags as well as created `kubectl` contexts.
-
 source utils.sh
 
 deploy_ais() {
@@ -40,6 +36,8 @@ deploy_ais() {
     ./run_ais_sample.sh
 
   popd > /dev/null
+
+  set_state_var "AIS_DEPLOYED" "true"
 }
 
 deploy_k8s() {
@@ -72,6 +70,9 @@ deploy_k8s() {
       print_error "username is not set in 'gcloud'"
     fi
 
+    set_state_var "GKE_PROJECT_ID" "${project_id}"
+    set_state_var "GKE_USERNAME" "${username}"
+
     terraform_args=(-var "project_id=${project_id}" -var "user=${username}" -var "node_count=${node_cnt}")
   fi
 
@@ -98,6 +99,8 @@ deploy_k8s() {
   terraform init -input=false "${cloud_provider}" 1>/dev/null
   terraform apply -input=false -auto-approve "${cloud_provider}"
   popd
+
+  set_state_var "VOLUMES_DEPLOYED" "true"
 }
 
 deploy_dashboard() {
@@ -119,6 +122,9 @@ case $1 in
   select_provider
   select_node_count
   select_disk_count
+
+  set_state_var "CLOUD_PROVIDER" "${cloud_provider}"
+  set_state_var "NODE_CNT" "${node_cnt}"
 
   deploy_k8s
   sleep 10

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -eo pipefail
+set -e
 
 source utils.sh
 
@@ -20,25 +20,21 @@ stop_k8s() {
   elif [[ ${cloud_provider} == "gcp" ]]; then
     check_command gcloud
 
-    # Check if project ID is set. If it is then use it as input for the terraform.
-    project_id=$(gcloud config get-value core/project)
-    if [[ -z ${project_id} ]]; then
-      print_error "project id is not set in 'gcloud'"
-    fi
+    project_id=$(get_state_var "GKE_PROJECT_ID")
+    username=$(get_state_var "GKE_USERNAME")
+    node_cnt=$(get_state_var "NODE_CNT")
 
-    username=$(gcloud config get-value account)
-    if [[ -z ${username} ]]; then
-      print_error "username is not set in 'gcloud'"
-    fi
-
-    terraform_args=(-var "project_id=${project_id}" -var "user=${username}")
+    terraform_args=(-var "project_id=${project_id}" -var "user=${username}"  -var "node_count=${node_cnt}")
   fi
 
-  terraform destroy -auto-approve "k8s/${cloud_provider}"
+  if [[ -n $(get_state_var "VOLUMES_DEPLOYED") ]]; then
+    terraform destroy -auto-approve "k8s/${cloud_provider}"
+    unset_state_var "VOLUMES_DEPLOYED"
+  fi
   terraform destroy -auto-approve "${terraform_args[@]}" "${cloud_provider}"
 
   echo -e "\n☠️  Stopping 'kubectl proxy'..."
-  killall kubectl proxy
+  killall kubectl proxy || true
 
   echo -e "\n❌ Unsetting kubectl context..."
   context="$(kubectl config get-contexts | grep 'ais' | awk '{print $2}')"
@@ -48,11 +44,16 @@ stop_k8s() {
 }
 
 stop_ais() {
+  if [[ -z $(get_state_var "AIS_DEPLOYED") ]]; then
+    return
+  fi
+
   echo "☠️  Stopping AIStore cluster..."
   helm uninstall demo
   kubectl delete pv --all
   kubectl delete pvc --all # TODO: We should reuse them on restart.
   remove_nodes_labels
+  unset_state_var "AIS_DEPLOYED"
 }
 
 
@@ -63,12 +64,17 @@ case $1 in
   check_command helm
   check_command killall
 
-  select_provider
+  cloud_provider=$(get_state_var "CLOUD_PROVIDER")
+  if [[ -z ${cloud_provider} ]]; then
+    print_error "cloud provider is not set, make sure that you've deployed the cluster"
+  fi
 
   stop_ais
   stop_k8s
+  remove_state_file
   ;;
 --ais)
+  check_command kubectl
   check_command helm
 
   stop_ais
