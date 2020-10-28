@@ -443,8 +443,8 @@ admin:
   name: "admin"
   enabled: false
   image:
-    repository: "aistore/aisadmin"
-    tag:        "3.2.2"
+    repository: "aistore/admin"
+    tag:        "3.3"
   nodeSelector:
     key: nvidia.com/ais-admin
 
