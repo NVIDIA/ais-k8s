@@ -28,9 +28,9 @@ deploy_ais() {
 
   AIS_GATEWAY_EXTERNAL_IP="${external_ip}" \
     AIS_K8S_CLUSTER_CIDR="10.64.0.0/14" \
-    AISNODE_IMAGE="aistore/aisnode-k8s:v7" \
+    AISNODE_IMAGE="aistore/aisnode:3.3-k8s" \
     KUBECTL_IMAGE="gmaltby/ais-kubectl:1" \
-    EXTERNAL_VOLUMES_COUNT="${disk_cnt}" \
+    EXTERNAL_VOLUMES_COUNT="$(get_state_var "DISK_CNT")" \
     STATS_NODENAME="${primary_node}" \
     HELM_ARGS="--set tags.builtin_monitoring=false,tags.prometheus=false,aiscluster.expected_target_nodes=$(kubectl get nodes --no-headers | wc -l | xargs),admin.enabled=true" \
     ./run_ais_sample.sh
@@ -125,6 +125,7 @@ case $1 in
 
   set_state_var "CLOUD_PROVIDER" "${cloud_provider}"
   set_state_var "NODE_CNT" "${node_cnt}"
+  set_state_var "DISK_CNT" "${disk_cnt}"
 
   deploy_k8s
   sleep 10

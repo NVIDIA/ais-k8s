@@ -53,7 +53,7 @@ remove_nodes_labels() {
     1>/dev/null
 }
 
-state_file=".deploy.state"
+state_file="$(cd "$(dirname "$0")" && pwd)/.deploy.state"
 
 get_state_var() {
   cat ${state_file} 2>/dev/null | grep -w "$1" | cut -d'=' -f2
@@ -64,7 +64,7 @@ set_state_var() {
 }
 
 unset_state_var() {
-  sed -i.bak "/^$1=/d" ${state_file}
+  sed -i '' "/^$1=/d" ${state_file}
 }
 
 remove_state_file() {
