@@ -71,10 +71,12 @@ spec:
               value: "proxy"
             - name: TARGETS
               value: {{ .Values.aiscluster.expected_target_nodes | quote }}
-#            - name: AIS_HOST_IP
-#              valueFrom:
-#                fieldRef:
-#                  fieldPath: status.hostIP
+            {{ if not .Values.aiscluster.skipHostIP }}
+            - name: AIS_HOST_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            {{ end }}
             - name: AIS_CLUSTER_CIDR
               value: {{ .Values.aiscluster.k8s.cluster_cidr | quote }}
             - name: CLUSTERIP_PROXY_SERVICE_HOSTNAME

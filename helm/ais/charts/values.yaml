@@ -57,6 +57,12 @@ aiscluster:
   #
   hostpathPrefix: "/etc/ais"
   #
+  # Determines if setting `AIS_HOST_IP` env variable should be skipped.
+  # It might be useful in cases the `status.hostIP` is internal IP which cannot
+  # be accessed by other pods.
+  #
+  skipHostIP: false
+  #
   # Container images, pull secret names, pull policy.
   #
   image:

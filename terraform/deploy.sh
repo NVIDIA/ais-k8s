@@ -32,7 +32,7 @@ deploy_ais() {
     KUBECTL_IMAGE="gmaltby/ais-kubectl:1" \
     EXTERNAL_VOLUMES_COUNT="$(get_state_var "DISK_CNT")" \
     STATS_NODENAME="${primary_node}" \
-    HELM_ARGS="--set tags.builtin_monitoring=false,tags.prometheus=false,aiscluster.expected_target_nodes=$(kubectl get nodes --no-headers | wc -l | xargs),admin.enabled=true" \
+    HELM_ARGS="--set tags.builtin_monitoring=false,tags.prometheus=false,aiscluster.expected_target_nodes=$(kubectl get nodes --no-headers | wc -l | xargs),aiscluster.skipHostIP=true,admin.enabled=true" \
     ./run_ais_sample.sh
 
   popd 1>/dev/null
