@@ -15,5 +15,3 @@ data:
               "discovery_url":  "http://{{ template "ais.fullname" . }}-proxy:{{ .Values.proxy.config.net.l4.port }}"
       }
     }
-  set_uuid_env.sh: |-
-{{ include "common.set_uuid_env" . | indent 4 }}

@@ -17,5 +17,3 @@ data:
     }
   set_initial_primary_proxy_env.sh: |-
 {{ include "proxy.set_initial_primary_proxy_env" . | indent 4 }}
-  set_uuid_env.sh: |-
-{{ include "common.set_uuid_env" . | indent 4 }}
