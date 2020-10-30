@@ -58,6 +58,12 @@ stop_ais() {
   unset_state_var "AIS_DEPLOYED"
 }
 
+print_help() {
+  printf "%-15s\tStarts nodes on specified provider, starts K8s cluster and deploys AIStore on K8s nodes.\n" "--all"
+  printf "%-15s\tOnly deploy AIStore on K8s nodes, assumes that K8s cluster is already deployed.\n" "--ais"
+  printf "%-15s\tShows this help message.\n" "--help"
+}
+
 
 case $1 in
 --all)
@@ -80,6 +86,9 @@ case $1 in
   check_command helm
 
   stop_ais
+  ;;
+--help)
+  print_help
   ;;
 *)
   print_error "unknown argument provided"

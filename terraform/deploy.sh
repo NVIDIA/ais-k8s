@@ -112,6 +112,12 @@ deploy_dashboard() {
   echo "🔑 Use this token to authenticate: $(kubectl -n kube-system get secret/"$(kubectl -n kube-system get secret | grep service-controller-token | awk '{print $1}')" --template="{{.data.token}}" | base64 -D)"
 }
 
+print_help() {
+  printf "%-15s\tStops K8s pods, and destroys started nodes.\n" "--all"
+  printf "%-15s\tOnly stops AIStore Pods so the cluster can be redeployed.\n" "--ais"
+  printf "%-15s\t\t\tShows this help message.\n" "--help"
+}
+
 
 case $1 in
 --all)
@@ -140,6 +146,9 @@ case $1 in
 --dashboard)
   deploy_dashboard
   wait # Wait indefinitely for `kubectl proxy`.
+  ;;
+--help)
+  print_help
   ;;
 *)
   print_error "unknown argument provided"

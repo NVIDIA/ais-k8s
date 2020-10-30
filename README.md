@@ -10,6 +10,10 @@ on Kubernetes:
 The repository is split from the main AIStore repo to facilitate GitOps-style deployments, free from
 the unrelated commit noise of the development repo.
 
+## Cloud deployment
+If you want to deploy a fresh Kubernetes cluster in the cloud toghether with AIStore, please refer to
+`terraform` directory of this repository.
+
 ## Small Scale Experimental Deployments
 It is assumed you want to deploy AIStore at reasonable scale, such on on multiple nodes each
 with multiple drives. If you don't require such scale then consider deploying under Docker

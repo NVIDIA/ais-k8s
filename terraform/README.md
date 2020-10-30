@@ -22,11 +22,17 @@ Below you can check which cloud providers are supported and what is required to 
 When using `deploy.sh` script you will be asked to specify provider ID.
 Internally, the script will use the required commands - be sure you have them installed beforehand!
 
+> Currently only GCP provider is supported for deploying the Kubernetes cluster.
+>
+> If you already have a running Kubernetes cluster, regardless of a cluster provider,
+> you can use `--ais option` to `./deploy.sh` script (see the following section).
+
 ### Deploy
 
-Deployment consists of setting up the Kubernetes cluster on specified cloud provider and deploying AIStore on the Kubernetes nodes.
+Deployment consists of setting up the Kubernetes cluster on a specified cloud provider and deploying AIStore on the
+ Kubernetes nodes.
 `deploy.sh` is a one-place script that does everything for you.
-After successful run the AIStore cluster should be accessible and ready to be used.
+If the script successfully finishes the AIStore cluster should be accessible and ready to be used.
 
 To deploy just run `./deploy.sh --all` script and follow the instructions.
 
@@ -34,9 +40,10 @@ To deploy just run `./deploy.sh --all` script and follow the instructions.
 
 | Flag | Description |
 | ---- | ----------- |
-| `--all` | Starts nodes on specified provider, starts K8s cluster and deploys AIStore on K8s nodes. |
+| `--all` | Start nodes on specified provider, start K8s cluster and deploy AIStore on K8s nodes. |
 | `--ais` | Only deploy AIStore on K8s nodes, assumes that K8s cluster is already deployed. |
-| `--dashboard` | Starts [K8s dashboard](https://kubernetes.io/docs/tasks/access-application-cluster/web-ui-dashboard) connected to started K8s cluster. |
+| `--dashboard` | Start [K8s dashboard](https://kubernetes.io/docs/tasks/access-application-cluster/web-ui-dashboard) connected to started K8s cluster. |
+| `--help` | Show help message. |
 
 ### Destroy
 
@@ -47,8 +54,9 @@ Similarly, to the deploy script, it will walk you through required steps and the
 
 | Flag | Description |
 | ---- | ----------- |
-| `--all` | Stops K8s pods, and destroys started nodes. |
-| `--ais` | Only stops AIStore Pods so the cluster can be redeployed. |
+| `--all` | Stop K8s pods, and destroy started nodes. |
+| `--ais` | Only stop AIStore Pods so the cluster can be redeployed. |
+| `--help` | Show help message. |
 
 ## Troubleshooting
 
