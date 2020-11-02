@@ -42,14 +42,16 @@ deploy_ais() {
 
 deploy_k8s() {
   if [[ ${cloud_provider} == "aws" ]]; then
-    print_error "'aws' provider not yet supported"
+    print_error "'aws' provider is not yet supported"
+
     check_command aws
 
     # TODO: Check if `aws` is initialized with project id and region.
     aws configure
     terraform_args=()
   elif [[ ${cloud_provider} == "azure" ]]; then
-    print_error "'azure' provider not yet supported"
+    print_error "'azure' provider is not yet supported"
+
     terraform_args=()
   elif [[ ${cloud_provider} == "gcp" ]]; then
     check_command gcloud
