@@ -52,8 +52,8 @@ stop_ais() {
 
   echo "☠️  Stopping AIStore cluster..."
   helm uninstall demo
-  kubectl delete pv --all
   kubectl delete pvc --all # TODO: We should reuse them on restart.
+  kubectl delete pv --all
   remove_nodes_labels
   unset_state_var "AIS_DEPLOYED"
 }
