@@ -43,6 +43,9 @@ spec:
               value: {{ template "ais.fullname" . }}-proxy
             - name: CLUSTERIP_PROXY_SERVICE_PORT
               value: "{{ .Values.proxy.service.port }}"
+          command:
+            - "/bin/bash"
+          args: [ "-c", "/bin/bash /var/ais_config/set_initial_primary_proxy_env.sh" ]
           volumeMounts:
             - name: config-mount
               mountPath: "/var/ais_config"

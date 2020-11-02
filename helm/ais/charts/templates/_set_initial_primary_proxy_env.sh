@@ -9,6 +9,10 @@
 # labeled to host the initial primary proxy. If this pod is a proxy running on that
 # chosen node then we pass a hint to the main container to startup as primary proxy.
 #
+
+envfile="/var/ais_env/env"
+rm -f $envfile
+
 # On an established cluster we must not depend on the initial primary proxy hack.
 # We recognize an established cluster as one for which we can retrieve an smap
 # ping from *any* proxy behind the proxy clusterIP service.
