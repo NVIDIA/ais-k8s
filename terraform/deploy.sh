@@ -127,6 +127,10 @@ case $1 in
   check_command kubectl
   check_command helm
 
+  if [[ -f ${state_file} ]]; then
+    print_error "state file exists, please run 'destroy.sh --all' or remove it manually: 'rm -f ${state_file}'"
+  fi
+
   select_provider
   select_node_count
   select_disk_count

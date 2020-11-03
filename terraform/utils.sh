@@ -59,12 +59,13 @@ get_state_var() {
   cat ${state_file} 2>/dev/null | grep -w "$1" | cut -d'=' -f2
 }
 
-set_state_var() {
-  echo "$1=$2" >> ${state_file}
-}
-
 unset_state_var() {
   sed -i '' "/^$1=/d" ${state_file}
+}
+
+set_state_var() {
+  unset_state_var "$1" 1>/dev/null 2>&1 || true
+  echo "$1=$2" >> ${state_file}
 }
 
 remove_state_file() {
