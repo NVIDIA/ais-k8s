@@ -96,9 +96,6 @@ resource "google_container_node_pool" "primary_nodes" {
     preemptible     = true # IMPORTANT: Lowers price approximately 3 times.
     machine_type    = "n1-standard-1" # 1vCPU + 3.75GB MEM
     image_type      = "ubuntu"
-    disk_type       = "pd-standard"
-    disk_size_gb    = 50 # Single 50GB disk each node.
-    local_ssd_count = 0
 
     tags     = ["ais-node", "ais"]
     metadata = {
