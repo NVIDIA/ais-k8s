@@ -27,6 +27,12 @@ variable "project_id" {
   description = "project id"
 }
 
+variable "ais_release_name" {
+  description = "AIS release name, matching helm variable"
+  type = string
+  default = "demo"
+}
+
 variable "region" {
   type        = string
   default     = "us-central1"
@@ -82,6 +88,9 @@ resource "google_container_node_pool" "primary_nodes" {
 
     labels = {
       env = var.project_id
+
+      "nvidia.com/ais-target" = "${var.ais_release_name}-ais"
+      "nvidia.com/ais-proxy" = "${var.ais_release_name}-ais-electable"
     }
 
     preemptible     = true # IMPORTANT: Lowers price approximately 3 times.
