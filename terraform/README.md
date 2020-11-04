@@ -21,6 +21,13 @@ Internally, the script will use the required commands - be sure you have them in
 > If you already have a running Kubernetes cluster, regardless of a cluster provider,
 > you can use `--ais` option to `./deploy.sh` script (see the following section).
 
+#### Google
+
+In `gcp/main.tf` file you can find a couple of variables that can be adjusted to your preferences:
+* `zone` - zone in which the cluster will be deployed (for now it's only possible to deploy cluster on a single zone; using [regional cluster](https://cloud.google.com/kubernetes-engine/docs/concepts/types-of-clusters#regional_clusters) is not yet supported).
+* `machine_type` - machine type which will be used as GKE nodes (see [full list](https://cloud.google.com/compute/docs/machine-types)).
+* `machine_preemptible` - determines if the machine is preemptible (more info [here](https://cloud.google.com/compute/docs/instances/preemptible)).
+
 ### Deploy
 
 Deployment consists of setting up the Kubernetes cluster on a specified cloud provider and deploying AIStore on the Kubernetes nodes.

@@ -28,16 +28,10 @@ select_provider() {
   fi
 }
 
-# TODO: For now it must be divisible by 3 because of GKE - we should think of something better.
 select_node_count() {
-  printf "Enter number of nodes (must be divisible by 3): "
+  printf "Enter number of nodes: "
   read -r node_cnt
   check_number "${node_cnt}"
-  if (( node_cnt % 3 != 0 )); then
-    print_error "'$node_cnt' is not divisible by 3"
-  fi
-
-  node_cnt=$((node_cnt / 3))
 }
 
 select_disk_count() {

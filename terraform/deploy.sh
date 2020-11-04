@@ -93,7 +93,7 @@ deploy_k8s() {
   elif [[ ${cloud_provider} == "azure" ]]; then
     :
   elif [[ ${cloud_provider} == "gcp" ]]; then
-    gcloud container clusters get-credentials "$(terraform output kubernetes_cluster_name)" --region "$(terraform output region)"
+    gcloud container clusters get-credentials "$(terraform output kubernetes_cluster_name)" --zone "$(terraform output zone)"
     echo "✅ kubectl configured to use '$(kubectl config current-context)' context"
   fi
 

@@ -3,9 +3,9 @@ output "kubernetes_cluster_name" {
   description = "Name of GKE cluster"
 }
 
-output "region" {
-  value       = var.region
-  description = "Region where the cluster was deployed"
+output "zone" {
+  value       = var.zone
+  description = "Zone where the cluster was deployed"
 }
 
 output "external_ip" {

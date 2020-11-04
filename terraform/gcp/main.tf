@@ -1,6 +1,6 @@
 provider "google" {
   project = var.project_id
-  region  = var.region
+  zone    = var.zone
 }
 
 # Deployment specific variables.
@@ -47,6 +47,12 @@ variable "ssh-key" {
 
 # Cluster specific variables.
 
+variable "zone" {
+  type        = string
+  default     = "us-central1-a"
+  description = "Zone where the cluster should be deployed, see: https://cloud.google.com/kubernetes-engine/docs/concepts/types-of-clusters"
+}
+
 variable "machine_type" {
   type        = string
   default     = "n1-standard-1"
@@ -59,12 +65,6 @@ variable "machine_preemptible" {
   description = "Determines if the machine should be preemptible or not, see: https://cloud.google.com/compute/docs/instances/preemptible"
 }
 
-variable "region" {
-  type        = string
-  default     = "us-central1"
-  description = "Region where the cluster should be deployed"
-}
-
 variable "node_count" {
   type        = number
   description = "Number of GKE nodes"
@@ -73,7 +73,7 @@ variable "node_count" {
 # GKE cluster.
 resource "google_container_cluster" "primary" {
   name     = local.cluster
-  location = var.region
+  location = var.zone
 
   remove_default_node_pool = true
   initial_node_count       = 1
@@ -95,7 +95,7 @@ resource "google_container_cluster" "primary" {
 # Separately managed node pool.
 resource "google_container_node_pool" "primary_nodes" {
   name       = "${google_container_cluster.primary.name}-node-pool"
-  location   = var.region
+  location   = var.zone
   cluster    = google_container_cluster.primary.name
   node_count = var.node_count
 
