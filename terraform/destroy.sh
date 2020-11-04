@@ -29,12 +29,6 @@ stop_k8s() {
     terraform_args=(-var "project_id=${project_id}" -var "user=${username}" -var "node_count=${node_cnt}" -var "ais_release_name=${release_name}")
   fi
 
-  if [[ -n $(get_state_var "VOLUMES_DEPLOYED") ]]; then
-    pushd k8s/ 1>/dev/null
-    terraform destroy -auto-approve "${cloud_provider}"
-    popd 1>/dev/null
-    unset_state_var "VOLUMES_DEPLOYED"
-  fi
   terraform destroy -auto-approve "${terraform_args[@]}" "${cloud_provider}"
 
   echo -e "\n☠️  Stopping 'kubectl proxy'..."
@@ -53,9 +47,23 @@ stop_ais() {
   fi
 
   echo "☠️  Stopping AIStore cluster..."
-  helm uninstall demo
+
+  cloud_provider=$(get_state_var "CLOUD_PROVIDER")
+  if [[ -n $(get_state_var "VOLUMES_DEPLOYED") ]]; then
+    pushd k8s/ 1>/dev/null
+    terraform destroy -auto-approve "${cloud_provider}"
+    popd 1>/dev/null
+    unset_state_var "VOLUMES_DEPLOYED"
+  fi
+
+  helm uninstall demo || true
   kubectl delete pvc --all # TODO: We should reuse them on restart.
   kubectl delete pv --all
+
+  disks=$(gcloud compute disks list --format="value(name)" --filter="name~^gke-ais-.*-dynam-pvc-.*")
+  # If zone don't match with the cluster's zone then a disk won't be deleted.
+  printf "y\n" | gcloud compute disks delete $disks --zone "$(terraform output zone)" 1>/dev/null
+
   remove_nodes_labels
   unset_state_var "AIS_DEPLOYED"
 }

@@ -7,6 +7,16 @@ source utils.sh
 deploy_ais() {
   echo "🔥 Deploying AIStore on the cluster"
 
+  cloud_provider=$(get_state_var "CLOUD_PROVIDER")
+
+  pushd k8s/ 1>/dev/null
+  echo "Initializing persistent storage for AIS"
+  terraform init -input=false "${cloud_provider}" 1>/dev/null
+  terraform apply -input=false -auto-approve "${cloud_provider}"
+  popd 1>/dev/null
+
+  set_state_var "VOLUMES_DEPLOYED" "true"
+
   # Remove labels (from all nodes) if exist.
   remove_nodes_labels
 
@@ -96,14 +106,6 @@ deploy_k8s() {
     gcloud container clusters get-credentials "$(terraform output kubernetes_cluster_name)" --zone "$(terraform output zone)"
     echo "✅ kubectl configured to use '$(kubectl config current-context)' context"
   fi
-
-  pushd k8s/ 1>/dev/null
-  echo "Initializing persistent storage"
-  terraform init -input=false "${cloud_provider}" 1>/dev/null
-  terraform apply -input=false -auto-approve "${cloud_provider}"
-  popd 1>/dev/null
-
-  set_state_var "VOLUMES_DEPLOYED" "true"
 }
 
 deploy_dashboard() {
