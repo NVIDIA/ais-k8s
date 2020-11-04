@@ -3,56 +3,76 @@ provider "google" {
   region  = var.region
 }
 
-variable "cluster" {
-  type    = string
-  default = "ais"
+# Deployment specific variables.
+
+locals {
+  cluster    = "ais"
+  image_type = "ubuntu"
+}
+
+variable "ais_release_name" {
+  type        = string
+  description = "AIS release name, matching Helm variable"
+}
+
+# GCP/GKE specific variables.
+
+variable "project_id" {
+  type        = string
+  description = "GCP project ID"
 }
 
 variable "gke_username" {
+  type        = string
   default     = ""
   description = "GKE username"
 }
 
 variable "gke_password" {
+  type        = string
   default     = ""
   description = "GKE password"
 }
 
-variable "node_count" {
-  type        = number
-  description = "number of GKE nodes"
+variable "user" {
+  type        = string
+  description = "GCP username"
 }
 
-variable "project_id" {
-  description = "project id"
+variable "ssh-key" {
+  type        = string
+  default     = "~/.ssh/id_rsa.pub"
+  description = "SSH public key path"
 }
 
-variable "ais_release_name" {
-  description = "AIS release name, matching helm variable"
-  type = string
-  default = "demo"
+# Cluster specific variables.
+
+variable "machine_type" {
+  type        = string
+  default     = "n1-standard-1"
+  description = "Type of machines cluster will be deployed on, see: https://cloud.google.com/compute/docs/machine-types"
+}
+
+variable "machine_preemptible" {
+  type        = bool
+  default     = true
+  description = "Determines if the machine should be preemptible or not, see: https://cloud.google.com/compute/docs/instances/preemptible"
 }
 
 variable "region" {
   type        = string
   default     = "us-central1"
-  description = "region"
+  description = "Region where the cluster should be deployed"
 }
 
-variable "user" {
-  type        = string
-  description = "google username"
-}
-
-variable "ssh-key" {
-  type        = string
-  description = "ssh public key path"
-  default     = "~/.ssh/id_rsa.pub"
+variable "node_count" {
+  type        = number
+  description = "Number of GKE nodes"
 }
 
 # GKE cluster.
 resource "google_container_cluster" "primary" {
-  name     = var.cluster
+  name     = local.cluster
   location = var.region
 
   remove_default_node_pool = true
@@ -90,14 +110,14 @@ resource "google_container_node_pool" "primary_nodes" {
       env = var.project_id
 
       "nvidia.com/ais-target" = "${var.ais_release_name}-ais"
-      "nvidia.com/ais-proxy" = "${var.ais_release_name}-ais-electable"
+      "nvidia.com/ais-proxy"  = "${var.ais_release_name}-ais-electable"
     }
 
-    preemptible     = true # IMPORTANT: Lowers price approximately 3 times.
-    machine_type    = "n1-standard-1" # 1vCPU + 3.75GB MEM
-    image_type      = "ubuntu"
+    preemptible  = var.machine_preemptible # IMPORTANT: Lowers price approximately 3 times.
+    machine_type = var.machine_type # 1vCPU + 3.75GB MEM
+    image_type   = local.image_type
 
-    tags     = ["ais-node", "ais"]
+    tags     = [local.cluster]
     metadata = {
       disable-legacy-endpoints = "true"
       enable-guest-attributes  = "true"

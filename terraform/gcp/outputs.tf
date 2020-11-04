@@ -1,11 +1,11 @@
 output "kubernetes_cluster_name" {
   value       = google_container_cluster.primary.name
-  description = "GKE AIStore cluster"
+  description = "Name of GKE cluster"
 }
 
 output "region" {
   value       = var.region
-  description = "region"
+  description = "Region where the cluster was deployed"
 }
 
 output "external_ip" {

@@ -14,11 +14,11 @@ stop_k8s() {
 
     # TODO: Check if `aws` is initialized with project id and region.
     aws configure
-    terraform_args=()
+    terraform_args=(-var "node_count=${node_cnt}" -var "ais_release_name=${release_name}")
   elif [[ ${cloud_provider} == "azure" ]]; then
     print_error "'azure' provider is not yet supported"
 
-    terraform_args=()
+    terraform_args=(-var "node_count=${node_cnt}" -var "ais_release_name=${release_name}")
   elif [[ ${cloud_provider} == "gcp" ]]; then
     check_command gcloud
 
@@ -26,7 +26,7 @@ stop_k8s() {
     username=$(get_state_var "GKE_USERNAME")
     node_cnt=$(get_state_var "NODE_CNT")
 
-    terraform_args=(-var "project_id=${project_id}" -var "user=${username}"  -var "node_count=${node_cnt}")
+    terraform_args=(-var "project_id=${project_id}" -var "user=${username}" -var "node_count=${node_cnt}" -var "ais_release_name=${release_name}")
   fi
 
   if [[ -n $(get_state_var "VOLUMES_DEPLOYED") ]]; then

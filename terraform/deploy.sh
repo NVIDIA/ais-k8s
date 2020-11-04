@@ -12,21 +12,22 @@ deploy_ais() {
 
   # Label nodes so they match a required selector.
   kubectl label nodes --all \
-    nvidia.com/ais-target=demo-ais \
-    nvidia.com/ais-proxy=demo-ais-electable \
+    nvidia.com/ais-target="${release_name}-ais" \
+    nvidia.com/ais-proxy="${release_name}-ais-electable" \
     1>/dev/null
 
   # Label one of the nodes to mark it as a primary.
   primary_node=$(kubectl get nodes -o jsonpath='{.items[0].metadata.name}')
   kubectl label nodes "${primary_node}" \
-    nvidia.com/ais-admin=demo-ais \
-    nvidia.com/ais-initial-primary-proxy=demo-ais \
+    nvidia.com/ais-admin="${release_name}-ais" \
+    nvidia.com/ais-initial-primary-proxy="${release_name}-ais" \
     1>/dev/null
 
   external_ip=$(terraform output external_ip)
   pushd ../helm/ais 1>/dev/null
 
-  AIS_GATEWAY_EXTERNAL_IP="${external_ip}" \
+  AIS_NAME="${release_name}" \
+    AIS_GATEWAY_EXTERNAL_IP="${external_ip}" \
     AIS_K8S_CLUSTER_CIDR="10.64.0.0/14" \
     AISNODE_IMAGE="aistore/aisnode:3.3-k8s" \
     KUBECTL_IMAGE="gmaltby/ais-kubectl:1" \
@@ -48,11 +49,11 @@ deploy_k8s() {
 
     # TODO: Check if `aws` is initialized with project id and region.
     aws configure
-    terraform_args=()
+    terraform_args=(-var "node_count=${node_cnt}" -var "ais_release_name=${release_name}")
   elif [[ ${cloud_provider} == "azure" ]]; then
     print_error "'azure' provider is not yet supported"
 
-    terraform_args=()
+    terraform_args=(-var "node_count=${node_cnt}" -var "ais_release_name=${release_name}")
   elif [[ ${cloud_provider} == "gcp" ]]; then
     check_command gcloud
 
@@ -75,7 +76,7 @@ deploy_k8s() {
     set_state_var "GKE_PROJECT_ID" "${project_id}"
     set_state_var "GKE_USERNAME" "${username}"
 
-    terraform_args=(-var "project_id=${project_id}" -var "user=${username}" -var "node_count=${node_cnt}")
+    terraform_args=(-var "project_id=${project_id}" -var "user=${username}" -var "node_count=${node_cnt}" -var "ais_release_name=${release_name}")
   fi
 
   # Initialize terraform and download necessary plugins.

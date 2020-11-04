@@ -1,3 +1,5 @@
+release_name="demo"
+
 print_error() {
   echo "Error: $1."
   exit 1
