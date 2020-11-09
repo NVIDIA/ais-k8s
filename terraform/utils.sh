@@ -52,16 +52,18 @@ remove_nodes_labels() {
 state_file="$(cd "$(dirname "$0")" && pwd)/.deploy.state"
 
 get_state_var() {
-  cat ${state_file} 2>/dev/null | grep -w "$1" | cut -d'=' -f2
+  cat "${state_file}" 2>/dev/null | grep -w "$1" | cut -d'=' -f2
 }
 
 unset_state_var() {
-  sed -i '' "/^$1=/d" ${state_file}
+  # NOTE: Cannot use `-i` as it is not portable (see: https://unix.stackexchange.com/a/92907).
+  sed -e "/^$1=/d" "${state_file}" > "${state_file}.new"
+  mv -- "${state_file}.new" "${state_file}"
 }
 
 set_state_var() {
   unset_state_var "$1" 1>/dev/null 2>&1 || true
-  echo "$1=$2" >> ${state_file}
+  echo "$1=$2" >> "${state_file}"
 }
 
 remove_state_file() {
