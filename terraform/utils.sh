@@ -1,5 +1,7 @@
 release_name="demo"
 
+trap 'echo "Please wait for the script to finish or data loss may occur."' INT
+
 print_error() {
   echo "Error: $1."
   exit 1
