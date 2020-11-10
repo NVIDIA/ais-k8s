@@ -44,9 +44,17 @@ deploy_ais() {
     EXTERNAL_VOLUMES_COUNT="$(get_state_var "DISK_CNT")" \
     STATS_NODENAME="${primary_node}" \
     HELM_ARGS="--set tags.builtin_monitoring=false,tags.prometheus=false,aiscluster.expected_target_nodes=$(kubectl get nodes --no-headers | wc -l | xargs),aiscluster.skipHostIP=true,admin.enabled=true" \
-    ./run_ais_sample.sh
+    ./run_ais_sample.sh 1>/dev/null
 
   popd 1>/dev/null
+
+  sleep 3 # Just to make sure that pods have started.
+
+  admin_container_id=$(kubectl get pods --namespace default -l "release=${release_name},component=admin" -o jsonpath="{.items[0].metadata.name}")
+  echo "✨ AIStore cluster deployed"
+  echo -e "\nLIST PODS:\n  $ kubectl get pods"
+  echo -e "\nACCESS ADMIN CONTAINER:\n  $ kubectl exec -it ${admin_container_id} -- /bin/bash"
+  echo -e "\nSHOW CLUSTER STATUS:\n  $ kubectl exec -it ${admin_container_id} -- ais show cluster"
 
   set_state_var "AIS_DEPLOYED" "true"
 }
