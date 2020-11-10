@@ -45,6 +45,50 @@ To deploy just run `./deploy.sh --all` script and follow the instructions.
 | `--dashboard` | Start [K8s dashboard](https://kubernetes.io/docs/tasks/access-application-cluster/web-ui-dashboard) connected to started K8s cluster. |
 | `--help` | Show help message. |
 
+
+#### Admin container
+
+After full deployment you should be able to list all K8s Pods:
+```console
+$ ./deploy.sh --all
+...
+$ kubectl get pods
+NAME                   READY   STATUS    RESTARTS   AGE
+demo-ais-admin-99p8r   1/1     Running   0          31m
+demo-ais-proxy-5vqb8   1/1     Running   0          31m
+demo-ais-proxy-g7jf7   1/1     Running   0          31m
+demo-ais-target-0      1/1     Running   0          31m
+demo-ais-target-1      1/1     Running   0          29m
+```
+
+As you can see there is one special Pod called `demo-ais-admin-*`.
+It contains useful binaries:
+ * `ais` (more [here](github.com/NVIDIA/aistore/cmd/cli/README.md)),
+ * `aisloader` (more [here](github.com/NVIDIA/aistore/bench/aisloader/README.md)),
+ * `xmeta` (more [here](github.com/NVIDIA/aistore/cmd/xmeta/README.md)).
+
+Thanks to them you can access and stress-load the cluster.
+
+After logging into the container, the commands are already configured to point to the deployed cluster:
+```console
+$ kubectl exec -it demo-ais-admin-99p8r -- /bin/bash
+root@demo-ais-admin-99p8r:/#
+root@demo-ais-admin-99p8r:/# ais show cluster
+PROXY		 MEM USED %	 MEM AVAIL	 CPU USED %	 UPTIME	 STATUS
+rOFMYYks	 0.79		 3.60GiB	 0.00		 49m	 healthy
+zloxzvzK[P]	 0.82		 3.60GiB	 0.00		 50m	 healthy
+
+TARGET		 MEM USED %	 MEM AVAIL	 CAP USED %	 CAP AVAIL	 CPU USED %	 REBALANCE		 UPTIME	 STATUS
+BEtMbslT	 0.83		 3.60GiB	 0		 99.789GiB	 0.00		 finished; 0 moved (0B)	 49m	 healthy
+MbXeFcFw	 0.84		 3.60GiB	 0		 99.789GiB	 0.00		 finished; 0 moved (0B)	 48m	 healthy
+
+Summary:
+ Proxies:	2 (0 - unelectable)
+ Targets:	2
+ Primary Proxy:	zloxzvzK
+ Smap Version:	8
+```
+
 ### Destroy
 
 To remove and cleanup the cluster, we have created `destroy.sh --all` script.
