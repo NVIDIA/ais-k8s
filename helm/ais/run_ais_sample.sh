@@ -44,7 +44,7 @@ EXTERNAL_VOLUMES=$((EXTERNAL_VOLUMES_COUNT > 0))
 
 if [[ ${EXTERNAL_VOLUMES} ]]; then
   mpaths="$(seq -f "/ais/%g" -s "," 1 $EXTERNAL_VOLUMES_COUNT)"
-  MOUNTPATHS="{${mpaths/%?/}}"
+  MOUNTPATHS="{${mpaths/%,/}}" # Removes `,` at the end of the line (if present).
 fi
 
 
