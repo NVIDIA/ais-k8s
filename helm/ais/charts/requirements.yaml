@@ -5,12 +5,6 @@ dependencies:
   # Requires that we have already run 'helm repo add kiwigrid https://kiwigrid.github.io',
   # and also requires a 'helm dependency update' to pull in dependencies.
   #
-  # - name: graphite
-  #   version: ">=0.3.4"
-  #   repository: https://kiwigrid.github.io
-  #   tags:
-  #    - builtin_monitoring
-
   #
   # The graphite dependency has been copied locally. We need to change some defaults in the config map
   # for graphite, but the quite large source there is not parametrized via values.yaml.
@@ -19,6 +13,12 @@ dependencies:
   # chart values.yaml to over-ride the few lines we need to, but it is nearly 1000 lines.
   # So instead we copy graphite into our charts directory and modify the config map there.
   # Chances are we'll need more extensive tweaking the the graphite config, anyway.
+  #
+  - name: graphite
+    version: ">=0.3.4"
+    repository: "file://charts/graphite"
+    tags:
+     - builtin_monitoring
 
   #
   # Grafana server.
@@ -29,7 +29,7 @@ dependencies:
   #
   - name: grafana
     version: ">=2.2.1"
-    repository: https://kubernetes-charts.storage.googleapis.com/
+    repository: "https://kubernetes-charts.storage.googleapis.com/"
     tags:
       - builtin_monitoring
 
@@ -38,7 +38,7 @@ dependencies:
   #
   - name: prometheus
     version: ">=8.9.0"
-    repository: https://kubernetes-charts.storage.googleapis.com
+    repository: "https://kubernetes-charts.storage.googleapis.com"
     tags:
       - builtin_monitoring
       - prometheus
