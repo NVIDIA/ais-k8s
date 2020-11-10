@@ -41,14 +41,28 @@ stop_k8s() {
   fi
 }
 
+get_disks() {
+  nodes=$(kubectl get nodes -o jsonpath='{.items[*].metadata.name}')
+  disks=$(gcloud compute instances list --zones="$(terraform output zone)" --format="value(disks[].deviceName)" --filter="name:(${nodes})" | tr ";" "\n" | grep "gke-ais" || true)
+  echo $disks
+}
+
 stop_ais() {
   if [[ -z $(get_state_var "AIS_DEPLOYED") ]]; then
     return
   fi
 
   echo "☠️  Stopping AIStore cluster..."
-
   cloud_provider=$(get_state_var "CLOUD_PROVIDER")
+
+  if [[ ${cloud_provider} == "gcp" ]]; then
+    disks=$(get_disks)
+  fi
+
+  helm uninstall demo || true
+  kubectl delete pvc --all # TODO: We should reuse them on restart.
+  kubectl delete pv --all
+
   if [[ -n $(get_state_var "VOLUMES_DEPLOYED") ]]; then
     pushd k8s/ 1>/dev/null
     terraform destroy -auto-approve "${cloud_provider}"
@@ -56,14 +70,22 @@ stop_ais() {
     unset_state_var "VOLUMES_DEPLOYED"
   fi
 
-  helm uninstall demo || true
-  kubectl delete pvc --all # TODO: We should reuse them on restart.
-  kubectl delete pv --all
 
   if [[ ${cloud_provider} == "gcp" ]]; then
-    disks=$(gcloud compute disks list --format="value(name)" --filter="name~^gke-ais-.*-dynam-pvc-.*")
-    # If zone don't match with the cluster's zone then a disk won't be deleted.
-    printf "y\n" | gcloud compute disks delete $disks --zone "$(terraform output zone)" 1>/dev/null
+    if [[ ${#disks} -ne 0 ]]; then
+      for ((i=0; i < 10; i++)); do
+        current_disks=$(get_disks)
+        if [[ ${#current_disks} -ne 0 ]]; then
+          printf "Waiting for disks to be unattached from cluster nodes\n"
+          sleep 5
+          continue
+        fi
+        break
+      done
+
+      # If zone don't match with the cluster's zone then a disk won't be deleted.
+      printf "y\n" | gcloud compute disks delete $disks --zone "$(terraform output zone)" 1>/dev/null
+    fi
   fi
 
   remove_nodes_labels

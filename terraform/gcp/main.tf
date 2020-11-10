@@ -122,7 +122,7 @@ resource "google_container_node_pool" "primary_nodes" {
       disable-legacy-endpoints = "true"
       enable-guest-attributes  = "true"
 
-      ssh-keys = "${var.user}:${file(var.ssh-key)}"
+      ssh-keys = "ais:${file(var.ssh-key)}"
     }
   }
 }
