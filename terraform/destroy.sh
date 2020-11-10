@@ -60,9 +60,11 @@ stop_ais() {
   kubectl delete pvc --all # TODO: We should reuse them on restart.
   kubectl delete pv --all
 
-  disks=$(gcloud compute disks list --format="value(name)" --filter="name~^gke-ais-.*-dynam-pvc-.*")
-  # If zone don't match with the cluster's zone then a disk won't be deleted.
-  printf "y\n" | gcloud compute disks delete $disks --zone "$(terraform output zone)" 1>/dev/null
+  if [[ ${cloud_provider} == "gcp" ]]; then
+    disks=$(gcloud compute disks list --format="value(name)" --filter="name~^gke-ais-.*-dynam-pvc-.*")
+    # If zone don't match with the cluster's zone then a disk won't be deleted.
+    printf "y\n" | gcloud compute disks delete $disks --zone "$(terraform output zone)" 1>/dev/null
+  fi
 
   remove_nodes_labels
   unset_state_var "AIS_DEPLOYED"
