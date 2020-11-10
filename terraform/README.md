@@ -106,11 +106,24 @@ Similarly, to the deploy script, it will walk you through required steps and the
 
 ### Google
 
-> Error: googleapi: Error 403: Required '...' permission(s) for '...', forbidden
+> googleapi: Error 403: Required '...' permission(s) for '...', forbidden
 
+This may happen when an account does not have enough permissions to create or access specific resource on GCP.
+
+What you can do:
 * Try to run:
     ```console
     $ gcloud auth application-default login
     ```
 * Make sure `GOOGLE_APPLICATION_CREDENTIALS` is not set to credentials for other project/account.
 * Make sure you have right permissions set for your account in [Google Console](https://console.cloud.google.com).
+
+> googleapi: Error 403: Insufficient regional quota to satisfy request ...
+
+This may happen if an account's or project's quota is exceeded.
+Running the cluster on a free account can easily exceed available resources (for free account we recommend 2-4 nodes and 1-3 disks per node).
+
+What you can do:
+* Try to run the cluster with lower number of nodes (something between 2-4).
+* Try to run the cluster with lower number of disks per node (something between 1-3).
+* Try to increase the quote on [GCP Console](https://console.cloud.google.com/iam-admin/quotas).
