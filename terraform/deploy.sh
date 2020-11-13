@@ -39,7 +39,7 @@ deploy_ais() {
   helm_args="--set tags.builtin_monitoring=false,tags.prometheus=false,aiscluster.expected_target_nodes=$(kubectl get nodes --no-headers | wc -l | xargs),aiscluster.skipHostIP=true,admin.enabled=true"
   if [[ -n ${wait_timeout} ]]; then
     helm_args="${helm_args} --timeout ${wait_timeout} --wait"
-    echo "⏳ Waiting for the AIStore to fully start, it may take couple minutes"
+    echo "⏳ Waiting for the AIStore to fully start, it may take couple minutes..."
   fi
 
   AIS_NAME="${release_name}" \
@@ -60,7 +60,7 @@ deploy_ais() {
   echo "✨ AIStore cluster deployed"
   echo -e "\nLIST PODS:\n  $ kubectl get pods"
   echo -e "\nACCESS ADMIN CONTAINER:\n  $ kubectl exec -it ${admin_container_id} -- /bin/bash"
-  echo -e "\nSHOW CLUSTER STATUS:\n  $ kubectl exec -it ${admin_container_id} -- ais show cluster"
+  echo -e "\nSHOW CLUSTER STATUS:\n  $ kubectl exec ${admin_container_id} -- ais show cluster"
 
   set_state_var "AIS_DEPLOYED" "true"
 }
@@ -83,7 +83,13 @@ deploy_k8s() {
 
     # Check if user is logged into `gcloud`.
     if [[ -z $(gcloud config list account --format "value(core.account)") ]]; then
-      gcloud init --console-only
+      if [[ -n ${GOOGLE_APPLICATION_CREDENTIALS} ]]; then
+        check_command jq
+
+        gcloud auth activate-service-account "$(jq -r '.client_email' "${GOOGLE_APPLICATION_CREDENTIALS}")" --key-file="${GOOGLE_APPLICATION_CREDENTIALS}" --project="$(jq -r '.project_id' "${GOOGLE_APPLICATION_CREDENTIALS}")"
+      else
+        gcloud init --console-only
+      fi
     fi
 
     # Check if project ID is set. If it is then use it as input for the terraform.
