@@ -67,11 +67,11 @@ deploy_k8s() {
 
     # TODO: Check if `aws` is initialized with project id and region.
     aws configure
-    terraform_args=(-var "node_count=${node_cnt}" -var "ais_release_name=${release_name}")
+    terraform_args=(-var "node_count=${node_cnt}" -var "ais_release_name=${release_name}" -var "cluster_name=${cluster_name}")
   elif [[ ${cloud_provider} == "azure" ]]; then
     print_error "'azure' provider is not yet supported"
 
-    terraform_args=(-var "node_count=${node_cnt}" -var "ais_release_name=${release_name}")
+    terraform_args=(-var "node_count=${node_cnt}" -var "ais_release_name=${release_name}" -var "cluster_name=${cluster_name}")
   elif [[ ${cloud_provider} == "gcp" ]]; then
     check_command gcloud
 
@@ -94,7 +94,7 @@ deploy_k8s() {
     set_state_var "GKE_PROJECT_ID" "${project_id}"
     set_state_var "GKE_USERNAME" "${username}"
 
-    terraform_args=(-var "project_id=${project_id}" -var "user=${username}" -var "node_count=${node_cnt}" -var "ais_release_name=${release_name}")
+    terraform_args=(-var "project_id=${project_id}" -var "user=${username}" -var "node_count=${node_cnt}" -var "ais_release_name=${release_name}" -var "cluster_name=${cluster_name}")
   fi
 
   # Initialize terraform and download necessary plugins.
@@ -126,14 +126,27 @@ deploy_dashboard() {
 }
 
 print_help() {
-  printf "%-15s\tStops K8s pods, and destroys started nodes.\n" "--all"
-  printf "%-15s\tOnly stops AIStore Pods so the cluster can be redeployed.\n" "--ais"
+  printf "%-15s\tStops K8s pods, and destroys started nodes.\n" "all"
+  printf "%-15s\tOnly stops AIStore Pods so the cluster can be redeployed.\n" "ais"
   printf "%-15s\t\t\tShows this help message.\n" "--help"
 }
 
 
-case $1 in
---all)
+deploy_type=$1; shift
+
+while (( "$#" )); do
+  case "$1" in
+    --cloud|--cloud=) cloud_provider=$2; shift; shift;;
+    --node-cnt|--node-cnt=) node_cnt=$2; shift; shift;;
+    --disk-cnt|--disk-cnt=) disk_cnt=$2; shift; shift;;
+    --cluster-name|--cluster-name=) cluster_name=$2; shift; shift;;
+    --help) print_help; exit 0;;
+    *) echo "fatal: unknown argument '$1'"; exit 1;;
+  esac
+done
+
+case ${deploy_type} in
+all)
   check_command terraform
   check_command kubectl
   check_command helm
@@ -145,6 +158,7 @@ case $1 in
   select_provider
   select_node_count
   select_disk_count
+  validate_cluster_name
 
   set_state_var "CLOUD_PROVIDER" "${cloud_provider}"
   set_state_var "NODE_CNT" "${node_cnt}"
@@ -154,13 +168,13 @@ case $1 in
   sleep 10
   deploy_ais
   ;;
---ais)
+ais)
   check_command kubectl
   check_command helm
 
   deploy_ais
   ;;
---dashboard)
+dashboard)
   deploy_dashboard
   wait # Wait indefinitely for `kubectl proxy`.
   ;;
@@ -168,6 +182,6 @@ case $1 in
   print_help
   ;;
 *)
-  print_error "unknown argument provided"
+  print_error "invalid deployment type: '${deploy_type}' (expected 'all', 'ais' or 'dashboard')"
   ;;
 esac

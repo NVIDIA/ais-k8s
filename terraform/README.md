@@ -19,7 +19,7 @@ When using `deploy.sh` script you will be asked to specify cloud provider ID.
 Internally, the script will use the required commands - be sure you have them installed beforehand!
 
 > If you already have a running Kubernetes cluster, regardless of a cluster provider,
-> you can use `--ais` option to `./deploy.sh` script (see the following section).
+> you can use `ais` argument to `./deploy.sh` script (see the following section).
 
 #### Google
 
@@ -34,23 +34,30 @@ Deployment consists of setting up the Kubernetes cluster on a specified cloud pr
 `deploy.sh` is a one-place script that does everything for you.
 If the script successfully finishes the AIStore cluster should be accessible and ready to be used.
 
-To deploy just run `./deploy.sh --all` script and follow the instructions.
+To deploy just run `./deploy.sh all` script and follow the instructions.
 
 #### Supported arguments
 
+`./deploy.sh DEPLOY_TYPE [--flag=value ...]`
+
+There are 3 `DEPLOY_TYPE`s:
+* `all` - start nodes on specified provider, start K8s cluster and deploy AIStore on K8s nodes.
+* `ais` - only deploy AIStore on K8s nodes, assumes that K8s cluster is already deployed.
+* `dashboard` - start [K8s dashboard](https://kubernetes.io/docs/tasks/access-application-cluster/web-ui-dashboard) connected to started K8s cluster.
+
 | Flag | Description |
 | ---- | ----------- |
-| `--all` | Start nodes on specified provider, start K8s cluster and deploy AIStore on K8s nodes. |
-| `--ais` | Only deploy AIStore on K8s nodes, assumes that K8s cluster is already deployed. |
-| `--dashboard` | Start [K8s dashboard](https://kubernetes.io/docs/tasks/access-application-cluster/web-ui-dashboard) connected to started K8s cluster. |
+| `--cloud` | Cloud provider to be used (`aws`, `azure` or `gcp`) |
+| `--node-cnt` | Number of instances/nodes to be started. |
+| `--disk-cnt` | Number of disks per instance/node. |
+| `--cluster-name` | Name of the Kubernetes cluster. |
 | `--help` | Show help message. |
-
 
 #### Admin container
 
 After full deployment you should be able to list all K8s Pods:
 ```console
-$ ./deploy.sh --all
+$ ./deploy.sh all --cloud=gcp --node-cnt=2 --disk-cnt=2
 ...
 $ kubectl get pods
 NAME                   READY   STATUS    RESTARTS   AGE
@@ -91,15 +98,19 @@ Summary:
 
 ### Destroy
 
-To remove and cleanup the cluster, we have created `destroy.sh --all` script.
+To remove and cleanup the cluster, we have created `destroy.sh all` script.
 Similarly, to the deploy script, it will walk you through required steps and the cleanup automatically.
 
 #### Supported arguments
 
+`./destroy.sh DESTROY_TYPE [--flag=value ...]`
+
+There are 2 `DESTROY_TYPE`s:
+* `all` - stop AIStore Pods, and destroy started K8s nodes.
+* `ais` - only stop AIStore Pods, so the cluster can be redeployed.
+
 | Flag | Description |
 | ---- | ----------- |
-| `--all` | Stop AIStore Pods, and destroy started K8s nodes. |
-| `--ais` | Only stop AIStore Pods so the cluster can be redeployed. |
 | `--help` | Show help message. |
 
 ## Troubleshooting

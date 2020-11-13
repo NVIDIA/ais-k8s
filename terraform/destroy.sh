@@ -93,14 +93,23 @@ stop_ais() {
 }
 
 print_help() {
-  printf "%-15s\tStarts nodes on specified provider, starts K8s cluster and deploys AIStore on K8s nodes.\n" "--all"
-  printf "%-15s\tOnly deploy AIStore on K8s nodes, assumes that K8s cluster is already deployed.\n" "--ais"
+  printf "%-15s\tStarts nodes on specified provider, starts K8s cluster and deploys AIStore on K8s nodes.\n" "all"
+  printf "%-15s\tOnly deploy AIStore on K8s nodes, assumes that K8s cluster is already deployed.\n" "ais"
   printf "%-15s\tShows this help message.\n" "--help"
 }
 
 
-case $1 in
---all)
+destroy_type=$1; shift
+
+while (( "$#" )); do
+  case "$1" in
+    --help) print_help; exit 0;;
+    *) echo "fatal: unknown argument '$1'"; exit 1;;
+  esac
+done
+
+case ${destroy_type} in
+all)
   check_command terraform
   check_command kubectl
   check_command helm
@@ -115,7 +124,7 @@ case $1 in
   stop_k8s
   remove_state_file
   ;;
---ais)
+ais)
   check_command kubectl
   check_command helm
 
@@ -125,7 +134,7 @@ case $1 in
   print_help
   ;;
 *)
-  print_error "unknown argument provided"
+  print_error "invalid destroy type: '${destroy_type}' (expected 'all' or 'ais')"
   ;;
 esac
 

@@ -6,8 +6,13 @@ provider "google" {
 # Deployment specific variables.
 
 locals {
-  cluster    = "ais"
   image_type = "ubuntu"
+}
+
+variable "cluster_name" {
+  type        = string
+  default     = "ais"
+  description = "Name of the cluster"
 }
 
 variable "ais_release_name" {
@@ -72,7 +77,7 @@ variable "node_count" {
 
 # GKE cluster.
 resource "google_container_cluster" "primary" {
-  name     = local.cluster
+  name     = var.cluster_name
   location = var.zone
 
   remove_default_node_pool = true
@@ -117,7 +122,7 @@ resource "google_container_node_pool" "primary_nodes" {
     machine_type = var.machine_type # 1vCPU + 3.75GB MEM
     image_type   = local.image_type
 
-    tags     = [local.cluster]
+    tags     = [var.cluster_name]
     metadata = {
       disable-legacy-endpoints = "true"
       enable-guest-attributes  = "true"

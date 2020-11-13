@@ -1,4 +1,5 @@
 release_name="demo"
+cluster_name="ais"
 
 trap 'echo "Please wait for the script to finish or data loss may occur."' INT
 
@@ -23,23 +24,35 @@ check_command() {
 }
 
 select_provider() {
-  printf "Select cloud provider (aws, azure, gcp): "
-  read -r cloud_provider
+  if [[ -z ${cloud_provider} ]]; then
+    printf "Select cloud provider (aws, azure, gcp): "
+    read -r cloud_provider
+  fi
   if ! [[ ${cloud_provider} =~ ^(aws|azure|gcp)$ ]]; then
-    print_error "invalid provider specified"
+    print_error "invalid provider specified: '${cloud_provider}' (expected one of: [aws, azure, gcp])"
   fi
 }
 
 select_node_count() {
-  printf "Enter number of nodes: "
-  read -r node_cnt
+  if [[ -z ${node_cnt} ]]; then
+    printf "Enter number of nodes: "
+    read -r node_cnt
+  fi
   check_number "${node_cnt}"
 }
 
 select_disk_count() {
-  printf "Enter number of disk for each target: "
-  read -r disk_cnt
+  if [[ -z ${disk_cnt} ]]; then
+    printf "Enter number of disk for each target: "
+    read -r disk_cnt
+  fi
   check_number "${disk_cnt}"
+}
+
+validate_cluster_name() {
+  if [[ -z ${cluster_name} ]]; then
+    print_error "cluster name cannot be empty"
+  fi
 }
 
 remove_nodes_labels() {
