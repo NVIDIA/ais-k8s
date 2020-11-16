@@ -47,7 +47,7 @@ There are 3 `DEPLOY_TYPE`s:
 
 | Flag | Description |
 | ---- | ----------- |
-| `--cloud` | Cloud provider to be used (`aws`, `azure` or `gcp`) |
+| `--cloud` | Cloud provider to be used (`aws`, `azure` or `gcp`). |
 | `--node-cnt` | Number of instances/nodes to be started. |
 | `--disk-cnt` | Number of disks per instance/node. |
 | `--cluster-name` | Name of the Kubernetes cluster. |

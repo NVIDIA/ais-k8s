@@ -136,11 +136,20 @@ deploy_type=$1; shift
 
 while (( "$#" )); do
   case "$1" in
-    --cloud|--cloud=) cloud_provider=$2; shift; shift;;
-    --node-cnt|--node-cnt=) node_cnt=$2; shift; shift;;
-    --disk-cnt|--disk-cnt=) disk_cnt=$2; shift; shift;;
-    --cluster-name|--cluster-name=) cluster_name=$2; shift; shift;;
+    --cloud) cloud_provider=$2; shift; shift;;
+    --cloud=*) cloud_provider="${1#*=}"; shift;;
+
+    --node-cnt) node_cnt=$2; shift; shift;;
+    --node-cnt=*) node_cnt="${1#*=}"; shift;;
+
+    --disk-cnt) disk_cnt=$2; shift; shift;;
+    --disk-cnt=*) disk_cnt="${1#*=}"; shift;;
+
+    --cluster-name) cluster_name=$2; shift; shift;;
+    --cluster-name=*) cluster_name="${1#*=}"; shift;;
+
     --help) print_help; exit 0;;
+
     *) echo "fatal: unknown argument '$1'"; exit 1;;
   esac
 done

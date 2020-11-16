@@ -10,10 +10,10 @@ print_error() {
 
 check_number() {
   if ! [[ "$1" =~ ^[0-9]+$ ]] ; then
-    print_error "'$1' is not a number"
+    print_error "$2 '$1' is not a number"
   fi
   if (( $1 <= 0 )); then
-    print_error "'$1' should be greater than 0"
+    print_error "$2 '$1' should be greater than 0"
   fi
 }
 
@@ -38,7 +38,7 @@ select_node_count() {
     printf "Enter number of nodes: "
     read -r node_cnt
   fi
-  check_number "${node_cnt}"
+  check_number "${node_cnt}" "node count value"
 }
 
 select_disk_count() {
@@ -46,7 +46,7 @@ select_disk_count() {
     printf "Enter number of disk for each target: "
     read -r disk_cnt
   fi
-  check_number "${disk_cnt}"
+  check_number "${disk_cnt}" "disk count value"
 }
 
 validate_cluster_name() {
