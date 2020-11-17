@@ -70,7 +70,6 @@ stop_ais() {
     unset_state_var "VOLUMES_DEPLOYED"
   fi
 
-
   if [[ ${cloud_provider} == "gcp" ]]; then
     if [[ ${#disks} -ne 0 ]]; then
       for ((i=0; i < 10; i++)); do
@@ -84,7 +83,7 @@ stop_ais() {
       done
 
       # If zone don't match with the cluster's zone then a disk won't be deleted.
-      printf "y\n" | gcloud compute disks delete $disks --zone "$(terraform output zone)" 1>/dev/null
+      printf "y\n" | gcloud compute disks delete $disks --zone "$(terraform output zone)" 1>/dev/null || true
     fi
   fi
 
