@@ -10,7 +10,7 @@ deploy_ais() {
   cloud_provider=$(get_state_var "CLOUD_PROVIDER")
 
   pushd k8s/ 1>/dev/null
-  echo "Initializing persistent storage for AIS"
+  echo "💾 Initializing persistent storage for AIS"
   terraform init -input=false "${cloud_provider}" 1>/dev/null
   terraform apply -input=false -auto-approve "${cloud_provider}"
   popd 1>/dev/null
@@ -36,6 +36,12 @@ deploy_ais() {
   external_ip=$(terraform output external_ip)
   pushd ../helm/ais 1>/dev/null
 
+  helm_args="--set tags.builtin_monitoring=false,tags.prometheus=false,aiscluster.expected_target_nodes=$(kubectl get nodes --no-headers | wc -l | xargs),aiscluster.skipHostIP=true,admin.enabled=true"
+  if [[ -n ${wait_timeout} ]]; then
+    helm_args="${helm_args} --timeout ${wait_timeout} --wait"
+    echo "⏳ Waiting for the AIStore to fully start, it may take couple minutes"
+  fi
+
   AIS_NAME="${release_name}" \
     AIS_GATEWAY_EXTERNAL_IP="${external_ip}" \
     AIS_K8S_CLUSTER_CIDR="10.64.0.0/14" \
@@ -43,7 +49,7 @@ deploy_ais() {
     KUBECTL_IMAGE="gmaltby/ais-kubectl:1" \
     EXTERNAL_VOLUMES_COUNT="$(get_state_var "DISK_CNT")" \
     STATS_NODENAME="${primary_node}" \
-    HELM_ARGS="--set tags.builtin_monitoring=false,tags.prometheus=false,aiscluster.expected_target_nodes=$(kubectl get nodes --no-headers | wc -l | xargs),aiscluster.skipHostIP=true,admin.enabled=true" \
+    HELM_ARGS="${helm_args}" \
     ./run_ais_sample.sh 1>/dev/null
 
   popd 1>/dev/null
@@ -136,17 +142,20 @@ deploy_type=$1; shift
 
 while (( "$#" )); do
   case "$1" in
-    --cloud) cloud_provider=$2; shift; shift;;
+    --cloud)   cloud_provider=$2; shift; shift;;
     --cloud=*) cloud_provider="${1#*=}"; shift;;
 
-    --node-cnt) node_cnt=$2; shift; shift;;
+    --node-cnt)   node_cnt=$2; shift; shift;;
     --node-cnt=*) node_cnt="${1#*=}"; shift;;
 
-    --disk-cnt) disk_cnt=$2; shift; shift;;
+    --disk-cnt)   disk_cnt=$2; shift; shift;;
     --disk-cnt=*) disk_cnt="${1#*=}"; shift;;
 
-    --cluster-name) cluster_name=$2; shift; shift;;
+    --cluster-name)   cluster_name=$2; shift; shift;;
     --cluster-name=*) cluster_name="${1#*=}"; shift;;
+
+    --wait)   wait_timeout=$2; shift; shift;;
+    --wait=*) wait_timeout="${1#*=}"; shift;;
 
     --help) print_help; exit 0;;
 
