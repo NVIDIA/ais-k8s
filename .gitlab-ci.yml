@@ -25,6 +25,7 @@ test:terraform:gcp:
     - ./deploy.sh all --cluster-name="ais-ci-$(cat /dev/urandom | tr -dc 'a-z0-9' | fold -w 5 | head -n 1)" --cloud=gcp --node-cnt=3 --disk-cnt=2 --wait=10m
     - kubectl get pods
     - kubectl exec $(kubectl get pods --namespace default -l "component=admin" -o jsonpath="{.items[0].metadata.name}") -- ais show cluster
+    - kubectl exec $(kubectl get pods --namespace default -l "component=admin" -o jsonpath="{.items[0].metadata.name}") -- bash -c "apt-get -y update && apt-get install -y build-essential && curl -LO https://storage.googleapis.com/golang/go1.15.linux-amd64.tar.gz && tar -C /usr/local -xvzf go1.15.linux-amd64.tar.gz > /dev/null 2>&1 && rm -rf go1.15.linux-amd64.tar.gz && git clone https://github.com/NVIDIA/aistore.git && cd aistore/cmd/cli/test && /usr/local/go/bin/go test -v ."
   after_script:
     - cd terraform
     - ./destroy.sh all
