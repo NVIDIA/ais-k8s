@@ -111,6 +111,7 @@ There are 2 `DESTROY_TYPE`s:
 
 | Flag | Description |
 | ---- | ----------- |
+| `--preserve-disks` | Do not remove persistent volumes - data on targets. It will be available on the next deployment. Not supported with `all` |
 | `--help` | Show help message. |
 
 ## Troubleshooting

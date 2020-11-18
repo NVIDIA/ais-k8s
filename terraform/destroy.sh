@@ -60,8 +60,11 @@ stop_ais() {
   fi
 
   helm uninstall demo || true
-  kubectl delete pvc --all # TODO: We should reuse them on restart.
-  kubectl delete pv --all
+
+  if [[ $preserve_disks = false ]]; then
+    kubectl delete pvc --all
+    kubectl delete pv --all
+  fi
 
   if [[ -n $(get_state_var "VOLUMES_DEPLOYED") ]]; then
     pushd k8s/ 1>/dev/null
@@ -70,7 +73,8 @@ stop_ais() {
     unset_state_var "VOLUMES_DEPLOYED"
   fi
 
-  if [[ ${cloud_provider} == "gcp" ]]; then
+  # Do not remove PV and PVC is preserve_disks, they will be used with the next deployment.
+  if [[ $preserve_disks = false ]] && [[ ${cloud_provider} == "gcp" ]]; then
     if [[ ${#disks} -ne 0 ]]; then
       for ((i=0; i < 10; i++)); do
         current_disks=$(get_disks)
@@ -87,6 +91,7 @@ stop_ais() {
     fi
   fi
 
+
   remove_nodes_labels
   unset_state_var "AIS_DEPLOYED"
 }
@@ -97,11 +102,12 @@ print_help() {
   printf "%-15s\tShows this help message.\n" "--help"
 }
 
-
 destroy_type=$1; shift
+preserve_disks=false
 
 while (( "$#" )); do
   case "$1" in
+    --preserve-disks) preserve_disks=true; shift;;
     --help) print_help; exit 0;;
     *) echo "fatal: unknown argument '$1'"; exit 1;;
   esac
@@ -109,6 +115,11 @@ done
 
 case ${destroy_type} in
 all)
+  if [[ $preserve_disks = true ]]; then
+    echo "❌  Preserving disks not supported when removing the whole Kubernetes cluster"
+    exit 1
+  fi
+
   check_command terraform
   check_command kubectl
   check_command helm
@@ -124,6 +135,9 @@ all)
   remove_state_file
   ;;
 ais)
+  if [[ $preserve_disks = true ]]; then
+    echo "⚠️  Created persistent disks will not be removed. This may create additional storage costs."
+  fi
   check_command kubectl
   check_command helm
 

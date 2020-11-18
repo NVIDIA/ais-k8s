@@ -11,7 +11,7 @@ resource "kubernetes_storage_class" "ais-storage-class" {
   }
 
   storage_provisioner = "kubernetes.io/gce-pd"
-  reclaim_policy      = "Delete" # TODO: use Retain in the future?
+  reclaim_policy      = "Retain"
 
   parameters = {
     type = "pd-standard"
