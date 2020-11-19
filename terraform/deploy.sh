@@ -176,7 +176,7 @@ all)
   check_command helm
 
   if [[ -f ${state_file} ]]; then
-    print_error "state file exists, please run 'destroy.sh --all' or remove it manually: 'rm -f ${state_file}'"
+    print_error "state file exists, please run 'destroy.sh all' or remove it manually: 'rm -f ${state_file}'"
   fi
 
   select_provider
