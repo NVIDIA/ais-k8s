@@ -1,25 +1,25 @@
-## Start AIStore cluster on the cloud
+# AIStore Cloud Deployment with Terraform
 
-This directory contains Terraform files and scripts that allow deploying AIStore cluster on the Kubernetes in the cloud.
-These main script `deploy.sh` will walk you through required steps to set up the AIStore cluster.
+The AIStore project aims to be easy to deploy on the most common cloud platforms.
+Terraform is the project's tool of choice to easily automate deployments on a wide range of substrates.
 
-Note that in this tutorial we expect that you have `terraform`, `kubectl` and `helm` commands installed.
-The Terraform is used to deploy the Kubernetes on specified cloud provider and `kubectl`/`helm` are used for deploying the AIStore.
+This directory contains Terraform definitions and scripts that enable deploying AIStore clusters on Kubernetes in the cloud.
+Terraform is used to deploy Kubernetes on a specified cloud provider, then `kubectl` and `helm` are used to deploy AIStore on Kubernetes.
+The main script (`deploy.sh`) will walk you through required steps to set up the AIStore cluster.
 
-### Cloud providers
+If you have an existing Kubernetes cluster, regardless of a cluster provider, you can deploy AIStore
+to that running cluster [using arguments](#supported-arguments) on the deploy script.
 
-The cluster will be deployed on one of the supported cloud providers.
-Below you can check which cloud providers are supported and what is required to use them.
+Pre-requisites:
+
+* A cloud account (GCP is given as an example).
+* Terraform, kubectl, and helm client [commands line tools](#appendix-client-workstation-prep).
+
+### Supported Cloud Providers
 
 | Provider | ID | Required Commands |
 | -------- | --- | ----------------- |
 | Google (GCP, GKE) | `gcp` | `gcloud` |
-
-When using `deploy.sh` script you will be asked to specify cloud provider ID.
-Internally, the script will use the required commands - be sure you have them installed beforehand!
-
-> If you already have a running Kubernetes cluster, regardless of a cluster provider,
-> you can use `ais` argument to `./deploy.sh` script (see the following section).
 
 #### Google
 
@@ -30,13 +30,20 @@ In `gcp/main.tf` file you can find a couple of variables that can be adjusted to
 
 ### Deploy
 
-Deployment consists of setting up the Kubernetes cluster on a specified cloud provider and deploying AIStore on the Kubernetes nodes.
-`deploy.sh` is a one-place script that does everything for you.
-If the script successfully finishes the AIStore cluster should be accessible and ready to be used.
+To deploy a new Kubernetes + AIStore cluster, run the `./deploy.sh all` script and follow the instructions.
+When the script successfully finishes, the AIStore cluster should be accessible and ready to use.
 
-To deploy just run `./deploy.sh all` script and follow the instructions.
+```console
+./deploy.sh all
+```
 
-#### Supported arguments
+Alternatively, deploy AIStore to an existing Kubernetes cluster as follows:
+
+```console
+./deploy.sh ais
+```
+
+#### Supported Arguments
 
 `./deploy.sh DEPLOY_TYPE [--flag=value ...]`
 
@@ -138,4 +145,47 @@ Running the cluster on a free account can easily exceed available resources (for
 What you can do:
 * Try to run the cluster with lower number of nodes (something between 2-4).
 * Try to run the cluster with lower number of disks per node (something between 1-3).
-* Try to increase the quote on [GCP Console](https://console.cloud.google.com/iam-admin/quotas).
+* Try to increase the quota on [GCP Console](https://console.cloud.google.com/iam-admin/quotas).
+
+## Appendix: Client Workstation Prep
+
+### For Ubuntu 20.04 and later:
+
+#### Install Google Cloud Command Line Tool
+
+```console
+sudo snap install google-cloud-sdk --classic
+gcloud init
+```
+
+*Reference: https://cloud.google.com/sdk/docs/downloads-snap*
+
+#### Install Local Command Line Tools for Kubernetes, Docker, et al.
+
+```console
+sudo snap install docker
+sudo snap install kubectl --classic
+sudo snap install helm --classic
+```
+
+*References:*
+* `docker`
+  * https://snapcraft.io/docker
+  * https://helm.sh/docs/intro/install/
+* `kubectl`
+  * https://snapcraft.io/kubectl
+  * https://kubernetes.io/docs/tasks/tools/install-kubectl/
+* `helm`
+  * https://snapcraft.io/helm
+  * https://docs.docker.com/get-docker/
+
+#### Install Local Terraform Command Line Tool
+
+```console
+curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo apt-key add -
+sudo apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main"
+sudo apt update
+sudo apt install terraform
+```
+
+*Reference:  https://learn.hashicorp.com/tutorials/terraform/install-cli*
