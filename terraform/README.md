@@ -154,38 +154,85 @@ What you can do:
 #### Install Google Cloud Command Line Tool
 
 ```console
-sudo snap install google-cloud-sdk --classic
-gcloud init
+$ sudo snap install google-cloud-sdk --classic
+$ gcloud init
 ```
 
-*Reference: https://cloud.google.com/sdk/docs/downloads-snap*
+*Reference:*
+* `gcloud`
+  * https://cloud.google.com/sdk/docs/downloads-snap
 
 #### Install Local Command Line Tools for Kubernetes, Docker, et al.
 
 ```console
-sudo snap install docker
-sudo snap install kubectl --classic
-sudo snap install helm --classic
+$ sudo snap install docker
+$ sudo snap install kubectl --classic
+$ sudo snap install helm --classic
 ```
 
 *References:*
 * `docker`
-  * https://snapcraft.io/docker
-  * https://helm.sh/docs/intro/install/
-* `kubectl`
-  * https://snapcraft.io/kubectl
-  * https://kubernetes.io/docs/tasks/tools/install-kubectl/
-* `helm`
-  * https://snapcraft.io/helm
   * https://docs.docker.com/get-docker/
+  * https://snapcraft.io/docker
+
+* `kubectl`
+  * https://kubernetes.io/docs/tasks/tools/install-kubectl/
+  * https://snapcraft.io/kubectl
+* `helm`
+  * https://helm.sh/docs/intro/install/
+  * https://snapcraft.io/helm
 
 #### Install Local Terraform Command Line Tool
 
 ```console
-curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo apt-key add -
-sudo apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main"
-sudo apt update
-sudo apt install terraform
+$ curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo apt-key add -
+$ sudo apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main"
+$ sudo apt update
+$ sudo apt install terraform
 ```
 
-*Reference:  https://learn.hashicorp.com/tutorials/terraform/install-cli*
+*Reference:*
+* `terraform`
+  * https://learn.hashicorp.com/tutorials/terraform/install-cli
+
+### For Mac OS:
+
+#### Install Google Cloud Command Line Tool
+
+```console
+$ brew cask install google-cloud-sdk
+$ gcloud init
+```
+
+*Reference:*
+* `gcloud`
+  * https://cloud.google.com/sdk/docs/install#mac
+
+#### Install Local Command Line Tools for Kubernetes, Docker, et al.
+
+```console
+$ # For Docker we recommend using 'Docker for Mac' (https://docs.docker.com/docker-for-mac/install/)
+$ brew install kubectl
+$ brew install helm
+```
+
+*References:*
+* `docker`
+  * https://docs.docker.com/docker-for-mac/install/
+  * https://docs.docker.com/get-docker/
+* `kubectl`
+  * https://kubernetes.io/docs/tasks/tools/install-kubectl/
+* `helm`
+  * https://helm.sh/docs/intro/install/
+  * https://formulae.brew.sh/formula/helm
+
+#### Install Local Terraform Command Line Tool
+
+```console
+$ brew install terraform
+```
+
+*Reference:*
+* `terraform`
+  * https://learn.hashicorp.com/tutorials/terraform/install-cli
+  * https://formulae.brew.sh/formula/terraform
