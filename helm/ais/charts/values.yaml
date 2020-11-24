@@ -333,13 +333,13 @@ ais_config_common:
     dont_run_time:   0m
     dest_retry_time: 2m
     quiescent:       20s
-    multiplier:      4
+    multiplier:      2
   timeout:
-    max_keepalive:        4s
     cplane_operation:     2s
-    send_file_time:       5m
+    max_keepalive:        4s
+    max_host_busy:        20s
     startup_time:         1m
-    max_host_busy:        1m
+    send_file_time:       5m
   versioning:
     enabled:           true
     validate_warm_get: false
