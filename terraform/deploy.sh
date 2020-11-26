@@ -5,6 +5,11 @@ set -eo pipefail
 source utils.sh
 
 deploy_ais() {
+  node_cnt=$(kubectl get nodes --no-headers | wc -l | xargs)
+  if [[ ${node_cnt} -le 0 ]]; then
+    print_error "kubectl does not have any nodes assigned, try 'deploy.sh all'"
+  fi
+
   echo "🔥 Deploying AIStore on the cluster"
 
   cloud_provider=$(get_state_var "CLOUD_PROVIDER")
@@ -36,7 +41,7 @@ deploy_ais() {
   external_ip=$(terraform output external_ip)
   pushd ../helm/ais 1>/dev/null
 
-  helm_args="--set tags.builtin_monitoring=false,tags.prometheus=false,aiscluster.expected_target_nodes=$(kubectl get nodes --no-headers | wc -l | xargs),aiscluster.skipHostIP=true,admin.enabled=true"
+  helm_args="--set tags.builtin_monitoring=false,tags.prometheus=false,aiscluster.expected_target_nodes=${node_cnt},aiscluster.skipHostIP=true,admin.enabled=true"
   if [[ -n ${wait_timeout} ]]; then
     helm_args="${helm_args} --timeout ${wait_timeout} --wait"
     echo "⏳ Waiting for the AIStore to fully start, it may take couple minutes..."
