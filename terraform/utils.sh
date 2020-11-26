@@ -64,7 +64,12 @@ remove_nodes_labels() {
     1>/dev/null
 }
 
-state_file="$(cd "$(dirname "$0")" && pwd)/.deploy.state"
+state_dir="$(cd "$(dirname "$0")" && pwd)/.state"
+state_file="$state_dir/deploy"
+
+init_state_dir() {
+  mkdir -p $state_dir
+}
 
 get_state_var() {
   cat "${state_file}" 2>/dev/null | grep -w "$1" | cut -d'=' -f2

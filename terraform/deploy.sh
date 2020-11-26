@@ -3,6 +3,7 @@
 set -eo pipefail
 
 source utils.sh
+source volumes.sh
 
 deploy_ais() {
   node_cnt=$(kubectl get nodes --no-headers | wc -l | xargs)
@@ -14,11 +15,15 @@ deploy_ais() {
 
   cloud_provider=$(get_state_var "CLOUD_PROVIDER")
 
-  pushd k8s/ 1>/dev/null
   echo "💾 Initializing persistent storage for AIS"
+  pushd k8s/ 1>/dev/null
   terraform init -input=false "${cloud_provider}" 1>/dev/null
   terraform apply -input=false -auto-approve "${cloud_provider}"
   popd 1>/dev/null
+
+  restore_persisted_volumes
+  # Remove already used yamls.
+  clear_persisted_volumes
 
   set_state_var "VOLUMES_DEPLOYED" "true"
 
@@ -148,7 +153,7 @@ print_help() {
   printf "%-15s\t\t\tShows this help message.\n" "--help"
 }
 
-
+init_state_dir
 deploy_type=$1; shift
 
 while (( "$#" )); do

@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: $PV_NAME
+spec:
+  accessModes:
+    - ReadWriteOnce
+  capacity:
+    storage: 50Gi
+  claimRef:
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    name: $PVC_NAME
+    namespace: default
+  gcePersistentDisk:
+    fsType: xfs
+    pdName: $PD_NAME
+  storageClassName: ais

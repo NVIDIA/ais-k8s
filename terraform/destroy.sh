@@ -3,6 +3,7 @@
 set -e
 
 source utils.sh
+source volumes.sh
 
 stop_k8s() {
   echo -e "☠️  Destroying..."
@@ -20,6 +21,15 @@ stop_k8s() {
 
     terraform_args=(-var "node_count=${node_cnt}" -var "ais_release_name=${release_name}")
   elif [[ ${cloud_provider} == "gcp" ]]; then
+    if [[ $preserve_disks = true ]]; then
+      echo "💾 Saving locally persistent storage metadata for future use"
+      locally_persist_volumes
+
+      # Remove leftovers, they will be recreated based on just created yamls.
+      kubectl delete pvc --all
+      kubectl delete pv --all
+    fi
+
     check_command gcloud
 
     project_id=$(get_state_var "GKE_PROJECT_ID")
@@ -38,6 +48,10 @@ stop_k8s() {
   context="$(kubectl config get-contexts | grep 'ais' | awk '{print $2}')"
   if [[ -n ${context} ]]; then
     kubectl config unset "contexts.${context}"
+  fi
+
+  if [[ $preserve_disks = true ]]; then
+    echo "❗ Kubernetes cluster was destroyed, but persistent volumes were not. If you no longer want to use them, remove $pv_dir and $pvc_dir directories."
   fi
 }
 
@@ -68,6 +82,9 @@ stop_ais() {
   if [[ $preserve_disks = false ]]; then
     kubectl delete pvc --all
     kubectl delete pv --all
+
+    # Make sure that there are no leftovers.
+    clear_persisted_volumes
   fi
 
   if [[ -n $(get_state_var "VOLUMES_DEPLOYED") ]]; then
@@ -95,7 +112,6 @@ stop_ais() {
     fi
   fi
 
-
   remove_nodes_labels
   unset_state_var "AIS_DEPLOYED"
 }
@@ -117,13 +133,12 @@ while (( "$#" )); do
   esac
 done
 
+if [[ $preserve_disks = true ]]; then
+  echo "⚠️ Created persistent disks will not be removed. This may create additional storage costs."
+fi
+
 case ${destroy_type} in
 all)
-  if [[ $preserve_disks = true ]]; then
-    echo "❌  Preserving disks not supported when removing the whole Kubernetes cluster"
-    exit 1
-  fi
-
   check_command terraform
   check_command kubectl
   check_command helm
@@ -139,9 +154,6 @@ all)
   remove_state_file
   ;;
 ais)
-  if [[ $preserve_disks = true ]]; then
-    echo "⚠️  Created persistent disks will not be removed. This may create additional storage costs."
-  fi
   check_command kubectl
   check_command helm
 

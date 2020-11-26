@@ -1,0 +1,40 @@
+#!/bin/bash
+
+source utils.sh
+
+pv_dir="$state_dir/pv"
+pvc_dir="$state_dir/pvc"
+
+locally_persist_volumes() {
+  cloud_provider=$(get_state_var "CLOUD_PROVIDER")
+  if [[ $cloud_provider != "gcp" ]] ; then
+    print_error "unsupported provider"
+  fi
+
+  rm -rf $pv_dir
+  rm -rf $pvc_dir
+
+  mkdir -p $pv_dir
+  mkdir -p $pvc_dir
+
+  for pvc in $(kubectl get pvc -o name); do
+    export PV_NAME=$(kubectl get $pvc -o jsonpath="{.spec.volumeName}")
+    export PVC_NAME=$(kubectl get $pvc -o jsonpath="{.metadata.name}")
+    export PD_NAME=$(kubectl get pv $PV_NAME -o jsonpath="{.spec.gcePersistentDisk.pdName}")
+
+    envsubst < "k8s/${cloud_provider}/templates/pv.yaml" > "${pv_dir}/${PV_NAME}.yaml"
+    envsubst < "k8s/${cloud_provider}/templates/pvc.yaml" > "${pvc_dir}/${PVC_NAME}.yaml"
+  done
+}
+
+restore_persisted_volumes() {
+  # Recreate previous PVs.
+  find $pv_dir -type f -name "*.yaml" -exec kubectl apply -f {} ";"
+  # Only then recreate PVCs.
+  find $pvc_dir -type f -name "*.yaml" -exec kubectl apply -f {} ";"
+}
+
+clear_persisted_volumes() {
+  find $pv_dir -type f -name "*.yaml" -exec rm {} ";"
+  find $pvc_dir -type f -name "*.yaml" -exec rm {} ";"
+}
