@@ -61,8 +61,7 @@ stop_ais() {
 
   # Manually remove ETL Pods and Services (if exist).
   # TODO: Eventually we should make this automatic (probably handled by `helm`).
-  kubectl delete pods -l nvidia.com/ais-etl-target
-  kubectl delete svc -l nvidia.com/ais-etl-svc
+  kubectl delete pods,services -l nvidia.com/ais-etl-name
 
   helm uninstall demo || true
 
