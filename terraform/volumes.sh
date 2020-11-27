@@ -29,9 +29,9 @@ locally_persist_volumes() {
 
 restore_persisted_volumes() {
   # Recreate previous PVs.
-  test -d $pv_dir && find $pv_dir -type f -name "*.yaml" -exec kubectl apply -f {} ";"
+  (test -d $pv_dir && find $pv_dir -type f -name "*.yaml" -exec kubectl apply -f {} ";") || true
   # Only then recreate PVCs.
-  test -d $pvc_dir && find $pvc_dir -type f -name "*.yaml" -exec kubectl apply -f {} ";"
+  (test -d $pvc_dir && find $pvc_dir -type f -name "*.yaml" -exec kubectl apply -f {} ";") || true
 }
 
 clear_persisted_volumes() {
