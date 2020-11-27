@@ -15,35 +15,35 @@ Pre-requisites:
 * A cloud account (GCP is given as an example).
 * Terraform, kubectl, and helm client [commands line tools](#appendix-client-workstation-prep).
 
-### Supported Cloud Providers
+## Supported Cloud Providers
 
 | Provider | ID | Required Commands |
 | -------- | --- | ----------------- |
 | Google (GCP, GKE) | `gcp` | `gcloud` |
 
-#### Google
+### Google
 
 In `gcp/main.tf` file you can find a couple of variables that can be adjusted to your preferences:
 * `zone` - zone in which the cluster will be deployed (for now it's only possible to deploy cluster on a single zone; using [regional cluster](https://cloud.google.com/kubernetes-engine/docs/concepts/types-of-clusters#regional_clusters) is not yet supported).
 * `machine_type` - machine type which will be used as GKE nodes (see [full list](https://cloud.google.com/compute/docs/machine-types)).
 * `machine_preemptible` - determines if the machine is preemptible (more info [here](https://cloud.google.com/compute/docs/instances/preemptible)).
 
-### Deploy
+## Deploy
 
 To deploy a new Kubernetes + AIStore cluster, run the `./deploy.sh all` script and follow the instructions.
 When the script successfully finishes, the AIStore cluster should be accessible and ready to use.
 
 ```console
-./deploy.sh all
+$ ./deploy.sh all
 ```
 
 Alternatively, deploy AIStore to an existing Kubernetes cluster as follows:
 
 ```console
-./deploy.sh ais
+$ ./deploy.sh ais
 ```
 
-#### Supported Arguments
+### Supported Arguments
 
 `./deploy.sh DEPLOY_TYPE [--flag=value ...]`
 
@@ -58,13 +58,14 @@ There are 3 `DEPLOY_TYPE`s:
 | `--node-cnt` | Number of instances/nodes to be started. |
 | `--disk-cnt` | Number of disks per instance/node. |
 | `--cluster-name` | Name of the Kubernetes cluster. |
+| `--wait` | Waits for all the Pods to be ready. |
 | `--help` | Show help message. |
 
-#### Admin container
+### Admin container
 
 After full deployment you should be able to list all K8s Pods:
 ```console
-$ ./deploy.sh all --cloud=gcp --node-cnt=2 --disk-cnt=2
+$ ./deploy.sh all --cloud=gcp --node-cnt=2 --disk-cnt=2 --wait
 ...
 $ kubectl get pods
 NAME                   READY   STATUS    RESTARTS   AGE
@@ -93,8 +94,8 @@ rOFMYYks	 0.79		 3.60GiB	 0.00		 49m	 healthy
 zloxzvzK[P]	 0.82		 3.60GiB	 0.00		 50m	 healthy
 
 TARGET		 MEM USED %	 MEM AVAIL	 CAP USED %	 CAP AVAIL	 CPU USED %	 REBALANCE		 UPTIME	 STATUS
-BEtMbslT	 0.83		 3.60GiB	 0		 99.789GiB	 0.00		 finished; 0 moved (0B)	 49m	 healthy
-MbXeFcFw	 0.84		 3.60GiB	 0		 99.789GiB	 0.00		 finished; 0 moved (0B)	 48m	 healthy
+BEtMbslT	 0.83		 3.60GiB	 0		 99.789GiB	 0.00		 finished, 0 moved (0B)	 49m	 healthy
+MbXeFcFw	 0.84		 3.60GiB	 0		 99.789GiB	 0.00		 finished, 0 moved (0B)	 48m	 healthy
 
 Summary:
  Proxies:	2 (0 - unelectable)
@@ -103,12 +104,12 @@ Summary:
  Smap Version:	8
 ```
 
-### Destroy
+## Destroy
 
-To remove and cleanup the cluster, we have created `destroy.sh all` script.
-Similarly, to the deploy script, it will walk you through required steps and the cleanup automatically.
+To remove and clean up the cluster, we have created `destroy.sh` script.
+Similarly to the deploy script, it will walk you through the required steps to clean up the cluster.
 
-#### Supported arguments
+### Supported arguments
 
 `./destroy.sh DESTROY_TYPE [--flag=value ...]`
 
@@ -118,12 +119,14 @@ There are 2 `DESTROY_TYPE`s:
 
 | Flag | Description |
 | ---- | ----------- |
-| `--preserve-disks` | Do not remove persistent volumes - data on targets. It will be available on the next deployment. Not supported with `all` |
+| `--preserve-disks` | Do not remove persistent volumes - data on targets. It will be available on the next deployment. Not supported with `all`. |
 | `--help` | Show help message. |
 
 ## Troubleshooting
 
 ### Google
+
+#### Insufficient permissions
 
 > googleapi: Error 403: Required '...' permission(s) for '...', forbidden
 
@@ -136,6 +139,8 @@ What you can do:
     ```
 * Make sure `GOOGLE_APPLICATION_CREDENTIALS` is not set to credentials for other project/account.
 * Make sure you have right permissions set for your account in [Google Console](https://console.cloud.google.com).
+
+#### Insufficient quota
 
 > googleapi: Error 403: Insufficient regional quota to satisfy request ...
 
@@ -174,7 +179,6 @@ $ sudo snap install helm --classic
 * `docker`
   * https://docs.docker.com/get-docker/
   * https://snapcraft.io/docker
-
 * `kubectl`
   * https://kubernetes.io/docs/tasks/tools/install-kubectl/
   * https://snapcraft.io/kubectl
