@@ -46,7 +46,7 @@ The following table lists the configurable parameters of the Graphite chart and 
 | `persistence.existingClaim`    | Name of an existing PVC to use for config    | `nil`                                  |
 | `persistence.accessMode`       | PVC Access Mode for config volume            | `ReadWriteOnce`                        |
 | `persistence.size`             | PVC Storage Request for config volume        | `10Gi`                                 |
-| `resources`                    | Resource limits for Graphite pod             | `{}`                                   |
+| `resources`                    | Resource limits for Graphite Pod             | `{}`                                   |
 | `ingress.enabled`              | Ingress enabled                              | `false`                                |
 | `ingress.annotations`          | Ingress annotations                          | `{}`                                   |
 | `ingress.path`                 | Ingress path                                 | `/`                                    |

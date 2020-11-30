@@ -1,6 +1,6 @@
-# AIS k8s Playbooks
+# AIS K8s Playbooks
 
-A small set of convenience playbooks to assist in preparing k8s worker nodes to
+A small set of convenience playbooks to assist in preparing K8s worker nodes to
 host an AIStore deployment. None of these are required -we use all of them in our
 reference environment, but you're free to make filesystem as you wish, tune nodes
 as you wish etc in which case either ignore these or use them as a reference.
@@ -31,7 +31,7 @@ We run playbooks in the following order wrt other steps:
 1. Hosts are installed with Ubuntu 18.04 LTS; ssh, ansible etc bootstrapped.
 1. To enable MQ IO scheduler we run playbook `ais_enable_multiqueue` and reboot.
 1. Next we run `ais_host_config_common` on all nodes (cpu and any gpu nodes).
-1. Kubespray time - establish k8s cluster
+1. Kubespray time - establish K8s cluster
 1. If we're install gpu worker nodes, playbook `ais_gpuhost_config`
 1. Since we use sysctl somaxconn in containers we need to change `kubelet.env` and playbook `ais_host_post_kubespray` does this for us.
 1. Make filesystems with `ais_datafs_mkfs`

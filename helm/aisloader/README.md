@@ -23,22 +23,22 @@ The chart deploys an aisloader benchmark execution framework that will respond
 to configuration updates and initiate benchmark runs as requested. The expectation
 is that the framework is installed and left to run long-term, with benchmarks
 triggered on request as described below. In our reference configuration, this
-framework runs within the same k8s as AIStore and executes on nodes that are not
+framework runs within the same K8s as AIStore and executes on nodes that are not
 hosting the AIStore cluster itself; when we perform a rolling update on the
 AIStore cluster we can trigger benchmark runs against it by updating the
 configuration of this aisloader deployment.
 
 You will need to edit/override the following from `values.yaml` before deployment:
-- `image.*` to point to the `aisloader` [container image](https://github.com/NVIDIA/aistore/tree/master/deploy/prod/k8s/helm/aisloader_stress/build_docker); if a pull secret is required then provide the secret name and manually pre-populate the secret in the intended k8s namespace
-- `ais_release` and `ais_namespace` to nominate the AIStore instance name in this k8s cluster to target; e.g. if you performed `helm install` of AIStore with named `e10` and namespace `ais` quote those
+- `image.*` to point to the `aisloader` [container image](https://github.com/NVIDIA/aistore/tree/master/deploy/prod/k8s/helm/aisloader_stress/build_docker); if a pull secret is required then provide the secret name and manually pre-populate the secret in the intended K8s namespace
+- `ais_release` and `ais_namespace` to nominate the AIStore instance name in this K8s cluster to target; e.g. if you performed `helm install` of AIStore with named `e10` and namespace `ais` quote those
 - `controller.results_pvc` - leave empty for EmptyDir semantics, otherwise provide an existing PVC we can use for storing results of all runs requested over time
 - `controller.runid` - defaults to `nil` meaning "await instructions via config update", and the recommended way to deploy is with value `nil` and then update config on demand
 
 The chart deploys a DaemonSet with node selection controlled by node label
-`aisloader=<AIStore release to target>`. All daemon pods so created register
-with the controller pod to form a pool of eligible workers, waiting to run a
+`aisloader=<AIStore release to target>`. All daemon Pods so created register
+with the controller Pod to form a pool of eligible workers, waiting to run a
 multinode benchmark when requested; when a daemon completes an `aisloader`
-run task it reports its results and then exits - on the DaemonSet pod restart
+run task it reports its results and then exits - on the DaemonSet Pod restart
 it rejoins the worker pool awaiting a future run.
 
 ## Operation
@@ -46,14 +46,14 @@ it rejoins the worker pool awaiting a future run.
 ### Model
 
 At initial install the chart creates a transient Redis instance to coordinate benchmark
-client nodes. A controller pod is created which will monitor configuration and initiate
+client nodes. A controller Pod is created which will monitor configuration and initiate
 new benchmark runs when a new `controller.runid` is submitted - the benchmark will run
 with the number of nodes and client config as stipulated in the config at the time the new
-`runid` is observed. If `runid` is `nil` (the default) then the controller pod will poll
+`runid` is observed. If `runid` is `nil` (the default) then the controller Pod will poll
 for updates of the config until it observes non-nil and initiates a new run.
 
-A DaemonSet is used to create benchmark client pods. Each daemon pod registers with the
-controller pod and enters a "pool" of available nodes. When a new run is requested the
+A DaemonSet is used to create benchmark client Pods. Each daemon Pod registers with the
+controller Pod and enters a "pool" of available nodes. When a new run is requested the
 controller will await the availabler pool being large enough to cover the requested
 nodecount then will choose the first `nodecount` nodes from a sorted list of available
 nodes, hence trying always to run on the same set of nodes where possible for a given nodecount.
@@ -61,15 +61,15 @@ nodes, hence trying always to run on the same set of nodes where possible for a 
 Once there are enough nodes to cover the request, the controller asks each node to
 start the `aisloader` client and monitors each for completion or failure. As nodes
 complete they return their results to the controller which preserves them in the
-results volume. Nodes recycle their daemon pod on completion and rejoin the available
+results volume. Nodes recycle their daemon Pod on completion and rejoin the available
 pool for future runs.
 
-The controller pod can only orchestrate *one* benchmark run at a time! Requesting another
+The controller Pod can only orchestrate *one* benchmark run at a time! Requesting another
 or updating configuration mid-run will either be ignored or result in malfunction.
 
 The controller will not repeat a `runid`. You should add some form of timestamp or similar
 to make them unique. The Redis instance runs with data on an `EmptyDir` volume which will
-survive pod restarts but will be destroyed when the instance is torn down. Past `runid` values
+survive Pod restarts but will be destroyed when the instance is torn down. Past `runid` values
 are recorded in Redis (along with all other controller state).
 
 Restarting the controller will lead to malfunction - while it stores state in Redis it
@@ -77,8 +77,8 @@ does not yet resume such state on restart.
 
 ### Edit `values.yaml`
 
-- choose a `controller.runid` that is unique for this run; if the controller pod has attempted a run for the given `runid` before it will reject duplicates
-- set `controller.nodecount` to the number of nodes to participate in the benchmake, each running an `aisloader` instance; you will have to have a suitable number of nodes labeled to have a daemon pod pool big enough to match your requested nodecount (the controller pod will wait for sufficient registered worker nodes)
+- choose a `controller.runid` that is unique for this run; if the controller Pod has attempted a run for the given `runid` before it will reject duplicates
+- set `controller.nodecount` to the number of nodes to participate in the benchmake, each running an `aisloader` instance; you will have to have a suitable number of nodes labeled to have a daemon Pod pool big enough to match your requested nodecount (the controller Pod will wait for sufficient registered worker nodes)
 - tweak `config.*` to influence benchmark run parameters such as bucket to target, GET vs PUT mix, number of parallel workers per instance, run duration, etc. Comments in `values.yaml` describe each option.
 
 ### Reinstall vs Update
