@@ -13,6 +13,7 @@
 envfile="/var/ais_env/env"
 rm -f $envfile
 
+#
 # On an established cluster we must not depend on the initial primary proxy hack.
 # We recognize an established cluster as one for which we can retrieve an smap
 # ping from *any* proxy behind the proxy clusterIP service.
@@ -20,13 +21,13 @@ rm -f $envfile
 url="http://${CLUSTERIP_PROXY_SERVICE_HOSTNAME}:${CLUSTERIP_PROXY_SERVICE_PORT}/v1/daemon?what=smap"
 echo "Checking for a 200 result on ${url}"
 elapsed=0
-while [[ $elapsed -lt 30 ]]; do
+while [[ $elapsed -lt 5 ]]; do
     code=$(curl -X GET -o /dev/null --silent -w "%{http_code}" $url)
     if [[ "$code" == "200" ]]; then
         echo "   ... success after ${elapsed}s; this is not initial cluster deployment"
         exit 0
     else
-        echo "   ... failed ($code) at ${elapsed}s, trying for up to 30s"
+        echo "   ... failed ($code) at ${elapsed}s, trying for up to 5s"
         elapsed=$((elapsed + 1))
         sleep 1
     fi
