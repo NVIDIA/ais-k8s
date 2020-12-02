@@ -7,6 +7,8 @@ This directory contains Terraform definitions and scripts that enable deploying 
 Terraform is used to deploy Kubernetes on a specified cloud provider, then `kubectl` and `helm` are used to deploy AIStore on Kubernetes.
 The main script (`deploy.sh`) will walk you through the required steps to set up the AIStore cluster.
 
+<img src="docs/images/ais-k8s-deploy.gif" alt="Deploy K8s cluster with AIStore" width="80%">
+
 If you have an existing Kubernetes cluster, regardless of a cluster provider, you can deploy AIStore
 to that running cluster [using arguments](#supported-arguments) on the deploy script.
 
