@@ -58,14 +58,14 @@ There are 3 `DEPLOY_TYPE`s:
 | `--node-cnt` | Number of instances/nodes to be started. |
 | `--disk-cnt` | Number of disks per instance/node. |
 | `--cluster-name` | Name of the Kubernetes cluster. |
-| `--wait` | Waits for all the Pods to be ready. |
+| `--wait` | Maximum timeout to wait for all the Pods to be ready. |
 | `--help` | Show help message. |
 
 ### Admin container
 
 After full deployment you should be able to list all K8s Pods:
 ```console
-$ ./deploy.sh all --cloud=gcp --node-cnt=2 --disk-cnt=2 --wait
+$ ./deploy.sh all --cloud=gcp --node-cnt=2 --disk-cnt=2 --wait=5m
 ...
 $ kubectl get pods
 NAME                   READY   STATUS    RESTARTS   AGE
