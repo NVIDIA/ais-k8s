@@ -5,8 +5,11 @@ stages:
 
 test:terraform:gcp:
   stage: test
-  only:
-    - schedules
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: manual
+      allow_failure: true
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
   variables:
     GOOGLE_APPLICATION_CREDENTIALS: "/tmp/gcs.json"
   before_script:
