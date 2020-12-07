@@ -43,7 +43,7 @@ deploy_ais() {
     nvidia.com/ais-initial-primary-proxy="${release_name}-ais" \
     1>/dev/null
 
-  external_ip=$(terraform output external_ip)
+  external_ip=$(terraform_output external_ip)
   pushd ../helm/ais 1>/dev/null
 
   helm_args="--set tags.builtin_monitoring=false,tags.prometheus=false,aiscluster.expected_target_nodes=${node_cnt},aiscluster.skipHostIP=true,admin.enabled=true"
@@ -133,7 +133,7 @@ deploy_k8s() {
   elif [[ ${cloud_provider} == "azure" ]]; then
     :
   elif [[ ${cloud_provider} == "gcp" ]]; then
-    gcloud container clusters get-credentials "$(terraform output kubernetes_cluster_name)" --zone "$(terraform output zone)"
+    gcloud container clusters get-credentials "$(terraform_output kubernetes_cluster_name)" --zone "$(terraform_output zone)"
     echo "✅ kubectl configured to use '$(kubectl config current-context)' context"
   fi
 }

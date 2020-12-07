@@ -64,6 +64,12 @@ remove_nodes_labels() {
     1>/dev/null
 }
 
+# Returns terraform output value for a provided key. It removes `"` quotes so
+# they won't be passed as part of the value.
+terraform_output() {
+  terraform output -json "$1" | xargs
+}
+
 state_dir="$(cd "$(dirname "$0")" && pwd)/.state"
 state_file="$state_dir/deploy"
 

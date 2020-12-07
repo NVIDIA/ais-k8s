@@ -57,7 +57,7 @@ stop_k8s() {
 
 get_disks() {
   nodes=$(kubectl get nodes -o jsonpath='{.items[*].metadata.name}')
-  disks=$(gcloud compute instances list --zones="$(terraform output zone)" --format="value(disks[].deviceName)" --filter="name:(${nodes})" | tr ";" "\n" | grep "gke-ais" || true)
+  disks=$(gcloud compute instances list --zones="$(terraform_output zone)" --format="value(disks[].deviceName)" --filter="name:(${nodes})" | tr ";" "\n" | grep "gke-ais" || true)
   echo $disks
 }
 
@@ -108,7 +108,7 @@ stop_ais() {
       done
 
       # If zone don't match with the cluster's zone then a disk won't be deleted.
-      printf "y\n" | gcloud compute disks delete $disks --zone "$(terraform output zone)" 1>/dev/null || true
+      printf "y\n" | gcloud compute disks delete $disks --zone "$(terraform_output zone)" 1>/dev/null || true
     fi
   fi
 
