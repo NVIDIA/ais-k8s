@@ -9,7 +9,7 @@ deployment steps.
 - AIStore doesn't *require* K8s for deployment, but leveraging the K8s platform abstractions makes large multinode deployments a great deal easier; we use a Helm chart for this.
 - We assume some degree of K8s expertise; not too much is required for simple deployment scenarios, but if you have a very complex scenario in which to deploy AIStore you'll need correspondingly more expertise.
 - We'll start with the simplest scenario in which GPU node clients are in the same K8s cluster; this avoids questions of cluster ingress, loadbalancer, hostPorts, firewalls, which will be covered in an appendix.
-- By default, the storage Pods use hostPath volumes for object storage; however, you can change the cluster deployment configuration to use the Kubernetes PV and PVC mechanism.
+- By default, the storage Pods use hostPath volumes for object storage; however, you can change the cluster deployment configuration to use the Kubernetes PV and PVC mechanisms.
 
 ## Highlevel Overview
 
