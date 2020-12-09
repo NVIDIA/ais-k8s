@@ -6,10 +6,10 @@ deployment steps.
 
 ## Approach
 
-- AIStore doesn't *require* K8s for deployment, but leveraging the K8s platform abstractions makes large multinode deployments a great deal easier; we use a Helm chart for this
-- we assume some degree of K8s expertise; not too much is required for simple deployment scenarios, but if you have a very complex scenario in which to deploy AIStore you'll need correspondingly more expertise
-- we'll start with the simplest scenario in which GPU node clients are in the same K8s cluster; this avoids questions of cluster ingress, loadbalancer, hostPorts, firewalls, which will be covered in an appendix
-- by default, the storage Pods use hostPath volumes for object storage; however, you can change the cluster deployment configuration to use the Kubernetes PV and PVC mechanism
+- AIStore doesn't *require* K8s for deployment, but leveraging the K8s platform abstractions makes large multinode deployments a great deal easier; we use a Helm chart for this.
+- We assume some degree of K8s expertise; not too much is required for simple deployment scenarios, but if you have a very complex scenario in which to deploy AIStore you'll need correspondingly more expertise.
+- We'll start with the simplest scenario in which GPU node clients are in the same K8s cluster; this avoids questions of cluster ingress, loadbalancer, hostPorts, firewalls, which will be covered in an appendix.
+- By default, the storage Pods use hostPath volumes for object storage; however, you can change the cluster deployment configuration to use the Kubernetes PV and PVC mechanism.
 
 ## Highlevel Overview
 
@@ -21,8 +21,9 @@ we'll link to some discussion of that aspect below.
 The core of the deployment consists of two DaemonSets. The first DaemonSet implements the AIStore gateway/proxy
 service. A client that wants to GET or PUT an object contacts this service (port 51080 by default)
 and is redirected (HTTP redirect) to a specific target Pod for the data transfer (port 51081 by default).
-All proxy Pods in the DaemonSet (can be just one, but for HA you'd want 3 or more) provide endpoints for the clusterIP proxy service. If all GPU nodes are in-cluster then they can use this clusterIP by K8s DNS name;
-if we have external clients then, as usual, we need to configure some ingress to the proxy service.
+All proxy Pods in the DaemonSet (can be just one, but for HA you'd want 3 or more) provide endpoints for the clusterIP proxy service.
+If all GPU nodes are in-cluster then they can use this clusterIP by the K8s DNS name.
+If we have external clients then, as usual, we need to configure some ingress to the proxy service.
 
 The *target* Pods deploy as a StatefulSet - these are Pods with access to storage. We pass
 readymade filesystems to these target Pods, and have no requirements on the filesystem type
@@ -32,8 +33,8 @@ you should modify the configuration accordingly.
 
 ## Standard Initial Deployment - Overview
 
-"standard"  - a straightforward deployment scenario as above - GPU clients in cluster, etc.<br>
-"initial" - initial/bootstrap deployment of this AIStore cluster; hereafter, you manage the cluster via rolling upgrade
+"standard"  - A straightforward deployment scenario as above - GPU clients in cluster, etc.<br\>
+"initial" - An initial/bootstrap deployment of this AIStore cluster; hereafter, you manage the cluster via rolling upgrade.
 
 There's not much to it:
 
@@ -50,65 +51,63 @@ sustaining high loads.
 ## Standard Initial Deployment - Detail
 
 1. Planning:
-   - We provide [tables in which to capture and plan](planning.md) salient information - intended storage worker/target nodes, proxy nodes, external access, required node labels, etc.
+   - We provide [a planning worksheet](planning.md) in which to capture and plan salient information - intended storage worker/target nodes, proxy nodes, external access, required node labels, etc.
 1. Node labeling; you can do this now or after Helm chart install; the labels are just controlling DaemonSets and StatefulSets.
    - Using `kubectl`, label nodes as per the label keys & values listed in the planning table:
       - the set of target nodes,
       - the set of proxy nodes (usually a subset of the target nodes),
-      - in addition, label exactly one proxy node as the initial primary proxy - this is needed only for initial cluster bootstrap.
+      - in addition, label exactly one proxy node as the initial primary proxy - this is needed only for the initial cluster bootstrap.
 1. Prepare storage
    - Make data filesystems if necessary and mount using the same set of mount paths on each target node, ready for hostPath volumes
-   - Use an `XFS` filesystem if you can - playbooks [ais_datafs_*.yml](../playbooks) can assist;
-   we use `XFS` with mount options `noatime,nodiratime,logbufs=8,logbsize=256k,largeio,inode64,swalloc,allocsize=131072k`
+   - Use an `XFS` filesystem if you can - playbooks [ais_datafs_\*.yml](../playbooks) can assist.
+   We use `XFS` with mount options `noatime,nodiratime,logbufs=8,logbsize=256k,largeio,inode64,swalloc,allocsize=131072k`
 1. Container images
-   - we major release container images on GitHub - see [planning doc](planning.md)
-   - if building your own, see [the main AIStore repo](https://github.com/NVIDIA/aistore/tree/master/deploy/prod/k8s/aisnode_container)
-1. Edit `helm/ais/charts/value.yaml` to reflect the choices above (including those in the planning table)
-   - You only need to visit sections `aiscluster` and a couple of small sections after it (if you don't want our monitoring trio of Prometheus/Graphite/Grafana), all at the top of the file
-   - we recommend editing `values.yaml` rather than using over-rides from the `helm install` CLI or from CD tool
+   - We release container images on GitHub - see the [planning doc](planning.md).
+   - If building your own, see [the main AIStore repo](https://github.com/NVIDIA/aistore/tree/master/deploy/prod/k8s/aisnode_container).
+1. Edit `helm/ais/charts/value.yaml` to reflect the choices above (including those in the planning table).
+   - You only need to visit sections `aiscluster` and a couple of small sections after it (if you don't want our monitoring trio of Prometheus/Graphite/Grafana), all at the top of the file.
+   - We recommend editing `values.yaml` rather than using over-rides from the `helm install` CLI or from CD tool.
 1. Deploy!
-   - if using Helm CLI, `helm install ${RELEASE_NAME}` where the release name matches that chosen in the planning step (and which is built into the expected node label values etc, so don't change it now!)
-   - if using the present repository with a continuous deployment tool such as [Argo CD](https://argoproj.github.io/argo-cd/), deploy using that
-1. Test and Tune
-   - we'll include information on identifying the AIStore service in the cluster below
-   - you can use the `aisloader` chart to generate a synthetic GET and PUT load; this can generate a far more extreme load than GPU jobs will (they have that pesky computation step)
+   - If using Helm CLI, `helm install ${RELEASE_NAME}` where the release name matches that chosen in the planning step (and which is built into the expected node label values etc, so don't change it now!).
+   - If using the present repository with a continuous deployment tool such as [Argo CD](https://argoproj.github.io/argo-cd/), deploy using that
+1. Test and Tune!
+   - We'll include information on identifying the AIStore service in the cluster below
+   - You can use the `aisloader` chart to generate a synthetic GET and PUT load; this can generate a far more extreme load than GPU jobs will (they have that pesky computation step)
    - If you have high-performance components (fast networking) you'll very likely want to apply some system tuning.
-   - At the other extreme, if using HDD they will benefit hugely from performance tuning to the IO scheduler
+   - At the other extreme, if using HDD spinners they will benefit hugely from performance tuning to the IO scheduler.
    - See the Playbooks section below for the full set of tweaks we apply.
 
 #### Additional Information and Recommendations
 
 - We include some Ansible playbooks, detailed below, to assist with many of the steps above.
 - Any K8s deployment can be used, but [here is some discussion](k8s_discussion.md) and a description of our reference environment.
-- We use Kubespray to build bare-metal K8s clusters - some detail [here](kubespray/README.md)
-- our reference environment uses Ubuntu, and the supporting playbooks for host configuration/tuning likely have a few ubuntu assumptions
+- We use Kubespray to build bare-metal K8s clusters - some detail [here](kubespray/README.md).
+- our reference environment uses Ubuntu, and the supporting playbooks for host configuration/tuning likely have a few ubuntu assumptions.
 - Our reference environment uses XFS for data filesystems, and we recommend using the same if that choice is available for your storage.
 - We strongly recommend setting `aiscluster.k8s.sysctls.somaxconn=100000` in `values.yaml` but this requires a change to `kubelet.env` to permit that sysctl, as described in `values.yaml`. Playbook (ais_host_post_kubespray)[../playbooks/ais_host_post_kubespray.yml] can assist.
 - We strongly recommend that your K8s cluster use a large MTU if your network
-supports it; our reference setup has a physical MTU of 9000, and the Calico CNI uses 8980 (Calico must be at least 20 bytes smaller than physical)
+supports it.  Our reference setup has a physical MTU of 9000, and the Calico CNI uses 8980 (Calico must be at least 20 bytes smaller than physical).
 
 ### AIStore Service Endpoint
 
 Clients within the cluster should connect to the clusterIP proxy service (behind which sit all the proxy Pods
-providing that service). This is available as:
+providing that service). This is available as the following, which pods in the same cluster can use courtesy of K8s DNS:
 
     http://${RELEASE_NAME}-ais-proxy.${AIS_NAMESPACE}:51080
 
-which Pods in the same cluster can use courtesy of K8s DNS.
 
 WebDataset example will show how to interact with AIStore object stores.
 
 ### AIStore Admin CLI
 
-A `make cli` in the [main AIStore repo](https://github.com/NVIDIA/aistore) will build
+Running `make cli` in the [main AIStore repo](https://github.com/NVIDIA/aistore) will build
 the AIS CLI. It is also included in the `aisnode` container image used in K8s deployments.
 
 ### Playbooks
 
 We include a few [convenient Ansible playbooks](../playbooks/README.md) to assist
 in configuring hosts in preparation for deploying AIStore. None of them are required,
-but they help with making and mounting filesystems, worker node
-performance tuning, etc.
+but they help with making and mounting filesystems, worker node performance tuning, etc.
 
 ## Appendix - Ingress to AIStore
 
