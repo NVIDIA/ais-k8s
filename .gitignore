@@ -1,6 +1,7 @@
 *.backup
 *.tfstate*
 */**/.terraform/
+*.hcl
 
 *.tgz
 *.lock
