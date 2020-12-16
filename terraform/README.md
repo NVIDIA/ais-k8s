@@ -61,6 +61,8 @@ There are 3 `DEPLOY_TYPE`s:
 | `--disk-cnt` | Number of disks per instance/node. |
 | `--cluster-name` | Name of the Kubernetes cluster. |
 | `--wait` | Maximum timeout to wait for all the Pods to be ready. |
+| `--aisnode-image` | The image name of `aisnode` container, eg. `aistore/aisnode:3.3`. |
+| `--admin-image` | The image name of `admin` container, eg. `aistore/admin:3.3`. |
 | `--help` | Show help message. |
 
 ### Admin container

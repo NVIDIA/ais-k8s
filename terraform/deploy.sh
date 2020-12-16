@@ -55,9 +55,9 @@ deploy_ais() {
   AIS_NAME="${release_name}" \
     AIS_GATEWAY_EXTERNAL_IP="${external_ip}" \
     AIS_K8S_CLUSTER_CIDR="10.64.0.0/14" \
-    AISNODE_IMAGE="aistore/aisnode:3.3-k8s" \
+    AISNODE_IMAGE="${aisnode_image:-aistore/aisnode:3.3-k8s}" \
     KUBECTL_IMAGE="gmaltby/ais-kubectl:1" \
-    ADMIN_IMAGE="aistore/admin:3.3" \
+    ADMIN_IMAGE="${admin_image:-aistore/admin:3.3}" \
     EXTERNAL_VOLUMES_COUNT="$(get_state_var "DISK_CNT")" \
     STATS_NODENAME="${primary_node}" \
     HELM_ARGS="${helm_args}" \
@@ -173,6 +173,12 @@ while (( "$#" )); do
 
     --wait)   wait_timeout=$2; shift; shift;;
     --wait=*) wait_timeout="${1#*=}"; shift;;
+
+    --aisnode-image)   aisnode_image=$2; shift; shift;;
+    --aisnode-image=*) aisnode_image="${1#*=}"; shift;;
+
+    --admin-image)   admin_image=$2; shift; shift;;
+    --admin-image=*) admin_image="${1#*=}"; shift;;
 
     --help) print_help; exit 0;;
 
