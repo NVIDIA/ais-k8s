@@ -1,7 +1,46 @@
 image: ubuntu:18.04
 
 stages:
+  - build
   - test
+  - push
+
+variables:
+  ADMIN_IMAGE: "aistore/admin"
+  AISNODE_IMAGE: "aistore/aisnode"
+
+before_script:
+  - apt-get update -y && apt install -y docker.io build-essential
+  - |
+    echo '{"storage-driver": "vfs"}' >> /etc/docker/daemon.json
+  - nohup dockerd >/dev/null 2>&1 & sleep 10
+  - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD
+
+build:docker:
+  image: golang:1.15.6
+  stage: build
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: manual
+      allow_failure: true
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+  script:
+    - mkdir -p /go/src/github.com/NVIDIA
+    - pushd /go/src/github.com/NVIDIA
+    - git clone https://github.com/NVIDIA/aistore.git
+    - pushd aistore/deploy/prod/k8s/aisadmin_container
+    - env IMAGE_REPO="${ADMIN_IMAGE}" IMAGE_TAG="nightly" make -e all
+    - popd
+    - pushd aistore/deploy/prod/k8s/aisnode_container
+    - env REPO_AISNODE="${AISNODE_IMAGE}" TAG_AISNODE="nightly" make -e aisnode
+    - popd
+    - popd
+    - mkdir images
+    - docker save --output="images/nightly.tar" "${ADMIN_IMAGE}:nightly" "${AISNODE_IMAGE}:nightly"
+  artifacts:
+    paths:
+      - images/
+    expire_in: 1h
 
 test:terraform:gcp:
   stage: test
@@ -25,10 +64,24 @@ test:terraform:gcp:
     - echo "${GOOGLE_APPLICATION_CREDENTIALS_JSON}" > "${GOOGLE_APPLICATION_CREDENTIALS}"
   script:
     - cd terraform
-    - ./deploy.sh all --cluster-name="ais-ci-$(cat /dev/urandom | tr -dc 'a-z0-9' | fold -w 5 | head -n 1)" --cloud=gcp --node-cnt=3 --disk-cnt=2 --wait=10m
+    - ./deploy.sh all --cluster-name="ais-ci-$(cat /dev/urandom | tr -dc 'a-z0-9' | fold -w 5 | head -n 1)" --cloud=gcp --node-cnt=3 --disk-cnt=2 --wait=10m --aisnode-image="${AISNODE_IMAGE}:nightly" --admin-image="${ADMIN_IMAGE}:nightly"
     - kubectl get pods
     - kubectl exec $(kubectl get pods --namespace default -l "component=admin" -o jsonpath="{.items[0].metadata.name}") -- ais show cluster
     - kubectl exec $(kubectl get pods --namespace default -l "component=admin" -o jsonpath="{.items[0].metadata.name}") -- bash -c "apt-get -y update && apt-get install -y build-essential && curl -LO https://storage.googleapis.com/golang/go1.15.linux-amd64.tar.gz && tar -C /usr/local -xvzf go1.15.linux-amd64.tar.gz > /dev/null 2>&1 && rm -rf go1.15.linux-amd64.tar.gz && git clone https://github.com/NVIDIA/aistore.git && cd aistore/cmd/cli/test && /usr/local/go/bin/go test -v ."
   after_script:
     - cd terraform
     - ./destroy.sh all
+
+push:docker:
+  stage: push
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: manual
+      allow_failure: true
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+  script:
+    - docker load --input="images/nightly.tar"
+    - docker tag "${ADMIN_IMAGE}:nightly" "${ADMIN_IMAGE}:latest"
+    - docker push "${ADMIN_IMAGE}:latest"
+    - docker tag "${AISNODE_IMAGE}:nightly" "${AISNODE_IMAGE}:latest"
+    - docker push "${AISNODE_IMAGE}:latest"
