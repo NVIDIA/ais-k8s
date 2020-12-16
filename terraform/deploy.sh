@@ -57,6 +57,7 @@ deploy_ais() {
     AIS_K8S_CLUSTER_CIDR="10.64.0.0/14" \
     AISNODE_IMAGE="aistore/aisnode:3.3-k8s" \
     KUBECTL_IMAGE="gmaltby/ais-kubectl:1" \
+    ADMIN_IMAGE="aistore/admin:3.3" \
     EXTERNAL_VOLUMES_COUNT="$(get_state_var "DISK_CNT")" \
     STATS_NODENAME="${primary_node}" \
     HELM_ARGS="${helm_args}" \

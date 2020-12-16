@@ -19,8 +19,9 @@ AIS_NAMESPACE=default
 #
 # Container images - select aisnode version, the kubectl version rarely changes
 #
-AISNODE_IMAGE=${AISNODE_IMAGE:-quay.io/nvidia/aisnode:20200218}
+AISNODE_IMAGE=${AISNODE_IMAGE:-aistore/aisnode:3.3}
 KUBECTL_IMAGE=${KUBECTL_IMAGE:-quay.io/nvidia/ais-kubectl:1}
+ADMIN_IMAGE=${ADMIN_IMAGE:-aistore/admin:3.3}
 
 #
 # *If* the images require a pull secret, then install the pull secret in k8s
@@ -125,6 +126,8 @@ helm install \
 	--set-string aiscluster.image.aisnode.tag=$(echo $AISNODE_IMAGE | cut -d: -f2) \
 	--set-string aiscluster.image.kubectl.repository=$(echo $KUBECTL_IMAGE | cut -d: -f1) \
 	--set-string aiscluster.image.kubectl.tag=$(echo $KUBECTL_IMAGE | cut -d: -f2) \
+	--set-string admin.image.repository=$(echo $ADMIN_IMAGE | cut -d: -f1) \
+	--set-string admin.image.tag=$(echo $ADMIN_IMAGE | cut -d: -f2) \
 	${PULLSECRETNAME:+ --set-string aiscluster.image.pullSecretNames="${PULLSECRETNAME}"} \
 	--set-string aiscluster.target.mountPaths="${MOUNTPATHS}" \
 	--set aiscluster.target.externalVolumes="${EXTERNAL_VOLUMES}" \
