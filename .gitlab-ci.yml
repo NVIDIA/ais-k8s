@@ -17,7 +17,6 @@ before_script:
   - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD
 
 build:docker:
-  image: golang:1.15.6
   stage: build
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
@@ -32,7 +31,7 @@ build:docker:
     - env IMAGE_REPO="${ADMIN_IMAGE}" IMAGE_TAG="nightly" make -e all
     - popd
     - pushd aistore/deploy/prod/k8s/aisnode_container
-    - env REPO_AISNODE="${AISNODE_IMAGE}" TAG_AISNODE="nightly" make -e aisnode
+    - env IMAGE_REPO="${AISNODE_IMAGE}" IMAGE_TAG="nightly" make -e all
     - popd
     - popd
     - mkdir images
