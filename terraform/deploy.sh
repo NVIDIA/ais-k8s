@@ -139,6 +139,34 @@ deploy_k8s() {
   fi
 }
 
+deploy_cilium() {
+  if [[ ${cloud_provider} == "aws" ]]; then
+    print_error "'aws' provider is not yet supported"
+  elif [[ ${cloud_provider} == "azure" ]]; then
+    print_error "'azure' provider is not yet supported"
+  elif [[ ${cloud_provider} == "gcp" ]]; then
+  native_cidr="$(gcloud container clusters describe $(terraform_output kubernetes_cluster_name) --zone $(terraform_output zone) --format 'value(clusterIpv4Cidr)')"
+  helm_args="--set gke.enabled=true,nativeRoutingCIDR=${native_cidr}"
+  fi
+
+  helm repo add cilium https://helm.cilium.io/
+  kubectl create namespace cilium
+  helm install cilium cilium/cilium --version 1.9.1 \
+    --namespace cilium \
+    --set nodeinit.enabled=true \
+    --set nodeinit.reconfigureKubelet=true \
+    --set nodeinit.removeCbrBridge=true \
+    --set cni.binPath=/home/kubernetes/bin \
+    --set ipam.mode=kubernetes \
+    --set tunnel=disabled \
+    --set autoDirectNodeRoutes=true \
+    --set kubeProxyReplacement=strict \
+    --set loadBalancer.mode=dsr ${helm_args}
+
+  # Wait for cilium to be ready.
+  kubectl wait --for=condition=ready pods --all -n cilium --timeout=5m
+}
+
 deploy_dashboard() {
   echo "🔄 Setting up k8s dashboard..."
   kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v2.0.0-beta8/aio/deploy/recommended.yaml
@@ -152,6 +180,14 @@ print_help() {
   printf "%-15s\tStops K8s pods, and destroys started nodes.\n" "all"
   printf "%-15s\tOnly stops AIStore Pods so the cluster can be redeployed.\n" "ais"
   printf "%-15s\t\t\tShows this help message.\n" "--help"
+}
+
+config_dataplane() {
+  validate_dataplane_type
+    case "${k8s_dataplane}" in
+      "cilium") deploy_cilium ;;
+      "" | "kube-proxy") ;;
+    esac
 }
 
 init_state_dir
@@ -180,6 +216,9 @@ while (( "$#" )); do
     --admin-image)   admin_image=$2; shift; shift;;
     --admin-image=*) admin_image="${1#*=}"; shift;;
 
+    --dataplane)   k8s_dataplane=$2; shift; shift;;
+    --dataplane=*) k8s_dataplane="${1#*=}"; shift;;
+
     --help) print_help; exit 0;;
 
     *) echo "fatal: unknown argument '$1'"; exit 1;;
@@ -200,6 +239,7 @@ all)
   select_node_count
   select_disk_count
   validate_cluster_name
+  validate_dataplane_type
 
   set_state_var "CLOUD_PROVIDER" "${cloud_provider}"
   set_state_var "NODE_CNT" "${node_cnt}"
@@ -207,6 +247,7 @@ all)
 
   deploy_k8s
   sleep 10
+  config_dataplane
   deploy_ais
   ;;
 ais)

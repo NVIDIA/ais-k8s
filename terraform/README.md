@@ -63,6 +63,7 @@ There are 3 `DEPLOY_TYPE`s:
 | `--wait` | Maximum timeout to wait for all the Pods to be ready. |
 | `--aisnode-image` | The image name of `aisnode` container, eg. `aistore/aisnode:3.3`. |
 | `--admin-image` | The image name of `admin` container, eg. `aistore/admin:3.3`. |
+| `--dataplane` | Network dataplane to be used (`kube-proxy` or `cilium`) (default: `kube-proxy`) |
 | `--help` | Show help message. |
 
 ### Admin container
@@ -107,6 +108,38 @@ Summary:
  Targets:	2
  Primary Proxy:	zloxzvzK
  Smap Version:	8
+```
+### Network Dataplane
+
+The deployment scripts provide an option to replace the default [kube-proxy](https://kubernetes.io/docs/reference/command-line-tools-reference/kube-proxy/) networking dataplane with [Cilium](https://cilium.io/), an open-source project that provides a highly scalable [eBPF](https://ebpf.io/) based K8S CNI. 
+
+Replacing `kube-proxy` with `Cilium` enables us to leverage the Direct Server Return (DSR) feature, which allows the AIStore targets to reply directly to the external client avoiding any additional network hops, hence reducing network latency. 
+
+To deploy AIS with cilium enabled, we use the `--dataplane` argument as follows:
+```console
+$ ./deploy.sh all --cloud=gcp --node-cnt=2 --disk-cnt=2 --dataplane=cilium
+```
+
+Above command deploys `Cilium` components and replaces `kube-proxy`. To verify the setup, execute the following commands:
+```console
+$ kubectl get pods -n cilium 
+NAME                               READY   STATUS             RESTARTS   AGE
+cilium-27n89                       1/1     Running            0          56m
+cilium-48xwz                       1/1     Running            0          56m
+cilium-node-init-npz48             1/1     Running            0          56m
+cilium-node-init-twqvl             1/1     Running            0          56m
+cilium-operator-86cc7c989b-8qsz8   1/1     Running            0          56m
+cilium-operator-86cc7c989b-ql6rg   1/1     Running            0          56m
+
+# To verify if AIS services use cilium
+$kubectl exec -it  -n cilium cilium-48xwz -- cilium service list 
+ID   Frontend                 Service Type   Backend                   
+...
+9    10.3.245.68:51081        ClusterIP      1 => 10.0.1.3:51081       
+                                             2 => 10.0.2.118:51081     
+10   0.0.0.0:31809            NodePort       1 => 10.0.1.3:51081       
+                                             2 => 10.0.2.118:51081     
+...
 ```
 
 ## Destroy

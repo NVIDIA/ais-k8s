@@ -55,6 +55,12 @@ validate_cluster_name() {
   fi
 }
 
+validate_dataplane_type() {
+  if [[ ! "${k8s_dataplane}" =~ ^(kube-proxy|cilium|"")$ ]]; then
+     print_error "invalid dataplane '${k8s_dataplane}'. Supported options ('kube-proxy' and 'cilium')"
+  fi
+}
+
 remove_nodes_labels() {
   kubectl label nodes --all \
     nvidia.com/ais-admin- \
