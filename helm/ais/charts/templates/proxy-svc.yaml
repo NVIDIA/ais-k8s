@@ -1,7 +1,8 @@
+{{ if and (ne .Values.proxy.service.type "")  (ne .Values.proxy.service.type  "ClusterIP") }}
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ template "ais.fullname" . }}-proxy
+  name: {{ template "ais.fullname" . }}-proxy-external
   annotations:
     prometheus.io/scrape: 'true'
   labels:
@@ -20,3 +21,4 @@ spec:
       app: "{{ template "ais.name" . }}"
       release: "{{ .Release.Name }}"
       function: "gateway"
+{{ end }}

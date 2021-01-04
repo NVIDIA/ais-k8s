@@ -34,6 +34,7 @@ spec:
         app: {{ template "ais.name" . }}
         component: "{{ .Values.target.name }}"
         release: {{ .Release.Name }}
+        function: "storage"
     spec:
       initContainers:
         - name: populate-env
@@ -50,7 +51,16 @@ spec:
                   fieldPath: metadata.name
             - name: AIS_NODE_ROLE
               value: "target"
+            - name: K8S_NS
+              value: {{ .Release.Namespace }}
+            - name: MY_SERVICE
+              value: {{ template "ais.fullname" . }}-target
+          command:
+            - "/bin/bash"
+          args: [ "-c", "/bin/bash /var/ais_config_template/set_initial_target_env.sh" ]
           volumeMounts:
+            - name: config-template-mount
+              mountPath: "/var/ais_config_template"
             - name: config-mount
               mountPath: "/var/ais_config"
             - name: env-mount
@@ -156,6 +166,8 @@ spec:
          {{ .Values.target.nodeSelector.key }}: {{ template "ais.fullname" . }}
       volumes:
         - name: config-mount
+          emptyDir: {}
+        - name: config-template-mount
           configMap:
             name:  {{ template "ais.name" . }}-target
         - name: env-mount

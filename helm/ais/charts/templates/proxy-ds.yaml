@@ -45,8 +45,10 @@ spec:
               value: "{{ .Values.proxy.service.port }}"
           command:
             - "/bin/bash"
-          args: [ "-c", "/bin/bash /var/ais_config/set_initial_primary_proxy_env.sh" ]
+          args: [ "-c", "/bin/bash /var/ais_config_template/set_initial_primary_proxy_env.sh" ]
           volumeMounts:
+            - name: config-template-mount
+              mountPath: "/var/ais_config_template"
             - name: config-mount
               mountPath: "/var/ais_config"
             - name: env-mount
@@ -132,6 +134,8 @@ spec:
          {{ .Values.proxy.nodeSelector.key }}: {{ template "ais.fullname" . }}-electable
       volumes:
         - name: config-mount
+          emptyDir: {}
+        - name: config-template-mount
           configMap:
             name:  {{ template "ais.name" . }}-proxy
         - name: env-mount

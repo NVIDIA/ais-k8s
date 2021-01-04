@@ -15,3 +15,5 @@ data:
               "discovery_url":  "http://{{ template "ais.fullname" . }}-proxy:{{ .Values.proxy.config.net.l4.port }}"
       }
     }
+  set_initial_target_env.sh: |-
+{{ include "target.set_initial_target_env" . | indent 4 }}

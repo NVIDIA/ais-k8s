@@ -1,8 +1,8 @@
 {{- define "common_net.config" -}}
 "net": {
-        "ipv4":                 {{ .net.ipv4 | quote }},
-        "ipv4_intra_control":   {{ .net.ipv4_intra_control | quote }},
-        "ipv4_intra_data":      {{ .net.ipv4_intra_data | quote }},
+        "ipv4":                 "${AIS_PUB_HOSTNAME}",
+        "ipv4_intra_control":   "${AIS_INTRA_HOSTNAME}",
+        "ipv4_intra_data":      "${AIS_DATA_HOSTNAME}",
         "l4": {
                 "proto":                "tcp",
                 "port":                 {{ .net.l4.port | quote }},

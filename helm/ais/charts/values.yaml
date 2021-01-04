@@ -423,8 +423,8 @@ target:
       ipv4_intra_data:    ""
       l4:
         port:               51081
-        port_intra_control: ""
-        port_intra_data:    ""
+        port_intra_control: 51082
+        port_intra_data:    51083
         sndrcv_buf_size:    0
       http:
         write_buffer_size: 65536
@@ -433,6 +433,7 @@ target:
         chunked_transfer:  true
   service:
     port:     51081
+    type: ClusterIP
   nodeSelector:
     key:   nvidia.com/ais-target
   resources: {}

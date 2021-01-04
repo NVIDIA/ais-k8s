@@ -1,8 +1,7 @@
-{{ if and (ne .Values.target.service.type "") (ne .Values.target.service.type  "ClusterIP")}}
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ template "ais.fullname" . }}-target-external
+  name: {{ template "ais.fullname" . }}-proxy
   annotations:
     prometheus.io/scrape: 'true'
   labels:
@@ -11,14 +10,13 @@ metadata:
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
 spec:
-  type: {{ .Values.target.service.type }}
+  clusterIP: None
   ports:
-    - port: {{ .Values.target.service.port }}
-      targetPort: {{ .Values.target.service.port }}
+    - port: {{ .Values.proxy.service.port }}
+      targetPort: {{ .Values.proxy.service.port }}
       protocol: TCP
       name: http
   selector:
       app: "{{ template "ais.name" . }}"
       release: "{{ .Release.Name }}"
-      function: "storage"
-{{ end }}
+      function: "gateway"
