@@ -1,5 +1,6 @@
 release_name="demo"
 cluster_name="ais"
+k8s_dataplane="kube-proxy"
 
 trap 'echo "Please wait for the script to finish or data loss may occur."' INT
 
@@ -55,9 +56,9 @@ validate_cluster_name() {
   fi
 }
 
-validate_dataplane_type() {
-  if [[ ! "${k8s_dataplane}" =~ ^(kube-proxy|cilium|"")$ ]]; then
-     print_error "invalid dataplane '${k8s_dataplane}'. Supported options ('kube-proxy' and 'cilium')"
+validate_dataplane() {
+  if ! [[ ${k8s_dataplane} =~ ^(kube-proxy|cilium)$ ]]; then
+     print_error "invalid dataplane specified: '${k8s_dataplane}' (expected one of: [kube-proxy, cilium])"
   fi
 }
 

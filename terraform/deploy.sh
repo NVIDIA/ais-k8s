@@ -182,12 +182,11 @@ print_help() {
   printf "%-15s\t\t\tShows this help message.\n" "--help"
 }
 
-config_dataplane() {
-  validate_dataplane_type
-    case "${k8s_dataplane}" in
-      "cilium") deploy_cilium ;;
-      "" | "kube-proxy") ;;
-    esac
+deploy_dataplane() {
+  case "${k8s_dataplane}" in
+    "cilium")     deploy_cilium ;;
+    "kube-proxy") ;;
+  esac
 }
 
 init_state_dir
@@ -239,7 +238,7 @@ all)
   select_node_count
   select_disk_count
   validate_cluster_name
-  validate_dataplane_type
+  validate_dataplane
 
   set_state_var "CLOUD_PROVIDER" "${cloud_provider}"
   set_state_var "NODE_CNT" "${node_cnt}"
@@ -247,7 +246,7 @@ all)
 
   deploy_k8s
   sleep 10
-  config_dataplane
+  deploy_dataplane
   deploy_ais
   ;;
 ais)
