@@ -354,9 +354,9 @@ proxy:
       count:    0
       instance: 0
     net:
-      ipv4:               ""
-      ipv4_intra_control: ""
-      ipv4_intra_data:    ""
+      hostname:               ""
+      hostname_intra_control: ""
+      hostname_intra_data:    ""
       l4:
         port:               51080
         port_intra_control: ""
@@ -386,9 +386,9 @@ ne_proxy:
       count:    0
       instance: 0
     net:
-      ipv4:               ""
-      ipv4_intra_control: ""
-      ipv4_intra_data:    ""
+      hostname:               ""
+      hostname_intra_control: ""
+      hostname_intra_data:    ""
       l4:
         port:               51080
         port_intra_control: ""
@@ -418,9 +418,9 @@ target:
       enabled:    false
       dryobjsize: "8M"
     net:
-      ipv4:               ""
-      ipv4_intra_control: ""
-      ipv4_intra_data:    ""
+      hostname:               ""
+      hostname_intra_control: ""
+      hostname_intra_data:    ""
       l4:
         port:               51081
         port_intra_control: 51082

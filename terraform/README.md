@@ -61,7 +61,7 @@ There are 3 `DEPLOY_TYPE`s:
 | `--disk-cnt` | Number of disks per instance/node. | - |
 | `--cluster-name` | Name of the Kubernetes cluster. | - |
 | `--wait` | Maximum timeout to wait for all the Pods to be ready. | `false` |
-| `--aisnode-image` | The image name of `aisnode` container. | `aistore/aisnode:3.3` |
+| `--aisnode-image` | The image name of `aisnode` container. | `aistore/aisnode:3.3.1` |
 | `--admin-image` | The image name of `admin` container. | `aistore/admin:3.3` |
 | `--dataplane` | Network dataplane to be used (`kube-proxy` or `cilium`) | `kube-proxy` |
 | `--help` | Show help message. | - |
