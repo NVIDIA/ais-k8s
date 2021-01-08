@@ -17,10 +17,10 @@ AIS_NAME=${AIS_NAME:-demo}
 AIS_NAMESPACE=default
 
 #
-# Container images - select aisnode version, the kubectl version rarely changes
+# Container images - select aisnode version, the ais-init image version rarely changes
 #
-AISNODE_IMAGE=${AISNODE_IMAGE:-aistore/aisnode:3.3}
-KUBECTL_IMAGE=${KUBECTL_IMAGE:-quay.io/nvidia/ais-kubectl:1}
+AISNODE_IMAGE=${AISNODE_IMAGE:-aistore/aisnode:3.3.1}
+AIS_INIT_IMAGE=${AIS_INIT_IMAGE:-aistore/ais-init:latest}
 ADMIN_IMAGE=${ADMIN_IMAGE:-aistore/admin:3.3}
 
 #
@@ -124,8 +124,8 @@ helm install \
 	--set aiscluster.image.pullPolicy=IfNotPresent \
 	--set-string aiscluster.image.aisnode.repository=$(echo $AISNODE_IMAGE | cut -d: -f1) \
 	--set-string aiscluster.image.aisnode.tag=$(echo $AISNODE_IMAGE | cut -d: -f2) \
-	--set-string aiscluster.image.kubectl.repository=$(echo $KUBECTL_IMAGE | cut -d: -f1) \
-	--set-string aiscluster.image.kubectl.tag=$(echo $KUBECTL_IMAGE | cut -d: -f2) \
+	--set-string aiscluster.image.kubectl.repository=$(echo $AIS_INIT_IMAGE | cut -d: -f1) \
+	--set-string aiscluster.image.kubectl.tag=$(echo $AIS_INIT_IMAGE | cut -d: -f2) \
 	--set-string admin.image.repository=$(echo $ADMIN_IMAGE | cut -d: -f1) \
 	--set-string admin.image.tag=$(echo $ADMIN_IMAGE | cut -d: -f2) \
 	${PULLSECRETNAME:+ --set-string aiscluster.image.pullSecretNames="${PULLSECRETNAME}"} \

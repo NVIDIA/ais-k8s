@@ -96,9 +96,6 @@ fi
 # Update configuration file,substitute environment variables
 #
 
-# TODO: Install in docker image
-apk add gettext
-
 conf_template="/var/ais_config_template/ais.json"
 conf_file="/var/ais_config/ais.json"
 envsubst < ${conf_template} > ${conf_file}

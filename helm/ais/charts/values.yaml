@@ -67,11 +67,11 @@ aiscluster:
   #
   image:
     aisnode:
-      repository: "gmaltby/aisnode"
-      tag: "20200521.1"
+      repository: "aistore/aisnode"
+      tag: "3.3.1"
     kubectl:
-      repository: gmaltby/ais-kubectl
-      tag: 1
+      repository: aistore/ais-init
+      tag: latest
     pullPolicy: IfNotPresent
     pullSecretNames:
       # k8s secret name to use in pulling images; secret populated manually

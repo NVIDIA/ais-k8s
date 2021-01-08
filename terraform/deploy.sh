@@ -56,7 +56,7 @@ deploy_ais() {
     AIS_GATEWAY_EXTERNAL_IP="${external_ip}" \
     AIS_K8S_CLUSTER_CIDR="10.64.0.0/14" \
     AISNODE_IMAGE="${aisnode_image:-aistore/aisnode:3.3.1}" \
-    KUBECTL_IMAGE="gmaltby/ais-kubectl:1" \
+    AIS_INIT_IMAGE="aistore/ais-init:latest" \
     ADMIN_IMAGE="${admin_image:-aistore/admin:3.3}" \
     EXTERNAL_VOLUMES_COUNT="$(get_state_var "DISK_CNT")" \
     STATS_NODENAME="${primary_node}" \

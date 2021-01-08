@@ -19,14 +19,14 @@ You will have to update the tag value to track ongoing updates after your initia
 The chart defaults (see `values.yaml`) point to the following:
 Item | Default
 ---- | -------
-InitContainer image | gmaltby/ais-kubectl:1
-Aisnode image | gmaltby/aisnode:20200521.1
+InitContainer image | aistore/ais-init:latest
+Aisnode image | aistore/aisnode:3.3.1
 
 Alternatively, build your own container images, as detailed [in the main repo](https://github.com/NVIDIA/aistore/tree/master/deploy/prod/k8s/aisnode_container).
 
 Item | Description | Value 
 ---- | ----------- | -----
-initContainer image | Initcontainer image for `ais-kubectl`, e.g., `repo.name/ais/ais-kubectl:1`. You will need to update `values.yaml` to point to this. The initContainer image very rarely changes. | _______________
+initContainer image | Initcontainer image for `ais-init`, e.g., `repo.name/ais/ais-init:1`. You will need to update `values.yaml` to point to this. The initContainer image very rarely changes. | _______________
 Aisnode image | Aisnode container image name, as above, e.g., `repo.name/ais/aisnode:20200504`. This will also need to go into `values.yaml` and the tag be updated when you want to update the deployment | _______________
 
 ## Target Nodes (Pods)
