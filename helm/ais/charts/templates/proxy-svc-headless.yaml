@@ -18,5 +18,6 @@ spec:
       name: http
   selector:
       app: "{{ template "ais.name" . }}"
+      component: "{{ .Values.proxy.name }}"
       release: "{{ .Release.Name }}"
       function: "gateway"

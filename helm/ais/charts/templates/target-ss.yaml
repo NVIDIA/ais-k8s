@@ -145,7 +145,7 @@ spec:
             timeoutSeconds: 5
           readinessProbe:
             httpGet:
-              path: /v1/health
+              path: /v1/health?readiness=true
               port: {{ .Values.target.service.port }}
             initialDelaySeconds: 5
             periodSeconds: 30

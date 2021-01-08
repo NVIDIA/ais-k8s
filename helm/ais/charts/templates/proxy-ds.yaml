@@ -11,7 +11,10 @@ metadata:
 spec:
   selector:
     matchLabels:
-      release: {{ .Release.Name }}
+      app: "{{ template "ais.name" . }}"
+      component: "{{ .Values.proxy.name }}"
+      release: "{{ .Release.Name }}"
+      function: "gateway"
   updateStrategy:
     rollingUpdate:
       maxUnavailable: 1
