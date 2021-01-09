@@ -102,3 +102,36 @@ set_state_var() {
 remove_state_file() {
   rm -f "${state_file}"
 }
+
+set_aws_creds() {
+  if [[ -n ${aws_creds_dir} ]]; then
+      local_aws=$(mktemp)
+
+      aws_secret_name="aws-credentials"
+      temp_file="$aws_creds_dir/credentials"
+      if [ -f $"$temp_file" ]; then
+          cp $"$temp_file" ${local_aws}
+      else
+          echo "No AWS credentials file found in specified directory. Exiting..."
+          exit 1
+      fi
+
+      # By default, the region field is found in the aws config file.
+      # Sometimes it is found in the credentials file.
+      if [ $(cat "$temp_file" | grep -c "region") -eq 0 ]; then
+          temp_file="$aws_creds_dir/config"
+          if [ -f $"$temp_file" ] && [ $(cat $"$temp_file" | grep -c "region") -gt 0 ]; then
+              grep region "$temp_file" >> ${local_aws}
+          else
+              echo "No region config field found in aws directory. Exiting..."
+              exit 1
+          fi
+      fi
+
+      if kubectl get secrets | grep aws > /dev/null 2>&1; then
+        kubectl delete secret ${aws_secret_name}
+      fi
+      kubectl create secret generic ${aws_secret_name} --from-file=credentials=$local_aws
+      rm ${local_aws}
+  fi
+}

@@ -101,6 +101,10 @@ spec:
               mountPath: "/etc/ais"
             - name: statsd-config
               mountPath: "/var/statsd_config"
+            {{ if ne .Values.aiscluster.awsSecretName "" }}
+            - name: aws-creds
+              mountPath: "/.aws"
+            {{ end }}
           lifecycle:
             preStop:
               exec:
@@ -138,6 +142,11 @@ spec:
       volumes:
         - name: config-mount
           emptyDir: {}
+        {{ if ne .Values.aiscluster.awsSecretName "" }}
+        - name: aws-creds
+          secret:
+            secretName: "{{ .Values.aiscluster.awsSecretName }}"
+        {{ end }}
         - name: config-template-mount
           configMap:
             name:  {{ template "ais.name" . }}-proxy

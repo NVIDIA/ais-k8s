@@ -11,6 +11,9 @@ deploy_ais() {
     print_error "kubectl does not have any nodes assigned, try 'deploy.sh all'"
   fi
 
+  # Create `Secret` for configured cloud providers.
+  set_aws_creds
+
   echo "🔥 Deploying AIStore on the cluster"
 
   cloud_provider=$(get_state_var "CLOUD_PROVIDER")
@@ -46,7 +49,7 @@ deploy_ais() {
   external_ip=$(terraform_output external_ip)
   pushd ../helm/ais 1>/dev/null
 
-  helm_args="--set tags.builtin_monitoring=false,tags.prometheus=false,aiscluster.expected_target_nodes=${node_cnt},aiscluster.skipHostIP=true,admin.enabled=true"
+  helm_args="--set tags.builtin_monitoring=false,tags.prometheus=false,aiscluster.expected_target_nodes=${node_cnt},aiscluster.skipHostIP=true,admin.enabled=true,aiscluster.awsSecretName=${aws_secret_name}"
   if [[ -n ${wait_timeout} ]]; then
     helm_args="${helm_args} --timeout ${wait_timeout} --wait"
     echo "⏳ Waiting for the AIStore to fully start, it may take couple minutes..."
@@ -217,6 +220,9 @@ while (( "$#" )); do
 
     --dataplane)   k8s_dataplane=$2; shift; shift;;
     --dataplane=*) k8s_dataplane="${1#*=}"; shift;;
+
+    --aws) aws_creds_dir=$2; shift; shift;;
+    --aws=*) aws_creds_dir="${1#*=}"; shift;;
 
     --help) print_help; exit 0;;
 

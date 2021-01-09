@@ -63,6 +63,14 @@ aiscluster:
   #
   skipHostIP: false
   #
+  # Secrets containing cloud provider credentials.
+  # Secrets are populated manually
+  #
+  awsSecretName: ""
+  gcpSecretName: ""
+  azureSecretName: ""
+
+  #
   # Container images, pull secret names, pull policy.
   #
   image:
@@ -262,7 +270,6 @@ ais_config_common:
     client_timeout:      120s
     client_long_timeout: 30m
     list_timeout:        10m
-  cloud_provider: ""
   compression:
     block_size: 262144
     checksum: false

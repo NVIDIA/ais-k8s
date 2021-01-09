@@ -1,4 +1,5 @@
 {{- define "common.config" -}}
+{{- $dot := . -}}
 {{ with .Values.ais_config_common }}
 "auth": {
         "enabled":      {{ .auth.enabled }},
@@ -12,7 +13,9 @@
         "enable_read_range":    {{ .checksum.enable_read_range }}
 },
 "cloud": {
-        {{ .cloud_provider | quote }}: {}
+        {{ if ne $dot.Values.aiscluster.awsSecretName "" }}
+        "aws": {}
+        {{ end }}
 },
 "compression": {
         "block_size":   {{ .compression.block_size }},

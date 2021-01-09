@@ -45,6 +45,13 @@ Alternatively, deploy AIStore to an existing Kubernetes cluster as follows:
 $ ./deploy.sh ais
 ```
 
+To deploy AIStore with cloud providers, you need to provide valid credentials using the provider flag. 
+For instance, to deploy AIStore with AWS provider, use the `--aws` flag to provide credentials directory as follows: 
+
+```console
+$ ./deploy.sh ais --aws="/home/ubuntu/.aws"
+```
+
 ### Supported Arguments
 
 `./deploy.sh DEPLOY_TYPE [--flag=value ...]`
@@ -64,6 +71,7 @@ There are 3 `DEPLOY_TYPE`s:
 | `--aisnode-image` | The image name of `aisnode` container. | `aistore/aisnode:3.3.1` |
 | `--admin-image` | The image name of `admin` container. | `aistore/admin:3.3` |
 | `--dataplane` | Network dataplane to be used (`kube-proxy` or `cilium`) | `kube-proxy` |
+| `--aws` | Path to AWS credentials directory. | - |
 | `--help` | Show help message. | - |
 
 ### Admin container

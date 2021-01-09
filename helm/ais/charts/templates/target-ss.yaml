@@ -120,6 +120,10 @@ spec:
               mountPath: "/var/ais_config"
             - name: statsd-config
               mountPath: "/var/statsd_config"
+            {{ if ne .Values.aiscluster.awsSecretName "" }}
+            - name: aws-creds
+              mountPath: "/root/.aws"
+            {{ end }}
             {{ if .Values.aiscluster.target.externalVolumes }}
             {{ range .Values.aiscluster.target.mountPaths }}
             - name: ais-pv-{{ . | replace "/" "-" }}
@@ -170,6 +174,11 @@ spec:
         - name: config-template-mount
           configMap:
             name:  {{ template "ais.name" . }}-target
+        {{ if ne .Values.aiscluster.awsSecretName "" }}
+        - name: aws-creds
+          secret:
+            secretName: "{{ .Values.aiscluster.awsSecretName }}"
+        {{ end }}
         - name: env-mount
           hostPath:
             path: "{{ .Values.aiscluster.hostpathPrefix }}/{{ .Release.Name }}/target"
