@@ -63,7 +63,7 @@ aiscluster:
   #
   skipHostIP: false
   #
-  # Secrets containing cloud provider credentials.
+  # Secrets containing backend provider credentials.
   # Secrets are populated manually
   #
   awsSecretName: ""

@@ -12,7 +12,7 @@
         "validate_obj_move":    {{ .checksum.validate_obj_move }},
         "enable_read_range":    {{ .checksum.enable_read_range }}
 },
-"cloud": {
+"backend": {
         {{ if ne $dot.Values.aiscluster.awsSecretName "" }}
         "aws": {}
         {{ end }}
