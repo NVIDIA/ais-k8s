@@ -91,6 +91,10 @@ else
     echo "initContainer complete - not running on primary proxy node"
 fi
 
+# Use DNS as hostnames
+pod_dns="${MY_POD}.${MY_SERVICE}.${K8S_NS}.svc.cluster.local"
+export AIS_INTRA_HOSTNAME=${pod_dns}
+export AIS_DATA_HOSTNAME=${pod_dns}
 
 #
 # Update configuration file,substitute environment variables

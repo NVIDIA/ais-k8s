@@ -31,7 +31,7 @@
 # - we'll label 20 nodes as target nodes (nvidia.com/ais-target=foo-ais)
 #   [aiscluster.expected_target_nodes]; if we don't want to pre-declare the
 #   intended number then set this to 0
-# - we'll label those same 20 nodes to run electable proxies (eligible to be
+# - we'll label those same 20 nodes [aiscluster.expected_proxy_nodes] to run electable proxies (eligible to be
 #   primary proxy at any time, nvidia.com/ais-proxy=foo-ais-electable)
 # - AIS cluster state (cached cluster map etc) will be stored under /etc/ais
 #   on each node, exposed as a hostPath mount [aiscluster.hostpathPrefix]
@@ -47,11 +47,12 @@
 
 aiscluster:
   #
-  # Expected number of target pods in deployment. Set to 0 to leave initial
+  # Expected number of target/proxy pods in deployment. Set to 0 to leave initial
   # cluster deployment to work this out for itself, but initial deployment
   # is smoother if you provide this guide.
   #
   expected_target_nodes: 20
+  expected_proxy_nodes: 20
   #
   # Prefix used on aisnode host nodes for local storage for AIS cluster state.
   #

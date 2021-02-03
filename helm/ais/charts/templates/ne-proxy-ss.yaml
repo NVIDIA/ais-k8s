@@ -1,29 +1,26 @@
 apiVersion: apps/v1
-kind: DaemonSet
+kind: StatefulSet
 metadata:
-  name: {{ template "ais.fullname" . }}-proxy
+  name: {{ template "ais.fullname" . }}-ne-proxy
   labels:
     app: {{ template "ais.name" . }}
     chart: {{ template "ais.chart" . }}
-    component: "{{ .Values.proxy.name }}"
+    component: "{{ .Values.ne_proxy.name }}"
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
 spec:
+  serviceName: {{ template "ais.fullname" . }}-ne-proxy # TODO: NE proxy SVC template is missing.
   selector:
     matchLabels:
-      app: "{{ template "ais.name" . }}"
-      component: "{{ .Values.proxy.name }}"
-      release: "{{ .Release.Name }}"
-      function: "gateway"
+      release: {{ .Release.Name }}
   updateStrategy:
-    rollingUpdate:
-      maxUnavailable: 1
     type: RollingUpdate
+  podManagementPolicy: "Parallel"
   template:
     metadata:
       labels:
         app: {{ template "ais.name" . }}
-        component: "{{ .Values.proxy.name }}"
+        component: "{{ .Values.ne_proxy.name }}"
         release: {{ .Release.Name }}
         function: "gateway"
     spec:
@@ -42,21 +39,11 @@ spec:
                   fieldPath: metadata.name
             - name: AIS_NODE_ROLE
               value: "proxy"
-            - name: CLUSTERIP_PROXY_SERVICE_HOSTNAME
-              value: {{ template "ais.fullname" . }}-proxy
-            - name: CLUSTERIP_PROXY_SERVICE_PORT
-              value: "{{ .Values.proxy.service.port }}"
-          command:
-            - "/bin/bash"
-          args: [ "-c", "/bin/bash /var/ais_config_template/set_initial_primary_proxy_env.sh" ]
           volumeMounts:
-            - name: config-template-mount
-              mountPath: "/var/ais_config_template"
             - name: config-mount
               mountPath: "/var/ais_config"
             - name: env-mount
               mountPath: "/var/ais_env"
-
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.aiscluster.image.aisnode.repository }}:{{ .Values.aiscluster.image.aisnode.tag }}"
@@ -74,23 +61,19 @@ spec:
               value: "/var/statsd_config/statsd.json"
             - name: AIS_NODE_ROLE
               value: "proxy"
-            - name: TARGETS
-              value: {{ .Values.aiscluster.expected_target_nodes | quote }}
             {{ if not .Values.aiscluster.skipHostIP }}
             - name: AIS_HOST_IP
               valueFrom:
                 fieldRef:
                   fieldPath: status.hostIP
             {{ end }}
-            - name: AIS_CLUSTER_CIDR
-              value: {{ .Values.aiscluster.k8s.cluster_cidr | quote }}
             - name: CLUSTERIP_PROXY_SERVICE_HOSTNAME
               value: {{ template "ais.fullname" . }}-proxy
             - name: CLUSTERIP_PROXY_SERVICE_PORT
               value: "{{ .Values.proxy.service.port }}"
           ports:
             - name: http
-              containerPort: {{ .Values.proxy.service.port }}
+              containerPort: {{ .Values.ne_proxy.service.port }}
               protocol: TCP
           volumeMounts:
             - name: config-mount
@@ -101,10 +84,6 @@ spec:
               mountPath: "/etc/ais"
             - name: statsd-config
               mountPath: "/var/statsd_config"
-            {{ if ne .Values.aiscluster.awsSecretName "" }}
-            - name: aws-creds
-              mountPath: "/.aws"
-            {{ end }}
           lifecycle:
             preStop:
               exec:
@@ -112,22 +91,21 @@ spec:
           livenessProbe:
             httpGet:
               path: /v1/health
-              port: {{ .Values.proxy.service.port }}
+              port: {{ .Values.ne_proxy.service.port }}
             initialDelaySeconds: 90
             periodSeconds: 5
             failureThreshold: 3
             timeoutSeconds: 5
           readinessProbe:
-            exec:
-              command:
-              - /ais_readiness.sh
+            httpGet:
+              path: /v1/health?readiness=true
+              port: {{ .Values.ne_proxy.service.port }}
             initialDelaySeconds: 5
-            periodSeconds: 5
+            periodSeconds: 10
             failureThreshold: 3
             timeoutSeconds: 5
-            successThreshold: 1
           resources:
-{{ toYaml .Values.proxy.resources | indent 12 }}
+{{ toYaml .Values.ne_proxy.resources | indent 12 }}
       securityContext:
         sysctls:
         {{ if .Values.aiscluster.k8s.sysctls.somaxconn }}
@@ -138,28 +116,21 @@ spec:
           value: "10240 65535"
       serviceAccount: {{ template "ais.name" . }}-sa
       nodeSelector:
-         {{ .Values.proxy.nodeSelector.key }}: {{ template "ais.fullname" . }}-electable
+         {{ .Values.ne_proxy.nodeSelector.key }}: {{ template "ais.fullname" . }}-nonelectable
       volumes:
         - name: config-mount
-          emptyDir: {}
-        {{ if ne .Values.aiscluster.awsSecretName "" }}
-        - name: aws-creds
-          secret:
-            secretName: "{{ .Values.aiscluster.awsSecretName }}"
-        {{ end }}
-        - name: config-template-mount
           configMap:
-            name:  {{ template "ais.name" . }}-proxy
+            name:  {{ template "ais.name" . }}-neproxy
         - name: env-mount
           hostPath:
-            path: "{{ .Values.aiscluster.hostpathPrefix }}/{{ .Release.Name }}/proxy_env"
+            path: "{{ .Values.aiscluster.hostpathPrefix }}/{{ .Release.Name }}/ne_proxy_env"
         - name: state-mount
           hostPath:
-            path: "{{ .Values.aiscluster.hostpathPrefix }}/{{ .Release.Name }}/proxy"
+            path: "{{ .Values.aiscluster.hostpathPrefix }}/{{ .Release.Name }}/ne_proxy"
         - name: statsd-config
           configMap:
             name: {{ template "ais.name" . }}-statsd
-    {{- with .Values.proxy.affinity }}
+    {{- with .Values.ne_proxy.affinity }}
       affinity:
 {{ toYaml . | indent 8 }}
     {{- end }}

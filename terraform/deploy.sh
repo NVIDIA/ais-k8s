@@ -49,7 +49,7 @@ deploy_ais() {
   external_ip=$(terraform_output external_ip)
   pushd ../helm/ais 1>/dev/null
 
-  helm_args="--set tags.builtin_monitoring=false,tags.prometheus=false,aiscluster.expected_target_nodes=${node_cnt},aiscluster.skipHostIP=true,admin.enabled=true,aiscluster.awsSecretName=${aws_secret_name}"
+  helm_args="--set tags.builtin_monitoring=false,tags.prometheus=false,aiscluster.expected_target_nodes=${node_cnt},aiscluster.expected_proxy_nodes=${node_cnt},aiscluster.skipHostIP=true,admin.enabled=true,aiscluster.awsSecretName=${aws_secret_name}"
   if [[ -n ${wait_timeout} ]]; then
     helm_args="${helm_args} --timeout ${wait_timeout} --wait"
     echo "⏳ Waiting for the AIStore to fully start, it may take couple minutes..."
