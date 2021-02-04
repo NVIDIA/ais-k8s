@@ -193,6 +193,8 @@ graphite:
       path:     "/stats/graphite"
       node:     "aistore0756"
 
+  affinity: {}
+
 #
 # Key paths here that match those of https://github.com/helm/charts/tree/master/stable/grafana
 # will over-ride default values in the grafana dependency. Local additions are all within the ais map.
@@ -384,6 +386,25 @@ proxy:
   initialPrimaryProxyNodeLabel:
     name:  "nvidia.com/ais-initial-primary-proxy"
 
+
+  # TODO: This should not be editable by a user. However, it requires bigger effort to implement a tool to merge
+  # user-provided affinity with internal affinity. It's questionable effort when charts are meant to be
+  # deprecated and replaced with operator.
+
+  # Allow single proxy per Kubernetes node.
+  # TODO: Uncomment when proxies become StatefulSet.
+#  affinity:
+#    podAntiAffinity:
+#      requiredDuringSchedulingIgnoredDuringExecution:
+#        - labelSelector:
+#            matchExpressions:
+#              - key: component
+#                operator: In
+#                values:
+#                  - proxy
+#                  - ne_proxy
+#          topologyKey: topology.kubernetes.io/node
+
 ne_proxy:
   name: "ne_proxy"    # A component label for selector
   config:
@@ -412,6 +433,20 @@ ne_proxy:
   nodeSelector:
     key:   nvidia.com/ais-proxy
   resources: {}
+
+  # TODO: This should not be editable by a user.
+  # Allow single proxy per Kubernetes node.
+#  affinity:
+#    podAntiAffinity:
+#      requiredDuringSchedulingIgnoredDuringExecution:
+#        - labelSelector:
+#            matchExpressions:
+#              - key: component
+#                operator: In
+#                values:
+#                  - proxy
+#                  - ne_proxy
+#          topologyKey: topology.kubernetes.io/node
 
 target:
   name: "target"   # A component label for selector
@@ -445,6 +480,19 @@ target:
     key:   nvidia.com/ais-target
   resources: {}
 
+  # TODO: This should not be editable by a user.
+  # Allow single target per Kubernetes node.
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchExpressions:
+              - key: component
+                operator: In
+                values:
+                - target
+          topologyKey: topology.kubernetes.io/node
+
 #
 # Values to describe admin container which should be deployed on one of the
 # nodes in the cluster. By default it is disabled as it is not the integral
@@ -469,16 +517,3 @@ admin:
 resources: {}
 
 tolerations: {}
-
-# Make sure the AIS target only deploy to the node that are marked with a label that signify a hi-perf
-# storage
-# target-node-key-name : target-node
-affinity: {}
-#affinity:
-#  requiredDuringSchedulingIgnoredDuringExecution:
-#    nodeSelectorTerms:
-#    - matchExpressions:
-#        - key: beta.kubernetes.io/instance-type
-#          operator: In
-#          values:
-#            - d1.8xlarge

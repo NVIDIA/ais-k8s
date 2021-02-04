@@ -196,7 +196,7 @@ spec:
             path: {{ . }}
         {{ end }}
         {{ end }}
-    {{- with .Values.affinity }}
+    {{- with .Values.target.affinity }}
       affinity:
 {{ toYaml . | indent 8 }}
     {{- end }}
