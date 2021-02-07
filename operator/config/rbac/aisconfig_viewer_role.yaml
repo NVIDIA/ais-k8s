@@ -1,0 +1,20 @@
+# permissions for end users to view aisconfigs.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: aisconfig-viewer-role
+rules:
+- apiGroups:
+  - ais.nvidia.com
+  resources:
+  - aisconfigs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ais.nvidia.com
+  resources:
+  - aisconfigs/status
+  verbs:
+  - get

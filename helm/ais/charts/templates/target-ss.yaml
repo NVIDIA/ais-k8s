@@ -11,6 +11,7 @@ metadata:
 spec:
   replicas: {{ .Values.aiscluster.expected_target_nodes }}
   serviceName: {{ template "ais.fullname" . }}-target
+  podManagementPolicy: "Parallel"
   selector:
     matchLabels:
       release: {{ .Release.Name }}

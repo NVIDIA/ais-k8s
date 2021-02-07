@@ -1,0 +1,8 @@
+apiVersion: ais.nvidia.com/v1alpha1
+kind: AISConfig
+metadata:
+  name: aisconfig-sample
+spec:
+  # Add fields here
+  distributed_sort:
+    default_max_mem_usage: "85%"

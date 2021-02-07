@@ -1,0 +1,24 @@
+# permissions for end users to edit aistores.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: aistore-editor-role
+rules:
+- apiGroups:
+  - ais.nvidia.com
+  resources:
+  - aistores
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ais.nvidia.com
+  resources:
+  - aistores/status
+  verbs:
+  - get

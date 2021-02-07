@@ -16,6 +16,33 @@ before_script:
   - nohup dockerd >/dev/null 2>&1 & sleep 10
   - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD
 
+
+.default_only_template: &default_only_def
+  only:
+    - master
+    - merge_requests
+    - schedules
+
+build:operator:lint:
+  stage: build
+  image: aistore/ci:1.15
+  timeout: 5m
+  <<: *default_only_def
+  script:
+    - cd operator
+    - make lint
+    - make fmt-check
+    - make spell-check
+
+build:operator:
+  stage: build
+  image: aistore/ci:1.15
+  timeout: 5m
+  <<: *default_only_def
+  script:
+    - cd operator
+    - make manager
+
 build:docker:
   stage: build
   rules:
@@ -40,6 +67,17 @@ build:docker:
     paths:
       - images/
     expire_in: 1h
+
+test:operator:
+  stage: test
+  image: aistore/ci:1.15
+  tags:
+    - ais-k8s
+  timeout: 30m
+  <<: *default_only_def
+  script:
+    - cd operator
+    - make test
 
 test:terraform:gcp:
   stage: test
