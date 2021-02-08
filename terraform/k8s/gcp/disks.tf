@@ -1,5 +1,6 @@
-# NOTE: see that resource if prefixed with kubernetes not provider (ie. google)
-# It basically means that it requires kubernetes to be already running.
+provider "kubernetes" {
+  config_path = "~/.kube/config"
+}
 
 resource "kubernetes_storage_class" "ais-storage-class" {
   metadata {
