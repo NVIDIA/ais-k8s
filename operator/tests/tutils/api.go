@@ -7,6 +7,8 @@ package tutils
 
 import (
 	"context"
+	"fmt"
+	"math/rand"
 	"strings"
 
 	. "github.com/onsi/gomega"
@@ -134,4 +136,27 @@ func GetK8SClusterProvider(ctx context.Context, client *aisclient.K8SClient) str
 		}
 	}
 	return K8SProviderUnknown
+}
+
+func GetLoadBalancerIP(ctx context.Context, client *aisclient.K8SClient, name types.NamespacedName) (ip string) {
+	svc, err := client.GetServiceByName(ctx, name)
+	Expect(err).NotTo(HaveOccurred())
+
+	for _, ing := range svc.Status.LoadBalancer.Ingress {
+		if ing.IP != "" {
+			return ing.IP
+		}
+	}
+	Expect(ip).NotTo(Equal(""))
+	return
+}
+
+func GetRandomProxyIP(ctx context.Context, client *aisclient.K8SClient, cluster *aisv1.AIStore) string {
+	proxyIndex := rand.Intn(int(cluster.Spec.Size))
+	proxySSName := proxy.StatefulSetNSName(cluster)
+	proxySSName.Name = fmt.Sprintf("%s-%d", proxySSName.Name, proxyIndex)
+	pod, err := client.GetPodByName(ctx, proxySSName)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(pod.Status.PodIP).NotTo(Equal(""))
+	return pod.Status.PodIP
 }

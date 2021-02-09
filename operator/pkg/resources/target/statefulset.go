@@ -84,7 +84,7 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 						{
 							Name:            "ais-node",
 							Image:           ais.Spec.NodeImage,
-							ImagePullPolicy: corev1.PullIfNotPresent,
+							ImagePullPolicy: corev1.PullAlways,
 							Env: []corev1.EnvVar{
 								cmn.EnvFromFieldPath("MY_POD", "metadata.name"),
 								cmn.EnvFromValue("K8S_NS", ais.Namespace),

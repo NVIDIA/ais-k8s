@@ -38,6 +38,7 @@ var (
 	k8sClient          *aisclient.K8SClient
 	testEnv            *envtest.Environment
 	k8sClusterProvider string
+	testCtx            *testing.T
 
 	testNSName           = "ais-test-namespace"
 	storageClass         string // storage-class to use in tests
@@ -53,7 +54,7 @@ const (
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
-
+	testCtx = t
 	RunSpecsWithDefaultAndCustomReporters(t,
 		"Controller Suite",
 		[]Reporter{printer.NewlineReporter{}})

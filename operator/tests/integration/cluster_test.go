@@ -11,6 +11,7 @@ import (
 	"time"
 
 	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
 	aiscmn "github.com/NVIDIA/aistore/cmn"
@@ -99,6 +100,34 @@ var _ = Describe("Run Controller", func() {
 			}
 			createAndDestroyCluster(cluster, scaleDownCluster, nil, timeout, interval)
 		})
+	})
+
+	Describe("Client tests", func() {
+		var cluster *aisv1.AIStore
+		count := 0
+		// NOTE: the `BeforeEach`/`AfterEach` code
+		BeforeEach(func() {
+			count++
+			if count == 1 {
+				cluster = tutils.NewAISClusterCR(clusterName(), testNSName, storageClass,
+					1 /*size*/, true /*disableAntiAffinity*/)
+				cluster.Spec.EnableExternalLB = testAsExternalClient
+				Expect(count).To(Equal(1))
+				createCluster(cluster, timeout, interval)
+				initAISCluster(context.Background(), cluster)
+			}
+		})
+		AfterEach(func() {
+			if count == len(tests) {
+				tutils.DestroyCluster(context.Background(), k8sClient, cluster, timeout, interval)
+			}
+		})
+
+		DescribeTable(
+			"AIS cluster tests",
+			runCustom,
+			tests...,
+		)
 	})
 })
 
