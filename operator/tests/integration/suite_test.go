@@ -8,7 +8,9 @@ package integration
 import (
 	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	. "github.com/onsi/ginkgo"
@@ -125,3 +127,29 @@ var _ = AfterSuite(func() {
 	err := testEnv.Stop()
 	Expect(err).NotTo(HaveOccurred())
 })
+
+// helpers
+func skipIfLoadBalancerNotSupported() {
+	// If the tests are running against non-minikube cluster or inside a pod within K8s cluster
+	// we cannot determine if the LoadBalancer service is supported. Proceed to running tests.
+	if k8sClusterProvider != tutils.K8SProviderMinikube || aisk8s.Detect() == nil {
+		return
+	}
+
+	// If test is running against local minikube, check if `minikube tunnel` is running.
+	if !isTunnelRunning() {
+		Skip("Test requires the cluster to support LoadBalancer service.")
+	}
+}
+
+func isTunnelRunning() bool {
+	out, err := exec.Command("ps", "aux").Output()
+	Expect(err).NotTo(HaveOccurred())
+	vals := strings.Split(string(out), "\n")
+	for _, val := range vals {
+		if strings.Contains(val, "minikube") && strings.Contains(val, "tunnel") {
+			return true
+		}
+	}
+	return false
+}

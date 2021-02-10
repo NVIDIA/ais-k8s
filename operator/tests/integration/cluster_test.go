@@ -29,8 +29,9 @@ const (
 
 var _ = Describe("Run Controller", func() {
 	const (
-		timeout  = 30 * time.Second
-		interval = time.Second
+		timeout     = time.Minute
+		longTimeout = 2 * time.Minute
+		interval    = time.Second
 	)
 	Context("Deploy and Destroy cluster", func() {
 		It("Should successfully create an AIS Cluster", func() {
@@ -103,17 +104,26 @@ var _ = Describe("Run Controller", func() {
 	})
 
 	Describe("Client tests", func() {
-		var cluster *aisv1.AIStore
-		count := 0
-		// NOTE: the `BeforeEach`/`AfterEach` code
+		var (
+			cluster *aisv1.AIStore
+			count   = 0
+			tout    = timeout
+		)
+		// NOTE: the `BeforeEach`/`AfterEach` code intends to imitate non-existing `BeforeAll`/`AfterAll` functionalities.
 		BeforeEach(func() {
 			count++
 			if count == 1 {
 				cluster = tutils.NewAISClusterCR(clusterName(), testNSName, storageClass,
 					1 /*size*/, true /*disableAntiAffinity*/)
 				cluster.Spec.EnableExternalLB = testAsExternalClient
+				if testAsExternalClient {
+					skipIfLoadBalancerNotSupported()
+					// For a cluster with external LB, allocating external-IP could be time consuming.
+					// Allow longer timeout for cluster creation.
+					tout = longTimeout
+				}
 				Expect(count).To(Equal(1))
-				createCluster(cluster, timeout, interval)
+				createCluster(cluster, tout, interval)
 				initAISCluster(context.Background(), cluster)
 			}
 		})
