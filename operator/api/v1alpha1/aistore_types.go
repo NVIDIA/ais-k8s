@@ -13,14 +13,14 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-type AIStoreCondition string
+type ClusterCondition string
 
 const (
-	AIStoreConiditionInitialized          AIStoreCondition = "Initialized"
-	AIStoreConditionInitializingLBService AIStoreCondition = "InitializingLoadBalancerService"
-	AIStoreConditionFailed                AIStoreCondition = "Failed"
-	AIStoreConditionCreated               AIStoreCondition = "Created"
-	AIStoreConditionReady                 AIStoreCondition = "Ready"
+	ConiditionInitialized          ClusterCondition = "Initialized"
+	ConditionInitializingLBService ClusterCondition = "InitializingLoadBalancerService"
+	ConditionFailed                ClusterCondition = "Failed"
+	ConditionCreated               ClusterCondition = "Created"
+	ConditionReady                 ClusterCondition = "Ready"
 	// TODO: Add more states, eg. Terminating etc.
 )
 
@@ -51,7 +51,8 @@ type AIStoreSpec struct {
 
 // AIStoreStatus defines the observed state of AIStore
 type AIStoreStatus struct {
-	State AIStoreCondition `json:"condition"`
+	State                 ClusterCondition `json:"condition"`
+	ConfigResourceVersion string           `json:"config_version"`
 }
 
 // ServiceSpec defines the specs of AIS Gateways
@@ -111,11 +112,11 @@ type AIStore struct {
 	Status AIStoreStatus `json:"status,omitempty"`
 }
 
-func (ais *AIStore) SetState(state AIStoreCondition) {
+func (ais *AIStore) SetState(state ClusterCondition) {
 	ais.Status.State = state
 }
 
-func (ais *AIStore) HasState(state AIStoreCondition) bool {
+func (ais *AIStore) HasState(state ClusterCondition) bool {
 	return ais.Status.State == state
 }
 

@@ -7,18 +7,26 @@ package controllers
 
 import (
 	"context"
+	"fmt"
+	"strconv"
+	"sync"
 	"time"
 
 	"github.com/ais-operator/pkg/resources/cmn"
+	"github.com/ais-operator/pkg/resources/proxy"
 	"github.com/ais-operator/pkg/resources/statsd"
 	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	aisapi "github.com/NVIDIA/aistore/api"
 	aiscmn "github.com/NVIDIA/aistore/cmn"
 	aisv1 "github.com/ais-operator/api/v1alpha1"
 	aisclient "github.com/ais-operator/pkg/client"
@@ -34,8 +42,10 @@ type (
 
 	// AIStoreReconciler reconciles a AIStore object
 	AIStoreReconciler struct {
-		client *aisclient.K8SClient
-		log    logr.Logger
+		sync.RWMutex
+		client       *aisclient.K8SClient
+		log          logr.Logger
+		clientParams map[string]*aisapi.BaseParams
 	}
 
 	daemonState struct {
@@ -46,8 +56,9 @@ type (
 
 func NewAISReconciler(mgr manager.Manager, logger logr.Logger) *AIStoreReconciler {
 	return &AIStoreReconciler{
-		client: aisclient.NewClientFromMgr(mgr),
-		log:    logger,
+		client:       aisclient.NewClientFromMgr(mgr),
+		log:          logger,
+		clientParams: make(map[string]*aisapi.BaseParams, 16),
 	}
 }
 
@@ -60,8 +71,11 @@ func NewAISReconciler(mgr manager.Manager, logger logr.Logger) *AIStoreReconcile
 // move the current state of the cluster closer to the desired state.
 func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = r.log.WithValues("aistore", req.NamespacedName)
-
-	ais, err := r.client.GetAIStoreCR(ctx, req.NamespacedName)
+	var (
+		configSpec *aisv1.AISConfig
+		cfgVersion string
+		ais, err   = r.client.GetAIStoreCR(ctx, req.NamespacedName)
+	)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -73,8 +87,38 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return reconcile.Result{}, err
 	}
 
+	if ais.Spec.ConfigCRName != nil {
+		configSpec, err = r.client.GetAIStoreConfCR(ctx, types.NamespacedName{Name: *ais.Spec.ConfigCRName, Namespace: ais.Namespace})
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		var isOwner bool
+		for _, ref := range configSpec.OwnerReferences {
+			if ref.UID == ais.UID {
+				isOwner = true
+				break
+			}
+		}
+
+		if !isOwner {
+			// NOTE: AIStore CR owns the AISConfig CR it references. Ensure that owner reference can be set.
+			// AISConfig CR can only be owned by a single AIStore CR, if not setting owner reference would fail.
+			if err = controllerutil.SetControllerReference(ais, configSpec, r.client.Scheme()); err != nil {
+				r.log.Error(err, "Failed to set controller reference")
+				return reconcile.Result{}, err
+			}
+			if err = r.client.Update(ctx, configSpec); err != nil {
+				r.log.Error(err, "Failed to update configSpec")
+				return reconcile.Result{}, err
+			}
+			// reference updated, reque the request
+			return reconcile.Result{Requeue: true}, nil
+		}
+		cfgVersion = configSpec.GetResourceVersion()
+	}
+
 	if !r.isInitialized(ais) {
-		err = r.setState(ctx, ais, aisv1.AIStoreConiditionInitialized)
+		err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConiditionInitialized, ConfigResourceVersion: cfgVersion})
 		controllerutil.AddFinalizer(ais, aisFinalizer)
 		return reconcile.Result{}, err
 	}
@@ -98,9 +142,15 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	if r.isNewCR(ctx, ais) {
-		return r.bootstrapNew(ctx, ais)
+		return r.bootstrapNew(ctx, ais, configSpec)
 	}
 
+	// Check if AIS config CR is updated
+	if configSpec != nil {
+		if updated, err := r.handleConfigChange(ctx, ais, configSpec); updated || err != nil {
+			return reconcile.Result{}, err
+		}
+	}
 	return r.handleCREvents(ctx, ais)
 }
 
@@ -126,17 +176,14 @@ func hasFinalizer(ais *aisv1.AIStore) bool {
 	return false
 }
 
-func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore) (result ctrl.Result, err error) {
+func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore, configSpec *aisv1.AISConfig) (result ctrl.Result, err error) {
 	var (
 		configToUpdate *aiscmn.ConfigToUpdate
 		changed        bool
 	)
 
 	if ais.Spec.ConfigCRName != nil {
-		if configToUpdate, err = r.getConfigToUpdate(ctx, types.NamespacedName{
-			Name:      *ais.Spec.ConfigCRName,
-			Namespace: ais.Namespace,
-		}); err != nil {
+		if configToUpdate, err = r.getConfigToUpdate(configSpec); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
@@ -163,8 +210,8 @@ func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore
 		// When external access is enabled, we need external IPs of all the targets before deploying the AIS cluster resources (proxies & targets).
 		// To ensure correct behavior of cluster, we requeue the reconciler till all the external services are assigned an external IP.
 		if !targetReady || !proxyReady {
-			if !ais.HasState(aisv1.AIStoreConditionInitializingLBService) {
-				err = r.setState(ctx, ais, aisv1.AIStoreConditionInitializingLBService)
+			if !ais.HasState(aisv1.ConditionInitializingLBService) {
+				err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionInitializingLBService})
 			}
 			result.Requeue = true
 			result.RequeueAfter = 10 * time.Second
@@ -176,14 +223,14 @@ func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore
 	statsDCM := statsd.NewStatsDCM(ais)
 	if _, err = r.client.CreateResourceIfNotExists(ctx, ais, statsDCM); err != nil {
 		r.log.Error(err, "failed to deploy StatsD ConfigMap")
-		err = r.setState(ctx, ais, aisv1.AIStoreConditionFailed)
+		err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionFailed})
 		return
 	}
 
 	// 4. Bootstrap proxies
 	if changed, err = r.initProxies(ctx, ais, configToUpdate); err != nil {
 		r.log.Error(err, "failed to create Proxy resources")
-		err = r.setState(ctx, ais, aisv1.AIStoreConditionFailed)
+		err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionFailed})
 		return
 	} else if changed {
 		result.Requeue = true
@@ -193,13 +240,13 @@ func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore
 	// 5. Bootstrap targets
 	if changed, err = r.initTargets(ctx, ais, configToUpdate); err != nil {
 		r.log.Error(err, "failed to create Target resources")
-		err = r.setState(ctx, ais, aisv1.AIStoreConditionFailed)
+		err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionFailed})
 		return
 	} else if changed {
 		result.Requeue = true
 		return
 	}
-	err = r.setState(ctx, ais, aisv1.AIStoreConditionCreated)
+	err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionCreated})
 	return
 }
 
@@ -229,8 +276,12 @@ func (r *AIStoreReconciler) handleCREvents(ctx context.Context, ais *aisv1.AISto
 	}
 
 	if targetState.isReady && proxyState.isReady {
-		if !ais.HasState(aisv1.AIStoreConditionReady) {
-			err = r.setState(ctx, ais, aisv1.AIStoreConditionReady)
+		if !ais.HasState(aisv1.ConditionReady) {
+			err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionReady})
+		}
+
+		if err != nil {
+			return
 		}
 		return
 	}
@@ -285,32 +336,140 @@ func (r *AIStoreReconciler) isInitialized(ais *aisv1.AIStore) bool {
 	return ais.Status.State != ""
 }
 
-func (r *AIStoreReconciler) setState(ctx context.Context, ais *aisv1.AIStore, state aisv1.AIStoreCondition) error {
-	ais.SetState(state)
+func (r *AIStoreReconciler) setStatus(ctx context.Context, ais *aisv1.AIStore, status aisv1.AIStoreStatus) error {
+	if status.State != "" {
+		ais.SetState(status.State)
+	}
+
+	if status.ConfigResourceVersion != "" {
+		ais.Status.ConfigResourceVersion = status.ConfigResourceVersion
+	}
 	return r.client.Status().Update(ctx, ais)
 }
 
 func (r *AIStoreReconciler) isNewCR(ctx context.Context, ais *aisv1.AIStore) (exists bool) {
 	// TODO: check for other conditions
-	return !ais.HasState(aisv1.AIStoreConditionCreated) && !ais.HasState(aisv1.AIStoreConditionReady)
+	return !ais.HasState(aisv1.ConditionCreated) && !ais.HasState(aisv1.ConditionReady)
+}
+
+// handleConfigChange checks if the `AISConfig` CR has been updated.
+// We check for updates using the last ResourceVersion recorded in `AIStore` CR's status against the current ResourceVersion of `AISConfig`.
+// If we observe a higher version, we use the AIS API to update cluster config, and set the `ConfigResourceVersion` status field to the latest version.
+func (r *AIStoreReconciler) handleConfigChange(ctx context.Context, ais *aisv1.AIStore, configSpec *aisv1.AISConfig) (updated bool, err error) {
+	if ais.Status.ConfigResourceVersion == configSpec.GetResourceVersion() {
+		return
+	}
+
+	currVer, _ := strconv.ParseInt(ais.Status.ConfigResourceVersion, 10, 64)
+	newVer, _ := strconv.ParseInt(configSpec.GetResourceVersion(), 10, 64)
+	if newVer < currVer {
+		return
+	}
+	var toUpdate *aiscmn.ConfigToUpdate
+	updated = true
+	toUpdate, err = r.getConfigToUpdate(configSpec)
+	if err != nil {
+		r.log.Error(err, "Failed to convert config CR to key-value pair")
+		return
+	}
+
+	params, err := r.getAPIParams(ctx, ais)
+	if err != nil {
+		r.log.Error(err, fmt.Sprintf("Failed to fetch BaseParams for cluster %q", ais.NamespacedName().String()))
+	}
+
+	// Config has changed, ensure config is applied to AIS deployment.
+	err = aisapi.SetClusterConfigUsingMsg(*params, toUpdate)
+	if err == nil {
+		err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{ConfigResourceVersion: configSpec.GetResourceVersion()})
+	}
+	if err != nil {
+		r.log.Error(err, "operation failed")
+	}
+	return
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *AIStoreReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&aisv1.AIStore{}).
+		Watches(&source.Kind{Type: &aisv1.AISConfig{}}, &handler.EnqueueRequestForOwner{
+			IsController: true,
+			OwnerType:    &aisv1.AIStore{},
+		}).
 		Complete(r)
 }
 
-// misc helpers
-func (r *AIStoreReconciler) getConfigToUpdate(ctx context.Context, name types.NamespacedName) (*aiscmn.ConfigToUpdate, error) {
-	toUpdate := &aiscmn.ConfigToUpdate{}
-	cfg, err := r.client.GetAIStoreConfCR(ctx, name)
-	if err != nil {
-		return nil, err
+// getAPIParams gets BaseAPIParams for the given AIS cluster.
+// Gets a cached object if exists, else creates a new one.
+func (r *AIStoreReconciler) getAPIParams(ctx context.Context, ais *aisv1.AIStore) (baseParams *aisapi.BaseParams, err error) {
+	var exists bool
+	r.RLock()
+	if baseParams, exists = r.clientParams[ais.NamespacedName().String()]; exists {
+		r.RUnlock()
+		return
 	}
+	r.RUnlock()
+	baseParams, err = r.newAISBaseParams(ctx, ais)
+	if err != nil {
+		return
+	}
+	r.Lock()
+	r.clientParams[ais.NamespacedName().String()] = baseParams
+	r.Unlock()
+	return
+}
+
+// misc helpers
+func (r *AIStoreReconciler) getConfigToUpdate(cfg *aisv1.AISConfig) (toUpdate *aiscmn.ConfigToUpdate, err error) {
+	toUpdate = &aiscmn.ConfigToUpdate{}
 	if err = aiscmn.MorphMarshal(cfg.Spec, toUpdate); err != nil {
 		return nil, err
 	}
 	return toUpdate, err
+}
+
+func (r *AIStoreReconciler) newAISBaseParams(ctx context.Context, ais *aisv1.AIStore) (params *aisapi.BaseParams, err error) {
+	// TODOs:
+	// 1. Get timeout from config
+	// 2. `UseHTTPS` should be set based on cluster config
+	// 3. Should handle auth
+	var (
+		serviceHostname string
+		client          = aiscmn.NewClient(aiscmn.TransportArgs{
+			Timeout:          600 * time.Second,
+			IdleConnsPerHost: 100,
+			UseHTTPProxyEnv:  true,
+			UseHTTPS:         false,
+		})
+	)
+
+	// If LoadBalancer is configured, always use the LB service to contact the API.
+	if ais.Spec.EnableExternalLB {
+		var proxyLBSVC *corev1.Service
+		proxyLBSVC, err = r.client.GetServiceByName(ctx, proxy.LoadBalancerSVCNSName(ais))
+		if err != nil {
+			return nil, err
+		}
+
+		for _, ing := range proxyLBSVC.Status.LoadBalancer.Ingress {
+			if ing.IP != "" {
+				serviceHostname = ing.IP
+				goto createParams
+			}
+		}
+		err = fmt.Errorf("failed to fetch LoadBalancer service %q, err: %v", proxy.LoadBalancerSVCNSName(ais), err)
+		return
+	}
+
+	// When operator is deployed within K8s cluster with no external LoadBalancer,
+	// use the proxy headless service to request the API.
+	serviceHostname = proxy.HeadlessSVCNSName(ais).Name + "." + ais.Namespace
+
+createParams:
+	params = &aisapi.BaseParams{
+		Client: client,
+		URL:    fmt.Sprintf("http://%s:%s", serviceHostname, ais.Spec.ProxySpec.ServicePort.String()),
+	}
+	return
 }

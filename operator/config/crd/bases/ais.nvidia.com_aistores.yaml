@@ -2094,8 +2094,11 @@ spec:
             properties:
               condition:
                 type: string
+              config_version:
+                type: string
             required:
             - condition
+            - config_version
             type: object
         type: object
     served: true

@@ -164,7 +164,7 @@ func createCluster(cluster *aisv1.AIStore, intervals ...interface{}) {
 	Eventually(func() bool {
 		r := &aisv1.AIStore{}
 		_ = k8sClient.Get(context.Background(), cluster.NamespacedName(), r)
-		return r.Status.State == aisv1.AIStoreConditionCreated
+		return r.Status.State == aisv1.ConditionCreated
 	}, intervals...).Should(BeTrue())
 }
 
