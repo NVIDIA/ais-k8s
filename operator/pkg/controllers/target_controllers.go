@@ -21,29 +21,31 @@ func (r *AIStoreReconciler) initTargets(ctx context.Context, ais *aisv1.AIStore,
 	// 1. Deploy required ConfigMap
 	cm, err = target.NewTargetCM(ais, customConfig)
 	if err != nil {
-		r.log.Error(err, "failed to generate valid target ConfigMap")
+		r.recordError(ais, err, "Failed to generate valid target ConfigMap")
 		return
 	}
 
 	if _, err = r.client.CreateResourceIfNotExists(context.TODO(), ais, cm); err != nil {
-		r.log.Error(err, "failed to deploy target ConfigMap")
+		r.recordError(ais, err, "Failed to deploy target ConfigMap")
 		return
 	}
 
 	// 2. Deploy services
 	svc := target.NewTargetHeadlessSvc(ais)
 	if _, err = r.client.CreateResourceIfNotExists(ctx, ais, svc); err != nil {
-		r.log.Error(err, "failed to deploy SVC")
+		r.recordError(ais, err, "Failed to deploy target SVC")
 		return
 	}
 
 	// 3. Deploy statefulset
 	ss := target.NewTargetSS(ais)
 	if exists, err := r.client.CreateResourceIfNotExists(ctx, ais, ss); err != nil {
-		r.log.Error(err, "failed to deploy Primary proxy")
+		r.recordError(ais, err, "Failed to deploy target statefulset")
 		return false, err
 	} else if !exists {
-		r.log.Info("successfully initialized target nodes")
+		msg := "Successfully initialized target nodes"
+		r.log.Info(msg)
+		r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonInitialized, msg)
 		changed = true
 	}
 	return

@@ -28,26 +28,26 @@ func (r *AIStoreReconciler) initProxies(ctx context.Context, ais *aisv1.AIStore,
 	// 1. Deploy required ConfigMap
 	cm, err = proxy.NewProxyCM(ais, customConfig)
 	if err != nil {
-		r.log.Error(err, "failed to generate valid proxy ConfigMap")
+		r.recordError(ais, err, "Failed to generate valid proxy ConfigMap")
 		return
 	}
 
 	if _, err = r.client.CreateResourceIfNotExists(context.TODO(), ais, cm); err != nil {
-		r.log.Error(err, "failed to deploy ConfigMap")
+		r.recordError(ais, err, "Failed to deploy ConfigMap")
 		return
 	}
 
 	// 2. Deploy services
 	svc := proxy.NewProxyHeadlessSvc(ais)
 	if _, err = r.client.CreateResourceIfNotExists(ctx, ais, svc); err != nil {
-		r.log.Error(err, "failed to deploy SVC")
+		r.recordError(ais, err, "Failed to deploy SVC")
 		return
 	}
 
 	// 3. Create a proxy statefulset with single replica as primary
 	pod := proxy.NewProxyStatefulSet(ais, 1)
 	if exists, err = r.client.CreateResourceIfNotExists(ctx, ais, pod); err != nil {
-		r.log.Error(err, "failed to deploy Primary proxy")
+		r.recordError(ais, err, "Failed to deploy Primary proxy")
 		return
 	} else if !exists {
 		changed = true
@@ -61,10 +61,12 @@ func (r *AIStoreReconciler) initProxies(ctx context.Context, ais *aisv1.AIStore,
 
 	// 4. Start all the proxy daemons
 	if changed, err = r.client.UpdateStatefulSetReplicas(ctx, proxy.StatefulSetNSName(ais), ais.Spec.Size); err != nil {
-		r.log.Error(err, "failed to deploy stateful set")
+		r.recordError(ais, err, "Failed to deploy stateful set")
 		return
 	} else if changed {
-		r.log.Info("successfully initialized proxy nodes")
+		msg := "Successfully initialized proxy nodes"
+		r.log.Info(msg)
+		r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonInitialized, msg)
 	}
 	return
 }

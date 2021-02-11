@@ -18,6 +18,7 @@ type ClusterCondition string
 const (
 	ConiditionInitialized          ClusterCondition = "Initialized"
 	ConditionInitializingLBService ClusterCondition = "InitializingLoadBalancerService"
+	ConditionPendingLBService      ClusterCondition = "PendingLoadBalancerService"
 	ConditionFailed                ClusterCondition = "Failed"
 	ConditionCreated               ClusterCondition = "Created"
 	ConditionReady                 ClusterCondition = "Ready"
