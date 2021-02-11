@@ -93,20 +93,14 @@ var _ = BeforeSuite(func(done Done) {
 		Scheme: scheme.Scheme,
 	})
 
-	err = controllers.NewAISReconciler(
-		mgr,
-		ctrl.Log.WithName("controllers").WithName("AIStore"),
-	).SetupWithManager(mgr)
+	k8sClient = aisclient.NewClientFromMgr(mgr)
 	Expect(err).NotTo(HaveOccurred())
+	Expect(k8sClient).NotTo(BeNil())
 
 	go func() {
 		err = mgr.Start(ctrl.SetupSignalHandler())
 		Expect(err).ToNot(HaveOccurred())
 	}()
-
-	k8sClient = aisclient.NewClientFromMgr(mgr)
-	Expect(err).NotTo(HaveOccurred())
-	Expect(k8sClient).NotTo(BeNil())
 
 	// Create Namespace if not exists
 	testNS, nsExists = tutils.CreateNSIfNotExists(context.Background(), k8sClient, testNSName)
@@ -115,6 +109,14 @@ var _ = BeforeSuite(func(done Done) {
 	// NOTE: On gitlab, tests run in a pod inside minikube cluster. In that case we can run the tests as an internal client, unless enforced to test as external client.
 	testAsExternalClient = aiscmn.IsParseBool(os.Getenv(ENV_TEST_ENFORCE_EXTERNAL)) || aisk8s.Detect() != nil
 	setStorageClass()
+
+	err = controllers.NewAISReconciler(
+		mgr,
+		ctrl.Log.WithName("controllers").WithName("AIStore"),
+		testAsExternalClient,
+	).SetupWithManager(mgr)
+	Expect(err).NotTo(HaveOccurred())
+
 	close(done)
 }, 60)
 

@@ -48,6 +48,7 @@ type (
 		log          logr.Logger
 		recorder     record.EventRecorder
 		clientParams map[string]*aisapi.BaseParams
+		isExternal   bool // manager is deployed externally to K8s cluster
 	}
 
 	daemonState struct {
@@ -56,12 +57,13 @@ type (
 	}
 )
 
-func NewAISReconciler(mgr manager.Manager, logger logr.Logger) *AIStoreReconciler {
+func NewAISReconciler(mgr manager.Manager, logger logr.Logger, isExternal bool) *AIStoreReconciler {
 	return &AIStoreReconciler{
 		client:       aisclient.NewClientFromMgr(mgr),
 		log:          logger,
 		recorder:     mgr.GetEventRecorderFor("ais-controller"),
 		clientParams: make(map[string]*aisapi.BaseParams, 16),
+		isExternal:   isExternal,
 	}
 }
 
@@ -464,8 +466,8 @@ func (r *AIStoreReconciler) newAISBaseParams(ctx context.Context, ais *aisv1.AIS
 		})
 	)
 
-	// If LoadBalancer is configured, always use the LB service to contact the API.
-	if ais.Spec.EnableExternalLB {
+	// If LoadBalancer is configured and `isExternal` flag is set use the LB service to contact the API.
+	if r.isExternal && ais.Spec.EnableExternalLB {
 		var proxyLBSVC *corev1.Service
 		proxyLBSVC, err = r.client.GetServiceByName(ctx, proxy.LoadBalancerSVCNSName(ais))
 		if err != nil {
