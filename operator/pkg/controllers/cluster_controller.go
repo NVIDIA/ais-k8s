@@ -37,6 +37,7 @@ const (
 	aisFinalizer = "finalize.ais"
 	// Duration to requeue reconciler for status update.
 	statusRetryInterval = 10 * time.Second
+	requeueInterval     = 10 * time.Second
 	errBackOffTime      = 10 * time.Second
 )
 
@@ -274,8 +275,7 @@ func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore
 				err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionPendingLBService})
 				r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonWaiting, "Waiting for LoadBalancer service to be ready")
 			}
-			result.Requeue = true
-			result.RequeueAfter = 10 * time.Second
+			result.RequeueAfter = requeueInterval
 			return
 		}
 	}
@@ -292,7 +292,7 @@ func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore
 		r.recordError(ais, err, "Failed to create Proxy resources")
 		return r.manageError(ctx, ais, aisv1.ProxyCreationError, err)
 	} else if changed {
-		result.Requeue = true
+		result.RequeueAfter = requeueInterval
 		return
 	}
 
@@ -301,7 +301,7 @@ func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore
 		r.recordError(ais, err, "Failed to create Target resources")
 		return r.manageError(ctx, ais, aisv1.TargetCreationError, err)
 	} else if changed {
-		result.Requeue = true
+		result.RequeueAfter = requeueInterval
 		return
 	}
 

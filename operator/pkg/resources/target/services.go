@@ -120,9 +120,13 @@ func NewTargetLoadBalancerSVC(ais *aisv1.AIStore, targetIndex int32) *corev1.Ser
 	}
 }
 
-func NewTargetLoadBalancerSVCList(ais *aisv1.AIStore) []*corev1.Service {
-	svcs := make([]*corev1.Service, 0, ais.Spec.Size)
-	for i := int32(0); i < ais.Spec.Size; i++ {
+func NewLoadBalancerSVCList(ais *aisv1.AIStore) []*corev1.Service {
+	return LoadBalancerSVCList(ais, 0, ais.Spec.Size)
+}
+
+func LoadBalancerSVCList(ais *aisv1.AIStore, first, size int32) []*corev1.Service {
+	svcs := make([]*corev1.Service, 0, size)
+	for i := first; i < first+size; i++ {
 		svcs = append(svcs, NewTargetLoadBalancerSVC(ais, i))
 	}
 	return svcs

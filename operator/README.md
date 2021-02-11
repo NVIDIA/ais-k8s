@@ -1,7 +1,8 @@
 # AIS Kubernetes Operator
 
 ## Overview
-AIStore is designed to run natively on Kubernetes. This folder contains **AIS K8S Operator** that provides for deployment, bootstrapping, scaling up (and down), upgrading, and managing resources of the AIS clusters on Kubernetes.
+AIStore is designed to run natively on Kubernetes.
+This folder contains **AIS K8S Operator** that provides for deployment, bootstrapping, scaling up (and down), upgrading, and managing resources of the AIS clusters on Kubernetes.
 
 > **WARNING:** AIS K8S Operator (or, simply, AIS Operator) is currently undergoing active development - non-backward compatible changes are to be expected at any moment.
 
@@ -31,9 +32,11 @@ aistore-sample-target-0                               1/1     Running   0       
 
 ### Enabling external access
 
-This section discusses AIStore accessibility by external clients - the clients **outside the Kubernetes cluster**. To achieve that, AIS Operator utilizes K8s `LoadBalancer` service.
+This section discusses AIStore accessibility by external clients - the clients **outside the Kubernetes cluster**.
+To achieve that, AIS Operator utilizes K8s `LoadBalancer` service.
 
-Generally, external access relies on the K8s capability to assign an external IP (or hostname) to a `LoadBalancer` services. Enabling external access is as easy as setting `enableExternalLB` to `true` while `applying` the AIStore cluster resource.
+Generally, external access relies on the K8s capability to assign an external IP (or hostname) to a `LoadBalancer` services.
+Enabling external access is as easy as setting `enableExternalLB` to `true` while `applying` the AIStore cluster resource.
 
 For instance, you could update `config/samples/ais_v1alpha1_aistore.yaml` as follows:
 
@@ -51,7 +54,8 @@ spec:
 
 > NOTE: Currently, external access can be enabled only for new AIS clusters. Updating the `enablingExternalLB` spec for an existing cluster is not yet supported.
 
-Another important consideration is - the number of external IPs. To deploy an AIS cluster of N storage nodes, the K8s cluster will have to assign external IPs to (N + 1) `LoadBalancer` services: one for each storage target plus one more for allthe AIS proxies (aka AIS gateways) in that same cluster.
+Another important consideration is - the number of external IPs.
+To deploy an AIS cluster of N storage nodes, the K8s cluster will have to assign external IPs to (N + 1) `LoadBalancer` services: one for each storage target plus one more for all the AIS proxies (aka AIS gateways) in that same cluster.
 
 Failing that requirement will lead to a failure to deploy AIStore.
 

@@ -8,7 +8,9 @@ package controllers
 import (
 	"context"
 
+	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	aiscmn "github.com/NVIDIA/aistore/cmn"
@@ -77,19 +79,55 @@ func (r *AIStoreReconciler) cleanupTarget(ctx context.Context, ais *aisv1.AIStor
 
 func (r *AIStoreReconciler) handleTargetState(ctx context.Context, ais *aisv1.AIStore) (state daemonState, err error) {
 	targetSSName := target.StatefulSetNSName(ais)
-	// Fetch the latest statefulset for targets and check if it's spec (for now just replicas), matches the AIS cluster spec.
+	// Fetch the latest StatefulSet for targets and check if it's spec (for now just replicas), matches the AIS cluster spec.
 	ss, err := r.client.GetStatefulSet(ctx, targetSSName)
 	if err != nil {
 		return state, err
 	}
 	if *ss.Spec.Replicas != ais.Spec.Size {
-		state.isUpdated = true
-		_, err = r.client.UpdateStatefulSetReplicas(ctx, targetSSName, ais.Spec.Size)
-		// TODO: Deal with target scale-down; should decommission to avoid data loss.
-		return
+		state, err = r.handleTargetScaling(ctx, ais, ss, targetSSName)
 	}
 	// For now, state of target is considered ready if the number of target pods ready matches the size provided in AIS cluster spec.
 	state.isReady = ss.Status.ReadyReplicas == ais.Spec.Size
+	return
+}
+
+func (r *AIStoreReconciler) handleTargetScaling(ctx context.Context, ais *aisv1.AIStore, ss *v1.StatefulSet, targetSS types.NamespacedName) (state daemonState, err error) {
+	if *ss.Spec.Replicas < ais.Spec.Size {
+		// Current SS has fewer replicas than expected size - scale up.
+		return r.handleTargetScaleUp(ctx, ais, targetSS)
+	}
+
+	// Otherwise - scale down.
+	return r.handleTargetScaleDown(ctx, ais, ss, targetSS)
+}
+
+func (r *AIStoreReconciler) handleTargetScaleDown(ctx context.Context, ais *aisv1.AIStore, ss *v1.StatefulSet, targetSS types.NamespacedName) (state daemonState, err error) {
+	// TODO: Decommission a target first to avoid data loss.
+	if ais.Spec.EnableExternalLB {
+		for idx := *ss.Spec.Replicas; idx > ais.Spec.Size; idx-- {
+			svcName := target.LoadBalancerSVCNSName(ais, idx-1)
+			if err = r.client.DeleteServiceIfExists(ctx, svcName); err != nil {
+				return
+			}
+		}
+	}
+
+	state.isUpdated, err = r.client.UpdateStatefulSetReplicas(ctx, targetSS, ais.Spec.Size)
+	return
+}
+
+func (r *AIStoreReconciler) handleTargetScaleUp(ctx context.Context, ais *aisv1.AIStore, targetSS types.NamespacedName) (state daemonState, err error) {
+	if ais.Spec.EnableExternalLB {
+		state.isReady, err = r.enableTargetExternalService(ctx, ais)
+		// External services not fully ready yet, end here and wait for another retry.
+		// Do not proceed to updating targets SS until all external services are ready.
+		if !state.isReady || err != nil {
+			return
+		}
+	}
+
+	state.isUpdated, err = r.client.UpdateStatefulSetReplicas(ctx, targetSS, ais.Spec.Size)
 	return
 }
 
@@ -97,7 +135,7 @@ func (r *AIStoreReconciler) handleTargetState(ctx context.Context, ais *aisv1.AI
 func (r *AIStoreReconciler) enableTargetExternalService(ctx context.Context,
 	ais *aisv1.AIStore) (ready bool, err error) {
 	var (
-		targetSVCList = target.NewTargetLoadBalancerSVCList(ais)
+		targetSVCList = target.NewLoadBalancerSVCList(ais)
 		exists        bool
 		allExist      = true
 	)

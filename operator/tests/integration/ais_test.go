@@ -27,7 +27,7 @@ var (
 	}
 )
 
-// initilize AIS tutils to use the deployed cluster
+// Initialize AIS tutils to use the deployed cluster
 func initAISCluster(ctx context.Context, cluster *aisv1.AIStore) {
 	proxyURL = tutils.GetProxyURL(ctx, k8sClient, cluster)
 

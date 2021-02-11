@@ -13,8 +13,7 @@ import (
 // IMPROTANT: Run "make" to regenerate code after modifying this file
 
 // AISConfigStatus defines the observed state of AISConfig
-type AISConfigStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
+type AISConfigStatus struct { // INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 }
 
 // +kubebuilder:object:root=true
