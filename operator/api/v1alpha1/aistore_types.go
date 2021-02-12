@@ -16,12 +16,13 @@ import (
 type ClusterCondition string
 
 const (
-	ConiditionInitialized          ClusterCondition = "Initialized"
+	ConditionInitialized           ClusterCondition = "Initialized"
 	ConditionInitializingLBService ClusterCondition = "InitializingLoadBalancerService"
 	ConditionPendingLBService      ClusterCondition = "PendingLoadBalancerService"
 	ConditionFailed                ClusterCondition = "Failed"
 	ConditionCreated               ClusterCondition = "Created"
 	ConditionReady                 ClusterCondition = "Ready"
+	ConditionUpgrading             ClusterCondition = "Upgrading"
 	// TODO: Add more states, eg. Terminating etc.
 )
 
@@ -52,8 +53,15 @@ type AIStoreSpec struct {
 
 // AIStoreStatus defines the observed state of AIStore
 type AIStoreStatus struct {
-	State                 ClusterCondition `json:"condition"`
-	ConfigResourceVersion string           `json:"config_version"`
+	// Represents the observations of a AIStores's current state.
+	// Known .status.conditions.type are: "Initialized", "Created", and "Ready"
+	// +patchMergeKey=type
+	// +patchStrategy=merge
+	// +listType=map
+	// +listMapKey=type
+	Conditions            []metav1.Condition `json:"conditions"`
+	State                 ClusterCondition   `json:"state"`
+	ConfigResourceVersion string             `json:"config_version"`
 }
 
 // ServiceSpec defines the specs of AIS Gateways
@@ -111,6 +119,100 @@ type AIStore struct {
 
 	Spec   AIStoreSpec   `json:"spec,omitempty"`
 	Status AIStoreStatus `json:"status,omitempty"`
+}
+
+// AddOrUpdateCondition is used to add a new/update an existing condition type.
+func (ais *AIStore) AddOrUpdateCondition(c metav1.Condition) {
+	c.LastTransitionTime = metav1.Now()
+	c.ObservedGeneration = ais.GetGeneration()
+	for i, condition := range ais.Status.Conditions {
+		if c.Type == condition.Type {
+			ais.Status.Conditions[i] = c
+			return
+		}
+	}
+	ais.Status.Conditions = append(ais.Status.Conditions, c)
+}
+
+// GetLastCondition retruns the last condition based on the condition timestamp. if no condition is present it return false.
+func (ais *AIStore) GetLastCondition() (latest metav1.Condition, exists bool) {
+	if len(ais.Status.Conditions) == 0 {
+		return
+	}
+	exists = true
+	latest = ais.Status.Conditions[0]
+	lastTime := latest.LastTransitionTime
+	for i, condition := range ais.Status.Conditions {
+		if i == 0 {
+			continue
+		}
+		if lastTime.Before(&condition.LastTransitionTime) {
+			latest = condition
+			lastTime = condition.LastTransitionTime
+		}
+	}
+	return
+}
+
+// SetConditionInitialized add a new condition type `Initialized` and sets it to `True`
+func (ais *AIStore) SetConditionInitialized() {
+	ais.AddOrUpdateCondition(metav1.Condition{
+		Type:    string(ConditionInitialized),
+		Status:  metav1.ConditionTrue,
+		Reason:  string(ConditionInitialized),
+		Message: "Success initializing cluster",
+	})
+}
+
+// SetConditionCreated add a new condition type `Created` and sets it to `True`
+func (ais *AIStore) SetConditionCreated() {
+	ais.AddOrUpdateCondition(metav1.Condition{
+		Type:    string(ConditionCreated),
+		Status:  metav1.ConditionTrue,
+		Reason:  string(ConditionCreated),
+		Message: "Success creating AIS cluster",
+	})
+}
+
+// SetConditionReady add a new condition type `Ready` and sets it to `True`
+func (ais *AIStore) SetConditionReady() {
+	ais.AddOrUpdateCondition(metav1.Condition{
+		Type:    string(ConditionReady),
+		Status:  metav1.ConditionTrue,
+		Reason:  string(ConditionReady),
+		Message: "Cluster is ready",
+	})
+}
+
+// UnsetConditionReady add/updates condition setting type `Ready` to `False`
+// reason - tag why the condition is being set to `False`.
+// message - a human readable message indicating details about state change.
+func (ais *AIStore) UnsetConditionReady(reason, message string) {
+	ais.AddOrUpdateCondition(metav1.Condition{
+		Type:    string(ConditionReady),
+		Status:  metav1.ConditionFalse,
+		Reason:  reason,
+		Message: message,
+	})
+}
+
+func (ais *AIStore) getCondition(conditionType string) (metav1.Condition, bool) {
+	for _, condition := range ais.Status.Conditions {
+		if condition.Type == conditionType {
+			return condition, true
+		}
+	}
+	return metav1.Condition{}, false
+}
+
+// IsConditionTrue checks if the `Status` for given type is set to true
+func (ais *AIStore) IsConditionTrue(conditionType string) (isTrue bool) {
+	condition, ok := ais.getCondition(conditionType)
+	if !ok {
+		return
+	}
+	isTrue = condition.Status == metav1.ConditionTrue
+	return
 }
 
 func (ais *AIStore) SetState(state ClusterCondition) {

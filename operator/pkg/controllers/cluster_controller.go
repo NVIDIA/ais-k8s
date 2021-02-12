@@ -123,7 +123,8 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	if !r.isInitialized(ais) {
-		err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConiditionInitialized, ConfigResourceVersion: cfgVersion})
+		ais.SetConditionInitialized()
+		err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionInitialized, ConfigResourceVersion: cfgVersion})
 		controllerutil.AddFinalizer(ais, aisFinalizer)
 		return reconcile.Result{}, err
 	}
@@ -256,6 +257,7 @@ func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore
 		return
 	}
 	r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonCreated, "Successfully created AIS cluster")
+	ais.SetConditionReady()
 	err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionCreated})
 	return
 }
@@ -286,8 +288,9 @@ func (r *AIStoreReconciler) handleCREvents(ctx context.Context, ais *aisv1.AISto
 	}
 
 	if targetState.isReady && proxyState.isReady {
-		if !ais.HasState(aisv1.ConditionReady) {
+		if !ais.IsConditionTrue(string(aisv1.ConditionReady)) {
 			r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonReady, "Created AIS cluster")
+			ais.SetConditionReady()
 			err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionReady})
 		}
 
@@ -301,6 +304,10 @@ func (r *AIStoreReconciler) handleCREvents(ctx context.Context, ais *aisv1.AISto
 	// We requeue till the AIStore cluster becomes ready.
 	// TODO: Remove explicit requeue after enabling event watchers for owned resources (e.g. proxy/target statefulsets).
 updated:
+	if !ais.IsConditionTrue(string(aisv1.ConditionReady)) {
+		ais.UnsetConditionReady(string(aisv1.ConditionUpgrading), "Waiting for cluster to upgrade")
+		err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionUpgrading})
+	}
 	result.Requeue = true
 	return
 }
@@ -363,9 +370,8 @@ func (r *AIStoreReconciler) setStatus(ctx context.Context, ais *aisv1.AIStore, s
 	return
 }
 
-func (r *AIStoreReconciler) isNewCR(ctx context.Context, ais *aisv1.AIStore) (exists bool) {
-	// TODO: check for other conditions
-	return !ais.HasState(aisv1.ConditionCreated) && !ais.HasState(aisv1.ConditionReady)
+func (r *AIStoreReconciler) isNewCR(ctx context.Context, ais *aisv1.AIStore) (isNew bool) {
+	return !ais.IsConditionTrue(string(aisv1.ConditionCreated))
 }
 
 // handleConfigChange checks if the `AISConfig` CR has been updated.
