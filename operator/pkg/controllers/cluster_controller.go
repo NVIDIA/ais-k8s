@@ -200,7 +200,8 @@ func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore
 		return
 	}
 
-	// 2. Check if the cluster needs external access, if yes, create a LoadBalancer services for targets and proxies and wait for external IP to be allocated.
+	// 2. Check if the cluster needs external access.
+	// If yes, create a LoadBalancer services for targets and proxies and wait for external IP to be allocated.
 	if ais.Spec.EnableExternalLB {
 		var proxyReady, targetReady bool
 		proxyReady, err = r.enableProxyExternalService(ctx, ais)
@@ -219,7 +220,7 @@ func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore
 			if !ais.HasState(aisv1.ConditionInitializingLBService) {
 				err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionInitializingLBService})
 				r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonInitialized, "Successfully initialized LoadBalancer service")
-			} else if ais.HasState(aisv1.ConditionInitializingLBService) {
+			} else {
 				err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionPendingLBService})
 				r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonWaiting, "Waiting for LoadBalancer service to be ready")
 			}

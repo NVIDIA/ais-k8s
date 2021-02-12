@@ -19,7 +19,7 @@ const (
 	aisInitImage = "aistore/ais-init:latest"
 )
 
-func NewAISClusterCR(name, namespace string, storageClass string, size int32, disableAntiAffinity bool) *aisv1.AIStore {
+func NewAISClusterCR(name, namespace, storageClass string, size int32, disableAntiAffinity, enableExternalLB bool) *aisv1.AIStore {
 	var storage *string
 	if storageClass != "" {
 		storage = &storageClass
@@ -30,6 +30,7 @@ func NewAISClusterCR(name, namespace string, storageClass string, size int32, di
 		NodeImage:              aisNodeImage,
 		InitImage:              aisInitImage,
 		HostpathPrefix:         "/etc/ais",
+		EnableExternalLB:       enableExternalLB,
 		DisablePodAntiAffinity: &disableAntiAffinity,
 		ProxySpec: aisv1.DaemonSpec{
 			ServiceSpec: aisv1.ServiceSpec{

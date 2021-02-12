@@ -34,23 +34,38 @@ var _ = Describe("Run Controller", func() {
 		interval    = time.Second
 	)
 	Context("Deploy and Destroy cluster", func() {
-		It("Should successfully create an AIS Cluster", func() {
-			cluster := tutils.NewAISClusterCR(clusterName(), testNSName, storageClass, 1 /*size*/, false /*disableAntiAffinity*/)
-			createAndDestroyCluster(cluster, nil, nil, timeout, interval)
+		Context("without externalLB", func() {
+			It("Should successfully create an AIS Cluster", func() {
+				cluster := tutils.NewAISClusterCR(clusterName(), testNSName, storageClass, 1, false, false)
+				createAndDestroyCluster(cluster, nil, nil, timeout, interval)
+			})
+
+			It("Should create all required K8s objects, when AIS Cluster is created", func() {
+				cluster := tutils.NewAISClusterCR(clusterName(), testNSName, storageClass, 1, false, false)
+				createAndDestroyCluster(cluster, checkResExists, checkResShouldNotExist, timeout, interval)
+			})
 		})
 
-		It("Should create all required K8s objects, when AIS Cluster is created", func() {
-			cluster := tutils.NewAISClusterCR(clusterName(), testNSName, storageClass, 1 /*size*/, false /*disableAntiAffinity*/)
-			createAndDestroyCluster(cluster, checkResExists, checkResShouldNotExist, timeout, interval)
+		Context("with externalLB", func() {
+			It("Should successfully create an AIS Cluster", func() {
+				cluster := tutils.NewAISClusterCR(clusterName(), testNSName, storageClass, 1, false, true)
+				createAndDestroyCluster(cluster, nil, nil, timeout, interval)
+			})
+
+			It("Should create all required K8s objects, when AIS Cluster is created", func() {
+				cluster := tutils.NewAISClusterCR(clusterName(), testNSName, storageClass, 1, false, true)
+				createAndDestroyCluster(cluster, checkResExists, checkResShouldNotExist, timeout, interval)
+			})
 		})
+
 	})
 
 	Context("Multiple Deployments", func() {
 		// Running multiple clusters in the same cluster
 		It("Should allow running two clusters in the same namespace", func() {
 			ctx := context.Background()
-			cluster1 := tutils.NewAISClusterCR(clusterName(), testNSName, storageClass, 1 /*size*/, false /*disableAntiAffinity*/)
-			cluster2 := tutils.NewAISClusterCR(clusterName(), testNSName, storageClass, 1 /*size*/, false /*disableAntiAffinity*/)
+			cluster1 := tutils.NewAISClusterCR(clusterName(), testNSName, storageClass, 1, false, false)
+			cluster2 := tutils.NewAISClusterCR(clusterName(), testNSName, storageClass, 1, false, false)
 			defer func() {
 				tutils.DestroyCluster(ctx, k8sClient, cluster2)
 				tutils.DestroyCluster(ctx, k8sClient, cluster1)
@@ -72,8 +87,8 @@ var _ = Describe("Run Controller", func() {
 					Expect(err).To(BeNil())
 				}()
 			}
-			cluster1 := tutils.NewAISClusterCR(name, testNSName, storageClass, 1 /*size*/, false /*disableAntiAffinity*/)
-			cluster2 := tutils.NewAISClusterCR(name, otherNS, storageClass, 1 /*size*/, false /*disableAntiAffinity*/)
+			cluster1 := tutils.NewAISClusterCR(name, testNSName, storageClass, 1, false, false)
+			cluster2 := tutils.NewAISClusterCR(name, otherNS, storageClass, 1, false, false)
 			defer func() {
 				tutils.DestroyCluster(ctx, k8sClient, cluster2)
 				tutils.DestroyCluster(ctx, k8sClient, cluster1)
@@ -87,7 +102,7 @@ var _ = Describe("Run Controller", func() {
 
 	Context("Scale existing cluster", func() {
 		It("Should be able to scale-up existing cluster", func() {
-			cluster := tutils.NewAISClusterCR(clusterName(), testNSName, storageClass, 1 /*size*/, true /*disableAntiAffinity*/)
+			cluster := tutils.NewAISClusterCR(clusterName(), testNSName, storageClass, 1, true, false)
 			scaleUpCluster := func(ctx context.Context, cluster *aisv1.AIStore) {
 				scaleCluster(ctx, cluster, 1)
 			}
@@ -95,7 +110,7 @@ var _ = Describe("Run Controller", func() {
 		})
 
 		It("Should be able to scale-down existing cluster", func() {
-			cluster := tutils.NewAISClusterCR(clusterName(), testNSName, storageClass, 2 /*size*/, true /*disableAntiAffinity*/)
+			cluster := tutils.NewAISClusterCR(clusterName(), testNSName, storageClass, 2, true, false)
 			scaleDownCluster := func(ctx context.Context, cluster *aisv1.AIStore) {
 				scaleCluster(ctx, cluster, -1)
 			}
@@ -113,8 +128,7 @@ var _ = Describe("Run Controller", func() {
 		BeforeEach(func() {
 			count++
 			if count == 1 {
-				cluster = tutils.NewAISClusterCR(clusterName(), testNSName, storageClass,
-					1 /*size*/, true /*disableAntiAffinity*/)
+				cluster = tutils.NewAISClusterCR(clusterName(), testNSName, storageClass, 1, true, false)
 				cluster.Spec.EnableExternalLB = testAsExternalClient
 				if testAsExternalClient {
 					skipIfLoadBalancerNotSupported()
@@ -169,6 +183,10 @@ func checkResExistance(ctx context.Context, cluster *aisv1.AIStore, exists bool,
 	tutils.EventuallyServiceExists(ctx, k8sClient, proxy.HeadlessSVCNSName(cluster), condition, intervals...)
 	// 2.3 StatefulSet
 	tutils.EventuallySSExists(ctx, k8sClient, proxy.StatefulSetNSName(cluster), condition, intervals...)
+	// 2.4 ExternalLB Service (optional)
+	if cluster.Spec.EnableExternalLB {
+		tutils.EventuallyServiceExists(ctx, k8sClient, proxy.LoadBalancerSVCNSName(cluster), condition, intervals...)
+	}
 
 	// 3. Target resources
 	// 3.1 config
@@ -177,6 +195,12 @@ func checkResExistance(ctx context.Context, cluster *aisv1.AIStore, exists bool,
 	tutils.EventuallyServiceExists(ctx, k8sClient, target.HeadlessSVCNSName(cluster), condition, intervals...)
 	// 3.3 StatefulSet
 	tutils.EventuallySSExists(ctx, k8sClient, target.StatefulSetNSName(cluster), condition, intervals...)
+	// 3.4 ExternalLB Service (optional)
+	if cluster.Spec.EnableExternalLB {
+		for i := int32(0); i < cluster.Spec.Size; i++ {
+			tutils.EventuallyServiceExists(ctx, k8sClient, target.LoadBalancerSVCNSName(cluster, i), condition, intervals...)
+		}
+	}
 }
 
 func createAndDestroyCluster(cluster *aisv1.AIStore, postCreate func(context.Context, *aisv1.AIStore), postDestroy func(context.Context, *aisv1.AIStore), intervals ...interface{}) {
