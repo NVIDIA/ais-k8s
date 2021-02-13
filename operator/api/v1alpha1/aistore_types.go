@@ -13,7 +13,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-type ClusterCondition string
+type (
+	ClusterCondition string
+	ErrorReason      string
+)
 
 const (
 	ConditionInitialized           ClusterCondition = "Initialized"
@@ -24,6 +27,24 @@ const (
 	ConditionReady                 ClusterCondition = "Ready"
 	ConditionUpgrading             ClusterCondition = "Upgrading"
 	// TODO: Add more states, eg. Terminating etc.
+
+	// Condition types
+	ReconcilerError         string = "ReconcilerError"
+	ReconcilerSuccess       string = "ReconcilerSuccess"
+	ReconcilerSuccessReason string = "LastReconcileCycleSucceded"
+
+	// ErrorReason
+	ReasonUnknown         ErrorReason = "Unknown"
+	RBACManagementError   ErrorReason = "RBACError"
+	ProxyCreationError    ErrorReason = "ProxyCreationError"
+	TargetCreationError   ErrorReason = "TargetCreationError"
+	InstanceDeletionError ErrorReason = "InstanceDeletionError"
+	ConfigChangeError     ErrorReason = "ConfigChangeError"
+	OwnerReferenceError   ErrorReason = "OwnerReferenceError"
+	ExternalServiceError  ErrorReason = "ExternalService"
+	ResourceCreationError ErrorReason = "ResourceCreationError"
+	ResourceFetchError    ErrorReason = "ResouceFetchError" // failed to fetch a resouce using K8s API
+	ResourceUpdateError   ErrorReason = "ResourceUpdateError"
 )
 
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
@@ -61,6 +82,7 @@ type AIStoreStatus struct {
 	// +listMapKey=type
 	Conditions            []metav1.Condition `json:"conditions"`
 	State                 ClusterCondition   `json:"state"`
+	ConsecutiveErrorCount int                `json:"consecutive_error_count"` // number of times an error occurred
 	ConfigResourceVersion string             `json:"config_version"`
 }
 
@@ -157,9 +179,9 @@ func (ais *AIStore) GetLastCondition() (latest metav1.Condition, exists bool) {
 // SetConditionInitialized add a new condition type `Initialized` and sets it to `True`
 func (ais *AIStore) SetConditionInitialized() {
 	ais.AddOrUpdateCondition(metav1.Condition{
-		Type:    string(ConditionInitialized),
+		Type:    ConditionInitialized.Str(),
 		Status:  metav1.ConditionTrue,
-		Reason:  string(ConditionInitialized),
+		Reason:  ConditionInitialized.Str(),
 		Message: "Success initializing cluster",
 	})
 }
@@ -167,9 +189,9 @@ func (ais *AIStore) SetConditionInitialized() {
 // SetConditionCreated add a new condition type `Created` and sets it to `True`
 func (ais *AIStore) SetConditionCreated() {
 	ais.AddOrUpdateCondition(metav1.Condition{
-		Type:    string(ConditionCreated),
+		Type:    ConditionCreated.Str(),
 		Status:  metav1.ConditionTrue,
-		Reason:  string(ConditionCreated),
+		Reason:  ConditionCreated.Str(),
 		Message: "Success creating AIS cluster",
 	})
 }
@@ -177,9 +199,9 @@ func (ais *AIStore) SetConditionCreated() {
 // SetConditionReady add a new condition type `Ready` and sets it to `True`
 func (ais *AIStore) SetConditionReady() {
 	ais.AddOrUpdateCondition(metav1.Condition{
-		Type:    string(ConditionReady),
+		Type:    ConditionReady.Str(),
 		Status:  metav1.ConditionTrue,
-		Reason:  string(ConditionReady),
+		Reason:  ConditionReady.Str(),
 		Message: "Cluster is ready",
 	})
 }
@@ -189,10 +211,34 @@ func (ais *AIStore) SetConditionReady() {
 // message - a human readable message indicating details about state change.
 func (ais *AIStore) UnsetConditionReady(reason, message string) {
 	ais.AddOrUpdateCondition(metav1.Condition{
-		Type:    string(ConditionReady),
+		Type:    ConditionReady.Str(),
 		Status:  metav1.ConditionFalse,
 		Reason:  reason,
 		Message: message,
+	})
+}
+
+// SetConditionError sets records error occurred in reconciler loop
+func (ais *AIStore) SetConditionError(reason ErrorReason, err error) {
+	if err == nil {
+		return
+	}
+	ais.AddOrUpdateCondition(metav1.Condition{
+		Type:    ReconcilerError,
+		Status:  metav1.ConditionTrue,
+		Reason:  reason.Str(),
+		Message: err.Error(),
+	})
+}
+
+func (ais *AIStore) IncErrorCount()   { ais.Status.ConsecutiveErrorCount++ }
+func (ais *AIStore) ResetErrorCount() { ais.Status.ConsecutiveErrorCount = 0 }
+func (ais *AIStore) SetConditionSuccess() {
+	ais.Status.ConsecutiveErrorCount = 0
+	ais.AddOrUpdateCondition(metav1.Condition{
+		Type:   ReconcilerSuccess,
+		Status: metav1.ConditionTrue,
+		Reason: ReconcilerSuccessReason,
 	})
 }
 
@@ -241,4 +287,24 @@ type AIStoreList struct {
 
 func init() {
 	SchemeBuilder.Register(&AIStore{}, &AIStoreList{})
+}
+
+////////////////////////
+//    ErrorReason     //
+///////////////////////
+
+func (e ErrorReason) Equals(value string) bool {
+	return string(e) == value
+}
+
+func (e ErrorReason) Str() string {
+	return string(e)
+}
+
+/////////////////////////////////
+//     ClusterCondition       //
+///////////////////////////////
+
+func (c ClusterCondition) Str() string {
+	return string(c)
 }

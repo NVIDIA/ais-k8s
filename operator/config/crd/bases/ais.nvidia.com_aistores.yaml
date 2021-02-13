@@ -2169,11 +2169,14 @@ spec:
                 x-kubernetes-list-type: map
               config_version:
                 type: string
+              consecutive_error_count:
+                type: integer
               state:
                 type: string
             required:
             - conditions
             - config_version
+            - consecutive_error_count
             - state
             type: object
         type: object

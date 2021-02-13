@@ -37,6 +37,7 @@ const (
 	aisFinalizer = "finalize.ais"
 	// Duration to requeue reconciler for status update.
 	statusRetryInterval = 10 * time.Second
+	errBackOffTime      = 10 * time.Second
 )
 
 type (
@@ -95,7 +96,7 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if ais.Spec.ConfigCRName != nil {
 		configSpec, err = r.client.GetAIStoreConfCR(ctx, types.NamespacedName{Name: *ais.Spec.ConfigCRName, Namespace: ais.Namespace})
 		if err != nil {
-			return reconcile.Result{}, err
+			return r.manageError(ctx, ais, aisv1.ResourceFetchError, err)
 		}
 		var isOwner bool
 		for _, ref := range configSpec.OwnerReferences {
@@ -110,13 +111,13 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			// AISConfig CR can only be owned by a single AIStore CR, if not setting owner reference would fail.
 			if err = controllerutil.SetControllerReference(ais, configSpec, r.client.Scheme()); err != nil {
 				r.recordError(ais, err, "Failed to set controller reference")
-				return reconcile.Result{}, err
+				return r.manageError(ctx, ais, aisv1.OwnerReferenceError, err)
 			}
 			if err = r.client.Update(ctx, configSpec); err != nil {
-				r.recordError(ais, err, "Failed to update configSpec")
-				return reconcile.Result{}, err
+				r.recordError(ais, err, "Failed to update ConfigSpec")
+				return r.manageError(ctx, ais, aisv1.OwnerReferenceError, err)
 			}
-			// reference updated, reque the request
+			// reference updated, requeue the request
 			return reconcile.Result{Requeue: true}, nil
 		}
 		cfgVersion = configSpec.GetResourceVersion()
@@ -136,13 +137,13 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		err := r.cleanup(ctx, ais)
 		if err != nil {
 			r.recordError(ais, err, "Failed to delete instance")
-			return reconcile.Result{}, err
+			return r.manageError(ctx, ais, aisv1.InstanceDeletionError, err)
 		}
 		controllerutil.RemoveFinalizer(ais, aisFinalizer)
 		err = r.client.UpdateIfExists(ctx, ais)
 		if err != nil {
 			r.recordError(ais, err, "Failed to update instance")
-			return reconcile.Result{}, err
+			return r.manageError(ctx, ais, aisv1.ResourceUpdateError, err)
 		}
 		return reconcile.Result{}, nil
 	}
@@ -153,8 +154,10 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	// Check if AIS config CR is updated
 	if configSpec != nil {
-		if updated, err := r.handleConfigChange(ctx, ais, configSpec); updated || err != nil {
-			return reconcile.Result{}, err
+		if updated, err := r.handleConfigChange(ctx, ais, configSpec); err != nil {
+			return r.manageError(ctx, ais, aisv1.ConfigChangeError, err)
+		} else if updated {
+			return reconcile.Result{Requeue: true}, nil
 		}
 	}
 	return r.handleCREvents(ctx, ais)
@@ -197,7 +200,7 @@ func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore
 	// 1. Create rbac resources
 	err = r.createRbacResources(ctx, ais)
 	if err != nil {
-		return
+		return r.manageError(ctx, ais, aisv1.RBACManagementError, err)
 	}
 
 	// 2. Check if the cluster needs external access.
@@ -207,12 +210,12 @@ func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore
 		proxyReady, err = r.enableProxyExternalService(ctx, ais)
 		if err != nil {
 			r.recordError(ais, err, "Failed to enable proxy external service")
-			return
+			return r.manageError(ctx, ais, aisv1.ExternalServiceError, err)
 		}
 		targetReady, err = r.enableTargetExternalService(ctx, ais)
 		if err != nil {
 			r.recordError(ais, err, "Failed to enable target external service")
-			return
+			return r.manageError(ctx, ais, aisv1.ExternalServiceError, err)
 		}
 		// When external access is enabled, we need external IPs of all the targets before deploying the AIS cluster resources (proxies & targets).
 		// To ensure correct behavior of cluster, we requeue the reconciler till all the external services are assigned an external IP.
@@ -234,15 +237,13 @@ func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore
 	statsDCM := statsd.NewStatsDCM(ais)
 	if _, err = r.client.CreateResourceIfNotExists(ctx, ais, statsDCM); err != nil {
 		r.recordError(ais, err, "Failed to deploy StatsD ConfigMap")
-		err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionFailed})
-		return
+		return r.manageError(ctx, ais, aisv1.ResourceCreationError, err)
 	}
 
 	// 4. Bootstrap proxies
 	if changed, err = r.initProxies(ctx, ais, configToUpdate); err != nil {
 		r.recordError(ais, err, "Failed to create Proxy resources")
-		err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionFailed})
-		return
+		return r.manageError(ctx, ais, aisv1.ProxyCreationError, err)
 	} else if changed {
 		result.Requeue = true
 		return
@@ -251,14 +252,13 @@ func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore
 	// 5. Bootstrap targets
 	if changed, err = r.initTargets(ctx, ais, configToUpdate); err != nil {
 		r.recordError(ais, err, "Failed to create Target resources")
-		err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionFailed})
-		return
+		return r.manageError(ctx, ais, aisv1.TargetCreationError, err)
 	} else if changed {
 		result.Requeue = true
 		return
 	}
 	r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonCreated, "Successfully created AIS cluster")
-	ais.SetConditionReady()
+	ais.SetConditionCreated()
 	err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionCreated})
 	return
 }
@@ -289,24 +289,15 @@ func (r *AIStoreReconciler) handleCREvents(ctx context.Context, ais *aisv1.AISto
 	}
 
 	if targetState.isReady && proxyState.isReady {
-		if !ais.IsConditionTrue(string(aisv1.ConditionReady)) {
-			r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonReady, "Created AIS cluster")
-			ais.SetConditionReady()
-			err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionReady})
-		}
-
-		if err != nil {
-			return
-		}
-		return
+		return r.manageSuccess(ctx, ais)
 	}
 
 	result.RequeueAfter = statusRetryInterval
 	// We requeue till the AIStore cluster becomes ready.
 	// TODO: Remove explicit requeue after enabling event watchers for owned resources (e.g. proxy/target statefulsets).
 updated:
-	if !ais.IsConditionTrue(string(aisv1.ConditionReady)) {
-		ais.UnsetConditionReady(string(aisv1.ConditionUpgrading), "Waiting for cluster to upgrade")
+	if ais.IsConditionTrue(aisv1.ConditionReady.Str()) {
+		ais.UnsetConditionReady(aisv1.ConditionUpgrading.Str(), "Waiting for cluster to upgrade")
 		err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionUpgrading})
 	}
 	result.Requeue = true
@@ -352,7 +343,7 @@ func (r *AIStoreReconciler) createRbacResources(ctx context.Context, ais *aisv1.
 }
 
 func (r *AIStoreReconciler) isInitialized(ais *aisv1.AIStore) bool {
-	r.log.Info("State: " + string(ais.Status.State))
+	r.log.Info("State: " + ais.Status.State.Str())
 	return ais.Status.State != ""
 }
 
@@ -372,7 +363,7 @@ func (r *AIStoreReconciler) setStatus(ctx context.Context, ais *aisv1.AIStore, s
 }
 
 func (r *AIStoreReconciler) isNewCR(ctx context.Context, ais *aisv1.AIStore) (isNew bool) {
-	return !ais.IsConditionTrue(string(aisv1.ConditionCreated))
+	return !ais.IsConditionTrue(aisv1.ConditionCreated.Str())
 }
 
 // handleConfigChange checks if the `AISConfig` CR has been updated.
@@ -445,6 +436,43 @@ func (r *AIStoreReconciler) getAPIParams(ctx context.Context, ais *aisv1.AIStore
 }
 
 // misc helpers
+func (r *AIStoreReconciler) manageError(ctx context.Context,
+	ais *aisv1.AIStore, reason aisv1.ErrorReason, err error) (ctrl.Result, error) {
+	var requeueAfter time.Duration
+	condition, _ := ais.GetLastCondition()
+
+	if reason.Equals(condition.Reason) {
+		requeueAfter = errBackOffTime
+	} else {
+		// If the error with given reason occurred for the first time,
+		// requeue immedidately and reset the error count
+		ais.ResetErrorCount()
+	}
+
+	ais.IncErrorCount()
+	ais.SetConditionError(reason, err)
+	if err := r.setStatus(ctx, ais, aisv1.AIStoreStatus{}); err != nil {
+		// Status update failed, requeue immediately.
+		return ctrl.Result{}, err
+	}
+	return ctrl.Result{RequeueAfter: requeueAfter}, err
+}
+
+func (r *AIStoreReconciler) manageSuccess(ctx context.Context, ais *aisv1.AIStore) (ctrl.Result, error) {
+	ais.SetConditionSuccess()
+	if !ais.IsConditionTrue(aisv1.ConditionReady.Str()) {
+		r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonReady, "Created AIS cluster")
+		ais.SetConditionReady()
+	}
+
+	err := r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionReady})
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	return ctrl.Result{}, nil
+}
+
 func (r *AIStoreReconciler) getConfigToUpdate(cfg *aisv1.AISConfig) (toUpdate *aiscmn.ConfigToUpdate, err error) {
 	toUpdate = &aiscmn.ConfigToUpdate{}
 	if err = aiscmn.MorphMarshal(cfg.Spec, toUpdate); err != nil {
