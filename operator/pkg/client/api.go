@@ -138,9 +138,20 @@ func (c *K8SClient) DeleteServiceIfExists(ctx context.Context, name types.Namesp
 }
 
 func (c *K8SClient) DeleteAllServicesIfExists(ctx context.Context, namespace string, labels client.MatchingLabels) (err error) {
-	err = c.DeleteAllOf(ctx, &corev1.Service{}, client.InNamespace(namespace), labels)
-	if err != nil && apierrors.IsNotFound(err) {
-		err = nil
+	svcs := &corev1.ServiceList{}
+	err = c.List(ctx, svcs, client.InNamespace(namespace), labels)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			err = nil
+		}
+		return
+	}
+
+	for _, svc := range svcs.Items {
+		err = c.DeleteResourceIfExists(ctx, &svc)
+		if err != nil {
+			return
+		}
 	}
 	return
 }

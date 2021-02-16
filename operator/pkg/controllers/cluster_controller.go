@@ -124,9 +124,14 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	if !r.isInitialized(ais) {
+		if !controllerutil.ContainsFinalizer(ais, aisFinalizer) {
+			controllerutil.AddFinalizer(ais, aisFinalizer)
+			err = r.client.Update(ctx, ais)
+			return reconcile.Result{}, err
+		}
+
 		ais.SetConditionInitialized()
 		err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionInitialized, ConfigResourceVersion: cfgVersion})
-		controllerutil.AddFinalizer(ais, aisFinalizer)
 		return reconcile.Result{}, err
 	}
 
@@ -257,9 +262,12 @@ func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore
 		result.Requeue = true
 		return
 	}
-	r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonCreated, "Successfully created AIS cluster")
 	ais.SetConditionCreated()
 	err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionCreated})
+	if err != nil {
+		return
+	}
+	r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonCreated, "Successfully created AIS cluster")
 	return
 }
 
