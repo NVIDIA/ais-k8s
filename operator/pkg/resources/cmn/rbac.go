@@ -25,22 +25,30 @@ const (
 	clusterRoleKind = "ClusterRole"
 )
 
-func rbacRoleName(ais *aisv1.AIStore) string {
+func roleName(ais *aisv1.AIStore) string {
 	return ais.Name + "-role"
 }
 
-func rbacClusterRoleName(ais *aisv1.AIStore) string {
+func roleBindingName(ais *aisv1.AIStore) string {
+	return ais.Name + "-rb"
+}
+
+func clusterRoleName(ais *aisv1.AIStore) string {
 	return ais.Name + "-cr"
+}
+
+func ClusterRoleBindingName(ais *aisv1.AIStore) string {
+	return ais.Name + "-crb"
 }
 
 func ServiceAccountName(ais *aisv1.AIStore) string {
 	return ais.Name + "-sa"
 }
 
-func NewAISRbacRole(ais *aisv1.AIStore) *rbacv1.Role {
+func NewAISRBACRole(ais *aisv1.AIStore) *rbacv1.Role {
 	return &rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      rbacRoleName(ais),
+			Name:      roleName(ais),
 			Namespace: ais.Namespace,
 		},
 		Rules: []rbacv1.PolicyRule{
@@ -57,16 +65,16 @@ func NewAISRbacRole(ais *aisv1.AIStore) *rbacv1.Role {
 	}
 }
 
-func NewAISRbacRoleBinding(ais *aisv1.AIStore) *rbacv1.RoleBinding {
+func NewAISRBACRoleBinding(ais *aisv1.AIStore) *rbacv1.RoleBinding {
 	return &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      ais.Name + "-rb",
+			Name:      roleBindingName(ais),
 			Namespace: ais.Namespace,
 		},
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: rbacv1.SchemeGroupVersion.Group,
 			Kind:     roleKind,
-			Name:     rbacRoleName(ais),
+			Name:     roleName(ais),
 		},
 		Subjects: []rbacv1.Subject{
 			{
@@ -86,10 +94,10 @@ func NewAISServiceAccount(ais *aisv1.AIStore) *corev1.ServiceAccount {
 	}
 }
 
-func NewAISRbacClusterRole(ais *aisv1.AIStore) *rbacv1.ClusterRole {
+func NewAISRBACClusterRole(ais *aisv1.AIStore) *rbacv1.ClusterRole {
 	return &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: rbacClusterRoleName(ais),
+			Name: clusterRoleName(ais),
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
@@ -101,16 +109,16 @@ func NewAISRbacClusterRole(ais *aisv1.AIStore) *rbacv1.ClusterRole {
 	}
 }
 
-func NewAISRbacClusterRoleBinding(ais *aisv1.AIStore) *rbacv1.ClusterRoleBinding {
+func NewAISRBACClusterRoleBinding(ais *aisv1.AIStore) *rbacv1.ClusterRoleBinding {
 	return &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      ais.Name + "-crb",
+			Name:      ClusterRoleBindingName(ais),
 			Namespace: ais.Namespace,
 		},
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: rbacv1.SchemeGroupVersion.Group,
 			Kind:     clusterRoleKind,
-			Name:     rbacClusterRoleName(ais),
+			Name:     clusterRoleName(ais),
 		},
 		Subjects: []rbacv1.Subject{
 			{

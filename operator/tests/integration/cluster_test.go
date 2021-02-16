@@ -16,6 +16,7 @@ import (
 
 	aiscmn "github.com/NVIDIA/aistore/cmn"
 	aisv1 "github.com/ais-operator/api/v1alpha1"
+	"github.com/ais-operator/pkg/resources/cmn"
 	"github.com/ais-operator/pkg/resources/proxy"
 	"github.com/ais-operator/pkg/resources/statsd"
 	"github.com/ais-operator/pkg/resources/target"
@@ -173,29 +174,41 @@ func checkResExistance(ctx context.Context, cluster *aisv1.AIStore, exists bool,
 		condition = BeFalse()
 	}
 
-	// 1. Check for statsD config
+	// 1. Check rbac exists
+	// 1.1 ServiceAccount
+	tutils.EventuallyResourceExists(ctx, k8sClient, cmn.NewAISServiceAccount(cluster), condition, intervals...)
+	// 1.2 ClusterRole
+	tutils.EventuallyResourceExists(ctx, k8sClient, cmn.NewAISRBACClusterRole(cluster), condition, intervals...)
+	// 1.3 ClusterRoleBinding
+	tutils.EventuallyCRBExists(ctx, k8sClient, cmn.ClusterRoleBindingName(cluster), condition, intervals...)
+	// 1.4 Role
+	tutils.EventuallyResourceExists(ctx, k8sClient, cmn.NewAISRBACRole(cluster), condition, intervals...)
+	// 1.5 RoleBinding
+	tutils.EventuallyResourceExists(ctx, k8sClient, cmn.NewAISRBACRoleBinding(cluster), condition, intervals...)
+
+	// 2. Check for statsD config
 	tutils.EventuallyCMExists(ctx, k8sClient, statsd.ConfigMapNSName(cluster), condition, intervals...)
 
-	// 2. Proxy resources
-	// 2.1 config
+	// 3. Proxy resources
+	// 3.1 config
 	tutils.EventuallyCMExists(ctx, k8sClient, proxy.ConfigMapNSName(cluster), condition, intervals...)
-	// 2.2 Service
+	// 3.2 Service
 	tutils.EventuallyServiceExists(ctx, k8sClient, proxy.HeadlessSVCNSName(cluster), condition, intervals...)
-	// 2.3 StatefulSet
+	// 3.3 StatefulSet
 	tutils.EventuallySSExists(ctx, k8sClient, proxy.StatefulSetNSName(cluster), condition, intervals...)
-	// 2.4 ExternalLB Service (optional)
+	// 3.4 ExternalLB Service (optional)
 	if cluster.Spec.EnableExternalLB {
 		tutils.EventuallyServiceExists(ctx, k8sClient, proxy.LoadBalancerSVCNSName(cluster), condition, intervals...)
 	}
 
-	// 3. Target resources
-	// 3.1 config
+	// 4. Target resources
+	// 4.1 config
 	tutils.EventuallyCMExists(ctx, k8sClient, target.ConfigMapNSName(cluster), condition, intervals...)
-	// 3.2 Service
+	// 4.2 Service
 	tutils.EventuallyServiceExists(ctx, k8sClient, target.HeadlessSVCNSName(cluster), condition, intervals...)
-	// 3.3 StatefulSet
+	// 4.3 StatefulSet
 	tutils.EventuallySSExists(ctx, k8sClient, target.StatefulSetNSName(cluster), condition, intervals...)
-	// 3.4 ExternalLB Service (optional)
+	// 4.4 ExternalLB Service (optional)
 	if cluster.Spec.EnableExternalLB {
 		for i := int32(0); i < cluster.Spec.Size; i++ {
 			tutils.EventuallyServiceExists(ctx, k8sClient, target.LoadBalancerSVCNSName(cluster, i), condition, intervals...)

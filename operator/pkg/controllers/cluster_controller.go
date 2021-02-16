@@ -168,17 +168,55 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	return r.handleCREvents(ctx, ais)
 }
 
-func (r *AIStoreReconciler) cleanup(ctx context.Context, ais *aisv1.AIStore) error {
-	if err := r.cleanupTarget(ctx, ais); err != nil {
-		return err
+func (r *AIStoreReconciler) cleanup(ctx context.Context, ais *aisv1.AIStore) (err error) {
+	if err = r.cleanupTarget(ctx, ais); err != nil {
+		return
 	}
 
-	if err := r.cleanupProxy(ctx, ais); err != nil {
-		return err
+	if err = r.cleanupProxy(ctx, ais); err != nil {
+		return
 	}
 
 	// clean-up statsd
-	return r.client.DeleteConfigMapIfExists(ctx, statsd.ConfigMapNSName(ais))
+	err = r.client.DeleteConfigMapIfExists(ctx, statsd.ConfigMapNSName(ais))
+	if err != nil {
+		return
+	}
+
+	return r.cleanupRBAC(ctx, ais)
+}
+
+func (r *AIStoreReconciler) cleanupRBAC(ctx context.Context, ais *aisv1.AIStore) (err error) {
+	crb := cmn.NewAISRBACClusterRoleBinding(ais)
+	if err = r.client.DeleteResourceIfExists(ctx, crb); err != nil {
+		r.recordError(ais, err, "Failed to delete ClusterRoleBinding")
+		return
+	}
+
+	cluRole := cmn.NewAISRBACClusterRole(ais)
+	if err = r.client.DeleteResourceIfExists(ctx, cluRole); err != nil {
+		r.recordError(ais, err, "Failed to delete ClusterRole")
+		return
+	}
+
+	rb := cmn.NewAISRBACRoleBinding(ais)
+	if err = r.client.DeleteResourceIfExists(ctx, rb); err != nil {
+		r.recordError(ais, err, "Failed to delete RoleBinding")
+		return
+	}
+
+	role := cmn.NewAISRBACRole(ais)
+	if err = r.client.DeleteResourceIfExists(ctx, role); err != nil {
+		r.recordError(ais, err, "Failed to delete Role")
+		return
+	}
+
+	sa := cmn.NewAISServiceAccount(ais)
+	if err = r.client.DeleteResourceIfExists(ctx, sa); err != nil {
+		r.recordError(ais, err, "Failed to delete ServiceAccount")
+		return
+	}
+	return
 }
 
 func hasFinalizer(ais *aisv1.AIStore) bool {
@@ -203,7 +241,7 @@ func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore
 	}
 
 	// 1. Create rbac resources
-	err = r.createRbacResources(ctx, ais)
+	err = r.createRBACResources(ctx, ais)
 	if err != nil {
 		return r.manageError(ctx, ais, aisv1.RBACManagementError, err)
 	}
@@ -262,6 +300,7 @@ func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore
 		result.Requeue = true
 		return
 	}
+
 	ais.SetConditionCreated()
 	err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionCreated})
 	if err != nil {
@@ -312,7 +351,7 @@ updated:
 	return
 }
 
-func (r *AIStoreReconciler) createRbacResources(ctx context.Context, ais *aisv1.AIStore) (err error) {
+func (r *AIStoreReconciler) createRBACResources(ctx context.Context, ais *aisv1.AIStore) (err error) {
 	// 1. Create service account if not exists
 	sa := cmn.NewAISServiceAccount(ais)
 	if _, err = r.client.CreateResourceIfNotExists(ctx, nil, sa); err != nil {
@@ -321,21 +360,21 @@ func (r *AIStoreReconciler) createRbacResources(ctx context.Context, ais *aisv1.
 	}
 
 	// 2. Create AIS Role
-	role := cmn.NewAISRbacRole(ais)
+	role := cmn.NewAISRBACRole(ais)
 	if _, err = r.client.CreateResourceIfNotExists(ctx, nil, role); err != nil {
 		r.recordError(ais, err, "Failed to create Role")
 		return
 	}
 
 	// 3. Create binding for the Role
-	rb := cmn.NewAISRbacRoleBinding(ais)
+	rb := cmn.NewAISRBACRoleBinding(ais)
 	if _, err = r.client.CreateResourceIfNotExists(ctx, nil, rb); err != nil {
 		r.recordError(ais, err, "Failed to create RoleBinding")
 		return
 	}
 
 	// 4. Create AIS ClusterRole
-	cluRole := cmn.NewAISRbacClusterRole(ais)
+	cluRole := cmn.NewAISRBACClusterRole(ais)
 	if _, err = r.client.CreateResourceIfNotExists(ctx, nil, cluRole); err != nil {
 		errMsg := "Failed to create ClusterRole"
 		r.recordError(ais, err, errMsg)
@@ -343,7 +382,7 @@ func (r *AIStoreReconciler) createRbacResources(ctx context.Context, ais *aisv1.
 	}
 
 	// 5. Create binding for ClusterRole
-	crb := cmn.NewAISRbacClusterRoleBinding(ais)
+	crb := cmn.NewAISRBACClusterRoleBinding(ais)
 	if _, err = r.client.CreateResourceIfNotExists(ctx, nil, crb); err != nil {
 		r.recordError(ais, err, "Failed to create ClusterRoleBinding")
 	}

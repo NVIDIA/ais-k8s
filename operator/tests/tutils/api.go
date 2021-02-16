@@ -13,9 +13,12 @@ import (
 
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	aisv1 "github.com/ais-operator/api/v1alpha1"
 	aisclient "github.com/ais-operator/pkg/client"
@@ -33,7 +36,7 @@ const (
 
 func checkClusterExists(ctx context.Context, client *aisclient.K8SClient, name types.NamespacedName) bool {
 	_, err := client.GetAIStoreCR(ctx, name)
-	if err != nil && errors.IsNotFound(err) {
+	if errors.IsNotFound(err) {
 		return false
 	}
 	Expect(err).To(BeNil())
@@ -51,7 +54,7 @@ func DestroyCluster(ctx context.Context, client *aisclient.K8SClient, cluster *a
 
 func checkCMExists(ctx context.Context, client *aisclient.K8SClient, name types.NamespacedName) bool {
 	_, err := client.GetCMByName(ctx, name)
-	if err != nil && errors.IsNotFound(err) {
+	if errors.IsNotFound(err) {
 		return false
 	}
 	Expect(err).To(BeNil())
@@ -66,7 +69,7 @@ func EventuallyCMExists(ctx context.Context, client *aisclient.K8SClient, name t
 
 func checkServiceExists(ctx context.Context, client *aisclient.K8SClient, name types.NamespacedName) bool {
 	_, err := client.GetServiceByName(ctx, name)
-	if err != nil && errors.IsNotFound(err) {
+	if errors.IsNotFound(err) {
 		return false
 	}
 	Expect(err).To(BeNil())
@@ -81,7 +84,7 @@ func EventuallyServiceExists(ctx context.Context, client *aisclient.K8SClient, n
 
 func checkSSExists(ctx context.Context, client *aisclient.K8SClient, name types.NamespacedName) bool {
 	_, err := client.GetStatefulSet(ctx, name)
-	if err != nil && errors.IsNotFound(err) {
+	if errors.IsNotFound(err) {
 		return false
 	}
 	Expect(err).To(BeNil())
@@ -94,6 +97,42 @@ func EventuallySSExists(ctx context.Context, client *aisclient.K8SClient, name t
 	}, intervals...).Should(be)
 }
 
+func EventuallyCRBExists(ctx context.Context, client *aisclient.K8SClient, name string, be OmegaMatcher, intervals ...interface{}) {
+	Eventually(func() bool {
+		return checkCRBExists(context.Background(), client, name)
+	}, intervals...).Should(be)
+}
+
+func checkCRBExists(ctx context.Context, client *aisclient.K8SClient, name string) bool {
+	// NOTE: Here we skip the Namespace, as querying CRB with Namespace always returns
+	// `NotFound` error leading to test failure.
+	err := client.Get(ctx, types.NamespacedName{Name: name}, &rbacv1.ClusterRoleBinding{})
+	if errors.IsNotFound(err) {
+		return false
+	}
+	Expect(err).To(BeNil())
+	return true
+}
+
+func EventuallyResourceExists(ctx context.Context, client *aisclient.K8SClient, obj client.Object, be OmegaMatcher, intervals ...interface{}) {
+	Eventually(func() bool {
+		return checkResourceExists(ctx, client, obj)
+	}, intervals...).Should(be)
+}
+
+func checkResourceExists(ctx context.Context, client *aisclient.K8SClient, obj client.Object) bool {
+	objTemp := &unstructured.Unstructured{}
+	objTemp.SetGroupVersionKind(obj.GetObjectKind().GroupVersionKind())
+	err := client.Get(ctx, types.NamespacedName{
+		Name:      obj.GetName(),
+		Namespace: obj.GetNamespace(),
+	}, obj)
+	if errors.IsNotFound(err) {
+		return false
+	}
+	Expect(err).To(BeNil())
+	return true
+}
 func CreateNSIfNotExists(ctx context.Context, client *aisclient.K8SClient, name string) (ns *corev1.Namespace, exists bool) {
 	ns = &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{

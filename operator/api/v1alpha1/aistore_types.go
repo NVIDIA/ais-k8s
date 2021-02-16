@@ -80,10 +80,13 @@ type AIStoreStatus struct {
 	// +patchStrategy=merge
 	// +listType=map
 	// +listMapKey=type
-	Conditions            []metav1.Condition `json:"conditions"`
-	State                 ClusterCondition   `json:"state"`
-	ConsecutiveErrorCount int                `json:"consecutive_error_count"` // number of times an error occurred
-	ConfigResourceVersion string             `json:"config_version"`
+	Conditions []metav1.Condition `json:"conditions"`
+	// +optional
+	State ClusterCondition `json:"state"`
+	// +optional
+	ConsecutiveErrorCount int `json:"consecutive_error_count"` // number of times an error occurred
+	// +optional
+	ConfigResourceVersion string `json:"config_version"`
 }
 
 // ServiceSpec defines the specs of AIS Gateways
