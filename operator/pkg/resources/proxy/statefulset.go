@@ -30,6 +30,18 @@ func StatefulSetNSName(ais *aisv1.AIStore) types.NamespacedName {
 	}
 }
 
+// DefaultPrimaryName returns name of pod used as default Primary
+func DefaultPrimaryName(ais *aisv1.AIStore) string {
+	return statefulSetName(ais) + "-0"
+}
+
+func DefaultPrimaryNSName(ais *aisv1.AIStore) types.NamespacedName {
+	return types.NamespacedName{
+		Name:      DefaultPrimaryName(ais),
+		Namespace: ais.Namespace,
+	}
+}
+
 func NewProxyStatefulSet(ais *aisv1.AIStore, size int32) *apiv1.StatefulSet {
 	ls := podLabels(ais)
 	proxySpec := proxyPodSpec(ais)
@@ -43,7 +55,7 @@ func NewProxyStatefulSet(ais *aisv1.AIStore, size int32) *apiv1.StatefulSet {
 			Selector: &metav1.LabelSelector{
 				MatchLabels: ls,
 			},
-			ServiceName:         headlessSVCName(ais),
+			ServiceName:         HeadlessSVCName(ais),
 			PodManagementPolicy: apiv1.ParallelPodManagement,
 			Replicas:            &size,
 			Template: corev1.PodTemplateSpec{
@@ -67,14 +79,14 @@ func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
 				Image:           ais.Spec.InitImage,
 				ImagePullPolicy: corev1.PullIfNotPresent,
 				Env: []corev1.EnvVar{
-					cmn.EnvFromFieldPath("MY_NODE", "spec.nodeName"),
-					cmn.EnvFromFieldPath("MY_POD", "metadata.name"),
-					cmn.EnvFromValue("K8S_NS", ais.Namespace),
-					cmn.EnvFromValue("MY_SERVICE", headlessSVCName(ais)),
-					cmn.EnvFromValue("AIS_NODE_ROLE", aiscmn.Proxy),
-					cmn.EnvFromValue("CLUSTERIP_PROXY_SERVICE_HOSTNAME", ais.Name+"-"+aiscmn.Proxy),
-					cmn.EnvFromValue("CLUSTERIP_PROXY_SERVICE_PORT", ais.Spec.ProxySpec.ServicePort.String()),
-					cmn.EnvFromValue("AIS_DEFAULT_PRIMARY", statefulSetName(ais)+"-0"),
+					cmn.EnvFromFieldPath(cmn.EnvNodeName, "spec.nodeName"),
+					cmn.EnvFromFieldPath(cmn.EnvPodName, "metadata.name"),
+					cmn.EnvFromValue(cmn.EnvNS, ais.Namespace),
+					cmn.EnvFromValue(cmn.EnvServiceName, HeadlessSVCName(ais)),
+					cmn.EnvFromValue(cmn.EnvDaemonRole, aiscmn.Proxy),
+					cmn.EnvFromValue(cmn.EnvProxyServiceName, HeadlessSVCName(ais)),
+					cmn.EnvFromValue(cmn.EnvProxyServicePort, ais.Spec.ProxySpec.ServicePort.String()),
+					cmn.EnvFromValue(cmn.EnvDefaultPrimaryPod, DefaultPrimaryName(ais)),
 				},
 				Args:         []string{"-c", "/bin/bash /var/ais_config_template/set_initial_primary_proxy_env.sh"},
 				Command:      []string{"/bin/bash"},
@@ -87,16 +99,16 @@ func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
 				Image:           ais.Spec.NodeImage,
 				ImagePullPolicy: corev1.PullAlways,
 				Env: []corev1.EnvVar{
-					cmn.EnvFromFieldPath("MY_POD", "metadata.name"),
-					cmn.EnvFromValue("K8S_NS", ais.Namespace),
-					cmn.EnvFromValue("AIS_CLUSTER_CIDR", ""),
-					cmn.EnvFromValue("AIS_CONF_FILE", "/var/ais_config/ais.json"),
-					cmn.EnvFromValue("AIS_LOCAL_CONF_FILE", "/var/ais_config/ais_local.json"),
-					cmn.EnvFromValue("STATSD_CONF_FILE", "/var/statsd_config/statsd.json"),
-					cmn.EnvFromValue("AIS_NODE_ROLE", aiscmn.Proxy),
-					cmn.EnvFromValue("TARGETS", strconv.Itoa(int(ais.Spec.Size))),
-					cmn.EnvFromValue("CLUSTERIP_PROXY_SERVICE_HOSTNAME", ais.Name+"-"+aiscmn.Proxy),
-					cmn.EnvFromValue("CLUSTERIP_PROXY_SERVICE_PORT", ais.Spec.ProxySpec.ServicePort.String()),
+					cmn.EnvFromFieldPath(cmn.EnvPodName, "metadata.name"),
+					cmn.EnvFromValue(cmn.EnvNS, ais.Namespace),
+					cmn.EnvFromValue(cmn.EnvCIDR, ""), // TODO: Should take from specs
+					cmn.EnvFromValue(cmn.ENVConfigFilePath, "/var/ais_config/ais.json"),
+					cmn.EnvFromValue(cmn.ENVLocalConfigFilePath, "/var/ais_config/ais_local.json"),
+					cmn.EnvFromValue(cmn.EnvStatsDConfig, "/var/statsd_config/statsd.json"),
+					cmn.EnvFromValue(cmn.EnvDaemonRole, aiscmn.Proxy),
+					cmn.EnvFromValue(cmn.EnvNumTargets, strconv.Itoa(int(ais.Spec.Size))),
+					cmn.EnvFromValue(cmn.EnvProxyServiceName, HeadlessSVCName(ais)),
+					cmn.EnvFromValue(cmn.EnvProxyServicePort, ais.Spec.ProxySpec.ServicePort.String()),
 				},
 				Ports: []corev1.ContainerPort{
 					{

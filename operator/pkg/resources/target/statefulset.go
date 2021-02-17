@@ -18,6 +18,7 @@ import (
 	aiscmn "github.com/NVIDIA/aistore/cmn"
 	aisv1 "github.com/ais-operator/api/v1alpha1"
 	"github.com/ais-operator/pkg/resources/cmn"
+	"github.com/ais-operator/pkg/resources/proxy"
 )
 
 func statefulSetName(ais *aisv1.AIStore) string {
@@ -66,16 +67,22 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 							Image:           ais.Spec.InitImage,
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							Env: []corev1.EnvVar{
-								cmn.EnvFromFieldPath("MY_NODE", "spec.nodeName"),
-								cmn.EnvFromFieldPath("MY_POD", "metadata.name"),
-								cmn.EnvFromValue("K8S_NS", ais.Namespace),
-								cmn.EnvFromValue("ENABLE_EXTERNAL_ACCESS", strconv.FormatBool(ais.Spec.EnableExternalLB)),
-								cmn.EnvFromValue("MY_SERVICE", headlessSVCName(ais)),
-								cmn.EnvFromValue("AIS_NODE_ROLE", aiscmn.Target),
-								cmn.EnvFromValue("CLUSTERIP_PROXY_SERVICE_HOSTNAME", ais.Name+"-proxy"),
-								cmn.EnvFromValue("CLUSTERIP_PROXY_SERVICE_PORT", ais.Spec.ProxySpec.ServicePort.String()),
+								cmn.EnvFromFieldPath(cmn.EnvNodeName, "spec.nodeName"),
+								cmn.EnvFromFieldPath(cmn.EnvPodName, "metadata.name"),
+								cmn.EnvFromValue(cmn.EnvNS, ais.Namespace),
+								cmn.EnvFromValue(
+									cmn.EnvEnableExternalAccess,
+									strconv.FormatBool(ais.Spec.EnableExternalLB),
+								),
+								cmn.EnvFromValue(cmn.EnvServiceName, headlessSVCName(ais)),
+								cmn.EnvFromValue(cmn.EnvDaemonRole, aiscmn.Target),
+								cmn.EnvFromValue(cmn.EnvProxyServiceName, proxy.HeadlessSVCName(ais)),
+								cmn.EnvFromValue(cmn.EnvProxyServicePort, ais.Spec.ProxySpec.ServicePort.String()),
 							},
-							Args:         []string{"-c", "/bin/bash /var/ais_config_template/set_initial_target_env.sh"},
+							Args: []string{
+								"-c",
+								"/bin/bash /var/ais_config_template/set_initial_target_env.sh",
+							},
 							Command:      []string{"/bin/bash"},
 							VolumeMounts: cmn.NewInitVolumeMounts(),
 						},
@@ -86,17 +93,20 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 							Image:           ais.Spec.NodeImage,
 							ImagePullPolicy: corev1.PullAlways,
 							Env: []corev1.EnvVar{
-								cmn.EnvFromFieldPath("MY_POD", "metadata.name"),
-								cmn.EnvFromValue("K8S_NS", ais.Namespace),
-								cmn.EnvFromValue("AIS_CLUSTER_CIDR", ""), // TODO: add
-								cmn.EnvFromValue("AIS_CONF_FILE", "/var/ais_config/ais.json"),
-								cmn.EnvFromValue("AIS_LOCAL_CONF_FILE", "/var/ais_config/ais_local.json"),
-								cmn.EnvFromValue("STATSD_CONF_FILE", "/var/statsd_config/statsd.json"),
-								cmn.EnvFromValue("AIS_NODE_ROLE", aiscmn.Target),
-								cmn.EnvFromValue("AIS_NO_DISK_IO", strconv.FormatBool(ais.Spec.TargetSpec.NoDiskIO.Enabled)),
-								cmn.EnvFromValue("AIS_DRY_OBJ_SIZE", ais.Spec.TargetSpec.NoDiskIO.DryObjSize.String()),
-								cmn.EnvFromValue("CLUSTERIP_PROXY_SERVICE_HOSTNAME", ais.Name+"-proxy"),
-								cmn.EnvFromValue("CLUSTERIP_PROXY_SERVICE_PORT", ais.Spec.ProxySpec.ServicePort.String()),
+								cmn.EnvFromFieldPath(cmn.EnvPodName, "metadata.name"),
+								cmn.EnvFromValue(cmn.EnvNS, ais.Namespace),
+								cmn.EnvFromValue(cmn.EnvCIDR, ""), // TODO: add
+								cmn.EnvFromValue(cmn.ENVConfigFilePath, "/var/ais_config/ais.json"),
+								cmn.EnvFromValue(cmn.ENVLocalConfigFilePath, "/var/ais_config/ais_local.json"),
+								cmn.EnvFromValue(cmn.EnvStatsDConfig, "/var/statsd_config/statsd.json"),
+								cmn.EnvFromValue(cmn.EnvDaemonRole, aiscmn.Target),
+								cmn.EnvFromValue(
+									cmn.EnvNoDiskIO,
+									strconv.FormatBool(ais.Spec.TargetSpec.NoDiskIO.Enabled),
+								),
+								cmn.EnvFromValue(cmn.EnvDryObjSize, ais.Spec.TargetSpec.NoDiskIO.DryObjSize.String()),
+								cmn.EnvFromValue(cmn.EnvProxyServiceName, proxy.HeadlessSVCName(ais)),
+								cmn.EnvFromValue(cmn.EnvProxyServicePort, ais.Spec.ProxySpec.ServicePort.String()),
 							},
 							Ports: []corev1.ContainerPort{
 								{

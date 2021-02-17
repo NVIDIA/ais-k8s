@@ -10,7 +10,6 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
 
 	aiscmn "github.com/NVIDIA/aistore/cmn"
 	aisv1 "github.com/ais-operator/api/v1alpha1"
@@ -19,7 +18,8 @@ import (
 
 const primaryStartTimeout = time.Minute * 3
 
-func (r *AIStoreReconciler) initProxies(ctx context.Context, ais *aisv1.AIStore, customConfig *aiscmn.ConfigToUpdate) (changed bool, err error) {
+func (r *AIStoreReconciler) initProxies(ctx context.Context, ais *aisv1.AIStore,
+	customConfig *aiscmn.ConfigToUpdate) (changed bool, err error) {
 	var (
 		cm     *corev1.ConfigMap
 		exists bool
@@ -55,15 +55,17 @@ func (r *AIStoreReconciler) initProxies(ctx context.Context, ais *aisv1.AIStore,
 	}
 
 	// Wait for primary to start-up.
-	if err = r.client.WaitForPodReady(ctx, types.NamespacedName{Namespace: pod.Namespace, Name: pod.Name + "-0"}, primaryStartTimeout); err != nil {
+	if err = r.client.WaitForPodReady(ctx, proxy.DefaultPrimaryNSName(ais), primaryStartTimeout); err != nil {
 		return
 	}
 
 	// 4. Start all the proxy daemons
-	if changed, err = r.client.UpdateStatefulSetReplicas(ctx, proxy.StatefulSetNSName(ais), ais.Spec.Size); err != nil {
-		r.recordError(ais, err, "Failed to deploy stateful set")
+	changed, err = r.client.UpdateStatefulSetReplicas(ctx, proxy.StatefulSetNSName(ais), ais.Spec.Size)
+	if err != nil {
+		r.recordError(ais, err, "Failed to deploy StatefulSet")
 		return
-	} else if changed {
+	}
+	if changed {
 		msg := "Successfully initialized proxy nodes"
 		r.log.Info(msg)
 		r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonInitialized, msg)
@@ -109,7 +111,8 @@ func (r *AIStoreReconciler) handleProxyState(ctx context.Context, ais *aisv1.AIS
 // enableProxyExternalService, creates a LoadBalancer service for proxy statefulset.
 // NOTE: As opposed to `target` external services, where we have a separate LoadBalancer service per pod,
 // `proxies` have a single LoadBalancer service across all the proxy pods.
-func (r *AIStoreReconciler) enableProxyExternalService(ctx context.Context, ais *aisv1.AIStore) (ready bool, err error) {
+func (r *AIStoreReconciler) enableProxyExternalService(ctx context.Context,
+	ais *aisv1.AIStore) (ready bool, err error) {
 	proxyLBSVC := proxy.NewProxyLoadBalancerSVC(ais)
 	exists, err := r.client.CreateResourceIfNotExists(ctx, ais, proxyLBSVC)
 	if err != nil || !exists {

@@ -45,7 +45,8 @@ func checkClusterExists(ctx context.Context, client *aisclient.K8SClient, name t
 
 // DestroyCluster - Deletes the AISCluster resource, and waits for the resource to be cleaned up.
 // `intervals` refer - `gomega.Eventually`
-func DestroyCluster(ctx context.Context, client *aisclient.K8SClient, cluster *aisv1.AIStore, intervals ...interface{}) {
+func DestroyCluster(ctx context.Context, client *aisclient.K8SClient,
+	cluster *aisv1.AIStore, intervals ...interface{}) {
 	Expect(client.DeleteResourceIfExists(context.Background(), cluster)).Should(Succeed())
 	Eventually(func() bool {
 		return checkClusterExists(context.Background(), client, cluster.NamespacedName())
@@ -61,7 +62,8 @@ func checkCMExists(ctx context.Context, client *aisclient.K8SClient, name types.
 	return true
 }
 
-func EventuallyCMExists(ctx context.Context, client *aisclient.K8SClient, name types.NamespacedName, be OmegaMatcher, intervals ...interface{}) {
+func EventuallyCMExists(ctx context.Context, client *aisclient.K8SClient, name types.NamespacedName,
+	be OmegaMatcher, intervals ...interface{}) {
 	Eventually(func() bool {
 		return checkCMExists(context.Background(), client, name)
 	}, intervals...).Should(be)
@@ -76,7 +78,8 @@ func checkServiceExists(ctx context.Context, client *aisclient.K8SClient, name t
 	return true
 }
 
-func EventuallyServiceExists(ctx context.Context, client *aisclient.K8SClient, name types.NamespacedName, be OmegaMatcher, intervals ...interface{}) {
+func EventuallyServiceExists(ctx context.Context, client *aisclient.K8SClient, name types.NamespacedName,
+	be OmegaMatcher, intervals ...interface{}) {
 	Eventually(func() bool {
 		return checkServiceExists(context.Background(), client, name)
 	}, intervals...).Should(be)
@@ -91,13 +94,20 @@ func checkSSExists(ctx context.Context, client *aisclient.K8SClient, name types.
 	return true
 }
 
-func EventuallySSExists(ctx context.Context, client *aisclient.K8SClient, name types.NamespacedName, be OmegaMatcher, intervals ...interface{}) {
+func EventuallySSExists(
+	ctx context.Context,
+	client *aisclient.K8SClient,
+	name types.NamespacedName,
+	be OmegaMatcher,
+	intervals ...interface{},
+) {
 	Eventually(func() bool {
 		return checkSSExists(context.Background(), client, name)
 	}, intervals...).Should(be)
 }
 
-func EventuallyCRBExists(ctx context.Context, client *aisclient.K8SClient, name string, be OmegaMatcher, intervals ...interface{}) {
+func EventuallyCRBExists(ctx context.Context, client *aisclient.K8SClient, name string,
+	be OmegaMatcher, intervals ...interface{}) {
 	Eventually(func() bool {
 		return checkCRBExists(context.Background(), client, name)
 	}, intervals...).Should(be)
@@ -114,7 +124,8 @@ func checkCRBExists(ctx context.Context, client *aisclient.K8SClient, name strin
 	return true
 }
 
-func EventuallyResourceExists(ctx context.Context, client *aisclient.K8SClient, obj client.Object, be OmegaMatcher, intervals ...interface{}) {
+func EventuallyResourceExists(ctx context.Context, client *aisclient.K8SClient, obj client.Object,
+	be OmegaMatcher, intervals ...interface{}) {
 	Eventually(func() bool {
 		return checkResourceExists(ctx, client, obj)
 	}, intervals...).Should(be)
@@ -133,12 +144,10 @@ func checkResourceExists(ctx context.Context, client *aisclient.K8SClient, obj c
 	Expect(err).To(BeNil())
 	return true
 }
-func CreateNSIfNotExists(ctx context.Context, client *aisclient.K8SClient, name string) (ns *corev1.Namespace, exists bool) {
-	ns = &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-		},
-	}
+
+func CreateNSIfNotExists(ctx context.Context, client *aisclient.K8SClient,
+	name string) (ns *corev1.Namespace, exists bool) {
+	ns = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: name}}
 	err := client.Create(ctx, ns)
 	if err != nil && errors.IsAlreadyExists(err) {
 		exists = true
@@ -148,7 +157,8 @@ func CreateNSIfNotExists(ctx context.Context, client *aisclient.K8SClient, name 
 	return
 }
 
-func WaitForClusterToBeReady(ctx context.Context, client *aisclient.K8SClient, cluster *aisv1.AIStore, intervals ...interface{}) {
+func WaitForClusterToBeReady(ctx context.Context, client *aisclient.K8SClient, cluster *aisv1.AIStore,
+	intervals ...interface{}) {
 	Eventually(func() bool {
 		proxySS, err := client.GetStatefulSet(ctx, proxy.StatefulSetNSName(cluster))
 		if err != nil {
@@ -158,7 +168,8 @@ func WaitForClusterToBeReady(ctx context.Context, client *aisclient.K8SClient, c
 		if err != nil {
 			return false
 		}
-		return proxySS.Status.ReadyReplicas == *proxySS.Spec.Replicas && targetSS.Status.ReadyReplicas == *targetSS.Spec.Replicas
+		return proxySS.Status.ReadyReplicas == *proxySS.Spec.Replicas &&
+			targetSS.Status.ReadyReplicas == *targetSS.Spec.Replicas
 	}, intervals...).Should(BeTrue())
 }
 

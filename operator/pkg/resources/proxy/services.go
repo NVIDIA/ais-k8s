@@ -13,13 +13,13 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func headlessSVCName(ais *aisv1.AIStore) string {
+func HeadlessSVCName(ais *aisv1.AIStore) string {
 	return ais.Name + "-" + aiscmn.Proxy
 }
 
 func HeadlessSVCNSName(ais *aisv1.AIStore) types.NamespacedName {
 	return types.NamespacedName{
-		Name:      headlessSVCName(ais),
+		Name:      HeadlessSVCName(ais),
 		Namespace: ais.Namespace,
 	}
 }
@@ -43,7 +43,7 @@ func NewProxyHeadlessSvc(ais *aisv1.AIStore) *corev1.Service {
 
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      headlessSVCName(ais),
+			Name:      HeadlessSVCName(ais),
 			Namespace: ais.Namespace,
 			Annotations: map[string]string{
 				"prometheus.io/scrape": "true",

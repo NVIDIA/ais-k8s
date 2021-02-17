@@ -16,7 +16,11 @@ import (
 	"github.com/ais-operator/pkg/resources/target"
 )
 
-func (r *AIStoreReconciler) initTargets(ctx context.Context, ais *aisv1.AIStore, customConfig *aiscmn.ConfigToUpdate) (changed bool, err error) {
+func (r *AIStoreReconciler) initTargets(
+	ctx context.Context,
+	ais *aisv1.AIStore,
+	customConfig *aiscmn.ConfigToUpdate,
+) (changed bool, err error) {
 	var cm *corev1.ConfigMap
 	// 1. Deploy required ConfigMap
 	cm, err = target.NewTargetCM(ais, customConfig)
@@ -62,7 +66,8 @@ func (r *AIStoreReconciler) cleanupTarget(ctx context.Context, ais *aisv1.AIStor
 		return err
 	}
 
-	err = r.client.DeleteAllServicesIfExists(ctx, ais.Namespace, client.MatchingLabels(target.ExternalServiceLabels(ais)))
+	err = r.client.DeleteAllServicesIfExists(ctx, ais.Namespace,
+		client.MatchingLabels(target.ExternalServiceLabels(ais)))
 	if err != nil {
 		return err
 	}
@@ -89,7 +94,8 @@ func (r *AIStoreReconciler) handleTargetState(ctx context.Context, ais *aisv1.AI
 }
 
 // enableTargetExternalService, creates a loadbalancer service per target and checks if all the services are assigned an external IP.
-func (r *AIStoreReconciler) enableTargetExternalService(ctx context.Context, ais *aisv1.AIStore) (ready bool, err error) {
+func (r *AIStoreReconciler) enableTargetExternalService(ctx context.Context,
+	ais *aisv1.AIStore) (ready bool, err error) {
 	var (
 		targetSVCList = target.NewTargetLoadBalancerSVCList(ais)
 		exists        bool

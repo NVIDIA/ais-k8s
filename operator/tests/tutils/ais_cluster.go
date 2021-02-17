@@ -19,7 +19,8 @@ const (
 	aisInitImage = "aistore/ais-init:latest"
 )
 
-func NewAISClusterCR(name, namespace, storageClass string, size int32, disableAntiAffinity, enableExternalLB bool) *aisv1.AIStore {
+func NewAISClusterCR(name, namespace, storageClass string,
+	size int32, disableAntiAffinity, enableExternalLB bool) *aisv1.AIStore {
 	var storage *string
 	if storageClass != "" {
 		storage = &storageClass
