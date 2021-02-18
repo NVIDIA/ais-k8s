@@ -30,12 +30,15 @@ all: manager
 # Run tests
 ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
 TEST_STORAGECLASS ?= "" # Storage class to use for tests. If not provided, default storage-class on k8s cluster will be used.
-test: generate fmt vet manifests
+test: generate fmt vet manifests test-suite-deps
 	# NOTE: Currently, we only have integration tests that run on an existing K8s cluster.
 	# `USE_EXISTING_CLUSTER=true` is set while running the tests to ensure, `envtest` environement isn't used.
 	mkdir -p ${ENVTEST_ASSETS_DIR}
 	test -f ${ENVTEST_ASSETS_DIR}/setup-envtest.sh || curl -sSLo ${ENVTEST_ASSETS_DIR}/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/v0.7.0/hack/setup-envtest.sh
-	source ${ENVTEST_ASSETS_DIR}/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); TEST_STORAGECLASS=$(TEST_STORAGECLASS) USE_EXISTING_CLUSTER=true go test ./... -coverprofile cover.out -v
+	source ${ENVTEST_ASSETS_DIR}/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); TEST_STORAGECLASS=$(TEST_STORAGECLASS) USE_EXISTING_CLUSTER=true ginkgo -v -progress ./... -coverprofile cover.out
+
+test-suite-deps:
+	go get github.com/onsi/ginkgo/ginkgo
 
 # Build manager binary
 manager: generate fmt vet
