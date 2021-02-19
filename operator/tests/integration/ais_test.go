@@ -30,10 +30,13 @@ var (
 // initilize AIS tutils to use the deployed cluster
 func initAISCluster(ctx context.Context, cluster *aisv1.AIStore) {
 	proxyURL = tutils.GetProxyURL(ctx, k8sClient, cluster)
-	Expect(aistutils.InitCluster(proxyURL, aistutils.ClusterTypeK8s)).NotTo(HaveOccurred())
+
+	// Wait until the cluster has actually started (targets have registered).
+	// TODO: Rewrite once WaitNodeReady supports custom intervals.
 	Eventually(func() error {
-		return aistutils.GetProxyReadiness(proxyURL)
-	}, 30*time.Second, 2*time.Second).Should(BeNil())
+		return aistutils.WaitNodeReady(proxyURL)
+	}, 2*time.Minute, 10*time.Second).Should(BeNil())
+	Expect(aistutils.InitCluster(proxyURL, aistutils.ClusterTypeK8s)).NotTo(HaveOccurred())
 }
 
 func putGetObjects(t *testing.T) {
