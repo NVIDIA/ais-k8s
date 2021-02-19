@@ -119,7 +119,6 @@ var defaultAISConf = aiscmn.Config{
 	Rebalance: aiscmn.RebalanceConf{
 		Enabled:          true,
 		Compression:      aiscmn.CompressNever,
-		DontRunTimeStr:   "0m",
 		DestRetryTimeStr: "2m",
 		QuiesceStr:       "20s",
 		Multiplier:       2,

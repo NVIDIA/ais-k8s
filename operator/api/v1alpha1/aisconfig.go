@@ -91,7 +91,6 @@ type (
 		IostatTimeShortStr *string `json:"iostat_time_short,omitempty"`
 	}
 	RebalanceConfToUpdate struct {
-		DontRunTimeStr   *string `json:"dont_run_time,omitempty"`
 		DestRetryTimeStr *string `json:"dest_retry_time,omitempty"` // max wait for ACKs & neighbors to complete
 		QuiesceStr       *string `json:"quiescent,omitempty"`       // max wait for no-obj before next stage/batch
 		Compression      *string `json:"compression,omitempty"`     // see CompressAlways, etc. enum

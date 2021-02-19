@@ -262,8 +262,6 @@ spec:
                     type: string
                   dest_retry_time:
                     type: string
-                  dont_run_time:
-                    type: string
                   enabled:
                     type: boolean
                   multiplier:
