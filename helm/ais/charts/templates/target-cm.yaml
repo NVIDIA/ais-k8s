@@ -9,7 +9,7 @@ data:
 {{ with .Values.target.config -}}
 {{ include "common_net.config" . | indent 6 }},
 {{- end }} "proxy": {
-              "non_electable": {{ .Values.target.config.proxy.non_electable }},
+              "non_electable": false,
               "primary_url":  "http://{{ template "ais.fullname" . }}-proxy:{{ .Values.proxy.config.net.l4.port }}",
               "original_url":  "http://{{ template "ais.fullname" . }}-proxy:{{ .Values.proxy.config.net.l4.port }}",
               "discovery_url":  "http://{{ template "ais.fullname" . }}-proxy:{{ .Values.proxy.config.net.l4.port }}"

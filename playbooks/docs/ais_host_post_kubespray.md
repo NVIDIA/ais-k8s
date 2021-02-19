@@ -24,5 +24,3 @@ $ ansible-playbook -i hosts.ini ais_host_post_kubespray.yml -e playhosts=k8s-clu
 ```
 
 This should be run for all nodes that may host an AIStore Pod.
-Since out GPU nodes are labelled to run non-electable proxy
-Pods we apply it throughout the cluster.

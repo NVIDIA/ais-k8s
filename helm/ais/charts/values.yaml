@@ -252,7 +252,7 @@ external_monitoring:
 
 #
 # "Common" ais.json config values - actually not genuinely common and applicable to
-# all of electable/nonelectable/target, but since those templates have duplicated
+# all of proxy/target, but since those templates have duplicated
 # sections we may as well avoid also duplicating values.
 #
 # Don't add anything here that does not contribute to ais.json; and only add
@@ -357,8 +357,6 @@ ais_config_common:
 proxy:
   name: proxy        # A component label for selector
   config:
-    proxy:
-      non_electable: false
     test_fspaths:
       count:    0
       instance: 0
@@ -392,67 +390,21 @@ proxy:
   # deprecated and replaced with operator.
 
   # Allow single proxy per Kubernetes node.
-  # TODO: Uncomment when proxies become StatefulSet.
-#  affinity:
-#    podAntiAffinity:
-#      requiredDuringSchedulingIgnoredDuringExecution:
-#        - labelSelector:
-#            matchExpressions:
-#              - key: component
-#                operator: In
-#                values:
-#                  - proxy
-#                  - ne_proxy
-#          topologyKey: topology.kubernetes.io/node
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchExpressions:
+              - key: component
+                operator: In
+                values:
+                  - proxy
+          topologyKey: topology.kubernetes.io/node
 
-ne_proxy:
-  name: "ne_proxy"    # A component label for selector
-  config:
-    proxy:
-      non_electable: true
-    test_fspaths:
-      count:    0
-      instance: 0
-    net:
-      hostname:               ""
-      hostname_intra_control: ""
-      hostname_intra_data:    ""
-      l4:
-        port:               51080
-        port_intra_control: ""
-        port_intra_data:    ""
-        sndrcv_buf_size:    131072
-      http:
-        write_buffer_size: 0
-        read_buffer_size:  0
-        use_https:        false
-        chunked_transfer: true
-  service:
-    type: ClusterIP
-    port: 51080      # must match that of proxy since they go behind same clusterIP service
-  nodeSelector:
-    key:   nvidia.com/ais-proxy
-  resources: {}
-
-  # TODO: This should not be editable by a user.
-  # Allow single proxy per Kubernetes node.
-#  affinity:
-#    podAntiAffinity:
-#      requiredDuringSchedulingIgnoredDuringExecution:
-#        - labelSelector:
-#            matchExpressions:
-#              - key: component
-#                operator: In
-#                values:
-#                  - proxy
-#                  - ne_proxy
-#          topologyKey: topology.kubernetes.io/node
 
 target:
   name: "target"   # A component label for selector
   config:
-    proxy:
-      non_electable: false
     test_fspaths:
       count:    0
       instance: 0

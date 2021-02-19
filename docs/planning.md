@@ -45,10 +45,9 @@ Target node labels | Target nodes are nominated (once filesystems are ready!) by
 
 ## Proxy Nodes (Pods)
 
-Proxy Pods, also controlled by a DaemonSet, are nominated by node labeling. Only one proxy Pod is required, but more is advised for HA purposes - at least three if possible. Proxies are extremely lightweight - our standard configuration is to run a proxy Pod on each target node (which might be overkill).
-
-Proxies are usually *electable* (eligible to be the primary), but if running a proxy Pod on a GPU node in the same cluster as
-AIStore they can be made unelectable.
+Proxy Pods, also controlled by a StatefulSet, are nominated by node labeling.
+Only one proxy Pod is required, but more is advised for HA purposes - at least three if possible.
+Proxies are extremely lightweight - our standard configuration is to run a proxy Pod on each target node (which might be overkill).
 
 For initial AIStore cluster deployment *only* one of the electable proxy nodes must also be labeled as the initial primary proxy.
 This (horrible hack) is used to bootstrap an initial primary at cluster establishment.
