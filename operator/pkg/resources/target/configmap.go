@@ -28,7 +28,12 @@ func ConfigMapNSName(ais *aisv1.AIStore) types.NamespacedName {
 }
 
 func NewTargetCM(ais *aisv1.AIStore, customConfig *aiscmn.ConfigToUpdate) (*corev1.ConfigMap, error) {
-	conf, err := jsoniter.MarshalToString(targetConf(ais, customConfig))
+	globalConf, localConf := targetConf(ais, customConfig)
+	conf, err := jsoniter.MarshalToString(globalConf)
+	if err != nil {
+		return nil, err
+	}
+	confLocal, err := jsoniter.MarshalToString(localConf)
 	if err != nil {
 		return nil, err
 	}
@@ -40,24 +45,16 @@ func NewTargetCM(ais *aisv1.AIStore, customConfig *aiscmn.ConfigToUpdate) (*core
 		Data: map[string]string{
 			"ais.json":                  conf,
 			"set_initial_target_env.sh": initTargetSh,
+			"ais_local.json":            confLocal,
 		},
 	}, nil
 }
 
-// TODO: Have default values and update target conf from config
-func targetConf(ais *aisv1.AIStore, customConfig *aiscmn.ConfigToUpdate) aiscmn.Config {
+func targetConf(ais *aisv1.AIStore, toUpdate *aiscmn.ConfigToUpdate) (aiscmn.Config, aiscmn.LocalConfig) {
 	conf := cmn.DefaultAISConf(ais)
-
-	conf.Net.L4.PortStr = ais.Spec.TargetSpec.PublicPort.String()
-	conf.Net.L4.PortIntraControlStr = ais.Spec.TargetSpec.IntraControlPort.String()
-	conf.Net.L4.PortIntraDataStr = ais.Spec.TargetSpec.IntraDataPort.String()
-	conf.FSpaths.Paths = make(aiscmn.StringSet, len(ais.Spec.TargetSpec.Mounts))
-	if customConfig != nil {
-		_ = conf.Apply(*customConfig)
+	if toUpdate != nil {
+		_ = conf.Apply(*toUpdate)
 	}
-
-	for _, res := range ais.Spec.TargetSpec.Mounts {
-		conf.FSpaths.Paths.Add(res.Path)
-	}
-	return conf
+	localConf := cmn.LocalConfTemplate(ais.Spec.TargetSpec.ServiceSpec, ais.Spec.TargetSpec.Mounts)
+	return conf, localConf
 }

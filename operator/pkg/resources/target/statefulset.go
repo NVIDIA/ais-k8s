@@ -90,6 +90,7 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 								cmn.EnvFromValue("K8S_NS", ais.Namespace),
 								cmn.EnvFromValue("AIS_CLUSTER_CIDR", ""), // TODO: add
 								cmn.EnvFromValue("AIS_CONF_FILE", "/var/ais_config/ais.json"),
+								cmn.EnvFromValue("AIS_LOCAL_CONF_FILE", "/var/ais_config/ais_local.json"),
 								cmn.EnvFromValue("STATSD_CONF_FILE", "/var/statsd_config/statsd.json"),
 								cmn.EnvFromValue("AIS_NODE_ROLE", aiscmn.Target),
 								cmn.EnvFromValue("AIS_NO_DISK_IO", strconv.FormatBool(ais.Spec.TargetSpec.NoDiskIO.Enabled)),

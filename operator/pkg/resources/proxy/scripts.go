@@ -19,9 +19,13 @@ rm -f $envfile
 pod_dns="${MY_POD}.${MY_SERVICE}.${K8S_NS}.svc.cluster.local"
 export AIS_INTRA_HOSTNAME=${pod_dns}
 export AIS_DATA_HOSTNAME=${pod_dns}
-conf_template="/var/ais_config_template/ais.json"
-conf_file="/var/ais_config/ais.json"
-envsubst < ${conf_template} > ${conf_file}
+
+global_conf_template="/var/ais_config_template/ais.json"
+global_conf_file="/var/ais_config/ais.json"
+cp ${global_conf_template} ${global_conf_file}
+local_conf_template="/var/ais_config_template/ais_local.json"
+local_conf_file="/var/ais_config/ais_local.json"
+envsubst < ${local_conf_template} > ${local_conf_file}
 
 if [[ "${MY_POD}" == "${AIS_DEFAULT_PRIMARY}" ]]; then
 	echo "export AIS_IS_PRIMARY=true" > $envfile

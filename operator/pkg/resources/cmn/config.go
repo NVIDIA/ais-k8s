@@ -39,9 +39,6 @@ var defaultAISConf = aiscmn.Config{
 	},
 	// Network hostnames are substituted in InitContainer.
 	Net: aiscmn.NetConf{
-		Hostname:             "${AIS_PUBLIC_HOSTNAME}",
-		HostnameIntraControl: "${AIS_INTRA_HOSTNAME}",
-		HostnameIntraData:    "${AIS_DATA_HOSTNAME}",
 		L4: aiscmn.L4Conf{
 			Proto: "tcp",
 		},
@@ -146,4 +143,27 @@ func DefaultAISConf(ais *aisv1.AIStore) aiscmn.Config {
 		DiscoveryURL: proxyURL,
 	}
 	return conf
+}
+
+func LocalConfTemplate(sp aisv1.ServiceSpec, mounts []aisv1.Mount) aiscmn.LocalConfig {
+	localConf := aiscmn.LocalConfig{
+		Net: aiscmn.LocalNetConfig{
+			Hostname:             "${AIS_PUBLIC_HOSTNAME}",
+			HostnameIntraControl: "${AIS_INTRA_HOSTNAME}",
+			HostnameIntraData:    "${AIS_DATA_HOSTNAME}",
+			PortStr:              sp.PublicPort.String(),
+			PortIntraControlStr:  sp.IntraControlPort.String(),
+			PortIntraDataStr:     sp.IntraDataPort.String(),
+		},
+	}
+	if len(mounts) == 0 {
+		return localConf
+	}
+
+	localConf.FSpaths.Paths = make(aiscmn.StringSet, len(mounts))
+	for _, m := range mounts {
+		localConf.FSpaths.Paths.Add(m.Path)
+	}
+	return localConf
+
 }

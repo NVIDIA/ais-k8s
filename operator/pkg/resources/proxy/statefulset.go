@@ -91,6 +91,7 @@ func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
 					cmn.EnvFromValue("K8S_NS", ais.Namespace),
 					cmn.EnvFromValue("AIS_CLUSTER_CIDR", ""),
 					cmn.EnvFromValue("AIS_CONF_FILE", "/var/ais_config/ais.json"),
+					cmn.EnvFromValue("AIS_LOCAL_CONF_FILE", "/var/ais_config/ais_local.json"),
 					cmn.EnvFromValue("STATSD_CONF_FILE", "/var/statsd_config/statsd.json"),
 					cmn.EnvFromValue("AIS_NODE_ROLE", aiscmn.Proxy),
 					cmn.EnvFromValue("TARGETS", strconv.Itoa(int(ais.Spec.Size))),

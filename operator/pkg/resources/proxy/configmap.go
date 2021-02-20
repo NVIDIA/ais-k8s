@@ -28,7 +28,12 @@ func ConfigMapNSName(ais *aisv1.AIStore) types.NamespacedName {
 }
 
 func NewProxyCM(ais *aisv1.AIStore, toUpdate *aiscmn.ConfigToUpdate) (*corev1.ConfigMap, error) {
-	conf, err := jsoniter.MarshalToString(proxyConf(ais, toUpdate))
+	globalConf, localConf := proxyConf(ais, toUpdate)
+	conf, err := jsoniter.MarshalToString(globalConf)
+	if err != nil {
+		return nil, err
+	}
+	confLocal, err := jsoniter.MarshalToString(localConf)
 	if err != nil {
 		return nil, err
 	}
@@ -39,26 +44,17 @@ func NewProxyCM(ais *aisv1.AIStore, toUpdate *aiscmn.ConfigToUpdate) (*corev1.Co
 		},
 		Data: map[string]string{
 			"ais.json":                         conf,
+			"ais_local.json":                   confLocal,
 			"set_initial_primary_proxy_env.sh": initProxySh,
 		},
 	}, nil
 }
 
-// TODO: Have default values and update based on proxy config CRD
-func proxyConf(ais *aisv1.AIStore, toUpdate *aiscmn.ConfigToUpdate) aiscmn.Config {
+func proxyConf(ais *aisv1.AIStore, toUpdate *aiscmn.ConfigToUpdate) (aiscmn.Config, aiscmn.LocalConfig) {
 	conf := cmn.DefaultAISConf(ais)
-	// Network hostnames are substituted in InitContainer.
-	conf.Net.L4.PortStr = ais.Spec.ProxySpec.PublicPort.String()
-	conf.Net.L4.PortIntraControlStr = ais.Spec.ProxySpec.IntraControlPort.String()
-	conf.Net.L4.PortIntraDataStr = ais.Spec.ProxySpec.IntraDataPort.String()
 	if toUpdate != nil {
 		_ = conf.Apply(*toUpdate)
 	}
-
-	// TODO: Remove after `aisnode` image with fspath proxy validation fix is pushed
-	conf.FSpaths.Paths = make(aiscmn.StringSet, len(ais.Spec.TargetSpec.Mounts))
-	for _, res := range ais.Spec.TargetSpec.Mounts {
-		conf.FSpaths.Paths.Add(res.Path)
-	}
-	return conf
+	localConf := cmn.LocalConfTemplate(ais.Spec.ProxySpec.ServiceSpec, nil)
+	return conf, localConf
 }
