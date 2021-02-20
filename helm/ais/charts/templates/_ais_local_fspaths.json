@@ -1,0 +1,12 @@
+{{- define "local_fs.config" -}}
+"fspaths": {
+    {{- $last_mount := last .Values.aiscluster.target.mountPaths -}}
+    {{- range .Values.aiscluster.target.mountPaths -}}
+    {{- if eq . $last_mount }}
+    "{{ . }}":        ""
+    {{ else }}
+    "{{ . }}":        "",
+    {{- end -}}
+    {{- end -}}
+}
+{{- end -}}

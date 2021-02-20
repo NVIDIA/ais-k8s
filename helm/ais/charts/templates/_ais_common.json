@@ -118,16 +118,6 @@
 "versioning": {
         "enabled":              {{ .versioning.enabled }},
         "validate_warm_get":    {{ .versioning.validate_warm_get }}
-},
-{{ end -}}
-"fspaths": {
-        {{- $last_mount := last .Values.aiscluster.target.mountPaths -}}
-        {{- range .Values.aiscluster.target.mountPaths -}}
-        {{- if eq . $last_mount }}
-        "{{ . }}":        ""
-        {{ else }}
-        "{{ . }}":        "",
-        {{- end -}}
-        {{- end -}}
 }
+{{ end -}}
 {{- end -}}

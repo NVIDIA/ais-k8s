@@ -1,0 +1,10 @@
+{{- define "local_net.config" -}}
+"net": {
+    "hostname":                 "${AIS_PUB_HOSTNAME}",
+    "hostname_intra_control":   "${AIS_INTRA_HOSTNAME}",
+    "hostname_intra_data":      "${AIS_DATA_HOSTNAME}",
+    "port":                 {{ .net.l4.port | quote }},
+    "port_intra_control":   {{ .net.l4.port_intra_control | quote }},
+    "port_intra_data":      {{ .net.l4.port_intra_data | quote }}
+} 
+{{- end -}}

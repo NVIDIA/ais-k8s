@@ -17,3 +17,10 @@ data:
     }
   set_initial_target_env.sh: |-
 {{ include "target.set_initial_target_env" . | indent 4 }}
+  ais_local.json: |-
+    {
+{{ with .Values.target.config -}}
+{{- include "local_net.config" . | indent 6 }},
+{{- end }}
+{{ include "local_fs.config" . | indent 6 }}
+    }

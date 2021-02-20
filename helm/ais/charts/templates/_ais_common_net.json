@@ -1,13 +1,7 @@
 {{- define "common_net.config" -}}
 "net": {
-        "hostname":                 "${AIS_PUB_HOSTNAME}",
-        "hostname_intra_control":   "${AIS_INTRA_HOSTNAME}",
-        "hostname_intra_data":      "${AIS_DATA_HOSTNAME}",
         "l4": {
                 "proto":                "tcp",
-                "port":                 {{ .net.l4.port | quote }},
-                "port_intra_control":   {{ .net.l4.port_intra_control | quote }},
-                "port_intra_data":      {{ .net.l4.port_intra_data | quote }},
                 "sndrcv_buf_size":      {{ .net.l4.sndrcv_buf_size }}
         },
         "http": {

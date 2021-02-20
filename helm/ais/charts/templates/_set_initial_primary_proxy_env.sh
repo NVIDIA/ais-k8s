@@ -86,7 +86,7 @@ if [[ "$primary" == "$MY_NODE" ]]; then
     #
     # Indicate to subsequent containers in this pod that we started on the primary node.
     #
-    echo "export AIS_IS_PRIMARY=True" > $envfile
+    echo "export AIS_IS_PRIMARY=true" > $envfile
 else
     echo "initContainer complete - not running on primary proxy node"
 fi
@@ -100,8 +100,11 @@ export AIS_DATA_HOSTNAME=${pod_dns}
 # Update configuration file,substitute environment variables
 #
 
-conf_template="/var/ais_config_template/ais.json"
-conf_file="/var/ais_config/ais.json"
-envsubst < ${conf_template} > ${conf_file}
+global_conf_template="/var/ais_config_template/ais.json"
+global_conf_file="/var/ais_config/ais.json"
+cp ${global_conf_template} ${global_conf_file}
+local_conf_template="/var/ais_config_template/ais_local.json"
+local_conf_file="/var/ais_config/ais_local.json"
+envsubst < ${local_conf_template} > ${local_conf_file}
 
 {{end}}

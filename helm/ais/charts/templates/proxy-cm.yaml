@@ -17,3 +17,9 @@ data:
     }
   set_initial_primary_proxy_env.sh: |-
 {{ include "proxy.set_initial_primary_proxy_env" . | indent 4 }}
+  ais_local.json: |-
+    {
+{{ with .Values.proxy.config -}}
+{{- include "local_net.config" . | indent 6 }}
+{{- end }}
+    }

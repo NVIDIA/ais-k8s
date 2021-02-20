@@ -76,6 +76,8 @@ spec:
           env:
             - name: AIS_CONF_FILE
               value: "/var/ais_config/ais.json"
+            - name: AIS_LOCAL_CONF_FILE
+              value: "/var/ais_config/ais_local.json"
             - name: STATSD_CONF_FILE
               value: "/var/statsd_config/statsd.json"
             - name: AIS_NODE_ROLE
