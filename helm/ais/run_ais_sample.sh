@@ -121,7 +121,7 @@ fi
 
 helm install \
 	--namespace=$AIS_NAMESPACE \
-	--set aiscluster.image.pullPolicy=IfNotPresent \
+	--set aiscluster.image.pullPolicy=${AIS_PULL_POLICY:-IfNotPresent} \
 	--set-string aiscluster.image.aisnode.repository=$(echo $AISNODE_IMAGE | cut -d: -f1) \
 	--set-string aiscluster.image.aisnode.tag=$(echo $AISNODE_IMAGE | cut -d: -f2) \
 	--set-string aiscluster.image.kubectl.repository=$(echo $AIS_INIT_IMAGE | cut -d: -f1) \

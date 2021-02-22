@@ -87,6 +87,8 @@ spec:
               value: "/var/statsd_config/statsd.json"
             - name: AIS_NODE_ROLE
               value: "target"
+            - name: AIS_HELM_DEPLOYMENT
+              value: "true"
             - name: AIS_PODIP
               valueFrom:
                 fieldRef:

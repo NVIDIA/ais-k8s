@@ -82,6 +82,8 @@ spec:
               value: "/var/statsd_config/statsd.json"
             - name: AIS_NODE_ROLE
               value: "proxy"
+            - name: AIS_HELM_DEPLOYMENT
+              value: "true"
             - name: TARGETS
               value: {{ .Values.aiscluster.expected_target_nodes | quote }}
             {{ if not .Values.aiscluster.skipHostIP }}

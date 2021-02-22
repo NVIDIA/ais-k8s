@@ -56,6 +56,7 @@ deploy_ais() {
   fi
 
   AIS_NAME="${release_name}" \
+    AIS_PULL_POLICY="Always" \
     AIS_GATEWAY_EXTERNAL_IP="${external_ip}" \
     AIS_K8S_CLUSTER_CIDR="10.64.0.0/14" \
     AISNODE_IMAGE="${aisnode_image:-aistore/aisnode:3.3.1}" \
