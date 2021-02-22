@@ -11,22 +11,20 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	aiscmn "github.com/NVIDIA/aistore/cmn"
 	aisv1 "github.com/ais-operator/api/v1alpha1"
 	"github.com/ais-operator/pkg/resources/proxy"
 )
 
 const primaryStartTimeout = time.Minute * 3
 
-func (r *AIStoreReconciler) initProxies(ctx context.Context, ais *aisv1.AIStore,
-	customConfig *aiscmn.ConfigToUpdate) (changed bool, err error) {
+func (r *AIStoreReconciler) initProxies(ctx context.Context, ais *aisv1.AIStore) (changed bool, err error) {
 	var (
 		cm     *corev1.ConfigMap
 		exists bool
 	)
 
 	// 1. Deploy required ConfigMap
-	cm, err = proxy.NewProxyCM(ais, customConfig)
+	cm, err = proxy.NewProxyCM(ais)
 	if err != nil {
 		r.recordError(ais, err, "Failed to generate valid proxy ConfigMap")
 		return

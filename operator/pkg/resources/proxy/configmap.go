@@ -27,12 +27,8 @@ func ConfigMapNSName(ais *aisv1.AIStore) types.NamespacedName {
 	}
 }
 
-func NewProxyCM(ais *aisv1.AIStore, toUpdate *aiscmn.ConfigToUpdate) (*corev1.ConfigMap, error) {
-	globalConf, localConf := proxyConf(ais, toUpdate)
-	conf, err := jsoniter.MarshalToString(globalConf)
-	if err != nil {
-		return nil, err
-	}
+func NewProxyCM(ais *aisv1.AIStore) (*corev1.ConfigMap, error) {
+	localConf := cmn.LocalConfTemplate(ais.Spec.ProxySpec.ServiceSpec, nil)
 	confLocal, err := jsoniter.MarshalToString(localConf)
 	if err != nil {
 		return nil, err
@@ -43,18 +39,8 @@ func NewProxyCM(ais *aisv1.AIStore, toUpdate *aiscmn.ConfigToUpdate) (*corev1.Co
 			Namespace: ais.Namespace,
 		},
 		Data: map[string]string{
-			"ais.json":                         conf,
 			"ais_local.json":                   confLocal,
 			"set_initial_primary_proxy_env.sh": initProxySh,
 		},
 	}, nil
-}
-
-func proxyConf(ais *aisv1.AIStore, toUpdate *aiscmn.ConfigToUpdate) (aiscmn.Config, aiscmn.LocalConfig) {
-	conf := cmn.DefaultAISConf(ais)
-	if toUpdate != nil {
-		_ = conf.Apply(*toUpdate)
-	}
-	localConf := cmn.LocalConfTemplate(ais.Spec.ProxySpec.ServiceSpec, nil)
-	return conf, localConf
 }

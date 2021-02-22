@@ -27,12 +27,8 @@ func ConfigMapNSName(ais *aisv1.AIStore) types.NamespacedName {
 	}
 }
 
-func NewTargetCM(ais *aisv1.AIStore, customConfig *aiscmn.ConfigToUpdate) (*corev1.ConfigMap, error) {
-	globalConf, localConf := targetConf(ais, customConfig)
-	conf, err := jsoniter.MarshalToString(globalConf)
-	if err != nil {
-		return nil, err
-	}
+func NewTargetCM(ais *aisv1.AIStore) (*corev1.ConfigMap, error) {
+	localConf := cmn.LocalConfTemplate(ais.Spec.TargetSpec.ServiceSpec, ais.Spec.TargetSpec.Mounts)
 	confLocal, err := jsoniter.MarshalToString(localConf)
 	if err != nil {
 		return nil, err
@@ -43,18 +39,8 @@ func NewTargetCM(ais *aisv1.AIStore, customConfig *aiscmn.ConfigToUpdate) (*core
 			Namespace: ais.Namespace,
 		},
 		Data: map[string]string{
-			"ais.json":                  conf,
 			"set_initial_target_env.sh": initTargetSh,
 			"ais_local.json":            confLocal,
 		},
 	}, nil
-}
-
-func targetConf(ais *aisv1.AIStore, toUpdate *aiscmn.ConfigToUpdate) (aiscmn.Config, aiscmn.LocalConfig) {
-	conf := cmn.DefaultAISConf(ais)
-	if toUpdate != nil {
-		_ = conf.Apply(*toUpdate)
-	}
-	localConf := cmn.LocalConfTemplate(ais.Spec.TargetSpec.ServiceSpec, ais.Spec.TargetSpec.Mounts)
-	return conf, localConf
 }

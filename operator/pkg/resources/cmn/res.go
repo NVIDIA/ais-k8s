@@ -34,6 +34,16 @@ func NewAISVolumes(ais *aisv1.AIStore, daeType string) []corev1.Volume {
 			},
 		},
 		{
+			Name: "config-global",
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: globalConfigMapName(ais),
+					},
+				},
+			},
+		},
+		{
 			Name: "env-mount",
 			VolumeSource: corev1.VolumeSource{
 				HostPath: &corev1.HostPathVolumeSource{
@@ -94,6 +104,11 @@ func NewAISVolumeMounts() []corev1.VolumeMount {
 		{
 			Name:      "config-mount",
 			MountPath: "/var/ais_config",
+		},
+		{
+			Name:      "config-global",
+			MountPath: "/var/ais_config/ais.json",
+			SubPath:   "ais.json",
 		},
 		{
 			Name:        "env-mount",

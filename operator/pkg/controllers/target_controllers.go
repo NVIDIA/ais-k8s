@@ -13,19 +13,14 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	aiscmn "github.com/NVIDIA/aistore/cmn"
 	aisv1 "github.com/ais-operator/api/v1alpha1"
 	"github.com/ais-operator/pkg/resources/target"
 )
 
-func (r *AIStoreReconciler) initTargets(
-	ctx context.Context,
-	ais *aisv1.AIStore,
-	customConfig *aiscmn.ConfigToUpdate,
-) (changed bool, err error) {
+func (r *AIStoreReconciler) initTargets(ctx context.Context, ais *aisv1.AIStore) (changed bool, err error) {
 	var cm *corev1.ConfigMap
 	// 1. Deploy required ConfigMap
-	cm, err = target.NewTargetCM(ais, customConfig)
+	cm, err = target.NewTargetCM(ais)
 	if err != nil {
 		r.recordError(ais, err, "Failed to generate valid target ConfigMap")
 		return

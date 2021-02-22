@@ -40,6 +40,7 @@ const (
 	TargetCreationError   ErrorReason = "TargetCreationError"
 	InstanceDeletionError ErrorReason = "InstanceDeletionError"
 	ConfigChangeError     ErrorReason = "ConfigChangeError"
+	ConfigBuildError      ErrorReason = "ConfigBuildError"
 	OwnerReferenceError   ErrorReason = "OwnerReferenceError"
 	ExternalServiceError  ErrorReason = "ExternalService"
 	ResourceCreationError ErrorReason = "ResourceCreationError"

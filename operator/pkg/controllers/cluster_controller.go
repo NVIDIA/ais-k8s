@@ -287,8 +287,19 @@ func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore
 		return r.manageError(ctx, ais, aisv1.ResourceCreationError, err)
 	}
 
-	// 4. Bootstrap proxies
-	if changed, err = r.initProxies(ctx, ais, configToUpdate); err != nil {
+	// 4. Deploy global cluster config map.
+	globalCM, err := cmn.NewGlobalCM(ais, configToUpdate)
+	if err != nil {
+		r.recordError(ais, err, "Failed to construct global config")
+		return r.manageError(ctx, ais, aisv1.ConfigBuildError, err)
+	}
+	if _, err = r.client.CreateResourceIfNotExists(ctx, ais, globalCM); err != nil {
+		r.recordError(ais, err, "Failed to deploy global cluster ConfigMap")
+		return r.manageError(ctx, ais, aisv1.ResourceCreationError, err)
+	}
+
+	// 5. Bootstrap proxies
+	if changed, err = r.initProxies(ctx, ais); err != nil {
 		r.recordError(ais, err, "Failed to create Proxy resources")
 		return r.manageError(ctx, ais, aisv1.ProxyCreationError, err)
 	} else if changed {
@@ -296,8 +307,8 @@ func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore
 		return
 	}
 
-	// 5. Bootstrap targets
-	if changed, err = r.initTargets(ctx, ais, configToUpdate); err != nil {
+	// 6. Bootstrap targets
+	if changed, err = r.initTargets(ctx, ais); err != nil {
 		r.recordError(ais, err, "Failed to create Target resources")
 		return r.manageError(ctx, ais, aisv1.TargetCreationError, err)
 	} else if changed {
