@@ -3,7 +3,7 @@ module github.com/ais-operator
 go 1.15
 
 require (
-	github.com/NVIDIA/aistore v0.0.0-20210219200553-73efdad34906
+	github.com/NVIDIA/aistore v0.0.0-20210223064035-47bf0d362e0b
 	github.com/go-logr/logr v0.3.0
 	github.com/google/go-cmp v0.5.4 // indirect
 	github.com/json-iterator/go v1.1.10
