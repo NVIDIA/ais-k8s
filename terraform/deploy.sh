@@ -2,8 +2,8 @@
 
 set -eo pipefail
 
-source utils.sh
-source volumes.sh
+source scripts/utils.sh
+source scripts/volumes.sh
 
 deploy_ais() {
   node_cnt=$(kubectl get nodes --no-headers | wc -l | xargs)

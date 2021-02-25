@@ -1,6 +1,7 @@
 #!/bin/bash
 
-source utils.sh
+CURRENT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+source $CURRENT_DIR/utils.sh
 
 pv_dir="$state_dir/pv"
 pvc_dir="$state_dir/pvc"

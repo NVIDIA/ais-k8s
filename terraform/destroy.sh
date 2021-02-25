@@ -2,8 +2,8 @@
 
 set -e
 
-source utils.sh
-source volumes.sh
+source scripts/utils.sh
+source scripts/volumes.sh
 
 stop_k8s() {
   echo -e "☠️  Destroying..."

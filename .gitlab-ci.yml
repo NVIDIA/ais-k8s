@@ -89,25 +89,14 @@ test:terraform:gcp:
   variables:
     GOOGLE_APPLICATION_CREDENTIALS: "/tmp/gcs.json"
   before_script:
-    - apt-get update -y && apt-get -qq install -y curl jq software-properties-common apt-transport-https ca-certificates gnupg psmisc
-    - echo "Installing kubectl..."
-    - curl -Lo /tmp/kubectl "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl" && chmod +x /tmp/kubectl && mv /tmp/kubectl /usr/local/bin/kubectl
-    - echo "Installing terraform..."
-    - curl -fsSL https://apt.releases.hashicorp.com/gpg | apt-key add - && apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main" && apt-get update && apt-get install terraform
-    - echo "Installing gcloud..."
-    - echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] http://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list && curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key --keyring /usr/share/keyrings/cloud.google.gpg add - && apt-get update -y && apt-get -qq install -y google-cloud-sdk
-    - echo "Installing helm..."
-    - curl https://baltocdn.com/helm/signing.asc | apt-key add - && echo "deb https://baltocdn.com/helm/stable/debian/ all main" | tee /etc/apt/sources.list.d/helm-stable-debian.list && apt-get update -y && apt-get -qq install -y helm
+    - apt-get update -y && apt install -y build-essential
+    - make -C terraform ci-prepare
     - echo "${GOOGLE_APPLICATION_CREDENTIALS_JSON}" > "${GOOGLE_APPLICATION_CREDENTIALS}"
   script:
-    - cd terraform
-    - ./deploy.sh all --cluster-name="ais-ci-$(cat /dev/urandom | tr -dc 'a-z0-9' | fold -w 5 | head -n 1)" --cloud=gcp --node-cnt=3 --disk-cnt=2 --wait=10m --aisnode-image="${AISNODE_IMAGE}:nightly" --admin-image="${ADMIN_IMAGE}:nightly"
-    - kubectl get pods
-    - kubectl exec $(kubectl get pods --namespace default -l "component=admin" -o jsonpath="{.items[0].metadata.name}") -- ais show cluster
-    - kubectl exec $(kubectl get pods --namespace default -l "component=admin" -o jsonpath="{.items[0].metadata.name}") -- bash -c "apt-get -y update && apt-get install -y build-essential && curl -LO https://storage.googleapis.com/golang/go1.15.linux-amd64.tar.gz && tar -C /usr/local -xvzf go1.15.linux-amd64.tar.gz > /dev/null 2>&1 && rm -rf go1.15.linux-amd64.tar.gz && git clone https://github.com/NVIDIA/aistore.git && cd aistore/cmd/cli/test && /usr/local/go/bin/go test -v ."
+    - make -C terraform ci-deploy
+    - make -C terraform ci-test
   after_script:
-    - cd terraform
-    - ./destroy.sh all
+    - make -C terraform destroy
 
 push:docker:
   stage: push
