@@ -2,7 +2,8 @@ image: ubuntu:18.04
 
 stages:
   - build
-  - test
+  - test:short
+  - test:long
   - push
 
 variables:
@@ -46,10 +47,10 @@ build:operator:
 build:docker:
   stage: build
   rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       when: manual
       allow_failure: true
-    - if: '$CI_PIPELINE_SOURCE == "schedule"'
   script:
     - mkdir -p /go/src/github.com/NVIDIA
     - pushd /go/src/github.com/NVIDIA
@@ -68,24 +69,51 @@ build:docker:
       - images/
     expire_in: 1h
 
-test:operator:
-  stage: test
+operator:minikube:
+  stage: test:short
+  needs: ["build:operator:lint", "build:operator"]
   image: aistore/ci:1.15
   tags:
     - ais-k8s
   timeout: 30m
   <<: *default_only_def
   script:
-    - cd operator
-    - make test
+   - cd operator
+   - make test
 
-test:terraform:gcp:
-  stage: test
+operator:stub-gcp:
+  stage: test:long
+  # If minikube fails - don't bother to try GCP.
+  needs: ["operator:minikube"]
+  image: aistore/ci:1.15
+  timeout: 30m
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "master"'
+      changes:
+        - operator/*
+        - terraform/*
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "master"'
       when: manual
       allow_failure: true
+  script:
+    - echo "NO TESTS ARE RUN, THIS IS JUST A STUB"
+    - sleep 15
+    - echo "Done"
+
+helm:gcp:
+  stage: test:long
+  # Run immediately, don't require build:operator.
+  needs: []
+  rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "master"'
+      changes:
+        - terraform/*
+        - helm/*
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "master"'
+      when: manual
+      allow_failure: true
   variables:
     GOOGLE_APPLICATION_CREDENTIALS: "/tmp/gcs.json"
   before_script:
@@ -101,10 +129,10 @@ test:terraform:gcp:
 push:docker:
   stage: push
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "master"'
       when: manual
       allow_failure: true
-    - if: '$CI_PIPELINE_SOURCE == "schedule"'
   script:
     - docker load --input="images/nightly.tar"
     - docker tag "${ADMIN_IMAGE}:nightly" "${ADMIN_IMAGE}:latest"
