@@ -267,13 +267,14 @@ func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore
 		// When external access is enabled, we need external IPs of all the targets before deploying AIS cluster.
 		// To ensure correct behavior of cluster, we requeue the reconciler till we have all the external IPs.
 		if !targetReady || !proxyReady {
-			if !ais.HasState(aisv1.ConditionInitializingLBService) {
+			if !ais.HasState(aisv1.ConditionInitializingLBService) && !ais.HasState(aisv1.ConditionPendingLBService) {
 				err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionInitializingLBService})
 				r.recorder.Event(ais, corev1.EventTypeNormal,
 					EventReasonInitialized, "Successfully initialized LoadBalancer service")
 			} else {
 				err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionPendingLBService})
-				r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonWaiting, "Waiting for LoadBalancer service to be ready")
+				str := fmt.Sprintf("Waiting for LoadBalancer service to be ready; proxy ready=%t, target ready=%t", proxyReady, targetReady)
+				r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonWaiting, str)
 			}
 			result.RequeueAfter = requeueInterval
 			return
@@ -362,6 +363,9 @@ updated:
 		err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionUpgrading})
 	}
 	result.Requeue = true
+	if result.RequeueAfter == 0 {
+		result.RequeueAfter = time.Second
+	}
 	return
 }
 
@@ -416,8 +420,8 @@ func (r *AIStoreReconciler) setStatus(ctx context.Context, ais *aisv1.AIStore, s
 	if status.ConfigResourceVersion != "" {
 		ais.Status.ConfigResourceVersion = status.ConfigResourceVersion
 	}
-	err = r.client.Status().Update(ctx, ais)
-	if err != nil {
+
+	if err = r.client.Status().Update(ctx, ais); err != nil {
 		r.recordError(ais, err, "Failed to update CR status")
 	}
 	return
@@ -538,9 +542,7 @@ func (r *AIStoreReconciler) manageSuccess(ctx context.Context, ais *aisv1.AIStor
 
 func (r *AIStoreReconciler) getConfigToUpdate(cfg *aisv1.AISConfig) (toUpdate *aiscmn.ConfigToUpdate, err error) {
 	toUpdate = &aiscmn.ConfigToUpdate{}
-	if err = aiscmn.MorphMarshal(cfg.Spec, toUpdate); err != nil {
-		return nil, err
-	}
+	err = aiscmn.MorphMarshal(cfg.Spec, toUpdate)
 	return toUpdate, err
 }
 

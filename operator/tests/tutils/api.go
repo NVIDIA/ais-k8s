@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"math/rand"
 	"strings"
+	"time"
 
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -34,6 +35,8 @@ const (
 	GKEDefaultStorageClass = "standard"
 )
 
+var k8sProvider string
+
 func checkClusterExists(ctx context.Context, client *aisclient.K8sClient, name types.NamespacedName) bool {
 	_, err := client.GetAIStoreCR(ctx, name)
 	if errors.IsNotFound(err) {
@@ -47,6 +50,10 @@ func checkClusterExists(ctx context.Context, client *aisclient.K8sClient, name t
 // `intervals` refer - `gomega.Eventually`
 func DestroyCluster(ctx context.Context, client *aisclient.K8sClient,
 	cluster *aisv1.AIStore, intervals ...interface{}) {
+	if len(intervals) == 0 {
+		intervals = []interface{}{time.Minute, time.Second}
+	}
+
 	Expect(client.DeleteResourceIfExists(context.Background(), cluster)).Should(Succeed())
 	Eventually(func() bool {
 		return checkClusterExists(context.Background(), client, cluster.NamespacedName())
@@ -173,19 +180,30 @@ func WaitForClusterToBeReady(ctx context.Context, client *aisclient.K8sClient, c
 	}, intervals...).Should(BeTrue())
 }
 
-func GetK8sClusterProvider(ctx context.Context, client *aisclient.K8sClient) string {
+func InitK8sClusterProvider(ctx context.Context, client *aisclient.K8sClient) {
+	if k8sProvider != "" {
+		return
+	}
+
 	nodes := &corev1.NodeList{}
 	err := client.List(ctx, nodes)
 	Expect(err).NotTo(HaveOccurred())
 	for _, node := range nodes.Items {
 		if strings.Contains(node.Name, "gke") {
-			return K8sProviderGKE
+			k8sProvider = K8sProviderGKE
+			return
 		}
 		if strings.Contains(node.Name, "minikube") {
-			return K8sProviderMinikube
+			k8sProvider = K8sProviderMinikube
+			return
 		}
 	}
-	return K8sProviderUnknown
+	k8sProvider = K8sProviderUnknown
+}
+
+func GetK8sClusterProvider() string {
+	Expect(k8sProvider).ToNot(BeEmpty())
+	return k8sProvider
 }
 
 func GetLoadBalancerIP(ctx context.Context, client *aisclient.K8sClient, name types.NamespacedName) (ip string) {

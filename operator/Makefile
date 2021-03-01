@@ -35,7 +35,7 @@ test: generate fmt vet manifests test-suite-deps
 	# `USE_EXISTING_CLUSTER=true` is set while running the tests to ensure, `envtest` environement isn't used.
 	mkdir -p ${ENVTEST_ASSETS_DIR}
 	test -f ${ENVTEST_ASSETS_DIR}/setup-envtest.sh || curl -sSLo ${ENVTEST_ASSETS_DIR}/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/v0.7.0/hack/setup-envtest.sh
-	source ${ENVTEST_ASSETS_DIR}/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); TEST_STORAGECLASS=$(TEST_STORAGECLASS) USE_EXISTING_CLUSTER=true ginkgo -v -progress ./... -coverprofile cover.out
+	source ${ENVTEST_ASSETS_DIR}/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); TEST_STORAGECLASS=$(TEST_STORAGECLASS) USE_EXISTING_CLUSTER=true ginkgo -v -progress -trace ./... -coverprofile cover.out
 
 test-suite-deps:
 	go get github.com/onsi/ginkgo/ginkgo

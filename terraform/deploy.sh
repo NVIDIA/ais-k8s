@@ -193,6 +193,31 @@ deploy_dataplane() {
   esac
 }
 
+run_deploy_k8s() {
+  check_command terraform
+  check_command kubectl
+  check_command helm
+
+  if [[ -f ${state_file} ]]; then
+    print_error "state file exists, please run 'destroy.sh all' or remove it manually: 'rm -f ${state_file}'"
+  fi
+
+  select_provider
+  select_node_count
+  select_disk_count
+  validate_cluster_name
+  validate_dataplane
+
+  set_state_var "CLOUD_PROVIDER" "${cloud_provider}"
+  set_state_var "NODE_CNT" "${node_cnt}"
+  # FIXME: This is not necessary for infrastructure-only deployment.
+  set_state_var "DISK_CNT" "${disk_cnt}"
+
+  deploy_k8s
+  sleep 10
+  deploy_dataplane
+}
+
 init_state_dir
 deploy_type=$1; shift
 
@@ -233,28 +258,11 @@ done
 
 case ${deploy_type} in
 all)
-  check_command terraform
-  check_command kubectl
-  check_command helm
-
-  if [[ -f ${state_file} ]]; then
-    print_error "state file exists, please run 'destroy.sh all' or remove it manually: 'rm -f ${state_file}'"
-  fi
-
-  select_provider
-  select_node_count
-  select_disk_count
-  validate_cluster_name
-  validate_dataplane
-
-  set_state_var "CLOUD_PROVIDER" "${cloud_provider}"
-  set_state_var "NODE_CNT" "${node_cnt}"
-  set_state_var "DISK_CNT" "${disk_cnt}"
-
-  deploy_k8s
-  sleep 10
-  deploy_dataplane
+  run_deploy_k8s
   deploy_ais
+  ;;
+k8s)
+  run_deploy_k8s
   ;;
 ais)
   check_command kubectl
@@ -270,6 +278,6 @@ dashboard)
   print_help
   ;;
 *)
-  print_error "invalid deployment type: '${deploy_type}' (expected 'all', 'ais' or 'dashboard')"
+  print_error "invalid deployment type: '${deploy_type}' (expected 'all', 'k8s', 'ais' or 'dashboard')"
   ;;
 esac

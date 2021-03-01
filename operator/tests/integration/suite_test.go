@@ -37,10 +37,9 @@ import (
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
 var (
-	k8sClient          *aisclient.K8sClient
-	testEnv            *envtest.Environment
-	k8sClusterProvider string
-	testCtx            *testing.T
+	k8sClient *aisclient.K8sClient
+	testEnv   *envtest.Environment
+	testCtx   *testing.T
 
 	testNSName           = "ais-test-namespace"
 	storageClass         string // storage-class to use in tests
@@ -64,7 +63,7 @@ func TestAPIs(t *testing.T) {
 
 func setStorageClass() {
 	storageClass = os.Getenv(ENV_TEST_STORAGECLASS)
-	if storageClass == "" && k8sClusterProvider == tutils.K8sProviderGKE {
+	if storageClass == "" && tutils.GetK8sClusterProvider() == tutils.K8sProviderGKE {
 		storageClass = tutils.GKEDefaultStorageClass
 	}
 }
@@ -104,7 +103,7 @@ var _ = BeforeSuite(func(done Done) {
 
 	// Create Namespace if not exists
 	testNS, nsExists = tutils.CreateNSIfNotExists(context.Background(), k8sClient, testNSName)
-	k8sClusterProvider = tutils.GetK8sClusterProvider(context.Background(), k8sClient)
+	tutils.InitK8sClusterProvider(context.Background(), k8sClient)
 
 	// NOTE: On gitlab, tests run in a pod inside minikube cluster. In that case we can run the tests as an internal client, unless enforced to test as external client.
 	testAsExternalClient = aiscmn.IsParseBool(os.Getenv(ENV_TEST_ENFORCE_EXTERNAL)) || aisk8s.Detect() != nil
@@ -134,13 +133,19 @@ var _ = AfterSuite(func() {
 func skipIfLoadBalancerNotSupported() {
 	// If the tests are running against non-minikube cluster or inside a pod within K8s cluster
 	// we cannot determine if the LoadBalancer service is supported. Proceed to running tests.
-	if k8sClusterProvider != tutils.K8sProviderMinikube || aisk8s.Detect() == nil {
+	if tutils.GetK8sClusterProvider() != tutils.K8sProviderMinikube || aisk8s.Detect() == nil {
 		return
 	}
 
 	// If test is running against local minikube, check if `minikube tunnel` is running.
 	if !isTunnelRunning() {
 		Skip("Test requires the cluster to support LoadBalancer service.")
+	}
+}
+
+func skipOnGKE() {
+	if tutils.GetK8sClusterProvider() == tutils.K8sProviderGKE {
+		Skip("skipping on GKE")
 	}
 }
 

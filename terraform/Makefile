@@ -19,5 +19,8 @@ ci-prepare:
 ci-deploy:
 	@$(SHELL) $(SCRIPTS_DIR)/ci-deploy.sh
 
+ci-deploy-k8s:
+	@$(SHELL) $(SCRIPTS_DIR)/ci-deploy-k8s.sh
+
 ci-test:
 	@$(SHELL) $(SCRIPTS_DIR)/ci-test-run.sh

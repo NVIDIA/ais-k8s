@@ -52,6 +52,12 @@ For instance, to deploy AIStore with AWS provider, use the `--aws` flag to provi
 $ ./deploy.sh ais --aws="/home/ubuntu/.aws"
 ```
 
+Additionally, you can deploy only Kubernetes cluster, which will be ready to run AIS cluster.
+
+```console
+$ ./deploy.sh k8s
+```
+
 ### Supported Arguments
 
 `./deploy.sh DEPLOY_TYPE [--flag=value ...]`
@@ -59,6 +65,7 @@ $ ./deploy.sh ais --aws="/home/ubuntu/.aws"
 There are 3 `DEPLOY_TYPE`s:
 * `all` - start nodes on the specified provider, start K8s cluster and deploy AIStore on K8s nodes.
 * `ais` - only deploy AIStore on K8s nodes, assumes that K8s cluster is already deployed.
+* `k8s` - only deploy K8s cluster, without deploying AIS cluster.
 * `dashboard` - start [K8s dashboard](https://kubernetes.io/docs/tasks/access-application-cluster/web-ui-dashboard) connected to started K8s cluster.
 
 | Flag | Description | Default value |

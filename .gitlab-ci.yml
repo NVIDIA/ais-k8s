@@ -27,7 +27,7 @@ before_script:
 build:operator:lint:
   stage: build
   image: aistore/ci:1.15
-  timeout: 5m
+  timeout: 10m
   <<: *default_only_def
   script:
     - cd operator
@@ -38,11 +38,10 @@ build:operator:lint:
 build:operator:
   stage: build
   image: aistore/ci:1.15
-  timeout: 5m
+  timeout: 10m
   <<: *default_only_def
   script:
-    - cd operator
-    - make manager
+    - make -C operator manager
 
 build:docker:
   stage: build
@@ -78,46 +77,53 @@ operator:minikube:
   timeout: 30m
   <<: *default_only_def
   script:
-   - cd operator
-   - make test
+   - make -C operator test
 
 operator:stub-gcp:
   stage: test:long
   # If minikube fails - don't bother to try GCP.
   needs: ["operator:minikube"]
   image: aistore/ci:1.15
-  timeout: 30m
+  timeout: 60m
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "schedule" || $CI_COMMIT_BRANCH == "master"'
     - if: '$CI_MERGE_REQUEST_LABELS =~ /.*skip-ci-gcp.*/'
       when: manual
       allow_failure: true
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "master"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
         - operator/*
         - terraform/*
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "master"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       when: manual
       allow_failure: true
+  variables:
+    GOOGLE_APPLICATION_CREDENTIALS: "/tmp/gcs.json"
+  before_script:
+    - apt-get update -y && apt install -y build-essential
+    - make -C terraform ci-prepare
+    - echo "${GOOGLE_APPLICATION_CREDENTIALS_JSON}" > "${GOOGLE_APPLICATION_CREDENTIALS}"
   script:
-    - echo "NO TESTS ARE RUN, THIS IS JUST A STUB"
-    - sleep 15
-    - echo "Done"
+    - make -C terraform ci-deploy-k8s
+    - make -C operator test
+  after_script:
+    - make -C terraform destroy
 
 helm:gcp:
   stage: test:long
   # Run immediately, don't require build:operator.
   needs: []
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "schedule" || $CI_COMMIT_BRANCH == "master"'
     - if: '$CI_MERGE_REQUEST_LABELS =~ /.*skip-ci-gcp.*/'
       when: manual
       allow_failure: true
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "master"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
         - terraform/*
         - helm/*
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "master"'
+      allow_failure: true # TODO: Remove once pipeline is fully stable.
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       when: manual
       allow_failure: true
   variables:
@@ -135,8 +141,8 @@ helm:gcp:
 push:docker:
   stage: push
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "schedule"'
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "master"'
+    - if: '$CI_PIPELINE_SOURCE == "schedule" || $CI_COMMIT_BRANCH == "master"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       when: manual
       allow_failure: true
   script:
