@@ -15,7 +15,7 @@ import (
 	"github.com/ais-operator/pkg/resources/proxy"
 )
 
-func GetProxyURL(ctx context.Context, client *aisclient.K8SClient, ais *aisv1.AIStore) (proxyURL string) {
+func GetProxyURL(ctx context.Context, client *aisclient.K8sClient, ais *aisv1.AIStore) (proxyURL string) {
 	var ip string
 	if ais.Spec.EnableExternalLB {
 		ip = GetLoadBalancerIP(ctx, client, proxy.LoadBalancerSVCNSName(ais))

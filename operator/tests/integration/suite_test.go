@@ -37,7 +37,7 @@ import (
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
 var (
-	k8sClient          *aisclient.K8SClient
+	k8sClient          *aisclient.K8sClient
 	testEnv            *envtest.Environment
 	k8sClusterProvider string
 	testCtx            *testing.T
@@ -64,7 +64,7 @@ func TestAPIs(t *testing.T) {
 
 func setStorageClass() {
 	storageClass = os.Getenv(ENV_TEST_STORAGECLASS)
-	if storageClass == "" && k8sClusterProvider == tutils.K8SProviderGKE {
+	if storageClass == "" && k8sClusterProvider == tutils.K8sProviderGKE {
 		storageClass = tutils.GKEDefaultStorageClass
 	}
 }
@@ -104,7 +104,7 @@ var _ = BeforeSuite(func(done Done) {
 
 	// Create Namespace if not exists
 	testNS, nsExists = tutils.CreateNSIfNotExists(context.Background(), k8sClient, testNSName)
-	k8sClusterProvider = tutils.GetK8SClusterProvider(context.Background(), k8sClient)
+	k8sClusterProvider = tutils.GetK8sClusterProvider(context.Background(), k8sClient)
 
 	// NOTE: On gitlab, tests run in a pod inside minikube cluster. In that case we can run the tests as an internal client, unless enforced to test as external client.
 	testAsExternalClient = aiscmn.IsParseBool(os.Getenv(ENV_TEST_ENFORCE_EXTERNAL)) || aisk8s.Detect() != nil
@@ -134,7 +134,7 @@ var _ = AfterSuite(func() {
 func skipIfLoadBalancerNotSupported() {
 	// If the tests are running against non-minikube cluster or inside a pod within K8s cluster
 	// we cannot determine if the LoadBalancer service is supported. Proceed to running tests.
-	if k8sClusterProvider != tutils.K8SProviderMinikube || aisk8s.Detect() == nil {
+	if k8sClusterProvider != tutils.K8sProviderMinikube || aisk8s.Detect() == nil {
 		return
 	}
 

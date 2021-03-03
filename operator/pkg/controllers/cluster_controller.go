@@ -46,7 +46,7 @@ type (
 	// AIStoreReconciler reconciles a AIStore object
 	AIStoreReconciler struct {
 		sync.RWMutex
-		client       *aisclient.K8SClient
+		client       *aisclient.K8sClient
 		log          logr.Logger
 		recorder     record.EventRecorder
 		clientParams map[string]*aisapi.BaseParams
