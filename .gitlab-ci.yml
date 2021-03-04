@@ -46,7 +46,7 @@ build:operator:
 build:docker:
   stage: build
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "schedule" || $CI_COMMIT_BRANCH == "master"'
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       when: manual
       allow_failure: true
@@ -75,18 +75,20 @@ operator:minikube:
   tags:
     - ais-k8s
   timeout: 30m
-  <<: *default_only_def
+  rules:
+    # TODO: Run short-tests on master once there are short tests.
+    - if: '$CI_PIPELINE_SOURCE == "schedule" || $CI_PIPELINE_SOURCE == "merge_request_event"'
   script:
    - make -C operator test
 
-operator:stub-gcp:
+operator:gcp:
   stage: test:long
   # If minikube fails - don't bother to try GCP.
   needs: ["operator:minikube"]
   image: aistore/ci:1.15
   timeout: 60m
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "schedule" || $CI_COMMIT_BRANCH == "master"'
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
     - if: '$CI_MERGE_REQUEST_LABELS =~ /.*skip-ci-gcp.*/'
       when: manual
       allow_failure: true
@@ -114,7 +116,7 @@ helm:gcp:
   # Run immediately, don't require build:operator.
   needs: []
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "schedule" || $CI_COMMIT_BRANCH == "master"'
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
     - if: '$CI_MERGE_REQUEST_LABELS =~ /.*skip-ci-gcp.*/'
       when: manual
       allow_failure: true
@@ -141,7 +143,7 @@ helm:gcp:
 push:docker:
   stage: push
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "schedule" || $CI_COMMIT_BRANCH == "master"'
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       when: manual
       allow_failure: true
