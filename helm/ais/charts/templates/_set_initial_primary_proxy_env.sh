@@ -48,41 +48,8 @@ done
 
 filter="{{ .Values.proxy.initialPrimaryProxyNodeLabel.name }}={{ template "ais.fullname" . }}"
 
-#
-# XXX TODO should check the primary node is also labeled as a proxy node
-#
-function listmatchingnodes {
-    kubectl get nodes --selector="$filter" -o="custom-columns=NAME:.metadata.name" | tail -n +2
-}
-
-#
-# Give up and exit after 60s. We're running in an initContainer so the main aisnode
-# container will start up anyway and container liveness probes will eventually
-# kill it and allow another attempt. We could loop forever, but just in case this
-# isn't initial cluster deployment we'll let the node start up and attempt to joing
-# the cluster.
-#
-elapsed=0
-found=false
-while [[ $elapsed -lt 60 ]]; do
-    n=$(listmatchingnodes | wc -l)
-    if [[ $n -eq 1 ]]; then
-        found=true
-        break
-    fi
-
-    echo "$n nodes labeled $filter, waiting for exactly 1"
-    sleep 5
-    elapsed=$((elapsed + 5))
-done
-
-$found || exit 2
-
-primary=$(listmatchingnodes)
-
-if [[ "$primary" == "$MY_NODE" ]]; then
-    echo "initContainer complete - this proxy pod is on the primary node $MY_NODE"
-
+if [[ "$MY_POD" == "$DEFAULT_PRIMARY_POD" ]]; then
+    echo "initContainer complete - this proxy pod is on the primary node $MY_POD"
     #
     # Indicate to subsequent containers in this pod that we started on the primary node.
     #

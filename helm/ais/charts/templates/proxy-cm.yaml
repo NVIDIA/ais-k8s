@@ -20,6 +20,6 @@ data:
   ais_local.json: |-
     {
 {{ with .Values.proxy.config -}}
-{{- include "local_net.config" . | indent 6 }}
+{{- include "local.config" . | indent 6 }}
 {{- end }}
     }

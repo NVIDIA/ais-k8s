@@ -21,7 +21,6 @@
         "block_size":   {{ .compression.block_size }},
         "checksum":     {{ .compression.checksum }}
 },
-"confdir": "/etc/ais",
 "disk": {
         "disk_util_low_wm":     {{ .disk.disk_util_low_wm }},
         "disk_util_high_wm":    {{ .disk.disk_util_high_wm }},

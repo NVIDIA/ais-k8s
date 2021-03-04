@@ -20,7 +20,7 @@ data:
   ais_local.json: |-
     {
 {{ with .Values.target.config -}}
-{{- include "local_net.config" . | indent 6 }},
+{{- include "local.config" . | indent 6 }},
 {{- end }}
 {{ include "local_fs.config" . | indent 6 }}
     }

@@ -34,6 +34,8 @@ spec:
           image: {{ .Values.aiscluster.image.kubectl.repository }}:{{ .Values.aiscluster.image.kubectl.tag }}
           imagePullPolicy: {{ .Values.aiscluster.image.pullPolicy }}
           env:
+            - name: DEFAULT_PRIMARY_POD
+              value: {{ template "ais.fullname" . }}-proxy-0
             - name: MY_NODE
               valueFrom:
                 fieldRef:

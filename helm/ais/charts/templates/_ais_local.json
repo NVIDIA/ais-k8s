@@ -1,5 +1,6 @@
-{{- define "local_net.config" -}}
-"net": {
+{{- define "local.config" -}}
+"confdir": "/etc/ais",
+"host_net": {
     "hostname":                 "${AIS_PUB_HOSTNAME}",
     "hostname_intra_control":   "${AIS_INTRA_HOSTNAME}",
     "hostname_intra_data":      "${AIS_DATA_HOSTNAME}",
