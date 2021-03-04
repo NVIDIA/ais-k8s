@@ -2,7 +2,6 @@
 /*
  * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
  */
-
 package controllers
 
 import (
@@ -141,7 +140,6 @@ func (r *AIStoreReconciler) enableTargetExternalService(ctx context.Context,
 			return
 		}
 		allExist = allExist && exists
-
 	}
 	if !allExist {
 		return
@@ -155,8 +153,8 @@ func (r *AIStoreReconciler) enableTargetExternalService(ctx context.Context,
 		return
 	}
 
-	for _, svc := range svcList.Items {
-		for _, ing := range svc.Status.LoadBalancer.Ingress {
+	for i := range svcList.Items {
+		for _, ing := range svcList.Items[i].Status.LoadBalancer.Ingress {
 			if ing.IP == "" {
 				return
 			}

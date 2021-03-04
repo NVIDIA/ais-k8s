@@ -2,7 +2,6 @@
 /*
  * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
  */
-
 package controllers
 
 // Reason's to be used by event recorder

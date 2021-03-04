@@ -2,7 +2,6 @@
 /*
  * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
  */
-
 package controllers
 
 import (
@@ -156,7 +155,7 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return reconcile.Result{}, nil
 	}
 
-	if r.isNewCR(ctx, ais) {
+	if r.isNewCR(ais) {
 		return r.bootstrapNew(ctx, ais, configSpec)
 	}
 
@@ -427,7 +426,7 @@ func (r *AIStoreReconciler) setStatus(ctx context.Context, ais *aisv1.AIStore, s
 	return
 }
 
-func (r *AIStoreReconciler) isNewCR(ctx context.Context, ais *aisv1.AIStore) (isNew bool) {
+func (r *AIStoreReconciler) isNewCR(ais *aisv1.AIStore) (isNew bool) {
 	return !ais.IsConditionTrue(aisv1.ConditionCreated.Str())
 }
 

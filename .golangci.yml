@@ -1,0 +1,135 @@
+linters:
+  enable-all: false
+  disable-all: true
+  enable:
+    - asciicheck
+    - bodyclose
+    - deadcode
+    - errcheck
+    - exportloopref
+    - gocritic
+    - gofmt
+    - gofumpt
+    - goheader
+    - goimports
+    - golint
+    - goprintffuncname
+    - gosimple
+    - govet
+    - ineffassign
+    - misspell
+    - nolintlint
+    - prealloc
+    - rowserrcheck
+    - sqlclosecheck
+    - staticcheck
+    - typecheck
+    - unconvert
+    - unparam
+    - unused
+    - varcheck
+    - whitespace
+
+    # See: https://golangci-lint.run/usage/linters/
+    #
+    # Following linters produce false positives (enable only when needed):
+    # - goconst
+    # - godot
+    # - goerr113
+    # - gosec
+    # - nestif
+    # - scopelint
+    # - structcheck - doesn't handle embedded structs
+    # - maligned
+    #
+    # Following linters are not really helpful:
+    # - exhaustive
+    # - interfacer
+    # - nlreturn
+    # - noctx
+    # - testpackage
+    # - tparallel
+    # - wrapcheck
+
+linters-settings:
+  govet:
+    disable:
+      - shadow # reports a lot of false-positives and conflicts with other linters
+  golint:
+    min-confidence: 0
+  errcheck:
+    check-blank: true
+    check-type-assertions: false
+  gocritic:
+    enabled-tags:
+      - performance
+      - style
+      - experimental
+    disabled-checks:
+      - ifElseChain
+      - hugeParam # produces a lot of false-positives (TODO: see if some errors are possible improvements)
+      - unnamedResult
+  prealloc:
+    simple: true # Report preallocation suggestions only on simple loops that have no returns/breaks/continues/gotos in them
+    range-loops: true # Report preallocation suggestions on range loops, true by default
+    for-loops: true # Report preallocation suggestions on for loops, false by default
+  misspell:
+    # Correct spellings using locale preferences for US or UK.
+    # Default is to use a neutral variety of English.
+    # Setting locale to US will correct the British spelling of 'colour' to 'color'.
+    locale: US
+
+issues:
+  # use default exclude rules
+  exclude-use-default: true
+
+  # additional exclude rules
+  exclude-rules:
+    - linters: errcheck
+      text: "Error return value of" # ignores 'error return value of ... is unchecked'
+
+    - linters: golint
+      text: "and that stutters; consider calling this"
+
+    - linters: golint
+      text: "don't use an underscore in package name"
+
+    - linters: golint
+      text: "should not use dot imports"
+
+    - linters: unused
+      text: "`noCopy` is unused"
+
+    - linters: gocritic
+      text: "importShadow: shadow of imported"
+
+    - linters: gocritic
+      text: "builtinShadow: shadowing of predeclared identifier: new"
+
+    - linters: gocritic
+      source: "///" # commentFormatting
+
+    - linters: gocritic
+      source: "//==" # commentFormatting
+
+    - linters: staticcheck
+      text: "SA5011:" # produces a lot of false-positives; hopefully in the future we could enable it!
+
+    - linters: interfacer
+      text: "k8s.io/client-go/rest.HTTPClient" # suggests to change `*http.Client` to `rest.HTTPClient`...
+
+    - linters: staticcheck
+      text: "SA3000: TestMain should call os.Exit to set exit code" # This is not true for Go1.15.
+
+    - linters: gocritic
+      text: "block doesn't have definitions" # Sometimes blocks are useful for better readability.
+
+  # Set to 0 to disable limit
+  max-same-issues: 0
+  max-per-linter: 0
+
+run:
+  tests: true # enable linting test files
+
+  concurrency: 4
+  deadline: 3m

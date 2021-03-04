@@ -2,7 +2,6 @@
 /*
  * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
  */
-
 package proxy
 
 import (
@@ -140,7 +139,7 @@ func podLabels(ais *aisv1.AIStore) map[string]string {
 	}
 }
 
-func readinessProbe(port intstr.IntOrString) *corev1.Probe {
+func readinessProbe(_ intstr.IntOrString) *corev1.Probe {
 	return &corev1.Probe{
 		Handler: corev1.Handler{
 			Exec: &corev1.ExecAction{

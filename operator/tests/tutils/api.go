@@ -2,7 +2,6 @@
 /*
  * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
  */
-
 package tutils
 
 import (
@@ -188,12 +187,12 @@ func InitK8sClusterProvider(ctx context.Context, client *aisclient.K8sClient) {
 	nodes := &corev1.NodeList{}
 	err := client.List(ctx, nodes)
 	Expect(err).NotTo(HaveOccurred())
-	for _, node := range nodes.Items {
-		if strings.Contains(node.Name, "gke") {
+	for i := range nodes.Items {
+		if strings.Contains(nodes.Items[i].Name, "gke") {
 			k8sProvider = K8sProviderGKE
 			return
 		}
-		if strings.Contains(node.Name, "minikube") {
+		if strings.Contains(nodes.Items[i].Name, "minikube") {
 			k8sProvider = K8sProviderMinikube
 			return
 		}

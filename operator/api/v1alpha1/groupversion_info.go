@@ -2,7 +2,6 @@
 /*
  * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
  */
-
 // Package v1alpha1 contains API Schema definitions for the ais v1alpha1 API group
 // +kubebuilder:object:generate=true
 // +groupName=ais.nvidia.com

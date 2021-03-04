@@ -2,7 +2,6 @@
 /*
  * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
  */
-
 package v1alpha1
 
 // NOTE: `*ToUpdate` structures are duplicates of `*ToUpdate` structs from AIStore main respoitory.

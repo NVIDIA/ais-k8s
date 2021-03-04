@@ -2,7 +2,6 @@
 /*
  * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
  */
-
 package v1alpha1
 
 import (
@@ -44,7 +43,7 @@ const (
 	OwnerReferenceError   ErrorReason = "OwnerReferenceError"
 	ExternalServiceError  ErrorReason = "ExternalService"
 	ResourceCreationError ErrorReason = "ResourceCreationError"
-	ResourceFetchError    ErrorReason = "ResouceFetchError" // failed to fetch a resouce using K8s API
+	ResourceFetchError    ErrorReason = "ResouceFetchError" // failed to fetch a resource using K8s API
 	ResourceUpdateError   ErrorReason = "ResourceUpdateError"
 )
 

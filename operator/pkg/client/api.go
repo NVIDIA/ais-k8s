@@ -2,7 +2,6 @@
 /*
  * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
  */
-
 package client
 
 import (
@@ -147,8 +146,8 @@ func (c *K8sClient) DeleteAllServicesIfExists(ctx context.Context, namespace str
 		return
 	}
 
-	for _, svc := range svcs.Items {
-		err = c.DeleteResourceIfExists(ctx, &svc)
+	for i := range svcs.Items {
+		err = c.DeleteResourceIfExists(ctx, &svcs.Items[i])
 		if err != nil {
 			return
 		}
