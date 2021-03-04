@@ -12,8 +12,7 @@ import (
 	aisv1 "github.com/ais-operator/api/v1alpha1"
 )
 
-var defaultAISConf = aiscmn.Config{
-	Confdir: "/etc/ais",
+var defaultAISConf = aiscmn.ClusterConfig{
 	Auth: aiscmn.AuthConf{
 		Enabled: false,
 	},
@@ -133,7 +132,7 @@ var defaultAISConf = aiscmn.Config{
 	},
 }
 
-func DefaultAISConf(ais *aisv1.AIStore) aiscmn.Config {
+func DefaultAISConf(ais *aisv1.AIStore) aiscmn.ClusterConfig {
 	conf := defaultAISConf
 	proxyPort := ais.Spec.ProxySpec.ServicePort.String()
 	proxyURL := "http://" + ais.Name + "-proxy:" + proxyPort
@@ -147,7 +146,8 @@ func DefaultAISConf(ais *aisv1.AIStore) aiscmn.Config {
 
 func LocalConfTemplate(sp aisv1.ServiceSpec, mounts []aisv1.Mount) aiscmn.LocalConfig {
 	localConf := aiscmn.LocalConfig{
-		Net: aiscmn.LocalNetConfig{
+		ConfigDir: "/etc/ais",
+		HostNet: aiscmn.LocalNetConfig{
 			Hostname:             "${AIS_PUBLIC_HOSTNAME}",
 			HostnameIntraControl: "${AIS_INTRA_HOSTNAME}",
 			HostnameIntraData:    "${AIS_DATA_HOSTNAME}",
@@ -165,5 +165,4 @@ func LocalConfTemplate(sp aisv1.ServiceSpec, mounts []aisv1.Mount) aiscmn.LocalC
 		localConf.FSpaths.Paths.Add(m.Path)
 	}
 	return localConf
-
 }
