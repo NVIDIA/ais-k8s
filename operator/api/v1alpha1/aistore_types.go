@@ -52,11 +52,11 @@ const (
 
 // AIStoreSpec defines the desired state of AIStore
 type AIStoreSpec struct {
-	Size           int32   `json:"size"`
-	NodeImage      string  `json:"nodeImage"` // docker image of aisnode
-	InitImage      string  `json:"initImage"` // init image for nodes
-	HostpathPrefix string  `json:"hostpathPrefix"`
-	ConfigCRName   *string `json:"configCRName,omitempty"`
+	Size           int32           `json:"size"`
+	NodeImage      string          `json:"nodeImage"` // docker image of aisnode
+	InitImage      string          `json:"initImage"` // init image for nodes
+	HostpathPrefix string          `json:"hostpathPrefix"`
+	ConfigToUpdate *ConfigToUpdate `json:"configToUpdate,omitempty"`
 
 	ProxySpec  DaemonSpec `json:"proxySpec"`  // spec for proxy
 	TargetSpec TargetSpec `json:"targetSpec"` // spec for target
@@ -85,8 +85,6 @@ type AIStoreStatus struct {
 	State ClusterCondition `json:"state"`
 	// +optional
 	ConsecutiveErrorCount int `json:"consecutive_error_count"` // number of times an error occurred
-	// +optional
-	ConfigResourceVersion string `json:"config_version"`
 }
 
 // ServiceSpec defines the specs of AIS Gateways

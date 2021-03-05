@@ -68,12 +68,6 @@ func (c *K8sClient) GetPodByName(ctx context.Context, name types.NamespacedName)
 	return pod, err
 }
 
-func (c *K8sClient) GetAIStoreConfCR(ctx context.Context, name types.NamespacedName) (*aisv1.AISConfig, error) {
-	cr := &aisv1.AISConfig{}
-	err := c.Get(ctx, name, cr)
-	return cr, err
-}
-
 ////////////////////////////////////////
 //      create/update resources      //
 //////////////////////////////////////

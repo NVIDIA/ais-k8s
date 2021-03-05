@@ -36,8 +36,274 @@ spec:
           spec:
             description: AIStoreSpec defines the desired state of AIStore
             properties:
-              configCRName:
-                type: string
+              configToUpdate:
+                properties:
+                  auth:
+                    properties:
+                      enabled:
+                        type: boolean
+                      secret:
+                        type: string
+                    type: object
+                  checksum:
+                    properties:
+                      enable_read_range:
+                        type: boolean
+                      type:
+                        type: string
+                      validate_cold_get:
+                        type: boolean
+                      validate_obj_move:
+                        type: boolean
+                      validate_warm_get:
+                        type: boolean
+                    type: object
+                  client:
+                    properties:
+                      client_long_timeout:
+                        type: string
+                      client_timeout:
+                        type: string
+                      features:
+                        type: string
+                      list_timeout:
+                        type: string
+                    type: object
+                  compression:
+                    properties:
+                      block_size:
+                        type: integer
+                      checksum:
+                        type: boolean
+                    type: object
+                  confdir:
+                    type: string
+                  disk:
+                    properties:
+                      disk_util_high_wm:
+                        format: int64
+                        type: integer
+                      disk_util_low_wm:
+                        format: int64
+                        type: integer
+                      disk_util_max_wm:
+                        format: int64
+                        type: integer
+                      iostat_time_long:
+                        type: string
+                      iostat_time_short:
+                        type: string
+                    type: object
+                  distributed_sort:
+                    properties:
+                      call_timeout:
+                        type: string
+                      compression:
+                        type: string
+                      default_max_mem_usage:
+                        type: string
+                      dsorter_mem_threshold:
+                        type: string
+                      duplicated_records:
+                        type: string
+                      ekm_malformed_line:
+                        type: string
+                      ekm_missing_key:
+                        type: string
+                      missing_shards:
+                        type: string
+                    type: object
+                  downloader:
+                    properties:
+                      timeout:
+                        type: string
+                    type: object
+                  ec:
+                    properties:
+                      compression:
+                        type: string
+                      data_slices:
+                        type: integer
+                      enabled:
+                        type: boolean
+                      objsize_limit:
+                        format: int64
+                        type: integer
+                      parity_slices:
+                        type: integer
+                    type: object
+                  fshc:
+                    properties:
+                      enabled:
+                        type: boolean
+                      error_limit:
+                        type: integer
+                      test_files:
+                        type: integer
+                    type: object
+                  keepalivetracker:
+                    properties:
+                      proxy:
+                        properties:
+                          factor:
+                            type: integer
+                          interval:
+                            type: string
+                          name:
+                            type: string
+                        type: object
+                      retry_factor:
+                        type: integer
+                      target:
+                        properties:
+                          factor:
+                            type: integer
+                          interval:
+                            type: string
+                          name:
+                            type: string
+                        type: object
+                      timeout_factor:
+                        type: integer
+                    type: object
+                  log:
+                    properties:
+                      dir:
+                        type: string
+                      level:
+                        type: string
+                      max_size:
+                        format: int64
+                        type: integer
+                      max_total:
+                        format: int64
+                        type: integer
+                    type: object
+                  log_level:
+                    description: Logging
+                    type: string
+                  lru:
+                    properties:
+                      capacity_upd_time:
+                        type: string
+                      dont_evict_time:
+                        type: string
+                      enabled:
+                        type: boolean
+                      highwm:
+                        format: int64
+                        type: integer
+                      lowwm:
+                        format: int64
+                        type: integer
+                      out_of_space:
+                        format: int64
+                        type: integer
+                    type: object
+                  md_write:
+                    type: string
+                  mirror:
+                    properties:
+                      burst_buffer:
+                        type: integer
+                      copies:
+                        format: int64
+                        type: integer
+                      enabled:
+                        type: boolean
+                      optimize_put:
+                        type: boolean
+                      util_thresh:
+                        format: int64
+                        type: integer
+                    type: object
+                  net:
+                    properties:
+                      http:
+                        properties:
+                          chunked_transfer:
+                            type: boolean
+                          read_buffer_size:
+                            type: integer
+                          server_crt:
+                            type: string
+                          server_key:
+                            type: string
+                          skip_verify:
+                            type: boolean
+                          use_https:
+                            type: boolean
+                          write_buffer_size:
+                            type: integer
+                        type: object
+                      l4:
+                        properties:
+                          port:
+                            type: string
+                          port_intra_control:
+                            type: string
+                          port_intra_data:
+                            type: string
+                          proto:
+                            type: string
+                          sndrcv_buf_size:
+                            type: integer
+                        type: object
+                    type: object
+                  periodic:
+                    properties:
+                      notif_time:
+                        type: string
+                      retry_sync_time:
+                        type: string
+                      stats_time:
+                        type: string
+                    type: object
+                  rebalance:
+                    properties:
+                      compression:
+                        type: string
+                      dest_retry_time:
+                        type: string
+                      enabled:
+                        type: boolean
+                      multiplier:
+                        type: integer
+                      quiescent:
+                        type: string
+                    type: object
+                  replication:
+                    properties:
+                      on_cold_get:
+                        type: boolean
+                      on_lru_eviction:
+                        type: boolean
+                      on_put:
+                        type: boolean
+                    type: object
+                  timeout:
+                    properties:
+                      cplane_operation:
+                        type: string
+                      max_host_busy:
+                        type: string
+                      max_keepalive:
+                        type: string
+                      send_file_time:
+                        type: string
+                      startup_time:
+                        type: string
+                    type: object
+                  versioning:
+                    properties:
+                      enabled:
+                        type: boolean
+                      validate_warm_get:
+                        type: boolean
+                    type: object
+                  vmodule:
+                    type: string
+                type: object
               disablePodAntiAffinity:
                 description: DisablePodAntiAffinity, if set allows more than one target/proxy
                   daemon pods to be scheduled on same K8s node.
@@ -2167,8 +2433,6 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
-              config_version:
-                type: string
               consecutive_error_count:
                 type: integer
               state:

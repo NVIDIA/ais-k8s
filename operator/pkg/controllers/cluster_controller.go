@@ -7,7 +7,6 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"sync"
 	"time"
 
@@ -17,14 +16,11 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	aisapi "github.com/NVIDIA/aistore/api"
 	aiscmn "github.com/NVIDIA/aistore/cmn"
@@ -77,11 +73,7 @@ func NewAISReconciler(mgr manager.Manager, logger logr.Logger, isExternal bool) 
 // move the current state of the cluster closer to the desired state.
 func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = r.log.WithValues("aistore", req.NamespacedName)
-	var (
-		configSpec *aisv1.AISConfig
-		cfgVersion string
-		ais, err   = r.client.GetAIStoreCR(ctx, req.NamespacedName)
-	)
+	ais, err := r.client.GetAIStoreCR(ctx, req.NamespacedName)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -93,37 +85,6 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return reconcile.Result{}, err
 	}
 
-	if ais.Spec.ConfigCRName != nil {
-		configSpec, err = r.client.GetAIStoreConfCR(ctx,
-			types.NamespacedName{Name: *ais.Spec.ConfigCRName, Namespace: ais.Namespace})
-		if err != nil {
-			return r.manageError(ctx, ais, aisv1.ResourceFetchError, err)
-		}
-		var isOwner bool
-		for _, ref := range configSpec.OwnerReferences {
-			if ref.UID == ais.UID {
-				isOwner = true
-				break
-			}
-		}
-
-		if !isOwner {
-			// NOTE: AIStore CR owns the AISConfig CR it references. Ensure that owner reference can be set.
-			// AISConfig CR can only be owned by a single AIStore CR, if not setting owner reference would fail.
-			if err = controllerutil.SetControllerReference(ais, configSpec, r.client.Scheme()); err != nil {
-				r.recordError(ais, err, "Failed to set controller reference")
-				return r.manageError(ctx, ais, aisv1.OwnerReferenceError, err)
-			}
-			if err = r.client.Update(ctx, configSpec); err != nil {
-				r.recordError(ais, err, "Failed to update ConfigSpec")
-				return r.manageError(ctx, ais, aisv1.OwnerReferenceError, err)
-			}
-			// reference updated, requeue the request
-			return reconcile.Result{Requeue: true}, nil
-		}
-		cfgVersion = configSpec.GetResourceVersion()
-	}
-
 	if !r.isInitialized(ais) {
 		if !controllerutil.ContainsFinalizer(ais, aisFinalizer) {
 			controllerutil.AddFinalizer(ais, aisFinalizer)
@@ -133,7 +94,7 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 		ais.SetConditionInitialized()
 		err = r.setStatus(ctx, ais,
-			aisv1.AIStoreStatus{State: aisv1.ConditionInitialized, ConfigResourceVersion: cfgVersion})
+			aisv1.AIStoreStatus{State: aisv1.ConditionInitialized})
 		return reconcile.Result{}, err
 	}
 
@@ -156,17 +117,9 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	if r.isNewCR(ais) {
-		return r.bootstrapNew(ctx, ais, configSpec)
+		return r.bootstrapNew(ctx, ais)
 	}
 
-	// Check if AIS config CR is updated
-	if configSpec != nil {
-		if updated, err := r.handleConfigChange(ctx, ais, configSpec); err != nil {
-			return r.manageError(ctx, ais, aisv1.ConfigChangeError, err)
-		} else if updated {
-			return reconcile.Result{Requeue: true}, nil
-		}
-	}
 	return r.handleCREvents(ctx, ais)
 }
 
@@ -230,15 +183,14 @@ func hasFinalizer(ais *aisv1.AIStore) bool {
 	return false
 }
 
-func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore,
-	configSpec *aisv1.AISConfig) (result ctrl.Result, err error) {
+func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore) (result ctrl.Result, err error) {
 	var (
 		configToUpdate *aiscmn.ConfigToUpdate
 		changed        bool
 	)
 
-	if ais.Spec.ConfigCRName != nil {
-		if configToUpdate, err = r.getConfigToUpdate(configSpec); err != nil {
+	if ais.Spec.ConfigToUpdate != nil {
+		if configToUpdate, err = r.getConfigToUpdate(ais.Spec.ConfigToUpdate); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
@@ -416,10 +368,6 @@ func (r *AIStoreReconciler) setStatus(ctx context.Context, ais *aisv1.AIStore, s
 		ais.SetState(status.State)
 	}
 
-	if status.ConfigResourceVersion != "" {
-		ais.Status.ConfigResourceVersion = status.ConfigResourceVersion
-	}
-
 	if err = r.client.Status().Update(ctx, ais); err != nil {
 		r.recordError(ais, err, "Failed to update CR status")
 	}
@@ -430,58 +378,16 @@ func (r *AIStoreReconciler) isNewCR(ais *aisv1.AIStore) (isNew bool) {
 	return !ais.IsConditionTrue(aisv1.ConditionCreated.Str())
 }
 
-// handleConfigChange checks if the `AISConfig` CR has been updated.
-// If ResourceVersion of `AISConfig` is higher than the version recorded in `AIStore` CR's ConfigResourceVersion status filed,
-// we use the AIS API to update cluster config, and set the `ConfigResourceVersion` to the latest version.
-func (r *AIStoreReconciler) handleConfigChange(ctx context.Context, ais *aisv1.AIStore,
-	configSpec *aisv1.AISConfig) (updated bool, err error) {
-	if ais.Status.ConfigResourceVersion == configSpec.GetResourceVersion() {
-		return
-	}
-
-	currVer, _ := strconv.ParseInt(ais.Status.ConfigResourceVersion, 10, 64)
-	newVer, _ := strconv.ParseInt(configSpec.GetResourceVersion(), 10, 64)
-	if newVer < currVer {
-		return
-	}
-	var toUpdate *aiscmn.ConfigToUpdate
-	updated = true
-	toUpdate, err = r.getConfigToUpdate(configSpec)
-	if err != nil {
-		r.recordError(ais, err, "Failed to convert config CR to key-value pair")
-		return
-	}
-
-	params, err := r.getAPIParams(ctx, ais)
-	if err != nil {
-		r.recordError(ais, err, fmt.Sprintf("Failed to fetch BaseParams for cluster %q", ais.NamespacedName().String()))
-		return
-	}
-
-	// Config has changed, ensure config is applied to AIS deployment.
-	err = aisapi.SetClusterConfigUsingMsg(*params, toUpdate)
-	if err != nil {
-		r.recordError(ais, err, "Failed to update AIS cluster config")
-		return
-	}
-
-	err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{ConfigResourceVersion: configSpec.GetResourceVersion()})
-	return
-}
-
 // SetupWithManager sets up the controller with the Manager.
 func (r *AIStoreReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&aisv1.AIStore{}).
-		Watches(&source.Kind{Type: &aisv1.AISConfig{}}, &handler.EnqueueRequestForOwner{
-			IsController: true,
-			OwnerType:    &aisv1.AIStore{},
-		}).
 		Complete(r)
 }
 
 // getAPIParams gets BaseAPIParams for the given AIS cluster.
 // Gets a cached object if exists, else creates a new one.
+// nolint:unused // will be used lated
 func (r *AIStoreReconciler) getAPIParams(ctx context.Context,
 	ais *aisv1.AIStore) (baseParams *aisapi.BaseParams, err error) {
 	var exists bool
@@ -539,9 +445,9 @@ func (r *AIStoreReconciler) manageSuccess(ctx context.Context, ais *aisv1.AIStor
 	return ctrl.Result{}, nil
 }
 
-func (r *AIStoreReconciler) getConfigToUpdate(cfg *aisv1.AISConfig) (toUpdate *aiscmn.ConfigToUpdate, err error) {
+func (r *AIStoreReconciler) getConfigToUpdate(cfg *aisv1.ConfigToUpdate) (toUpdate *aiscmn.ConfigToUpdate, err error) {
 	toUpdate = &aiscmn.ConfigToUpdate{}
-	err = aiscmn.MorphMarshal(cfg.Spec, toUpdate)
+	err = aiscmn.MorphMarshal(cfg, toUpdate)
 	return toUpdate, err
 }
 
@@ -550,6 +456,7 @@ func (r *AIStoreReconciler) recordError(ais *aisv1.AIStore, err error, msg strin
 	r.recorder.Eventf(ais, corev1.EventTypeWarning, EventReasonFailed, "%s, err: %v", msg, err)
 }
 
+// nolint:unused // will be used lated
 func (r *AIStoreReconciler) newAISBaseParams(ctx context.Context,
 	ais *aisv1.AIStore) (params *aisapi.BaseParams, err error) {
 	// TODO:
