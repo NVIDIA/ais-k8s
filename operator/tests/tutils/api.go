@@ -54,7 +54,8 @@ func DestroyCluster(ctx context.Context, client *aisclient.K8sClient,
 		intervals = []interface{}{time.Minute, time.Second}
 	}
 
-	Expect(client.DeleteResourceIfExists(context.Background(), cluster)).Should(Succeed())
+	_, err := client.DeleteResourceIfExists(context.Background(), cluster)
+	Expect(err).Should(Succeed())
 	Eventually(func() bool {
 		return checkClusterExists(context.Background(), client, cluster.NamespacedName())
 	}, intervals...).Should(BeFalse())

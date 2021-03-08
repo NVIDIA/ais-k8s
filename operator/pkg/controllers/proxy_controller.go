@@ -8,10 +8,10 @@ import (
 	"context"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
-
 	aisv1 "github.com/ais-operator/api/v1alpha1"
+	"github.com/ais-operator/pkg/resources/cmn"
 	"github.com/ais-operator/pkg/resources/proxy"
+	corev1 "k8s.io/api/core/v1"
 )
 
 const primaryStartTimeout = time.Minute * 3
@@ -70,20 +70,13 @@ func (r *AIStoreReconciler) initProxies(ctx context.Context, ais *aisv1.AIStore)
 	return
 }
 
-func (r *AIStoreReconciler) cleanupProxy(ctx context.Context, ais *aisv1.AIStore) error {
-	err := r.client.DeleteStatefulSetIfExists(ctx, proxy.StatefulSetNSName(ais))
-	if err != nil {
-		return err
-	}
-	err = r.client.DeleteServiceIfExists(ctx, proxy.HeadlessSVCNSName(ais))
-	if err != nil {
-		return err
-	}
-	err = r.client.DeleteServiceIfExists(ctx, proxy.LoadBalancerSVCNSName(ais))
-	if err != nil {
-		return err
-	}
-	return r.client.DeleteConfigMapIfExists(ctx, proxy.ConfigMapNSName(ais))
+func (r *AIStoreReconciler) cleanupProxy(ctx context.Context, ais *aisv1.AIStore) (anyExisted bool, err error) {
+	return cmn.AnyFunc(
+		func() (bool, error) { return r.client.DeleteStatefulSetIfExists(ctx, proxy.StatefulSetNSName(ais)) },
+		func() (bool, error) { return r.client.DeleteServiceIfExists(ctx, proxy.HeadlessSVCNSName(ais)) },
+		func() (bool, error) { return r.client.DeleteServiceIfExists(ctx, proxy.LoadBalancerSVCNSName(ais)) },
+		func() (bool, error) { return r.client.DeleteConfigMapIfExists(ctx, proxy.ConfigMapNSName(ais)) },
+	)
 }
 
 func (r *AIStoreReconciler) handleProxyState(ctx context.Context, ais *aisv1.AIStore) (state daemonState, err error) {

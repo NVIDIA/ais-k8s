@@ -7,6 +7,7 @@ package controllers
 import (
 	"context"
 
+	"github.com/ais-operator/pkg/resources/cmn"
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -51,24 +52,15 @@ func (r *AIStoreReconciler) initTargets(ctx context.Context, ais *aisv1.AIStore)
 	return
 }
 
-func (r *AIStoreReconciler) cleanupTarget(ctx context.Context, ais *aisv1.AIStore) error {
-	err := r.client.DeleteStatefulSetIfExists(ctx, target.StatefulSetNSName(ais))
-	if err != nil {
-		return err
-	}
-
-	err = r.client.DeleteServiceIfExists(ctx, target.HeadlessSVCNSName(ais))
-	if err != nil {
-		return err
-	}
-
-	err = r.client.DeleteAllServicesIfExists(ctx, ais.Namespace,
-		client.MatchingLabels(target.ExternalServiceLabels(ais)))
-	if err != nil {
-		return err
-	}
-
-	return r.client.DeleteConfigMapIfExists(ctx, target.ConfigMapNSName(ais))
+func (r *AIStoreReconciler) cleanupTarget(ctx context.Context, ais *aisv1.AIStore) (updated bool, err error) {
+	return cmn.AnyFunc(
+		func() (bool, error) { return r.client.DeleteStatefulSetIfExists(ctx, target.StatefulSetNSName(ais)) },
+		func() (bool, error) { return r.client.DeleteServiceIfExists(ctx, target.HeadlessSVCNSName(ais)) },
+		func() (bool, error) {
+			return r.client.DeleteAllServicesIfExist(ctx, ais.Namespace, target.ExternalServiceLabels(ais))
+		},
+		func() (bool, error) { return r.client.DeleteConfigMapIfExists(ctx, target.ConfigMapNSName(ais)) },
+	)
 }
 
 func (r *AIStoreReconciler) handleTargetState(ctx context.Context, ais *aisv1.AIStore) (state daemonState, err error) {
@@ -96,14 +88,21 @@ func (r *AIStoreReconciler) handleTargetScaling(ctx context.Context, ais *aisv1.
 	return r.handleTargetScaleDown(ctx, ais, ss, targetSS)
 }
 
+// TODO: Decommission a target first to avoid data loss.
 func (r *AIStoreReconciler) handleTargetScaleDown(ctx context.Context, ais *aisv1.AIStore, ss *v1.StatefulSet, targetSS types.NamespacedName) (state daemonState, err error) {
-	// TODO: Decommission a target first to avoid data loss.
 	if ais.Spec.EnableExternalLB {
+		allSvcsMissing := true
 		for idx := *ss.Spec.Replicas; idx > ais.Spec.Size; idx-- {
 			svcName := target.LoadBalancerSVCNSName(ais, idx-1)
-			if err = r.client.DeleteServiceIfExists(ctx, svcName); err != nil {
-				return
+			singleExisted, err := r.client.DeleteServiceIfExists(ctx, svcName)
+			if err != nil {
+				return state, err
 			}
+			allSvcsMissing = allSvcsMissing && !singleExisted
+		}
+		state.isReady = allSvcsMissing
+		if !state.isReady {
+			return
 		}
 	}
 

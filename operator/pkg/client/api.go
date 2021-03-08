@@ -6,6 +6,7 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	apiv1 "k8s.io/api/apps/v1"
@@ -115,22 +116,26 @@ func (c *K8sClient) UpdateIfExists(ctx context.Context, res client.Object) error
 ////////////////////////////////
 
 // DeleteResourceIfExists deletes an existing resource. It doesn't fail if the resource does not exist
-func (c *K8sClient) DeleteResourceIfExists(context context.Context, obj client.Object) error {
-	err := c.Delete(context, obj)
-	if err != nil && !apierrors.IsNotFound(err) {
-		return err
+func (c *K8sClient) DeleteResourceIfExists(context context.Context, obj client.Object) (existed bool, err error) {
+	err = c.Delete(context, obj)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return false, nil
+		}
+		err = fmt.Errorf("failed to delete %s: %q (namespace %q); err %v", obj.GetObjectKind(), obj.GetName(), obj.GetNamespace(), err)
+		return false, err
 	}
-	return nil
+	return true, nil
 }
 
-func (c *K8sClient) DeleteServiceIfExists(ctx context.Context, name types.NamespacedName) error {
+func (c *K8sClient) DeleteServiceIfExists(ctx context.Context, name types.NamespacedName) (existed bool, err error) {
 	svc := &corev1.Service{}
 	svc.SetName(name.Name)
 	svc.SetNamespace(name.Namespace)
 	return c.DeleteResourceIfExists(ctx, svc)
 }
 
-func (c *K8sClient) DeleteAllServicesIfExists(ctx context.Context, namespace string, labels client.MatchingLabels) (err error) {
+func (c *K8sClient) DeleteAllServicesIfExist(ctx context.Context, namespace string, labels client.MatchingLabels) (anyExisted bool, err error) {
 	svcs := &corev1.ServiceList{}
 	err = c.List(ctx, svcs, client.InNamespace(namespace), labels)
 	if err != nil {
@@ -141,33 +146,36 @@ func (c *K8sClient) DeleteAllServicesIfExists(ctx context.Context, namespace str
 	}
 
 	for i := range svcs.Items {
-		err = c.DeleteResourceIfExists(ctx, &svcs.Items[i])
+		var existed bool
+		existed, err = c.DeleteResourceIfExists(ctx, &svcs.Items[i])
 		if err != nil {
 			return
 		}
+		anyExisted = anyExisted || existed
 	}
 	return
 }
 
-func (c *K8sClient) DeleteStatefulSetIfExists(ctx context.Context, name types.NamespacedName) error {
+func (c *K8sClient) DeleteStatefulSetIfExists(ctx context.Context, name types.NamespacedName) (existed bool, err error) {
 	ss := &apiv1.StatefulSet{}
 	ss.SetName(name.Name)
 	ss.SetNamespace(name.Namespace)
 	return c.DeleteResourceIfExists(ctx, ss)
 }
 
-func (c *K8sClient) DeleteConfigMapIfExists(ctx context.Context, name types.NamespacedName) error {
+func (c *K8sClient) DeleteConfigMapIfExists(ctx context.Context, name types.NamespacedName) (existed bool, err error) {
 	ss := &corev1.ConfigMap{}
 	ss.SetName(name.Name)
 	ss.SetNamespace(name.Namespace)
 	return c.DeleteResourceIfExists(ctx, ss)
 }
 
-func (c *K8sClient) DeletePodIfExists(ctx context.Context, name types.NamespacedName) error {
+func (c *K8sClient) DeletePodIfExists(ctx context.Context, name types.NamespacedName) (err error) {
 	pod := &corev1.Pod{}
 	pod.SetName(name.Name)
 	pod.SetNamespace(name.Namespace)
-	return c.DeleteResourceIfExists(ctx, pod)
+	_, err = c.DeleteResourceIfExists(ctx, pod)
+	return
 }
 
 func (c *K8sClient) WaitForPodReady(ctx context.Context, name types.NamespacedName, timeout time.Duration) error {

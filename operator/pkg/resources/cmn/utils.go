@@ -30,3 +30,19 @@ func EnvFromValue(envName, value string) corev1.EnvVar {
 func IsBoolSet(v *bool) bool {
 	return v != nil && *v
 }
+
+func AnyFunc(funcs ...func() (bool, error)) (bool, error) {
+	if len(funcs) == 0 {
+		panic("at least one function expected")
+	}
+
+	atLeastOneTrue := false
+	for _, f := range funcs {
+		val, err := f()
+		if err != nil {
+			return false, err
+		}
+		atLeastOneTrue = atLeastOneTrue || val
+	}
+	return atLeastOneTrue, nil
+}

@@ -82,7 +82,7 @@ var _ = Describe("Run Controller", func() {
 			newNS, nsExists := tutils.CreateNSIfNotExists(ctx, k8sClient, otherNS)
 			if !nsExists {
 				defer func() {
-					err := k8sClient.DeleteResourceIfExists(ctx, newNS)
+					_, err := k8sClient.DeleteResourceIfExists(ctx, newNS)
 					Expect(err).To(BeNil())
 				}()
 			}
@@ -225,9 +225,7 @@ func checkResExistance(ctx context.Context, cluster *aisv1.AIStore, exists bool,
 	tutils.EventuallySSExists(ctx, k8sClient, proxy.StatefulSetNSName(cluster), condition, intervals...)
 	// 3.4 ExternalLB Service (optional)
 	if cluster.Spec.EnableExternalLB {
-		// TODO: Cluster should not be ready in the first place when the services are still being removed.
-		timeout, interval := tutils.GetLBExistenceTimeout()
-		tutils.EventuallyServiceExists(ctx, k8sClient, proxy.LoadBalancerSVCNSName(cluster), condition, timeout, interval)
+		tutils.EventuallyServiceExists(ctx, k8sClient, proxy.LoadBalancerSVCNSName(cluster), condition, intervals...)
 	}
 
 	// 4. Target resources

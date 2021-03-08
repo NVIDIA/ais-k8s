@@ -102,10 +102,13 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		if !hasFinalizer(ais) {
 			return reconcile.Result{}, nil
 		}
-		err := r.cleanup(ctx, ais)
+		updated, err := r.cleanup(ctx, ais)
 		if err != nil {
 			r.recordError(ais, err, "Failed to delete instance")
 			return r.manageError(ctx, ais, aisv1.InstanceDeletionError, err)
+		}
+		if updated {
+			return reconcile.Result{RequeueAfter: requeueInterval}, nil
 		}
 		controllerutil.RemoveFinalizer(ais, aisFinalizer)
 		err = r.client.UpdateIfExists(ctx, ais)
@@ -123,55 +126,38 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	return r.handleCREvents(ctx, ais)
 }
 
-func (r *AIStoreReconciler) cleanup(ctx context.Context, ais *aisv1.AIStore) (err error) {
-	if err = r.cleanupTarget(ctx, ais); err != nil {
-		return
-	}
-
-	if err = r.cleanupProxy(ctx, ais); err != nil {
-		return
-	}
-
-	// clean-up statsd
-	err = r.client.DeleteConfigMapIfExists(ctx, statsd.ConfigMapNSName(ais))
-	if err != nil {
-		return
-	}
-
-	return r.cleanupRBAC(ctx, ais)
+func (r *AIStoreReconciler) cleanup(ctx context.Context, ais *aisv1.AIStore) (anyUpdated bool, err error) {
+	return cmn.AnyFunc(
+		func() (bool, error) { return r.cleanupTarget(ctx, ais) },
+		func() (bool, error) { return r.cleanupProxy(ctx, ais) },
+		func() (bool, error) { return r.client.DeleteConfigMapIfExists(ctx, statsd.ConfigMapNSName(ais)) },
+		func() (bool, error) { return r.cleanupRBAC(ctx, ais) },
+	)
 }
 
-func (r *AIStoreReconciler) cleanupRBAC(ctx context.Context, ais *aisv1.AIStore) (err error) {
-	crb := cmn.NewAISRBACClusterRoleBinding(ais)
-	if err = r.client.DeleteResourceIfExists(ctx, crb); err != nil {
-		r.recordError(ais, err, "Failed to delete ClusterRoleBinding")
-		return
-	}
-
-	cluRole := cmn.NewAISRBACClusterRole(ais)
-	if err = r.client.DeleteResourceIfExists(ctx, cluRole); err != nil {
-		r.recordError(ais, err, "Failed to delete ClusterRole")
-		return
-	}
-
-	rb := cmn.NewAISRBACRoleBinding(ais)
-	if err = r.client.DeleteResourceIfExists(ctx, rb); err != nil {
-		r.recordError(ais, err, "Failed to delete RoleBinding")
-		return
-	}
-
-	role := cmn.NewAISRBACRole(ais)
-	if err = r.client.DeleteResourceIfExists(ctx, role); err != nil {
-		r.recordError(ais, err, "Failed to delete Role")
-		return
-	}
-
-	sa := cmn.NewAISServiceAccount(ais)
-	if err = r.client.DeleteResourceIfExists(ctx, sa); err != nil {
-		r.recordError(ais, err, "Failed to delete ServiceAccount")
-		return
-	}
-	return
+func (r *AIStoreReconciler) cleanupRBAC(ctx context.Context, ais *aisv1.AIStore) (anyUpdated bool, err error) {
+	return cmn.AnyFunc(
+		func() (bool, error) {
+			crb := cmn.NewAISRBACClusterRoleBinding(ais)
+			return r.client.DeleteResourceIfExists(ctx, crb)
+		},
+		func() (bool, error) {
+			cluRole := cmn.NewAISRBACClusterRole(ais)
+			return r.client.DeleteResourceIfExists(ctx, cluRole)
+		},
+		func() (bool, error) {
+			rb := cmn.NewAISRBACRoleBinding(ais)
+			return r.client.DeleteResourceIfExists(ctx, rb)
+		},
+		func() (bool, error) {
+			role := cmn.NewAISRBACRole(ais)
+			return r.client.DeleteResourceIfExists(ctx, role)
+		},
+		func() (bool, error) {
+			sa := cmn.NewAISServiceAccount(ais)
+			return r.client.DeleteResourceIfExists(ctx, sa)
+		},
+	)
 }
 
 func hasFinalizer(ais *aisv1.AIStore) bool {

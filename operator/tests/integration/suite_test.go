@@ -123,7 +123,7 @@ var _ = BeforeSuite(func(done Done) {
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")
 	if !nsExists && testNS != nil {
-		err := k8sClient.DeleteResourceIfExists(context.Background(), testNS)
+		_, err := k8sClient.DeleteResourceIfExists(context.Background(), testNS)
 		Expect(err).NotTo(HaveOccurred())
 	}
 	err := testEnv.Stop()
