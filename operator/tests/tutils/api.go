@@ -27,14 +27,15 @@ import (
 )
 
 const (
-	K8sProviderGKE      = "gke"
-	K8sProviderMinikube = "minikube"
-	K8sProviderUnknown  = "unknown"
+	K8sProviderGKE           = "gke"
+	K8sProviderMinikube      = "minikube"
+	K8sProviderUnknown       = "unknown"
+	K8sProviderUninitialized = "uninitialized"
 
 	GKEDefaultStorageClass = "standard"
 )
 
-var k8sProvider string
+var k8sProvider = K8sProviderUninitialized
 
 func checkClusterExists(ctx context.Context, client *aisclient.K8sClient, name types.NamespacedName) bool {
 	_, err := client.GetAIStoreCR(ctx, name)
@@ -180,7 +181,7 @@ func WaitForClusterToBeReady(ctx context.Context, client *aisclient.K8sClient, c
 }
 
 func InitK8sClusterProvider(ctx context.Context, client *aisclient.K8sClient) {
-	if k8sProvider != "" {
+	if k8sProvider != K8sProviderUninitialized {
 		return
 	}
 
@@ -201,7 +202,7 @@ func InitK8sClusterProvider(ctx context.Context, client *aisclient.K8sClient) {
 }
 
 func GetK8sClusterProvider() string {
-	Expect(k8sProvider).ToNot(BeEmpty())
+	Expect(k8sProvider).ToNot(Equal(K8sProviderUninitialized))
 	return k8sProvider
 }
 

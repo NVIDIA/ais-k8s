@@ -36,6 +36,7 @@ var _ = Describe("Run Controller", func() {
 			})
 
 			It("Should create all required K8s objects, when AIS Cluster is created", func() {
+				tutils.CheckSkip(&tutils.SkipArgs{OnlyLong: true})
 				cluster := tutils.NewAISClusterCR(clusterName(), testNSName, storageClass, 1, false, false)
 				createAndDestroyCluster(cluster, checkResExists, checkResShouldNotExist, false)
 			})
@@ -43,13 +44,13 @@ var _ = Describe("Run Controller", func() {
 
 		Context("with externalLB", func() {
 			It("Should successfully create an AIS Cluster", func() {
-				skipIfLoadBalancerNotSupported()
+				tutils.CheckSkip(&tutils.SkipArgs{RequiresLB: true})
 				cluster := tutils.NewAISClusterCR(clusterName(), testNSName, storageClass, 1, false, true)
 				createAndDestroyCluster(cluster, nil, nil, true)
 			})
 
 			It("Should create all required K8s objects, when AIS Cluster is created", func() {
-				skipIfLoadBalancerNotSupported()
+				tutils.CheckSkip(&tutils.SkipArgs{RequiresLB: true, OnlyLong: true})
 				cluster := tutils.NewAISClusterCR(clusterName(), testNSName, storageClass, 1, false, true)
 				createAndDestroyCluster(cluster, checkResExists, checkResShouldNotExist, true)
 			})
@@ -103,7 +104,7 @@ var _ = Describe("Run Controller", func() {
 	Context("Scale existing cluster", func() {
 		Context("without externalLB", func() {
 			It("Should be able to scale-up existing cluster", func() {
-				skipOnGKE()
+				tutils.CheckSkip(&tutils.SkipArgs{RequiredProvider: tutils.K8sProviderMinikube})
 				cluster := tutils.NewAISClusterCR(clusterName(), testNSName, storageClass, 1, true, false)
 				scaleUpCluster := func(ctx context.Context, cluster *aisv1.AIStore) {
 					scaleCluster(ctx, cluster, 1)
@@ -112,7 +113,7 @@ var _ = Describe("Run Controller", func() {
 			})
 
 			It("Should be able to scale-down existing cluster", func() {
-				skipOnGKE()
+				tutils.CheckSkip(&tutils.SkipArgs{RequiredProvider: tutils.K8sProviderMinikube})
 				cluster := tutils.NewAISClusterCR(clusterName(), testNSName, storageClass, 2, true, false)
 				scaleDownCluster := func(ctx context.Context, cluster *aisv1.AIStore) {
 					scaleCluster(ctx, cluster, -1)
@@ -123,8 +124,7 @@ var _ = Describe("Run Controller", func() {
 
 		Context("with externalLB", func() {
 			It("Should be able to scale-up existing cluster", func() {
-				skipOnGKE()
-				skipIfLoadBalancerNotSupported()
+				tutils.CheckSkip(&tutils.SkipArgs{RequiredProvider: tutils.K8sProviderMinikube, RequiresLB: true, OnlyLong: true})
 				cluster := tutils.NewAISClusterCR(clusterName(), testNSName, storageClass, 1, true, true)
 				scaleUpCluster := func(ctx context.Context, cluster *aisv1.AIStore) {
 					scaleCluster(ctx, cluster, 1)
@@ -133,8 +133,7 @@ var _ = Describe("Run Controller", func() {
 			})
 
 			It("Should be able to scale-down existing cluster", func() {
-				skipOnGKE()
-				skipIfLoadBalancerNotSupported()
+				tutils.CheckSkip(&tutils.SkipArgs{RequiredProvider: tutils.K8sProviderMinikube, RequiresLB: true, OnlyLong: true})
 				cluster := tutils.NewAISClusterCR(clusterName(), testNSName, storageClass, 2, true, true)
 				scaleDownCluster := func(ctx context.Context, cluster *aisv1.AIStore) {
 					scaleCluster(ctx, cluster, -1)
@@ -159,7 +158,7 @@ var _ = Describe("Run Controller", func() {
 				cluster.Spec.EnableExternalLB = testAsExternalClient
 				if testAsExternalClient {
 					tutils.InitK8sClusterProvider(context.Background(), k8sClient)
-					skipIfLoadBalancerNotSupported()
+					tutils.SkipIfLoadBalancerNotSupported()
 					// For a cluster with external LB, allocating external-IP could be time consuming.
 					// Allow longer timeout for cluster creation.
 					tout = tutils.GetClusterCreateLongTimeout()

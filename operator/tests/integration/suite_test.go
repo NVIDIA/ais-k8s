@@ -6,10 +6,9 @@ package integration
 
 import (
 	"context"
+	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	. "github.com/onsi/ginkgo"
@@ -55,6 +54,9 @@ const (
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
 	testCtx = t
+	if testing.Short() {
+		fmt.Fprintf(os.Stdout, "Running tests in short mode")
+	}
 	RunSpecsWithDefaultAndCustomReporters(t,
 		"Controller Suite",
 		[]Reporter{printer.NewlineReporter{}})
@@ -127,35 +129,3 @@ var _ = AfterSuite(func() {
 	err := testEnv.Stop()
 	Expect(err).NotTo(HaveOccurred())
 })
-
-// helpers
-func skipIfLoadBalancerNotSupported() {
-	// If the tests are running against non-minikube cluster or inside a pod within K8s cluster
-	// we cannot determine if the LoadBalancer service is supported. Proceed to running tests.
-	if tutils.GetK8sClusterProvider() != tutils.K8sProviderMinikube || aisk8s.Detect() == nil {
-		return
-	}
-
-	// If test is running against local minikube, check if `minikube tunnel` is running.
-	if !isTunnelRunning() {
-		Skip("Test requires the cluster to support LoadBalancer service.")
-	}
-}
-
-func skipOnGKE() {
-	if tutils.GetK8sClusterProvider() == tutils.K8sProviderGKE {
-		Skip("skipping on GKE")
-	}
-}
-
-func isTunnelRunning() bool {
-	out, err := exec.Command("ps", "aux").Output()
-	Expect(err).NotTo(HaveOccurred())
-	vals := strings.Split(string(out), "\n")
-	for _, val := range vals {
-		if strings.Contains(val, "minikube") && strings.Contains(val, "tunnel") {
-			return true
-		}
-	}
-	return false
-}
