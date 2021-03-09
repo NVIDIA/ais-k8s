@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	aiscmn "github.com/NVIDIA/aistore/cmn"
 	aisk8s "github.com/NVIDIA/aistore/cmn/k8s"
@@ -132,6 +133,9 @@ var _ = BeforeSuite(func(done Done) {
 		testAsExternalClient,
 	).SetupWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
+
+	// Give some time for client cache to start before creating instances.
+	time.Sleep(5 * time.Second)
 
 	By("Cleaning orphaned test clusters")
 	cleanupOldTestClusters(k8sClient)

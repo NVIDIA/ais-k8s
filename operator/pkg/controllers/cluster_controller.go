@@ -93,9 +93,9 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 
 		ais.SetConditionInitialized()
-		err = r.setStatus(ctx, ais,
+		retry, err := r.setStatus(ctx, ais,
 			aisv1.AIStoreStatus{State: aisv1.ConditionInitialized})
-		return reconcile.Result{}, err
+		return reconcile.Result{Requeue: retry}, err
 	}
 
 	if !ais.GetDeletionTimestamp().IsZero() {
@@ -190,7 +190,7 @@ func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore
 	// 2. Check if the cluster needs external access.
 	// If yes, create a LoadBalancer services for targets and proxies and wait for external IP to be allocated.
 	if ais.Spec.EnableExternalLB {
-		var proxyReady, targetReady bool
+		var proxyReady, targetReady, retry bool
 		proxyReady, err = r.enableProxyExternalService(ctx, ais)
 		if err != nil {
 			r.recordError(ais, err, "Failed to enable proxy external service")
@@ -205,13 +205,17 @@ func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore
 		// To ensure correct behavior of cluster, we requeue the reconciler till we have all the external IPs.
 		if !targetReady || !proxyReady {
 			if !ais.HasState(aisv1.ConditionInitializingLBService) && !ais.HasState(aisv1.ConditionPendingLBService) {
-				err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionInitializingLBService})
-				r.recorder.Event(ais, corev1.EventTypeNormal,
-					EventReasonInitialized, "Successfully initialized LoadBalancer service")
+				retry, err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionInitializingLBService})
+				if !retry && err == nil {
+					r.recorder.Event(ais, corev1.EventTypeNormal,
+						EventReasonInitialized, "Successfully initialized LoadBalancer service")
+				}
 			} else {
-				err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionPendingLBService})
-				str := fmt.Sprintf("Waiting for LoadBalancer service to be ready; proxy ready=%t, target ready=%t", proxyReady, targetReady)
-				r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonWaiting, str)
+				retry, err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionPendingLBService})
+				if !retry && err == nil {
+					str := fmt.Sprintf("Waiting for LoadBalancer service to be ready; proxy ready=%t, target ready=%t", proxyReady, targetReady)
+					r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonWaiting, str)
+				}
 			}
 			result.RequeueAfter = requeueInterval
 			return
@@ -255,11 +259,13 @@ func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore
 	}
 
 	ais.SetConditionCreated()
-	err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionCreated})
+	result.Requeue, err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionCreated})
 	if err != nil {
 		return
 	}
-	r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonCreated, "Successfully created AIS cluster")
+	if !result.Requeue {
+		r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonCreated, "Successfully created AIS cluster")
+	}
 	return
 }
 
@@ -297,7 +303,7 @@ func (r *AIStoreReconciler) handleCREvents(ctx context.Context, ais *aisv1.AISto
 updated:
 	if ais.IsConditionTrue(aisv1.ConditionReady.Str()) {
 		ais.UnsetConditionReady(aisv1.ConditionUpgrading.Str(), "Waiting for cluster to upgrade")
-		err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionUpgrading})
+		_, err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionUpgrading})
 	}
 	result.Requeue = true
 	if result.RequeueAfter == 0 {
@@ -349,14 +355,19 @@ func (r *AIStoreReconciler) isInitialized(ais *aisv1.AIStore) bool {
 	return ais.Status.State != ""
 }
 
-func (r *AIStoreReconciler) setStatus(ctx context.Context, ais *aisv1.AIStore, status aisv1.AIStoreStatus) (err error) {
+func (r *AIStoreReconciler) setStatus(ctx context.Context, ais *aisv1.AIStore, status aisv1.AIStoreStatus) (retry bool, err error) {
 	if status.State != "" {
 		ais.SetState(status.State)
 	}
 
 	if err = r.client.Status().Update(ctx, ais); err != nil {
+		if errors.IsConflict(err) {
+			r.log.Info("Versions conflict updating CR")
+			return true, nil
+		}
 		r.recordError(ais, err, "Failed to update CR status")
 	}
+
 	return
 }
 
@@ -409,9 +420,9 @@ func (r *AIStoreReconciler) manageError(ctx context.Context,
 
 	ais.IncErrorCount()
 	ais.SetConditionError(reason, err)
-	if err := r.setStatus(ctx, ais, aisv1.AIStoreStatus{}); err != nil {
+	if retry, err := r.setStatus(ctx, ais, aisv1.AIStoreStatus{}); err != nil || retry {
 		// Status update failed, requeue immediately.
-		return ctrl.Result{}, err
+		return ctrl.Result{Requeue: true}, err
 	}
 	return ctrl.Result{RequeueAfter: requeueAfter}, err
 }
@@ -423,12 +434,12 @@ func (r *AIStoreReconciler) manageSuccess(ctx context.Context, ais *aisv1.AIStor
 		ais.SetConditionReady()
 	}
 
-	err := r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionReady})
+	retry, err := r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionReady})
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	return ctrl.Result{}, nil
+	return ctrl.Result{Requeue: retry}, nil
 }
 
 func (r *AIStoreReconciler) getConfigToUpdate(cfg *aisv1.ConfigToUpdate) (toUpdate *aiscmn.ConfigToUpdate, err error) {
