@@ -48,7 +48,7 @@ func checkClusterExists(ctx context.Context, client *aisclient.K8sClient, name t
 
 // DestroyCluster - Deletes the AISCluster resource, and waits for the resource to be cleaned up.
 // `intervals` refer - `gomega.Eventually`
-func DestroyCluster(ctx context.Context, client *aisclient.K8sClient,
+func DestroyCluster(_ context.Context, client *aisclient.K8sClient,
 	cluster *aisv1.AIStore, intervals ...interface{}) {
 	if len(intervals) == 0 {
 		intervals = []interface{}{time.Minute, time.Second}

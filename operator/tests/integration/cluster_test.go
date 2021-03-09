@@ -78,8 +78,7 @@ var _ = Describe("Run Controller", func() {
 		It("Should allow two cluster with same name in different namespaces", func() {
 			ctx := context.Background()
 			name := clusterName()
-			otherNS := testNSName + "-another"
-			newNS, nsExists := tutils.CreateNSIfNotExists(ctx, k8sClient, otherNS)
+			newNS, nsExists := tutils.CreateNSIfNotExists(ctx, k8sClient, testNSAnotherName)
 			if !nsExists {
 				defer func() {
 					_, err := k8sClient.DeleteResourceIfExists(ctx, newNS)
@@ -87,7 +86,7 @@ var _ = Describe("Run Controller", func() {
 				}()
 			}
 			cluster1 := tutils.NewAISClusterCR(name, testNSName, storageClass, 1, false, false)
-			cluster2 := tutils.NewAISClusterCR(name, otherNS, storageClass, 1, false, false)
+			cluster2 := tutils.NewAISClusterCR(name, testNSAnotherName, storageClass, 1, false, false)
 			defer func() {
 				tutils.DestroyCluster(ctx, k8sClient, cluster2)
 				tutils.DestroyCluster(ctx, k8sClient, cluster1)

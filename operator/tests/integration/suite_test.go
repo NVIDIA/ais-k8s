@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	aiscmn "github.com/NVIDIA/aistore/cmn"
+	aisk8s "github.com/NVIDIA/aistore/cmn/k8s"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -22,8 +24,6 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	aiscmn "github.com/NVIDIA/aistore/cmn"
-	aisk8s "github.com/NVIDIA/aistore/cmn/k8s"
 	aisv1 "github.com/ais-operator/api/v1alpha1"
 	aisclient "github.com/ais-operator/pkg/client"
 	"github.com/ais-operator/pkg/controllers"
@@ -39,7 +39,6 @@ var (
 	testEnv   *envtest.Environment
 	testCtx   *testing.T
 
-	testNSName           = "ais-test-namespace"
 	storageClass         string // storage-class to use in tests
 	testNS               *corev1.Namespace
 	nsExists             bool
@@ -47,6 +46,9 @@ var (
 )
 
 const (
+	testNSName        = "ais-test-namespace"
+	testNSAnotherName = "ais-test-namespace-other"
+
 	EnvTestEnforceExternal = "TEST_EXTERNAL_CLIENT" // if set, will force the test suite to run as external client to deployed k8s cluster.
 	EnvTestStorageClass    = "TEST_STORAGECLASS"
 )
@@ -69,10 +71,32 @@ func setStorageClass() {
 	}
 }
 
+func cleanupOldTestClusters(c *aisclient.K8sClient) {
+	for _, namespace := range []string{testNSName, testNSAnotherName} {
+		exists, err := c.CheckIfNamespaceExists(context.Background(), namespace)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to check namespaces %q existence; err %v\n", namespace, err)
+			continue
+		}
+		if !exists {
+			continue
+		}
+
+		clusters, err := c.ListAIStoreCR(context.Background(), namespace)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to fetch existing clusters; err %v\n", err)
+			continue
+		}
+		for i := range clusters.Items {
+			tutils.DestroyCluster(context.Background(), c, &clusters.Items[i])
+		}
+	}
+}
+
 var _ = BeforeSuite(func(done Done) {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
-	By("bootstrapping test environment")
+	By("Bootstrapping test environment")
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{filepath.Join("..", "..", "config", "crd", "bases")},
 	}
@@ -102,20 +126,23 @@ var _ = BeforeSuite(func(done Done) {
 		Expect(err).ToNot(HaveOccurred())
 	}()
 
-	// Create Namespace if not exists
-	testNS, nsExists = tutils.CreateNSIfNotExists(context.Background(), k8sClient, testNSName)
-	tutils.InitK8sClusterProvider(context.Background(), k8sClient)
-
-	// NOTE: On gitlab, tests run in a pod inside minikube cluster. In that case we can run the tests as an internal client, unless enforced to test as external client.
-	testAsExternalClient = aiscmn.IsParseBool(os.Getenv(EnvTestEnforceExternal)) || aisk8s.Detect() != nil
-	setStorageClass()
-
 	err = controllers.NewAISReconciler(
 		mgr,
 		ctrl.Log.WithName("controllers").WithName("AIStore"),
 		testAsExternalClient,
 	).SetupWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
+
+	By("Cleaning orphaned test clusters")
+	cleanupOldTestClusters(k8sClient)
+
+	tutils.InitK8sClusterProvider(context.Background(), k8sClient)
+	// Create Namespace if not exists
+	testNS, nsExists = tutils.CreateNSIfNotExists(context.Background(), k8sClient, testNSName)
+
+	// NOTE: On gitlab, tests run in a pod inside minikube cluster. In that case we can run the tests as an internal client, unless enforced to test as external client.
+	testAsExternalClient = aiscmn.IsParseBool(os.Getenv(EnvTestEnforceExternal)) || aisk8s.Detect() != nil
+	setStorageClass()
 
 	close(done)
 }, 60)

@@ -45,6 +45,12 @@ func (c *K8sClient) GetAIStoreCR(ctx context.Context, name types.NamespacedName)
 	return aistore, err
 }
 
+func (c *K8sClient) ListAIStoreCR(ctx context.Context, namespace string) (*aisv1.AIStoreList, error) {
+	list := &aisv1.AIStoreList{}
+	err := c.List(ctx, list, client.InNamespace(namespace))
+	return list, err
+}
+
 func (c *K8sClient) GetStatefulSet(ctx context.Context, name types.NamespacedName) (*apiv1.StatefulSet, error) {
 	ss := &apiv1.StatefulSet{}
 	err := c.Get(ctx, name, ss)
@@ -109,6 +115,17 @@ func (c *K8sClient) UpdateIfExists(ctx context.Context, res client.Object) error
 		return nil
 	}
 	return err
+}
+
+func (c *K8sClient) CheckIfNamespaceExists(ctx context.Context, name string) (exists bool, err error) {
+	ns := &corev1.Namespace{}
+	err = c.Client.Get(ctx, types.NamespacedName{Name: name}, ns)
+	if err == nil {
+		exists = true
+	} else if apierrors.IsNotFound(err) {
+		err = nil
+	}
+	return exists, err
 }
 
 /////////////////////////////////
