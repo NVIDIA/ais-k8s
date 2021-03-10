@@ -70,7 +70,6 @@
         "timeout_factor":       {{ .keepalivetracker.timeout_factor }}
 },
 "log": {
-        "dir":          {{ .log.dir | quote }},
         "level":        {{ .log.level | quote }},
         "max_size":     4194304,
         "max_total":    67108864

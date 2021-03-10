@@ -1,5 +1,6 @@
 {{- define "local.config" -}}
 "confdir": "/etc/ais",
+"log_dir": {{ .log_dir | quote }},
 "host_net": {
     "hostname":                 "${AIS_PUB_HOSTNAME}",
     "hostname_intra_control":   "${AIS_INTRA_HOSTNAME}",

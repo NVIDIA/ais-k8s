@@ -316,7 +316,6 @@ ais_config_common:
     retry_factor: 5
     timeout_factor: 3
   log:
-    dir:       /var/log/ais
     level:     3
     max_size:  4194304
     max_total: 67108864
@@ -353,10 +352,10 @@ ais_config_common:
     enabled:           true
     validate_warm_get: false
 
-
 proxy:
   name: proxy        # A component label for selector
   config:
+    log_dir: /var/log/ais
     test_fspaths:
       count:    0
       instance: 0
@@ -405,6 +404,7 @@ proxy:
 target:
   name: "target"   # A component label for selector
   config:
+    log_dir: /var/log/ais
     test_fspaths:
       count:    0
       instance: 0
