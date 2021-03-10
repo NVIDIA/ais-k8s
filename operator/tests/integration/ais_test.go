@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	aiscmn "github.com/NVIDIA/aistore/cmn"
+	"github.com/NVIDIA/aistore/cmn/cos"
 	aistutils "github.com/NVIDIA/aistore/devtools/tutils"
 	aisv1 "github.com/ais-operator/api/v1alpha1"
 	"github.com/ais-operator/tests/tutils"
@@ -49,9 +50,9 @@ func putGetObjects(t *testing.T) {
 		Bck:       bck,
 		ObjPath:   objPrefix,
 		ObjCnt:    10,
-		ObjSize:   10 * aiscmn.KiB,
+		ObjSize:   10 * cos.KiB,
 		FixedSize: true,
-		CksumType: aiscmn.ChecksumXXHash,
+		CksumType: cos.ChecksumXXHash,
 		IgnoreErr: false,
 	})
 	Expect(err).NotTo(HaveOccurred())

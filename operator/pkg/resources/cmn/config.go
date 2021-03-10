@@ -8,6 +8,7 @@ import (
 	"time"
 
 	aiscmn "github.com/NVIDIA/aistore/cmn"
+	"github.com/NVIDIA/aistore/cmn/cos"
 	aisv1 "github.com/ais-operator/api/v1alpha1"
 )
 
@@ -16,7 +17,7 @@ var defaultAISConf = aiscmn.ClusterConfig{
 		Enabled: false,
 	},
 	Cksum: aiscmn.CksumConf{
-		Type:            aiscmn.ChecksumXXHash,
+		Type:            cos.ChecksumXXHash,
 		ValidateColdGet: true,
 	},
 	Client: aiscmn.ClientConf{
@@ -86,7 +87,6 @@ var defaultAISConf = aiscmn.ClusterConfig{
 		TimeoutFactor: 3,
 	},
 	Log: aiscmn.LogConf{
-		Dir:      "/var/log/ais",
 		Level:    "3",
 		MaxSize:  4194304,
 		MaxTotal: 67108864,
@@ -146,6 +146,7 @@ func DefaultAISConf(ais *aisv1.AIStore) aiscmn.ClusterConfig {
 func LocalConfTemplate(sp aisv1.ServiceSpec, mounts []aisv1.Mount) aiscmn.LocalConfig {
 	localConf := aiscmn.LocalConfig{
 		ConfigDir: "/etc/ais",
+		LogDir:    "/var/log/ais",
 		HostNet: aiscmn.LocalNetConfig{
 			Hostname:             "${AIS_PUBLIC_HOSTNAME}",
 			HostnameIntraControl: "${AIS_INTRA_HOSTNAME}",
@@ -159,7 +160,7 @@ func LocalConfTemplate(sp aisv1.ServiceSpec, mounts []aisv1.Mount) aiscmn.LocalC
 		return localConf
 	}
 
-	localConf.FSpaths.Paths = make(aiscmn.StringSet, len(mounts))
+	localConf.FSpaths.Paths = make(cos.StringSet, len(mounts))
 	for _, m := range mounts {
 		localConf.FSpaths.Paths.Add(m.Path)
 	}

@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	aiscmn "github.com/NVIDIA/aistore/cmn"
+	"github.com/NVIDIA/aistore/cmn/cos"
 	aisk8s "github.com/NVIDIA/aistore/cmn/k8s"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -145,7 +145,7 @@ var _ = BeforeSuite(func(done Done) {
 	testNS, nsExists = tutils.CreateNSIfNotExists(context.Background(), k8sClient, testNSName)
 
 	// NOTE: On gitlab, tests run in a pod inside minikube cluster. In that case we can run the tests as an internal client, unless enforced to test as external client.
-	testAsExternalClient = aiscmn.IsParseBool(os.Getenv(EnvTestEnforceExternal)) || aisk8s.Detect() != nil
+	testAsExternalClient = cos.IsParseBool(os.Getenv(EnvTestEnforceExternal)) || aisk8s.Detect() != nil
 	setStorageClass()
 
 	close(done)

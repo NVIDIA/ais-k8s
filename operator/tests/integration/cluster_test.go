@@ -9,11 +9,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/NVIDIA/aistore/cmn/cos"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
-	aiscmn "github.com/NVIDIA/aistore/cmn"
 	aisv1 "github.com/ais-operator/api/v1alpha1"
 	"github.com/ais-operator/pkg/resources/cmn"
 	"github.com/ais-operator/pkg/resources/proxy"
@@ -181,7 +181,7 @@ var _ = Describe("Run Controller", func() {
 })
 
 func clusterName() string {
-	return "aistore-test-cluster-" + strings.ToLower(aiscmn.RandString(4))
+	return "aistore-test-cluster-" + strings.ToLower(cos.RandString(4))
 }
 
 func checkResExists(ctx context.Context, cluster *aisv1.AIStore) {

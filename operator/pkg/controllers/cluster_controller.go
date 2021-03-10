@@ -24,6 +24,7 @@ import (
 
 	aisapi "github.com/NVIDIA/aistore/api"
 	aiscmn "github.com/NVIDIA/aistore/cmn"
+	"github.com/NVIDIA/aistore/cmn/cos"
 	aisv1 "github.com/ais-operator/api/v1alpha1"
 	aisclient "github.com/ais-operator/pkg/client"
 )
@@ -444,7 +445,7 @@ func (r *AIStoreReconciler) manageSuccess(ctx context.Context, ais *aisv1.AIStor
 
 func (r *AIStoreReconciler) getConfigToUpdate(cfg *aisv1.ConfigToUpdate) (toUpdate *aiscmn.ConfigToUpdate, err error) {
 	toUpdate = &aiscmn.ConfigToUpdate{}
-	err = aiscmn.MorphMarshal(cfg, toUpdate)
+	err = cos.MorphMarshal(cfg, toUpdate)
 	return toUpdate, err
 }
 
