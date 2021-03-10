@@ -142,9 +142,10 @@ var _ = Describe("Run Controller", func() {
 
 	Describe("Client tests", func() {
 		var (
-			cluster *aisv1.AIStore
-			count   = 0
-			tout    time.Duration
+			cluster               *aisv1.AIStore
+			count                 = 0
+			tout                  time.Duration
+			ctx, cancelLogsStream = context.WithCancel(context.Background())
 		)
 		// NOTE: the `BeforeEach`/`AfterEach` code intends to imitate non-existing `BeforeAll`/`AfterAll` functionalities.
 		BeforeEach(func() {
@@ -164,10 +165,12 @@ var _ = Describe("Run Controller", func() {
 				createCluster(cluster, tout, tutils.ClusterCreateInterval)
 				tutils.WaitForClusterToBeReady(context.Background(), k8sClient, cluster, clusterReadyTimeout, clusterReadyRetryInterval)
 				initAISCluster(context.Background(), cluster)
+				Expect(tutils.StreamLogs(ctx, testNSName)).To(BeNil())
 			}
 		})
 		AfterEach(func() {
 			if count == len(tests) {
+				cancelLogsStream()
 				tutils.DestroyCluster(context.Background(), k8sClient, cluster, tout, tutils.ClusterCreateInterval)
 			}
 		})
