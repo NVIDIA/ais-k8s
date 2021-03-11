@@ -79,23 +79,24 @@ func (r *AIStoreReconciler) cleanupProxy(ctx context.Context, ais *aisv1.AIStore
 	)
 }
 
-func (r *AIStoreReconciler) handleProxyState(ctx context.Context, ais *aisv1.AIStore) (state daemonState, err error) {
+func (r *AIStoreReconciler) handleProxyState(ctx context.Context, ais *aisv1.AIStore) (ready bool, err error) {
 	proxySSName := proxy.StatefulSetNSName(ais)
 
 	// Fetch the latest statefulset for proxies and check if it's spec (for now just replicas), matches the AIS cluster spec.
 	ss, err := r.client.GetStatefulSet(ctx, proxySSName)
 	if err != nil {
-		return state, err
+		return ready, err
 	}
 	if *ss.Spec.Replicas != ais.Spec.Size {
-		state.isUpdated = true
-		_, err = r.client.UpdateStatefulSetReplicas(ctx, proxySSName, ais.Spec.Size)
-		return
+		// If anything was updated, we consider it not immediately ready.
+		updated, err := r.client.UpdateStatefulSetReplicas(ctx, proxySSName, ais.Spec.Size)
+		if updated || err != nil {
+			return false, err
+		}
 	}
 
 	// For now, state of proxy is considered ready if the number of proxy pods ready matches the size provided in AIS cluster spec.
-	state.isReady = ss.Status.ReadyReplicas == ais.Spec.Size
-	return
+	return ss.Status.ReadyReplicas == ais.Spec.Size, nil
 }
 
 // enableProxyExternalService, creates a LoadBalancer service for proxy statefulset.

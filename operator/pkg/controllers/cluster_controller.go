@@ -31,10 +31,9 @@ import (
 
 const (
 	aisFinalizer = "finalize.ais"
-	// Duration to requeue reconciler for status update.
-	statusRetryInterval = 10 * time.Second
-	requeueInterval     = 10 * time.Second
-	errBackOffTime      = 10 * time.Second
+
+	requeueInterval = 10 * time.Second
+	errBackOffTime  = 10 * time.Second
 )
 
 type (
@@ -47,11 +46,6 @@ type (
 		recorder     record.EventRecorder
 		clientParams map[string]*aisapi.BaseParams
 		isExternal   bool // manager is deployed externally to K8s cluster
-	}
-
-	daemonState struct {
-		isUpdated bool
-		isReady   bool
 	}
 )
 
@@ -278,38 +272,26 @@ func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore
 // 2. Similarly, check the resource state for targets and ensure the state matches the reconciler request.
 // 3. If both proxy and target daemons have expected state, keep requeuing the event until all the pods are ready.
 func (r *AIStoreReconciler) handleCREvents(ctx context.Context, ais *aisv1.AIStore) (result ctrl.Result, err error) {
-	var proxyState, targetState daemonState
-	if proxyState, err = r.handleProxyState(ctx, ais); err != nil {
-		return
-	}
-	if proxyState.isUpdated {
-		goto updated
-	}
-
-	if targetState, err = r.handleTargetState(ctx, ais); err != nil {
+	var proxyReady, targetReady bool
+	if proxyReady, err = r.handleProxyState(ctx, ais); err != nil {
 		return
 	}
 
-	if targetState.isUpdated {
-		goto updated
+	if targetReady, err = r.handleTargetState(ctx, ais); err != nil {
+		return
 	}
 
-	if targetState.isReady && proxyState.isReady {
+	if targetReady && proxyReady {
 		return r.manageSuccess(ctx, ais)
 	}
 
-	result.RequeueAfter = statusRetryInterval
 	// We requeue till the AIStore cluster becomes ready.
 	// TODO: Remove explicit requeue after enabling event watchers for owned resources (e.g. proxy/target statefulsets).
-updated:
 	if ais.IsConditionTrue(aisv1.ConditionReady.Str()) {
 		ais.UnsetConditionReady(aisv1.ConditionUpgrading.Str(), "Waiting for cluster to upgrade")
 		_, err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionUpgrading})
 	}
-	result.Requeue = true
-	if result.RequeueAfter == 0 {
-		result.RequeueAfter = time.Second
-	}
+	result.RequeueAfter = 5 * time.Second
 	return
 }
 
