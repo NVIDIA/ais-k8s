@@ -157,7 +157,7 @@ func (ais *AIStore) AddOrUpdateCondition(c metav1.Condition) {
 	ais.Status.Conditions = append(ais.Status.Conditions, c)
 }
 
-// GetLastCondition retruns the last condition based on the condition timestamp.
+// GetLastCondition returns the last condition based on the condition timestamp.
 // Return false if no condition is present.
 func (ais *AIStore) GetLastCondition() (latest metav1.Condition, exists bool) {
 	if len(ais.Status.Conditions) == 0 {

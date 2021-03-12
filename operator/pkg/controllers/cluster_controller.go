@@ -410,19 +410,17 @@ func (r *AIStoreReconciler) manageError(ctx context.Context,
 	return ctrl.Result{RequeueAfter: requeueAfter}, err
 }
 
-func (r *AIStoreReconciler) manageSuccess(ctx context.Context, ais *aisv1.AIStore) (ctrl.Result, error) {
+func (r *AIStoreReconciler) manageSuccess(ctx context.Context, ais *aisv1.AIStore) (result ctrl.Result, err error) {
 	ais.SetConditionSuccess()
 	if !ais.IsConditionTrue(aisv1.ConditionReady.Str()) {
 		r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonReady, "Created AIS cluster")
 		ais.SetConditionReady()
 	}
-
-	retry, err := r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionReady})
-	if err != nil {
-		return ctrl.Result{}, err
+	if ais.Status.State != aisv1.ConditionReady {
+		result.Requeue, err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionReady})
 	}
 
-	return ctrl.Result{Requeue: retry}, nil
+	return
 }
 
 func (r *AIStoreReconciler) getConfigToUpdate(cfg *aisv1.ConfigToUpdate) (toUpdate *aiscmn.ConfigToUpdate, err error) {
