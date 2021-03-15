@@ -62,6 +62,16 @@ deploy: manifests kustomize
 undeploy:
 	$(KUSTOMIZE) build config/default | kubectl delete -f -
 
+
+deploy-metallb: kustomize
+	@if [[ -z "$EXTERNAL_ADDRESSES" ]]; then echo "EXTERNAL_ADDRESSES variable cannot be empty"; exit 1; fi
+	$(KUSTOMIZE) build github.com/metallb/metallb//manifests?ref=v0.9.5 | kubectl apply -f -
+	@envsubst <config/metallb/configmap.template.yaml | kubectl apply -f -
+
+undeploy-metallb: kustomize
+	@kubectl delete cm metallb-config -n metallb-system
+	$(KUSTOMIZE) build github.com/metallb/metallb//manifests?ref=v0.9.5 | kubectl delete -f -
+
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases

@@ -68,7 +68,7 @@ build:docker:
       - images/
     expire_in: 1h
 
-operator:minikube-short:
+operator:minikube:short:
   stage: test:short
   needs: ["build:operator:lint", "build:operator"]
   image: aistore/ci:1.15
@@ -77,11 +77,11 @@ operator:minikube-short:
     - ais-k8s
   timeout: 15m
   script:
-   - make -C operator test-short
+    - make -C operator test-short
 
-operator:minikube-long:
+operator:minikube:long:
   stage: test:long
-  needs: ["operator:minikube-short"]
+  needs: ["operator:minikube:short"]
   image: aistore/ci:1.15
   tags:
     - ais-k8s
@@ -97,10 +97,33 @@ operator:minikube-long:
   script:
     - make -C operator test
 
+operator:minikube:metallb:
+  stage: test:long
+  needs: ["operator:minikube:short"]
+  image: aistore/ci:1.15
+  variables:
+    # NOTE: No particular reason why these addresses would be unavailable.
+    EXTERNAL_ADDRESSES: 172.20.0.100–172.20.0.120
+  tags:
+    - ais-k8s
+  timeout: 20m
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: manual
+      allow_failure: true
+  before_script:
+    - apt-get install gettext-base
+    - make -C operator deploy-metallb
+  script:
+    - make -C operator test
+  after_script:
+    - make -C operator undeploy-metallb
+
 operator:gcp:
   stage: test:long
   # If minikube fails - don't bother to try GCP.
-  needs: ["operator:minikube-short"]
+  needs: ["operator:minikube:short"]
   image: aistore/ci:1.15
   timeout: 60m
   rules:
