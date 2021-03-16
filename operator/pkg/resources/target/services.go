@@ -93,7 +93,7 @@ func NewTargetHeadlessSvc(ais *aisv1.AIStore) *corev1.Service {
 func NewTargetLoadBalancerSVC(ais *aisv1.AIStore, targetIndex int32) *corev1.Service {
 	servicePort := ais.Spec.TargetSpec.ServicePort
 	publicNetPort := ais.Spec.TargetSpec.PublicPort
-	selectors := podLabels(ais)
+	selectors := PodLabels(ais)
 	selectors["statefulset.kubernetes.io/pod-name"] = fmt.Sprintf("%s-%d", statefulSetName(ais), targetIndex)
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{

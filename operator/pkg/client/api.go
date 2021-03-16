@@ -173,6 +173,27 @@ func (c *K8sClient) DeleteAllServicesIfExist(ctx context.Context, namespace stri
 	return
 }
 
+func (c *K8sClient) DeleteAllPVCsIfExist(ctx context.Context, namespace string, labels client.MatchingLabels) (anyExisted bool, err error) {
+	pvcs := &corev1.PersistentVolumeClaimList{}
+	err = c.List(ctx, pvcs, client.InNamespace(namespace), labels)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			err = nil
+		}
+		return
+	}
+
+	for i := range pvcs.Items {
+		var existed bool
+		existed, err = c.DeleteResourceIfExists(ctx, &pvcs.Items[i])
+		if err != nil {
+			return
+		}
+		anyExisted = anyExisted || existed
+	}
+	return
+}
+
 func (c *K8sClient) DeleteStatefulSetIfExists(ctx context.Context, name types.NamespacedName) (existed bool, err error) {
 	ss := &apiv1.StatefulSet{}
 	ss.SetName(name.Name)

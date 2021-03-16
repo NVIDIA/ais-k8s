@@ -13,6 +13,7 @@ import (
 	"github.com/ais-operator/pkg/resources/cmn"
 	"github.com/ais-operator/pkg/resources/proxy"
 	"github.com/ais-operator/pkg/resources/statsd"
+	"github.com/ais-operator/pkg/resources/target"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -127,7 +128,15 @@ func (r *AIStoreReconciler) cleanup(ctx context.Context, ais *aisv1.AIStore) (an
 		func() (bool, error) { return r.cleanupProxy(ctx, ais) },
 		func() (bool, error) { return r.client.DeleteConfigMapIfExists(ctx, statsd.ConfigMapNSName(ais)) },
 		func() (bool, error) { return r.cleanupRBAC(ctx, ais) },
+		func() (bool, error) { return r.cleanupVolumes(ctx, ais) },
 	)
+}
+
+func (r *AIStoreReconciler) cleanupVolumes(ctx context.Context, ais *aisv1.AIStore) (anyUpdated bool, err error) {
+	if ais.Spec.DeletePVCs == nil || !*ais.Spec.DeletePVCs {
+		return
+	}
+	return r.client.DeleteAllPVCsIfExist(ctx, ais.Namespace, target.PodLabels(ais))
 }
 
 func (r *AIStoreReconciler) cleanupRBAC(ctx context.Context, ais *aisv1.AIStore) (anyUpdated bool, err error) {

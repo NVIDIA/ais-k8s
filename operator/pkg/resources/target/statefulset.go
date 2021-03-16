@@ -31,7 +31,7 @@ func StatefulSetNSName(ais *aisv1.AIStore) types.NamespacedName {
 	}
 }
 
-func podLabels(ais *aisv1.AIStore) map[string]string {
+func PodLabels(ais *aisv1.AIStore) map[string]string {
 	return map[string]string{
 		"app":       ais.Name,
 		"component": aiscmn.Target,
@@ -40,7 +40,7 @@ func podLabels(ais *aisv1.AIStore) map[string]string {
 }
 
 func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
-	ls := podLabels(ais)
+	ls := PodLabels(ais)
 	return &apiv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      statefulSetName(ais),

@@ -9,6 +9,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	aisapi "github.com/NVIDIA/aistore/api"
 	aisv1 "github.com/ais-operator/api/v1alpha1"
 )
 
@@ -24,9 +25,9 @@ func NewAISClusterCR(name, namespace, storageClass string,
 	if storageClass != "" {
 		storage = &storageClass
 	}
-
 	spec := aisv1.AIStoreSpec{
 		Size:                   size,
+		DeletePVCs:             aisapi.Bool(true),
 		NodeImage:              aisNodeImage,
 		InitImage:              aisInitImage,
 		HostpathPrefix:         "/etc/ais",

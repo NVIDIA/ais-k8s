@@ -61,6 +61,12 @@ type AIStoreSpec struct {
 	ProxySpec  DaemonSpec `json:"proxySpec"`  // spec for proxy
 	TargetSpec TargetSpec `json:"targetSpec"` // spec for target
 
+	// Defines if the PVCs of targets should be deleted.
+	// Reclaiming of PVs associated with PVCs is defined by PV reclaim policy
+	// or default policy of associated StorageClass.
+	// +optional
+	DeletePVCs *bool `json:"deletePVCs"`
+
 	// ImagePullScerets is an optional list of references to secrets in the same namespace to pull container images of AIS Daemons
 	// More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod
 	// +optional

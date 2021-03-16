@@ -13,6 +13,9 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	aisv1 "github.com/ais-operator/api/v1alpha1"
 	"github.com/ais-operator/pkg/resources/cmn"
@@ -193,6 +196,19 @@ func checkResExists(ctx context.Context, cluster *aisv1.AIStore) {
 
 func checkResShouldNotExist(ctx context.Context, cluster *aisv1.AIStore) {
 	checkResExistance(ctx, cluster, false /*exists*/)
+
+	// PVCs should be deleted if Delete strategy is set.
+	if cluster.Spec.DeletePVCs != nil && *cluster.Spec.DeletePVCs {
+		pvcs := &corev1.PersistentVolumeClaimList{}
+		err := k8sClient.List(ctx, pvcs, client.InNamespace(cluster.Namespace), client.MatchingLabels(target.PodLabels(cluster)))
+		if apierrors.IsNotFound(err) {
+			err = nil
+		}
+		Expect(err).ShouldNot(HaveOccurred())
+		if pvcs != nil {
+			Expect(len(pvcs.Items)).To(Equal(0))
+		}
+	}
 }
 
 func checkResExistance(ctx context.Context, cluster *aisv1.AIStore, exists bool, intervals ...interface{}) {

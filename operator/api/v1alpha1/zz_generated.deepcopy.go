@@ -83,6 +83,11 @@ func (in *AIStoreSpec) DeepCopyInto(out *AIStoreSpec) {
 	}
 	in.ProxySpec.DeepCopyInto(&out.ProxySpec)
 	in.TargetSpec.DeepCopyInto(&out.TargetSpec)
+	if in.DeletePVCs != nil {
+		in, out := &in.DeletePVCs, &out.DeletePVCs
+		*out = new(bool)
+		**out = **in
+	}
 	if in.ImagePullSecrets != nil {
 		in, out := &in.ImagePullSecrets, &out.ImagePullSecrets
 		*out = make([]v1.LocalObjectReference, len(*in))
