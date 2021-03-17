@@ -19,20 +19,31 @@ const (
 	aisInitImage = "aistore/ais-init:latest"
 )
 
-func NewAISClusterCR(name, namespace, storageClass string,
-	size int32, disableAntiAffinity, enableExternalLB bool) *aisv1.AIStore {
+type (
+	ClusterSpecArgs struct {
+		Name                string
+		Namespace           string
+		StorageClass        string
+		Size                int32
+		DisableAntiAffinity bool
+		EnableExternalLB    bool
+		PreservePVCs        bool
+	}
+)
+
+func NewAISClusterCR(args ClusterSpecArgs) *aisv1.AIStore {
 	var storage *string
-	if storageClass != "" {
-		storage = &storageClass
+	if args.StorageClass != "" {
+		storage = &args.StorageClass
 	}
 	spec := aisv1.AIStoreSpec{
-		Size:                   size,
-		DeletePVCs:             aisapi.Bool(true),
+		Size:                   args.Size,
+		DeletePVCs:             aisapi.Bool(!args.PreservePVCs),
 		NodeImage:              aisNodeImage,
 		InitImage:              aisInitImage,
 		HostpathPrefix:         "/etc/ais",
-		EnableExternalLB:       enableExternalLB,
-		DisablePodAntiAffinity: &disableAntiAffinity,
+		EnableExternalLB:       args.EnableExternalLB,
+		DisablePodAntiAffinity: &args.DisableAntiAffinity,
 		ProxySpec: aisv1.DaemonSpec{
 			ServiceSpec: aisv1.ServiceSpec{
 				ServicePort:      intstr.FromInt(51080),
@@ -68,8 +79,8 @@ func NewAISClusterCR(name, namespace, storageClass string,
 
 	cluster := &aisv1.AIStore{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
+			Name:      args.Name,
+			Namespace: args.Namespace,
 		},
 		Spec: spec,
 	}
