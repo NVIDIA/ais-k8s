@@ -1,13 +1,13 @@
 # AIS K8s Playbooks
 
-A small set of convenience playbooks to assist in preparing K8s worker nodes to
-host an AIStore deployment. None of these are required -we use all of them in our
-reference environment, but you're free to make filesystem as you wish, tune nodes
-as you wish etc in which case either ignore these or use them as a reference.
+A small set of convenient playbooks to assist in preparing K8s worker nodes to
+host an AIStore deployment. None of these are required.  We use all of them in our
+reference environment, but you're free to make the filesystem as you wish, tune nodes
+as you wish, etc., in which case either ignore these or use them as a reference.
 
 These playbooks have been tested only on Ubuntu hosts.
 
-Each playbook is documented separately - links in the first column below.
+Each playbook is documented separately.  See the links in the first column below.
 
 Playbook(s) | Useful when
 ----------- | -----------
@@ -23,6 +23,8 @@ more granular selection of tasks and to skip tasks that are likely site-specific
 The `vars` directory includes variable definitions that control the playbooks,
 split into multiple files with comments explaining which playbooks they control
 (and which tags will use them).
+
+The [hosts-example.ini](hosts-example.ini) and [ansible-example.cfg](ansible-example.cfg) files are reference examples for constructing the actual hosts.ini and ansible.cfg files in the same path.
 
 ## Playbook Order
 
