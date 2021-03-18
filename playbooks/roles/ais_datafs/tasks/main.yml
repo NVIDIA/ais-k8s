@@ -49,11 +49,11 @@
     - ais_fs_mount is defined
     - ais_fs_mount
 
-- name: chown and chmod XXX wide open
+- name: chown and chmod ais dir
   file:
     path: "/ais/{{ item }}"
     state: directory
-    mode: 0777
+    mode: 0750
     owner: root
   with_items:
     - "{{ ais_devices }}"

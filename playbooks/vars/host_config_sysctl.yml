@@ -40,6 +40,11 @@ ais_host_sysctl_required:
 # Tags: never, nvidiastd, sysctlnetwork
 #
 ais_host_sysctl_network:
+  - name: net.ipv4.ip_forward
+    value: 1
+    default: 0
+    state: present
+    comment: Kubespray requirement
   - name: net.core.rmem_max
     value: 268435456
     default: 212992

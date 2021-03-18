@@ -14,7 +14,6 @@ ais_debug_packages:
   - sysstat
   - util-linux
   - lshw
-  - util-linux
   - dmidecode
   - lsscsi
   - smartmontools
@@ -69,3 +68,7 @@ ais_debug_packages:
   - tcptrack
   - conntrack
   - lsof
+  - multitail
+  - byobu
+  - zip
+  - unzip

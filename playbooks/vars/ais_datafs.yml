@@ -6,6 +6,9 @@
 # It is recommended that you do *not* include ais_hosts here - it becomes too
 # easy to mkfs all filesystems by mistake (eg when extending a cluster).
 #
+# Example, defining ais_hosts at playbook run time:
+#   ansible-playbook -i hosts.ini ais_datafs_mkfs.yml -e ais_hosts=cpu-worker-node --become --check
+
 
 #
 # Devices under /dev on which we will build XFS filesystems. Defaults must
@@ -13,4 +16,14 @@
 #
 # Examples on an HDD system: sda, sdb, sdc, ...
 #
-ais_devices: []
+#ais_devices:
+#  - sda
+#  - sdb
+#  - sdc
+#  - sdd
+#  - sde
+#  - sdf
+#  - sdg
+#  - sdh
+#  - sdi
+#  - sdj

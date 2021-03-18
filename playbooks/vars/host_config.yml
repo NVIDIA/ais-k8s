@@ -11,7 +11,7 @@
 # Tags: never, aisdev, nvidiastd, hostmtu
 #
 ais_host_mtu:
-  - interface: enp94s0
+  - interface: enp94s0f0
     driver: mlx5_core
     mtu: 9000
 
@@ -37,6 +37,7 @@ ais_pam_limits:
 #
 ais_cpufreq:
   packages:
+    - linux-tools-generic
     - linux-tools-common
     - linux-tools-{{ ansible_kernel }}
     - linux-cloud-tools-{{ ansible_kernel }}
@@ -68,9 +69,12 @@ ntp_pools:
 #
 mlx5_driver:
   update: true
-  url: 'http://www.mellanox.com/downloads/ofed/MLNX_OFED-4.6-1.0.1.1/MLNX_OFED_LINUX-4.6-1.0.1.1-ubuntu18.04-x86_64.tgz'
-  topdir: 'MLNX_OFED_LINUX-4.6-1.0.1.1-ubuntu18.04-x86_64'
-  version: 4.6-1.0.1
+  # url: 'http://www.mellanox.com/downloads/ofed/MLNX_OFED-4.6-1.0.1.1/MLNX_OFED_LINUX-4.6-1.0.1.1-ubuntu18.04-x86_64.tgz'
+  url: 'http://www.mellanox.com/downloads/ofed/MLNX_OFED-5.2-2.2.0.0/MLNX_OFED_LINUX-5.2-2.2.0.0-ubuntu20.04-x86_64.tgz'
+  #topdir: 'MLNX_OFED_LINUX-4.6-1.0.1.1-ubuntu18.04-x86_64'
+  topdir: 'MLNX_OFED_LINUX-5.2-2.2.0.0-ubuntu20.04-x86_64'
+  #version: 4.6-1.0.1
+  version: 5.2-2.2.0
 
 #
 # Ethtool tweaks to apply on boot to interfaces with matching driver names.
