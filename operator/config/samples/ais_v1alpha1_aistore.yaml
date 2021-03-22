@@ -22,7 +22,7 @@ spec:
         size: 10Gi
     
     nodiskio: 
-      enabled: true
+      enabled: false
       dryobjsize: "8M"
 
   nodeImage: "aistore/aisnode:3.3.1"
