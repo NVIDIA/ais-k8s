@@ -80,6 +80,7 @@ func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
 				Env: []corev1.EnvVar{
 					cmn.EnvFromFieldPath(cmn.EnvNodeName, "spec.nodeName"),
 					cmn.EnvFromFieldPath(cmn.EnvPodName, "metadata.name"),
+					cmn.EnvFromValue(cmn.EnvClusterDomain, ais.GetClusterDomain()),
 					cmn.EnvFromValue(cmn.EnvNS, ais.Namespace),
 					cmn.EnvFromValue(cmn.EnvServiceName, HeadlessSVCName(ais)),
 					cmn.EnvFromValue(cmn.EnvDaemonRole, aiscmn.Proxy),
@@ -100,6 +101,7 @@ func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
 				Env: []corev1.EnvVar{
 					cmn.EnvFromFieldPath(cmn.EnvPodName, "metadata.name"),
 					cmn.EnvFromValue(cmn.EnvNS, ais.Namespace),
+					cmn.EnvFromValue(cmn.EnvClusterDomain, ais.GetClusterDomain()),
 					cmn.EnvFromValue(cmn.EnvCIDR, ""), // TODO: Should take from specs
 					cmn.EnvFromValue(cmn.ENVConfigFilePath, "/var/ais_config/ais.json"),
 					cmn.EnvFromValue(cmn.ENVLocalConfigFilePath, "/var/ais_config/ais_local.json"),

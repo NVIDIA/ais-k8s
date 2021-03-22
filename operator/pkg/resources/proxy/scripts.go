@@ -15,7 +15,8 @@ rm -f $envfile
 # Environment variables are passed to the init container while creating the proxy statefulset.
 #
 
-pod_dns="${MY_POD}.${MY_SERVICE}.${K8S_NS}.svc.cluster.local"
+cluster_domain=${AIS_K8S_CLUSTER_DOMAIN:-"cluster.local"}
+pod_dns="${MY_POD}.${MY_SERVICE}.${K8S_NS}.svc.${cluster_domain}"
 export AIS_INTRA_HOSTNAME=${pod_dns}
 export AIS_DATA_HOSTNAME=${pod_dns}
 

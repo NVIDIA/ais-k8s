@@ -45,6 +45,8 @@ const (
 	ResourceCreationError ErrorReason = "ResourceCreationError"
 	ResourceFetchError    ErrorReason = "ResouceFetchError" // failed to fetch a resource using K8s API
 	ResourceUpdateError   ErrorReason = "ResourceUpdateError"
+
+	defaultClusterDomain = "cluster.local"
 )
 
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
@@ -66,6 +68,10 @@ type AIStoreSpec struct {
 	// or default policy of associated StorageClass.
 	// +optional
 	DeletePVCs *bool `json:"deletePVCs"`
+
+	// Defines the cluster domain name for DNS. Default: cluster.local.
+	// +optional
+	ClusterDomain *string `json:"clusterDomain,omitempty"`
 
 	// ImagePullScerets is an optional list of references to secrets in the same namespace to pull container images of AIS Daemons
 	// More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod
@@ -282,6 +288,13 @@ func (ais *AIStore) NamespacedName() types.NamespacedName {
 		Name:      ais.Name,
 		Namespace: ais.Namespace,
 	}
+}
+
+func (ais *AIStore) GetClusterDomain() string {
+	if ais.Spec.ClusterDomain == nil {
+		return defaultClusterDomain
+	}
+	return *ais.Spec.ClusterDomain
 }
 
 // +kubebuilder:object:root=true

@@ -36,6 +36,9 @@ spec:
           spec:
             description: AIStoreSpec defines the desired state of AIStore
             properties:
+              clusterDomain:
+                description: 'Defines the cluster domain name for DNS. Default: cluster.local.'
+                type: string
               configToUpdate:
                 properties:
                   auth:

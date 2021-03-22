@@ -26,7 +26,9 @@ if [[ "${ENABLE_EXTERNAL_ACCESS}" == "true" ]]; then
 fi
 
 export AIS_PUBLIC_HOSTNAME="${external_ip}"
-pod_dns="${MY_POD}.${MY_SERVICE}.${K8S_NS}.svc.cluster.local"
+
+cluster_domain=${AIS_K8S_CLUSTER_DOMAIN:-"cluster.local"}
+pod_dns="${MY_POD}.${MY_SERVICE}.${K8S_NS}.svc.${cluster_domain}"
 export AIS_INTRA_HOSTNAME=${pod_dns}
 export AIS_DATA_HOSTNAME=${pod_dns}
 local_conf_template="/var/ais_config_template/ais_local.json"

@@ -16,6 +16,7 @@ const (
 	EnvProxyServicePort     = "CLUSTERIP_PROXY_SERVICE_PORT"     // Port used by Proxy Service
 	EnvDefaultPrimaryPod    = "AIS_DEFAULT_PRIMARY"              // Default Primary pod name
 	EnvCIDR                 = "AIS_CLUSTER_CIDR"                 // CIDR to use
+	EnvClusterDomain        = "AIS_K8S_CLUSTER_DOMAIN"           // K8s cluster DNS domain
 	ENVConfigFilePath       = "AIS_CONF_FILE"                    // Path to AIS config file
 	ENVLocalConfigFilePath  = "AIS_LOCAL_CONF_FILE"              // Path to AIS local config file
 	EnvStatsDConfig         = "STATSD_CONF_FILE"                 // Path to StatsD config json

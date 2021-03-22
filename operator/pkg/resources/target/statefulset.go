@@ -68,6 +68,7 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 							Env: []corev1.EnvVar{
 								cmn.EnvFromFieldPath(cmn.EnvNodeName, "spec.nodeName"),
 								cmn.EnvFromFieldPath(cmn.EnvPodName, "metadata.name"),
+								cmn.EnvFromValue(cmn.EnvClusterDomain, ais.GetClusterDomain()),
 								cmn.EnvFromValue(cmn.EnvNS, ais.Namespace),
 								cmn.EnvFromValue(
 									cmn.EnvEnableExternalAccess,
@@ -93,6 +94,7 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 							ImagePullPolicy: corev1.PullAlways,
 							Env: []corev1.EnvVar{
 								cmn.EnvFromFieldPath(cmn.EnvPodName, "metadata.name"),
+								cmn.EnvFromValue(cmn.EnvClusterDomain, ais.GetClusterDomain()),
 								cmn.EnvFromValue(cmn.EnvNS, ais.Namespace),
 								cmn.EnvFromValue(cmn.EnvCIDR, ""), // TODO: add
 								cmn.EnvFromValue(cmn.ENVConfigFilePath, "/var/ais_config/ais.json"),
