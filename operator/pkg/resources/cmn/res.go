@@ -114,6 +114,11 @@ func NewAISVolumeMounts() []corev1.VolumeMount {
 			SubPath:   "ais_liveness.sh",
 		},
 		{
+			Name:      "config-global",
+			MountPath: "/var/ais_config/ais_readiness.sh",
+			SubPath:   "ais_readiness.sh",
+		},
+		{
 			Name:        "env-mount",
 			MountPath:   "/var/ais_env",
 			SubPathExpr: "$(MY_POD)",

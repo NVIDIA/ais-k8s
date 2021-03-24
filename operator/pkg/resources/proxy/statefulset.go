@@ -11,7 +11,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/intstr"
 
 	aiscmn "github.com/NVIDIA/aistore/cmn"
 	aisv1 "github.com/ais-operator/api/v1alpha1"
@@ -123,7 +122,7 @@ func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
 				VolumeMounts:    cmn.NewAISVolumeMounts(),
 				Lifecycle:       cmn.NewAISNodeLifecycle(),
 				LivenessProbe:   cmn.NewAISLivenessProbe(ais.Spec.ProxySpec.ServicePort),
-				ReadinessProbe:  readinessProbe(ais.Spec.ProxySpec.ServicePort),
+				ReadinessProbe:  readinessProbe(),
 			},
 		},
 		Affinity:           cmn.NewAISPodAffinity(ais, ais.Spec.ProxySpec.Affinity, podLabels(ais)),
@@ -142,11 +141,11 @@ func podLabels(ais *aisv1.AIStore) map[string]string {
 	}
 }
 
-func readinessProbe(_ intstr.IntOrString) *corev1.Probe {
+func readinessProbe() *corev1.Probe {
 	return &corev1.Probe{
 		Handler: corev1.Handler{
 			Exec: &corev1.ExecAction{
-				Command: []string{"/ais_readiness.sh"},
+				Command: []string{"/bin/bash", "/var/ais_config/ais_readiness.sh"},
 			},
 		},
 		InitialDelaySeconds: 5,
