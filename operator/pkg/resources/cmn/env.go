@@ -22,6 +22,7 @@ const (
 	EnvStatsDConfig         = "STATSD_CONF_FILE"                 // Path to StatsD config json
 	EnvNumTargets           = "TARGETS"                          // Expected target count // TODO: Add AIS_ prefix
 	EnvEnableExternalAccess = "ENABLE_EXTERNAL_ACCESS"           // Bool flag to indicate AIS daemon is exposed using LoadBalancer
+	EnvShutdownMarkerPath   = "AIS_SHUTDOWN_MARKER_PATH"         // Path where node shutdown marker will be located
 
 	// Benchmark see: https://github.com/NVIDIA/aistore/blob/master/docs/howto_benchmark.md#dry-run-performance-tests
 	EnvNoDiskIO   = "AIS_NO_DISK_IO"

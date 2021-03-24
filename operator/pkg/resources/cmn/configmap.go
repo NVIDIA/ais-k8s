@@ -42,7 +42,8 @@ func NewGlobalCM(ais *aisv1.AIStore, toUpdate *aiscmn.ConfigToUpdate) (*corev1.C
 			Namespace: ais.Namespace,
 		},
 		Data: map[string]string{
-			"ais.json": conf,
+			"ais.json":        conf,
+			"ais_liveness.sh": livenessSh,
 		},
 	}, nil
 }

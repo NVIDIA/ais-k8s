@@ -76,9 +76,8 @@ func NewAISVolumes(ais *aisv1.AIStore, daeType string) []corev1.Volume {
 func NewAISLivenessProbe(port intstr.IntOrString) *corev1.Probe {
 	return &corev1.Probe{
 		Handler: corev1.Handler{
-			HTTPGet: &corev1.HTTPGetAction{
-				Path: "/v1/health",
-				Port: port,
+			Exec: &corev1.ExecAction{
+				Command: []string{"/bin/bash", "/var/ais_config/ais_liveness.sh"},
 			},
 		},
 		InitialDelaySeconds: 90,
@@ -108,6 +107,11 @@ func NewAISVolumeMounts() []corev1.VolumeMount {
 			Name:      "config-global",
 			MountPath: "/var/ais_config/ais.json",
 			SubPath:   "ais.json",
+		},
+		{
+			Name:      "config-global",
+			MountPath: "/var/ais_config/ais_liveness.sh",
+			SubPath:   "ais_liveness.sh",
 		},
 		{
 			Name:        "env-mount",

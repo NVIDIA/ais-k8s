@@ -98,6 +98,7 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 								cmn.EnvFromValue(cmn.EnvNS, ais.Namespace),
 								cmn.EnvFromValue(cmn.EnvCIDR, ""), // TODO: add
 								cmn.EnvFromValue(cmn.ENVConfigFilePath, "/var/ais_config/ais.json"),
+								cmn.EnvFromValue(cmn.EnvShutdownMarkerPath, "/var/ais_config"),
 								cmn.EnvFromValue(cmn.ENVLocalConfigFilePath, "/var/ais_config/ais_local.json"),
 								cmn.EnvFromValue(cmn.EnvStatsDConfig, "/var/statsd_config/statsd.json"),
 								cmn.EnvFromValue(cmn.EnvDaemonRole, aiscmn.Target),
