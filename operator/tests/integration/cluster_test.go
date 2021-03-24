@@ -307,6 +307,7 @@ var _ = Describe("Run Controller", func() {
 			Expect(err).ShouldNot(HaveOccurred())
 			cc.cleanup()
 
+			checkResShouldNotExist(context.TODO(), cc.cluster)
 			// Re-deploy cluster and check if data is wipedoff
 			cc = newClientCluster(cluArgs)
 			cc.create()
@@ -387,7 +388,7 @@ func checkResShouldNotExist(ctx context.Context, cluster *aisv1.AIStore) {
 	checkResExistance(ctx, cluster, false /*exists*/)
 
 	// PVCs should be deleted if Delete strategy is set.
-	if cluster.Spec.DeletePVCs != nil && *cluster.Spec.DeletePVCs {
+	if cluster.Spec.CleanupData != nil && *cluster.Spec.CleanupData {
 		pvcs := &corev1.PersistentVolumeClaimList{}
 		err := k8sClient.List(ctx, pvcs, client.InNamespace(cluster.Namespace), client.MatchingLabels(target.PodLabels(cluster)))
 		if apierrors.IsNotFound(err) {

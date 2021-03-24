@@ -38,7 +38,7 @@ func NewAISClusterCR(args ClusterSpecArgs) *aisv1.AIStore {
 	}
 	spec := aisv1.AIStoreSpec{
 		Size:                   args.Size,
-		DeletePVCs:             aisapi.Bool(!args.PreservePVCs),
+		CleanupData:            aisapi.Bool(!args.PreservePVCs),
 		NodeImage:              aisNodeImage,
 		InitImage:              aisInitImage,
 		HostpathPrefix:         "/etc/ais",

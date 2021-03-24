@@ -36,6 +36,12 @@ spec:
           spec:
             description: AIStoreSpec defines the desired state of AIStore
             properties:
+              cleanupData:
+                description: Defines if the PVCs and (meta)data should be cleaned
+                  up when cluster is destroyed. Reclaiming of PVs associated with
+                  PVCs is defined by PV reclaim policy or default policy of associated
+                  StorageClass.
+                type: boolean
               clusterDomain:
                 description: 'Defines the cluster domain name for DNS. Default: cluster.local.'
                 type: string
@@ -307,11 +313,6 @@ spec:
                   vmodule:
                     type: string
                 type: object
-              deletePVCs:
-                description: Defines if the PVCs of targets should be deleted. Reclaiming
-                  of PVs associated with PVCs is defined by PV reclaim policy or default
-                  policy of associated StorageClass.
-                type: boolean
               disablePodAntiAffinity:
                 description: DisablePodAntiAffinity, if set allows more than one target/proxy
                   daemon pods to be scheduled on same K8s node.

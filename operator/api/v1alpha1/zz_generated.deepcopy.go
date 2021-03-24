@@ -83,8 +83,8 @@ func (in *AIStoreSpec) DeepCopyInto(out *AIStoreSpec) {
 	}
 	in.ProxySpec.DeepCopyInto(&out.ProxySpec)
 	in.TargetSpec.DeepCopyInto(&out.TargetSpec)
-	if in.DeletePVCs != nil {
-		in, out := &in.DeletePVCs, &out.DeletePVCs
+	if in.CleanupData != nil {
+		in, out := &in.CleanupData, &out.CleanupData
 		*out = new(bool)
 		**out = **in
 	}

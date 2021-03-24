@@ -54,13 +54,38 @@ func (r *AIStoreReconciler) initTargets(ctx context.Context, ais *aisv1.AIStore)
 
 func (r *AIStoreReconciler) cleanupTarget(ctx context.Context, ais *aisv1.AIStore) (updated bool, err error) {
 	return cmn.AnyFunc(
-		func() (bool, error) { return r.client.DeleteStatefulSetIfExists(ctx, target.StatefulSetNSName(ais)) },
+		func() (bool, error) { return r.cleanupTargetSS(ctx, ais) },
 		func() (bool, error) { return r.client.DeleteServiceIfExists(ctx, target.HeadlessSVCNSName(ais)) },
 		func() (bool, error) {
 			return r.client.DeleteAllServicesIfExist(ctx, ais.Namespace, target.ExternalServiceLabels(ais))
 		},
 		func() (bool, error) { return r.client.DeleteConfigMapIfExists(ctx, target.ConfigMapNSName(ais)) },
 	)
+}
+
+func (r *AIStoreReconciler) cleanupTargetSS(ctx context.Context, ais *aisv1.AIStore) (anyUpdated bool, err error) {
+	// Check status of all target pods, if any target pod is in non-termination
+	// state implies the statefulset is not yet deleted. Attempt to gracefully shutdown cluster.
+	targetPods := &corev1.PodList{}
+	err = r.client.List(ctx, targetPods, client.InNamespace(ais.Namespace), client.MatchingLabels(target.PodLabels(ais)))
+	if err != nil {
+		r.log.Error(err, "failed to list target pods")
+	}
+
+	if err == nil {
+		var anyRunning bool
+		for idx := range targetPods.Items {
+			pod := targetPods.Items[idx]
+			if pod.Status.Reason != "Terminating" {
+				anyRunning = true
+				break
+			}
+		}
+		if anyRunning {
+			r.attemptGracefulShutdown(ctx, ais)
+		}
+	}
+	return r.client.DeleteStatefulSetIfExists(ctx, target.StatefulSetNSName(ais))
 }
 
 func (r *AIStoreReconciler) handleTargetState(ctx context.Context, ais *aisv1.AIStore) (ready bool, err error) {

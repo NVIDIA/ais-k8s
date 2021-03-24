@@ -10,10 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ais-operator/pkg/resources/cmn"
-	"github.com/ais-operator/pkg/resources/proxy"
-	"github.com/ais-operator/pkg/resources/statsd"
-	"github.com/ais-operator/pkg/resources/target"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -28,6 +24,10 @@ import (
 	"github.com/NVIDIA/aistore/cmn/cos"
 	aisv1 "github.com/ais-operator/api/v1alpha1"
 	aisclient "github.com/ais-operator/pkg/client"
+	"github.com/ais-operator/pkg/resources/cmn"
+	"github.com/ais-operator/pkg/resources/proxy"
+	"github.com/ais-operator/pkg/resources/statsd"
+	"github.com/ais-operator/pkg/resources/target"
 )
 
 const (
@@ -132,8 +132,30 @@ func (r *AIStoreReconciler) cleanup(ctx context.Context, ais *aisv1.AIStore) (an
 	)
 }
 
+func (r *AIStoreReconciler) attemptGracefulShutdown(ctx context.Context, ais *aisv1.AIStore) {
+	params, err := r.getAPIParams(ctx, ais)
+	if err != nil {
+		r.log.Error(err, "failed to create BaseAPIParams")
+		return
+	}
+	// TODO: Decommission/Shutdown cluster APIs always return an error
+	// as the AIS daemon handling the request is shutdown before responding back.
+	// We shouldn't ignore all the errors here.
+	if ais.Spec.CleanupData != nil && *ais.Spec.CleanupData {
+		// If cleanup flag is set, decommission the cluster, i.e.,
+		// cleanup all (meta)data before destroying the cluster.
+		if err = aisapi.DecommissionCluster(*params); err != nil {
+			r.log.Error(err, "failed to gracefully decommission cluster")
+		}
+		return
+	}
+	if err = aisapi.ShutdownCluster(*params); err != nil {
+		r.log.Error(err, "failed to gracefully shutdown cluster")
+	}
+}
+
 func (r *AIStoreReconciler) cleanupVolumes(ctx context.Context, ais *aisv1.AIStore) (anyUpdated bool, err error) {
-	if ais.Spec.DeletePVCs == nil || !*ais.Spec.DeletePVCs {
+	if ais.Spec.CleanupData == nil || !*ais.Spec.CleanupData {
 		return
 	}
 	return r.client.DeleteAllPVCsIfExist(ctx, ais.Namespace, target.PodLabels(ais))
@@ -376,7 +398,6 @@ func (r *AIStoreReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 // getAPIParams gets BaseAPIParams for the given AIS cluster.
 // Gets a cached object if exists, else creates a new one.
-// nolint:unused // will be used lated
 func (r *AIStoreReconciler) getAPIParams(ctx context.Context,
 	ais *aisv1.AIStore) (baseParams *aisapi.BaseParams, err error) {
 	var exists bool
@@ -443,7 +464,6 @@ func (r *AIStoreReconciler) recordError(ais *aisv1.AIStore, err error, msg strin
 	r.recorder.Eventf(ais, corev1.EventTypeWarning, EventReasonFailed, "%s, err: %v", msg, err)
 }
 
-// nolint:unused // will be used lated
 func (r *AIStoreReconciler) newAISBaseParams(ctx context.Context,
 	ais *aisv1.AIStore) (params *aisapi.BaseParams, err error) {
 	// TODO:

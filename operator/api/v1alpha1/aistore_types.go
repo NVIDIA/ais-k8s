@@ -63,11 +63,11 @@ type AIStoreSpec struct {
 	ProxySpec  DaemonSpec `json:"proxySpec"`  // spec for proxy
 	TargetSpec TargetSpec `json:"targetSpec"` // spec for target
 
-	// Defines if the PVCs of targets should be deleted.
+	// Defines if the PVCs and (meta)data should be cleaned up when cluster is destroyed.
 	// Reclaiming of PVs associated with PVCs is defined by PV reclaim policy
 	// or default policy of associated StorageClass.
 	// +optional
-	DeletePVCs *bool `json:"deletePVCs"`
+	CleanupData *bool `json:"cleanupData,omitempty"`
 
 	// Defines the cluster domain name for DNS. Default: cluster.local.
 	// +optional
