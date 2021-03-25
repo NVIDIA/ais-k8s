@@ -133,7 +133,18 @@ func (r *AIStoreReconciler) cleanup(ctx context.Context, ais *aisv1.AIStore) (an
 }
 
 func (r *AIStoreReconciler) attemptGracefulShutdown(ctx context.Context, ais *aisv1.AIStore) {
-	params, err := r.getAPIParams(ctx, ais)
+	var (
+		params *aisapi.BaseParams
+		err    error
+	)
+	// NOTE: If the AIS operator is deployed on the same K8s cluster as AIStore, we always
+	// attempt to shutdown the cluster through primary proxy. This is done to avoid
+	// unexpected HTTP or K8s service errors.
+	if r.isExternal {
+		params, err = r.getAPIParams(ctx, ais)
+	} else {
+		params, err = r.primaryBaseParams(ctx, ais)
+	}
 	if err != nil {
 		r.log.Error(err, "failed to create BaseAPIParams")
 		return
@@ -464,22 +475,21 @@ func (r *AIStoreReconciler) recordError(ais *aisv1.AIStore, err error, msg strin
 	r.recorder.Eventf(ais, corev1.EventTypeWarning, EventReasonFailed, "%s, err: %v", msg, err)
 }
 
+func (r *AIStoreReconciler) primaryBaseParams(ctx context.Context, ais *aisv1.AIStore) (params *aisapi.BaseParams, err error) {
+	baseParams, err := r.getAPIParams(ctx, ais)
+	if err != nil {
+		return nil, err
+	}
+	smap, err := aisapi.GetClusterMap(*baseParams)
+	if err != nil {
+		return nil, err
+	}
+	return r._baseParams(ais, smap.Primary.URL(aiscmn.NetworkPublic)), nil
+}
+
 func (r *AIStoreReconciler) newAISBaseParams(ctx context.Context,
 	ais *aisv1.AIStore) (params *aisapi.BaseParams, err error) {
-	// TODO:
-	// 1. Get timeout from config
-	// 2. `UseHTTPS` should be set based on cluster config
-	// 3. Should handle auth
-	var (
-		serviceHostname string
-		client          = aiscmn.NewClient(aiscmn.TransportArgs{
-			Timeout:          600 * time.Second,
-			IdleConnsPerHost: 100,
-			UseHTTPProxyEnv:  true,
-			UseHTTPS:         false,
-		})
-	)
-
+	var serviceHostname string
 	// If LoadBalancer is configured and `isExternal` flag is set use the LB service to contact the API.
 	if r.isExternal && ais.Spec.EnableExternalLB {
 		var proxyLBSVC *corev1.Service
@@ -503,9 +513,24 @@ func (r *AIStoreReconciler) newAISBaseParams(ctx context.Context,
 	serviceHostname = proxy.HeadlessSVCNSName(ais).Name + "." + ais.Namespace
 
 createParams:
-	params = &aisapi.BaseParams{
+	url := fmt.Sprintf("http://%s:%s", serviceHostname, ais.Spec.ProxySpec.ServicePort.String())
+	return r._baseParams(ais, url), nil
+}
+
+func (r *AIStoreReconciler) _baseParams(_ *aisv1.AIStore, url string) *aisapi.BaseParams {
+	// TODO:
+	// 1. Get timeout from config
+	// 2. `UseHTTPS` should be set based on cluster config
+	// 3. Should handle auth
+	client := aiscmn.NewClient(aiscmn.TransportArgs{
+		Timeout:          600 * time.Second,
+		IdleConnsPerHost: 100,
+		UseHTTPProxyEnv:  true,
+		UseHTTPS:         false,
+	})
+
+	return &aisapi.BaseParams{
 		Client: client,
-		URL:    fmt.Sprintf("http://%s:%s", serviceHostname, ais.Spec.ProxySpec.ServicePort.String()),
+		URL:    url,
 	}
-	return
 }

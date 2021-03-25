@@ -57,6 +57,18 @@ func (c *K8sClient) GetStatefulSet(ctx context.Context, name types.NamespacedNam
 	return ss, err
 }
 
+func (c *K8sClient) StatefulSetExists(ctx context.Context, name types.NamespacedName) (exists bool, err error) {
+	_, err = c.GetStatefulSet(ctx, name)
+	if err == nil {
+		exists = true
+		return
+	}
+	if apierrors.IsNotFound(err) {
+		err = nil
+	}
+	return
+}
+
 func (c *K8sClient) GetServiceByName(ctx context.Context, name types.NamespacedName) (*corev1.Service, error) {
 	svc := &corev1.Service{}
 	err := c.Get(ctx, name, svc)

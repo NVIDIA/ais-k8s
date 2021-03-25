@@ -67,28 +67,16 @@ func (r *AIStoreReconciler) cleanupTarget(ctx context.Context, ais *aisv1.AIStor
 }
 
 func (r *AIStoreReconciler) cleanupTargetSS(ctx context.Context, ais *aisv1.AIStore) (anyUpdated bool, err error) {
-	// Check status of all target pods, if any target pod is in non-termination
-	// state implies the statefulset is not yet deleted. Attempt to gracefully shutdown cluster.
-	targetPods := &corev1.PodList{}
-	err = r.client.List(ctx, targetPods, client.InNamespace(ais.Namespace), client.MatchingLabels(target.PodLabels(ais)))
-	if err != nil {
-		r.log.Error(err, "failed to list target pods")
+	// If the target statefulset it not present, we can return immediately.
+	targetSS := target.StatefulSetNSName(ais)
+	if exists, err := r.client.StatefulSetExists(ctx, targetSS); err != nil || !exists {
+		return false, err
 	}
 
-	if err == nil {
-		var anyRunning bool
-		for idx := range targetPods.Items {
-			pod := targetPods.Items[idx]
-			if pod.Status.Reason != "Terminating" {
-				anyRunning = true
-				break
-			}
-		}
-		if anyRunning {
-			r.attemptGracefulShutdown(ctx, ais)
-		}
-	}
-	return r.client.DeleteStatefulSetIfExists(ctx, target.StatefulSetNSName(ais))
+	// If we reach here implies, we didn't attempt to shutdown the cluster yet.
+	// Attempt graceful cluster shutdown followed by deleting target statefulset.
+	r.attemptGracefulShutdown(ctx, ais)
+	return r.client.DeleteStatefulSetIfExists(ctx, targetSS)
 }
 
 func (r *AIStoreReconciler) handleTargetState(ctx context.Context, ais *aisv1.AIStore) (ready bool, err error) {
