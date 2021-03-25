@@ -24,6 +24,7 @@ type SkipArgs struct {
 	RequiredProvider string
 	OnlyLong         bool
 	RequiresLB       bool
+	SkipInternal     bool // test should run inside K8s cluster
 }
 
 func init() {
@@ -58,6 +59,10 @@ func GetLBExistenceTimeout() (timeout, interval time.Duration) {
 func CheckSkip(args *SkipArgs) {
 	if args.OnlyLong && shortTestsOnly {
 		ginkgo.Skip("Skipping test in short mode")
+	}
+
+	if args.SkipInternal {
+		ginkgo.Skip("Skipping test; requires test to run inside K8s cluster")
 	}
 
 	if args.RequiresLB {

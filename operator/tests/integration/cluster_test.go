@@ -162,6 +162,7 @@ var _ = Describe("Run Controller", func() {
 	Context("Scale existing cluster", func() {
 		Context("without externalLB", func() {
 			It("Should be able to scale-up existing cluster", func() {
+				tutils.CheckSkip(&tutils.SkipArgs{SkipInternal: testAsExternalClient})
 				cluArgs := tutils.ClusterSpecArgs{
 					Name:                clusterName(),
 					Namespace:           testNSName,
@@ -177,6 +178,7 @@ var _ = Describe("Run Controller", func() {
 			})
 
 			It("Should be able to scale-down existing cluster", func() {
+				tutils.CheckSkip(&tutils.SkipArgs{SkipInternal: testAsExternalClient})
 				cluArgs := tutils.ClusterSpecArgs{
 					Name:                clusterName(),
 					Namespace:           testNSName,

@@ -107,7 +107,6 @@ func (r *AIStoreReconciler) handleTargetScaling(ctx context.Context, ais *aisv1.
 	return r.handleTargetScaleDown(ctx, ais, ss, targetSS)
 }
 
-// TODO: Decommission a target first to avoid data loss.
 func (r *AIStoreReconciler) handleTargetScaleDown(ctx context.Context, ais *aisv1.AIStore, ss *v1.StatefulSet, targetSS types.NamespacedName) (ready bool, err error) {
 	if ais.Spec.EnableExternalLB {
 		ready = true
