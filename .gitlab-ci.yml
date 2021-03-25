@@ -75,7 +75,7 @@ operator:minikube:short:
   <<: *default_only_def
   tags:
     - ais-k8s
-  timeout: 15m
+  timeout: 18m
   script:
     - make -C operator test-short
 
@@ -85,7 +85,7 @@ operator:minikube:long:
   image: aistore/ci:1.15
   tags:
     - ais-k8s
-  timeout: 30m
+  timeout: 40m
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'

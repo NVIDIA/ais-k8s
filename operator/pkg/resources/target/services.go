@@ -37,6 +37,10 @@ func LoadBalancerSVCNSName(ais *aisv1.AIStore, index int32) types.NamespacedName
 	}
 }
 
+func PodName(ais *aisv1.AIStore, index int32) string {
+	return fmt.Sprintf("%s-%d", statefulSetName(ais), index)
+}
+
 func ExternalServiceLabels(ais *aisv1.AIStore) map[string]string {
 	return map[string]string{
 		"app":  ais.Name,

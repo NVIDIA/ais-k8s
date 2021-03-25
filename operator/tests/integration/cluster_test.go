@@ -275,6 +275,48 @@ var _ = Describe("Run Controller", func() {
 			cc.cleanup()
 		})
 
+		It("Cluster scale down should ensure data safety", func() {
+			tutils.CheckSkip(&tutils.SkipArgs{OnlyLong: true})
+			cluArgs := tutils.ClusterSpecArgs{
+				Name:                clusterName(),
+				Namespace:           testNSName,
+				StorageClass:        storageClass,
+				Size:                2,
+				DisableAntiAffinity: true,
+				EnableExternalLB:    testAsExternalClient,
+			}
+			cc := newClientCluster(cluArgs)
+			cc.create()
+			// put objects
+			var (
+				bck       = aiscmn.Bck{Name: "TEST_BUCKET", Provider: aiscmn.ProviderAIS}
+				objPrefix = "test-opr/"
+				baseParam = aistutils.BaseAPIParams(proxyURL)
+			)
+			aisapi.DestroyBucket(baseParam, bck)
+			err := aisapi.CreateBucket(baseParam, bck, nil)
+			Expect(err).ShouldNot(HaveOccurred())
+			names, failCnt, err := aistutils.PutRandObjs(aistutils.PutObjectsArgs{
+				ProxyURL:  proxyURL,
+				Bck:       bck,
+				ObjPath:   objPrefix,
+				ObjCnt:    10,
+				ObjSize:   10 * cos.KiB,
+				FixedSize: true,
+				CksumType: cos.ChecksumXXHash,
+				IgnoreErr: false,
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(failCnt).To(Equal(0))
+			aistutils.EnsureObjectsExist(testCtx, baseParam, bck, names...)
+
+			// Scale down cluster
+			scaleCluster(context.TODO(), cc.cluster, -1)
+
+			aistutils.EnsureObjectsExist(testCtx, aistutils.BaseAPIParams(proxyURL), bck, names...)
+			cc.cleanup()
+		})
+
 		It("Re-deploying without preserving PVCs should wipeout all data", func() {
 			tutils.CheckSkip(&tutils.SkipArgs{OnlyLong: true})
 			cluArgs := tutils.ClusterSpecArgs{

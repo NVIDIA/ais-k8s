@@ -38,14 +38,14 @@ func GetClusterCreateTimeout() time.Duration {
 	if GetK8sClusterProvider() == K8sProviderGKE {
 		return 4 * time.Minute
 	}
-	return time.Minute
+	return 2 * time.Minute
 }
 
 func GetClusterCreateLongTimeout() time.Duration {
 	if GetK8sClusterProvider() == K8sProviderGKE {
 		return 6 * time.Minute
 	}
-	return 2 * time.Minute
+	return 4 * time.Minute
 }
 
 func GetLBExistenceTimeout() (timeout, interval time.Duration) {

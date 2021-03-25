@@ -14,6 +14,7 @@ const (
 	EnvDaemonRole           = "AIS_NODE_ROLE"                    // Role of AIS daemon (Proxy or Target)
 	EnvProxyServiceName     = "CLUSTERIP_PROXY_SERVICE_HOSTNAME" // Service name of Proxy StatefulSets
 	EnvProxyServicePort     = "CLUSTERIP_PROXY_SERVICE_PORT"     // Port used by Proxy Service
+	EnvNodeServicePort      = "AIS_NODE_SERVICE_PORT"            // PublicNet service port
 	EnvDefaultPrimaryPod    = "AIS_DEFAULT_PRIMARY"              // Default Primary pod name
 	EnvCIDR                 = "AIS_CLUSTER_CIDR"                 // CIDR to use
 	EnvClusterDomain        = "AIS_K8S_CLUSTER_DOMAIN"           // K8s cluster DNS domain

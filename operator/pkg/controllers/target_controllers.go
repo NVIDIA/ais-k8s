@@ -6,6 +6,7 @@ package controllers
 
 import (
 	"context"
+	"strings"
 
 	"github.com/ais-operator/pkg/resources/cmn"
 	v1 "k8s.io/api/apps/v1"
@@ -13,6 +14,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	aisapi "github.com/NVIDIA/aistore/api"
+	aiscmn "github.com/NVIDIA/aistore/cmn"
 	aisv1 "github.com/ais-operator/api/v1alpha1"
 	"github.com/ais-operator/pkg/resources/target"
 )
@@ -133,9 +136,47 @@ func (r *AIStoreReconciler) handleTargetScaleDown(ctx context.Context, ais *aisv
 		}
 	}
 
+	// Decommission target scaling down statefulset
+	decomissioning, err := r.decommissionTargets(ctx, ais, *ss.Spec.Replicas)
+	if decomissioning || err != nil {
+		return false, err
+	}
+
 	// If anything was updated, we consider it not immediately ready.
 	updated, err := r.client.UpdateStatefulSetReplicas(ctx, targetSS, ais.Spec.Size)
 	return !updated, err
+}
+
+func (r *AIStoreReconciler) decommissionTargets(ctx context.Context, ais *aisv1.AIStore, actualSize int32) (decommissioning bool, err error) {
+	params, err := r.getAPIParams(ctx, ais)
+	if err != nil {
+		return false, err
+	}
+
+	smap, err := aisapi.GetClusterMap(*params)
+	if err != nil {
+		return false, err
+	}
+
+	toDecommission := 0
+	for idx := actualSize; idx > ais.Spec.Size; idx-- {
+		podName := target.PodName(ais, idx-1)
+		for _, node := range smap.Tmap {
+			if !strings.HasPrefix(node.IntraControlNet.NodeHostname, podName) {
+				continue
+			}
+			toDecommission++
+			if !smap.Tmap.InMaintenance(node) {
+				r.log.Info("decommissioning node - " + node.String())
+				_, err = aisapi.Decommission(*params, &aiscmn.ActValRmNode{DaemonID: node.ID(), CleanData: true})
+				if err != nil {
+					return
+				}
+			}
+		}
+	}
+	decommissioning = toDecommission != 0
+	return
 }
 
 func (r *AIStoreReconciler) handleTargetScaleUp(ctx context.Context, ais *aisv1.AIStore, targetSS types.NamespacedName) (ready bool, err error) {

@@ -8,7 +8,7 @@ const (
 	livenessSh = `
 	#!/bin/bash
  
-	health_url="http://localhost:${CLUSTERIP_PROXY_SERVICE_PORT}/v1/health"
+	health_url="http://localhost:${AIS_NODE_SERVICE_PORT}/v1/health"
 
 	stat=$(curl -X GET -o /dev/null --max-time 5 --silent -w "%{http_code}" "${health_url}")
 	if [[ ${stat} == "200" ]]; then 
