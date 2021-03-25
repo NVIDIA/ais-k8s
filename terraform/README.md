@@ -78,6 +78,7 @@ There are 3 `DEPLOY_TYPE`s:
 | `--aisnode-image` | The image name of `aisnode` container. | `aistore/aisnode:3.3.1` |
 | `--admin-image` | The image name of `admin` container. | `aistore/admin:3.3` |
 | `--dataplane` | Network dataplane to be used (`kube-proxy` or `cilium`) | `kube-proxy` |
+| `--expose-external` | Will expose AIStore cluster externally by assigning an external IP. |
 | `--aws` | Path to AWS credentials directory. | - |
 | `--help` | Show help message. | - |
 
@@ -127,9 +128,9 @@ Summary:
 
 ### Network Dataplane
 
-The deployment scripts provide an option to replace the default [kube-proxy](https://kubernetes.io/docs/reference/command-line-tools-reference/kube-proxy/) networking dataplane with [Cilium](https://cilium.io/), an open-source project that provides a highly scalable [eBPF](https://ebpf.io/) based K8S CNI. 
+The deployment scripts provide an option to replace the default [kube-proxy](https://kubernetes.io/docs/reference/command-line-tools-reference/kube-proxy/) networking dataplane with [Cilium](https://cilium.io/), an open-source project that provides a highly scalable [eBPF](https://ebpf.io/) based K8S CNI.
 
-Replacing `kube-proxy` with Cilium enables us to leverage the Direct Server Return (DSR) feature, which allows the AIStore targets to reply directly to the external client avoiding any additional network hops, hence reducing network latency. 
+Replacing `kube-proxy` with Cilium enables us to leverage the Direct Server Return (DSR) feature, which allows the AIStore targets to reply directly to the external client avoiding any additional network hops, hence reducing network latency.
 
 To deploy AIS with Cilium enabled, we use the `--dataplane` argument as follows:
 ```console
@@ -139,7 +140,7 @@ $ ./deploy.sh all --cloud=gcp --node-cnt=2 --disk-cnt=2 --dataplane=cilium
 Above command deploys Cilium components and replaces `kube-proxy`.
 To verify the setup, execute the following commands:
 ```console
-$ kubectl get pods -n cilium 
+$ kubectl get pods -n cilium
 NAME                               READY   STATUS             RESTARTS   AGE
 cilium-27n89                       1/1     Running            0          56m
 cilium-48xwz                       1/1     Running            0          56m
@@ -147,7 +148,7 @@ cilium-node-init-npz48             1/1     Running            0          56m
 cilium-node-init-twqvl             1/1     Running            0          56m
 cilium-operator-86cc7c989b-8qsz8   1/1     Running            0          56m
 cilium-operator-86cc7c989b-ql6rg   1/1     Running            0          56m
-$
+
 $ # To verify if AIS services use cilium
 $ kubectl exec -it  -n cilium cilium-48xwz -- cilium service list 
 ID   Frontend                 Service Type   Backend                   
@@ -157,6 +158,60 @@ ID   Frontend                 Service Type   Backend
 10   0.0.0.0:31809            NodePort       1 => 10.0.1.3:51081       
                                              2 => 10.0.2.118:51081     
 ...
+```
+
+### AIStore external access
+
+WARNING: Enabling external access will provide unrestricted access to anyone with the external IP. Therefore this option is only intended for demo/testing purposes.
+For production use, it's advised to enable HTTPS, Auth, and other security features that are not included in this script.
+
+To allow external clients to access the AIStore deployment, set the `--expose-external` flag while deploying AIS as follows:
+
+```console
+$ ./deploy.sh ais --expose-external
+...
+$ kubectl get services
+NAME                      TYPE           CLUSTER-IP     EXTERNAL-IP       PORT(S)                         AGE
+demo-ais-gw               LoadBalancer   10.3.248.251   168.121.56.107   51080:32643/TCP                 40m
+demo-ais-proxy            ClusterIP      None           <none>            51080/TCP                       40m
+demo-ais-proxy-external   LoadBalancer   10.3.248.56    102.69.81.190     51080:30691/TCP                 40m
+demo-ais-target           ClusterIP      None           <none>            51081/TCP,51082/TCP,51083/TCP   40m
+demo-ais-target-0         LoadBalancer   10.3.250.48    159.163.144.57    51081:32582/TCP                 40m
+demo-ais-target-1         LoadBalancer   10.3.252.56    26.127.50.217     51081:30825/TCP                 40m
+```
+As you can see, for an AIStore deployment with two targets, an external IP address is assigned to each target using a K8S LoadBalancer service. This setup allows external clients to connect to the targets to access data directly.
+
+You may test the deployment as follows:
+```console
+$ # Set AIS_ENDPOINT to point to external IP of `demo-ais-proxy-external` service
+$ export AIS_ENDPOINT="http://102.69.81.190:51080"
+$ ais show cluster smap
+DAEMON ID        TYPE    PUBLIC URL
+AJnmssQh         proxy   http://10.0.1.198:51080
+YTBHKlCX[P]      proxy   http://10.0.2.22:51080
+
+DAEMON ID        TYPE    PUBLIC URL
+JDvxawSR         target  http://159.163.144.57:51081
+QGXpMjRa         target  http://26.127.50.217:51081
+
+Non-Electable:
+
+Primary Proxy: YTBHKlCX
+Proxies: 2       Targets: 2      Smap Version: 7
+
+$ # Put and get objects
+$ mkdir tmp && for i in {0..100}; do echo "HELLO" > tmp/${i}; done
+$ ais create bucket test
+$ ais put tmp ais://test
+Files to upload:
+EXTENSION        COUNT   SIZE
+                 101     606B
+TOTAL           101     606B
+Proceed uploading to bucket "ais://test"? [Y/N]: y
+101 objects put into "ais://test" bucket
+$ ais get test/2 -
+HELLO
+"2" has the size 6B (6 B)
 ```
 
 ## Destroy

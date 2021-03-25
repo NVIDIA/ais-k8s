@@ -54,6 +54,8 @@ spec:
               value: "target"
             - name: K8S_NS
               value: {{ .Release.Namespace }}
+            - name: MY_SERVICE_TYPE
+              value: {{ .Values.target.service.type }}
             - name: MY_SERVICE
               value: {{ template "ais.fullname" . }}-target
           command:
@@ -116,6 +118,8 @@ spec:
               hostPort: {{ .Values.aiscluster.target.hostPort }}
               {{ end }}
               protocol: TCP
+          command: ["/bin/bash", "-c"]
+          args: ["source /var/ais_env/env; /ais_docker_start.sh"]
           volumeMounts:
             - name: state-mount
               mountPath: "/etc/ais"

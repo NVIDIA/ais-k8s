@@ -1,24 +1,27 @@
-{{ if and (ne .Values.target.service.type "") (ne .Values.target.service.type "ClusterIP") }}
+{{ if eq .Values.target.service.type  "LoadBalancer" }}
+{{- $root := . -}}
+{{ range $podIndex := until (int .Values.aiscluster.expected_target_nodes) -}}
+---
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ template "ais.fullname" . }}-target-external
+  name: {{ template "ais.fullname" $root }}-target-{{ $podIndex }}
   annotations:
     prometheus.io/scrape: 'true'
   labels:
-    app: {{ template "ais.name" . }}
-    chart: {{ template "ais.chart" . }}
-    release: {{ .Release.Name }}
-    heritage: {{ .Release.Service }}
+    app: {{ template "ais.name" $root }}
+    chart: {{ template "ais.chart" $root }}
+    release: {{ $root.Release.Name }}
+    heritage: {{ $root.Release.Service }}
 spec:
-  type: {{ .Values.target.service.type }}
+  type: {{ $root.Values.target.service.type }}
   ports:
-    - port: {{ .Values.target.service.port }}
-      targetPort: {{ .Values.target.service.port }}
+    - port: {{ $root.Values.target.service.port }}
+      targetPort: {{ $root.Values.target.service.port }}
       protocol: TCP
       name: http
   selector:
-      app: "{{ template "ais.name" . }}"
-      release: "{{ .Release.Name }}"
-      function: "storage"
+      statefulset.kubernetes.io/pod-name: {{ template "ais.fullname" $root }}-target-{{ $podIndex }}
+{{ end }}
+---
 {{ end }}

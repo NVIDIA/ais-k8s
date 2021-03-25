@@ -9,6 +9,10 @@ print_error() {
   exit 1
 }
 
+print_warning() {
+  echo "WARNING: $1."
+}
+
 check_number() {
   if ! [[ "$1" =~ ^[0-9]+$ ]] ; then
     print_error "$2 '$1' is not a number"

@@ -6,6 +6,10 @@ source scripts/utils.sh
 source scripts/volumes.sh
 
 deploy_ais() {
+  if [[ "${expose_external}" == "true" ]]; then
+    print_warning "Exposing AIStore externally will provide unrestricted access to anyone having external IP"
+  fi
+
   node_cnt=$(kubectl get nodes --no-headers | wc -l | xargs)
   if [[ ${node_cnt} -le 0 ]]; then
     print_error "kubectl does not have any nodes assigned, try 'deploy.sh all'"
@@ -50,6 +54,10 @@ deploy_ais() {
   pushd ../helm/ais 1>/dev/null
 
   helm_args="--set tags.builtin_monitoring=false,tags.prometheus=false,aiscluster.expected_target_nodes=${node_cnt},aiscluster.expected_proxy_nodes=${node_cnt},aiscluster.skipHostIP=true,admin.enabled=true,aiscluster.awsSecretName=${aws_secret_name}"
+  if [[ "${expose_external}" == "true" ]]; then
+    helm_args="${helm_args},target.service.type=LoadBalancer,proxy.service.type=LoadBalancer"
+  fi
+
   if [[ -n ${wait_timeout} ]]; then
     helm_args="${helm_args} --timeout ${wait_timeout} --wait"
     echo "⏳ Waiting for the AIStore to fully start, it may take couple minutes..."
@@ -249,6 +257,8 @@ while (( "$#" )); do
 
     --aws) aws_creds_dir=$2; shift; shift;;
     --aws=*) aws_creds_dir="${1#*=}"; shift;;
+
+    --expose-external) expose_external=true; shift;;
 
     --help) print_help; exit 0;;
 
