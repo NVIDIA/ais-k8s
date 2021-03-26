@@ -5,6 +5,7 @@
 package proxy
 
 import (
+	"fmt"
 	"strconv"
 
 	apiv1 "k8s.io/api/apps/v1"
@@ -26,6 +27,10 @@ func StatefulSetNSName(ais *aisv1.AIStore) types.NamespacedName {
 		Name:      statefulSetName(ais),
 		Namespace: ais.Namespace,
 	}
+}
+
+func PodName(ais *aisv1.AIStore, idx int32) string {
+	return fmt.Sprintf("%s-%d", statefulSetName(ais), idx)
 }
 
 // DefaultPrimaryName returns name of pod used as default Primary
