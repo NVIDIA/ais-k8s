@@ -11,8 +11,6 @@ import (
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 
-	aisv1 "github.com/ais-operator/api/v1alpha1"
-	"github.com/ais-operator/pkg/controllers"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -20,6 +18,9 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	aisv1 "github.com/ais-operator/api/v1alpha1"
+	"github.com/ais-operator/pkg/controllers"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -75,6 +76,10 @@ func main() {
 		deployTypeExternal,
 	).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "AIStore")
+		os.Exit(1)
+	}
+	if err = (&aisv1.AIStore{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "AIStore")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder

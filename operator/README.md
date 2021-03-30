@@ -12,10 +12,18 @@ This folder contains **AIS K8S Operator** that provides for deployment, bootstra
 * `kubectl`
 
 To deploy AIS operator on an existing K8s cluster, execute the following commands:
+
+AIS operator employs [admission webhooks](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/) to enforce the validity of the managed AIS cluster.
+AIS operator runs a webhook server with `tls` enabled, responsible for validating each AIS cluster resource being created or updated.
+[Operator-SDK](https://sdk.operatorframework.io/) recommends using [cert-manager](https://github.com/jetstack/cert-manager) for provisioning the certificates required by the webhook server, however, any solution which can provide certificates to the AIS operator pod at location `/tmp/k8s-webhook-server/serving-certs/tls.(crt/key)`, should work.
+ 
+For quick deployment, the `deploy` command provides an option to deploy a basic version of `cert-manager`. However, for more advanced deployments it's recommended to follow [cert-manager documentation](https://cert-manager.io/docs/installation/kubernetes/).
+
 ```console
 # Deploy AIS Operator
 $ IMG=aistore/ais-operator:latest make deploy
-
+would you like to deploy cert-manager? [y/n]
+...
 # Ensure the operator is ready
 $ kubectl get pods -n ais-operator-system
 NAME                                               READY   STATUS    RESTARTS   AGE
