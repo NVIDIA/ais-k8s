@@ -105,6 +105,20 @@ func (c *K8sClient) UpdateStatefulSetReplicas(ctx context.Context, name types.Na
 	return
 }
 
+func (c *K8sClient) UpdateStatefulSetImage(ctx context.Context, name types.NamespacedName, idx int, newImage string) (updated bool, err error) {
+	ss, err := c.GetStatefulSet(ctx, name)
+	if err != nil {
+		return
+	}
+	updated = ss.Spec.Template.Spec.Containers[idx].Image != newImage
+	if !updated {
+		return
+	}
+	ss.Spec.Template.Spec.Containers[idx].Image = newImage
+	err = c.Update(ctx, ss)
+	return
+}
+
 func (c *K8sClient) CreateResourceIfNotExists(ctx context.Context, owner *aisv1.AIStore, res client.Object) (exists bool, err error) {
 	if owner != nil {
 		if err = controllerutil.SetControllerReference(owner, res, c.scheme); err != nil {

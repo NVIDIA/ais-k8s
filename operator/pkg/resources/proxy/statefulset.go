@@ -46,7 +46,7 @@ func DefaultPrimaryNSName(ais *aisv1.AIStore) types.NamespacedName {
 }
 
 func NewProxyStatefulSet(ais *aisv1.AIStore, size int32) *apiv1.StatefulSet {
-	ls := podLabels(ais)
+	ls := PodLabels(ais)
 	proxySpec := proxyPodSpec(ais)
 	return &apiv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
@@ -131,7 +131,7 @@ func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
 				ReadinessProbe:  readinessProbe(),
 			},
 		},
-		Affinity:           cmn.NewAISPodAffinity(ais, ais.Spec.ProxySpec.Affinity, podLabels(ais)),
+		Affinity:           cmn.NewAISPodAffinity(ais, ais.Spec.ProxySpec.Affinity, PodLabels(ais)),
 		ServiceAccountName: cmn.ServiceAccountName(ais),
 		SecurityContext:    ais.Spec.ProxySpec.SecurityContext,
 		Volumes:            cmn.NewAISVolumes(ais, aiscmn.Proxy),
@@ -139,7 +139,7 @@ func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
 	}
 }
 
-func podLabels(ais *aisv1.AIStore) map[string]string {
+func PodLabels(ais *aisv1.AIStore) map[string]string {
 	return map[string]string{
 		"app":       ais.Name,
 		"component": aiscmn.Proxy,

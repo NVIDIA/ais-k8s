@@ -73,7 +73,7 @@ func NewProxyHeadlessSvc(ais *aisv1.AIStore) *corev1.Service {
 					TargetPort: dataPort,
 				},
 			},
-			Selector: podLabels(ais),
+			Selector: PodLabels(ais),
 		},
 	}
 }
@@ -102,7 +102,7 @@ func NewProxyLoadBalancerSVC(ais *aisv1.AIStore) *corev1.Service {
 					TargetPort: publicNetPort,
 				},
 			},
-			Selector: podLabels(ais),
+			Selector: PodLabels(ais),
 		},
 	}
 }

@@ -6,15 +6,20 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
+
+	apiv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	aisapi "github.com/NVIDIA/aistore/api"
 	aiscmn "github.com/NVIDIA/aistore/cmn"
 	aisv1 "github.com/ais-operator/api/v1alpha1"
 	"github.com/ais-operator/pkg/resources/cmn"
 	"github.com/ais-operator/pkg/resources/proxy"
-	corev1 "k8s.io/api/core/v1"
 )
 
 const primaryStartTimeout = time.Minute * 3
@@ -83,13 +88,17 @@ func (r *AIStoreReconciler) cleanupProxy(ctx context.Context, ais *aisv1.AIStore
 }
 
 func (r *AIStoreReconciler) handleProxyState(ctx context.Context, ais *aisv1.AIStore) (ready bool, err error) {
-	proxySSName := proxy.StatefulSetNSName(ais)
+	if hasLatest, err := r.handleProxyImage(ctx, ais); !hasLatest || err != nil {
+		return false, err
+	}
 
+	proxySSName := proxy.StatefulSetNSName(ais)
 	// Fetch the latest statefulset for proxies and check if it's spec (for now just replicas), matches the AIS cluster spec.
 	ss, err := r.client.GetStatefulSet(ctx, proxySSName)
 	if err != nil {
 		return ready, err
 	}
+
 	if *ss.Spec.Replicas != ais.Spec.Size {
 		if *ss.Spec.Replicas > ais.Spec.Size {
 			// If the cluster is scaling down, ensure the pod being delete is not primary.
@@ -105,6 +114,104 @@ func (r *AIStoreReconciler) handleProxyState(ctx context.Context, ais *aisv1.AIS
 
 	// For now, state of proxy is considered ready if the number of proxy pods ready matches the size provided in AIS cluster spec.
 	return ss.Status.ReadyReplicas == ais.Spec.Size, nil
+}
+
+func (r *AIStoreReconciler) handleProxyImage(ctx context.Context, ais *aisv1.AIStore) (ready bool, err error) {
+	ss, err := r.client.GetStatefulSet(ctx, proxy.StatefulSetNSName(ais))
+	if err != nil {
+		return
+	}
+	firstPodName := proxy.PodName(ais, 0)
+	updated := ss.Spec.Template.Spec.Containers[0].Image != ais.Spec.NodeImage
+	if updated {
+		if err := r.setPrimaryTo(ctx, ais, 0); err != nil {
+			r.log.Error(err, "failed to set primary proxy")
+			return false, err
+		}
+		r.log.Info("updated primary to pod " + firstPodName)
+		ss.Spec.Template.Spec.Containers[0].Image = ais.Spec.NodeImage
+		ss.Spec.UpdateStrategy = apiv1.StatefulSetUpdateStrategy{
+			Type: apiv1.RollingUpdateStatefulSetStrategyType,
+			RollingUpdate: &apiv1.RollingUpdateStatefulSetStrategy{
+				Partition: func(v int32) *int32 { return &v }(1),
+			},
+		}
+		return false, r.client.Update(ctx, ss)
+	}
+
+	podList := &corev1.PodList{}
+	err = r.client.List(ctx, podList, client.InNamespace(ais.Namespace), client.MatchingLabels(proxy.PodLabels(ais)))
+	if err != nil {
+		return
+	}
+	var (
+		toUpdate         int
+		firstYetToUpdate bool
+	)
+	for idx := range podList.Items {
+		pod := podList.Items[idx]
+		if pod.Spec.Containers[0].Image == ais.Spec.NodeImage {
+			continue
+		}
+		toUpdate++
+		firstYetToUpdate = firstYetToUpdate || pod.Name == firstPodName
+	}
+
+	// NOTE: In case of statefulset rolling update strategy,
+	// pod are updated in decending of their pod index.
+	// This implies, pod with largest index is oldest proxy,
+	// and we set it as a primary.
+	if toUpdate == 1 && firstYetToUpdate {
+		if err := r.setPrimaryTo(ctx, ais, *ss.Spec.Replicas-1); err != nil {
+			return false, err
+		}
+		// Revert statefulset partition spec
+		ss.Spec.UpdateStrategy = apiv1.StatefulSetUpdateStrategy{
+			Type: apiv1.RollingUpdateStatefulSetStrategyType,
+			RollingUpdate: &apiv1.RollingUpdateStatefulSetStrategy{
+				Partition: func(v int32) *int32 { return &v }(0),
+			},
+		}
+
+		if err := r.client.Update(ctx, ss); err != nil {
+			r.log.Error(err, "failed to update proxy statefulset update policy")
+			return false, err
+		}
+
+		// Delete the first pod to update it's docker image.
+		return false, r.client.DeletePodIfExists(ctx, types.NamespacedName{
+			Namespace: ais.Namespace,
+			Name:      firstPodName,
+		})
+	}
+	return toUpdate == 0, nil
+}
+
+func (r *AIStoreReconciler) setPrimaryTo(ctx context.Context, ais *aisv1.AIStore, podIdx int32) error {
+	podName := proxy.PodName(ais, podIdx)
+	params, err := r.getAPIParams(ctx, ais)
+	if err != nil {
+		err = fmt.Errorf("failed to obtain BaseAPIParams, err: %v", err)
+		return err
+	}
+
+	smap, err := aisapi.GetClusterMap(*params)
+	if err != nil {
+		err = fmt.Errorf("failed to obtain smap, err: %v", err)
+		return err
+	}
+
+	if strings.HasPrefix(smap.Primary.IntraControlNet.NodeHostname, podName) {
+		return nil
+	}
+
+	for _, node := range smap.Pmap {
+		if !strings.HasPrefix(node.IntraControlNet.NodeHostname, podName) {
+			continue
+		}
+		return aisapi.SetPrimaryProxy(*params, node.ID())
+	}
+	return fmt.Errorf("couldn't find a proxy node for pod %q", podName)
 }
 
 // handleProxyScaledown decommissions all the proxy nodes that will be deleted due to scale down.

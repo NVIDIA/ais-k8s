@@ -318,6 +318,9 @@ func (r *AIStoreReconciler) handleCREvents(ctx context.Context, ais *aisv1.AISto
 	if proxyReady, err = r.handleProxyState(ctx, ais); err != nil {
 		return
 	}
+	if !proxyReady {
+		goto requeue
+	}
 
 	if targetReady, err = r.handleTargetState(ctx, ais); err != nil {
 		return
@@ -327,6 +330,7 @@ func (r *AIStoreReconciler) handleCREvents(ctx context.Context, ais *aisv1.AISto
 		return r.manageSuccess(ctx, ais)
 	}
 
+requeue:
 	// We requeue till the AIStore cluster becomes ready.
 	// TODO: Remove explicit requeue after enabling event watchers for owned resources (e.g. proxy/target statefulsets).
 	if ais.IsConditionTrue(aisv1.ConditionReady.Str()) {

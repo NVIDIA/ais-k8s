@@ -80,6 +80,10 @@ func (r *AIStoreReconciler) cleanupTargetSS(ctx context.Context, ais *aisv1.AISt
 }
 
 func (r *AIStoreReconciler) handleTargetState(ctx context.Context, ais *aisv1.AIStore) (ready bool, err error) {
+	if hasLatest, err := r.handleTargetImage(ctx, ais); !hasLatest || err != nil {
+		return false, err
+	}
+
 	targetSSName := target.StatefulSetNSName(ais)
 	// Fetch the latest StatefulSet for targets and check if it's spec (for now just replicas), matches the AIS cluster spec.
 	ss, err := r.client.GetStatefulSet(ctx, targetSSName)
@@ -164,6 +168,28 @@ func (r *AIStoreReconciler) decommissionTargets(ctx context.Context, ais *aisv1.
 	}
 	decommissioning = toDecommission != 0
 	return
+}
+
+func (r *AIStoreReconciler) handleTargetImage(ctx context.Context, ais *aisv1.AIStore) (ready bool, err error) {
+	updated, err := r.client.UpdateStatefulSetImage(ctx,
+		target.StatefulSetNSName(ais), 0 /*idx*/, ais.Spec.NodeImage)
+	if updated || err != nil {
+		r.log.Info("target image updated")
+		return false, err
+	}
+
+	podList := &corev1.PodList{}
+	err = r.client.List(ctx, podList, client.InNamespace(ais.Namespace), client.MatchingLabels(target.PodLabels(ais)))
+	if err != nil {
+		return
+	}
+	for idx := range podList.Items {
+		pod := podList.Items[idx]
+		if pod.Spec.Containers[0].Image != ais.Spec.NodeImage {
+			return
+		}
+	}
+	return true, nil
 }
 
 func (r *AIStoreReconciler) handleTargetScaleUp(ctx context.Context, ais *aisv1.AIStore, targetSS types.NamespacedName) (ready bool, err error) {
