@@ -9,7 +9,7 @@ import (
 
 	. "github.com/onsi/gomega"
 
-	aisv1 "github.com/ais-operator/api/v1alpha1"
+	aisv1 "github.com/ais-operator/api/v1beta1"
 	aisclient "github.com/ais-operator/pkg/client"
 	"github.com/ais-operator/pkg/resources/proxy"
 )

@@ -30,7 +30,7 @@ NAME                                               READY   STATUS    RESTARTS   
 ais-operator-controller-manager-64c8c86f7b-8g8pj   2/2     Running   0          18s
 
 # Deploy sample AIS Cluster
-$ kubectl apply -f config/samples/ais_v1alpha1_aistore.yaml -n ais-operator-system
+$ kubectl apply -f config/samples/ais_v1beta1_aistore.yaml -n ais-operator-system
 $ kubectl get pods -n ais-operator-system
 NAME                                                  READY   STATUS    RESTARTS   AGE
 ais-operator-v2-controller-manager-64c8c86f7b-2t6jg   2/2     Running   0          5m23s
@@ -46,11 +46,11 @@ To achieve that, AIS Operator utilizes K8s `LoadBalancer` service.
 Generally, external access relies on the K8s capability to assign an external IP (or hostname) to a `LoadBalancer` services.
 Enabling external access is as easy as setting `enableExternalLB` to `true` while `applying` the AIStore cluster resource.
 
-For instance, you could update `config/samples/ais_v1alpha1_aistore.yaml` as follows:
+For instance, you could update `config/samples/ais_v1beta1_aistore.yaml` as follows:
 
 ```yaml
-# config/samples/ais_v1alpha1_sample.yaml
-apiVersion: ais.nvidia.com/v1alpha1
+# config/samples/ais_v1beta1_sample.yaml
+apiVersion: ais.nvidia.com/v1beta1
 kind: AIStore
 metadata:
   name: aistore-sample
@@ -83,8 +83,8 @@ By default, AIS operator restricts having more than one AIS target per K8s node.
 However, this constraint can be relaxed for local testing using the `disablePodAntiAffinity` property as follows:
 
 ```yaml
-# config/samples/ais_v1alpha1_sample.yaml
-apiVersion: ais.nvidia.com/v1alpha1
+# config/samples/ais_v1beta1_sample.yaml
+apiVersion: ais.nvidia.com/v1beta1
 kind: AIStore
 metadata:
   name: aistore-sample

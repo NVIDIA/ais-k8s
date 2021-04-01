@@ -1,4 +1,4 @@
 ## Append samples you want in your CSV to this file as resources ##
 resources:
-- ais_v1alpha1_aistore.yaml
+- ais_v1beta1_aistore.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

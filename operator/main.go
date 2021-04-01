@@ -19,7 +19,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	aisv1 "github.com/ais-operator/api/v1alpha1"
+	aisv1 "github.com/ais-operator/api/v1beta1"
 	"github.com/ais-operator/pkg/controllers"
 	// +kubebuilder:scaffold:imports
 )

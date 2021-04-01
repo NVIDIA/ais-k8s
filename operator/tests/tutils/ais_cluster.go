@@ -10,7 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	aisapi "github.com/NVIDIA/aistore/api"
-	aisv1 "github.com/ais-operator/api/v1alpha1"
+	aisv1 "github.com/ais-operator/api/v1beta1"
 )
 
 // TODO: Should be provided from test config.

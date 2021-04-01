@@ -9,7 +9,7 @@ import (
 
 	aiscmn "github.com/NVIDIA/aistore/cmn"
 	"github.com/NVIDIA/aistore/cmn/cos"
-	aisv1 "github.com/ais-operator/api/v1alpha1"
+	aisv1 "github.com/ais-operator/api/v1beta1"
 )
 
 var defaultAISConf = aiscmn.ClusterConfig{

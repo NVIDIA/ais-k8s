@@ -16,7 +16,7 @@ spec:
     singular: aistore
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - name: v1beta1
     schema:
       openAPIV3Schema:
         description: AIStore is the Schema for the aistores API

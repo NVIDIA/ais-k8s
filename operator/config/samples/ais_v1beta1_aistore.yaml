@@ -1,4 +1,4 @@
-apiVersion: ais.nvidia.com/v1alpha1
+apiVersion: ais.nvidia.com/v1beta1
 kind: AIStore
 metadata:
   name: aistore-sample

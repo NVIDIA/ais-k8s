@@ -6,11 +6,11 @@ resources:
 - crdVersion: v1
   group: ais
   kind: AIStore
-  version: v1alpha1
+  version: v1beta1
 - crdVersion: v1
   group: ais
   kind: AISConfig
-  version: v1alpha1
+  version: v1beta1
 version: 3-alpha
 plugins:
   manifests.sdk.operatorframework.io/v2: {}

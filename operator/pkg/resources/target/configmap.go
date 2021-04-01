@@ -11,7 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	aiscmn "github.com/NVIDIA/aistore/cmn"
-	aisv1 "github.com/ais-operator/api/v1alpha1"
+	aisv1 "github.com/ais-operator/api/v1beta1"
 	"github.com/ais-operator/pkg/resources/cmn"
 )
 

@@ -3,7 +3,7 @@
  * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
  */
 
-package v1alpha1
+package v1beta1
 
 import (
 	"fmt"
@@ -25,7 +25,7 @@ func (r *AIStore) SetupWebhookWithManager(mgr ctrl.Manager) error {
 }
 
 // change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
-// +kubebuilder:webhook:path=/validate-ais-nvidia-com-v1alpha1-aistore,mutating=false,failurePolicy=fail,sideEffects=None,groups=ais.nvidia.com,resources=aistores,verbs=create;update,versions=v1alpha1,name=vaistore.kb.io,admissionReviewVersions={v1,v1beta1}
+// +kubebuilder:webhook:path=/validate-ais-nvidia-com-v1beta1-aistore,mutating=false,failurePolicy=fail,sideEffects=None,groups=ais.nvidia.com,resources=aistores,verbs=create;update,versions=v1beta1,name=vaistore.kb.io,admissionReviewVersions={v1,v1beta1}
 
 var _ webhook.Validator = &AIStore{}
 

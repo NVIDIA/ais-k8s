@@ -1,4 +1,4 @@
-apiVersion: operators.coreos.com/v1alpha1
+apiVersion: operators.coreos.com/v1beta1
 kind: ClusterServiceVersion
 metadata:
   annotations:
@@ -14,7 +14,7 @@ spec:
       displayName: AIStore
       kind: AIStore
       name: aistores.ais.nvidia.com
-      version: v1alpha1
+      version: v1beta1
   description: AIStore operator
   displayName: aistore
   icon:

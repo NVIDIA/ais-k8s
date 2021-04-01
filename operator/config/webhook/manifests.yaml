@@ -13,14 +13,14 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /validate-ais-nvidia-com-v1alpha1-aistore
+      path: /validate-ais-nvidia-com-v1beta1-aistore
   failurePolicy: Fail
   name: vaistore.kb.io
   rules:
   - apiGroups:
     - ais.nvidia.com
     apiVersions:
-    - v1alpha1
+    - v1beta1
     operations:
     - CREATE
     - UPDATE

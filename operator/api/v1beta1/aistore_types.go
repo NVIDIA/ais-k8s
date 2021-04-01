@@ -2,7 +2,7 @@
 /*
  * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
  */
-package v1alpha1
+package v1beta1
 
 import (
 	corev1 "k8s.io/api/core/v1"

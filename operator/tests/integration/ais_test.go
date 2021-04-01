@@ -16,7 +16,7 @@ import (
 	aiscmn "github.com/NVIDIA/aistore/cmn"
 	"github.com/NVIDIA/aistore/cmn/cos"
 	aistutils "github.com/NVIDIA/aistore/devtools/tutils"
-	aisv1 "github.com/ais-operator/api/v1alpha1"
+	aisv1 "github.com/ais-operator/api/v1beta1"
 	"github.com/ais-operator/tests/tutils"
 )
 

@@ -2,7 +2,7 @@
 /*
  * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
  */
-package v1alpha1
+package v1beta1
 
 // NOTE: `*ToUpdate` structures are duplicates of `*ToUpdate` structs from AIStore main respoitory.
 // For custom types used in CRDs, `kubebuilder` auto-generates the `DeepCopyInto` method, which isn't possible for types from external packages.
