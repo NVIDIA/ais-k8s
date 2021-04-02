@@ -2,7 +2,7 @@
 
 ## Overview
 AIStore is designed to run natively on Kubernetes.
-This folder contains **AIS K8S Operator** that provides for deployment, bootstrapping, scaling up (and down), upgrading, and managing resources of the AIS clusters on Kubernetes.
+This folder contains **AIS Operator** that provides for bootstrapping, deployment, scaling up (and down), gracefully shutting down, upgrading, and managing resources of AIS clusters on Kubernetes. Technically, the project extends native Kubernetes API to automate management of all aspects of the AIStore lifecycle.
 
 > **WARNING:** AIS K8S Operator (or, simply, AIS Operator) is currently undergoing active development - non-backward compatible changes are to be expected at any moment.
 
@@ -92,6 +92,47 @@ spec:
   size: 4 # > number of K8s nodes
   disablePodAntiAffinity: true
 ...
+```
+
+## Development
+
+AIS Operator leverages [operator-sdk](https://github.com/operator-framework/operator-sdk), which provides high-level APIs, scaffolding, and code generation utilities, making the operator development easy.
+
+[operator/api/v1beta1](operator/api/v1beta1), contains `go` definitions for Custom Resource Definitions (CRDs) and Webhooks used by the operator.
+Any modifications to these type definitions requires updating of the auto-generated code ([operator/api/v1beta1/zz_generated.deepcopy.go](operator/api/v1beta1/zz_generated.deepcopy.go)) and the YAML manifests used for deploying operator related K8s resources to the cluster.
+We use the following commands to achieve this:
+
+```console
+$ # updating the auto-generated code
+$ make generate
+$ # updating the YAML manifests under config/
+$ make manifests
+```
+
+For building and pushing the operator docker images, use the following commands:
+
+```console
+$ # building the docker image
+$ IMG=<REPOSITORY>/<IMAGE_TAG> make docker-build
+$ # pushing the docker image
+$ IMG=<REPOSITORY>/<IMAGE_TAG> make docker-push
+```
+
+To deploy and test local changes using `minikube`, we recommend enabling and using docker registry with minikube, by using the following commands:
+
+```console
+$ # enable registry
+$ minikube addons enable registry
+
+$ # removing minikube's registry-fwd container if preset
+$ docker kill registry-fwd || true
+
+$ # map localhost:5000 to the registry of minikube
+$ docker run --name registry-fwd --rm -d -it --network=host alpine ash -c "apk add socat && socat TCP-LISTEN:5000,reuseaddr,fork TCP:$(minikube ip):5000"
+
+
+$ # build, push and deploy operator
+$ IMG=localhost:5000/opr-test:1 make docker-build docker-push deploy
 ```
 
 ## Testing
