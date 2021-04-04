@@ -20,7 +20,7 @@ ci-deploy:
 	@$(SHELL) $(SCRIPTS_DIR)/ci-deploy.sh
 
 ci-deploy-k8s:
-	@$(SHELL) $(SCRIPTS_DIR)/ci-deploy-k8s.sh
+	@$(SHELL) $(SCRIPTS_DIR)/ci-deploy-k8s.sh $(ARGS)
 
 ci-test:
 	@$(SHELL) $(SCRIPTS_DIR)/ci-test-run.sh

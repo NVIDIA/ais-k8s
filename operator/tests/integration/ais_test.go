@@ -30,12 +30,24 @@ var (
 // Initialize AIS tutils to use the deployed cluster
 func initAISCluster(ctx context.Context, cluster *aisv1.AIStore) {
 	proxyURL = tutils.GetProxyURL(ctx, k8sClient, cluster)
+	var (
+		retries = 2
+		err     error
+	)
+	for retries > 0 {
+		err = aistutils.WaitNodeReady(proxyURL, &aistutils.WaitRetryOpts{
+			MaxRetries: 12,
+			Interval:   10 * time.Second,
+		})
+		if err == nil {
+			break
+		}
+		retries--
+		time.Sleep(5 * time.Second)
+	}
 
 	// Wait until the cluster has actually started (targets have registered).
-	Expect(aistutils.WaitNodeReady(proxyURL, &aistutils.WaitRetryOpts{
-		MaxRetries: 12,
-		Interval:   10 * time.Second,
-	})).To(BeNil())
+	Expect(err).To(BeNil())
 	Expect(aistutils.InitCluster(proxyURL, aistutils.ClusterTypeK8s)).NotTo(HaveOccurred())
 }
 

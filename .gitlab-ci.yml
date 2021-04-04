@@ -120,24 +120,12 @@ operator:minikube:metallb:
   after_script:
     - make -C operator undeploy-metallb
 
-operator:gcp:
+.operator_gcp:
   stage: test:long
   # If minikube fails - don't bother to try GCP.
   needs: ["operator:minikube:short"]
   image: aistore/ci:1.15
   timeout: 60m
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "schedule"'
-    - if: '$CI_MERGE_REQUEST_LABELS =~ /.*skip-ci-gcp.*/'
-      when: manual
-      allow_failure: true
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-      changes:
-        - operator/*
-        - terraform/*
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-      when: manual
-      allow_failure: true
   variables:
     GOOGLE_APPLICATION_CREDENTIALS: "/tmp/gcs.json"
   before_script:
@@ -149,6 +137,35 @@ operator:gcp:
     - make -C operator test
   after_script:
     - make -C terraform destroy
+
+operator:gcp:
+  extends: .operator_gcp
+  rules:
+  - if: '$CI_PIPELINE_SOURCE == "schedule"'
+  - if: '$CI_MERGE_REQUEST_LABELS =~ /.*skip-ci-gcp.*/'
+    when: manual
+    allow_failure: true
+  - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    changes:
+      - operator/*
+      - terraform/*
+  - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    when: manual
+    allow_failure: true
+  script:
+    - make -C terraform ci-deploy-k8s
+    - make -C operator test
+
+operator:gcp:cilium:
+  extends: .operator_gcp
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: manual
+      allow_failure: true
+  script:
+    - make -C terraform ci-deploy-k8s ARGS="cilium"
+    - make -C operator test
 
 helm:gcp:
   stage: test:long
