@@ -77,7 +77,7 @@ aiscluster:
   image:
     aisnode:
       repository: "aistore/aisnode"
-      tag: "3.3.1"
+      tag: "3.4"
     kubectl:
       repository: aistore/ais-init
       tag: latest
@@ -458,7 +458,7 @@ admin:
   enabled: false
   image:
     repository: "aistore/admin"
-    tag:        "3.3"
+    tag:        "3.4"
   nodeSelector:
     key: nvidia.com/ais-admin
 

@@ -19,9 +19,9 @@ AIS_NAMESPACE=default
 #
 # Container images - select aisnode version, the ais-init image version rarely changes
 #
-AISNODE_IMAGE=${AISNODE_IMAGE:-aistore/aisnode:3.3.1}
+AISNODE_IMAGE=${AISNODE_IMAGE:-aistore/aisnode:3.4}
 AIS_INIT_IMAGE=${AIS_INIT_IMAGE:-aistore/ais-init:latest}
-ADMIN_IMAGE=${ADMIN_IMAGE:-aistore/admin:3.3}
+ADMIN_IMAGE=${ADMIN_IMAGE:-aistore/admin:3.4}
 
 #
 # *If* the images require a pull secret, then install the pull secret in k8s

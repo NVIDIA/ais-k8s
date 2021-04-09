@@ -67,9 +67,9 @@ deploy_ais() {
     AIS_PULL_POLICY="Always" \
     AIS_GATEWAY_EXTERNAL_IP="${external_ip}" \
     AIS_K8S_CLUSTER_CIDR="10.64.0.0/14" \
-    AISNODE_IMAGE="${aisnode_image:-aistore/aisnode:3.3.1}" \
+    AISNODE_IMAGE="${aisnode_image:-aistore/aisnode:3.4}" \
     AIS_INIT_IMAGE="aistore/ais-init:latest" \
-    ADMIN_IMAGE="${admin_image:-aistore/admin:3.3}" \
+    ADMIN_IMAGE="${admin_image:-aistore/admin:3.4}" \
     EXTERNAL_VOLUMES_COUNT="$(get_state_var "DISK_CNT")" \
     STATS_NODENAME="${primary_node}" \
     HELM_ARGS="${helm_args}" \

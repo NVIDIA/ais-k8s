@@ -20,7 +20,7 @@ The chart defaults (see `values.yaml`) point to the following:
 Item | Default
 ---- | -------
 InitContainer image | aistore/ais-init:latest
-Aisnode image | aistore/aisnode:3.3.1
+Aisnode image | aistore/aisnode:3.4
 
 Alternatively, build your own container images, as detailed [in the main repo](https://github.com/NVIDIA/aistore/tree/master/deploy/prod/k8s/aisnode_container).
 
