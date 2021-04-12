@@ -128,6 +128,7 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 					ServiceAccountName: cmn.ServiceAccountName(ais),
 					SecurityContext:    ais.Spec.TargetSpec.SecurityContext,
 					Affinity:           cmn.NewAISPodAffinity(ais, ais.Spec.TargetSpec.Affinity, ls),
+					NodeSelector:       ais.Spec.TargetSpec.NodeSelector,
 					Volumes:            cmn.NewAISVolumes(ais, aiscmn.Target),
 					Tolerations:        ais.Spec.TargetSpec.Tolerations,
 				},

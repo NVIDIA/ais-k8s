@@ -132,6 +132,7 @@ func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
 			},
 		},
 		Affinity:           cmn.NewAISPodAffinity(ais, ais.Spec.ProxySpec.Affinity, PodLabels(ais)),
+		NodeSelector:       ais.Spec.ProxySpec.NodeSelector,
 		ServiceAccountName: cmn.ServiceAccountName(ais),
 		SecurityContext:    ais.Spec.ProxySpec.SecurityContext,
 		Volumes:            cmn.NewAISVolumes(ais, aiscmn.Proxy),
