@@ -1,5 +1,8 @@
 # Current Operator version
-VERSION ?= 0.0.1
+VERSION ?= 0.5
+BUILD_VERSION = $(VERSION).$(shell git rev-parse --short HEAD)
+BUILD_TIME = $(shell date +%FT%T%z)
+
 # Default bundle image tag
 BUNDLE_IMG ?= ais-operator-bundle:$(VERSION)
 # Options for 'bundle-build'
@@ -116,7 +119,7 @@ spell-fix: ## Fix spell checking issues
 
 # Build the docker image
 docker-build: generate fmt vet manifests
-	docker build -t ${IMG} .
+	docker build --build-arg BUILD_TIME="$(BUILD_TIME)" --build-arg BUILD_VERSION="$(BUILD_VERSION)" -t ${IMG} .
 
 # Push the docker image
 docker-push:
