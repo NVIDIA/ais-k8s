@@ -38,7 +38,7 @@ test-short: generate fmt vet manifests test-suite-deps
 	@$(SHELL) "$(SCRIPTS_DIR)/test.sh" short
 
 test-suite-deps:
-	go get github.com/onsi/ginkgo/ginkgo
+	go install github.com/onsi/ginkgo/ginkgo
 
 # Build manager binary
 manager: generate fmt vet
