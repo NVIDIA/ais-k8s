@@ -78,7 +78,8 @@ remove_nodes_labels() {
 # Returns terraform output value for a provided key. It removes `"` quotes so
 # they won't be passed as part of the value.
 terraform_output() {
-  terraform output -json "$1" | xargs
+  cloud_provider=$(get_state_var "CLOUD_PROVIDER")
+  terraform -chdir="${cloud_provider}" output -json "$1" | xargs
 }
 
 state_dir="$(cd "$(dirname "$0")" && pwd)/.state"

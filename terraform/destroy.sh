@@ -39,7 +39,7 @@ stop_k8s() {
     terraform_args=(-var "project_id=${project_id}" -var "user=${username}" -var "node_count=${node_cnt}" -var "ais_release_name=${release_name}")
   fi
 
-  terraform destroy -auto-approve "${terraform_args[@]}" "${cloud_provider}"
+  terraform -chdir="${cloud_provider}" destroy -auto-approve "${terraform_args[@]}"
 
   echo -e "\n☠️  Stopping 'kubectl proxy'..."
   killall kubectl proxy || true
@@ -89,7 +89,7 @@ stop_ais() {
 
   if [[ -n $(get_state_var "VOLUMES_DEPLOYED") ]]; then
     pushd k8s/ 1>/dev/null
-    terraform destroy -auto-approve "${cloud_provider}"
+    terraform -chdir="${cloud_provider}" destroy -auto-approve
     popd 1>/dev/null
     unset_state_var "VOLUMES_DEPLOYED"
   fi

@@ -24,8 +24,8 @@ deploy_ais() {
 
   echo "💾 Initializing persistent storage for AIS"
   pushd k8s/ 1>/dev/null
-  terraform init -input=false "${cloud_provider}" 1>/dev/null
-  terraform apply -input=false -auto-approve "${cloud_provider}"
+  terraform -chdir="${cloud_provider}" init -input=false 1>/dev/null
+  terraform -chdir="${cloud_provider}" apply -input=false -auto-approve
   popd 1>/dev/null
 
   restore_persisted_volumes
@@ -134,11 +134,11 @@ deploy_k8s() {
 
   # Initialize terraform and download necessary plugins.
   echo "Initializing terraform cluster environment"
-  terraform init -input=false "${cloud_provider}" 1>/dev/null
+  terraform -chdir="${cloud_provider}" init -input=false 1>/dev/null
 
   # Execute terraform plan. The approved automatically as we assume that everything is correct.
   echo "🔥 Starting Kubernetes cluster (${username}/${project_id})..."
-  terraform apply -input=false -auto-approve "${terraform_args[@]}" "${cloud_provider}"
+  terraform -chdir="${cloud_provider}" apply -input=false -auto-approve "${terraform_args[@]}"
 
   echo "🔄 Updating kubectl config..."
   if [[ ${cloud_provider} == "aws" ]]; then
@@ -157,8 +157,8 @@ deploy_cilium() {
   elif [[ ${cloud_provider} == "azure" ]]; then
     print_error "'azure' provider is not yet supported"
   elif [[ ${cloud_provider} == "gcp" ]]; then
-  native_cidr="$(gcloud container clusters describe $(terraform_output kubernetes_cluster_name) --zone $(terraform_output zone) --format 'value(clusterIpv4Cidr)')"
-  helm_args="--set gke.enabled=true,nativeRoutingCIDR=${native_cidr}"
+    native_cidr="$(gcloud container clusters describe $(terraform_output kubernetes_cluster_name) --zone $(terraform_output zone) --format 'value(clusterIpv4Cidr)')"
+    helm_args="--set gke.enabled=true,nativeRoutingCIDR=${native_cidr}"
   fi
 
   helm repo add cilium https://helm.cilium.io/
