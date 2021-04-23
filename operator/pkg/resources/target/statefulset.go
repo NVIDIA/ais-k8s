@@ -179,6 +179,7 @@ func targetVC(ais *aisv1.AIStore) []corev1.PersistentVolumeClaim {
 					Requests: corev1.ResourceList{corev1.ResourceStorage: res.Size},
 				},
 				StorageClassName: res.StorageClass,
+				Selector:         res.Selector,
 			},
 		})
 	}

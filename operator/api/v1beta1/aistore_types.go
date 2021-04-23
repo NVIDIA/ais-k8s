@@ -139,9 +139,10 @@ type NoDiskIO struct {
 }
 
 type Mount struct {
-	Path         string            `json:"path"`
-	Size         resource.Quantity `json:"size"`
-	StorageClass *string           `json:"storageClass,omitempty"` // storage class for volume resource
+	Path         string                `json:"path"`
+	Size         resource.Quantity     `json:"size"`
+	StorageClass *string               `json:"storageClass,omitempty"` // storage class for volume resource
+	Selector     *metav1.LabelSelector `json:"selector,omitempty"`     // selector for choosing PVs
 }
 
 // +kubebuilder:object:root=true
