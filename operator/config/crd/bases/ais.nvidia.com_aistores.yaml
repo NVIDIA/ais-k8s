@@ -1107,6 +1107,10 @@ spec:
                             type: string
                         type: object
                     type: object
+                  hostPort:
+                    description: HostPort - host port to use for hostnetworking
+                    format: int32
+                    type: integer
                   nodeSelector:
                     additionalProperties:
                       type: string
@@ -2098,6 +2102,10 @@ spec:
                             type: string
                         type: object
                     type: object
+                  hostPort:
+                    description: HostPort - host port to use for hostnetworking
+                    format: int32
+                    type: integer
                   mounts:
                     items:
                       properties:

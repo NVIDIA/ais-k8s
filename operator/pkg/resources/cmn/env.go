@@ -11,6 +11,7 @@ const (
 	EnvNS          = "K8S_NS"     // K8s Namespace where `pod` is deployed
 	EnvServiceName = "MY_SERVICE" // K8s service associated with Pod
 
+	EnvPublicHostname       = "AIS_PUBLIC_HOSTNAME"
 	EnvDaemonRole           = "AIS_NODE_ROLE"                    // Role of AIS daemon (Proxy or Target)
 	EnvProxyServiceName     = "CLUSTERIP_PROXY_SERVICE_HOSTNAME" // Service name of Proxy StatefulSets
 	EnvProxyServicePort     = "CLUSTERIP_PROXY_SERVICE_PORT"     // Port used by Proxy Service

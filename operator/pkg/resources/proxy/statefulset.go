@@ -75,13 +75,20 @@ func NewProxyStatefulSet(ais *aisv1.AIStore, size int32) *apiv1.StatefulSet {
 //   helpers  //
 ////////////////
 func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
+	var optionals []corev1.EnvVar
+	if ais.Spec.ProxySpec.HostPort != nil {
+		optionals = []corev1.EnvVar{
+			cmn.EnvFromFieldPath(cmn.EnvPublicHostname, "status.hostIP"),
+		}
+	}
+
 	return corev1.PodSpec{
 		InitContainers: []corev1.Container{
 			{
 				Name:            "populate-env",
 				Image:           ais.Spec.InitImage,
 				ImagePullPolicy: corev1.PullIfNotPresent,
-				Env: []corev1.EnvVar{
+				Env: append([]corev1.EnvVar{
 					cmn.EnvFromFieldPath(cmn.EnvNodeName, "spec.nodeName"),
 					cmn.EnvFromFieldPath(cmn.EnvPodName, "metadata.name"),
 					cmn.EnvFromValue(cmn.EnvClusterDomain, ais.GetClusterDomain()),
@@ -91,7 +98,7 @@ func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
 					cmn.EnvFromValue(cmn.EnvProxyServiceName, HeadlessSVCName(ais)),
 					cmn.EnvFromValue(cmn.EnvProxyServicePort, ais.Spec.ProxySpec.ServicePort.String()),
 					cmn.EnvFromValue(cmn.EnvDefaultPrimaryPod, DefaultPrimaryName(ais)),
-				},
+				}, optionals...),
 				Args:         []string{"-c", "/bin/bash /var/ais_config_template/set_initial_primary_proxy_env.sh"},
 				Command:      []string{"/bin/bash"},
 				VolumeMounts: cmn.NewInitVolumeMounts(),
@@ -117,13 +124,7 @@ func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
 					cmn.EnvFromValue(cmn.EnvProxyServicePort, ais.Spec.ProxySpec.ServicePort.String()),
 					cmn.EnvFromValue(cmn.EnvNodeServicePort, ais.Spec.ProxySpec.PublicPort.String()),
 				},
-				Ports: []corev1.ContainerPort{
-					{
-						Name:          "http",
-						ContainerPort: int32(ais.Spec.ProxySpec.ServicePort.IntValue()),
-						Protocol:      corev1.ProtocolTCP,
-					},
-				},
+				Ports:           cmn.NewDaemonPorts(ais.Spec.ProxySpec),
 				SecurityContext: ais.Spec.ProxySpec.ContainerSecurity,
 				VolumeMounts:    cmn.NewAISVolumeMounts(),
 				Lifecycle:       cmn.NewAISNodeLifecycle(),

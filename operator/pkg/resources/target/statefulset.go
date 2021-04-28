@@ -41,6 +41,12 @@ func PodLabels(ais *aisv1.AIStore) map[string]string {
 
 func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 	ls := PodLabels(ais)
+	var optionals []corev1.EnvVar
+	if ais.Spec.TargetSpec.HostPort != nil {
+		optionals = []corev1.EnvVar{
+			cmn.EnvFromFieldPath(cmn.EnvPublicHostname, "status.hostIP"),
+		}
+	}
 	return &apiv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      statefulSetName(ais),
@@ -65,7 +71,7 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 							Name:            "populate-env",
 							Image:           ais.Spec.InitImage,
 							ImagePullPolicy: corev1.PullIfNotPresent,
-							Env: []corev1.EnvVar{
+							Env: append([]corev1.EnvVar{
 								cmn.EnvFromFieldPath(cmn.EnvNodeName, "spec.nodeName"),
 								cmn.EnvFromFieldPath(cmn.EnvPodName, "metadata.name"),
 								cmn.EnvFromValue(cmn.EnvClusterDomain, ais.GetClusterDomain()),
@@ -78,7 +84,7 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 								cmn.EnvFromValue(cmn.EnvDaemonRole, aiscmn.Target),
 								cmn.EnvFromValue(cmn.EnvProxyServiceName, proxy.HeadlessSVCName(ais)),
 								cmn.EnvFromValue(cmn.EnvProxyServicePort, ais.Spec.ProxySpec.ServicePort.String()),
-							},
+							}, optionals...),
 							Args: []string{
 								"-c",
 								"/bin/bash /var/ais_config_template/set_initial_target_env.sh",
@@ -111,13 +117,7 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 								cmn.EnvFromValue(cmn.EnvProxyServicePort, ais.Spec.ProxySpec.ServicePort.String()),
 								cmn.EnvFromValue(cmn.EnvNodeServicePort, ais.Spec.TargetSpec.PublicPort.String()),
 							},
-							Ports: []corev1.ContainerPort{
-								{
-									Name:          "http",
-									ContainerPort: int32(ais.Spec.TargetSpec.ServicePort.IntValue()),
-									Protocol:      corev1.ProtocolTCP,
-								},
-							},
+							Ports:           cmn.NewDaemonPorts(ais.Spec.TargetSpec.DaemonSpec),
 							SecurityContext: ais.Spec.TargetSpec.ContainerSecurity,
 							VolumeMounts:    volumeMounts(ais),
 							Lifecycle:       cmn.NewAISNodeLifecycle(),

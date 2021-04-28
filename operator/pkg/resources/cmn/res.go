@@ -153,6 +153,21 @@ func NewInitVolumeMounts() []corev1.VolumeMount {
 	}
 }
 
+func NewDaemonPorts(spec aisv1.DaemonSpec) []corev1.ContainerPort {
+	var hostPort int32
+	if spec.HostPort != nil {
+		hostPort = *spec.HostPort
+	}
+	return []corev1.ContainerPort{
+		{
+			Name:          "http",
+			ContainerPort: int32(spec.ServicePort.IntValue()),
+			Protocol:      corev1.ProtocolTCP,
+			HostPort:      hostPort,
+		},
+	}
+}
+
 func NewAISPodAffinity(ais *aisv1.AIStore, affinity *corev1.Affinity, podLabels map[string]string) *corev1.Affinity {
 	var (
 		antiAffinityDisabled = IsBoolSet(ais.Spec.DisablePodAntiAffinity)

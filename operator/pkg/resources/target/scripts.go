@@ -25,6 +25,10 @@ if [[ "${ENABLE_EXTERNAL_ACCESS}" == "true" ]]; then
     done
 fi
 
+if [[ -z ${external_ip} && -n ${AIS_PUBLIC_HOSTNAME} ]]; then
+    external_ip=${AIS_PUBLIC_HOSTNAME}
+fi
+
 export AIS_PUBLIC_HOSTNAME="${external_ip}"
 
 cluster_domain=${AIS_K8S_CLUSTER_DOMAIN:-"cluster.local"}

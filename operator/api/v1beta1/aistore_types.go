@@ -125,6 +125,9 @@ type DaemonSpec struct {
 	// Tolerations - list of tolerations for AIS Daemon pod
 	// +optional
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
+	// HostPort - host port to use for hostnetworking
+	// +optional
+	HostPort *int32 `json:"hostPort,omitempty"`
 }
 
 type TargetSpec struct {
