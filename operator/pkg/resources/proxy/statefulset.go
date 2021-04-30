@@ -101,7 +101,7 @@ func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
 				}, optionals...),
 				Args:         []string{"-c", "/bin/bash /var/ais_config_template/set_initial_primary_proxy_env.sh"},
 				Command:      []string{"/bin/bash"},
-				VolumeMounts: cmn.NewInitVolumeMounts(),
+				VolumeMounts: cmn.NewInitVolumeMounts(ais.Spec.DisablePodAntiAffinity),
 			},
 		},
 		Containers: []corev1.Container{
@@ -126,7 +126,7 @@ func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
 				},
 				Ports:           cmn.NewDaemonPorts(ais.Spec.ProxySpec),
 				SecurityContext: ais.Spec.ProxySpec.ContainerSecurity,
-				VolumeMounts:    cmn.NewAISVolumeMounts(),
+				VolumeMounts:    cmn.NewAISVolumeMounts(ais.Spec.DisablePodAntiAffinity),
 				Lifecycle:       cmn.NewAISNodeLifecycle(),
 				LivenessProbe:   cmn.NewAISLivenessProbe(ais.Spec.ProxySpec.ServicePort),
 				ReadinessProbe:  readinessProbe(),

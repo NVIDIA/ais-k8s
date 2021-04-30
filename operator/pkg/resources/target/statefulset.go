@@ -90,7 +90,7 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 								"/bin/bash /var/ais_config_template/set_initial_target_env.sh",
 							},
 							Command:      []string{"/bin/bash"},
-							VolumeMounts: cmn.NewInitVolumeMounts(),
+							VolumeMounts: cmn.NewInitVolumeMounts(ais.Spec.DisablePodAntiAffinity),
 						},
 					},
 					Containers: []corev1.Container{
@@ -138,7 +138,7 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 }
 
 func volumeMounts(ais *aisv1.AIStore) []corev1.VolumeMount {
-	vols := cmn.NewAISVolumeMounts()
+	vols := cmn.NewAISVolumeMounts(ais.Spec.DisablePodAntiAffinity)
 	for _, res := range ais.Spec.TargetSpec.Mounts {
 		vols = append(vols, corev1.VolumeMount{
 			Name:      ais.Name + strings.ReplaceAll(res.Path, "/", "-"),

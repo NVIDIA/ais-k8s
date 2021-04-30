@@ -9,23 +9,23 @@ spec:
     servicePort: 51080
     portPublic: 51080
     portIntraControl: 51081
-    portIntraData: 51082   
-  
+    portIntraData: 51082
+
   targetSpec:
     servicePort: 51081
     portPublic: 51081
     portIntraControl: 51082
     portIntraData: 51083
-    
-    mounts: 
+
+    mounts:
       - path: "/ais1"
         size: 10Gi
-    
-    nodiskio: 
+
+    nodiskio:
       enabled: false
       dryobjsize: "8M"
 
-  nodeImage: "aistore/aisnode:3.4"
+  nodeImage: "aistore/aisnode:3.4.1"
   initImage: "aistore/ais-init:latest"
   hostpathPrefix: "/etc/ais"
 

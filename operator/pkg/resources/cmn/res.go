@@ -46,7 +46,7 @@ func NewAISVolumes(ais *aisv1.AIStore, daeType string) []corev1.Volume {
 			Name: "env-mount",
 			VolumeSource: corev1.VolumeSource{
 				HostPath: &corev1.HostPathVolumeSource{
-					Path: path.Join(ais.Spec.HostpathPrefix, ais.Namespace, daeType+"_env"),
+					Path: path.Join(ais.Spec.HostpathPrefix, ais.Namespace, ais.Name, daeType+"_env"),
 					Type: hostPathTypePtr(corev1.HostPathDirectoryOrCreate),
 				},
 			},
@@ -55,7 +55,7 @@ func NewAISVolumes(ais *aisv1.AIStore, daeType string) []corev1.Volume {
 			Name: "state-mount",
 			VolumeSource: corev1.VolumeSource{
 				HostPath: &corev1.HostPathVolumeSource{
-					Path: path.Join(ais.Spec.HostpathPrefix, ais.Namespace, daeType),
+					Path: path.Join(ais.Spec.HostpathPrefix, ais.Namespace, ais.Name, daeType),
 					Type: hostPathTypePtr(corev1.HostPathDirectoryOrCreate),
 				},
 			},
@@ -97,7 +97,11 @@ func NewAISNodeLifecycle() *corev1.Lifecycle {
 	}
 }
 
-func NewAISVolumeMounts() []corev1.VolumeMount {
+func NewAISVolumeMounts(antiAffinityDisabled *bool) []corev1.VolumeMount {
+	var hostMountSubPath string
+	if antiAffinityDisabled != nil && *antiAffinityDisabled {
+		hostMountSubPath = "$(MY_POD)"
+	}
 	return []corev1.VolumeMount{
 		{
 			Name:      "config-mount",
@@ -121,12 +125,12 @@ func NewAISVolumeMounts() []corev1.VolumeMount {
 		{
 			Name:        "env-mount",
 			MountPath:   "/var/ais_env",
-			SubPathExpr: "$(MY_POD)",
+			SubPathExpr: hostMountSubPath,
 		},
 		{
 			Name:        "state-mount",
 			MountPath:   "/etc/ais",
-			SubPathExpr: "$(MY_POD)",
+			SubPathExpr: hostMountSubPath,
 		},
 		{
 			Name:      "statsd-config",
@@ -135,7 +139,12 @@ func NewAISVolumeMounts() []corev1.VolumeMount {
 	}
 }
 
-func NewInitVolumeMounts() []corev1.VolumeMount {
+func NewInitVolumeMounts(antiAffinityDisabled *bool) []corev1.VolumeMount {
+	var hostMountSubPath string
+	if antiAffinityDisabled != nil && *antiAffinityDisabled {
+		hostMountSubPath = "$(MY_POD)"
+	}
+
 	return []corev1.VolumeMount{
 		{
 			Name:      "config-mount",
@@ -148,7 +157,7 @@ func NewInitVolumeMounts() []corev1.VolumeMount {
 		{
 			Name:        "env-mount",
 			MountPath:   "/var/ais_env",
-			SubPathExpr: "$(MY_POD)",
+			SubPathExpr: hostMountSubPath,
 		},
 	}
 }
