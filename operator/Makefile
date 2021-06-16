@@ -1,5 +1,5 @@
 # Current Operator version
-VERSION ?= 0.5
+VERSION ?= 0.5.0
 BUILD_VERSION = $(VERSION).$(shell git rev-parse --short HEAD)
 BUILD_TIME = $(shell date +%FT%T%z)
 
@@ -59,13 +59,11 @@ uninstall: manifests kustomize
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
 deploy: manifests kustomize
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
-	@$(SHELL) "$(SCRIPTS_DIR)/deploy.sh"
-	$(KUSTOMIZE) build config/default | kubectl apply -f -
+	@$(SHELL) -c "$(SCRIPTS_DIR)/deploy.sh --build"
 
 # UnDeploy controller from the configured Kubernetes cluster in ~/.kube/config
 undeploy:
 	$(KUSTOMIZE) build config/default | kubectl delete -f -
-
 
 deploy-metallb: kustomize
 	@if [[ -z "$EXTERNAL_ADDRESSES" ]]; then echo "EXTERNAL_ADDRESSES variable cannot be empty"; exit 1; fi
@@ -79,6 +77,11 @@ undeploy-metallb: kustomize
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+
+bundle-manifests: manifests
+	mkdir -p dist/
+	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
+	$(KUSTOMIZE) build config/default > dist/ais-operator-${VERSION}.yaml
 
 # Run go fmt against code
 fmt:
@@ -101,7 +104,6 @@ lint: ## Run linter on whole project
 	@([[ ! -f $(GOPATH)/bin/golangci-lint ]] && curl -sfL "https://install.goreleaser.com/github.com/golangci/golangci-lint.sh" | sh -s -- -b $(GOPATH)/bin latest) || true
 	@$(GOPATH)/bin/golangci-lint run
 	@$(SHELL) "$(SCRIPTS_DIR)/lint.sh" lint
-
 
 fmt-check: ## Check code formatting
 	@$(SHELL) "$(SCRIPTS_DIR)/lint.sh" fmt
