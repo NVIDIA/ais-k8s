@@ -11,6 +11,7 @@ package v1beta1
 type (
 	ConfigToUpdate struct {
 		Confdir     *string                  `json:"confdir,omitempty"`
+		Backend     *map[string]Empty        `json:"backend,omitempty"`
 		Mirror      *MirrorConfToUpdate      `json:"mirror,omitempty"`
 		EC          *ECConfToUpdate          `json:"ec,omitempty"`
 		Log         *LogConfToUpdate         `json:"log,omitempty"`
@@ -36,6 +37,10 @@ type (
 		LogLevel *string `json:"log_level,omitempty" copy:"skip"`
 		Vmodule  *string `json:"vmodule,omitempty" copy:"skip"`
 	}
+
+	// TODO -- FIXME: Declaring map[string]struct{} / map[string]interface{}
+	// raises error "name requested for invalid type: struct{}/interface{}"
+	Empty              struct{}
 	MirrorConfToUpdate struct {
 		Copies      *int64 `json:"copies,omitempty"`
 		Burst       *int   `json:"burst_buffer,omitempty"`

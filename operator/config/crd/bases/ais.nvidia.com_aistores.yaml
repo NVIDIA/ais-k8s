@@ -54,6 +54,13 @@ spec:
                       secret:
                         type: string
                     type: object
+                  backend:
+                    additionalProperties:
+                      description: 'TODO -- FIXME: Declaring map[string]struct{} /
+                        map[string]interface{} raises error "name requested for invalid
+                        type: struct{}/interface{}"'
+                      type: object
+                    type: object
                   checksum:
                     properties:
                       enable_read_range:
