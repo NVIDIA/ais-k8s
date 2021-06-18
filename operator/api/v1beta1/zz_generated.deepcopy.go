@@ -88,6 +88,11 @@ func (in *AIStoreSpec) DeepCopyInto(out *AIStoreSpec) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.EnablePromExporter != nil {
+		in, out := &in.EnablePromExporter, &out.EnablePromExporter
+		*out = new(bool)
+		**out = **in
+	}
 	if in.ClusterDomain != nil {
 		in, out := &in.ClusterDomain, &out.ClusterDomain
 		*out = new(string)

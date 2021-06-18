@@ -69,6 +69,10 @@ type AIStoreSpec struct {
 	// +optional
 	CleanupData *bool `json:"cleanupData,omitempty"`
 
+	// Defines if AIS daemons should expose prometheus metrics
+	// +optional
+	EnablePromExporter *bool `json:"enablePromExporter,omitempty"`
+
 	// Defines the cluster domain name for DNS. Default: cluster.local.
 	// +optional
 	ClusterDomain *string `json:"clusterDomain,omitempty"`

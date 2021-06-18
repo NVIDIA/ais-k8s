@@ -328,6 +328,9 @@ spec:
                 description: EnableExternalLB, if set, enables external access to
                   AIS cluster using LoadBalancer service
                 type: boolean
+              enablePromExporter:
+                description: Defines if AIS daemons should expose prometheus metrics
+                type: boolean
               hostpathPrefix:
                 type: string
               imagePullSecrets:

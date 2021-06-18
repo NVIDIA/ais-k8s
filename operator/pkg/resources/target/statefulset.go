@@ -112,6 +112,8 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 									cmn.EnvNoDiskIO,
 									strconv.FormatBool(ais.Spec.TargetSpec.NoDiskIO.Enabled),
 								),
+								cmn.EnvFromValue(cmn.EnvEnablePrometheus,
+									strconv.FormatBool(ais.Spec.EnablePromExporter != nil && *ais.Spec.EnablePromExporter)),
 								cmn.EnvFromValue(cmn.EnvDryObjSize, ais.Spec.TargetSpec.NoDiskIO.DryObjSize.String()),
 								cmn.EnvFromValue(cmn.EnvProxyServiceName, proxy.HeadlessSVCName(ais)),
 								cmn.EnvFromValue(cmn.EnvProxyServicePort, ais.Spec.ProxySpec.ServicePort.String()),
