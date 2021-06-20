@@ -15,7 +15,7 @@ import (
 )
 
 func NewAISVolumes(ais *aisv1.AIStore, daeType string) []corev1.Volume {
-	return []corev1.Volume{
+	volumes := []corev1.Volume{
 		{
 			Name: "config-mount",
 			VolumeSource: corev1.VolumeSource{
@@ -71,6 +71,28 @@ func NewAISVolumes(ais *aisv1.AIStore, daeType string) []corev1.Volume {
 			},
 		},
 	}
+	if ais.Spec.AWSSecretName != nil {
+		volumes = append(volumes, corev1.Volume{
+			Name: "aws-creds",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: *ais.Spec.AWSSecretName,
+				},
+			},
+		})
+	}
+	if ais.Spec.GCPSecretName != nil {
+		volumes = append(volumes, corev1.Volume{
+			Name: "gcp-creds",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: *ais.Spec.GCPSecretName,
+				},
+			},
+		})
+	}
+
+	return volumes
 }
 
 func NewAISLivenessProbe(port intstr.IntOrString) *corev1.Probe {
@@ -97,12 +119,12 @@ func NewAISNodeLifecycle() *corev1.Lifecycle {
 	}
 }
 
-func NewAISVolumeMounts(antiAffinityDisabled *bool) []corev1.VolumeMount {
+func NewAISVolumeMounts(ais *aisv1.AIStore) []corev1.VolumeMount {
 	var hostMountSubPath string
-	if antiAffinityDisabled != nil && *antiAffinityDisabled {
+	if ais.Spec.DisablePodAntiAffinity != nil && *ais.Spec.DisablePodAntiAffinity {
 		hostMountSubPath = "$(MY_POD)"
 	}
-	return []corev1.VolumeMount{
+	volumeMounts := []corev1.VolumeMount{
 		{
 			Name:      "config-mount",
 			MountPath: "/var/ais_config",
@@ -137,6 +159,23 @@ func NewAISVolumeMounts(antiAffinityDisabled *bool) []corev1.VolumeMount {
 			MountPath: "/var/statsd_config",
 		},
 	}
+
+	if ais.Spec.AWSSecretName != nil {
+		volumeMounts = append(volumeMounts, corev1.VolumeMount{
+			Name:      "aws-creds",
+			ReadOnly:  true,
+			MountPath: "/root/.aws",
+		})
+	}
+	if ais.Spec.GCPSecretName != nil {
+		volumeMounts = append(volumeMounts, corev1.VolumeMount{
+			Name:      "gcp-creds",
+			ReadOnly:  true,
+			MountPath: "/var/gcp",
+		})
+	}
+
+	return volumeMounts
 }
 
 func NewInitVolumeMounts(antiAffinityDisabled *bool) []corev1.VolumeMount {

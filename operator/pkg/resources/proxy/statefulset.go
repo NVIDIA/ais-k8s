@@ -81,6 +81,10 @@ func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
 			cmn.EnvFromFieldPath(cmn.EnvPublicHostname, "status.hostIP"),
 		}
 	}
+	if ais.Spec.GCPSecretName != nil {
+		// TODO -- FIXME: Remove hardcoding for path
+		optionals = append(optionals, cmn.EnvFromValue(cmn.EnvGCPCredsPath, "/var/gcp/gcp.json"))
+	}
 
 	return corev1.PodSpec{
 		InitContainers: []corev1.Container{
@@ -109,7 +113,7 @@ func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
 				Name:            "ais-node",
 				Image:           ais.Spec.NodeImage,
 				ImagePullPolicy: corev1.PullAlways,
-				Env: []corev1.EnvVar{
+				Env: append([]corev1.EnvVar{
 					cmn.EnvFromFieldPath(cmn.EnvPodName, "metadata.name"),
 					cmn.EnvFromValue(cmn.EnvNS, ais.Namespace),
 					cmn.EnvFromValue(cmn.EnvClusterDomain, ais.GetClusterDomain()),
@@ -125,10 +129,10 @@ func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
 					cmn.EnvFromValue(cmn.EnvProxyServiceName, HeadlessSVCName(ais)),
 					cmn.EnvFromValue(cmn.EnvProxyServicePort, ais.Spec.ProxySpec.ServicePort.String()),
 					cmn.EnvFromValue(cmn.EnvNodeServicePort, ais.Spec.ProxySpec.PublicPort.String()),
-				},
+				}, optionals...),
 				Ports:           cmn.NewDaemonPorts(ais.Spec.ProxySpec),
 				SecurityContext: ais.Spec.ProxySpec.ContainerSecurity,
-				VolumeMounts:    cmn.NewAISVolumeMounts(ais.Spec.DisablePodAntiAffinity),
+				VolumeMounts:    cmn.NewAISVolumeMounts(ais),
 				Lifecycle:       cmn.NewAISNodeLifecycle(),
 				LivenessProbe:   cmn.NewAISLivenessProbe(ais.Spec.ProxySpec.ServicePort),
 				ReadinessProbe:  readinessProbe(),

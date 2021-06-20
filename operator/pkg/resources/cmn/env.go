@@ -27,6 +27,8 @@ const (
 	EnvEnableExternalAccess = "ENABLE_EXTERNAL_ACCESS"           // Bool flag to indicate AIS daemon is exposed using LoadBalancer
 	EnvShutdownMarkerPath   = "AIS_SHUTDOWN_MARKER_PATH"         // Path where node shutdown marker will be located
 
+	EnvGCPCredsPath = "GOOGLE_APPLICATION_CREDENTIALS" // Path to GCP credentials
+
 	// Benchmark see: https://github.com/NVIDIA/aistore/blob/master/docs/howto_benchmark.md#dry-run-performance-tests
 	EnvNoDiskIO   = "AIS_NO_DISK_IO"
 	EnvDryObjSize = "AIS_DRY_OBJ_SIZE"

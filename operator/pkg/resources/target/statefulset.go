@@ -47,6 +47,12 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 			cmn.EnvFromFieldPath(cmn.EnvPublicHostname, "status.hostIP"),
 		}
 	}
+
+	if ais.Spec.GCPSecretName != nil {
+		// TODO -- FIXME: Remove hardcoding for path
+		optionals = append(optionals, cmn.EnvFromValue(cmn.EnvGCPCredsPath, "/var/gcp/gcp.json"))
+	}
+
 	return &apiv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      statefulSetName(ais),
@@ -98,7 +104,7 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 							Name:            "ais-node",
 							Image:           ais.Spec.NodeImage,
 							ImagePullPolicy: corev1.PullAlways,
-							Env: []corev1.EnvVar{
+							Env: append([]corev1.EnvVar{
 								cmn.EnvFromFieldPath(cmn.EnvPodName, "metadata.name"),
 								cmn.EnvFromValue(cmn.EnvClusterDomain, ais.GetClusterDomain()),
 								cmn.EnvFromValue(cmn.EnvNS, ais.Namespace),
@@ -118,7 +124,7 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 								cmn.EnvFromValue(cmn.EnvProxyServiceName, proxy.HeadlessSVCName(ais)),
 								cmn.EnvFromValue(cmn.EnvProxyServicePort, ais.Spec.ProxySpec.ServicePort.String()),
 								cmn.EnvFromValue(cmn.EnvNodeServicePort, ais.Spec.TargetSpec.PublicPort.String()),
-							},
+							}, optionals...),
 							Ports:           cmn.NewDaemonPorts(ais.Spec.TargetSpec.DaemonSpec),
 							SecurityContext: ais.Spec.TargetSpec.ContainerSecurity,
 							VolumeMounts:    volumeMounts(ais),
@@ -140,7 +146,7 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 }
 
 func volumeMounts(ais *aisv1.AIStore) []corev1.VolumeMount {
-	vols := cmn.NewAISVolumeMounts(ais.Spec.DisablePodAntiAffinity)
+	vols := cmn.NewAISVolumeMounts(ais)
 	for _, res := range ais.Spec.TargetSpec.Mounts {
 		vols = append(vols, corev1.VolumeMount{
 			Name:      ais.Name + strings.ReplaceAll(res.Path, "/", "-"),

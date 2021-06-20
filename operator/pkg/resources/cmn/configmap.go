@@ -32,6 +32,17 @@ func NewGlobalCM(ais *aisv1.AIStore, toUpdate *aiscmn.ConfigToUpdate) (*corev1.C
 			return nil, err
 		}
 	}
+	if ais.Spec.AWSSecretName != nil || ais.Spec.GCPSecretName != nil {
+		if globalConf.Backend.Conf == nil {
+			globalConf.Backend.Conf = make(map[string]interface{}, 8)
+		}
+		if ais.Spec.AWSSecretName != nil {
+			globalConf.Backend.Conf["aws"] = aisv1.Empty{}
+		}
+		if ais.Spec.GCPSecretName != nil {
+			globalConf.Backend.Conf["gcp"] = aisv1.Empty{}
+		}
+	}
 	conf, err := jsoniter.MarshalToString(globalConf)
 	if err != nil {
 		return nil, err

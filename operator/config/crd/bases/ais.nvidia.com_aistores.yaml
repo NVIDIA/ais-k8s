@@ -36,6 +36,9 @@ spec:
           spec:
             description: AIStoreSpec defines the desired state of AIStore
             properties:
+              awsSecretName:
+                description: Secret name containing AWS credentials
+                type: string
               cleanupData:
                 description: Defines if the PVCs and (meta)data should be cleaned
                   up when cluster is destroyed. Reclaiming of PVs associated with
@@ -331,6 +334,9 @@ spec:
               enablePromExporter:
                 description: Defines if AIS daemons should expose prometheus metrics
                 type: boolean
+              gcpSecretName:
+                description: Secret name containing GCP credentials
+                type: string
               hostpathPrefix:
                 type: string
               imagePullSecrets:

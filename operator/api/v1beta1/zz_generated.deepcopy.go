@@ -98,6 +98,16 @@ func (in *AIStoreSpec) DeepCopyInto(out *AIStoreSpec) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.GCPSecretName != nil {
+		in, out := &in.GCPSecretName, &out.GCPSecretName
+		*out = new(string)
+		**out = **in
+	}
+	if in.AWSSecretName != nil {
+		in, out := &in.AWSSecretName, &out.AWSSecretName
+		*out = new(string)
+		**out = **in
+	}
 	if in.ImagePullSecrets != nil {
 		in, out := &in.ImagePullSecrets, &out.ImagePullSecrets
 		*out = make([]v1.LocalObjectReference, len(*in))

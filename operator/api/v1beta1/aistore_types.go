@@ -77,6 +77,14 @@ type AIStoreSpec struct {
 	// +optional
 	ClusterDomain *string `json:"clusterDomain,omitempty"`
 
+	// Secret name containing GCP credentials
+	// +optional
+	GCPSecretName *string `json:"gcpSecretName,omitempty"`
+
+	// Secret name containing AWS credentials
+	// +optional
+	AWSSecretName *string `json:"awsSecretName,omitempty"`
+
 	// ImagePullScerets is an optional list of references to secrets in the same namespace to pull container images of AIS Daemons
 	// More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod
 	// +optional
