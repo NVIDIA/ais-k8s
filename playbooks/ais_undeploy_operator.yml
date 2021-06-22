@@ -1,0 +1,5 @@
+---
+- hosts: "controller"
+  gather_facts: no
+  roles:
+    - {role: ais_undeploy_operator}

@@ -1,0 +1,4 @@
+---
+node_image: aistore/aisnode:3.6
+gcp_secret_name: ""
+aws_secret_name: ""

@@ -1,0 +1,129 @@
+apiVersion: ais.nvidia.com/v1beta1
+kind: AIStore
+metadata:
+  name: ais
+  namespace: {{ cluster }}
+spec:
+  # Add fields here
+  size: {{ cluster_size }}
+  configToUpdate:
+    rebalance:
+      enabled: false
+    backend:
+      gcp: {}
+
+  enablePromExporter: true
+  proxySpec:
+    hostPort: 51080
+    servicePort: 51080
+    portPublic: 51080
+    portIntraControl: 51081
+    portIntraData: 51082
+    capabilities:
+      privileged: true
+
+    nodeSelector:
+      nvidia.com/ais-proxy: {{ cluster }}
+  targetSpec:
+    hostPort: 51081
+    servicePort: 51081
+    portPublic: 51081
+    portIntraControl: 51082
+    portIntraData: 51083
+    capabilities:
+      privileged: true
+
+    nodeSelector:
+      nvidia.com/ais-target: {{ cluster }}
+    mounts:
+      - path: "/ais/sda"
+        size: 9Ti
+        storageClass: "ais-local-storage"
+        selector:
+          matchLabels:
+            mpath: "pv-ais-sda"
+
+      - path: "/ais/sdb"
+        size: 9Ti
+        storageClass: "ais-local-storage"
+        selector:
+          matchLabels:
+            mpath: "pv-ais-sdb"
+
+      - path: "/ais/sdc"
+        size: 9Ti
+        storageClass: "ais-local-storage"
+        selector:
+          matchLabels:
+            mpath: "pv-ais-sdc"
+
+      - path: "/ais/sdd"
+        size: 9Ti
+        storageClass: "ais-local-storage"
+        selector:
+          matchLabels:
+            mpath: "pv-ais-sdd"
+
+      - path: "/ais/sde"
+        size: 9Ti
+        storageClass: "ais-local-storage"
+        selector:
+          matchLabels:
+            mpath: "pv-ais-sde"
+
+      - path: "/ais/sdf"
+        size: 9Ti
+        storageClass: "ais-local-storage"
+        selector:
+          matchLabels:
+            mpath: "pv-ais-sdf"
+
+      - path: "/ais/sdg"
+        size: 9Ti
+        storageClass: "ais-local-storage"
+        selector:
+          matchLabels:
+            mpath: "pv-ais-sdg"
+
+      - path: "/ais/sdh"
+        size: 9Ti
+        storageClass: "ais-local-storage"
+        selector:
+          matchLabels:
+            mpath: "pv-ais-sdh"
+
+      - path: "/ais/sdi"
+        size: 9Ti
+        storageClass: "ais-local-storage"
+        selector:
+          matchLabels:
+            mpath: "pv-ais-sdi"
+
+      - path: "/ais/sdj"
+        size: 9Ti
+        storageClass: "ais-local-storage"
+        selector:
+          matchLabels:
+            mpath: "pv-ais-sdj"
+
+    nodiskio:
+      enabled: false
+      dryobjsize: "8M"
+
+  nodeImage: "{{ node_image }}"
+  initImage: "aistore/ais-init:latest"
+  hostpathPrefix: "/etc/ais"
+{% if aws_secret_name != "" %}
+  awsSecretName: "{{ aws_secret_name }}"
+{% endif %}
+{% if gcp_secret_name != "" %}
+  gcpSecretName: "gcp-creds"
+{% endif %}
+
+  # To be able to access the AIS deployment outside kubernetes cluster, set:
+  # enableExternalLB: true
+  # NOTE: For external access to work, the kubernetes cluster should have the capabilitly to create LoadBalancer services with valid external IP.
+  # For local testing with `minikube` run `minikube tunnel` in background for emulation. ref: https://minikube.sigs.k8s.io/docs/commands/tunnel/
+  enableExternalLB: false
+
+  clusterDomain: "aiscluster.local"

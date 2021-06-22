@@ -1,0 +1,9 @@
+---
+- name: Copy operator deploy script
+  template:
+    src: "deploy-operator.sh.j2"
+    dest: "/tmp/deploy-operator.sh"
+    mode: 0777
+
+- name: Run deploy operator scripts
+  shell: "IMG={{ image | default('aistore/ais-operator:latest') }} /tmp/deploy-operator.sh"

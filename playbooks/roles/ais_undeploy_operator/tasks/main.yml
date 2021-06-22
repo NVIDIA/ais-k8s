@@ -1,0 +1,11 @@
+---
+- name: Copy operator undeploy script
+  copy:
+    src: "undeploy-operator.sh"
+    dest: "/tmp/"
+    mode: 0777
+
+- name: Run undeploy operator scripts
+  command: "/tmp/undeploy-operator.sh"
+  register: undeployout
+  changed_when: "'deleted' in undeployout.stdout"

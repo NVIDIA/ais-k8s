@@ -1,0 +1,29 @@
+#
+# Local persistent volume on each storage target.
+# One PV per mountpath.
+#
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: $NAME
+  labels:
+    type: local
+    cluster: ais
+    mpath: $MPATH_LABEL
+spec:
+  storageClassName: ais-local-storage
+  capacity:
+    storage: 9Ti # should be set to size of mpath
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: $MPATH
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          - $NODE

@@ -1,0 +1,9 @@
+---
+- name: Copy clean-up scripts
+  copy:
+    src: "clear-markers.sh"
+    dest: "/tmp/"
+    mode: 0777
+
+- name: Run delete scripts
+  shell: "MPATHS={{ mpaths | join(' ') | quote }} /tmp/clear-markers.sh"

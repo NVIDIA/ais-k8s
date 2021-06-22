@@ -1,0 +1,11 @@
+---
+- name: Copy destroy script
+  copy:
+    src: "delete-cluster.sh"
+    dest: "/tmp"
+    mode: 0777
+
+- name: Destroy clusters
+  command: "/tmp/delete-cluster.sh {{ cluster }}"
+  register: destroyout
+  changed_when: "'configured' in destroyout.stdout or 'deleted' in destroyout.stdout"
