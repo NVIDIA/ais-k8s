@@ -1,5 +1,5 @@
 # Current Operator version
-VERSION ?= 0.5.0
+VERSION ?= 0.6.0
 BUILD_VERSION = $(VERSION).$(shell git rev-parse --short HEAD)
 BUILD_TIME = $(shell date +%FT%T%z)
 

@@ -25,7 +25,7 @@ spec:
       enabled: false
       dryobjsize: "8M"
 
-  nodeImage: "aistore/aisnode:3.4.1"
+  nodeImage: "aistore/aisnode:3.6"
   initImage: "aistore/ais-init:latest"
   hostpathPrefix: "/etc/ais"
 
