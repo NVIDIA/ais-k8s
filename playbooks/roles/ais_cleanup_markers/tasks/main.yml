@@ -6,4 +6,4 @@
     mode: 0777
 
 - name: Run delete scripts
-  shell: "MPATHS={{ mpaths | join(' ') | quote }} /tmp/clear-markers.sh"
+  shell: "MPATHS={{ ais_mpaths | join(' ') | quote }} /tmp/clear-markers.sh"

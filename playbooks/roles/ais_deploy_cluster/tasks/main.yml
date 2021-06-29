@@ -18,7 +18,7 @@
     cluster_size: "{{ groups[cluster] | length }}"
 
 - name: Create PVs
-  shell: "MPATHS={{ mpaths | join(' ') | quote }} NODES={{ groups[cluster] | join(' ') | quote }} /tmp/create-pvs.sh"
+  shell: "MPATHS={{ ais_mpaths | join(' ') | quote }} NODES={{ groups[cluster] | join(' ') | quote }} /tmp/create-pvs.sh"
   register: createpvsout
   changed_when: "'configured' in createpvsout.stdout or 'created' in createpvsout.stdout"
 

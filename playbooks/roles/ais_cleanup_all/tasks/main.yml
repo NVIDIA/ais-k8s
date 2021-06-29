@@ -6,7 +6,7 @@
     mode: 0777
 
 - name: Run cleanup scripts
-  shell: "MPATHS={{ mpaths | join(' ') | quote }} /tmp/clean-mpaths.sh"
+  shell: "MPATHS={{ ais_mpaths | join(' ') | quote }} /tmp/clean-mpaths.sh"
 
 - name: Run cleanup meta directory
   file:

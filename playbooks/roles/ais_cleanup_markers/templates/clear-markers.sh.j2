@@ -5,7 +5,7 @@
 # It should be executed on each storage target that needs a cleanup.
 #
 
-mpaths="{{ mpaths | join(' ') | quote }}" # Adjust mpaths if needed.
+mpaths="{{ ais_mpaths | join(' ') | quote }}" # Adjust mpaths if needed.
 
 for path in ${mpaths}; do
     rm -rf "${path}"/.ais.vmd

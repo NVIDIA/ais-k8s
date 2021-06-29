@@ -1,5 +1,22 @@
 ---
 - hosts: "controller"
+  vars_prompt:
+    - name: "destroy_confirmation"
+      prompt: "Are you sure you would like to destroy cluster {{ cluster }}? Type 'yes' to confirm."
+      default: "no"
+      private: no
+
+  pre_tasks:
+    - name: check confirmation
+      fail:
+        msg: "destroy cluster not confirmed/forced"
+      when: destroy_confirmation != "yes"
+
+    - name: check cluster name
+      fail:
+        msg: "cluster name not specified!"
+      when: cluster is undefined
+
   gather_facts: no
   roles:
     - {role: ais_destroy_cluster}

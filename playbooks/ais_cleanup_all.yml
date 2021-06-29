@@ -1,5 +1,25 @@
 ---
 - hosts: "{{ cluster }}"
+  vars_files:
+    - "vars/ais_mpaths.yml"
+
+  vars_prompt:
+    - name: "cleanup_confirmation"
+      prompt: "Are you sure you would like to delete all AIS related (meta-)data on {{ cluster }} hosts and, mountpaths {{ ais_mpaths }}? Type 'yes' to confirm."
+      default: "no"
+      private: no
+
+  pre_tasks:
+    - name: check confirmation
+      fail:
+        msg: "cleanup not confirmed/forced"
+      when: cleanup_confirmation != "yes"
+
+    - name: check mountpath list
+      fail:
+        msg: "no ais_mpaths specified!"
+      when: ais_mpaths is undefined
+
   gather_facts: no
   roles:
     - {role: ais_cleanup_all, become: true}
