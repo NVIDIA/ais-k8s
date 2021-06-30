@@ -6,4 +6,4 @@
     mode: 0777
 
 - name: Run deploy operator scripts
-  shell: "IMG={{ image | default('aistore/ais-operator:latest') }} /tmp/deploy-operator.sh"
+  shell: "/tmp/deploy-operator.sh"

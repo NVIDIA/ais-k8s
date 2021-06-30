@@ -16,6 +16,7 @@ Playbook(s) | Useful when
 [ais_datafs_mkfs](docs/ais_datafs.md) | Creating or recreating filesystems for AIStore
 [ais_host_post_kubespray](docs/ais_host_post_kubespray.md) | Using AIStore chart values that require "unsafe" sysctls; changes kubelet.env to enable them
 ais_gpuhost_config | Configuring GPU compute nodes in the same cluster - install NVIDIA Docker 2, NVIDIA container runtime, etc.
+[ais_cluster_management](docs/ais_cluster_management.md) | A collection of playbooks to deploy and upgrade AIS clusters on K8s. Cluster shut down and associated cleanup is also supported.
 
 The `ais_host_config_common` playbook includes a tagging scheme to allow
 more granular selection of tasks and to skip tasks that are likely site-specific.
@@ -37,3 +38,5 @@ We run playbooks in the following order wrt other steps:
 1. If we're install gpu worker nodes, playbook `ais_gpuhost_config`
 1. Since we use sysctl somaxconn in containers we need to change `kubelet.env` and playbook `ais_host_post_kubespray` does this for us.
 1. Make filesystems with `ais_datafs_mkfs`
+1. Deploy AIS K8s operator `ais_deploy_operator`
+1. Deploy AIS cluster `ais_deploy_cluster`
