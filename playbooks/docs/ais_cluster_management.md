@@ -38,7 +38,9 @@ The `ais_deploy_cluster.yml` playbooks takes care of:
 
 #### Args
 
-`ais_mpaths` - list of mountpaths on each node in cluster. Provide this variable by editing the `vars/ais_mpaths.yml` (refer to the example below) or using the CLI argument, e.g. `-e ais_mapths=["/ais/sda", "/ais/sdb",...,"/ais/sdj"]`
+`ais_mpaths` - list of mountpaths on each node in cluster. Provide this variable by editing the `vars/ais_mpaths.yml` (refer to the example below) or using the CLI argument, e.g. `-e ais_mpaths=["/ais/sda", "/ais/sdb",...,"/ais/sdj"]`
+
+`ais_mpath_size` - size of mountpath (eg. 9Ti, 512Gi, etc.)
 
 ```yaml
 # example vars/ais_mpaths.yml
@@ -54,6 +56,9 @@ ais_mpaths:
   - "/ais/sdh"
   - "/ais/sdi"
   - "/ais/sdj"
+
+ais_mpath_size: 9Ti
+
 ```
 
 `node_image` (default: `aistore/aisnode:3.6`) - docker image used by AIS target/proxy containers

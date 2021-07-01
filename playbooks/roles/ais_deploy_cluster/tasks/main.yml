@@ -13,12 +13,13 @@
     src: "ais.yaml.j2"
     dest: "/tmp/{{ cluster }}.yaml"
     mode: 0777
+    lstrip_blocks: true
   vars:
     cluster: "{{ cluster }}"
     cluster_size: "{{ groups[cluster] | length }}"
 
 - name: Create PVs
-  shell: "MPATHS={{ ais_mpaths | join(' ') | quote }} NODES={{ groups[cluster] | join(' ') | quote }} /tmp/create-pvs.sh"
+  shell: "MPATH_SIZE={{ ais_mpath_size }} MPATHS={{ ais_mpaths | join(' ') | quote }} NODES={{ groups[cluster] | join(' ') | quote }} /tmp/create-pvs.sh"
   register: createpvsout
   changed_when: "'configured' in createpvsout.stdout or 'created' in createpvsout.stdout"
 

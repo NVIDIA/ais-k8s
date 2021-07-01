@@ -1,3 +1,5 @@
+{{ ansible_managed | comment }}
+---
 apiVersion: ais.nvidia.com/v1beta1
 kind: AIStore
 metadata:
@@ -9,8 +11,6 @@ spec:
   configToUpdate:
     rebalance:
       enabled: false
-    backend:
-      gcp: {}
 
   enablePromExporter: true
   proxySpec:
@@ -36,75 +36,14 @@ spec:
     nodeSelector:
       nvidia.com/ais-target: {{ cluster }}
     mounts:
-      - path: "/ais/sda"
-        size: 9Ti
+{% for mpath in ais_mpaths %}
+      - path: {{ mpath }}
+        size: {{ ais_mpath_size }}
         storageClass: "ais-local-storage"
         selector:
           matchLabels:
-            mpath: "pv-ais-sda"
-
-      - path: "/ais/sdb"
-        size: 9Ti
-        storageClass: "ais-local-storage"
-        selector:
-          matchLabels:
-            mpath: "pv-ais-sdb"
-
-      - path: "/ais/sdc"
-        size: 9Ti
-        storageClass: "ais-local-storage"
-        selector:
-          matchLabels:
-            mpath: "pv-ais-sdc"
-
-      - path: "/ais/sdd"
-        size: 9Ti
-        storageClass: "ais-local-storage"
-        selector:
-          matchLabels:
-            mpath: "pv-ais-sdd"
-
-      - path: "/ais/sde"
-        size: 9Ti
-        storageClass: "ais-local-storage"
-        selector:
-          matchLabels:
-            mpath: "pv-ais-sde"
-
-      - path: "/ais/sdf"
-        size: 9Ti
-        storageClass: "ais-local-storage"
-        selector:
-          matchLabels:
-            mpath: "pv-ais-sdf"
-
-      - path: "/ais/sdg"
-        size: 9Ti
-        storageClass: "ais-local-storage"
-        selector:
-          matchLabels:
-            mpath: "pv-ais-sdg"
-
-      - path: "/ais/sdh"
-        size: 9Ti
-        storageClass: "ais-local-storage"
-        selector:
-          matchLabels:
-            mpath: "pv-ais-sdh"
-
-      - path: "/ais/sdi"
-        size: 9Ti
-        storageClass: "ais-local-storage"
-        selector:
-          matchLabels:
-            mpath: "pv-ais-sdi"
-
-      - path: "/ais/sdj"
-        size: 9Ti
-        storageClass: "ais-local-storage"
-        selector:
-          matchLabels:
-            mpath: "pv-ais-sdj"
+            mpath: "pv{{ mpath | replace('/','-') }}"
+{% endfor %}
 
     nodiskio:
       enabled: false

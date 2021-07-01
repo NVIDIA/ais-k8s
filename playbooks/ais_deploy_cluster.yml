@@ -1,5 +1,19 @@
 ---
 - hosts: "controller"
   gather_facts: no
+  vars_files:
+    - "vars/ais_mpaths.yml"
+
+  pre_tasks:
+    - name: check mountpath list
+      fail:
+        msg: "no ais_mpaths specified!"
+      when: ais_mpaths is undefined
+
+    - name: check mountpath size
+      fail:
+        msg: "no ais_mpath_size specified!"
+      when: ais_mpath_size is undefined
+
   roles:
     - {role: ais_deploy_cluster}

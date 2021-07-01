@@ -14,7 +14,7 @@ metadata:
 spec:
   storageClassName: ais-local-storage
   capacity:
-    storage: 9Ti # should be set to size of mpath
+    storage: $MPATH_SIZE # should be set to size of mpath
   accessModes:
     - ReadWriteOnce
   hostPath:

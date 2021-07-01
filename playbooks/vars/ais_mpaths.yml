@@ -1,5 +1,5 @@
 #
-# Contains list of mountpaths on hosts.
+# Contains list of mountpaths on hosts and their size.
 # Make sure to adjust the mountpaths based on host setup.
 # This variable is used by `ais_cleanup_all.yml`, `ais_cleanup_markers.yml` and,
 # `ais_deploy_cluster.yml`.
@@ -7,7 +7,7 @@
 # Mountpaths can also be passed as a command line variable i.e. using -e
 # Eg.
 # ANSIBLE_CONFIG=dev-test/ansible.cfg ansible-playbook -i dev-test/host.ini \
-# ais_cleanup_all.yml  -e cluster=ais-1 -e ais_mpaths=["/ais/sda", "/ais/sdb",...,"/ais/sdj"]
+# ais_cleanup_all.yml  -e cluster=ais-1 -e ais_mpaths=["/ais/sda", "/ais/sdb",...,"/ais/sdj"] -e ais_mpath_size=9Ti
 #
 
 # ---
@@ -22,3 +22,6 @@
 #   - "/ais/sdh"
 #   - "/ais/sdi"
 #   - "/ais/sdj"
+#
+# ais_mpath_size: 9Ti
+#

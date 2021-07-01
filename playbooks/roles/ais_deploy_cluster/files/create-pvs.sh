@@ -6,6 +6,7 @@
 #
 
 mpaths=${MPATHS:-"/ais/sda /ais/sdb /ais/sdc /ais/sdd /ais/sde /ais/sdf /ais/sdg /ais/sdh /ais/sdi /ais/sdj"}
+mpath_size=${MPATH_SIZE:-"9Ti"}
 
 source_dir=$(dirname "${BASH_SOURCE[0]}")
 
@@ -22,6 +23,7 @@ for n in ${nodes} ; do
         export MPATH=$m
         export NODE=$n
         export MPATH_LABEL=pv${m//\//\-}
+        export MPATH_SIZE=$mpath_size
         envsubst < "${source_dir}"/pv.template.yaml > /tmp/pv.yaml
         kubectl apply -f /tmp/pv.yaml
         rm /tmp/pv.yaml
