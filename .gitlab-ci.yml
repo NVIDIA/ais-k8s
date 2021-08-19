@@ -11,7 +11,7 @@ variables:
   AISNODE_IMAGE: "aistore/aisnode"
 
 before_script:
-  - apt-get update -y && apt install -y docker.io build-essential
+  - apt-get update -y --allow-releaseinfo-change && apt install -y docker.io build-essential
   - |
     echo '{"storage-driver": "vfs"}' >> /etc/docker/daemon.json
   - nohup dockerd >/dev/null 2>&1 & sleep 10
