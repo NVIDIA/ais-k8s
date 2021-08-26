@@ -61,7 +61,7 @@ ais_mpath_size: 9Ti
 
 ```
 
-`node_image` (default: `aistore/aisnode:3.6`) - docker image used by AIS target/proxy containers
+`node_image` (default: `aistore/aisnode:3.7`) - docker image used by AIS target/proxy containers
 
 `cluster` - specifies the ansible group to be used for deploying AIS cluster, eg.
 ```ini
