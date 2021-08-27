@@ -11,6 +11,7 @@ import (
 
 	apiv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -85,6 +86,12 @@ func (c *K8sClient) GetPodByName(ctx context.Context, name types.NamespacedName)
 	pod := &corev1.Pod{}
 	err := c.Get(ctx, name, pod)
 	return pod, err
+}
+
+func (c *K8sClient) GetRoleByName(ctx context.Context, name types.NamespacedName) (*rbacv1.Role, error) {
+	role := &rbacv1.Role{}
+	err := c.Get(ctx, name, role)
+	return role, err
 }
 
 ////////////////////////////////////////
