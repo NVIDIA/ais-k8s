@@ -2,6 +2,7 @@ linters:
   enable-all: false
   disable-all: true
   enable:
+    - revive
     - asciicheck
     - bodyclose
     - deadcode
@@ -12,7 +13,6 @@ linters:
     - gofumpt
     - goheader
     - goimports
-    - golint
     - goprintffuncname
     - gosimple
     - govet
@@ -52,6 +52,43 @@ linters:
     # - wrapcheck
 
 linters-settings:
+  revive:
+    ignore-generated-header: true
+    severity: warning
+    rules:
+      # name: early-return
+      # name: import-shadowing
+      # name: unhandled-error
+      # name: line-length-limit
+      # name: unused-parameter
+      # name: unused-receiver
+      # name: dot-imports
+      - name: if-return
+      - name: blank-imports
+      - name: context-as-argument
+      - name: context-keys-type
+      - name: error-naming
+      - name: error-strings
+      - name: exported
+      - name: increment-decrement
+      - name: indent-error-flow
+      - name: imports-blacklist
+      - name: modifies-value-receiver
+      - name: package-comments
+      - name: range
+      - name: receiver-naming
+      - name: redefines-builtin-id
+      - name: string-of-int
+      - name: superfluous-else
+      - name: time-naming
+      - name: var-naming
+      - name: var-declaration
+      - name: unconditional-recursion
+      - name: unexported-naming
+      - name: unexported-return
+      - name: unnecessary-stmt
+      - name: unreachable-code
+      - name: waitgroup-by-value
   govet:
     disable:
       - shadow # reports a lot of false-positives and conflicts with other linters
