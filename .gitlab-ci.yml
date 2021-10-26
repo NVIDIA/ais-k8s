@@ -75,7 +75,7 @@ operator:minikube:short:
   <<: *default_only_def
   tags:
     - ais-k8s
-  timeout: 18m
+  timeout: 20m
   script:
     - make -C operator test-short
 
