@@ -43,7 +43,7 @@ type (
 
 	// AIStoreReconciler reconciles a AIStore object
 	AIStoreReconciler struct {
-		sync.RWMutex
+		mu           sync.RWMutex
 		client       *aisclient.K8sClient
 		log          logr.Logger
 		recorder     record.EventRecorder
@@ -462,19 +462,19 @@ func (r *AIStoreReconciler) SetupWithManager(mgr ctrl.Manager) error {
 func (r *AIStoreReconciler) getAPIParams(ctx context.Context,
 	ais *aisv1.AIStore) (baseParams *aisapi.BaseParams, err error) {
 	var exists bool
-	r.RLock()
+	r.mu.RLock()
 	if baseParams, exists = r.clientParams[ais.NamespacedName().String()]; exists {
-		r.RUnlock()
+		r.mu.RUnlock()
 		return
 	}
-	r.RUnlock()
+	r.mu.RUnlock()
 	baseParams, err = r.newAISBaseParams(ctx, ais)
 	if err != nil {
 		return
 	}
-	r.Lock()
+	r.mu.Lock()
 	r.clientParams[ais.NamespacedName().String()] = baseParams
-	r.Unlock()
+	r.mu.Unlock()
 	return
 }
 

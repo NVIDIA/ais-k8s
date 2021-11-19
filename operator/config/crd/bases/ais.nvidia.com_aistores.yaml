@@ -2492,6 +2492,11 @@ spec:
                             type: array
                         type: object
                     type: object
+                  allow_shared_no_disks:
+                    description: AllowSharedOrNoDisks - disables FsID and mountpath
+                      disks validation on target nodes. NOT recommended for production
+                      deployments
+                    type: boolean
                   capabilities:
                     description: ContainerSecurity holds the secrity context for AIS
                       Daemon containers.
@@ -2726,20 +2731,6 @@ spec:
                     description: NodeSelector -  which must match a node's labels
                       for the AIS Daemon pod to be scheduled on that node.
                     type: object
-                  nodiskio:
-                    properties:
-                      dryobjsize:
-                        anyOf:
-                        - type: integer
-                        - type: string
-                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                        x-kubernetes-int-or-string: true
-                      enabled:
-                        type: boolean
-                    required:
-                    - dryobjsize
-                    - enabled
-                    type: object
                   portIntraControl:
                     anyOf:
                     - type: integer
@@ -2965,7 +2956,6 @@ spec:
                     type: array
                 required:
                 - mounts
-                - nodiskio
                 - portIntraControl
                 - portIntraData
                 - portPublic

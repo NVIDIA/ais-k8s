@@ -89,11 +89,12 @@ var _ = Describe("Run Controller", func() {
 			It("Should successfully create an AIS Cluster", func() {
 				tutils.CheckSkip(&tutils.SkipArgs{RequiresLB: true})
 				cluArgs := tutils.ClusterSpecArgs{
-					Name:             clusterName(),
-					Namespace:        testNSName,
-					StorageClass:     storageClass,
-					Size:             1,
-					EnableExternalLB: true,
+					Name:                 clusterName(),
+					Namespace:            testNSName,
+					StorageClass:         storageClass,
+					Size:                 1,
+					EnableExternalLB:     true,
+					AllowSharedOrNoDisks: testAllowSharedNoDisks,
 				}
 				cluster := tutils.NewAISClusterCR(cluArgs)
 				createAndDestroyCluster(cluster, nil, nil, true)
@@ -102,11 +103,12 @@ var _ = Describe("Run Controller", func() {
 			It("Should create all required K8s objects, when AIS Cluster is created", func() {
 				tutils.CheckSkip(&tutils.SkipArgs{RequiresLB: true, OnlyLong: true})
 				cluArgs := tutils.ClusterSpecArgs{
-					Name:             clusterName(),
-					Namespace:        testNSName,
-					StorageClass:     storageClass,
-					Size:             1,
-					EnableExternalLB: true,
+					Name:                 clusterName(),
+					Namespace:            testNSName,
+					StorageClass:         storageClass,
+					Size:                 1,
+					EnableExternalLB:     true,
+					AllowSharedOrNoDisks: testAllowSharedNoDisks,
 				}
 				cluster := tutils.NewAISClusterCR(cluArgs)
 				createAndDestroyCluster(cluster, checkResExists, checkResShouldNotExist, true)
@@ -164,11 +166,12 @@ var _ = Describe("Run Controller", func() {
 			It("Should be able to scale-up existing cluster", func() {
 				tutils.CheckSkip(&tutils.SkipArgs{SkipInternal: testAsExternalClient})
 				cluArgs := tutils.ClusterSpecArgs{
-					Name:                clusterName(),
-					Namespace:           testNSName,
-					StorageClass:        storageClass,
-					Size:                1,
-					DisableAntiAffinity: true,
+					Name:                 clusterName(),
+					Namespace:            testNSName,
+					StorageClass:         storageClass,
+					Size:                 1,
+					DisableAntiAffinity:  true,
+					AllowSharedOrNoDisks: testAllowSharedNoDisks,
 				}
 				cluster := tutils.NewAISClusterCR(cluArgs)
 				scaleUpCluster := func(ctx context.Context, cluster *aisv1.AIStore) {
@@ -180,11 +183,12 @@ var _ = Describe("Run Controller", func() {
 			It("Should be able to scale-down existing cluster", func() {
 				tutils.CheckSkip(&tutils.SkipArgs{SkipInternal: testAsExternalClient})
 				cluArgs := tutils.ClusterSpecArgs{
-					Name:                clusterName(),
-					Namespace:           testNSName,
-					StorageClass:        storageClass,
-					Size:                2,
-					DisableAntiAffinity: true,
+					Name:                 clusterName(),
+					Namespace:            testNSName,
+					StorageClass:         storageClass,
+					Size:                 2,
+					DisableAntiAffinity:  true,
+					AllowSharedOrNoDisks: testAllowSharedNoDisks,
 				}
 				cluster := tutils.NewAISClusterCR(cluArgs)
 				scaleDownCluster := func(ctx context.Context, cluster *aisv1.AIStore) {
@@ -198,12 +202,13 @@ var _ = Describe("Run Controller", func() {
 			It("Should be able to scale-up existing cluster", func() {
 				tutils.CheckSkip(&tutils.SkipArgs{RequiresLB: true, OnlyLong: true})
 				cluArgs := tutils.ClusterSpecArgs{
-					Name:                clusterName(),
-					Namespace:           testNSName,
-					StorageClass:        storageClass,
-					Size:                1,
-					DisableAntiAffinity: true,
-					EnableExternalLB:    true,
+					Name:                 clusterName(),
+					Namespace:            testNSName,
+					StorageClass:         storageClass,
+					Size:                 1,
+					DisableAntiAffinity:  true,
+					EnableExternalLB:     true,
+					AllowSharedOrNoDisks: testAllowSharedNoDisks,
 				}
 				cluster := tutils.NewAISClusterCR(cluArgs)
 				scaleUpCluster := func(ctx context.Context, cluster *aisv1.AIStore) {
@@ -215,12 +220,13 @@ var _ = Describe("Run Controller", func() {
 			It("Should be able to scale-down existing cluster", func() {
 				tutils.CheckSkip(&tutils.SkipArgs{RequiresLB: true, OnlyLong: true})
 				cluArgs := tutils.ClusterSpecArgs{
-					Name:                clusterName(),
-					Namespace:           testNSName,
-					StorageClass:        storageClass,
-					Size:                2,
-					DisableAntiAffinity: true,
-					EnableExternalLB:    true,
+					Name:                 clusterName(),
+					Namespace:            testNSName,
+					StorageClass:         storageClass,
+					Size:                 2,
+					DisableAntiAffinity:  true,
+					EnableExternalLB:     true,
+					AllowSharedOrNoDisks: testAllowSharedNoDisks,
 				}
 				cluster := tutils.NewAISClusterCR(cluArgs)
 				scaleDownCluster := func(ctx context.Context, cluster *aisv1.AIStore) {
@@ -235,12 +241,13 @@ var _ = Describe("Run Controller", func() {
 		It("Re-deploying same cluster must retain data", func() {
 			tutils.CheckSkip(&tutils.SkipArgs{OnlyLong: true})
 			cluArgs := tutils.ClusterSpecArgs{
-				Name:             clusterName(),
-				Namespace:        testNSName,
-				StorageClass:     storageClass,
-				Size:             1,
-				EnableExternalLB: testAsExternalClient,
-				PreservePVCs:     true,
+				Name:                 clusterName(),
+				Namespace:            testNSName,
+				StorageClass:         storageClass,
+				Size:                 1,
+				EnableExternalLB:     testAsExternalClient,
+				PreservePVCs:         true,
+				AllowSharedOrNoDisks: testAllowSharedNoDisks,
 			}
 			cc := newClientCluster(cluArgs)
 			cc.create()
@@ -280,12 +287,13 @@ var _ = Describe("Run Controller", func() {
 		It("Cluster scale down should ensure data safety", func() {
 			tutils.CheckSkip(&tutils.SkipArgs{OnlyLong: true})
 			cluArgs := tutils.ClusterSpecArgs{
-				Name:                clusterName(),
-				Namespace:           testNSName,
-				StorageClass:        storageClass,
-				Size:                2,
-				DisableAntiAffinity: true,
-				EnableExternalLB:    testAsExternalClient,
+				Name:                 clusterName(),
+				Namespace:            testNSName,
+				StorageClass:         storageClass,
+				Size:                 2,
+				DisableAntiAffinity:  true,
+				EnableExternalLB:     testAsExternalClient,
+				AllowSharedOrNoDisks: testAllowSharedNoDisks,
 			}
 			cc := newClientCluster(cluArgs)
 			cc.create()
@@ -322,11 +330,12 @@ var _ = Describe("Run Controller", func() {
 		It("Re-deploying without preserving PVCs should wipeout all data", func() {
 			tutils.CheckSkip(&tutils.SkipArgs{OnlyLong: true})
 			cluArgs := tutils.ClusterSpecArgs{
-				Name:             clusterName(),
-				Namespace:        testNSName,
-				StorageClass:     storageClass,
-				Size:             1,
-				EnableExternalLB: testAsExternalClient,
+				Name:                 clusterName(),
+				Namespace:            testNSName,
+				StorageClass:         storageClass,
+				Size:                 1,
+				EnableExternalLB:     testAsExternalClient,
+				AllowSharedOrNoDisks: testAllowSharedNoDisks,
 			}
 			cc := newClientCluster(cluArgs)
 			cc.create()
@@ -386,12 +395,13 @@ var _ = Describe("Run Controller", func() {
 			if count == 1 {
 				Expect(count).To(Equal(1))
 				cluArgs := tutils.ClusterSpecArgs{
-					Name:                clusterName(),
-					Namespace:           testNSName,
-					StorageClass:        storageClass,
-					Size:                1,
-					DisableAntiAffinity: true,
-					EnableExternalLB:    testAsExternalClient,
+					Name:                 clusterName(),
+					Namespace:            testNSName,
+					StorageClass:         storageClass,
+					Size:                 1,
+					DisableAntiAffinity:  true,
+					EnableExternalLB:     testAsExternalClient,
+					AllowSharedOrNoDisks: testAllowSharedNoDisks,
 				}
 				cc = newClientCluster(cluArgs)
 				cc.create()
@@ -417,10 +427,11 @@ func clusterName() string {
 
 func defaultCluArgs() tutils.ClusterSpecArgs {
 	return tutils.ClusterSpecArgs{
-		Name:         clusterName(),
-		Namespace:    testNSName,
-		StorageClass: storageClass,
-		Size:         1,
+		Name:                 clusterName(),
+		Namespace:            testNSName,
+		StorageClass:         storageClass,
+		Size:                 1,
+		AllowSharedOrNoDisks: testAllowSharedNoDisks,
 	}
 }
 

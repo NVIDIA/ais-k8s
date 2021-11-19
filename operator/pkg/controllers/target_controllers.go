@@ -157,9 +157,9 @@ func (r *AIStoreReconciler) decommissionTargets(ctx context.Context, ais *aisv1.
 				continue
 			}
 			toDecommission++
-			if !smap.GetTarget(node.DaemonID).InMaintenance() {
+			if !smap.PresentInMaint(node) {
 				r.log.Info("decommissioning node - " + node.String())
-				_, err = aisapi.Decommission(*params, &aiscmn.ActValRmNode{DaemonID: node.ID(), CleanData: true})
+				_, err = aisapi.DecommissionNode(*params, &aiscmn.ActValRmNode{DaemonID: node.ID(), RmUserData: true})
 				if err != nil {
 					return
 				}

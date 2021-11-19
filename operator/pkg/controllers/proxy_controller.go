@@ -209,7 +209,7 @@ func (r *AIStoreReconciler) setPrimaryTo(ctx context.Context, ais *aisv1.AIStore
 		if !strings.HasPrefix(node.IntraControlNet.NodeHostname, podName) {
 			continue
 		}
-		return aisapi.SetPrimaryProxy(*params, node.ID())
+		return aisapi.SetPrimaryProxy(*params, node.ID(), true /*force*/)
 	}
 	return fmt.Errorf("couldn't find a proxy node for pod %q", podName)
 }
@@ -230,7 +230,7 @@ func (r *AIStoreReconciler) handleProxyScaledown(ctx context.Context, ais *aisv1
 	}
 
 	decommissionNode := func(daemonID string) {
-		_, err := aisapi.Decommission(*params, &aiscmn.ActValRmNode{
+		_, err := aisapi.DecommissionNode(*params, &aiscmn.ActValRmNode{
 			DaemonID: daemonID,
 		})
 		if err != nil {
@@ -259,10 +259,10 @@ func (r *AIStoreReconciler) handleProxyScaledown(ctx context.Context, ais *aisv1
 
 	// Set new primary before decommissioning old primary
 	for _, node := range smap.Pmap {
-		if smap.GetProxy(node.ID()).InMaintenance() {
+		if smap.PresentInMaint(node) {
 			continue
 		}
-		err := aisapi.SetPrimaryProxy(*params, node.DaemonID)
+		err := aisapi.SetPrimaryProxy(*params, node.DaemonID, true /*force*/)
 		if err != nil {
 			r.log.Error(err, "failed to set primary as "+node.DaemonID)
 			continue

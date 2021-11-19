@@ -9,6 +9,7 @@ stages:
 variables:
   ADMIN_IMAGE: "aistore/admin"
   AISNODE_IMAGE: "aistore/aisnode"
+  TEST_ALLOW_SHARED_NO_DISKS: "true"
 
 before_script:
   - apt-get update -y --allow-releaseinfo-change && apt install -y docker.io build-essential
@@ -75,7 +76,7 @@ operator:minikube:short:
   <<: *default_only_def
   tags:
     - ais-k8s
-  timeout: 20m
+  timeout: 30m
   script:
     - make -C operator test-short
 

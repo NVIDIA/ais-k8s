@@ -40,10 +40,11 @@ var (
 	testEnv   *envtest.Environment
 	testCtx   *testing.T
 
-	storageClass         string // storage-class to use in tests
-	testNS               *corev1.Namespace
-	nsExists             bool
-	testAsExternalClient bool
+	storageClass           string // storage-class to use in tests
+	testNS                 *corev1.Namespace
+	nsExists               bool
+	testAsExternalClient   bool
+	testAllowSharedNoDisks bool
 )
 
 const (
@@ -52,6 +53,7 @@ const (
 
 	EnvTestEnforceExternal = "TEST_EXTERNAL_CLIENT" // if set, will force the test suite to run as external client to deployed k8s cluster.
 	EnvTestStorageClass    = "TEST_STORAGECLASS"
+	EnvTestNoFsChecks      = "TEST_ALLOW_SHARED_NO_DISKS" // if set, deploys cluster with Fs ID/Disk check disabled
 )
 
 func TestAPIs(t *testing.T) {
@@ -147,6 +149,8 @@ var _ = BeforeSuite(func(done Done) {
 	// NOTE: On gitlab, tests run in a pod inside minikube cluster. In that case we can run the tests as an internal client, unless enforced to test as external client.
 	testAsExternalClient = cos.IsParseBool(os.Getenv(EnvTestEnforceExternal)) || aisk8s.Detect() != nil
 	setStorageClass()
+
+	testAllowSharedNoDisks = cos.IsParseBool(os.Getenv(EnvTestNoFsChecks))
 
 	close(done)
 }, 60)

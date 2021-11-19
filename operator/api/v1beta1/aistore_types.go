@@ -144,13 +144,10 @@ type DaemonSpec struct {
 
 type TargetSpec struct {
 	DaemonSpec `json:",inline"`
-	NoDiskIO   NoDiskIO `json:"nodiskio"`
-	Mounts     []Mount  `json:"mounts"`
-}
-
-type NoDiskIO struct {
-	DryObjSize resource.Quantity `json:"dryobjsize"`
-	Enabled    bool              `json:"enabled"`
+	Mounts     []Mount `json:"mounts"`
+	// AllowSharedOrNoDisks - disables FsID and mountpath disks validation on target nodes. NOT recommended for production deployments
+	// +optional
+	AllowSharedOrNoDisks *bool `json:"allow_shared_no_disks,omitempty"`
 }
 
 type Mount struct {

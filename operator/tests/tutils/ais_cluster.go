@@ -15,19 +15,20 @@ import (
 
 // TODO: Should be provided from test config.
 const (
-	aisNodeImage = "aistore/aisnode:3.4.1"
+	aisNodeImage = "aistore/aisnode:3.8-d66a67"
 	aisInitImage = "aistore/ais-init:latest"
 )
 
 type (
 	ClusterSpecArgs struct {
-		Name                string
-		Namespace           string
-		StorageClass        string
-		Size                int32
-		DisableAntiAffinity bool
-		EnableExternalLB    bool
-		PreservePVCs        bool
+		Name                 string
+		Namespace            string
+		StorageClass         string
+		Size                 int32
+		DisableAntiAffinity  bool
+		EnableExternalLB     bool
+		PreservePVCs         bool
+		AllowSharedOrNoDisks bool
 	}
 )
 
@@ -62,17 +63,18 @@ func NewAISClusterCR(args ClusterSpecArgs) *aisv1.AIStore {
 					IntraDataPort:    intstr.FromInt(51083),
 				},
 			},
+			AllowSharedOrNoDisks: &args.AllowSharedOrNoDisks,
 			Mounts: []aisv1.Mount{
 				{
 					Path:         "/ais1",
 					Size:         resource.MustParse("2Gi"),
 					StorageClass: storage,
 				},
-			},
-
-			NoDiskIO: aisv1.NoDiskIO{
-				Enabled:    true,
-				DryObjSize: resource.MustParse("8M"),
+				{
+					Path:         "/ais2",
+					Size:         resource.MustParse("1Gi"),
+					StorageClass: storage,
+				},
 			},
 		},
 	}

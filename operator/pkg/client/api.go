@@ -24,37 +24,45 @@ import (
 
 type (
 	K8sClient struct {
-		client.Client
+		client client.Client
 		scheme *runtime.Scheme
 	}
 )
 
 func NewClientFromMgr(mgr manager.Manager) *K8sClient {
 	return &K8sClient{
-		mgr.GetClient(),
-		mgr.GetScheme(),
+		client: mgr.GetClient(),
+		scheme: mgr.GetScheme(),
 	}
 }
 
-//////////////////////////////////////////
-//             Get resources            //
 /////////////////////////////////////////
+//             Get resources           //
+/////////////////////////////////////////
+
+func (c *K8sClient) List(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
+	return c.client.List(ctx, list, opts...)
+}
+
+func (c *K8sClient) Get(ctx context.Context, key client.ObjectKey, obj client.Object) error {
+	return c.client.Get(ctx, key, obj)
+}
 
 func (c *K8sClient) GetAIStoreCR(ctx context.Context, name types.NamespacedName) (*aisv1.AIStore, error) {
 	aistore := &aisv1.AIStore{}
-	err := c.Get(ctx, name, aistore)
+	err := c.client.Get(ctx, name, aistore)
 	return aistore, err
 }
 
 func (c *K8sClient) ListAIStoreCR(ctx context.Context, namespace string) (*aisv1.AIStoreList, error) {
 	list := &aisv1.AIStoreList{}
-	err := c.List(ctx, list, client.InNamespace(namespace))
+	err := c.client.List(ctx, list, client.InNamespace(namespace))
 	return list, err
 }
 
 func (c *K8sClient) GetStatefulSet(ctx context.Context, name types.NamespacedName) (*apiv1.StatefulSet, error) {
 	ss := &apiv1.StatefulSet{}
-	err := c.Get(ctx, name, ss)
+	err := c.client.Get(ctx, name, ss)
 	return ss, err
 }
 
@@ -72,31 +80,45 @@ func (c *K8sClient) StatefulSetExists(ctx context.Context, name types.Namespaced
 
 func (c *K8sClient) GetServiceByName(ctx context.Context, name types.NamespacedName) (*corev1.Service, error) {
 	svc := &corev1.Service{}
-	err := c.Get(ctx, name, svc)
+	err := c.client.Get(ctx, name, svc)
 	return svc, err
 }
 
 func (c *K8sClient) GetCMByName(ctx context.Context, name types.NamespacedName) (*corev1.ConfigMap, error) {
 	cm := &corev1.ConfigMap{}
-	err := c.Get(ctx, name, cm)
+	err := c.client.Get(ctx, name, cm)
 	return cm, err
 }
 
 func (c *K8sClient) GetPodByName(ctx context.Context, name types.NamespacedName) (*corev1.Pod, error) {
 	pod := &corev1.Pod{}
-	err := c.Get(ctx, name, pod)
+	err := c.client.Get(ctx, name, pod)
 	return pod, err
 }
 
 func (c *K8sClient) GetRoleByName(ctx context.Context, name types.NamespacedName) (*rbacv1.Role, error) {
 	role := &rbacv1.Role{}
-	err := c.Get(ctx, name, role)
+	err := c.client.Get(ctx, name, role)
 	return role, err
 }
 
-////////////////////////////////////////
-//      create/update resources      //
+func (c *K8sClient) Status() client.StatusWriter { return c.client.Status() }
+
+///////////////////////////////////////
+//      create/update resources     //
 //////////////////////////////////////
+
+func (c *K8sClient) Update(ctx context.Context, obj client.Object, opts ...client.UpdateOption) error {
+	return c.client.Update(ctx, obj, opts...)
+}
+
+func (c *K8sClient) UpdateIfExists(ctx context.Context, res client.Object) error {
+	err := c.client.Update(ctx, res)
+	if apierrors.IsNotFound(err) {
+		return nil
+	}
+	return err
+}
 
 func (c *K8sClient) UpdateStatefulSetReplicas(ctx context.Context, name types.NamespacedName, size int32) (updated bool, err error) {
 	ss, err := c.GetStatefulSet(ctx, name)
@@ -108,7 +130,7 @@ func (c *K8sClient) UpdateStatefulSetReplicas(ctx context.Context, name types.Na
 		return
 	}
 	ss.Spec.Replicas = &size
-	err = c.Update(ctx, ss)
+	err = c.client.Update(ctx, ss)
 	return
 }
 
@@ -122,8 +144,12 @@ func (c *K8sClient) UpdateStatefulSetImage(ctx context.Context, name types.Names
 		return
 	}
 	ss.Spec.Template.Spec.Containers[idx].Image = newImage
-	err = c.Update(ctx, ss)
+	err = c.client.Update(ctx, ss)
 	return
+}
+
+func (c *K8sClient) Create(ctx context.Context, obj client.Object, opts ...client.CreateOption) error {
+	return c.client.Create(ctx, obj, opts...)
 }
 
 func (c *K8sClient) CreateResourceIfNotExists(ctx context.Context, owner *aisv1.AIStore, res client.Object) (exists bool, err error) {
@@ -134,7 +160,7 @@ func (c *K8sClient) CreateResourceIfNotExists(ctx context.Context, owner *aisv1.
 		res.SetNamespace(owner.Namespace)
 	}
 
-	err = c.Create(ctx, res)
+	err = c.client.Create(ctx, res)
 	exists = err != nil && apierrors.IsAlreadyExists(err)
 	if exists {
 		err = nil
@@ -142,17 +168,9 @@ func (c *K8sClient) CreateResourceIfNotExists(ctx context.Context, owner *aisv1.
 	return
 }
 
-func (c *K8sClient) UpdateIfExists(ctx context.Context, res client.Object) error {
-	err := c.Update(ctx, res)
-	if apierrors.IsNotFound(err) {
-		return nil
-	}
-	return err
-}
-
 func (c *K8sClient) CheckIfNamespaceExists(ctx context.Context, name string) (exists bool, err error) {
 	ns := &corev1.Namespace{}
-	err = c.Client.Get(ctx, types.NamespacedName{Name: name}, ns)
+	err = c.client.Get(ctx, types.NamespacedName{Name: name}, ns)
 	if err == nil {
 		exists = true
 	} else if apierrors.IsNotFound(err) {
@@ -167,7 +185,7 @@ func (c *K8sClient) CheckIfNamespaceExists(ctx context.Context, name string) (ex
 
 // DeleteResourceIfExists deletes an existing resource. It doesn't fail if the resource does not exist
 func (c *K8sClient) DeleteResourceIfExists(context context.Context, obj client.Object) (existed bool, err error) {
-	err = c.Delete(context, obj)
+	err = c.client.Delete(context, obj)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return false, nil
@@ -187,7 +205,7 @@ func (c *K8sClient) DeleteServiceIfExists(ctx context.Context, name types.Namesp
 
 func (c *K8sClient) DeleteAllServicesIfExist(ctx context.Context, namespace string, labels client.MatchingLabels) (anyExisted bool, err error) {
 	svcs := &corev1.ServiceList{}
-	err = c.List(ctx, svcs, client.InNamespace(namespace), labels)
+	err = c.client.List(ctx, svcs, client.InNamespace(namespace), labels)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			err = nil
@@ -208,7 +226,7 @@ func (c *K8sClient) DeleteAllServicesIfExist(ctx context.Context, namespace stri
 
 func (c *K8sClient) DeleteAllPVCsIfExist(ctx context.Context, namespace string, labels client.MatchingLabels) (anyExisted bool, err error) {
 	pvcs := &corev1.PersistentVolumeClaimList{}
-	err = c.List(ctx, pvcs, client.InNamespace(namespace), labels)
+	err = c.client.List(ctx, pvcs, client.InNamespace(namespace), labels)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			err = nil
