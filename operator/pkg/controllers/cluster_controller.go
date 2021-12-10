@@ -117,7 +117,7 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return reconcile.Result{}, nil
 	}
 
-	if r.isNewCR(ais) {
+	if isNewCR(ais) {
 		return r.bootstrapNew(ctx, ais)
 	}
 
@@ -215,7 +215,7 @@ func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore
 	)
 
 	if ais.Spec.ConfigToUpdate != nil {
-		if configToUpdate, err = r.getConfigToUpdate(ais.Spec.ConfigToUpdate); err != nil {
+		if configToUpdate, err = getConfigToUpdate(ais.Spec.ConfigToUpdate); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
@@ -446,7 +446,7 @@ func (r *AIStoreReconciler) setStatus(ctx context.Context, ais *aisv1.AIStore, s
 	return
 }
 
-func (r *AIStoreReconciler) isNewCR(ais *aisv1.AIStore) (isNew bool) {
+func isNewCR(ais *aisv1.AIStore) (isNew bool) {
 	return !ais.IsConditionTrue(aisv1.ConditionCreated.Str())
 }
 
@@ -514,7 +514,7 @@ func (r *AIStoreReconciler) manageSuccess(ctx context.Context, ais *aisv1.AIStor
 	return
 }
 
-func (r *AIStoreReconciler) getConfigToUpdate(cfg *aisv1.ConfigToUpdate) (toUpdate *aiscmn.ConfigToUpdate, err error) {
+func getConfigToUpdate(cfg *aisv1.ConfigToUpdate) (toUpdate *aiscmn.ConfigToUpdate, err error) {
 	toUpdate = &aiscmn.ConfigToUpdate{}
 	err = cos.MorphMarshal(cfg, toUpdate)
 	return toUpdate, err
@@ -534,7 +534,7 @@ func (r *AIStoreReconciler) primaryBaseParams(ctx context.Context, ais *aisv1.AI
 	if err != nil {
 		return nil, err
 	}
-	return r._baseParams(ais, smap.Primary.URL(aiscmn.NetworkPublic)), nil
+	return _baseParams(ais, smap.Primary.URL(aiscmn.NetworkPublic)), nil
 }
 
 func (r *AIStoreReconciler) newAISBaseParams(ctx context.Context,
@@ -564,10 +564,10 @@ func (r *AIStoreReconciler) newAISBaseParams(ctx context.Context,
 
 createParams:
 	url := fmt.Sprintf("http://%s:%s", serviceHostname, ais.Spec.ProxySpec.ServicePort.String())
-	return r._baseParams(ais, url), nil
+	return _baseParams(ais, url), nil
 }
 
-func (r *AIStoreReconciler) _baseParams(_ *aisv1.AIStore, url string) *aisapi.BaseParams {
+func _baseParams(_ *aisv1.AIStore, url string) *aisapi.BaseParams {
 	// TODO:
 	// 1. Get timeout from config
 	// 2. `UseHTTPS` should be set based on cluster config

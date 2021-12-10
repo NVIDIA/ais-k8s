@@ -184,8 +184,8 @@ func (c *K8sClient) CheckIfNamespaceExists(ctx context.Context, name string) (ex
 ////////////////////////////////
 
 // DeleteResourceIfExists deletes an existing resource. It doesn't fail if the resource does not exist
-func (c *K8sClient) DeleteResourceIfExists(context context.Context, obj client.Object) (existed bool, err error) {
-	err = c.client.Delete(context, obj)
+func (c *K8sClient) DeleteResourceIfExists(ctx context.Context, obj client.Object) (existed bool, err error) {
+	err = c.client.Delete(ctx, obj)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return false, nil

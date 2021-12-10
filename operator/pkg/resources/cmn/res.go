@@ -9,7 +9,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 
 	aisv1 "github.com/ais-operator/api/v1beta1"
 )
@@ -95,7 +94,7 @@ func NewAISVolumes(ais *aisv1.AIStore, daeType string) []corev1.Volume {
 	return volumes
 }
 
-func NewAISLivenessProbe(port intstr.IntOrString) *corev1.Probe {
+func NewAISLivenessProbe() *corev1.Probe {
 	return &corev1.Probe{
 		Handler: corev1.Handler{
 			Exec: &corev1.ExecAction{

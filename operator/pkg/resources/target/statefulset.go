@@ -128,7 +128,7 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 							SecurityContext: ais.Spec.TargetSpec.ContainerSecurity,
 							VolumeMounts:    volumeMounts(ais),
 							Lifecycle:       cmn.NewAISNodeLifecycle(),
-							LivenessProbe:   cmn.NewAISLivenessProbe(ais.Spec.TargetSpec.ServicePort),
+							LivenessProbe:   cmn.NewAISLivenessProbe(),
 							ReadinessProbe:  readinessProbe(ais.Spec.TargetSpec.ServicePort),
 						},
 					},

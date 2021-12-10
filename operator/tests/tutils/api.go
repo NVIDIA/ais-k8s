@@ -18,7 +18,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	k8sclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	aisclient "github.com/ais-operator/pkg/client"
@@ -73,7 +73,7 @@ func checkCMExists(ctx context.Context, client *aisclient.K8sClient, name types.
 func EventuallyCMExists(ctx context.Context, client *aisclient.K8sClient, name types.NamespacedName,
 	be OmegaMatcher, intervals ...interface{}) {
 	Eventually(func() bool {
-		return checkCMExists(context.Background(), client, name)
+		return checkCMExists(ctx, client, name)
 	}, intervals...).Should(be)
 }
 
@@ -89,7 +89,7 @@ func checkServiceExists(ctx context.Context, client *aisclient.K8sClient, name t
 func EventuallyServiceExists(ctx context.Context, client *aisclient.K8sClient, name types.NamespacedName,
 	be OmegaMatcher, intervals ...interface{}) {
 	Eventually(func() bool {
-		return checkServiceExists(context.Background(), client, name)
+		return checkServiceExists(ctx, client, name)
 	}, intervals...).Should(be)
 }
 
@@ -110,14 +110,14 @@ func EventuallySSExists(
 	intervals ...interface{},
 ) {
 	Eventually(func() bool {
-		return checkSSExists(context.Background(), client, name)
+		return checkSSExists(ctx, client, name)
 	}, intervals...).Should(be)
 }
 
 func EventuallyCRBExists(ctx context.Context, client *aisclient.K8sClient, name string,
 	be OmegaMatcher, intervals ...interface{}) {
 	Eventually(func() bool {
-		return checkCRBExists(context.Background(), client, name)
+		return checkCRBExists(ctx, client, name)
 	}, intervals...).Should(be)
 }
 
@@ -132,14 +132,14 @@ func checkCRBExists(ctx context.Context, client *aisclient.K8sClient, name strin
 	return true
 }
 
-func EventuallyResourceExists(ctx context.Context, client *aisclient.K8sClient, obj client.Object,
+func EventuallyResourceExists(ctx context.Context, client *aisclient.K8sClient, obj k8sclient.Object,
 	be OmegaMatcher, intervals ...interface{}) {
 	Eventually(func() bool {
 		return checkResourceExists(ctx, client, obj)
 	}, intervals...).Should(be)
 }
 
-func checkResourceExists(ctx context.Context, client *aisclient.K8sClient, obj client.Object) bool {
+func checkResourceExists(ctx context.Context, client *aisclient.K8sClient, obj k8sclient.Object) bool {
 	objTemp := &unstructured.Unstructured{}
 	objTemp.SetGroupVersionKind(obj.GetObjectKind().GroupVersionKind())
 	err := client.Get(ctx, types.NamespacedName{
