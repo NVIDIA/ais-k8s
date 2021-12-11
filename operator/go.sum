@@ -67,8 +67,8 @@ github.com/Azure/go-autorest/tracing v0.6.0 h1:TYi4+3m5t6K48TGI9AUdb+IzbnSxvnvUM
 github.com/Azure/go-autorest/tracing v0.6.0/go.mod h1:+vhtPC754Xsa23ID7GlGsrdKBpUA79WCAKPPZVC2DeU=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
-github.com/NVIDIA/aistore v0.0.0-20211118222239-0e8951cf3737 h1:AHSc3JhTunLCXJPcYrCkl1sxAUneMDaA1Ctau1T5EoA=
-github.com/NVIDIA/aistore v0.0.0-20211118222239-0e8951cf3737/go.mod h1:LPvezeooqP2FNHMtyF9DASRAInYkc0sdSmTacM1KFwY=
+github.com/NVIDIA/aistore v0.0.0-20211212003031-2fe274265401 h1:IoCheWA3DPQg6y6oLwLbKQRywPEo7X4DEyjtKKVnIEA=
+github.com/NVIDIA/aistore v0.0.0-20211212003031-2fe274265401/go.mod h1:LPvezeooqP2FNHMtyF9DASRAInYkc0sdSmTacM1KFwY=
 github.com/NVIDIA/go-tfdata v0.3.1/go.mod h1:ZvMINggjz/OZ2wpkT8rFCDcdw1zDYdC3CVJSa4zGEXc=
 github.com/NYTimes/gziphandler v0.0.0-20170623195520-56545f4a5d46/go.mod h1:3wb06e3pkSAbeQ52E9H9iFoQsEEwGN64994WTCIhntQ=
 github.com/NYTimes/gziphandler v1.1.1/go.mod h1:n/CVRwUEOgIxrgPvAQhUUr9oeUtvrhMomdKFjzJNB0c=
