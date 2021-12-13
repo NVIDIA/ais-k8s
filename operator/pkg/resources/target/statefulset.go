@@ -157,7 +157,7 @@ func volumeMounts(ais *aisv1.AIStore) []corev1.VolumeMount {
 
 func readinessProbe(port intstr.IntOrString) *corev1.Probe {
 	return &corev1.Probe{
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Path: "/v1/health?readiness=true",
 				Port: port,

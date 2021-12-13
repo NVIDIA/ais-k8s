@@ -96,7 +96,7 @@ func NewAISVolumes(ais *aisv1.AIStore, daeType string) []corev1.Volume {
 
 func NewAISLivenessProbe() *corev1.Probe {
 	return &corev1.Probe{
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			Exec: &corev1.ExecAction{
 				Command: []string{"/bin/bash", "/var/ais_config/ais_liveness.sh"},
 			},
@@ -110,7 +110,7 @@ func NewAISLivenessProbe() *corev1.Probe {
 
 func NewAISNodeLifecycle() *corev1.Lifecycle {
 	return &corev1.Lifecycle{
-		PreStop: &corev1.Handler{
+		PreStop: &corev1.LifecycleHandler{
 			Exec: &corev1.ExecAction{
 				Command: []string{"/bin/bash", "-c", "/usr/bin/pkill -SIGINT aisnode"},
 			},
