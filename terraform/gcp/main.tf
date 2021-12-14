@@ -27,18 +27,6 @@ variable "project_id" {
   description = "GCP project ID"
 }
 
-variable "gke_username" {
-  type        = string
-  default     = ""
-  description = "GKE username"
-}
-
-variable "gke_password" {
-  type        = string
-  default     = ""
-  description = "GKE password"
-}
-
 variable "user" {
   type        = string
   description = "GCP username"
@@ -87,9 +75,6 @@ resource "google_container_cluster" "primary" {
   # network    = google_compute_network.vpc.name
 
   master_auth {
-    username = var.gke_username
-    password = var.gke_password
-
     client_certificate_config {
       issue_client_certificate = false
     }
