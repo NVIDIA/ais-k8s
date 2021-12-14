@@ -16,7 +16,7 @@ To deploy AIS operator on an existing K8s cluster, execute the following command
 AIS operator employs [admission webhooks](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/) to enforce the validity of the managed AIS cluster.
 AIS operator runs a webhook server with `tls` enabled, responsible for validating each AIS cluster resource being created or updated.
 [Operator-SDK](https://sdk.operatorframework.io/) recommends using [cert-manager](https://github.com/jetstack/cert-manager) for provisioning the certificates required by the webhook server, however, any solution which can provide certificates to the AIS operator pod at location `/tmp/k8s-webhook-server/serving-certs/tls.(crt/key)`, should work.
- 
+
 For quick deployment, the `deploy` command provides an option to deploy a basic version of `cert-manager`. However, for more advanced deployments it's recommended to follow [cert-manager documentation](https://cert-manager.io/docs/installation/kubernetes/).
 
 ```console
@@ -74,6 +74,25 @@ $ minikube tunnel
 ```
 
 For more information and details on *minikube tunneling*, please see [this link](https://minikube.sigs.K8s.io/docs/commands/tunnel/).
+
+### Deploying cluster with shared or no disks
+
+For development/testing K8s setup where the `mountpaths` attached to the storage targets pods are not block devices, i.e. have no disks, or share the disk, will result in the target pods to fail with `has no disks` or `filesystem sharing is not allowed` error.
+To deploy AIStore cluster on such K8s environments is possible by setting the `allowSharedNoDisks` property to `true`, as follows:
+
+```yaml
+# config/samples/ais_v1beta1_sample.yaml
+apiVersion: ais.nvidia.com/v1beta1
+kind: AIStore
+metadata:
+  name: aistore-sample
+spec:
+  size: 4 # > number of K8s nodes
+  allowSharedNoDisks: true
+...
+```
+
+> **WARNING:** It is NOT recommended to set the `allowSharedNoDisks` property to `true` for production deployments.
 
 
 ### Locally testing multi-node AIS cluster

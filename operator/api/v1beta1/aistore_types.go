@@ -147,7 +147,7 @@ type TargetSpec struct {
 	Mounts     []Mount `json:"mounts"`
 	// AllowSharedOrNoDisks - disables FsID and mountpath disks validation on target nodes. NOT recommended for production deployments
 	// +optional
-	AllowSharedOrNoDisks *bool `json:"allow_shared_no_disks,omitempty"`
+	AllowSharedOrNoDisks *bool `json:"allowSharedNoDisks,omitempty"`
 }
 
 type Mount struct {
