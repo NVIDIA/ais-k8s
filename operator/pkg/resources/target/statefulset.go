@@ -14,14 +14,14 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	aiscmn "github.com/NVIDIA/aistore/cmn"
+	aisapc "github.com/NVIDIA/aistore/api/apc"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	"github.com/ais-operator/pkg/resources/cmn"
 	"github.com/ais-operator/pkg/resources/proxy"
 )
 
 func statefulSetName(ais *aisv1.AIStore) string {
-	return ais.Name + "-" + aiscmn.Target
+	return ais.Name + "-" + aisapc.Target
 }
 
 func StatefulSetNSName(ais *aisv1.AIStore) types.NamespacedName {
@@ -34,7 +34,7 @@ func StatefulSetNSName(ais *aisv1.AIStore) types.NamespacedName {
 func PodLabels(ais *aisv1.AIStore) map[string]string {
 	return map[string]string{
 		"app":       ais.Name,
-		"component": aiscmn.Target,
+		"component": aisapc.Target,
 		"function":  "storage",
 	}
 }
@@ -87,7 +87,7 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 									strconv.FormatBool(ais.Spec.EnableExternalLB),
 								),
 								cmn.EnvFromValue(cmn.EnvServiceName, headlessSVCName(ais)),
-								cmn.EnvFromValue(cmn.EnvDaemonRole, aiscmn.Target),
+								cmn.EnvFromValue(cmn.EnvDaemonRole, aisapc.Target),
 								cmn.EnvFromValue(cmn.EnvProxyServiceName, proxy.HeadlessSVCName(ais)),
 								cmn.EnvFromValue(cmn.EnvProxyServicePort, ais.Spec.ProxySpec.ServicePort.String()),
 							}, optionals...),
@@ -113,7 +113,7 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 								cmn.EnvFromValue(cmn.EnvShutdownMarkerPath, "/var/ais_config"),
 								cmn.EnvFromValue(cmn.ENVLocalConfigFilePath, "/var/ais_config/ais_local.json"),
 								cmn.EnvFromValue(cmn.EnvStatsDConfig, "/var/statsd_config/statsd.json"),
-								cmn.EnvFromValue(cmn.EnvDaemonRole, aiscmn.Target),
+								cmn.EnvFromValue(cmn.EnvDaemonRole, aisapc.Target),
 								cmn.EnvFromValue(
 									cmn.EnvAllowSharedOrNoDisks,
 									strconv.FormatBool(ais.Spec.TargetSpec.AllowSharedOrNoDisks != nil && *ais.Spec.TargetSpec.AllowSharedOrNoDisks),
@@ -136,7 +136,7 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 					SecurityContext:    ais.Spec.TargetSpec.SecurityContext,
 					Affinity:           cmn.NewAISPodAffinity(ais, ais.Spec.TargetSpec.Affinity, ls),
 					NodeSelector:       ais.Spec.TargetSpec.NodeSelector,
-					Volumes:            cmn.NewAISVolumes(ais, aiscmn.Target),
+					Volumes:            cmn.NewAISVolumes(ais, aisapc.Target),
 					Tolerations:        ais.Spec.TargetSpec.Tolerations,
 				},
 			},

@@ -534,7 +534,7 @@ func (r *AIStoreReconciler) primaryBaseParams(ctx context.Context, ais *aisv1.AI
 	if err != nil {
 		return nil, err
 	}
-	return _baseParams(ais, smap.Primary.URL(aiscmn.NetworkPublic)), nil
+	return _baseParams(ais, smap.Primary.URL(aiscmn.NetPublic)), nil
 }
 
 func (r *AIStoreReconciler) newAISBaseParams(ctx context.Context,

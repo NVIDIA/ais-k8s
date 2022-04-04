@@ -10,6 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	aisapc "github.com/NVIDIA/aistore/api/apc"
 	aiscmn "github.com/NVIDIA/aistore/cmn"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 )
@@ -28,7 +29,7 @@ func GlobalConfigMapNSName(ais *aisv1.AIStore) types.NamespacedName {
 func NewGlobalCM(ais *aisv1.AIStore, toUpdate *aiscmn.ConfigToUpdate) (*corev1.ConfigMap, error) {
 	globalConf := DefaultAISConf(ais)
 	if toUpdate != nil {
-		if err := globalConf.Apply(*toUpdate, aiscmn.Cluster); err != nil {
+		if err := globalConf.Apply(*toUpdate, aisapc.Cluster); err != nil {
 			return nil, err
 		}
 	}

@@ -16,7 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	aisapi "github.com/NVIDIA/aistore/api"
-	aiscmn "github.com/NVIDIA/aistore/cmn"
+	aisapc "github.com/NVIDIA/aistore/api/apc"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	"github.com/ais-operator/pkg/resources/cmn"
 	"github.com/ais-operator/pkg/resources/proxy"
@@ -230,7 +230,7 @@ func (r *AIStoreReconciler) handleProxyScaledown(ctx context.Context, ais *aisv1
 	}
 
 	decommissionNode := func(daemonID string) {
-		_, err := aisapi.DecommissionNode(*params, &aiscmn.ActValRmNode{
+		_, err := aisapi.DecommissionNode(*params, &aisapc.ActValRmNode{
 			DaemonID: daemonID,
 		})
 		if err != nil {

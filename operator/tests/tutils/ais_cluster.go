@@ -15,7 +15,7 @@ import (
 
 // TODO: Should be provided from test config.
 const (
-	aisNodeImage = "aistore/aisnode:3.8-d66a67"
+	aisNodeImage = "aistore/aisnode:3.9"
 	aisInitImage = "aistore/ais-init:latest"
 )
 

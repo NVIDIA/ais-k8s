@@ -15,7 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	aisapi "github.com/NVIDIA/aistore/api"
-	aiscmn "github.com/NVIDIA/aistore/cmn"
+	aisapc "github.com/NVIDIA/aistore/api/apc"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	"github.com/ais-operator/pkg/resources/target"
 )
@@ -159,7 +159,7 @@ func (r *AIStoreReconciler) decommissionTargets(ctx context.Context, ais *aisv1.
 			toDecommission++
 			if !smap.PresentInMaint(node) {
 				r.log.Info("decommissioning node - " + node.String())
-				_, err = aisapi.DecommissionNode(*params, &aiscmn.ActValRmNode{DaemonID: node.ID(), RmUserData: true})
+				_, err = aisapi.DecommissionNode(*params, &aisapc.ActValRmNode{DaemonID: node.ID(), RmUserData: true})
 				if err != nil {
 					return
 				}

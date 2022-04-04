@@ -19,6 +19,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	aisapi "github.com/NVIDIA/aistore/api"
+	aisapc "github.com/NVIDIA/aistore/api/apc"
 	aiscmn "github.com/NVIDIA/aistore/cmn"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	"github.com/ais-operator/pkg/resources/cmn"
@@ -253,7 +254,7 @@ var _ = Describe("Run Controller", func() {
 			cc.create()
 			// put objects
 			var (
-				bck       = aiscmn.Bck{Name: "TEST_BUCKET", Provider: aiscmn.ProviderAIS}
+				bck       = aiscmn.Bck{Name: "TEST_BUCKET", Provider: aisapc.ProviderAIS}
 				objPrefix = "test-opr/"
 				baseParam = aistutils.BaseAPIParams(proxyURL)
 			)
@@ -299,7 +300,7 @@ var _ = Describe("Run Controller", func() {
 			cc.create()
 			// put objects
 			var (
-				bck       = aiscmn.Bck{Name: "TEST_BUCKET", Provider: aiscmn.ProviderAIS}
+				bck       = aiscmn.Bck{Name: "TEST_BUCKET", Provider: aisapc.ProviderAIS}
 				objPrefix = "test-opr/"
 				baseParam = aistutils.BaseAPIParams(proxyURL)
 			)
@@ -340,7 +341,7 @@ var _ = Describe("Run Controller", func() {
 			cc := newClientCluster(cluArgs)
 			cc.create()
 			// Create bucket
-			bck := aiscmn.Bck{Name: "TEST_BUCKET", Provider: aiscmn.ProviderAIS}
+			bck := aiscmn.Bck{Name: "TEST_BUCKET", Provider: aisapc.ProviderAIS}
 			baseParams := aistutils.BaseAPIParams(proxyURL)
 			aisapi.DestroyBucket(baseParams, bck)
 			err := aisapi.CreateBucket(baseParams, bck, nil)

@@ -10,13 +10,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	aiscmn "github.com/NVIDIA/aistore/cmn"
+	aisapc "github.com/NVIDIA/aistore/api/apc"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	"github.com/ais-operator/pkg/resources/cmn"
 )
 
 func configMapName(ais *aisv1.AIStore) string {
-	return ais.Name + "-" + aiscmn.Target
+	return ais.Name + "-" + aisapc.Target
 }
 
 func ConfigMapNSName(ais *aisv1.AIStore) types.NamespacedName {

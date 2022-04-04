@@ -13,13 +13,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	aiscmn "github.com/NVIDIA/aistore/cmn"
+	aisapc "github.com/NVIDIA/aistore/api/apc"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	"github.com/ais-operator/pkg/resources/cmn"
 )
 
 func statefulSetName(ais *aisv1.AIStore) string {
-	return ais.Name + "-" + aiscmn.Proxy
+	return ais.Name + "-" + aisapc.Proxy
 }
 
 func StatefulSetNSName(ais *aisv1.AIStore) types.NamespacedName {
@@ -98,7 +98,7 @@ func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
 					cmn.EnvFromValue(cmn.EnvClusterDomain, ais.GetClusterDomain()),
 					cmn.EnvFromValue(cmn.EnvNS, ais.Namespace),
 					cmn.EnvFromValue(cmn.EnvServiceName, HeadlessSVCName(ais)),
-					cmn.EnvFromValue(cmn.EnvDaemonRole, aiscmn.Proxy),
+					cmn.EnvFromValue(cmn.EnvDaemonRole, aisapc.Proxy),
 					cmn.EnvFromValue(cmn.EnvProxyServiceName, HeadlessSVCName(ais)),
 					cmn.EnvFromValue(cmn.EnvProxyServicePort, ais.Spec.ProxySpec.ServicePort.String()),
 					cmn.EnvFromValue(cmn.EnvDefaultPrimaryPod, DefaultPrimaryName(ais)),
@@ -124,7 +124,7 @@ func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
 					cmn.EnvFromValue(cmn.EnvStatsDConfig, "/var/statsd_config/statsd.json"),
 					cmn.EnvFromValue(cmn.EnvEnablePrometheus,
 						strconv.FormatBool(ais.Spec.EnablePromExporter != nil && *ais.Spec.EnablePromExporter)),
-					cmn.EnvFromValue(cmn.EnvDaemonRole, aiscmn.Proxy),
+					cmn.EnvFromValue(cmn.EnvDaemonRole, aisapc.Proxy),
 					cmn.EnvFromValue(cmn.EnvNumTargets, strconv.Itoa(int(ais.Spec.Size))),
 					cmn.EnvFromValue(cmn.EnvProxyServiceName, HeadlessSVCName(ais)),
 					cmn.EnvFromValue(cmn.EnvProxyServicePort, ais.Spec.ProxySpec.ServicePort.String()),
@@ -142,7 +142,7 @@ func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
 		NodeSelector:       ais.Spec.ProxySpec.NodeSelector,
 		ServiceAccountName: cmn.ServiceAccountName(ais),
 		SecurityContext:    ais.Spec.ProxySpec.SecurityContext,
-		Volumes:            cmn.NewAISVolumes(ais, aiscmn.Proxy),
+		Volumes:            cmn.NewAISVolumes(ais, aisapc.Proxy),
 		Tolerations:        ais.Spec.ProxySpec.Tolerations,
 	}
 }
@@ -150,7 +150,7 @@ func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
 func PodLabels(ais *aisv1.AIStore) map[string]string {
 	return map[string]string{
 		"app":       ais.Name,
-		"component": aiscmn.Proxy,
+		"component": aisapc.Proxy,
 		"function":  "gateway",
 	}
 }

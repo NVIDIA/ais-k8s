@@ -7,6 +7,7 @@ package cmn
 import (
 	"time"
 
+	aisapc "github.com/NVIDIA/aistore/api/apc"
 	aiscmn "github.com/NVIDIA/aistore/cmn"
 	"github.com/NVIDIA/aistore/cmn/cos"
 	aisv1 "github.com/ais-operator/api/v1beta1"
@@ -47,11 +48,11 @@ var defaultAISConf = aiscmn.ClusterConfig{
 		},
 	},
 	DSort: aiscmn.DSortConf{
-		Compression:         aiscmn.CompressNever,
+		Compression:         aisapc.CompressNever,
 		DuplicatedRecords:   aiscmn.IgnoreReaction,
 		MissingShards:       aiscmn.IgnoreReaction,
-		EKMMalformedLine:    aiscmn.Abort,
-		EKMMissingKey:       aiscmn.Abort,
+		EKMMalformedLine:    aisapc.Abort,
+		EKMMissingKey:       aisapc.Abort,
 		DefaultMaxMemUsage:  "80%",
 		DSorterMemThreshold: "100GB",
 		CallTimeout:         cos.Duration(10 * time.Minute),
@@ -64,7 +65,7 @@ var defaultAISConf = aiscmn.ClusterConfig{
 		ObjSizeLimit: 262144,
 		DataSlices:   2,
 		ParitySlices: 2,
-		Compression:  aiscmn.CompressNever,
+		Compression:  aisapc.CompressNever,
 	},
 	FSHC: aiscmn.FSHCConf{
 		Enabled:       true,
@@ -112,7 +113,7 @@ var defaultAISConf = aiscmn.ClusterConfig{
 	},
 	Rebalance: aiscmn.RebalanceConf{
 		Enabled:       true,
-		Compression:   aiscmn.CompressNever,
+		Compression:   aisapc.CompressNever,
 		DestRetryTime: cos.Duration(2 * time.Minute),
 		Quiesce:       cos.Duration(20 * time.Second),
 		Multiplier:    2,

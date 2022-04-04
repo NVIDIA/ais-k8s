@@ -11,12 +11,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	aiscmn "github.com/NVIDIA/aistore/cmn"
+	aisapc "github.com/NVIDIA/aistore/api/apc"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 )
 
 func headlessSVCName(ais *aisv1.AIStore) string {
-	return ais.Name + "-" + aiscmn.Target
+	return ais.Name + "-" + aisapc.Target
 }
 
 func HeadlessSVCNSName(ais *aisv1.AIStore) types.NamespacedName {
@@ -87,7 +87,7 @@ func NewTargetHeadlessSvc(ais *aisv1.AIStore) *corev1.Service {
 			},
 			Selector: map[string]string{
 				"app":       ais.Name,
-				"component": aiscmn.Target,
+				"component": aisapc.Target,
 				"function":  "storage",
 			},
 		},

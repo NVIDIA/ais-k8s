@@ -5,7 +5,7 @@
 package proxy
 
 import (
-	aiscmn "github.com/NVIDIA/aistore/cmn"
+	aisapc "github.com/NVIDIA/aistore/api/apc"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -13,7 +13,7 @@ import (
 )
 
 func HeadlessSVCName(ais *aisv1.AIStore) string {
-	return ais.Name + "-" + aiscmn.Proxy
+	return ais.Name + "-" + aisapc.Proxy
 }
 
 func HeadlessSVCNSName(ais *aisv1.AIStore) types.NamespacedName {
@@ -24,7 +24,7 @@ func HeadlessSVCNSName(ais *aisv1.AIStore) types.NamespacedName {
 }
 
 func loadBalancerSVCName(ais *aisv1.AIStore) string {
-	return ais.Name + "-" + aiscmn.Proxy + "-lb"
+	return ais.Name + "-" + aisapc.Proxy + "-lb"
 }
 
 func LoadBalancerSVCNSName(ais *aisv1.AIStore) types.NamespacedName {
