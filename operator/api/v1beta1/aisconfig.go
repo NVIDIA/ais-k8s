@@ -5,8 +5,6 @@
 package v1beta1
 
 import (
-	aisapc "github.com/NVIDIA/aistore/api/apc"
-	aiscmn "github.com/NVIDIA/aistore/cmn"
 	"github.com/NVIDIA/aistore/cmn/cos"
 	"github.com/NVIDIA/aistore/cmn/feat"
 )
@@ -18,7 +16,7 @@ import (
 type (
 	ConfigToUpdate struct {
 		// ClusterConfig
-		Backend     *BackendConf             `json:"backend,omitempty"`
+		Backend     *BackendConfToUpdate     `json:"backend,omitempty"`
 		Mirror      *MirrorConfToUpdate      `json:"mirror,omitempty"`
 		EC          *ECConfToUpdate          `json:"ec,omitempty"`
 		Log         *LogConfToUpdate         `json:"log,omitempty"`
@@ -41,15 +39,12 @@ type (
 		WritePolicy *WritePolicyConfToUpdate `json:"write_policy,omitempty"`
 		Proxy       *ProxyConfToUpdate       `json:"proxy,omitempty"`
 		Features    *feat.Flags              `json:"features,string,omitempty"`
-
-		// LocalConfig
-		FSP *FSPConf `json:"fspaths,omitempty"`
 	}
-	BackendConf struct {
-		Conf map[string]interface{} `json:"conf,omitempty"` // implementation depends on backend provider
-
-		// 3rd party Cloud(s) -- set during validation
-		Providers map[string]aiscmn.Ns `json:"-"`
+	// TODO -- FIXME: Declaring map[string]struct{} / map[string]interface{}
+	// raises error "name requested for invalid type: struct{}/interface{}"
+	Empty               struct{}
+	BackendConfToUpdate struct {
+		Conf *map[string]Empty `json:"conf,omitempty"` // implementation depends on backend provider
 	}
 	MirrorConfToUpdate struct {
 		Copies      *int64 `json:"copies,omitempty"`
@@ -178,17 +173,12 @@ type (
 		Compression         *string       `json:"compression,omitempty"`
 		DSorterMemThreshold *string       `json:"dsorter_mem_threshold,omitempty"`
 	}
-
-	FSPConf struct {
-		Paths cos.StringSet `json:"paths,omitempty"`
-	}
-
 	CompressionConfToUpdate struct {
 		BlockMaxSize *int  `json:"block_size,omitempty"`
 		Checksum     *bool `json:"checksum,omitempty"`
 	}
 	WritePolicyConfToUpdate struct {
-		Data *aisapc.WritePolicy `json:"data,omitempty"`
-		MD   *aisapc.WritePolicy `json:"md,omitempty"`
+		Data *string `json:"data,omitempty"`
+		MD   *string `json:"md,omitempty"`
 	}
 )
