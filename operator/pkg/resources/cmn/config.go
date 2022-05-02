@@ -26,6 +26,13 @@ var defaultAISConf = aiscmn.ClusterConfig{
 		TimeoutLong:    cos.Duration(30 * time.Minute),
 		ListObjTimeout: cos.Duration(10 * time.Minute),
 	},
+	Transport: aiscmn.TransportConf{
+		MaxHeaderSize:   4096,
+		Burst:           32,
+		IdleTeardown:    cos.Duration(4 * time.Second),
+		QuiesceTime:     cos.Duration(10 * time.Second),
+		LZ4BlockMaxSize: 262144,
+	},
 	TCB: aiscmn.TCBConf{
 		Compression: aisapc.CompressNever,
 		SbundleMult: 2,
@@ -91,9 +98,10 @@ var defaultAISConf = aiscmn.ClusterConfig{
 		MaxTotal: 67108864,
 	},
 	Space: aiscmn.SpaceConf{
-		LowWM:  75,
-		HighWM: 90,
-		OOS:    95,
+		CleanupWM: 65,
+		LowWM:     75,
+		HighWM:    90,
+		OOS:       95,
 	},
 	LRU: aiscmn.LRUConf{
 		DontEvictTime:   cos.Duration(120 * time.Minute),
