@@ -22,7 +22,7 @@ var defaultAISConf = aiscmn.ClusterConfig{
 		ValidateColdGet: true,
 	},
 	Client: aiscmn.ClientConf{
-		Timeout:        cos.Duration(120 * time.Second),
+		Timeout:        cos.Duration(time.Minute),
 		TimeoutLong:    cos.Duration(30 * time.Minute),
 		ListObjTimeout: cos.Duration(10 * time.Minute),
 	},
