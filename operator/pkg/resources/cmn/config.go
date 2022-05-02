@@ -22,13 +22,13 @@ var defaultAISConf = aiscmn.ClusterConfig{
 		ValidateColdGet: true,
 	},
 	Client: aiscmn.ClientConf{
-		Timeout:     cos.Duration(120 * time.Second),
-		TimeoutLong: cos.Duration(30 * time.Minute),
-		ListObjects: cos.Duration(10 * time.Minute),
+		Timeout:        cos.Duration(120 * time.Second),
+		TimeoutLong:    cos.Duration(30 * time.Minute),
+		ListObjTimeout: cos.Duration(10 * time.Minute),
 	},
-	Compression: aiscmn.CompressionConf{
-		BlockMaxSize: 262144,
-		Checksum:     false,
+	TCB: aiscmn.TCBConf{
+		Compression: aisapc.CompressNever,
+		SbundleMult: 2,
 	},
 	Disk: aiscmn.DiskConf{
 		DiskUtilLowWM:   20,
@@ -83,28 +83,27 @@ var defaultAISConf = aiscmn.ClusterConfig{
 			Name:     aiscmn.KeepaliveHeartbeatType,
 			Factor:   3,
 		},
-		RetryFactor:   5,
-		TimeoutFactor: 3,
+		RetryFactor: 5,
 	},
 	Log: aiscmn.LogConf{
 		Level:    "3",
 		MaxSize:  4194304,
 		MaxTotal: 67108864,
 	},
+	Space: aiscmn.SpaceConf{
+		LowWM:  75,
+		HighWM: 90,
+		OOS:    95,
+	},
 	LRU: aiscmn.LRUConf{
-		LowWM:           75,
-		HighWM:          90,
-		OOS:             95,
 		DontEvictTime:   cos.Duration(120 * time.Minute),
 		CapacityUpdTime: cos.Duration(10 * time.Minute),
 		Enabled:         false,
 	},
 	Mirror: aiscmn.MirrorConf{
-		Copies:      2,
-		Burst:       512,
-		UtilThresh:  0,
-		OptimizePUT: false,
-		Enabled:     true,
+		Copies:  2,
+		Burst:   512,
+		Enabled: true,
 	},
 	Periodic: aiscmn.PeriodConf{
 		StatsTime:     cos.Duration(10 * time.Second),
@@ -115,8 +114,7 @@ var defaultAISConf = aiscmn.ClusterConfig{
 		Enabled:       true,
 		Compression:   aisapc.CompressNever,
 		DestRetryTime: cos.Duration(2 * time.Minute),
-		Quiesce:       cos.Duration(20 * time.Second),
-		Multiplier:    2,
+		SbundleMult:   2,
 	},
 	Timeout: aiscmn.TimeoutConf{
 		CplaneOperation: cos.Duration(2 * time.Second),
