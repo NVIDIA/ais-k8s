@@ -57,7 +57,10 @@ func (r *AIStore) ValidateUpdate(old runtime.Object) error {
 	}
 
 	if !reflect.DeepEqual(r.Spec.TargetSpec, prev.Spec.TargetSpec) {
-		return errCannotUpdateSpec("targetSpec")
+		// TODO: For now, just log error if target specs are updated. Eventually, implement
+		// logic that compares target specs accurately.
+		err := errCannotUpdateSpec("targetSpec")
+		aistorelog.Error(err, fmt.Sprintf("%v != %v", r.Spec.TargetSpec, prev.Spec.TargetSpec))
 	}
 
 	if !reflect.DeepEqual(r.Spec.DisablePodAntiAffinity, prev.Spec.DisablePodAntiAffinity) {

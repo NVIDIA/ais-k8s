@@ -84,33 +84,17 @@ spec:
                   client:
                     properties:
                       client_long_timeout:
-                        description: A Duration represents the elapsed time between
-                          two instants as an int64 nanosecond count. The representation
-                          limits the largest representable duration to approximately
-                          290 years.
+                        description: Elapsed time (nanoseconds).
                         format: int64
                         type: integer
                       client_timeout:
-                        description: A Duration represents the elapsed time between
-                          two instants as an int64 nanosecond count. The representation
-                          limits the largest representable duration to approximately
-                          290 years.
+                        description: Elapsed time (nanoseconds).
                         format: int64
                         type: integer
                       list_timeout:
-                        description: A Duration represents the elapsed time between
-                          two instants as an int64 nanosecond count. The representation
-                          limits the largest representable duration to approximately
-                          290 years.
+                        description: Elapsed time (nanoseconds).
                         format: int64
                         type: integer
-                    type: object
-                  compression:
-                    properties:
-                      block_size:
-                        type: integer
-                      checksum:
-                        type: boolean
                     type: object
                   disk:
                     properties:
@@ -124,27 +108,20 @@ spec:
                         format: int64
                         type: integer
                       iostat_time_long:
-                        description: A Duration represents the elapsed time between
-                          two instants as an int64 nanosecond count. The representation
-                          limits the largest representable duration to approximately
-                          290 years.
+                        description: Elapsed time (nanoseconds).
                         format: int64
                         type: integer
                       iostat_time_short:
-                        description: A Duration represents the elapsed time between
-                          two instants as an int64 nanosecond count. The representation
-                          limits the largest representable duration to approximately
-                          290 years.
+                        description: Elapsed time (nanoseconds).
                         format: int64
                         type: integer
                     type: object
                   distributed_sort:
                     properties:
+                      bundle_multiplier:
+                        type: integer
                       call_timeout:
-                        description: A Duration represents the elapsed time between
-                          two instants as an int64 nanosecond count. The representation
-                          limits the largest representable duration to approximately
-                          290 years.
+                        description: Elapsed time (nanoseconds).
                         format: int64
                         type: integer
                       compression:
@@ -165,15 +142,14 @@ spec:
                   downloader:
                     properties:
                       timeout:
-                        description: A Duration represents the elapsed time between
-                          two instants as an int64 nanosecond count. The representation
-                          limits the largest representable duration to approximately
-                          290 years.
+                        description: Elapsed time (nanoseconds).
                         format: int64
                         type: integer
                     type: object
                   ec:
                     properties:
+                      bundle_multiplier:
+                        type: integer
                       compression:
                         type: string
                       data_slices:
@@ -207,10 +183,7 @@ spec:
                           factor:
                             type: integer
                           interval:
-                            description: A Duration represents the elapsed time between
-                              two instants as an int64 nanosecond count. The representation
-                              limits the largest representable duration to approximately
-                              290 years.
+                            description: Elapsed time (nanoseconds).
                             format: int64
                             type: integer
                           name:
@@ -223,22 +196,19 @@ spec:
                           factor:
                             type: integer
                           interval:
-                            description: A Duration represents the elapsed time between
-                              two instants as an int64 nanosecond count. The representation
-                              limits the largest representable duration to approximately
-                              290 years.
+                            description: Elapsed time (nanoseconds).
                             format: int64
                             type: integer
                           name:
                             type: string
                         type: object
-                      timeout_factor:
-                        type: integer
                     type: object
                   log:
                     properties:
-                      dir:
-                        type: string
+                      flush_time:
+                        description: Elapsed time (nanoseconds).
+                        format: int64
+                        type: integer
                       level:
                         type: string
                       max_size:
@@ -247,32 +217,41 @@ spec:
                       max_total:
                         format: int64
                         type: integer
+                      stats_time:
+                        description: Elapsed time (nanoseconds).
+                        format: int64
+                        type: integer
                     type: object
                   lru:
                     properties:
                       capacity_upd_time:
-                        description: A Duration represents the elapsed time between
-                          two instants as an int64 nanosecond count. The representation
-                          limits the largest representable duration to approximately
-                          290 years.
+                        description: Elapsed time (nanoseconds).
                         format: int64
                         type: integer
                       dont_evict_time:
-                        description: A Duration represents the elapsed time between
-                          two instants as an int64 nanosecond count. The representation
-                          limits the largest representable duration to approximately
-                          290 years.
+                        description: Elapsed time (nanoseconds).
                         format: int64
                         type: integer
                       enabled:
                         type: boolean
-                      highwm:
+                    type: object
+                  memsys:
+                    properties:
+                      default_buf:
                         format: int64
                         type: integer
-                      lowwm:
+                      hk_time:
+                        description: Elapsed time (nanoseconds).
                         format: int64
                         type: integer
-                      out_of_space:
+                      min_free:
+                        format: int64
+                        type: integer
+                      min_pct_free:
+                        type: integer
+                      min_pct_total:
+                        type: integer
+                      to_gc:
                         format: int64
                         type: integer
                     type: object
@@ -285,11 +264,6 @@ spec:
                         type: integer
                       enabled:
                         type: boolean
-                      optimize_put:
-                        type: boolean
-                      util_thresh:
-                        format: int64
-                        type: integer
                     type: object
                   net:
                     properties:
@@ -314,24 +288,15 @@ spec:
                   periodic:
                     properties:
                       notif_time:
-                        description: A Duration represents the elapsed time between
-                          two instants as an int64 nanosecond count. The representation
-                          limits the largest representable duration to approximately
-                          290 years.
+                        description: Elapsed time (nanoseconds).
                         format: int64
                         type: integer
                       retry_sync_time:
-                        description: A Duration represents the elapsed time between
-                          two instants as an int64 nanosecond count. The representation
-                          limits the largest representable duration to approximately
-                          290 years.
+                        description: Elapsed time (nanoseconds).
                         format: int64
                         type: integer
                       stats_time:
-                        description: A Duration represents the elapsed time between
-                          two instants as an int64 nanosecond count. The representation
-                          limits the largest representable duration to approximately
-                          290 years.
+                        description: Elapsed time (nanoseconds).
                         format: int64
                         type: integer
                     type: object
@@ -348,71 +313,89 @@ spec:
                     type: object
                   rebalance:
                     properties:
+                      bundle_multiplier:
+                        type: integer
                       compression:
                         type: string
                       dest_retry_time:
-                        description: A Duration represents the elapsed time between
-                          two instants as an int64 nanosecond count. The representation
-                          limits the largest representable duration to approximately
-                          290 years.
+                        description: Elapsed time (nanoseconds).
                         format: int64
                         type: integer
                       enabled:
                         type: boolean
-                      multiplier:
-                        type: integer
-                      quiescent:
-                        description: A Duration represents the elapsed time between
-                          two instants as an int64 nanosecond count. The representation
-                          limits the largest representable duration to approximately
-                          290 years.
-                        format: int64
-                        type: integer
+                    required:
+                    - bundle_multiplier
                     type: object
                   resilver:
                     properties:
                       enabled:
                         type: boolean
                     type: object
+                  space:
+                    properties:
+                      cleanupwm:
+                        format: int64
+                        type: integer
+                      highwm:
+                        format: int64
+                        type: integer
+                      lowwm:
+                        format: int64
+                        type: integer
+                      out_of_space:
+                        format: int64
+                        type: integer
+                    type: object
+                  tcb:
+                    properties:
+                      bundle_multiplier:
+                        type: integer
+                      compression:
+                        type: string
+                    type: object
                   timeout:
                     properties:
                       cplane_operation:
-                        description: A Duration represents the elapsed time between
-                          two instants as an int64 nanosecond count. The representation
-                          limits the largest representable duration to approximately
-                          290 years.
+                        description: Elapsed time (nanoseconds).
+                        format: int64
+                        type: integer
+                      join_startup_time:
+                        description: Elapsed time (nanoseconds).
                         format: int64
                         type: integer
                       max_host_busy:
-                        description: A Duration represents the elapsed time between
-                          two instants as an int64 nanosecond count. The representation
-                          limits the largest representable duration to approximately
-                          290 years.
+                        description: Elapsed time (nanoseconds).
                         format: int64
                         type: integer
                       max_keepalive:
-                        description: A Duration represents the elapsed time between
-                          two instants as an int64 nanosecond count. The representation
-                          limits the largest representable duration to approximately
-                          290 years.
+                        description: Elapsed time (nanoseconds).
                         format: int64
                         type: integer
                       send_file_time:
-                        description: A Duration represents the elapsed time between
-                          two instants as an int64 nanosecond count. The representation
-                          limits the largest representable duration to approximately
-                          290 years.
+                        description: Elapsed time (nanoseconds).
                         format: int64
                         type: integer
                       startup_time:
-                        description: A Duration represents the elapsed time between
-                          two instants as an int64 nanosecond count. The representation
-                          limits the largest representable duration to approximately
-                          290 years.
+                        description: Elapsed time (nanoseconds).
                         format: int64
                         type: integer
-                      transport_idle_term:
-                        description: v3.8
+                    type: object
+                  transport:
+                    properties:
+                      burst_buffer:
+                        type: integer
+                      idle_teardown:
+                        description: Elapsed time (nanoseconds).
+                        format: int64
+                        type: integer
+                      lz4_block:
+                        type: integer
+                      lz4_frame_checksum:
+                        type: boolean
+                      max_header:
+                        type: integer
+                      quiescent:
+                        description: Elapsed time (nanoseconds).
                         format: int64
                         type: integer
                     type: object
