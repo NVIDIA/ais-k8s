@@ -9,7 +9,7 @@ source ${OPERATOR_DIR}/scripts/utils.sh
 case $1 in
 lint)
   echo "Running lint..." >&2
-  ${GOPATH}/bin/golangci-lint run $(list_all_go_dirs)
+  golangci-lint run $(list_all_go_dirs)
   exit $?
   ;;
 
@@ -49,7 +49,7 @@ spell)
     ;;
   esac
   ;;
-  
+
 *)
   echo "unsupported argument $1"
   exit 1

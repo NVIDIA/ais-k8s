@@ -153,7 +153,7 @@ func (r *AIStoreReconciler) decommissionTargets(ctx context.Context, ais *aisv1.
 	for idx := actualSize; idx > ais.Spec.Size; idx-- {
 		podName := target.PodName(ais, idx-1)
 		for _, node := range smap.Tmap {
-			if !strings.HasPrefix(node.IntraControlNet.NodeHostname, podName) {
+			if !strings.HasPrefix(node.ControlNet.Hostname, podName) {
 				continue
 			}
 			toDecommission++
@@ -209,7 +209,8 @@ func (r *AIStoreReconciler) handleTargetScaleUp(ctx context.Context, ais *aisv1.
 
 // enableTargetExternalService, creates a loadbalancer service per target and checks if all the services are assigned an external IP.
 func (r *AIStoreReconciler) enableTargetExternalService(ctx context.Context,
-	ais *aisv1.AIStore) (ready bool, err error) {
+	ais *aisv1.AIStore,
+) (ready bool, err error) {
 	var (
 		targetSVCList = target.NewLoadBalancerSVCList(ais)
 		exists        bool

@@ -49,7 +49,8 @@ func checkClusterExists(ctx context.Context, client *aisclient.K8sClient, name t
 // DestroyCluster - Deletes the AISCluster resource, and waits for the resource to be cleaned up.
 // `intervals` refer - `gomega.Eventually`
 func DestroyCluster(_ context.Context, client *aisclient.K8sClient,
-	cluster *aisv1.AIStore, intervals ...interface{}) {
+	cluster *aisv1.AIStore, intervals ...interface{},
+) {
 	if len(intervals) == 0 {
 		intervals = []interface{}{time.Minute, time.Second}
 	}
@@ -71,7 +72,8 @@ func checkCMExists(ctx context.Context, client *aisclient.K8sClient, name types.
 }
 
 func EventuallyCMExists(ctx context.Context, client *aisclient.K8sClient, name types.NamespacedName,
-	be OmegaMatcher, intervals ...interface{}) {
+	be OmegaMatcher, intervals ...interface{},
+) {
 	Eventually(func() bool {
 		return checkCMExists(ctx, client, name)
 	}, intervals...).Should(be)
@@ -87,7 +89,8 @@ func checkServiceExists(ctx context.Context, client *aisclient.K8sClient, name t
 }
 
 func EventuallyServiceExists(ctx context.Context, client *aisclient.K8sClient, name types.NamespacedName,
-	be OmegaMatcher, intervals ...interface{}) {
+	be OmegaMatcher, intervals ...interface{},
+) {
 	Eventually(func() bool {
 		return checkServiceExists(ctx, client, name)
 	}, intervals...).Should(be)
@@ -115,7 +118,8 @@ func EventuallySSExists(
 }
 
 func EventuallyCRBExists(ctx context.Context, client *aisclient.K8sClient, name string,
-	be OmegaMatcher, intervals ...interface{}) {
+	be OmegaMatcher, intervals ...interface{},
+) {
 	Eventually(func() bool {
 		return checkCRBExists(ctx, client, name)
 	}, intervals...).Should(be)
@@ -133,7 +137,8 @@ func checkCRBExists(ctx context.Context, client *aisclient.K8sClient, name strin
 }
 
 func EventuallyResourceExists(ctx context.Context, client *aisclient.K8sClient, obj k8sclient.Object,
-	be OmegaMatcher, intervals ...interface{}) {
+	be OmegaMatcher, intervals ...interface{},
+) {
 	Eventually(func() bool {
 		return checkResourceExists(ctx, client, obj)
 	}, intervals...).Should(be)
@@ -154,7 +159,8 @@ func checkResourceExists(ctx context.Context, client *aisclient.K8sClient, obj k
 }
 
 func CreateNSIfNotExists(ctx context.Context, client *aisclient.K8sClient,
-	name string) (ns *corev1.Namespace, exists bool) {
+	name string,
+) (ns *corev1.Namespace, exists bool) {
 	ns = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: name}}
 	err := client.Create(ctx, ns)
 	if err != nil && errors.IsAlreadyExists(err) {
@@ -166,7 +172,8 @@ func CreateNSIfNotExists(ctx context.Context, client *aisclient.K8sClient,
 }
 
 func WaitForClusterToBeReady(ctx context.Context, client *aisclient.K8sClient, cluster *aisv1.AIStore,
-	intervals ...interface{}) {
+	intervals ...interface{},
+) {
 	Eventually(func() bool {
 		proxySS, err := client.GetStatefulSet(ctx, proxy.StatefulSetNSName(cluster))
 		if err != nil {

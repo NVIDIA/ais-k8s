@@ -103,7 +103,7 @@ lint-update: ## Update the linter version (removes previous one and downloads a 
 
 lint: ## Run linter on whole project
 	@([[ ! -f $(GOPATH)/bin/golangci-lint ]] && curl -sfL "https://install.goreleaser.com/github.com/golangci/golangci-lint.sh" | sh -s -- -b $(GOPATH)/bin latest) || true
-	@$(GOPATH)/bin/golangci-lint run
+	golangci-lint run
 	@$(SHELL) "$(SCRIPTS_DIR)/lint.sh" lint
 
 fmt-check: ## Check code formatting
@@ -147,7 +147,7 @@ TMP_DIR=$$(mktemp -d) ;\
 cd $$TMP_DIR ;\
 go mod init tmp ;\
 echo "Downloading $(2)" ;\
-GOBIN=$(PROJECT_DIR)/bin go get $(2) ;\
+GOBIN=$(PROJECT_DIR)/bin go install $(2) ;\
 rm -rf $$TMP_DIR ;\
 }
 endef

@@ -451,9 +451,7 @@ func checkResShouldNotExist(ctx context.Context, cluster *aisv1.AIStore) {
 			err = nil
 		}
 		Expect(err).ShouldNot(HaveOccurred())
-		if pvcs != nil {
-			Expect(len(pvcs.Items)).To(Equal(0))
-		}
+		Expect(len(pvcs.Items)).To(Equal(0))
 	}
 }
 
@@ -508,7 +506,8 @@ func checkResExistance(ctx context.Context, cluster *aisv1.AIStore, exists bool,
 }
 
 func createAndDestroyCluster(cluster *aisv1.AIStore, postCreate func(context.Context, *aisv1.AIStore),
-	postDestroy func(context.Context, *aisv1.AIStore), long bool) {
+	postDestroy func(context.Context, *aisv1.AIStore), long bool,
+) {
 	var (
 		ctx       = context.Background()
 		intervals []interface{}

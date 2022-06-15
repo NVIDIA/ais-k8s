@@ -201,12 +201,12 @@ func (r *AIStoreReconciler) setPrimaryTo(ctx context.Context, ais *aisv1.AIStore
 		return err
 	}
 
-	if strings.HasPrefix(smap.Primary.IntraControlNet.NodeHostname, podName) {
+	if strings.HasPrefix(smap.Primary.ControlNet.Hostname, podName) {
 		return nil
 	}
 
 	for _, node := range smap.Pmap {
-		if !strings.HasPrefix(node.IntraControlNet.NodeHostname, podName) {
+		if !strings.HasPrefix(node.ControlNet.Hostname, podName) {
 			continue
 		}
 		return aisapi.SetPrimaryProxy(*params, node.ID(), true /*force*/)
@@ -242,7 +242,7 @@ func (r *AIStoreReconciler) handleProxyScaledown(ctx context.Context, ais *aisv1
 	for idx := actualSize; idx > ais.Spec.Size; idx-- {
 		podName := proxy.PodName(ais, idx-1)
 		for daeID, node := range smap.Pmap {
-			if !strings.HasPrefix(node.IntraControlNet.NodeHostname, podName) {
+			if !strings.HasPrefix(node.ControlNet.Hostname, podName) {
 				continue
 			}
 			delete(smap.Pmap, daeID)
@@ -262,9 +262,9 @@ func (r *AIStoreReconciler) handleProxyScaledown(ctx context.Context, ais *aisv1
 		if smap.PresentInMaint(node) {
 			continue
 		}
-		err := aisapi.SetPrimaryProxy(*params, node.DaemonID, true /*force*/)
+		err := aisapi.SetPrimaryProxy(*params, node.DaeID, true /*force*/)
 		if err != nil {
-			r.log.Error(err, "failed to set primary as "+node.DaemonID)
+			r.log.Error(err, "failed to set primary as "+node.DaeID)
 			continue
 		}
 		decommissionNode(oldPrimaryID)
@@ -275,7 +275,8 @@ func (r *AIStoreReconciler) handleProxyScaledown(ctx context.Context, ais *aisv1
 // NOTE: As opposed to `target` external services, where we have a separate LoadBalancer service per pod,
 // `proxies` have a single LoadBalancer service across all the proxy pods.
 func (r *AIStoreReconciler) enableProxyExternalService(ctx context.Context,
-	ais *aisv1.AIStore) (ready bool, err error) {
+	ais *aisv1.AIStore,
+) (ready bool, err error) {
 	proxyLBSVC := proxy.NewProxyLoadBalancerSVC(ais)
 	exists, err := r.client.CreateResourceIfNotExists(ctx, ais, proxyLBSVC)
 	if err != nil || !exists {

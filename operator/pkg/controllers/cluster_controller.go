@@ -460,7 +460,8 @@ func (r *AIStoreReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // getAPIParams gets BaseAPIParams for the given AIS cluster.
 // Gets a cached object if exists, else creates a new one.
 func (r *AIStoreReconciler) getAPIParams(ctx context.Context,
-	ais *aisv1.AIStore) (baseParams *aisapi.BaseParams, err error) {
+	ais *aisv1.AIStore,
+) (baseParams *aisapi.BaseParams, err error) {
 	var exists bool
 	r.mu.RLock()
 	if baseParams, exists = r.clientParams[ais.NamespacedName().String()]; exists {
@@ -480,7 +481,8 @@ func (r *AIStoreReconciler) getAPIParams(ctx context.Context,
 
 // misc helpers
 func (r *AIStoreReconciler) manageError(ctx context.Context,
-	ais *aisv1.AIStore, reason aisv1.ErrorReason, err error) (ctrl.Result, error) {
+	ais *aisv1.AIStore, reason aisv1.ErrorReason, err error,
+) (ctrl.Result, error) {
 	var requeueAfter time.Duration
 	condition, _ := ais.GetLastCondition()
 
@@ -538,7 +540,8 @@ func (r *AIStoreReconciler) primaryBaseParams(ctx context.Context, ais *aisv1.AI
 }
 
 func (r *AIStoreReconciler) newAISBaseParams(ctx context.Context,
-	ais *aisv1.AIStore) (params *aisapi.BaseParams, err error) {
+	ais *aisv1.AIStore,
+) (params *aisapi.BaseParams, err error) {
 	var serviceHostname string
 	// If LoadBalancer is configured and `isExternal` flag is set use the LB service to contact the API.
 	if r.isExternal && ais.Spec.EnableExternalLB {
