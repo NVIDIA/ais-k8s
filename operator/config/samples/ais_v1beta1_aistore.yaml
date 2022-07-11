@@ -21,7 +21,7 @@ spec:
       - path: "/ais1"
         size: 10Gi
 
-  nodeImage: "aistore/aisnode:3.8"
+  nodeImage: "aistore/aisnode:3.10"
   initImage: "aistore/ais-init:latest"
   hostpathPrefix: "/etc/ais"
 
