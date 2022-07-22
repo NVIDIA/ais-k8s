@@ -157,7 +157,7 @@ func (r *AIStoreReconciler) attemptGracefulShutdown(ctx context.Context, ais *ai
 	if ais.Spec.CleanupData != nil && *ais.Spec.CleanupData {
 		// If cleanup flag is set, decommission the cluster, i.e.,
 		// cleanup all (meta)data before destroying the cluster.
-		if err = aisapi.DecommissionCluster(*params); err != nil {
+		if err = aisapi.DecommissionCluster(*params, *ais.Spec.CleanupData); err != nil {
 			r.log.Error(err, "failed to gracefully decommission cluster")
 		}
 		return
