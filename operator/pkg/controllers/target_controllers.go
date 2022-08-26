@@ -8,16 +8,15 @@ import (
 	"context"
 	"strings"
 
+	aisapi "github.com/NVIDIA/aistore/api"
+	aisapc "github.com/NVIDIA/aistore/api/apc"
+	aisv1 "github.com/ais-operator/api/v1beta1"
 	"github.com/ais-operator/pkg/resources/cmn"
+	"github.com/ais-operator/pkg/resources/target"
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	aisapi "github.com/NVIDIA/aistore/api"
-	aisapc "github.com/NVIDIA/aistore/api/apc"
-	aisv1 "github.com/ais-operator/api/v1beta1"
-	"github.com/ais-operator/pkg/resources/target"
 )
 
 func (r *AIStoreReconciler) initTargets(ctx context.Context, ais *aisv1.AIStore) (changed bool, err error) {

@@ -7,11 +7,10 @@ package tutils
 import (
 	"context"
 
-	. "github.com/onsi/gomega"
-
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	aisclient "github.com/ais-operator/pkg/client"
 	"github.com/ais-operator/pkg/resources/proxy"
+	. "github.com/onsi/gomega"
 )
 
 func GetProxyURL(ctx context.Context, client *aisclient.K8sClient, ais *aisv1.AIStore) (proxyURL string) {

@@ -19,17 +19,10 @@ fmt)
   --fix)
     echo "Running style fixing..." >&2
 
-    gofumpt -s -w ${OPERATOR_DIR}
+    gofmt -s -w ${OPERATOR_DIR}
     ;;
   *)
     echo "Running style check..." >&2
-
-    out=$(gofmt -l -e ${OPERATOR_DIR})
-
-    if [[ -n ${out} ]]; then
-      echo ${out} >&2
-      exit 1
-    fi
 
     check_gomod
     check_imports

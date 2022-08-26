@@ -7,10 +7,9 @@ package cmn
 import (
 	"path"
 
+	aisv1 "github.com/ais-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	aisv1 "github.com/ais-operator/api/v1beta1"
 )
 
 func NewAISVolumes(ais *aisv1.AIStore, daeType string) []corev1.Volume {

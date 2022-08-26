@@ -10,6 +10,15 @@ import (
 	"sync"
 	"time"
 
+	aisapi "github.com/NVIDIA/aistore/api"
+	aiscmn "github.com/NVIDIA/aistore/cmn"
+	"github.com/NVIDIA/aistore/cmn/cos"
+	aisv1 "github.com/ais-operator/api/v1beta1"
+	aisclient "github.com/ais-operator/pkg/client"
+	"github.com/ais-operator/pkg/resources/cmn"
+	"github.com/ais-operator/pkg/resources/proxy"
+	"github.com/ais-operator/pkg/resources/statsd"
+	"github.com/ais-operator/pkg/resources/target"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -20,16 +29,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	aisapi "github.com/NVIDIA/aistore/api"
-	aiscmn "github.com/NVIDIA/aistore/cmn"
-	"github.com/NVIDIA/aistore/cmn/cos"
-	aisv1 "github.com/ais-operator/api/v1beta1"
-	aisclient "github.com/ais-operator/pkg/client"
-	"github.com/ais-operator/pkg/resources/cmn"
-	"github.com/ais-operator/pkg/resources/proxy"
-	"github.com/ais-operator/pkg/resources/statsd"
-	"github.com/ais-operator/pkg/resources/target"
 )
 
 const (
@@ -311,10 +310,10 @@ func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore
 // handlerCREvents matches the AIS cluster state obtained from reconciler request against the existing cluster state.
 // It applies changes to cluster resources to ensure the request state is reached.
 // Stages:
-// 1. Check if the proxy daemon resources have a state (e.g. replica count) that matches the latest `ais` cluster spec.
-//    If not, update the state to match the request spec and requeue the request. If they do, proceed to next set of checks.
-// 2. Similarly, check the resource state for targets and ensure the state matches the reconciler request.
-// 3. If both proxy and target daemons have expected state, keep requeuing the event until all the pods are ready.
+//  1. Check if the proxy daemon resources have a state (e.g. replica count) that matches the latest `ais` cluster spec.
+//     If not, update the state to match the request spec and requeue the request. If they do, proceed to next set of checks.
+//  2. Similarly, check the resource state for targets and ensure the state matches the reconciler request.
+//  3. If both proxy and target daemons have expected state, keep requeuing the event until all the pods are ready.
 func (r *AIStoreReconciler) handleCREvents(ctx context.Context, ais *aisv1.AIStore) (result ctrl.Result, err error) {
 	// Ensure correct RBAC resources exists
 	err = r.createRBACResources(ctx, ais)

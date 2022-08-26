@@ -8,14 +8,13 @@ import (
 	"fmt"
 	"strconv"
 
+	aisapc "github.com/NVIDIA/aistore/api/apc"
+	aisv1 "github.com/ais-operator/api/v1beta1"
+	"github.com/ais-operator/pkg/resources/cmn"
 	apiv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-
-	aisapc "github.com/NVIDIA/aistore/api/apc"
-	aisv1 "github.com/ais-operator/api/v1beta1"
-	"github.com/ais-operator/pkg/resources/cmn"
 )
 
 func statefulSetName(ais *aisv1.AIStore) string {

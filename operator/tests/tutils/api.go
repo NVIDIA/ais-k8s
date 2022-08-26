@@ -11,6 +11,10 @@ import (
 	"strings"
 	"time"
 
+	aisv1 "github.com/ais-operator/api/v1beta1"
+	aisclient "github.com/ais-operator/pkg/client"
+	"github.com/ais-operator/pkg/resources/proxy"
+	"github.com/ais-operator/pkg/resources/target"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -19,11 +23,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	k8sclient "sigs.k8s.io/controller-runtime/pkg/client"
-
-	aisv1 "github.com/ais-operator/api/v1beta1"
-	aisclient "github.com/ais-operator/pkg/client"
-	"github.com/ais-operator/pkg/resources/proxy"
-	"github.com/ais-operator/pkg/resources/target"
 )
 
 const (

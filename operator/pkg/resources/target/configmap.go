@@ -5,14 +5,13 @@
 package target
 
 import (
+	aisapc "github.com/NVIDIA/aistore/api/apc"
+	aisv1 "github.com/ais-operator/api/v1beta1"
+	"github.com/ais-operator/pkg/resources/cmn"
 	jsoniter "github.com/json-iterator/go"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-
-	aisapc "github.com/NVIDIA/aistore/api/apc"
-	aisv1 "github.com/ais-operator/api/v1beta1"
-	"github.com/ais-operator/pkg/resources/cmn"
 )
 
 func configMapName(ais *aisv1.AIStore) string {

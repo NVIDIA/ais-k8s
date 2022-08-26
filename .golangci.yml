@@ -5,21 +5,24 @@ linters:
     - revive
     - asciicheck
     - bodyclose
-    - deadcode
+    - durationcheck
     - errcheck
     - exportloopref
+    - gci
     - gocritic
     - gofmt
-    - gofumpt
     - goheader
     - goimports
+    - gomoddirectives
     - goprintffuncname
     - gosimple
     - govet
+    - importas
     - ineffassign
     - misspell
     - nolintlint
     - prealloc
+    - reassign
     - rowserrcheck
     - sqlclosecheck
     - staticcheck
@@ -27,12 +30,15 @@ linters:
     - unconvert
     - unparam
     - unused
-    - varcheck
     - whitespace
 
     # See: https://golangci-lint.run/usage/linters/
     #
-    # Following linters produce false positives (enable only when needed):
+    # linters that could be only occasionally useful:
+    # - errchkjson
+    # - nilnil
+    #
+    # linters that used to produce false positives:
     # - goconst
     # - godot
     # - goerr113
@@ -40,28 +46,35 @@ linters:
     # - nestif
     # - scopelint
     # - structcheck - doesn't handle embedded structs
-    # - maligned
+    # - gofumpt
     #
-    # Following linters are not really helpful:
+    # linters that are not really helpful:
+    # - cyclop
     # - exhaustive
+    # - forbidigo
+    # - forcetypeassert
     # - interfacer
     # - nlreturn
     # - noctx
+    # - predeclared
     # - testpackage
+    # - thelper
     # - tparallel
     # - wrapcheck
+    #
+    # linters that seem to be abandoned:
+    # - deadcode
+    # - varcheck
 
 linters-settings:
   revive:
     ignore-generated-header: true
     severity: warning
     rules:
-      - name: early-return
+      # - name: early-return
       # - name: import-shadowing
       # - name: unhandled-error
       # - name: line-length-limit
-      - name: unused-parameter
-      - name: unused-receiver
       # - name: dot-imports
       - name: if-return
       - name: blank-imports
@@ -88,10 +101,15 @@ linters-settings:
       - name: unexported-return
       - name: unnecessary-stmt
       - name: unreachable-code
+      - name: unused-parameter
+      - name: unused-receiver
       - name: waitgroup-by-value
   govet:
+    enable-all: true
     disable:
-      - shadow # reports a lot of false-positives and conflicts with other linters
+      - fieldalignment # TODO: Enable, for now reports a lot of problems.
+      - shadow # Reports a lot of false-positives and conflicts with other linters.
+
   golint:
     min-confidence: 0
   errcheck:
@@ -101,7 +119,6 @@ linters-settings:
     enabled-tags:
       - performance
       - style
-      - experimental
     disabled-checks:
       - ifElseChain
       - hugeParam # produces a lot of false-positives (TODO: see if some errors are possible improvements)
@@ -131,8 +148,8 @@ issues:
     - linters: golint
       text: "don't use an underscore in package name"
 
-    - linters: golint
-      text: "should not use dot imports"
+    - linters: revive
+      text: "or a comment on this block"
 
     - linters: unused
       text: "`noCopy` is unused"
@@ -143,10 +160,10 @@ issues:
     - linters: gocritic
       text: "builtinShadow: shadowing of predeclared identifier: new"
 
-    - linters: gocritic
+    - linters: [gocritic, gofmt, goimports]
       source: "///" # commentFormatting
 
-    - linters: gocritic
+    - linters: [gocritic, gofmt, goimports]
       source: "//==" # commentFormatting
 
     - linters: staticcheck
@@ -156,17 +173,24 @@ issues:
       text: "k8s.io/client-go/rest.HTTPClient" # suggests to change `*http.Client` to `rest.HTTPClient`...
 
     - linters: staticcheck
-      text: "SA3000: TestMain should call os.Exit to set exit code" # This is not true for Go1.15.
+      text: "SA3000: TestMain should call os.Exit to set exit code" # This is not true for Go1.15 or later.
 
     - linters: gocritic
       text: "block doesn't have definitions" # Sometimes blocks are useful for better readability.
+
+    - linters: golint
+      source: "embed" # Justification for `import _ "embed"` is not needed.
 
   # Set to 0 to disable limit
   max-same-issues: 0
   max-per-linter: 0
 
 run:
+  go: '1.17'  # since we are not using generics but want to run linters that otherwise get disabled
   tests: true # enable linting test files
 
+  build-tags:
+    - hrw aws azure gcp hdfs # Build hrw and backend providers so that staticcheck doesn't complain about unused export functions.
+
   concurrency: 4
-  deadline: 3m
+  deadline: 5m

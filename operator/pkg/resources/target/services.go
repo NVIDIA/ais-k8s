@@ -7,12 +7,11 @@ package target
 import (
 	"fmt"
 
+	aisapc "github.com/NVIDIA/aistore/api/apc"
+	aisv1 "github.com/ais-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-
-	aisapc "github.com/NVIDIA/aistore/api/apc"
-	aisv1 "github.com/ais-operator/api/v1beta1"
 )
 
 func headlessSVCName(ais *aisv1.AIStore) string {

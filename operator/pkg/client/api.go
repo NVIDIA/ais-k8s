@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"time"
 
+	aisv1 "github.com/ais-operator/api/v1beta1"
 	apiv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -18,8 +19,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-
-	aisv1 "github.com/ais-operator/api/v1beta1"
 )
 
 type (

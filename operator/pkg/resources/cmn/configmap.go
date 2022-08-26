@@ -5,14 +5,13 @@
 package cmn
 
 import (
+	aisapc "github.com/NVIDIA/aistore/api/apc"
+	aiscmn "github.com/NVIDIA/aistore/cmn"
+	aisv1 "github.com/ais-operator/api/v1beta1"
 	jsoniter "github.com/json-iterator/go"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-
-	aisapc "github.com/NVIDIA/aistore/api/apc"
-	aiscmn "github.com/NVIDIA/aistore/cmn"
-	aisv1 "github.com/ais-operator/api/v1beta1"
 )
 
 func globalConfigMapName(ais *aisv1.AIStore) string {
