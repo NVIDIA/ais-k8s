@@ -1,4 +1,4 @@
-image: ubuntu:18.04
+image: ubuntu:22.04
 
 stages:
   - build
@@ -7,8 +7,8 @@ stages:
   - push
 
 variables:
-  ADMIN_IMAGE: "aistore/admin"
-  AISNODE_IMAGE: "aistore/aisnode"
+  ADMIN_IMAGE: "aistorage/admin"
+  AISNODE_IMAGE: "aistorage/aisnode"
   TEST_ALLOW_SHARED_NO_DISKS: "true"
 
 before_script:
@@ -27,7 +27,7 @@ before_script:
 
 build:operator:lint:
   stage: build
-  image: aistore/ci:latest
+  image: aistorage/ci:latest
   timeout: 10m
   <<: *default_only_def
   script:
@@ -38,7 +38,7 @@ build:operator:lint:
 
 build:operator:
   stage: build
-  image: aistore/ci:latest
+  image: aistorage/ci:latest
   timeout: 10m
   <<: *default_only_def
   script:
@@ -47,7 +47,7 @@ build:operator:
 operator:minikube:short:
   stage: test:short
   needs: ["build:operator:lint", "build:operator"]
-  image: aistore/ci:latest
+  image: aistorage/ci:latest
   <<: *default_only_def
   tags:
     - ais-k8s
@@ -58,7 +58,7 @@ operator:minikube:short:
 operator:minikube:long:
   stage: test:long
   needs: ["operator:minikube:short"]
-  image: aistore/ci:latest
+  image: aistorage/ci:latest
   tags:
     - ais-k8s
   timeout: 40m
@@ -76,7 +76,7 @@ operator:minikube:long:
 operator:minikube:metallb:
   stage: test:long
   needs: ["operator:minikube:short"]
-  image: aistore/ci:latest
+  image: aistorage/ci:latest
   variables:
     # NOTE: No particular reason why these addresses would be unavailable.
     EXTERNAL_ADDRESSES: 172.20.0.100–172.20.0.120
@@ -102,7 +102,7 @@ operator:minikube:metallb:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
   # If minikube fails - don't bother to try GCP.
   needs: ["operator:minikube:short"]
-  image: aistore/ci:latest
+  image: aistorage/ci:latest
   timeout: 60m
   variables:
     GOOGLE_APPLICATION_CREDENTIALS: "/tmp/gcs.json"
