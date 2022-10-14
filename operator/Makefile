@@ -109,7 +109,6 @@ lint-update-ci:
 
 lint: ## Run linter on whole project
 	@([[ ! -f $(GOPATH)/bin/golangci-lint ]] && curl -sfL "https://install.goreleaser.com/github.com/golangci/golangci-lint.sh" | sh -s -- -b $(GOPATH)/bin latest) || true
-	golangci-lint run
 	@$(SHELL) "$(SCRIPTS_DIR)/lint.sh" lint
 
 fmt-check: ## Check code formatting
