@@ -12,7 +12,7 @@ import (
 	aisapc "github.com/NVIDIA/aistore/api/apc"
 	aiscmn "github.com/NVIDIA/aistore/cmn"
 	"github.com/NVIDIA/aistore/cmn/cos"
-	aistutils "github.com/NVIDIA/aistore/devtools/tutils"
+	aistutils "github.com/NVIDIA/aistore/tools"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	"github.com/ais-operator/tests/tutils"
 	. "github.com/onsi/ginkgo"
@@ -53,7 +53,7 @@ func initAISCluster(ctx context.Context, cluster *aisv1.AIStore) {
 
 func putGetObjects(t *testing.T) {
 	var (
-		bck       = aiscmn.Bck{Name: "TEST_BUCKET", Provider: aisapc.ProviderAIS}
+		bck       = aiscmn.Bck{Name: "TEST_BUCKET", Provider: aisapc.AIS}
 		objPrefix = "test-opr/"
 	)
 	aistutils.CreateBucketWithCleanup(t, proxyURL, bck, nil)

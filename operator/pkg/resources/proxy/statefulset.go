@@ -73,6 +73,7 @@ func NewProxyStatefulSet(ais *aisv1.AIStore, size int32) *apiv1.StatefulSet {
 /////////////////
 //   helpers  //
 ////////////////
+
 func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
 	var optionals []corev1.EnvVar
 	if ais.Spec.ProxySpec.HostPort != nil {

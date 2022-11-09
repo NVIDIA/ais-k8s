@@ -13,7 +13,7 @@ import (
 	aisapc "github.com/NVIDIA/aistore/api/apc"
 	aiscmn "github.com/NVIDIA/aistore/cmn"
 	"github.com/NVIDIA/aistore/cmn/cos"
-	aistutils "github.com/NVIDIA/aistore/devtools/tutils"
+	aistutils "github.com/NVIDIA/aistore/tools"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	"github.com/ais-operator/pkg/resources/cmn"
 	"github.com/ais-operator/pkg/resources/proxy"
@@ -253,7 +253,7 @@ var _ = Describe("Run Controller", func() {
 			cc.create()
 			// put objects
 			var (
-				bck       = aiscmn.Bck{Name: "TEST_BUCKET", Provider: aisapc.ProviderAIS}
+				bck       = aiscmn.Bck{Name: "TEST_BUCKET", Provider: aisapc.AIS}
 				objPrefix = "test-opr/"
 				baseParam = aistutils.BaseAPIParams(proxyURL)
 			)
@@ -299,7 +299,7 @@ var _ = Describe("Run Controller", func() {
 			cc.create()
 			// put objects
 			var (
-				bck       = aiscmn.Bck{Name: "TEST_BUCKET", Provider: aisapc.ProviderAIS}
+				bck       = aiscmn.Bck{Name: "TEST_BUCKET", Provider: aisapc.AIS}
 				objPrefix = "test-opr/"
 				baseParam = aistutils.BaseAPIParams(proxyURL)
 			)
@@ -340,7 +340,7 @@ var _ = Describe("Run Controller", func() {
 			cc := newClientCluster(cluArgs)
 			cc.create()
 			// Create bucket
-			bck := aiscmn.Bck{Name: "TEST_BUCKET", Provider: aisapc.ProviderAIS}
+			bck := aiscmn.Bck{Name: "TEST_BUCKET", Provider: aisapc.AIS}
 			baseParams := aistutils.BaseAPIParams(proxyURL)
 			aisapi.DestroyBucket(baseParams, bck)
 			err := aisapi.CreateBucket(baseParams, bck, nil)
@@ -365,7 +365,7 @@ var _ = Describe("Run Controller", func() {
 			cc = newClientCluster(cluArgs)
 			cc.create()
 			baseParams = aistutils.BaseAPIParams(proxyURL)
-			_, err = aisapi.HeadBucket(baseParams, bck)
+			_, err = aisapi.HeadBucket(baseParams, bck, true)
 			if err == nil {
 				// NOTE: When we redeploy a cluster in same namespace, proxy metadata from previous deployment is not
 				// deleted due to the usage of `hostPath` volume for storing proxy metadata.

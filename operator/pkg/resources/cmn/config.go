@@ -172,7 +172,7 @@ func LocalConfTemplate(sp aisv1.ServiceSpec, mounts []aisv1.Mount) aiscmn.LocalC
 		return localConf
 	}
 
-	localConf.FSP.Paths = make(cos.StringSet, len(mounts))
+	localConf.FSP.Paths = make(cos.StrSet, len(mounts))
 	for _, m := range mounts {
 		localConf.FSP.Paths.Add(m.Path)
 	}
