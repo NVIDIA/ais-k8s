@@ -44,31 +44,6 @@ build:operator:
   script:
     - make -C operator manager
 
-build:docker:
-  stage: build
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "schedule" || $CI_COMMIT_BRANCH == "master"'
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-      when: manual
-      allow_failure: true
-  script:
-    - mkdir -p /go/src/github.com/NVIDIA
-    - pushd /go/src/github.com/NVIDIA
-    - git clone https://github.com/NVIDIA/aistore.git
-    - pushd aistore/deploy/prod/k8s/aisadmin_container
-    - env IMAGE_REPO="${ADMIN_IMAGE}" IMAGE_TAG="nightly" make -e all
-    - popd
-    - pushd aistore/deploy/prod/k8s/aisnode_container
-    - env IMAGE_REPO="${AISNODE_IMAGE}" IMAGE_TAG="nightly" make -e all
-    - popd
-    - popd
-    - mkdir images
-    - docker save --output="images/nightly.tar" "${ADMIN_IMAGE}:nightly" "${AISNODE_IMAGE}:nightly"
-  artifacts:
-    paths:
-      - images/
-    expire_in: 1h
-
 operator:minikube:short:
   stage: test:short
   needs: ["build:operator:lint", "build:operator"]
@@ -199,17 +174,3 @@ helm:gcp:
     - make -C terraform ci-test
   after_script:
     - make -C terraform destroy
-
-push:docker:
-  stage: push
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "schedule"'
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-      when: manual
-      allow_failure: true
-  script:
-    - docker load --input="images/nightly.tar"
-    - docker tag "${ADMIN_IMAGE}:nightly" "${ADMIN_IMAGE}:latest"
-    - docker push "${ADMIN_IMAGE}:latest"
-    - docker tag "${AISNODE_IMAGE}:nightly" "${AISNODE_IMAGE}:latest"
-    - docker push "${AISNODE_IMAGE}:latest"

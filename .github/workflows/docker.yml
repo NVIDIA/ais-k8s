@@ -1,0 +1,31 @@
+name: Docker Images
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Operator image tag'
+        required: true
+        default: 'latest'
+
+env:
+  AISOPERATOR_IMAGE: 'aistorage/ais-operator'
+
+jobs:
+  docker:
+    runs-on: ubuntu-22.04
+    steps:
+
+    - uses: actions/checkout@v3
+
+    - name: Login to DockerHub
+      uses: docker/login-action@v2
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: aisoperator image
+      run: |
+        pushd $GITHUB_WORKSPACE/operator
+        IMG="${{ env.AISOPERATOR_IMAGE }}:${{ inputs.image_tag }}" make docker-build docker-push
+        popd
