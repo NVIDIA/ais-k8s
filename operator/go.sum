@@ -52,8 +52,8 @@ github.com/Azure/go-autorest/tracing v0.6.0 h1:TYi4+3m5t6K48TGI9AUdb+IzbnSxvnvUM
 github.com/Azure/go-autorest/tracing v0.6.0/go.mod h1:+vhtPC754Xsa23ID7GlGsrdKBpUA79WCAKPPZVC2DeU=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
-github.com/NVIDIA/aistore v1.3.12 h1:8+Wnpe+lCqNzvWT7Ox/FSWRtXnUF0QKBGMQb2vAJvg8=
-github.com/NVIDIA/aistore v1.3.12/go.mod h1:UyOKxDDhegQSrR/TaSs79eAucqEwFQlwc1PdqS805qM=
+github.com/NVIDIA/aistore v1.3.15 h1:E3r20LFcwEn/Mptpy7/M6F74/i+pirKwgTz0zBsMzbg=
+github.com/NVIDIA/aistore v1.3.15/go.mod h1:UyOKxDDhegQSrR/TaSs79eAucqEwFQlwc1PdqS805qM=
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
 github.com/OneOfOne/xxhash v1.2.8 h1:31czK/TI9sNkxIKfaUfGlU47BAxQ0ztGgd9vPyqimf8=
 github.com/OneOfOne/xxhash v1.2.8/go.mod h1:eZbhyaAYD41SGSSsnmcpxVoRiQ/MPUTjUdIIOT9Um7Q=
