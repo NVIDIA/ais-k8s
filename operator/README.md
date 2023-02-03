@@ -6,6 +6,9 @@ This folder contains **AIS Operator** that provides for bootstrapping, deploymen
 
 > **WARNING:** AIS K8S Operator (or, simply, AIS Operator) is currently undergoing active development - non-backward compatible changes are to be expected at any moment.
 
+### Walkthrough
+If you'd like to get started quickly, you can find a [walkthrough here](../docs/walkthrough.md), taking you through a complete AIStore deployment using the operator.
+
 ## Deploying AIS Cluster
 ### Prerequisites
 * K8s cluster

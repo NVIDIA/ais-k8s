@@ -6,7 +6,7 @@
 # by tags - to keep them off of production setups if undesired. The task which
 # consumes this list is tagged [ never, aisdev, debugpkgs ] 
 #
-ais_debug_packages:
+ais_debug_packages_1804:
   - dstat
   - ethtool
   - iproute2
@@ -72,3 +72,140 @@ ais_debug_packages:
   - byobu
   - zip
   - unzip
+  - cmake
+
+ais_debug_packages_2004:
+  - dstat
+  - ethtool
+  - iproute2
+  - net-tools
+  - sysstat
+  - util-linux
+  - lshw
+  - dmidecode
+  - lsscsi
+  - smartmontools
+  - sdparm
+  - iotop
+  - procps
+  - iftop
+  - nicstat
+  - linux-tools-common
+  - linux-tools-{{ ansible_kernel }}
+  - procps
+  - sysstat
+  - tcpdump
+  - htop
+  - atop
+  - nmon
+  - strace
+  - bpfcc-tools
+  - linux-headers-{{ ansible_kernel }}
+  - systemtap
+  - fio
+  - iperf
+  - attr
+  - xfsprogs
+  - vim
+  - traceroute
+  - curl
+  - python-is-python3
+  - net-tools
+  - jq
+  - make
+  - gcc
+  - g++
+  - tk
+  - graphviz
+  - debhelper
+  - m4
+  - gfortran
+  - dpatch
+  - autoconf
+  - tcl
+  - swig
+  - chrpath
+  - flex
+  - libgfortran5
+  - bison
+  - quilt
+  - automake
+  - libltdl-dev
+  - autotools-dev
+  - ntp
+  - tcptrack
+  - conntrack
+  - lsof
+  - multitail
+  - byobu
+  - zip
+  - unzip
+  - cmake
+
+ais_debug_packages_2204:
+  - dstat
+  - ethtool
+  - iproute2
+  - net-tools
+  - sysstat
+  - util-linux
+  - lshw
+  - dmidecode
+  - lsscsi
+  - smartmontools
+  - sdparm
+  - iotop
+  - procps
+  - iftop
+  - nicstat
+  - linux-tools-common
+  - linux-tools-{{ ansible_kernel }}
+  - procps
+  - sysstat
+  - tcpdump
+  - htop
+  - atop
+  - nmon
+  - strace
+  - bpfcc-tools
+  - linux-headers-{{ ansible_kernel }}
+  - systemtap
+  - fio
+  - iperf
+  - attr
+  - xfsprogs
+  - vim
+  - traceroute
+  - curl
+  - python-is-python3
+  - net-tools
+  - jq
+  - make
+  - gcc
+  - g++
+  - tk
+  - graphviz
+  - debhelper
+  - m4
+  - gfortran
+  - dpatch
+  - autoconf
+  - tcl
+  - swig
+  - chrpath
+  - flex
+  - libgfortran5
+  - bison
+  - quilt
+  - automake
+  - libltdl-dev
+  - autotools-dev
+  - ntp
+  - tcptrack
+  - conntrack
+  - lsof
+  - multitail
+  - byobu
+  - zip
+  - unzip
+  - cmake

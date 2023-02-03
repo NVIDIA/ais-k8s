@@ -24,8 +24,22 @@ as illustrated in the [main AIStore repo](https://github.com/NVIDIA/aistore).
 
 ## Deployment Documentation
 
-Deployment requires some planning and preparation before you can `helm install`.
-The [deployment documentation](docs/README.md) walks you through the steps.
+You can deploy AIStore on Kubernetes in two ways. In both cases, some preparation and planning is needed;
+we suggest you read the [deployment documentation](docs/README.md) first.
+
+### Deployment via Helm
+
+The standard way to deploy AIStore at present is using [Helm](https://helm.sh/).
+You can find helm deployment steps in the standard [deployment documentation](docs/README.md).
+
+### Deployment via the AIStore Operator
+AIStore can also be deployed using the [AIStore operator](operator/README.md), currently in beta. 
+
+With an operator based deployment, instead of deploying services directly, you define your AIStore 
+cluster as a [kubernetes custom resource](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/).
+
+The operator documentation can be found [here](operator/README.md), along with an accompanying 
+[walkthrough](docs/walkthrough.md).
 
 ## Using This Repository For GitOps-Style Deployment
 

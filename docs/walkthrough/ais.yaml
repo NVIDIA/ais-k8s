@@ -1,0 +1,42 @@
+apiVersion: ais.nvidia.com/v1beta1
+kind: AIStore
+metadata:
+  name: aistore
+spec:
+  # Add fields here
+  size: 3
+  proxySpec:
+    servicePort: 51080
+    portPublic: 51080
+    portIntraControl: 51081
+    portIntraData: 51082
+
+  targetSpec:
+    servicePort: 51081
+    portPublic: 51081
+    portIntraControl: 51082
+    portIntraData: 51083
+
+    mounts:
+      - path: "/ais/sdb"
+        size: 10Gi
+      - path: "/ais/sdc"
+        size: 10Gi
+      - path: "/ais/sdd"
+        size: 10Gi
+
+    # In certain environments (e.g. minikube), storage volumes attached to AIS targets may not have associated block devices.
+    # Alternatively, AIS targets may "see" multiple mountpath directories sharing a single given block device.
+    # In both of those cases, set allowSharedNoDisks = true (but note that this setting is **not recommended** for production).
+    allowSharedNoDisks: true
+
+
+  nodeImage: "eswqs/aisnode:latest"
+  initImage: "aistorage/ais-init:latest"
+  hostpathPrefix: "/etc/ais"
+
+  # To be able to access the AIS deployment outside kubernetes cluster, set:
+  # enableExternalLB: true
+  # NOTE: For external access to work, the kubernetes cluster should have the capabilitly to create LoadBalancer services with valid external IP.
+  # For local testing with `minikube` run `minikube tunnel` in background for emulation. ref: https://minikube.sigs.k8s.io/docs/commands/tunnel/
+  enableExternalLB: false

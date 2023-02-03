@@ -12,11 +12,25 @@
         update_cache: no
         name: unattended-upgrades
         state: absent
-    - name: Install desired packages
+    - name: Install desired packages (18.04)
       apt:
         update_cache: yes
-        name: '{{ ais_debug_packages }}'
+        name: '{{ ais_debug_packages_1804 }}'
         state: present
+      when: ansible_distribution_major_version == "18"
+    - name: Install desired packages (20.04)
+      apt:
+        update_cache: yes
+        name: '{{ ais_debug_packages_2004 }}'
+        state: present
+      when: ansible_distribution_major_version == "20"
+    - name: Install desired packages (22.04)
+      apt:
+        update_cache: yes
+        name: '{{ ais_debug_packages_2204 }}'
+        state: present
+      when: ansible_distribution_major_version == "22"
+
   tags: [ never, aisdev, debugpkgs ]
 
 #

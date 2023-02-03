@@ -1,10 +1,22 @@
+# The "nobarrier" mount option is useful for kernels older than 4.13,
+# but deprecated after that.
+- name: set mount options (kernel < 4.13)
+  set_fact:
+    ais_fs_mount_options: noatime,nodiratime,logbufs=8,logbsize=256k,largeio,inode64,swalloc,allocsize=131072k,nobarrier
+  when: ansible_kernel is version('4.12', '<=')
+
+- name: set mount options (kernel >= 4.13)
+  set_fact:
+    ais_fs_mount_options: noatime,nodiratime,logbufs=8,logbsize=256k,largeio,inode64,swalloc,allocsize=131072k
+  when: ansible_kernel is version('4.13', '>=')
+
 - name: umount
   mount:
     src: "/dev/{{ item }}"
     path: "/ais/{{ item }}"
     state: unmounted
     fstype: xfs
-    opts: noatime,nodiratime,logbufs=8,logbsize=256k,largeio,inode64,swalloc,allocsize=131072k,nobarrier
+    opts: "{{ ais_fs_mount_options }}"
   with_items:
     - "{{ ais_devices }}"
   when:
@@ -17,7 +29,7 @@
     path: "/ais/{{ item }}"
     state: absent
     fstype: xfs
-    opts: noatime,nodiratime,logbufs=8,logbsize=256k,largeio,inode64,swalloc,allocsize=131072k,nobarrier
+    opts: "{{ ais_fs_mount_options }}"
   with_items:
     - "{{ ais_devices }}"
   when:
@@ -42,7 +54,7 @@
     path: "/ais/{{ item }}"
     state: mounted
     fstype: xfs
-    opts: noatime,nodiratime,logbufs=8,logbsize=256k,largeio,inode64,swalloc,allocsize=131072k,nobarrier
+    opts: "{{ ais_fs_mount_options }}"
   with_items:
     - "{{ ais_devices }}"
   when:

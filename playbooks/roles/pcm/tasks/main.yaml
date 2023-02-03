@@ -20,6 +20,6 @@
   when: not pcm_dir_exists.stat.exists
    
 - name: Install PCM tool
-  command: make
+  shell: cmake . && cmake --build .
   args:
      chdir: ~/pcm-master

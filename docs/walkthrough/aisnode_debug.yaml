@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: aisnode-debug
+  labels:
+    app: aisnode-debug
+spec:
+  containers:
+  - image: aistorage/aisnode
+    command:
+      - "tail"
+      - "-f"
+      - "/dev/null"
+    imagePullPolicy: IfNotPresent
+    name: aisnode-debug
+  restartPolicy: Always

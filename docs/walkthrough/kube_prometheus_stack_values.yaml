@@ -1,0 +1,58 @@
+---
+grafanaAdminPassword: &grafanaAdminPassword your_grafana_password
+
+aistoreMonitoringAffinity: &aistoreMonitoringAffinity
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: aistore.nvidia.com/role_monitoring
+          operator: In
+          values:
+          - "true"
+
+aistoreMonitoringSecurityContext: &aistoreMonitoringSecurityContext
+  runAsGroup: 1002
+  runAsNonRoot: true
+  runAsUser: 1002
+  fsGroup: 1002
+
+prometheusOperator:
+  affinity: *aistoreMonitoringAffinity
+
+prometheus:
+  prometheusSpec:
+    securityContext: *aistoreMonitoringSecurityContext
+    affinity: *aistoreMonitoringAffinity
+    podMonitorSelectorNilUsesHelmValues: false
+    probeSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    serviceMonitorSelectorNilUsesHelmValues: false
+    ## Optional: add prometheus persistent storage here.
+    ##
+    # volumeClaimTemplate:
+    #   spec:
+    #     storageClassName:
+    #     accessModes: ["ReadWriteOnce"]
+    #     resources:
+    #       requests:
+    #         storage: 10Gi
+    #   selector: {}
+
+alertmanager:
+  alertmanagerSpec:
+    securityContext: *aistoreMonitoringSecurityContext
+    affinity: *aistoreMonitoringAffinity
+
+thanosRuler:
+  thanosRulerSpec:
+    securityContext: *aistoreMonitoringSecurityContext
+    affinity: *aistoreMonitoringAffinity
+
+grafana:
+  affinity: *aistoreMonitoringAffinity
+  securityContext: *aistoreMonitoringSecurityContext
+  adminPassword: *grafanaAdminPassword
+
+kube-state-metrics:
+  affinity: *aistoreMonitoringAffinity

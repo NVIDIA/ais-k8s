@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+ name: ais
+ annotations:
+   scheduler.alpha.kubernetes.io/node-selector: aistore.nvidia.com/role_storage=true
+spec: {}
+status: {}
