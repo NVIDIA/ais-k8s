@@ -258,7 +258,7 @@ func (r *AIStoreReconciler) handleProxyScaledown(ctx context.Context, ais *aisv1
 
 	// Set new primary before decommissioning old primary
 	for _, node := range smap.Pmap {
-		if smap.PresentInMaint(node) {
+		if smap.InMaintOrDecomm(node) {
 			continue
 		}
 		err := aisapi.SetPrimaryProxy(*params, node.DaeID, true /*force*/)
