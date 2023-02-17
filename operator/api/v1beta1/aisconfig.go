@@ -64,9 +64,9 @@ type (
 		DiskOnly     *bool   `json:"disk_only,omitempty"`
 	}
 	LogConfToUpdate struct {
-		Level    *string   `json:"level,omitempty"`
-		MaxSize  *cos.Size `json:"max_size,omitempty"`
-		MaxTotal *cos.Size `json:"max_total,omitempty"`
+		Level    *string      `json:"level,omitempty"`
+		MaxSize  *cos.SizeIEC `json:"max_size,omitempty"`
+		MaxTotal *cos.SizeIEC `json:"max_total,omitempty"`
 		// Elapsed time (nanoseconds).
 		FlushTime *cos.Duration `json:"flush_time,omitempty"`
 		// Elapsed time (nanoseconds).
@@ -210,9 +210,9 @@ type (
 		LZ4FrameChecksum *bool         `json:"lz4_frame_checksum,omitempty"`
 	}
 	MemsysConfToUpdate struct {
-		MinFree        *cos.Size `json:"min_free,omitempty" list:"readonly"`
-		DefaultBufSize *cos.Size `json:"default_buf,omitempty"`
-		SizeToGC       *cos.Size `json:"to_gc,omitempty"`
+		MinFree        *cos.SizeIEC `json:"min_free,omitempty" list:"readonly"`
+		DefaultBufSize *cos.SizeIEC `json:"default_buf,omitempty"`
+		SizeToGC       *cos.SizeIEC `json:"to_gc,omitempty"`
 		// Elapsed time (nanoseconds).
 		HousekeepTime *cos.Duration `json:"hk_time,omitempty"`
 		MinPctTotal   *int          `json:"min_pct_total,omitempty" list:"readonly"`

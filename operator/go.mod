@@ -3,7 +3,7 @@ module github.com/ais-operator
 go 1.19
 
 require (
-	github.com/NVIDIA/aistore v1.3.16-0.20230210172223-7e53286a1306
+	github.com/NVIDIA/aistore v1.3.16-0.20230217174658-54d353b9203e
 	github.com/go-logr/logr v1.2.3
 	github.com/json-iterator/go v1.1.12
 	github.com/onsi/ginkgo v1.16.5
@@ -69,7 +69,7 @@ require (
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/multierr v1.9.0 // indirect
 	go.uber.org/zap v1.24.0 // indirect
-	golang.org/x/net v0.6.0 // indirect
+	golang.org/x/net v0.7.0 // indirect
 	golang.org/x/oauth2 v0.5.0 // indirect
 	golang.org/x/sync v0.1.0 // indirect
 	golang.org/x/sys v0.5.0 // indirect

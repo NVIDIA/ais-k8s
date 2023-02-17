@@ -31,7 +31,7 @@ var defaultAISConf = aiscmn.ClusterConfig{
 		Burst:           32,
 		IdleTeardown:    cos.Duration(4 * time.Second),
 		QuiesceTime:     cos.Duration(10 * time.Second),
-		LZ4BlockMaxSize: cos.Size(256 * cos.KiB),
+		LZ4BlockMaxSize: cos.SizeIEC(256 * cos.KiB),
 	},
 	TCB: aiscmn.TCBConf{
 		Compression: aisapc.CompressNever,
@@ -94,8 +94,8 @@ var defaultAISConf = aiscmn.ClusterConfig{
 	},
 	Log: aiscmn.LogConf{
 		Level:    "3",
-		MaxSize:  cos.Size(4 * cos.MiB),
-		MaxTotal: cos.Size(64 * cos.MiB),
+		MaxSize:  cos.SizeIEC(4 * cos.MiB),
+		MaxTotal: cos.SizeIEC(64 * cos.MiB),
 	},
 	Space: aiscmn.SpaceConf{
 		CleanupWM: 65,
@@ -104,9 +104,9 @@ var defaultAISConf = aiscmn.ClusterConfig{
 		OOS:       95,
 	},
 	Memsys: aiscmn.MemsysConf{
-		MinFree:        cos.Size(2 * cos.GiB),
-		DefaultBufSize: cos.Size(32 * cos.KiB),
-		SizeToGC:       cos.Size(2 * cos.GiB),
+		MinFree:        cos.SizeIEC(2 * cos.GiB),
+		DefaultBufSize: cos.SizeIEC(32 * cos.KiB),
+		SizeToGC:       cos.SizeIEC(2 * cos.GiB),
 		HousekeepTime:  cos.Duration(90 * time.Second),
 	},
 	LRU: aiscmn.LRUConf{
