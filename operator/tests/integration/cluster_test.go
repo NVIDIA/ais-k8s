@@ -422,7 +422,7 @@ var _ = Describe("Run Controller", func() {
 })
 
 func clusterName() string {
-	return "aistore-test-cluster-" + strings.ToLower(cos.RandStringStrong(4))
+	return "aistore-test-cluster-" + strings.ToLower(cos.CryptoRandS(4))
 }
 
 func defaultCluArgs() tutils.ClusterSpecArgs {
