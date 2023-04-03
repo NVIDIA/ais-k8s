@@ -201,7 +201,7 @@ spec:
                             type: integer
                           name:
                             type: string
-                        type: objectgithub.com/NVIDIA/aistore
+                        type: object
                     type: object
                   log:
                     properties:
