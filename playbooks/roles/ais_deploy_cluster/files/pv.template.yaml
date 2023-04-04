@@ -19,6 +19,9 @@ spec:
     - ReadWriteOnce
   hostPath:
     path: $MPATH
+  claimRef:
+    name: $CLAIM_NAME
+    namespace: $NAMESPACE
   nodeAffinity:
     required:
       nodeSelectorTerms:
