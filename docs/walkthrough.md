@@ -257,7 +257,7 @@ We use the default Kubespray network plugin, [Calico](https://www.tigera.io/proj
 >
 > Whichever network plugin you choose, if the users and application consuming storage work outside of your Kubernetes cluster, they will need to be able to access all of the storage nodes in the cluster.
 >
-> A simple way to achive this is to allow port forwarding over the 51080 to 5300 range. Another way is to [use a loadbalancer, such as MetalLB](README.md#appendix---ingress-to-aistore))
+> A simple way to achive this is to allow port forwarding over the 51080 to 53000 range. Another way is to [use a loadbalancer, such as MetalLB](README.md#appendix---ingress-to-aistore))
 >
 > For more information about the steps here, see ais-k8s' [kubespray documentation](kubespray/README.md).
 
