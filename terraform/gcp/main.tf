@@ -6,7 +6,7 @@ provider "google" {
 # Deployment specific variables.
 
 locals {
-  image_type = "ubuntu"
+  image_type = "ubuntu_containerd"
 }
 
 variable "cluster_name" {
