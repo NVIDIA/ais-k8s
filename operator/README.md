@@ -116,6 +116,31 @@ spec:
 ...
 ```
 
+### Config Backend Provider for GCP & AWS
+
+AIS operator supports GCP and AWS as the config backend provider. To enable the config backend provider, you need to create a secret with the corresponding credential file.
+
+```yaml
+kubectl create secret -n ais-operator-system generic aws-creds \
+  --from-file=config=$HOME/.aws/config \
+  --from-file=credentials=$HOME/.aws/credentials
+
+kubectl create secret -n ais-operator-system generic gcp-creds \
+  --from-file=gcp.json=<path-to-gcp-credential-file>.json
+```
+
+```yaml
+# config/samples/ais_v1beta1_sample.yaml
+apiVersion: ais.nvidia.com/v1beta1
+kind: AIStore
+metadata:
+  name: aistore-sample
+spec:
+  gcpSecretName: "gcp-creds" # corresponding secret name just created for GCP credential
+  awsSecretName: "aws-creds" # corresponding secret name just created for AWS credential
+...
+```
+
 ## Development
 
 AIS Operator leverages [operator-sdk](https://github.com/operator-framework/operator-sdk), which provides high-level APIs, scaffolding, and code generation utilities, making the operator development easy.
