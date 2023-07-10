@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	aisapi "github.com/NVIDIA/aistore/api"
+	aistutils "github.com/NVIDIA/aistore/tools"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	aisclient "github.com/ais-operator/pkg/client"
 	"github.com/ais-operator/pkg/resources/proxy"
@@ -175,15 +177,22 @@ func WaitForClusterToBeReady(ctx context.Context, client *aisclient.K8sClient, c
 ) {
 	Eventually(func() bool {
 		proxySS, err := client.GetStatefulSet(ctx, proxy.StatefulSetNSName(cluster))
+		if err != nil || proxySS.Status.ReadyReplicas != *proxySS.Spec.Replicas {
+			return false
+		}
+
+		proxyURL := GetProxyURL(ctx, client, cluster)
+		// Ensure primary is ready (including rebalance)
+		err = aisapi.Health(aistutils.BaseAPIParams(proxyURL), true)
 		if err != nil {
 			return false
 		}
+
 		targetSS, err := client.GetStatefulSet(ctx, target.StatefulSetNSName(cluster))
 		if err != nil {
 			return false
 		}
-		return proxySS.Status.ReadyReplicas == *proxySS.Spec.Replicas &&
-			targetSS.Status.ReadyReplicas == *targetSS.Spec.Replicas
+		return targetSS.Status.ReadyReplicas == *targetSS.Spec.Replicas
 	}, intervals...).Should(BeTrue())
 }
 

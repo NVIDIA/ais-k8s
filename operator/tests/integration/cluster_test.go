@@ -372,7 +372,7 @@ var _ = Describe("Run Controller", func() {
 				// New primary proxy finds the old BMD from previous deployment and metasyncs it,
 				// leading to creation of all the buckets. However, the bucket data doesn't exist anymore
 				// as the targets PVs/PVCs are deleted.
-				objList, err := aisapi.ListObjects(baseParams, bck, nil, 0)
+				objList, err := aisapi.ListObjects(baseParams, bck, nil, aisapi.ListArgs{})
 				Expect(err).ShouldNot(HaveOccurred())
 				if objList != nil {
 					Expect(len(objList.Entries)).To(Equal(0))
