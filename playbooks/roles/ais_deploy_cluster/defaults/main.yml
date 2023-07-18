@@ -1,4 +1,4 @@
 ---
-node_image: aistore/aisnode:3.7
+node_image: aistorage/aisnode:3.18
 gcp_secret_name: ""
 aws_secret_name: ""

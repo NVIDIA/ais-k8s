@@ -11,8 +11,9 @@ spec:
   configToUpdate:
     rebalance:
       enabled: false
+      bundle_multiplier: 2
 
-  enablePromExporter: true
+  enablePromExporter: false
   proxySpec:
     hostPort: 51080
     servicePort: 51080
@@ -45,12 +46,8 @@ spec:
             mpath: "pv{{ mpath | replace('/','-') }}"
 {% endfor %}
 
-    nodiskio:
-      enabled: false
-      dryobjsize: "8M"
-
   nodeImage: "{{ node_image }}"
-  initImage: "aistore/ais-init:latest"
+  initImage: "aistorage/ais-init:latest"
   hostpathPrefix: "/etc/ais"
 {% if aws_secret_name != "" %}
   awsSecretName: "{{ aws_secret_name }}"
