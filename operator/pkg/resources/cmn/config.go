@@ -133,7 +133,7 @@ var defaultAISConf = aiscmn.ClusterConfig{
 	Timeout: aiscmn.TimeoutConf{
 		CplaneOperation: cos.Duration(2 * time.Second),
 		MaxKeepalive:    cos.Duration(4 * time.Second),
-		MaxHostBusy:     cos.Duration(20 * time.Minute),
+		MaxHostBusy:     cos.Duration(20 * time.Second),
 		Startup:         cos.Duration(time.Minute),
 		SendFile:        cos.Duration(5 * time.Minute),
 	},
