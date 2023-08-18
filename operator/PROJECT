@@ -3,15 +3,16 @@ layout: go.kubebuilder.io/v3
 projectName: ais-operator
 repo: github.com/ais-operator
 resources:
-- crdVersion: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: nvidia.com
   group: ais
   kind: AIStore
+  path: github.com/ais-operator/api/v1beta1
   version: v1beta1
-- crdVersion: v1
-  group: ais
-  kind: AISConfig
-  version: v1beta1
-version: 3-alpha
+version: "3"
 plugins:
   manifests.sdk.operatorframework.io/v2: {}
   scorecard.sdk.operatorframework.io/v2: {}

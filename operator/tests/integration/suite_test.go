@@ -91,64 +91,69 @@ func cleanupOldTestClusters(c *aisclient.K8sClient) {
 	}
 }
 
-var _ = BeforeSuite(func(done Done) {
-	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
-
-	By("Bootstrapping test environment")
-	testEnv = &envtest.Environment{
-		CRDDirectoryPaths: []string{filepath.Join("..", "..", "config", "crd", "bases")},
-	}
-
-	cfg, err := testEnv.Start()
-	Expect(err).NotTo(HaveOccurred())
-	Expect(cfg).NotTo(BeNil())
-
-	err = scheme.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-
-	err = aisv1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-
-	// +kubebuilder:scaffold:scheme
-
-	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme: scheme.Scheme,
-	})
-
-	k8sClient = aisclient.NewClientFromMgr(mgr)
-	Expect(err).NotTo(HaveOccurred())
-	Expect(k8sClient).NotTo(BeNil())
+var _ = BeforeSuite(func() {
+	done := make(chan interface{})
 
 	go func() {
-		err = mgr.Start(ctrl.SetupSignalHandler())
-		Expect(err).ToNot(HaveOccurred())
+		logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+
+		By("Bootstrapping test environment")
+		testEnv = &envtest.Environment{
+			CRDDirectoryPaths: []string{filepath.Join("..", "..", "config", "crd", "bases")},
+		}
+
+		cfg, err := testEnv.Start()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(cfg).NotTo(BeNil())
+
+		err = scheme.AddToScheme(scheme.Scheme)
+		Expect(err).NotTo(HaveOccurred())
+
+		err = aisv1.AddToScheme(scheme.Scheme)
+		Expect(err).NotTo(HaveOccurred())
+
+		// +kubebuilder:scaffold:scheme
+
+		mgr, err := ctrl.NewManager(cfg, ctrl.Options{
+			Scheme: scheme.Scheme,
+		})
+
+		k8sClient = aisclient.NewClientFromMgr(mgr)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(k8sClient).NotTo(BeNil())
+
+		go func() {
+			err = mgr.Start(ctrl.SetupSignalHandler())
+			Expect(err).ToNot(HaveOccurred())
+		}()
+
+		err = controllers.NewAISReconciler(
+			mgr,
+			ctrl.Log.WithName("controllers").WithName("AIStore"),
+			testAsExternalClient,
+		).SetupWithManager(mgr)
+		Expect(err).NotTo(HaveOccurred())
+
+		// Give some time for client cache to start before creating instances.
+		time.Sleep(5 * time.Second)
+
+		By("Cleaning orphaned test clusters")
+		cleanupOldTestClusters(k8sClient)
+
+		tutils.InitK8sClusterProvider(context.Background(), k8sClient)
+		// Create Namespace if not exists
+		testNS, nsExists = tutils.CreateNSIfNotExists(context.Background(), k8sClient, testNSName)
+
+		// NOTE: On gitlab, tests run in a pod inside minikube cluster. In that case we can run the tests as an internal client, unless enforced to test as external client.
+		testAsExternalClient = cos.IsParseBool(os.Getenv(EnvTestEnforceExternal)) || aisk8s.Detect() != nil
+		setStorageClass()
+
+		testAllowSharedNoDisks = cos.IsParseBool(os.Getenv(EnvTestNoFsChecks))
+		close(done)
 	}()
 
-	err = controllers.NewAISReconciler(
-		mgr,
-		ctrl.Log.WithName("controllers").WithName("AIStore"),
-		testAsExternalClient,
-	).SetupWithManager(mgr)
-	Expect(err).NotTo(HaveOccurred())
-
-	// Give some time for client cache to start before creating instances.
-	time.Sleep(5 * time.Second)
-
-	By("Cleaning orphaned test clusters")
-	cleanupOldTestClusters(k8sClient)
-
-	tutils.InitK8sClusterProvider(context.Background(), k8sClient)
-	// Create Namespace if not exists
-	testNS, nsExists = tutils.CreateNSIfNotExists(context.Background(), k8sClient, testNSName)
-
-	// NOTE: On gitlab, tests run in a pod inside minikube cluster. In that case we can run the tests as an internal client, unless enforced to test as external client.
-	testAsExternalClient = cos.IsParseBool(os.Getenv(EnvTestEnforceExternal)) || aisk8s.Detect() != nil
-	setStorageClass()
-
-	testAllowSharedNoDisks = cos.IsParseBool(os.Getenv(EnvTestNoFsChecks))
-
-	close(done)
-}, 60)
+	Eventually(done, 60).Should(BeClosed())
+})
 
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")
