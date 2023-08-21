@@ -177,13 +177,18 @@ func WaitForClusterToBeReady(ctx context.Context, client *aisclient.K8sClient, c
 ) {
 	Eventually(func() bool {
 		proxySS, err := client.GetStatefulSet(ctx, proxy.StatefulSetNSName(cluster))
-		if err != nil || proxySS.Status.ReadyReplicas != *proxySS.Spec.Replicas {
+		replicasReady := cluster.Spec.Size == *proxySS.Spec.Replicas && proxySS.Status.ReadyReplicas == *proxySS.Spec.Replicas
+		if err != nil || !replicasReady {
 			return false
 		}
 
-		proxyURL := GetProxyURL(ctx, client, cluster)
 		// Ensure primary is ready (including rebalance)
-		err = aisapi.Health(aistutils.BaseAPIParams(proxyURL), true)
+		proxyURL := GetProxyURL(ctx, client, cluster)
+		smap, err := aisapi.GetClusterMap(aistutils.BaseAPIParams(proxyURL))
+		if err != nil {
+			return false
+		}
+		err = aisapi.Health(aistutils.BaseAPIParams(smap.Primary.PubNet.URL), true)
 		if err != nil {
 			return false
 		}
