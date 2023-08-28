@@ -7,6 +7,8 @@ as you wish, etc., in which case either ignore these or use them as a reference.
 
 These playbooks have been tested only on Ubuntu hosts.
 
+For playbooks related to cloud configuration, see [cloud](cloud/README.md)
+
 Each playbook is documented separately.  See the links in the first column below.
 
 Playbook(s) | Useful when

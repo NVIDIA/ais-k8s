@@ -1,0 +1,29 @@
+- name: Create .aws if it does not exist
+  file:
+    path: "{{ target_dir }}"
+    state: directory
+
+# Add the aws config file to use to the roles/files directory
+- name: Copy aws config
+  ansible.builtin.copy:
+    src: "config"
+    dest: "{{ target_dir }}/config"
+
+# Add the aws credentials file to use to the roles/files directory
+- name: Copy aws credentials
+  ansible.builtin.copy:
+    src: "credentials"
+    dest: "{{ target_dir }}/credentials"
+
+- name: Delete existing kubernetes secret
+  shell: kubectl delete secret {{ secret_name }} -n ais --ignore-not-found
+    
+- name: Create kubernetes secret
+  shell: "kubectl create secret -n ais generic {{ secret_name }} \
+  --from-file=config={{ target_dir }}/config \
+  --from-file=credentials={{ target_dir }}/credentials"
+
+- name: Clean up copied files
+  file:
+    path: "{{ target_dir }}"
+    state: absent
