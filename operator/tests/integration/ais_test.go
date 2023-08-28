@@ -56,7 +56,7 @@ func putGetObjects(t *testing.T) {
 		bck       = aiscmn.Bck{Name: "TEST_BUCKET", Provider: aisapc.AIS}
 		objPrefix = "test-opr/"
 	)
-	aistutils.CreateBucketWithCleanup(t, proxyURL, bck, nil)
+	aistutils.CreateBucket(t, proxyURL, bck, nil, true /*cleanup*/)
 	names, failCnt, err := aistutils.PutRandObjs(aistutils.PutObjectsArgs{
 		ProxyURL:  proxyURL,
 		Bck:       bck,

@@ -13,6 +13,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 // log is for logging in this package.
@@ -30,18 +31,23 @@ func (r *AIStore) SetupWebhookWithManager(mgr ctrl.Manager) error {
 var _ webhook.Validator = &AIStore{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (r *AIStore) ValidateCreate() error {
+func (r *AIStore) ValidateCreate() (admission.Warnings, error) {
 	aistorelog.Info("validate create", "name", r.Name)
 
 	if r.Spec.Size <= 0 {
-		return errInvalidClusterSize(r.Spec.Size)
+		return nil, errInvalidClusterSize(r.Spec.Size)
 	}
-	return nil
+	return nil, nil
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (r *AIStore) ValidateUpdate(old runtime.Object) error {
+func (r *AIStore) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
 	aistorelog.Info("validate update", "name", r.Name)
+
+	return nil, r.vup(old)
+}
+
+func (r *AIStore) vup(old runtime.Object) error {
 	if r.Spec.Size <= 0 {
 		return errInvalidClusterSize(r.Spec.Size)
 	}
@@ -78,9 +84,9 @@ func (r *AIStore) ValidateUpdate(old runtime.Object) error {
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (r *AIStore) ValidateDelete() error {
+func (r *AIStore) ValidateDelete() (admission.Warnings, error) {
 	aistorelog.Info("validate delete", "name", r.Name)
-	return nil
+	return nil, nil
 }
 
 // errors
