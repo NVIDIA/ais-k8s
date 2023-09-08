@@ -1,6 +1,6 @@
 module github.com/ais-operator
 
-go 1.20
+go 1.21
 
 require (
 	github.com/NVIDIA/aistore v1.3.19
