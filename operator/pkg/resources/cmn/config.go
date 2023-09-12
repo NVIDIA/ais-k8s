@@ -82,12 +82,12 @@ var defaultAISConf = aiscmn.ClusterConfig{
 	Keepalive: aiscmn.KeepaliveConf{
 		Proxy: aiscmn.KeepaliveTrackerConf{
 			Interval: cos.Duration(10 * time.Second),
-			Name:     aiscmn.KeepaliveHeartbeatType,
+			Name:     "heartbeat",
 			Factor:   3,
 		},
 		Target: aiscmn.KeepaliveTrackerConf{
 			Interval: cos.Duration(10 * time.Second),
-			Name:     aiscmn.KeepaliveHeartbeatType,
+			Name:     "heartbeat",
 			Factor:   3,
 		},
 		RetryFactor: 5,
