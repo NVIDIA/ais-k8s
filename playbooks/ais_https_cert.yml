@@ -1,0 +1,9 @@
+#
+# Create a certificate using cert-manager for use of https
+# based AIStore deployments
+#
+---
+- hosts: "controller"
+  gather_facts: false
+  roles:
+    - {role: ais_https_cert}

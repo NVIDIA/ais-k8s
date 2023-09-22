@@ -19,6 +19,7 @@ Playbook(s) | Useful when
 [ais_host_post_kubespray](docs/ais_host_post_kubespray.md) | Using AIStore chart values that require "unsafe" sysctls; changes kubelet.env to enable them
 ais_gpuhost_config | Configuring GPU compute nodes in the same cluster - install NVIDIA Docker 2, NVIDIA container runtime, etc.
 [ais_cluster_management](docs/ais_cluster_management.md) | A collection of playbooks to deploy and upgrade AIS clusters on K8s. Cluster shut down and associated cleanup is also supported.
+[ais_https_cert](docs/ais_https_cert.md) | Creates a self-signed certificate using cert-manager and stores it securely as a secret named `ais-tls-cert`. Used in HTTPS based AIStore deployments.
 
 The `ais_host_config_common` playbook includes a tagging scheme to allow
 more granular selection of tasks and to skip tasks that are likely site-specific.

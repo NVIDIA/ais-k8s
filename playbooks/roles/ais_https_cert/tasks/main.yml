@@ -1,0 +1,9 @@
+- name: Copy Cert Creation yaml
+  template:
+    src: "ais.yaml.j2"
+    dest: "/tmp/https_cert.yaml"
+    mode: 0777
+    lstrip_blocks: true
+
+- name: Create Cert
+  command: "kubectl apply -f /tmp/https_cert.yaml"
