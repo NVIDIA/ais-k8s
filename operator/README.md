@@ -141,6 +141,42 @@ spec:
 ...
 ```
 
+### Enabling HTTPS for AIStore Deployment in Kubernetes
+
+While the examples above demonstrate running web servers that accept plain HTTP requests, you may want to enhance the security of your AIStore deployment by enabling HTTPS in a Kubernetes environment.
+
+**Important:** Before proceeding, please ensure that you have `cert-manager` installed.
+
+This specification defines a ClusterIssuer responsible for certificate issuance. It creates a Certificate, which is securely stored as a secret within the same namespace as the operator.
+
+```bash
+kubectl apply -f config/samples/ais_v1beta1_aistore_tls.yaml
+```
+
+**Testing Considerations:**
+
+- If you're using the AIStore CLI for testing, set the `$ ais config cli set cluster.skip_verify_crt true` environment variable. This allows you to connect to the AIStore cluster without certificate verification.
+
+- When using `curl` to interact with your AIStore cluster over HTTPS, use the `-k` flag to skip certificate validation. For example:
+
+```bash
+curl -k https://your-ais-cluster-url
+```
+
+- If you prefer not to skip certificate validation, you can export the self-signed certificate for use with `curl`. Here's how to export the certificate:
+
+```bash
+kubectl get secret ais-tls-certs -n ais-operator-system -o jsonpath='{.data.tls\.crt}' | base64 --decode > tls.crt
+```
+
+You can now use the exported `tls.crt` as a parameter when using `curl`, like this:
+
+```bash
+curl --cacert tls.crt https://your-ais-cluster-url
+```
+
+By following these steps, you can deploy AIStore in a Kubernetes environment with HTTPS support, leveraging a self-signed certificate provided by cert-manager.
+
 ## Development
 
 AIS Operator leverages [operator-sdk](https://github.com/operator-framework/operator-sdk), which provides high-level APIs, scaffolding, and code generation utilities, making the operator development easy.

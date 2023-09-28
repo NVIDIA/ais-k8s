@@ -90,6 +90,17 @@ func NewAISVolumes(ais *aisv1.AIStore, daeType string) []corev1.Volume {
 		})
 	}
 
+	if ais.Spec.TLSSecretName != nil {
+		volumes = append(volumes, corev1.Volume{
+			Name: "tls-certs",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: *ais.Spec.TLSSecretName,
+				},
+			},
+		})
+	}
+
 	return volumes
 }
 
@@ -170,6 +181,13 @@ func NewAISVolumeMounts(ais *aisv1.AIStore) []corev1.VolumeMount {
 			Name:      "gcp-creds",
 			ReadOnly:  true,
 			MountPath: "/var/gcp",
+		})
+	}
+	if ais.Spec.TLSSecretName != nil {
+		volumeMounts = append(volumeMounts, corev1.VolumeMount{
+			Name:      "tls-certs",
+			ReadOnly:  true,
+			MountPath: "/var/certs",
 		})
 	}
 

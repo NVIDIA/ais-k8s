@@ -85,6 +85,10 @@ type AIStoreSpec struct {
 	// +optional
 	AWSSecretName *string `json:"awsSecretName,omitempty"`
 
+	// Secret name containing TLS cert/key
+	// +optional
+	TLSSecretName *string `json:"tlsSecretName,omitempty"`
+
 	// ImagePullScerets is an optional list of references to secrets in the same namespace to pull container images of AIS Daemons
 	// More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod
 	// +optional

@@ -46,6 +46,9 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 			cmn.EnvFromFieldPath(cmn.EnvPublicHostname, "status.hostIP"),
 		}
 	}
+	if ais.Spec.TLSSecretName != nil {
+		optionals = append(optionals, cmn.EnvFromValue(cmn.EnvUseHTTPS, "true"))
+	}
 
 	if ais.Spec.GCPSecretName != nil {
 		// TODO -- FIXME: Remove hardcoding for path
@@ -128,7 +131,7 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 							VolumeMounts:    volumeMounts(ais),
 							Lifecycle:       cmn.NewAISNodeLifecycle(),
 							LivenessProbe:   cmn.NewAISLivenessProbe(),
-							ReadinessProbe:  readinessProbe(ais.Spec.TargetSpec.ServicePort),
+							ReadinessProbe:  readinessProbe(ais.Spec.TargetSpec.ServicePort, ais.Spec.TLSSecretName != nil),
 						},
 					},
 					ServiceAccountName: cmn.ServiceAccountName(ais),
@@ -154,12 +157,18 @@ func volumeMounts(ais *aisv1.AIStore) []corev1.VolumeMount {
 	return vols
 }
 
-func readinessProbe(port intstr.IntOrString) *corev1.Probe {
+func readinessProbe(port intstr.IntOrString, useHTTPS bool) *corev1.Probe {
+	scheme := corev1.URISchemeHTTP
+	if useHTTPS {
+		scheme = corev1.URISchemeHTTPS
+	}
+
 	return &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Path: "/v1/health?readiness=true",
-				Port: port,
+				Path:   "/v1/health?readiness=true",
+				Port:   port,
+				Scheme: scheme,
 			},
 		},
 		InitialDelaySeconds: 15,

@@ -85,6 +85,9 @@ func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
 		// TODO -- FIXME: Remove hardcoding for path
 		optionals = append(optionals, cmn.EnvFromValue(cmn.EnvGCPCredsPath, "/var/gcp/gcp.json"))
 	}
+	if ais.Spec.TLSSecretName != nil {
+		optionals = append(optionals, cmn.EnvFromValue(cmn.EnvUseHTTPS, "true"))
+	}
 
 	return corev1.PodSpec{
 		InitContainers: []corev1.Container{

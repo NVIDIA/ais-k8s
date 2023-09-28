@@ -563,9 +563,14 @@ func (r *AIStoreReconciler) newAISBaseParams(ctx context.Context,
 	// When operator is deployed within K8s cluster with no external LoadBalancer,
 	// use the proxy headless service to request the API.
 	serviceHostname = proxy.HeadlessSVCNSName(ais).Name + "." + ais.Namespace
-
 createParams:
-	url := fmt.Sprintf("http://%s:%s", serviceHostname, ais.Spec.ProxySpec.ServicePort.String())
+	var scheme string
+	if ais.Spec.TLSSecretName == nil {
+		scheme = "http"
+	} else {
+		scheme = "https"
+	}
+	url := fmt.Sprintf("%s://%s:%s", scheme, serviceHostname, ais.Spec.ProxySpec.ServicePort.String())
 	return _baseParams(ais, url), nil
 }
 
