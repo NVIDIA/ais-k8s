@@ -12,6 +12,14 @@ spec:
     rebalance:
       enabled: false
       bundle_multiplier: 2
+{% if protocol == "https" %}
+    net:
+      http:
+        server_crt: "/var/certs/tls.crt"
+        server_key: "/var/certs/tls.key"
+        use_https: true
+        skip_verify: true # if you are using self signed certs
+{% endif %}
 
   enablePromExporter: false
   proxySpec:
@@ -49,6 +57,10 @@ spec:
   nodeImage: "{{ node_image }}"
   initImage: "aistorage/ais-init:latest"
   hostpathPrefix: "/etc/ais"
+{% if protocol == "https" %}
+  tlsSecretName: "ais-tls-certs"
+{% endif %}
+  
 {% if aws_secret_name != "" %}
   awsSecretName: "{{ aws_secret_name }}"
 {% endif %}
@@ -62,4 +74,4 @@ spec:
   # For local testing with `minikube` run `minikube tunnel` in background for emulation. ref: https://minikube.sigs.k8s.io/docs/commands/tunnel/
   enableExternalLB: false
 
-  clusterDomain: "aiscluster.local"
+  clusterDomain: "cluster.local"
