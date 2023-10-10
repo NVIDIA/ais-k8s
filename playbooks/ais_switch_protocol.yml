@@ -1,0 +1,41 @@
+---
+#
+# Switching the Deployment Protocol for AIS (HTTP ⇌ HTTPS)
+#
+
+- name: Remove .ais.smap files from all nodes
+  hosts: ais
+  gather_facts: false
+  tasks:
+    - name: Delete .ais.smap files
+      shell: find /etc/ais/ -type f -name ".ais.smap" | xargs rm
+      ignore_errors: true
+
+# TODO: Implement a solution to retain the `.ais.conf` file for storing previous
+# versions of the cluster
+- name: Remove .ais.conf files from all nodes
+  hosts: ais
+  gather_facts: false
+  tasks:
+    - name: Delete .ais.conf files
+      shell: find /etc/ais/ -type f -name ".ais.conf" | xargs rm
+      ignore_errors: true
+
+- hosts: controller
+  gather_facts: false
+  vars_files:
+    - "vars/ais_mpaths.yml"
+
+  pre_tasks:
+    - name: Check for mountpath list
+      fail:
+        msg: "No AIS mountpaths specified!"
+      when: ais_mpaths is undefined
+
+    - name: Check for mountpath size
+      fail:
+        msg: "No AIS mountpath size specified!"
+      when: ais_mpath_size is undefined
+
+  roles:
+    - { role: ais_switch_protocol }

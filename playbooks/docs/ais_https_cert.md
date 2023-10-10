@@ -1,5 +1,3 @@
-Sure, here's an improved version of your README:
-
 # ais_https_cert
 
 ## Purpose
