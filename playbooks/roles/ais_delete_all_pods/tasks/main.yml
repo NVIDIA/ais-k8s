@@ -1,0 +1,11 @@
+---
+- name: Copy delete pods script after processing as a template
+  template:
+    src: "delete_pods.sh.j2"
+    dest: "/tmp/delete_pods.sh"
+    mode: 0777
+
+- name: Delete all pods in the aistore cluster and wait till all pods get deleted
+  shell: "/tmp/delete_pods.sh"
+  register: delete_pods
+  changed_when: "'configured' in delete_pods.stdout or 'created' in delete_pods.stdout"

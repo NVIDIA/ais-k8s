@@ -15,7 +15,7 @@ To use this playbook, follow these steps:
 3. Run the playbook using the following command:
 
    ```console
-   $ ansible-playbook -i hosts.ini ais_https_cert.yaml
+   $ ansible-playbook -i hosts.ini ais_https_cert.yml
    ```
 
    This will execute the playbook and create the self-signed certificate on the specified controller host.

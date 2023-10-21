@@ -1,0 +1,12 @@
+#!/bin/bash
+
+# Perform the delete operation
+kubectl delete aistores.ais.nvidia.com -n {{ cluster }} {{ cluster }}
+
+# Check if there are any remaining pods in the namespace
+while kubectl get pods -n {{ cluster }} | grep -q ais; do
+  echo "Waiting for pods to be deleted..."
+  sleep 5
+done
+
+echo "All pods have been deleted."

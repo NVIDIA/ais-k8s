@@ -1,11 +1,6 @@
 ---
-- name: Delete clusters pods
-  command: "kubectl delete aistores.ais.nvidia.com -n ais ais || true"
-  register: deleteout
-  changed_when: "'deleted' in deleteout.stdout or 'deleted' in deleteout.stdout"
-  ignore_errors: true
-
-- name: Copy cluster yaml
+- name: Copy cluster yaml with elevated privileges
+  become: true
   template:
     src: "ais.yaml.j2"
     dest: "/tmp/{{ cluster }}.yaml"
