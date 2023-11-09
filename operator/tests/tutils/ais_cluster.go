@@ -5,7 +5,7 @@
 package tutils
 
 import (
-	aisapi "github.com/NVIDIA/aistore/api"
+	"github.com/NVIDIA/aistore/api/apc"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -14,7 +14,7 @@ import (
 
 // TODO: Should be provided from test config.
 const (
-	aisNodeImage = "aistorage/aisnode:v3.19-rc-c0698c2"
+	aisNodeImage = "aistorage/aisnode:v3.21"
 	aisInitImage = "aistorage/ais-init:latest"
 )
 
@@ -38,7 +38,7 @@ func NewAISClusterCR(args ClusterSpecArgs) *aisv1.AIStore {
 	}
 	spec := aisv1.AIStoreSpec{
 		Size:                   args.Size,
-		CleanupData:            aisapi.Bool(!args.PreservePVCs),
+		CleanupData:            apc.Bool(!args.PreservePVCs),
 		NodeImage:              aisNodeImage,
 		InitImage:              aisInitImage,
 		HostpathPrefix:         "/etc/ais",

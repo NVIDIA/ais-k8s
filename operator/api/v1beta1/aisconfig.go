@@ -156,11 +156,14 @@ type (
 	}
 	HTTPConfToUpdate struct {
 		Certificate     *string `json:"server_crt,omitempty"`
-		Key             *string `json:"server_key,omitempty"`
-		WriteBufferSize *int    `json:"write_buffer_size,omitempty"`
-		ReadBufferSize  *int    `json:"read_buffer_size,omitempty"`
+		CertKey         *string `json:"server_key,omitempty"`
+		ServerNameTLS   *string `json:"domain_tls,omitempty"`
+		ClientCA        *string `json:"client_ca_tls,omitempty"`
+		WriteBufferSize *int    `json:"write_buffer_size,omitempty" list:"readonly"`
+		ReadBufferSize  *int    `json:"read_buffer_size,omitempty" list:"readonly"`
+		ClientAuthTLS   *int    `json:"client_auth_tls,omitempty"`
 		UseHTTPS        *bool   `json:"use_https,omitempty"`
-		SkipVerify      *bool   `json:"skip_verify,omitempty"`
+		SkipVerifyCrt   *bool   `json:"skip_verify,omitempty"`
 		Chunked         *bool   `json:"chunked_transfer,omitempty"`
 	}
 	FSHCConfToUpdate struct {

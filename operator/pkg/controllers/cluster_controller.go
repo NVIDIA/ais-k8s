@@ -209,7 +209,7 @@ func hasFinalizer(ais *aisv1.AIStore) bool {
 
 func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore) (result ctrl.Result, err error) {
 	var (
-		configToUpdate *aiscmn.ConfigToUpdate
+		configToUpdate *aiscmn.ConfigToSet
 		changed        bool
 	)
 
@@ -515,8 +515,8 @@ func (r *AIStoreReconciler) manageSuccess(ctx context.Context, ais *aisv1.AIStor
 	return
 }
 
-func getConfigToUpdate(cfg *aisv1.ConfigToUpdate) (toUpdate *aiscmn.ConfigToUpdate, err error) {
-	toUpdate = &aiscmn.ConfigToUpdate{}
+func getConfigToUpdate(cfg *aisv1.ConfigToUpdate) (toUpdate *aiscmn.ConfigToSet, err error) {
+	toUpdate = &aiscmn.ConfigToSet{}
 	err = cos.MorphMarshal(cfg, toUpdate)
 	return toUpdate, err
 }

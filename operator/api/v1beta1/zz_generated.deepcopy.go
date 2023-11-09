@@ -699,8 +699,18 @@ func (in *HTTPConfToUpdate) DeepCopyInto(out *HTTPConfToUpdate) {
 		*out = new(string)
 		**out = **in
 	}
-	if in.Key != nil {
-		in, out := &in.Key, &out.Key
+	if in.CertKey != nil {
+		in, out := &in.CertKey, &out.CertKey
+		*out = new(string)
+		**out = **in
+	}
+	if in.ServerNameTLS != nil {
+		in, out := &in.ServerNameTLS, &out.ServerNameTLS
+		*out = new(string)
+		**out = **in
+	}
+	if in.ClientCA != nil {
+		in, out := &in.ClientCA, &out.ClientCA
 		*out = new(string)
 		**out = **in
 	}
@@ -714,13 +724,18 @@ func (in *HTTPConfToUpdate) DeepCopyInto(out *HTTPConfToUpdate) {
 		*out = new(int)
 		**out = **in
 	}
+	if in.ClientAuthTLS != nil {
+		in, out := &in.ClientAuthTLS, &out.ClientAuthTLS
+		*out = new(int)
+		**out = **in
+	}
 	if in.UseHTTPS != nil {
 		in, out := &in.UseHTTPS, &out.UseHTTPS
 		*out = new(bool)
 		**out = **in
 	}
-	if in.SkipVerify != nil {
-		in, out := &in.SkipVerify, &out.SkipVerify
+	if in.SkipVerifyCrt != nil {
+		in, out := &in.SkipVerifyCrt, &out.SkipVerifyCrt
 		*out = new(bool)
 		**out = **in
 	}

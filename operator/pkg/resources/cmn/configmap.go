@@ -25,7 +25,7 @@ func GlobalConfigMapNSName(ais *aisv1.AIStore) types.NamespacedName {
 	}
 }
 
-func NewGlobalCM(ais *aisv1.AIStore, toUpdate *aiscmn.ConfigToUpdate) (*corev1.ConfigMap, error) {
+func NewGlobalCM(ais *aisv1.AIStore, toUpdate *aiscmn.ConfigToSet) (*corev1.ConfigMap, error) {
 	globalConf := DefaultAISConf(ais)
 	if toUpdate != nil {
 		if err := globalConf.Apply(toUpdate, aisapc.Cluster); err != nil {

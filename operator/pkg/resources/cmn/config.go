@@ -54,14 +54,14 @@ var defaultAISConf = aiscmn.ClusterConfig{
 			Chunked:  true,
 		},
 	},
-	DSort: aiscmn.DSortConf{
+	Dsort: aiscmn.DsortConf{
 		Compression:         aisapc.CompressNever,
 		DuplicatedRecords:   aiscmn.IgnoreReaction,
 		MissingShards:       aiscmn.IgnoreReaction,
 		EKMMalformedLine:    aisapc.Abort,
 		EKMMissingKey:       aisapc.Abort,
 		DefaultMaxMemUsage:  "80%",
-		DSorterMemThreshold: "100GB",
+		DsorterMemThreshold: "100GB",
 		CallTimeout:         cos.Duration(10 * time.Minute),
 	},
 	Downloader: aiscmn.DownloaderConf{
