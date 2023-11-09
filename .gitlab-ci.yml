@@ -6,6 +6,7 @@ stages:
   - test:long
   - push
 
+# NOTE: uses default tag ':latest', as in: 'aistorage/aisnode:latest'
 variables:
   ADMIN_IMAGE: "aistorage/admin"
   AISNODE_IMAGE: "aistorage/aisnode"
