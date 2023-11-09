@@ -27,7 +27,7 @@ spec:
     allowSharedNoDisks: false
 
 
-  nodeImage: "aistorage/aisnode:3.19"
+  nodeImage: "aistorage/aisnode:v3.21"
   initImage: "aistorage/ais-init:latest"
   hostpathPrefix: "/etc/ais"
 

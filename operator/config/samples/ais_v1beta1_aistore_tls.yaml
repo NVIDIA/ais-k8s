@@ -66,7 +66,7 @@ spec:
         use_https: true
         skip_verify: true # if you are using self signed certs
 
-  nodeImage: "aistorage/aisnode:v3.19"
+  nodeImage: "aistorage/aisnode:v3.21"
   initImage: "aistorage/ais-init:latest"
   hostpathPrefix: "/etc/ais"
 
