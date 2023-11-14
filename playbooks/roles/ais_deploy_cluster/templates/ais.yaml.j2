@@ -9,9 +9,15 @@ spec:
   # Add fields here
   size: {{ cluster_size }}
   configToUpdate:
-    rebalance:
+    mirror:
       enabled: false
+    rebalance:
+      enabled: true
       bundle_multiplier: 2
+    resilver:
+      enabled: true
+    timeout:
+      join_startup_time: 2m
 {% if protocol == "https" %}
     net:
       http:
