@@ -1,0 +1,14 @@
+Host aistorecpu00.mgmt1privatesub.aistorevcniad.oraclevcn.com
+  Hostname 10.51.140.16
+  user username
+  IdentityFile ~/path/to/ssh.key
+
+Host aistorecpu01.mgmt1privatesub.aistorevcniad.oraclevcn.com
+  Hostname 10.51.140.8
+  user username
+  IdentityFile ~/path/to/ssh.key
+
+Host aistorecpu02.mgmt1privatesub.aistorevcniad.oraclevcn.com
+  Hostname 10.51.140.10
+  user username
+  IdentityFile ~/path/to/ssh.key
