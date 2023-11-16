@@ -1,9 +1,24 @@
-- name: Copy Cert Creation yaml
+
+
+- name: Copy CA Creation yaml
   template:
-    src: "ais.yaml.j2"
-    dest: "/tmp/https_cert.yaml"
+    src: "ca.yaml.j2"
+    dest: "https_ca.yaml"
     mode: 0777
     lstrip_blocks: true
+    
+- name: Create CA
+  command: "kubectl apply -f https_ca.yaml"
 
+- name: Delete existing cert if it exists
+  shell: kubectl delete secret {{ tls_secret }} -n ais --ignore-not-found
+
+- name: Use CA to issue cert
+  template:
+    src: "cert.yaml.j2"
+    dest: "https_cert.yaml"
+    mode: 0777
+    lstrip_blocks: true
+    
 - name: Create Cert
-  command: "kubectl apply -f /tmp/https_cert.yaml"
+  command: "kubectl apply -f https_cert.yaml"

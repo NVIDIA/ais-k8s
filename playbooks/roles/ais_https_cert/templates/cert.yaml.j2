@@ -1,0 +1,16 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: ais-server-cert
+  namespace: {{ cert_namespace }}
+spec:
+  secretName: {{ tls_secret }}
+  isCA: false
+  duration: 8760h  # 1 year
+  renewBefore: 720h  # 30 days
+  dnsNames:
+  {% for dns_name in dns_names %}
+      - {{ dns_name }}
+  {% endfor %}
+  issuerRef:
+    name: ca-issuer

@@ -5,5 +5,7 @@
 ---
 - hosts: "controller"
   gather_facts: false
+  vars_files:
+    - "vars/https_config.yml"
   roles:
     - {role: ais_https_cert}

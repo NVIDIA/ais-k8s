@@ -10,15 +10,12 @@ spec:
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: self-signed-cert
-  namespace: ais
+  name: selfsigned-cert
+  namespace: {{ cert_namespace }}
 spec:
-  secretName: ais-tls-certs
-  duration: 8760h  # 1 year
-  renewBefore: 720h  # 30 days
-  dnsNames:
-    - aistore-sample-proxy  # Add your domain name(s) as SANs
+  secretName: {{ ca_cert_secret }}
   isCA: true
+  commonName: selfsigned-ca
   privateKey:
     algorithm: RSA
     encoding: PKCS1
@@ -29,4 +26,13 @@ spec:
   issuerRef:
     name: selfsigned-issuer
     kind: ClusterIssuer
+    group: cert-manager.io
 ---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: ca-issuer
+  namespace: {{ cert_namespace }}
+spec:
+  ca:
+    secretName: {{ ca_cert_secret }}

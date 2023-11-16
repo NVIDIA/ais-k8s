@@ -2,4 +2,4 @@
 node_image: aistorage/aisnode:v3.21
 gcp_secret_name: ""
 aws_secret_name: ""
-protocol: "https"
+protocol: https

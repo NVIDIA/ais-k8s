@@ -58,7 +58,7 @@ spec:
   initImage: "aistorage/ais-init:latest"
   hostpathPrefix: "/etc/ais"
 {% if protocol == "https" %}
-  tlsSecretName: "ais-tls-certs"
+  tlsSecretName: "tls-certs"
 {% endif %}
   
 {% if aws_secret_name != "" %}

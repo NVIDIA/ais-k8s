@@ -1,0 +1,9 @@
+---
+ca_cert_secret: ais-root-secret
+tls_secret: tls-certs
+cert_namespace: ais
+# Replace below with the dns names for your certificate
+dns_names:
+  # - aistorecpu1010.nsv.sjc4.nvmetal.net
+  # - 10.150.56.227
+  # - localhost
