@@ -1,145 +1,190 @@
-# AIStore K8s Deployment Scenarios
+# AIStore Kubernetes (K8s) Deployment Scenarios
 
-AIStore can be deployed on any K8s cluster (subject to a couple of configuration tweaks to be
-able to specify the `net.core.somaxconn` in a container, and to permit privileged containers
-if serving external clients via a hostPort). Clearly, however, mileage will vary  for various
-choices. We'll discuss a number of those aspects in the following sections. First, a word on
-deployment types for various use-cases:
-- If you are deploying a large, multinode, multi-petabyte storage cluster to serve many hungry GPU node
-clients then you will be well-served by optimizing all of the choices below - performance and scalability are critical
-- If you are deploying to serve a small number of researchers with a modest number of nodes and GPUs per node, then AIStore is capable of running on anything from a single node upwards and only requires one storage path per target node; it is also very modest in its resource demands for CPU and memory (the exception being dSort) - so start with a modest config and scale as required
-- AIStore can also function as a caching tier, providing "local" object storage for DL datasets held in cloud buckets or in data lake storage; it can intelligently fetch and prefetch bucket objects and cache the entire dataset in the AIStore bucket to avoid repeated WAN traversal or hitting the data lake on each epoch; for such deployments, you can utilize K8s as described here and using storage on the GPU nodes themselves (or anything else that is free and is close by), or it might be simpler to use AIStore from a Docker container directly.
+AIStore offers flexible deployment options on Kubernetes (K8s) clusters. The effectiveness of these deployments varies based on the chosen configurations. This document outlines key deployment scenarios and offers guidance for each.
+
+# Contents
+
+1. [**Overview**](#Overview)
+   - [Large-Scale Deployments](#Large-Scale-Deployments)
+   - [Moderate-Scale Deployments](#Moderate-Scale-Deployments)
+   - [Fast-Tier Storage Deployments](#Fast-Tier-Storage-Deployments)
+
+2. [**K8s Deployment Choice wrt AIStore**](#K8s-Deployment-Choice-wrt-AIStore)
+   - [Choosing Between Baremetal and VM Nodes](#Choosing-Between-Baremetal-and-VM-Nodes)
+   - [Node CPU and Memory Resource](#Node-CPU-and-Memory-Resource)
+   - [Storage Type and Density](#Storage-Type-and-Density)
+   - [Filesystem Type](#Filesystem-Type)
+   - [Optimizing Network Bandwidth](#Optimizing-Network-Bandwidth)
+   - [Kubernetes CNI Plugin](#Kubernetes-CNI-Plugin)
+
+3. [**Managing In-Cluster vs. External Clients in AIStore**](#Managing-In-Cluster-vs-External-Clients-in-AIStore)
+   - [In-Cluster Clients: Simplified Management](#In-Cluster-Clients-Simplified-Management)
+   - [External Clients: Additional Setup Required](#External-Clients-Additional-Setup-Required)
+   - [LoadBalancer and Ingress](#LoadBalancer-and-Ingress)
+   - [Specific Solutions for Different Environments](#Specific-Solutions-for-Different-Environments)
+
+4. [**Host Performance Tuning**](#Host-Performance-Tuning)
+   - [Tuning Parameters and Playbooks](#Tuning-Parameters-and-Playbooks)
+   - [Additional Resources for Performance Enhancement](#Additional-Resources-for-Performance-Enhancement)
+
+
+## Overview
+Different deployment types cater to specific use-cases in AIStore's versatile environment. Here, we explore these scenarios:
+
+### Large-Scale Deployments
+- **Use-Case**: Ideal for extensive, multi-node, multi-petabyte storage clusters serving numerous GPU node clients.
+- **Key Considerations**: Focus on optimizing performance and scalability. Every aspect of the deployment should be fine-tuned to meet the high demands of large-scale operations.
+
+### Moderate-Scale Deployments
+- **Use-Case**: Suitable for smaller teams of researchers, with limited nodes and GPU resources.
+- **Characteristics**: AIStore efficiently operates on configurations ranging from a single node to multiple nodes. It requires minimal resources in terms of CPU and memory, with the notable exception of dSort.
+- **Approach**: Begin with a basic setup and scale according to your evolving requirements.
+
+### Fast-Tier Storage Deployments
+- **Use-Case**: Functions as a caching tier for Deep Learning (DL) datasets stored in cloud buckets or data lakes.
+- **Capabilities**: AIStore can smartly handle data retrieval and prefetching of bucket objects. It caches entire datasets locally in the AIStore bucket, minimizing the need for repeated Wide Area Network (WAN) traversals or frequent data lake accesses.
+- **Deployment Options**: Implement this using K8s, leveraging storage directly on GPU nodes or nearby resources. Alternatively, a simpler approach might be to deploy AIStore within a Docker container.
 
 ## K8s Deployment Choice wrt AIStore
 
-For each aspect discussed, we'll include information on our "reference" configuration. The reference values are not necessarily carefully optimized - some of them just come with the set of equipment that happened to
-be available to us.
+This document provides detailed insights and recommendations for deploying AIStore in a Kubernetes environment. Our reference configuration, while not meticulously optimized, is based on the equipment we had available. These guidelines will help you tailor the deployment to your specific requirements.
 
-### Baremetal vs VM Nodes (and hypervisor choice)
+### Choosing Between Baremetal and VM Nodes
 
-AIStore functionality is unaffected by this choice, but performance and
-observability may be. The larger cloud provider instance, e.g., AWS `d2.8xlarge` should be perfectly
-adequate for large-scale deployments. If providing your own VMs your mileage may vary! Use whichever
-provides the convenience and performance you need, and which can satisfy the additional choices
-below.
-
-> Reference: Baremetal K8s
+The choice between baremetal and VM nodes doesn't significantly affect AIStore's core functionality. However, it can influence performance and observability. The critical requirement for VMs is the attachment of some disks. The performance generally improves with the addition of more disks.
 
 ### Node CPU and Memory Resource
 
-AIStore has very modest CPU and memory requirements, except when running a dSort, which will benefit from
-additional memory. In regular object storage operation mode, proxy requests are trivially lightweight, and object
-data is streamed on HTTP sockets, so it does not demand substantial memory.
+AIStore's demands for CPU and memory resources are generally low, with a few exceptions. Some AIStore extensions, such as ETL (Extract, Transform, Load) processes and data resharding, are more compute-intensive. 
 
-Distributed Sort (dSort) applied to large sharded datasets uses a controllable fraction of the memory
-available to a target node container, so while it benefits from more memory, it won't exhaust the
-allocation.
+- **Standard Operations**: In normal operations involving object storage, proxy requests are minimal in terms of resource usage. Data streaming is handled via HTTP sockets, which does not require significant memory resources.
+  
+- **Resharding**: When dealing with large, sharded datasets, resharding processes use a controlled portion of the memory available to a target node's container. While having more memory is advantageous, the process is designed not to deplete the entire memory allocation.
 
-AIStore only benefits from lots of memory in which to cache object data when serving datasets for which a significant
-fraction of the data can be cached in the cumulative total memory of all target nodes. If serving a petascale
-dataset and total dram is a small fraction of that then all we require is memory to cache
-filesystem metadata, but otherwise the DL data access pattern (repeated full dataset passes in randomly
-permuted order each pass) renders dram caching useless.
+- **ETL Processes**: For ETL operations, a separate ETL pod is initiated for each target to execute data transformations. The intensity of computing resources used depends on the nature of these transformations.
 
-> Reference: Nodes (each runs 1 target and 1 proxy Pod) have 192GB of memory each; 2 CPU sockets, each with 12 hyperthreded cores for a total of 48 CPUs. AIStore typically used 10-15% of CPU (most is iowait time) and less than 10% of memory (most is useless dram cache); for larger dSorts the target nodes are resource limited in K8s to 140GB each.
+- **Memory and Disk Utilization**: Adequate memory can reduce disk utilization. A larger memory capacity allows for more objects to be stored in [Linux's Page Cache](https://www.thomas-krenn.com/en/wiki/Linux_Page_Cache_Basics). This setup can lead to faster GET requests for these objects, as they can be served directly from memory, thereby reducing disk reads and lowering overall disk utilization. 
+
+  > Based on our benchmarks, the use of page cache didn't result in a significant increase in throughput. However, this might vary, especially with slower disk types. Our testing was conducted using NVMe drives.
 
 ### Storage Type and Density
 
-Direct attached storage such as HDD/SSD/NVMe is best for performance, but AIStore will still function
-with storage options such as iSCSI volumes, NFS mounts, etc. The fewer layers of transport the better
-for both performance and reliability/observability/debug, hence the preference for locally attached storage.
+This section focuses on the selection of storage types and their density, crucial for optimizing AIStore deployment.
 
-If serving a modest total dataset size, then SSD/NVMe storage is economically practical and would certainly
-be the quicker storage choice. For larger dataset sizes, HDDs are by far the more economical choice and when
-combined with an aggregated data format such as tar shards can feed a hungry set if GPUs perfectly well.
+#### Choice of Storage Type
 
-Configure as many HDDs per target node as a) physical form factor permits, b) available CPU can serve, and c) are approximately matched to your network bandwidth. Our reference configuration has just 10 X 10TB HDD per node
-since that is what the server chassis holds and we're not using JBODs; we have adequate CPU for a total
-of at least 50 HDD per node; each node connects to the switch via 50 gigabit ethernet, which can achieve say 6GB/s so if we assume roughly 200MB/s/HDD the network could handle ~30 HDDs all streaming at once.
+- **Direct Attached Storage (DAS)**: Options like HDDs, SSDs, and NVMe drives are preferred for performance reasons. Direct attached storage ensures fewer layers of transport, which is beneficial for performance, reliability, observability, and debugging. Hence, we recommend locally attached storage when possible.
 
-> Reference: 10 x 10TB HDD per node (Seagate Helium ST10000NM0096, SAS) mounted as single disks (no lvm)
+- **Networked Storage Options**: AIStore is also compatible with networked storage solutions like iSCSI volumes and NFS mounts. While these options are functional, they may not offer the same level of performance as DAS.
+
+#### Storage Density and Type Based on Dataset Size
+
+- **For Modest Dataset Sizes**: If your total dataset size is relatively small, SSDs or NVMe drives are economically viable and offer superior speed.
+
+- **For Large Dataset Sizes**: HDDs are more cost-effective for larger datasets. Utilizing aggregated data formats, such as tar shards, can efficiently feed a large set of GPUs. 
+
+#### Configuring HDDs per Target Node
+
+When configuring HDDs in your nodes, consider the following:
+
+1. **Physical Form Factor**: The number of HDDs is often limited by the physical capacity of your server chassis. 
+
+2. **CPU Capability**: Ensure that your CPU can efficiently manage the number of HDDs. A more powerful CPU can handle more drives.
+
+3. **Network Constraints and Potential**: The capacity of your network connection is a pivotal factor in determining the efficiency of your data transfers. For example, a 50 Gbps Ethernet link is capable of achieving a maximum transfer speed of up to 6.25 GB/s.
 
 ### Filesystem Type
 
-AIStore requires one or more filesystems per target node, with the only requirement being extended attribute support. All testing and benchmarking has used XFS, which has served very well; ext4 did not begin to match XFS;
-OpenZFS was used on NVMe tests and suffered a particular bottleneck apparently known to occur with such drives
-under OpenZFS.
+When setting up AIStore, each target node needs to be equipped with one or more filesystems. The primary criterion for these filesystems is the support for extended attributes. 
 
-> Reference: XFS, mount options as in playbooks (`noatime,nodiratime,logbufs=8,logbsize=256k,largeio,inode64,swalloc,allocsize=131072k,nobarrier`)
+- **XFS as the Preferred Choice**: In our testing and benchmarking processes, we have predominantly used the XFS filesystem. This choice has proven to be highly effective and reliable in our deployments.
 
-### Networking Bandwidth
+- **Comparison with Other Filesystems**: We have found that ext4 does not perform as efficiently as XFS in our setups. Additionally, while OpenZFS was utilized in tests involving NVMe drives, it encountered a specific bottleneck. This issue seems to be a known limitation when using OpenZFS with NVMe drives.
 
-Ideally, on target nodes, network bandwidth should be matched to the number of drives times their average streaming speed,
-as explained above. If serving smaller (cacheable) datasets then you could still use more bandwidth.
-Proxy Pods see lots of small packet traffic - HTTP requests and redirects - but small total volume;
-running proxy Pods on the same nodes as targets is not an issue.
+- **Ease of Setup**: For your convenience, we provide a [playbook](../playbooks/ais_datafs_mkfs.yml) to assist in configuring the disks appropriately for AIStore.
 
-We do not configure Pods with multiple interfaces, so intra-cluster traffic (such as rebalance) is transported
-over the same interfaces.
+### Optimizing Network Bandwidth
 
-Another factor is the network between the GPU clients and the AIStore cluster. No surprise to say
-that the rule is "the more the merrier"!
+Effective network bandwidth management is crucial in AIStore environments, especially for target nodes. Here's how to optimize it:
 
-Note that in AIStore a given object GET request is only
-ever returned from a single target node, ie unlike say HDFS objects are not striped across nodes
-and all nodes respond with some client-side software performing re-assembly. In AIStore, the client
-GETs (or PUTs) the object's data over a single streaming HTTP socket. Of course a target node may serve
-many such requests in parallel, and a GPU client node can make many requests in parallel, too (e.g.,
-8 GPUs per node, PyTorch with 5 dataloaders per GPU => 40 shards being stream at once per client node).
-With objects spread across the cluster nodes, it is possible/common for several target nodes to be responding to
-any one client node at a time and so be able to saturate its network bandwidth.
+#### Matching Bandwidth with Drive Capacity and Streaming Speed
 
-> Reference: Target/Proxy nodes have 100 gigabit ethernet Mellanox CX-5 NICs, but connect to the switch
-> at 50Gb/s; when using in-cluster GPU nodes they connect to the switch at 100Gb/s.
+- **Core Principle**: The network bandwidth on target nodes should ideally be proportional to the cumulative streaming speed of all drives. This ensures that the network can handle the data traffic generated by the drives without bottlenecks.
 
-### K8s CNI Plugin
+- **Smaller Datasets and Bandwidth Utilization**: Even with smaller datasets that can be cached, it's beneficial to have higher bandwidth to accommodate potential data traffic spikes.
 
-Any high-performance CNI plugin will suffice. We only configure one interface per Pod today (no cluster-private network
-for rebalance and control traffic) so no requirement for Multus. Most testing has been with Calico, with a little on Flannel.
+#### Proxy Pods and Network Traffic
 
-> Reference: Calico
+- **Traffic Characteristics**: Proxy Pods primarily handle small packet traffic, which includes HTTP requests and redirects. However, the total volume of this traffic is relatively low.
 
-### In-cluster Clients vs External Clients
+- **Co-Location with Target Nodes**: Running Proxy Pods on the same nodes as target nodes typically doesn't lead to network congestion, due to the modest volume of traffic generated by these Pods.
 
-In-cluster clients are simply easier to manage. For example, they can contact AIStore endpoints
-using K8s DNS names for the clusterIP proxy service and no need to configure ingress etc.
+#### Network Configuration for Pods
 
-While you *can* schedule AIStore Pods onto GPU nodes, those nodes typically need all the CPU
-power available to perform data augmentation (40 dataloaders, 5 per GPU on an 8 GPU node -
-worse if 16 GPUs per node!). The other way around can work, however, scheduling CPU data
-augmentation Pods onto target nodes - see [Tensorcom](https://github.com/NVlabs/tensorcom) for that.
+- **Single Interface Configuration**: In our setup, Pods are not configured with multiple interfaces. This means that both intra-cluster traffic (like data rebalancing) and external traffic are handled over the same network interfaces.
 
-> Reference: when using between 1 and 14 NVIDIA DGX-1 nodes (so 1 to 112 GPUs) in the same racks
-> sharing the same TOR switches as the AIStore nodes, GPU nodes were included in the cluster;
-> deployments with many more GPU nodes use a distinct cluster, simply because they're owned
-> and managed by an independent part of the organization; they're still "close" in terms of
-> network topology.
+#### Network Considerations for GPU Clients
+
+- **Bandwidth Needs**: The network link between the GPU clients and the AIStore cluster is another critical factor. In line with the general rule of 'the more, the merrier,' having more bandwidth in this link is always advantageous.
+
+#### Data Retrieval and Transmission Mechanics
+
+- **Data Retrieval in AIStore**: Unlike systems like HDFS where objects are striped across multiple nodes, AIStore handles each object GET request from a single target node. This means no client-side re-assembly is required since the data is streamed through a single HTTP socket.
+
+- **Handling Multiple Parallel Requests**: A target node can manage multiple GET or PUT requests concurrently. Similarly, a GPU client node can initiate several parallel requests. For example, with 8 GPUs per node and PyTorch running 5 dataloaders per GPU, there could be up to 40 shards being streamed simultaneously per client node.
+
+- **Cluster-Wide Data Distribution**: With objects distributed across different nodes in the cluster, multiple target nodes can simultaneously respond to a single client node. This setup enables the efficient use of network bandwidth, as several nodes can saturate the network link of a client node at any given time.
+
+### Kubernetes CNI Plugin
+
+When setting up AIStore in a Kubernetes environment, selecting an appropriate Container Network Interface (CNI) plugin is important for ensuring high performance. Here's what to consider:
+
+- **Performance is Key**: Opt for a high-performance CNI plugin. The primary goal is to ensure efficient network communication within your Kubernetes cluster.
+
+- **Single Interface Configuration**: Currently, we configure only one network interface per Pod. This means there's no specific need for advanced networking features like a separate cluster-private network for rebalancing or control traffic. As a result, complex setups like Multus are not required for AIStore deployments.
+
+- **Experiments with Different Plugins**: We have successfully tested AIStore with both Calico and Flannel CNI plugins. Each of these has shown seamless integration and performance.
+
+- **Plugin Preference Based on Deployment Type**:
+  
+  - **Managed Kubernetes**: In managed Kubernetes environments, Flannel is often the preferred choice due to its simplicity and ease of integration.
+  
+  - **Bare-Metal Deployments**: For deployments on bare-metal infrastructure, Calico is favored for its robust networking capabilities and performance efficiency.
+
+### Managing In-Cluster vs. External Clients in AIStore
+
+The choice between using in-cluster clients and external clients for AIStore has implications for ease of management and setup. Here's a detailed look at both approaches:
+
+#### In-Cluster Clients: Simplified Management
+
+- **Ease of Management**: In-cluster clients offer a more straightforward management experience. Their integration within the Kubernetes environment streamlines various processes.
+
+- **Utilizing Kubernetes DNS**: These clients can easily access AIStore endpoints using Kubernetes DNS names. This is particularly useful for connecting to the clusterIP proxy service, simplifying network configurations.
+
+- **No Need for Complex Configurations**: With in-cluster clients, there's no requirement to set up ingress or other complex network configurations, as everything is managed within the Kubernetes ecosystem.
+
+#### External Clients: Additional Setup Required
+
+- **Ingress Setup**: For external clients to access the AIStore cluster, you will need to establish ingress. This involves additional configuration steps not required for in-cluster clients.
+
+- **Port Configuration**: It's necessary to open specific ports for the targets and proxies to ensure external clients can connect. The necessary port information is detailed in the deployment guide.
+
+- **Performance Considerations**: Despite the differences in setup and management, the performance for in-cluster and external clients remains consistent. Both client types can achieve similar levels of efficiency and speed in data handling.
 
 #### LoadBalancer and Ingress
 
-If using external clients then you will require a load balancer and a LoadBalancer ingress service
-on the proxy clusterIP service. This is so that clients can contact a single well-known
-IP address (or DNS entry for it) when initiating GET and PUT via the proxy. We only require the
-ingress to direct traffic to the AIStore proxy clusterIP service - we don't require any actual
-load-balancing as Kubeproxy/IPVS will do that for us. With many proxy Pods backing the clusterIP
-service this effectively provides an HA proxy endpoint.
+- **Load Balancer Requirement**: When using external clients, it's recommended to have a load balancer in place. This ensures clients can connect to a single, well-known IP address or DNS entry.
 
-For baremetal on-premises deployments we use [metallb](https://metallb.universe.tf/). If running in cloud you can use
-the cloud provider loadbalancer services - a standard HTTP loadbalancer will do.
+- **Ingress Service on Proxy ClusterIP**: You'll need to set up a LoadBalancer type ingress service targeting the AIStore proxy's clusterIP service. The purpose here is not to perform actual load balancing (as Kubernetes proxy/IPVS will handle this) but to direct traffic to the AIStore proxies.
 
-The target Pods respond *directly* to clients, and only the target Pod that the proxy redirects
-the client to must respond. There is no equivalent clusterIP service for target Pods, 
-so no ingress is required for those. Instead, our solution is for the target Pods to listen
-on a hostPort when serving external clients.
+- **High Availability Proxy Endpoint**: With several proxy Pods supporting the clusterIP service, this configuration effectively creates a highly available (HA) proxy endpoint.
 
-> Reference: We use metallb for baremetal on-premises K8s.
+#### Specific Solutions for Different Environments
+
+- **Bare-Metal On-Premises Deployments**: For these setups, we recommend using [MetalLB](https://metallb.universe.tf/), a popular solution for on-premises Kubernetes environments.
+
+- **Cloud-Based Deployments**: If your AIStore is running in a cloud environment, you can utilize standard HTTP load balancer services provided by the cloud provider.
 
 ### Host Performance Tuning
 
-A few tuning parameters are required to support a high HTTP GET/PUT load - those related to socket counts,
-port number, port re-use etc - these are captured in playbooks. Additional tuning is advised if
-performance expectations are high - e.g., if high bandwidth networking is available - and if using
-HDD then tuning the IO scheduler produces excellent dividends. These additional tuneable are also
-captured in playbooks.
-
-> Reference: We apply all the tuning captured in the playbooks
+To efficiently handle high HTTP GET/PUT loads in AIStore, several tuning parameters are necessary, focusing on socket counts, port numbers, and port reuse. These are detailed in the provided [playbooks](../playbooks). For setups with high-performance expectations or high bandwidth networking, additional tuning, especially for HDDs involving I/O scheduler adjustments, is recommended and also outlined in the playbooks. For further guidance on enhancing AIStore's performance, refer to the supplementary [document](https://aiatscale.org/docs/performance).

@@ -2,9 +2,24 @@
 
 This document provides a comprehensive, step-by-step guidance for deploying [AIStore](https://github.com/NVIDIA/aistore) clusters on Kubernetes (K8s). With a little bit of planning and preparation, AIStore can be optimally deployed on K8s, so let's embark on this journey together.
 
+
+# Contents
+
+1. [**AIStore K8s Deployment Guide**](#aistore-k8s-deployment-guide)
+2. [**Key Points to Remember**](#key-points-to-remember)
+3. [**Prerequisites**](#prerequisites)
+4. [**Deployment Steps**](#deployment-steps)
+   - [Kubernetes Installation](#kubernetes-installation)
+   - [Node Setup](#node-setup)
+     - [Disk Configuration](#disk-configuration)
+     - [Network Setup](#network-setup)
+   - [Operator Deployment Procedure](#operator-deployment-procedure)
+   - [AIStore Cluster Creation Process](#aistore-cluster-creation-process)
+
 ## Key Points to Remember:
 - While AIStore doesn't necessarily require K8s for deployment, using K8s significantly simplifies large, multinode deployments. We employ Ansible for this process.
 - A basic understanding of K8s is assumed. However, more complex deployment scenarios will naturally demand a higher level of K8s expertise.
+- For an in-depth exploration of key deployment scenarios and their respective guidelines, please consult the [Kubernetes Deployment Discussion Document](k8s_discussion.md).
 
 ## Prerequisites
 
