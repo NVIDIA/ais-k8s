@@ -10,12 +10,6 @@ This includes:
   - [Kubernetes Operator Deployment: Steps](docs/walkthrough.md)
 - [Terraform](terraform/README.md) definitions for public cloud usage, such as GKE/GCP.
 
-Originally, AIStore was deployed on Kubernetes using [Helm](https://helm.sh/). But **note**:
-
-Helm is **not maintained** any longer, and is not to be used for deployments.
-
-Today, we keep Helm charts in this repo mostly for historical purposes. Sometimes, it is also useful to compare [Kubernetes operator](operator/README.md) and Helm configs to see what-has-changed-since-when, and whether those changes need to be revisited, etc.
-
 ## Cloud Deployment
 
 If you want to deploy a fresh Kubernetes cluster in the cloud with AIStore, please refer to the
