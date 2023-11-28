@@ -1,9 +1,13 @@
 ---
-ca_cert_secret: ais-root-secret
 tls_secret: tls-certs
-cert_namespace: ais
-# Replace below with the dns names for your certificate
+# Replace below with all the dns names your certificate should be valid for
 dns_names:
   # - aistorecpu1010.nsv.sjc4.nvmetal.net
-  # - 10.150.56.227
+  # - aistorecpu1011.nsv.sjc4.nvmetal.net
+  # - aistorecpu1012.nsv.sjc4.nvmetal.net
   # - localhost
+# Replace below with all the ip addresses your certificate should be valid for 
+ip_addresses:
+  # - 10.150.56.225
+  # - 10.150.56.227
+  # - 10.150.56.230

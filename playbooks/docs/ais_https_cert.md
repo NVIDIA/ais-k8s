@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The `ais_https_cert` playbook bootstraps a CA issuer and uses it to issue a certificate for the AIS cluster. This certificate is then stored securely as a secret named `ais-tls-cert`.
+The `ais_https_cert` playbook bootstraps a CA issuer and uses it to issue certificates for the AIS cluster, stored securely as a kubernetes secret.
 
 ## Usage
 

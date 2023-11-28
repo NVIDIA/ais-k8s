@@ -10,7 +10,11 @@ spec:
   renewBefore: 720h  # 30 days
   dnsNames:
   {% for dns_name in dns_names %}
-      - {{ dns_name }}
+    - {{ dns_name }}
+  {% endfor %}
+  ipAddresses:
+  {% for ip_addr in ip_addresses %}
+    - {{ ip_addr }}
   {% endfor %}
   issuerRef:
     name: ca-issuer

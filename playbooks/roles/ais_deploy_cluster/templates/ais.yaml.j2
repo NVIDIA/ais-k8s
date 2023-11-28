@@ -16,8 +16,6 @@ spec:
       bundle_multiplier: 2
     resilver:
       enabled: true
-    timeout:
-      join_startup_time: 2m
 {% if protocol == "https" %}
     net:
       http:
@@ -64,7 +62,7 @@ spec:
   initImage: "aistorage/ais-init:latest"
   hostpathPrefix: "/etc/ais"
 {% if protocol == "https" %}
-  tlsSecretName: "ais-tls-certs"
+  tlsSecretName: "tls-certs"
 {% endif %}
   
 {% if aws_secret_name != "" %}

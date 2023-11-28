@@ -12,7 +12,7 @@ metadata:
   name: self-signed-cert
   namespace: ais-operator-system
 spec:
-  secretName: ais-tls-certs
+  secretName: tls-certs
   duration: 8760h  # 1 year
   renewBefore: 720h  # 30 days
   dnsNames:
@@ -70,7 +70,7 @@ spec:
   initImage: "aistorage/ais-init:latest"
   hostpathPrefix: "/etc/ais"
 
-  tlsSecretName: "ais-tls-certs"
+  tlsSecretName: "tls-certs"
 
   # To be able to access the AIS deployment outside kubernetes cluster, set:
   # enableExternalLB: true

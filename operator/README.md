@@ -166,7 +166,7 @@ curl -k https://your-ais-cluster-url
 - If you prefer not to skip certificate validation, you can export the self-signed certificate for use with `curl`. Here's how to export the certificate:
 
 ```bash
-kubectl get secret ais-tls-certs -n ais-operator-system -o jsonpath='{.data.tls\.crt}' | base64 --decode > tls.crt
+kubectl get secret tls-certs -n ais-operator-system -o jsonpath='{.data.tls\.crt}' | base64 --decode > tls.crt
 ```
 
 You can now use the exported `tls.crt` as a parameter when using `curl`, like this:
