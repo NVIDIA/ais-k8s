@@ -11,6 +11,6 @@ spec:
       - "tail"
       - "-f"
       - "/dev/null"
-    imagePullPolicy: IfNotPresent
+    imagePullPolicy: Always
     name: aisnode-debug
   restartPolicy: Always
