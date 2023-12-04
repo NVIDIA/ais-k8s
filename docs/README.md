@@ -109,11 +109,12 @@ Format all drives with XFS and mount them under `/ais/<device>` (e.g., `/ais/sda
 2. **Multi-queue Verification/Enablement**:
    Check and enable multi-queue settings for network interfaces, especially on Linux systems. The `ethtool` command can be used for this purpose. Instructions are detailed in the [ais_enable_multiqueue playbook](../playbooks/docs/ais_enable_multiqueue.md).
 
-3. **Security Limits Configuration**:
-   Update the `/etc/security/limits.conf` file for optimal system performance. Refer to the [`ais_host_config_common playbook`](../playbooks/docs/ais_host_config_common.md).
-
-4. **Optional Network Testing**:
+3. **Optional Network Testing**:
    Conduct `iperf` tests between nodes to ensure robust network performance before deployment.
+
+#### AIS Configuration Playbooks
+
+To assist you in setting up your system for AIStore, we've included a comprehensive set of [configuration Ansible playbooks](../playbooks). For an effective initial setup, we suggest executing the [`ais_host_config_common guide`](../playbooks/docs/ais_host_config_common.md), especially with the `aisrequired` tag. This will help you fine-tune your system to meet AIStore's requirements, ensuring optimal performance.
 
 ### Operator Deployment Procedure
 
