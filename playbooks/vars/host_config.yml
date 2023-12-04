@@ -16,21 +16,6 @@ ais_host_mtu:
     mtu: 9000
 
 #
-# Lines to add to /etc/security/limits.conf (or /etc/security/limits.d/)
-#
-# Tags: aisrequired, ulimits
-#
-ais_pam_limits:
-  - limit_item: nofile
-    limit_type: soft
-    value: 1048576
-    comment: required in AIS docs (but also need to change in pods)
-  - limit_item: nofile
-    limit_type: hard
-    value: 1048576
-    comment: required in AIS docs (but also need to change in pods)
-
-#
 # CPU frequency governor selection
 #
 # Tags: never, nvidiastd, cpufreq

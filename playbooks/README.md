@@ -14,7 +14,7 @@ Each playbook is documented separately.  See the links in the first column below
 Playbook(s) | Useful when
 ----------- | -----------
 [ais_enable_multiqueue](docs/ais_enable_multiqueue.md) | Enabling MQ IO schedulers in Ubuntu releases for which MQ is not the default
-[ais_host_config_common](docs/ais_host_config_common.md) | Tuning worker nodes; adding useful packages etc
+[ais_host_config_common](docs/ais_host_config_common.md) | Tuning worker nodes
 [ais_datafs_mkfs](docs/ais_datafs.md) | Creating or recreating filesystems for AIStore
 [ais_host_post_kubespray](docs/ais_host_post_kubespray.md) | Using AIStore chart values that require "unsafe" sysctls; changes kubelet.env to enable them
 ais_gpuhost_config | Configuring GPU compute nodes in the same cluster - install NVIDIA Docker 2, NVIDIA container runtime, etc.

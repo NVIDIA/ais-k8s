@@ -2,7 +2,8 @@
 # Items to add/tweak in /etc/sysctl.conf. The 'default' is just for reference/comparison,
 # as is the 'comment' field.
 #
-
+# Ensure your system has sufficient memory to handle the increased limits,
+# especially for tcp_max_tw_buckets and somaxconn.
 #
 # The default limits here are exceeded very readily under even modest load.
 #
@@ -10,7 +11,7 @@
 #
 ais_host_sysctl_required:
   - name: net.core.somaxconn
-    value: 100000
+    value: 65535
     default: 128
     state: present
     comment: Maximum number of connection requests that can be queued to a given listening socket. Needs to absorb burst of connection requests. AIS clients will usually keep connections open to proxy and targets, so we do not expect ongoing high new connection rate.
@@ -28,7 +29,7 @@ ais_host_sysctl_required:
     value:   1440000
     default:  262144
     state: present
-    comment: See comment for tw_reuse
+    comment: Maximal number of timewait sockets held by system simultaneously. If this number is exceeded time-wait socket is immediately destroyed and warning is printed. This limit exists only to prevent simple DoS attacks, you must not lower the limit artificially, but rather increase it (probably, after increasing installed memory), if network conditions require more than default value. See comment for tw_reuse.
 
 #
 # If you have fast networking you're going to have to tune these for good results, but we can't

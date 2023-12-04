@@ -7,7 +7,7 @@
 # addresses specific needs for GPU hosts.
 #
 ---
-- hosts: '{{ playhosts | default("k8s-cluster") }}'
+- hosts: '{{ playhosts | default("ais") }}'
   vars_files:
     - "vars/host_config_packages.yml"
     - "vars/host_config_sysctl.yml"

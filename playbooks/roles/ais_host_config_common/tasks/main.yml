@@ -1,50 +1,24 @@
 #
-# Add host packages - these are only for debug, so usually skipped (tagged never)
-#
-- block:
-  #
-  # With nvidia-docker2, nvidia-container-runtime dependent on specific Docker versions
-  # we prefer not to have automatic updates. Easier than freezing versions, for now.
-  # Besides, automatic updates of production bits are undesirable in general.
-  #
-    - name: Disable unattended upgrades
-      apt:
-        update_cache: no
-        name: unattended-upgrades
-        state: absent
-    - name: Install desired packages (18.04)
-      apt:
-        update_cache: yes
-        name: '{{ ais_debug_packages_1804 }}'
-        state: present
-      when: ansible_distribution_major_version == "18"
-    - name: Install desired packages (20.04)
-      apt:
-        update_cache: yes
-        name: '{{ ais_debug_packages_2004 }}'
-        state: present
-      when: ansible_distribution_major_version == "20"
-    - name: Install desired packages (22.04)
-      apt:
-        update_cache: yes
-        name: '{{ ais_debug_packages_2204 }}'
-        state: present
-      when: ansible_distribution_major_version == "22"
-
-  tags: [ never, aisdev, debugpkgs ]
-
-#
 # Required to open many files at once in serving large nodes
 #
 - name: Configure ulimits for host
+  block:
+    - name: Download limits.conf file
+      get_url:
+        url: https://raw.githubusercontent.com/NVIDIA/aistore/b732d063d837885474c1f801ed92e4c49754aef3/deploy/conf/limits.conf
+        dest: /tmp/limits.conf_tmp
+      register: download_result
+
+    - name: Move limits.conf to /etc/security/
+      command: mv /tmp/limits.conf_tmp /etc/security/limits.conf
+      
+    - name: Ensure ownership and permissions on limits.conf
+      file:
+        path: /etc/security/limits.conf
+        owner: root
+        group: root
+        mode: "0644"
   tags: [ aisrequired, ulimits ]
-  pam_limits:
-    domain: '*'
-    limit_item: "{{ item.limit_item }}"
-    limit_type: "{{ item.limit_type }}"
-    value: "{{ item.value }}"
-  with_items:
-    - "{{ ais_pam_limits }}"
 
 - name: Tweak sysctl.conf - required tweaks
   tags: [ aisrequired, sysctlrequired ]
