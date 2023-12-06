@@ -1,4 +1,4 @@
-# ais_https_cert
+# Generate self-signed cert with ais_https_cert
 
 ## Purpose
 

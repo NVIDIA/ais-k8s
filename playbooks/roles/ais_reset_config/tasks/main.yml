@@ -1,0 +1,13 @@
+- name: Delete .ais.smap files from all nodes
+  shell: find /etc/ais/ -type f -name ".ais.smap" | xargs rm
+  ignore_errors: true
+
+- name: Delete .ais.conf files from all nodes
+  shell: find /etc/ais/ -type f -name ".ais.conf" | xargs rm
+  ignore_errors: true
+  when: delete_conf | default(false) | bool
+
+- name: Delete .ais.override_config files from all nodes
+  shell: find /etc/ais/ -type f -name ".ais.override_config" | xargs rm
+  ignore_errors: true
+  when: delete_conf | default(false) | bool

@@ -1,4 +1,3 @@
 ---
 cert_namespace: ais
 ca_cert_secret: ca-root-secret
-tls_secret: tls-certs

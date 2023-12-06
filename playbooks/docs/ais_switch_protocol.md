@@ -8,7 +8,7 @@ The `ais_switch_protocol` playbook serves the purpose of streamlining the transi
 
 ### Prerequisites
 
-Before using this playbook, ensure you have the following prerequisites in place:
+Before using this playbook, ensure you meet the following prerequisites:
 
 1. **AIStore Cluster Configuration:** Make sure that your AIStore cluster is properly configured and accessible via the command line interface (CLI).
 
@@ -32,12 +32,7 @@ Before using this playbook, ensure you have the following prerequisites in place
    $ ais cluster shutdown -y
    ```
 
-4. **Certificate Creation and Mounting:** Execute the [playbook](ais_https_cert.md) to generate a self-signed certificate with certmanager if you intend to transition from HTTP to HTTPS.
-
-5. **reconfigure CLI to skip X.509 verification:**
-   ```bash
-   $ ais config cli set cluster.skip_verify_crt true
-   ```
+4. **Certificate Creation and Mounting:** Follow [ais_generate_https_cert](ais_generate_https_cert.md) to create your TLS certificates.
 
 ### Playbook Execution
 
@@ -47,9 +42,11 @@ Follow these steps to use the `ais_switch_protocol` playbook:
 
 2. **Host Configuration:** Create or edit your `hosts.ini` file to specify the `controller` host where you want to apply this playbook, as well as the `ais` hosts, which are the nodes of your AIStore cluster.
 
-3. **Edit Defaults:** In the `main.yml` file located under `/playbooks/roles/ais_switch_protocol/defaults/main.yml`, specify the protocol to which you want to switch ("http" or "https").
+3. **Update TLS Variables:** Update the variables in `vars/https_config.yml`
 
-4. **Run the Playbook:** Execute the playbook using the following command:
+4. **Verify AIS mountpaths:** Verify the mountpaths in `vars/ais_mpaths.yml` are still correct for your cluster
+
+5. **Run the Playbook:** Execute the playbook using the following command:
    ```console
    $ ansible-playbook -i hosts.ini ais_switch_protocol.yml -e cluster=ais -K
    ```
@@ -59,5 +56,3 @@ Follow these steps to use the `ais_switch_protocol` playbook:
    ```console
    $ ansible-playbook -i hosts.ini ais_switch_protocol.yml -K -e cluster=ais -e delete_conf=true
    ```
-
-   This command will execute the playbook, seamlessly transitioning your deployment between HTTP and HTTPS while retaining your data intact.

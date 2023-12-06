@@ -1,5 +1,9 @@
 ---
+protocol: http
 tls_secret: tls-certs
+# WIP option -- may cause issues
+skip_verify_cert: false
+
 # Replace below with all the dns names your certificate should be valid for
 dns_names:
   # - aistorecpu1010.nsv.sjc4.nvmetal.net

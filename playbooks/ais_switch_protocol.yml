@@ -1,36 +1,12 @@
 ---
 # Playbook for switching the deployment protocol for AIS (HTTP ⇌ HTTPS)
 
-- name: Manage AIS configuration and deployment
+- name: Reset AIS configuration
   hosts: "{{ cluster }}"
   gather_facts: false
   become: true
-  vars_files:
-    - "vars/ais_mpaths.yml"
-  tasks:
-    - name: Check for mountpath list
-      fail:
-        msg: "No AIS mountpaths specified!"
-      when: ais_mpaths is undefined
-
-    - name: Check for mountpath size
-      fail:
-        msg: "No AIS mountpath size specified!"
-      when: ais_mpath_size is undefined
-
-    - name: Delete .ais.smap files from all nodes
-      shell: find /etc/ais/ -type f -name ".ais.smap" | xargs rm
-      ignore_errors: true
-
-    - name: Delete .ais.conf files from all nodes
-      shell: find /etc/ais/ -type f -name ".ais.conf" | xargs rm
-      ignore_errors: true
-      when: delete_conf | default(false) | bool
-
-    - name: Delete .ais.override_config files from all nodes
-      shell: find /etc/ais/ -type f -name ".ais.override_config" | xargs rm
-      ignore_errors: true
-      when: delete_conf | default(false) | bool
+  roles:
+    - {role: ais_reset_config}
 
 - name: Delete all AIS pods from the cluster
   hosts: controller
@@ -38,10 +14,13 @@
   roles:
     - ais_delete_all_pods
 
-- name: Deploy AIS cluster again
+- name: Redeploy AIS cluster
   hosts: controller
   gather_facts: false
   roles:
-    - ais_switch_protocol
+    - ais_deploy_cluster
   vars_files:
     - "vars/ais_mpaths.yml"
+    - "vars/https_config.yml"
+  vars:
+    redeploy: "true"

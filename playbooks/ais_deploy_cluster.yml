@@ -3,6 +3,7 @@
   gather_facts: no
   vars_files:
     - "vars/ais_mpaths.yml"
+    - "vars/https_config.yml"
 
   pre_tasks:
     - name: check mountpath list
