@@ -26,5 +26,18 @@ For client connectivity after deploying with HTTPS, you have a few options.
    ```bash
    $ ais config cli set cluster.skip_verify_crt true
    ```
-2. Get the issuer's ca.crt from the K8s secret, e.g. `kubectl get secret -n ais ais-root-secret -o jsonpath="{.data['ca\.crt']}" | base64 --decode > ca.crt`. Then copy the cert to your client machine and set the environment variable for the AIS CLI described in the [AIStore docs](https://github.com/NVIDIA/aistore/blob/master/docs/cli.md#environment-variables)
-3. If using the Python SDK see the [SDK docs](https://github.com/NVIDIA/aistore/tree/master/python/aistore/sdk#readme)
+
+2. Get the issuer's ca.crt from the K8s secret using the playbook described [below](#fetching-ca-certificate) 
+
+3. Set up your client to use the certificate for verification
+   - **CLI**:  Set the environment variable for the AIS CLI described in the [AIStore docs](https://github.com/NVIDIA/aistore/blob/master/docs/cli.md#environment-variables)
+   - **Python SDK** See the [SDK docs](https://github.com/NVIDIA/aistore/tree/master/python/aistore/sdk#readme)
+   - **HTTP (curl)** Use the `cacert` option, e.g. `curl https://localhost:51080/v1/daemon?what=smap --cacert ca.crt`
+
+### Fetching CA certificate
+
+To fetch the CA certificate for verifying the server's cert on the client side, you can use the `ais_fetch_cert` playbook. Provide the `cacert_file` argument to specify the output file (default is `ais_ca.crt`). This will fetch the certificate from the K8s secret on the cluster so it can be used with a local client. 
+
+```
+ansible-playbook -i ../../hosts.ini ais_fetch_cert.yml -e cacert_file=ca.crt
+```

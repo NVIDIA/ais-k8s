@@ -19,5 +19,12 @@ To use this playbook, follow these steps:
    ```console
    $ ansible-playbook -i hosts.ini ais_https_cert.yml
    ```
-
    This will execute the playbook and create the self-signed certificate on the specified controller host.
+
+   To optionally output the resulting CA certificate to a local file, provide the `cacert_file` variable:
+
+   ```console
+   $ ansible-playbook -i hosts.ini ais_https_cert.yml -e cacert_file=local_ais_ca.crt
+   ```
+
+   To fetch the certificate later, you can [use the ais_fetch_cert playbook](ais_https_configuration.md#fetching-ca-certificate)

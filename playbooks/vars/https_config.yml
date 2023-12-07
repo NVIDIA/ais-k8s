@@ -1,5 +1,7 @@
 ---
 protocol: http
+cert_namespace: ais
+ca_cert_secret: ca-root-secret
 tls_secret: tls-certs
 # WIP option -- may cause issues
 skip_verify_cert: false

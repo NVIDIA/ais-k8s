@@ -1,0 +1,13 @@
+#
+# Fetch a certificate from the K8s secret for use with client verification
+#
+---
+- name: Fetch certificate
+  hosts: controller
+  gather_facts: false
+  vars_files:
+    - vars/https_config.yml
+  vars:
+    - cacert_file: ais_ca.crt
+  roles:
+    - ais_fetch_cert
