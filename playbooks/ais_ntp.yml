@@ -10,4 +10,4 @@
 
   gather_facts: False
   roles:
-    - { role: ais_ntp }
+    - ais_ntp

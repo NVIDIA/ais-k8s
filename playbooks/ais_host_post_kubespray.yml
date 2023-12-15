@@ -7,4 +7,4 @@
 
   gather_facts: False
   roles:
-    - { role: ais_post_kubespray }
+    - ais_post_kubespray

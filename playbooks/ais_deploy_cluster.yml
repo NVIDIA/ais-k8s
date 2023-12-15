@@ -17,4 +17,4 @@
       when: ais_mpath_size is undefined
 
   roles:
-    - {role: ais_deploy_cluster}
+    - ais_deploy_cluster

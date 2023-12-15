@@ -6,4 +6,4 @@
 
   gather_facts: false
   roles:
-          - { role: ais_enable_multiqueue }
+    - ais_enable_multiqueue

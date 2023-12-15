@@ -8,4 +8,4 @@
 
   gather_facts: false
   roles:
-    - { role: aws_config }
+    - aws_config

@@ -1,8 +1,9 @@
 ---
 - hosts: "{{ cluster }}"
+  gather_facts: no
+  become: true
   vars_files:
     - "vars/ais_mpaths.yml"
 
-  gather_facts: no
   roles:
-    - {role: ais_cleanup_markers, become: true}
+    - role: ais_cleanup_markers

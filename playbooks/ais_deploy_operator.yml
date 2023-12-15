@@ -2,4 +2,4 @@
 - hosts: "controller"
   gather_facts: false
   roles:
-    - {role: ais_deploy_operator}
+    - ais_deploy_operator

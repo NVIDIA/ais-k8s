@@ -9,5 +9,6 @@
 
   gather_facts: true
   roles:
-          - { role: ais_datafs, ais_fs_umount_purge: true }
+    - role: ais_datafs
+      ais_fs_umount_purge: true
 

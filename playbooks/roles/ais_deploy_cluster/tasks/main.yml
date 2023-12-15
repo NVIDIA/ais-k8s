@@ -1,9 +1,3 @@
-- name: Label nodes
-  shell: "CLUSTER={{ cluster }} NODES={{ groups[cluster] | join(' ') | quote }} /tmp/label-nodes.sh"
-  register: labelout
-  changed_when: "'labled' in labelout.stdout"
-  when: redeploy is not defined
-
 - name: Copy PV scripts/templates
   copy:
     src: "{{ item }}"
@@ -15,6 +9,12 @@
     - "label-nodes.sh"
   when: redeploy is not defined
 
+- name: Label nodes
+  shell: "CLUSTER={{ cluster }} NODES={{ groups[cluster] | join(' ') | quote }} /tmp/label-nodes.sh"
+  register: labelout
+  changed_when: "'labled' in labelout.stdout"
+  when: redeploy is not defined
+  
 - name: Create PVs
   shell: "NAMESPACE={{ cluster }} MPATH_SIZE={{ ais_mpath_size }} MPATHS={{ ais_mpaths | join(' ') | quote }} NODES={{ groups[cluster] | join(' ') | quote }} /tmp/create-pvs.sh"
   register: createpvsout

@@ -8,8 +8,8 @@
 
   gather_facts: true
   roles:
-    - { role: ais_gpuhost_config }
-    - { role: ais_gpuhost_device_plugin }
+    - ais_gpuhost_config
+    - ais_gpuhost_device_plugin
 
 
 

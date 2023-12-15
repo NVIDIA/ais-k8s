@@ -5,9 +5,24 @@
 # Run on any node that can run `kubectl` commands and has permissions to create volumes.
 #
 
-mpaths=${MPATHS:-"/ais/sda /ais/sdb /ais/sdc /ais/sdd /ais/sde /ais/sdf /ais/sdg /ais/sdh /ais/sdi /ais/sdj"}
-namespace=${NAMESPACE:-"ais"}
-mpath_size=${MPATH_SIZE:-"9Ti"}
+
+if [ -z "$MPATHS" ]; then
+    echo "Error: Set ais_mpaths in vars/ais_mpaths.yml to define PV mountpaths"
+    exit 1
+fi
+mpaths="$MPATHS"
+
+if [ -z "$MPATH_SIZE" ]; then
+    echo "Error: Set ais_mpath_size in vars/ais_mpaths.yml to define PV size"
+    exit 1
+fi
+mpath_size="$MPATH_SIZE"
+
+if [ -z "$NAMESPACE" ]; then
+    echo "Error: Set 'cluster' variable to define PV namespace"
+    exit 1
+fi
+namespace="$NAMESPACE"
 
 source_dir=$(dirname "${BASH_SOURCE[0]}")
 

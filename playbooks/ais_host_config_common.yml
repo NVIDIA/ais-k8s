@@ -9,11 +9,13 @@
 ---
 - hosts: '{{ playhosts | default("ais") }}'
   vars_files:
-    - "vars/host_config_packages.yml"
     - "vars/host_config_sysctl.yml"
     - "vars/host_config.yml"
 
   gather_facts: true
   roles:
-    - { role: ais_host_config_common }
-    - { role: pcm, tags: ['never', 'aisdev'] }
+    - role: ais_host_config_common
+    - role: pcm
+      tags: 
+        - never
+        - aisdev

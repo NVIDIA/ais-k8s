@@ -19,4 +19,4 @@
 
   gather_facts: no
   roles:
-    - {role: ais_destroy_cluster}
+    - ais_destroy_cluster
