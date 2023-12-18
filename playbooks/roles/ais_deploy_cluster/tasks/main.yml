@@ -9,14 +9,24 @@
     - "label-nodes.sh"
   when: redeploy is not defined
 
+- name: Set k8s nodes list based on hostname
+  set_fact:
+    nodes: "{{ groups[cluster] | join(' ') | quote }}"
+  when: node_name is not defined
+
+- name: Set k8s nodes list based on 'node_name' variable (e.g. "-e node_name=ansible_host" to use the node's IP)
+  set_fact:
+    nodes: "{{ groups[cluster] | map('extract', hostvars, node_name) | join(' ') | quote }}"
+  when: node_name is defined
+
 - name: Label nodes
-  shell: "CLUSTER={{ cluster }} NODES={{ groups[cluster] | join(' ') | quote }} /tmp/label-nodes.sh"
+  shell: "CLUSTER={{ cluster }} NODES={{ nodes }} /tmp/label-nodes.sh"
   register: labelout
   changed_when: "'labled' in labelout.stdout"
   when: redeploy is not defined
-  
+
 - name: Create PVs
-  shell: "NAMESPACE={{ cluster }} MPATH_SIZE={{ ais_mpath_size }} MPATHS={{ ais_mpaths | join(' ') | quote }} NODES={{ groups[cluster] | join(' ') | quote }} /tmp/create-pvs.sh"
+  shell: "NAMESPACE={{ cluster }} MPATH_SIZE={{ ais_mpath_size }} MPATHS={{ ais_mpaths | join(' ') | quote }} NODES={{ nodes }} /tmp/create-pvs.sh"
   register: createpvsout
   changed_when: "'configured' in createpvsout.stdout or 'created' in createpvsout.stdout"
   when: redeploy is not defined

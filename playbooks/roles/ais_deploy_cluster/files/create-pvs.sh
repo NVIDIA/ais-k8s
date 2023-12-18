@@ -29,7 +29,8 @@ source_dir=$(dirname "${BASH_SOURCE[0]}")
 nodes="${NODES}"
 
 if [[ -z ${nodes} ]]; then
-    nodes=$(kubectl get nodes | tail -n +2 | awk '{print $1}')
+    echo "Error: No nodes provided to create PVs. Ensure the ansible group defined by the 'cluster' variable contains nodes for PV creation."
+    exit 1
 fi
 
 target_num=0
