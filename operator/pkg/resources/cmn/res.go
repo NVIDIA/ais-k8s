@@ -210,6 +210,10 @@ func NewInitVolumeMounts(antiAffinityDisabled *bool) []corev1.VolumeMount {
 			MountPath: "/var/ais_config_template",
 		},
 		{
+			Name:      "config-global",
+			MountPath: "/var/global_config",
+		},
+		{
 			Name:        "env-mount",
 			MountPath:   "/var/ais_env",
 			SubPathExpr: hostMountSubPath,

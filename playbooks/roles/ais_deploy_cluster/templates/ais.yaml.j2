@@ -78,4 +78,12 @@ spec:
   # For local testing with `minikube` run `minikube tunnel` in background for emulation. ref: https://minikube.sigs.k8s.io/docs/commands/tunnel/
   enableExternalLB: false
 
+{% if hostname_map != "" %}
+  hostnameMap: "{{ hostname_map }}"
+{% endif %}
+
+{% if network_attachment != "" %}
+  networkAttachment: "{{ network_attachment }}"
+{% endif %}
+
   clusterDomain: "cluster.local"

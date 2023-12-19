@@ -1,6 +1,6 @@
 // Package proxy contains k8s resources required for deploying AIS proxy daemons
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION. All rights reserved.
  */
 package proxy
 
@@ -62,7 +62,8 @@ func NewProxyStatefulSet(ais *aisv1.AIStore, size int32) *apiv1.StatefulSet {
 			Replicas:            &size,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: ls,
+					Labels:      ls,
+					Annotations: cmn.ParseAnnotations(ais),
 				},
 				Spec: proxySpec,
 			},

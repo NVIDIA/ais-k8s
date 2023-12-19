@@ -1,6 +1,6 @@
 // Package cmn provides utilities for common AIS cluster resources
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION. All rights reserved.
  */
 package cmn
 
@@ -47,15 +47,20 @@ func NewGlobalCM(ais *aisv1.AIStore, toUpdate *aiscmn.ConfigToSet) (*corev1.Conf
 	if err != nil {
 		return nil, err
 	}
-	return &corev1.ConfigMap{
+	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      globalConfigMapName(ais),
 			Namespace: ais.Namespace,
 		},
 		Data: map[string]string{
-			"ais.json":         conf,
-			"ais_liveness.sh":  livenessSh,
-			"ais_readiness.sh": readinessSh,
+			"ais.json":           conf,
+			"ais_liveness.sh":    livenessSh,
+			"ais_readiness.sh":   readinessSh,
+			"hostname_lookup.sh": hostnameMapSh,
 		},
-	}, nil
+	}
+	if ais.Spec.HostnameMap != nil {
+		cm.Data["hostname_map"] = *ais.Spec.HostnameMap
+	}
+	return cm, nil
 }

@@ -1,0 +1,16 @@
+- name: Create namespace if it does not exist
+  shell: "kubectl create ns {{ cluster }} || true"
+  register: namespaceout
+  changed_when: "'created' in namespaceout.stdout"
+  
+- name: Copy network attachment definition files
+  copy:
+    src: "{{ item }}"
+    dest: "/tmp"
+    mode: 0777
+  loop:
+    - "create-network-definition.sh"
+    - "nad.template.yaml"
+
+- name: Apply network attachment definition
+  shell: "NAMESPACE={{ attachment_namespace }} NAME={{ network_attachment }} INTERFACE={{ network_interface }} /tmp/create-network-definition.sh"

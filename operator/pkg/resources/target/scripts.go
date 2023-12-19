@@ -35,6 +35,10 @@ cluster_domain=${AIS_K8S_CLUSTER_DOMAIN:-"cluster.local"}
 pod_dns="${MY_POD}.${MY_SERVICE}.${K8S_NS}.svc.${cluster_domain}"
 export AIS_INTRA_HOSTNAME=${pod_dns}
 export AIS_DATA_HOSTNAME=${pod_dns}
+
+# Run script to replace AIS_PUBLIC_HOSTNAME with its entry in the hostname config map if provided
+source "/var/global_config/hostname_lookup.sh"
+
 local_conf_template="/var/ais_config_template/ais_local.json"
 local_conf_file="/var/ais_config/ais_local.json"
 envsubst < ${local_conf_template} > ${local_conf_file}

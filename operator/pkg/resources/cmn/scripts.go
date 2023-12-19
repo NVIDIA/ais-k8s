@@ -53,4 +53,24 @@ const (
 	[[ "${stat}" == "200" ]] && exit 0
 	exit 1
  `
+	hostnameMapSh = `
+	#!/bin/bash
+	# Lookup the hostnames in the hostname config map (allows for multiple host ips)
+	hostname_map="/var/global_config/hostname_map"
+	if [ -f "$hostname_map" ]; then
+		read -ra pairs <<< "$(cat "$hostname_map")"
+
+		for pair in "${pairs[@]}"; do
+			IFS='=' read -ra parts <<< "$pair"
+			key="${parts[0]}"
+			value="${parts[1]}"
+			
+			if [ "$key" = "$AIS_PUBLIC_HOSTNAME" ]; then
+				echo "Setting AIS_PUBLIC_HOSTNAME to value from configMap: ${value}"
+				export AIS_PUBLIC_HOSTNAME="$value"
+				break
+			fi
+		done
+	fi
+`
 )

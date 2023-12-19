@@ -6,6 +6,7 @@ require (
 	github.com/NVIDIA/aistore v1.3.21
 	github.com/go-logr/logr v1.2.4
 	github.com/json-iterator/go v1.1.12
+	github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.4.0
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.28.0
 	k8s.io/api v0.28.3

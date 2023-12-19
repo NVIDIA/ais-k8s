@@ -1,6 +1,6 @@
 // Package target contains k8s resources required for deploying AIS target daemons
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION. All rights reserved.
  */
 package target
 
@@ -71,7 +71,8 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 			VolumeClaimTemplates: targetVC(ais),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: ls,
+					Labels:      ls,
+					Annotations: cmn.ParseAnnotations(ais),
 				},
 				Spec: corev1.PodSpec{
 					InitContainers: []corev1.Container{

@@ -84,6 +84,16 @@ func (in *AIStoreSpec) DeepCopyInto(out *AIStoreSpec) {
 		*out = new(ConfigToUpdate)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.HostnameMap != nil {
+		in, out := &in.HostnameMap, &out.HostnameMap
+		*out = new(string)
+		**out = **in
+	}
+	if in.NetAttachment != nil {
+		in, out := &in.NetAttachment, &out.NetAttachment
+		*out = new(string)
+		**out = **in
+	}
 	in.ProxySpec.DeepCopyInto(&out.ProxySpec)
 	in.TargetSpec.DeepCopyInto(&out.TargetSpec)
 	if in.CleanupData != nil {
