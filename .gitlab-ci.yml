@@ -22,7 +22,7 @@ before_script:
 
 .default_only_template: &default_only_def
   only:
-    - master
+    - main
     - merge_requests
     - schedules
 

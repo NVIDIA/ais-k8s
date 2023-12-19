@@ -36,6 +36,6 @@ The operator documentation can be found [here](operator/README.md), along with d
 
 ## Using This Repository For GitOps-Style Deployment
 
-We suggest cloning this repository and retaining the `master` branch as tracking this upstream `master`; create
-a new branch off of master and edit `values.yaml` etc., and point your CD tool at that branch. When
-you pull updates to the master you can pull and merge them into your private branch.
+We suggest cloning this repository and retaining the `main` branch as tracking this upstream `main`; create
+a new branch off of main and edit `values.yaml` etc., and point your CD tool at that branch. When
+you pull updates to the main you can pull and merge them into your private branch.
