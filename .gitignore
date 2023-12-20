@@ -9,3 +9,4 @@ playbooks/ansible.cfg
 *.lock
 *.state
 *.swp
+operator/dist/*
