@@ -86,8 +86,10 @@ func (in *AIStoreSpec) DeepCopyInto(out *AIStoreSpec) {
 	}
 	if in.HostnameMap != nil {
 		in, out := &in.HostnameMap, &out.HostnameMap
-		*out = new(string)
-		**out = **in
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
 	}
 	if in.NetAttachment != nil {
 		in, out := &in.NetAttachment, &out.NetAttachment

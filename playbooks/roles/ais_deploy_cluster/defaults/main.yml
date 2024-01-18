@@ -1,4 +1,5 @@
 ---
+init_image: aistorage/ais-init:v3.22
 node_image: aistorage/aisnode:v3.21
 # Cloud
 gcp_secret_name: ""

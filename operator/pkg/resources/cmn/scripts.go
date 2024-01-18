@@ -55,22 +55,15 @@ const (
  `
 	hostnameMapSh = `
 	#!/bin/bash
-	# Lookup the hostnames in the hostname config map (allows for multiple host ips)
-	hostname_map="/var/global_config/hostname_map"
+	# Lookup the primary hostname in the hostname config map
+	hostname_map="/var/global_config/hostname_map.json"
 	if [ -f "$hostname_map" ]; then
-		read -ra pairs <<< "$(cat "$hostname_map")"
-
-		for pair in "${pairs[@]}"; do
-			IFS='=' read -ra parts <<< "$pair"
-			key="${parts[0]}"
-			value="${parts[1]}"
-			
-			if [ "$key" = "$AIS_PUBLIC_HOSTNAME" ]; then
-				echo "Setting AIS_PUBLIC_HOSTNAME to value from configMap: ${value}"
-				export AIS_PUBLIC_HOSTNAME="$value"
-				break
-			fi
-		done
+		# Check if the key exists in the JSON, export matching hostname list
+		if jq -e --arg key "$AIS_PUBLIC_HOSTNAME" 'has($key)' "$hostname_map" > /dev/null; then
+			value=$(jq -r --arg key "$AIS_PUBLIC_HOSTNAME" '.[$key]' "$hostname_map")
+			echo "Setting AIS_PUBLIC_HOSTNAME to value from configMap: ${value}"
+			export AIS_PUBLIC_HOSTNAME="$value"
+		fi
 	fi
 `
 )

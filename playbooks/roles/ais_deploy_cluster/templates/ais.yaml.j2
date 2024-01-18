@@ -59,7 +59,7 @@ spec:
 {% endfor %}
 
   nodeImage: "{{ node_image }}"
-  initImage: "aistorage/ais-init:latest"
+  initImage: "{{ init_image }}"
   hostpathPrefix: "/etc/ais"
 {% if protocol == "https" %}
   tlsSecretName: {{ tls_secret }}
@@ -79,7 +79,7 @@ spec:
   enableExternalLB: false
 
 {% if hostname_map != "" %}
-  hostnameMap: "{{ hostname_map }}"
+  hostnameMap: {{ hostname_map }}
 {% endif %}
 
 {% if network_attachment != "" %}

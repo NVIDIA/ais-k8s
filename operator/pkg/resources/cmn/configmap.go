@@ -60,7 +60,11 @@ func NewGlobalCM(ais *aisv1.AIStore, toUpdate *aiscmn.ConfigToSet) (*corev1.Conf
 		},
 	}
 	if ais.Spec.HostnameMap != nil {
-		cm.Data["hostname_map"] = *ais.Spec.HostnameMap
+		hostnameMap, err := jsoniter.MarshalToString(ais.Spec.HostnameMap)
+		if err != nil {
+			return nil, err
+		}
+		cm.Data["hostname_map.json"] = hostnameMap
 	}
 	return cm, nil
 }

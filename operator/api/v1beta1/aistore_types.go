@@ -59,10 +59,9 @@ type AIStoreSpec struct {
 	InitImage      string          `json:"initImage"` // init image for nodes
 	HostpathPrefix string          `json:"hostpathPrefix"`
 	ConfigToUpdate *ConfigToUpdate `json:"configToUpdate,omitempty"`
-	// Map of primary hosts to additional hosts for multi-home
-	// Syntax: node_1_host=node_1_host,node_1_secondary node_2_host=node_2_host,node_2_secondary
+	// Map of primary host to comma-separated string of all hosts for multi-home
 	// +optional
-	HostnameMap *string `json:"hostnameMap,omitempty"`
+	HostnameMap map[string]string `json:"hostnameMap,omitempty"`
 	// Commma-separated list of names of additional network attachment definitions to attach to each pod
 	// +optional
 	NetAttachment *string `json:"networkAttachment,omitempty"`

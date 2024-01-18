@@ -31,6 +31,16 @@
   changed_when: "'configured' in createpvsout.stdout or 'created' in createpvsout.stdout"
   when: redeploy is not defined
 
+- name: Create hostname map if additional hosts are defined
+  set_fact:
+    hostname_map: "{{ hostname_map | default({}) | combine({ primary_host_key: all_hosts }) }}"
+  vars:
+    primary_host_key: "{{ hostvars[host_entry]['ansible_host'] | default(host_entry) }}"
+    all_hosts: "{{ hostvars[host_entry]['ansible_host'] | default(host_entry) }},{{ hostvars[host_entry]['additional_hosts'] }}"
+  loop: "{{ groups[cluster] }}"
+  loop_control:
+    loop_var: host_entry
+
 - name: Copy cluster yaml
   template:
     src: "ais.yaml.j2"
