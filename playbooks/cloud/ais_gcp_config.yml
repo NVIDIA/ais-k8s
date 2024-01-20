@@ -1,0 +1,13 @@
+# Run this and restart the cluster pods to update access to gcp 
+# Note: Your cluster should have the gcp-creds secret setup prior to this, 
+# or you will need to redploy the whole cluster.
+# Copies the provided gcp.json containing gcp credentials in 
+# roles/gcp_config/files to the controller host and recreates the kubernetes secret 
+
+- hosts: controller
+  vars_files:
+    - "vars/gcp_config.yml"
+
+  gather_facts: false
+  roles:
+    - gcp_config
