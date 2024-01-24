@@ -7,15 +7,18 @@
     - "vars/multihome.yml"
 
   pre_tasks:
-    - name: check mountpath list
-      fail:
-        msg: "no ais_mpaths specified!"
-      when: ais_mpaths is undefined
-
-    - name: check mountpath size
-      fail:
-        msg: "no ais_mpath_size specified!"
-      when: ais_mpath_size is undefined
+    - name: Validate required variables for AIS deployment
+      assert:
+        that:
+          - ais_mpaths is defined
+          - ais_mpath_size is defined
+          - cluster is defined
+        fail_msg: "Variable {{ item.key }} not specified! {{ item.value }}"
+        success_msg: "All required variables for AIS deployment are defined."
+      loop:
+        - { key: "ais_mpaths", value: "Refer to https://github.com/NVIDIA/ais-k8s/tree/master/docs#aistore-cluster-creation-process and poplulate the var in `ais_mpaths.yml`" }
+        - { key: "ais_mpath_size", value: "Refer to https://github.com/NVIDIA/ais-k8s/tree/master/docs#aistore-cluster-creation-process and poplulate the var in `ais_mpaths.yml`" }
+        - { key: "cluster", value: "Add the `cluster` variable during execution. Use: ansible-playbook -i hosts.ini playbooks/ais_deploy_cluster.yml -b -K -e cluster=ais" }
 
   roles:
     - ais_deploy_cluster
