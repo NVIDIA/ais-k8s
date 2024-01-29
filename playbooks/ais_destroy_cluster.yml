@@ -1,17 +1,18 @@
 ---
 # This playbook destroys a specified cluster. Use with caution.
 
-- hosts: "controller"
+- name: Destroy cluster from controller
+  hosts: "controller"
   vars_prompt:
-    - name: "destroy_confirmation"
-      prompt: "Are you sure you would like to destroy cluster {{ cluster }}? Type 'yes' to confirm."
-      default: "no"
-      private: no
-    
-    - name: "delete_conf"
-      prompt: "Would you also like to delete all .ais.conf and .ais.override_config files from all nodes"
-      default: "no"
-      private: no
+  - name: "destroy_confirmation"
+    prompt: "Are you sure you would like to destroy cluster {{ cluster }}? Type 'yes' to confirm."
+    default: "no"
+    private: no
+  
+  - name: "delete_conf"
+    prompt: "Would you also like to delete all .ais.conf and .ais.override_config files from all nodes"
+    default: "no"
+    private: no
 
   pre_tasks:
     - name: check confirmation
@@ -24,7 +25,14 @@
         msg: "cluster name not specified!"
       when: cluster is undefined
 
-  gather_facts: no
+  gather_facts: false
+  become: true
   roles:
-    - ais_reset_config
-    - ais_destroy_cluster
+    - role: ais_destroy_cluster
+
+- name: Reset AIS configuration
+  hosts: "{{ cluster }}"
+  gather_facts: no
+  become: true
+  roles:
+    - role: ais_reset_config

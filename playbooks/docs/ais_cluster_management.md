@@ -1,144 +1,111 @@
 
-# ais_cluster_management
+# AIS Cluster Management
 
-## Purpose
+Collection of Ansible playbooks designed for efficient management of AIStore (AIS) clusters in Kubernetes environments.
 
-Includes playbooks that help with:
-1. Deploying AIS K8s operator
-2. Deploy multi-node AIS cluster on K8s
-3. Destroy AIS cluster
-4. Cleanup AIS metadata and data
-5. Undeploy AIS K8s operator
+## Overview
 
-## Usage
+The playbooks assist in the following tasks:
 
-### 1. Deploy AIS Operator
+1. **Deploying AIS Kubernetes Operator:** Set up the AIS K8s operator, responsible for managing AIS cluster resources.
+2. **Creating a Multi-Node AIS Cluster:** Facilitate the deployment of a multi-node AIS cluster on Kubernetes.
+3. **Decommissioning an AIS Cluster:** Procedures for safely destroying an existing AIS cluster.
+4. **Cleanup of AIS Data and Metadata:** Tools for removing AIS data and metadata from the cluster nodes.
+5. **Undeploying AIS Kubernetes Operator:** Steps to undeploy the AIS K8s operator and delete associated Kubernetes resources.
 
-`ais_deploy_operator.yml` deploys the AIS K8s operator responsible for managing AIS cluster resource.
+## Detailed Usage
 
-#### Args
+### 1. Deploying AIS Kubernetes Operator
 
-`operator_version` (default: `v0.97`)- ais-k8s release version
+- **Playbook:** [`ais_deploy_operator.yml`](../ais_deploy_operator.yml)
+- **Purpose:** Deploys the AIS K8s operator to manage AIS cluster resources.
+- **Default Operator Version:** `v0.97` (modifiable in [defaults/main.yml](../roles/ais_deploy_operator/defaults/main.yml))
+- **Operator Releases:** [GitHub Releases](https://github.com/NVIDIA/ais-k8s/releases)
+- **Execution Example:**
+  ```console
+  $ ansible-playbook -i host.ini ais_deploy_operator.yml
+  ```
 
-#### Example
+### 2. Creating a Multi-Node AIS Cluster
 
-```console
-$ ansible-playbook -i host.ini ais_deploy_operator.yml
-```
+- **Playbook:** [`ais_deploy_cluster.yml`](../ais_deploy_cluster.yml)
+- **Tasks:**
+  - Creation of persistent volumes (PVs).
+  - Labeling Kubernetes nodes for AIS proxy/target pods.
+  - Setting up a dedicated Kubernetes namespace.
+  - Deploying AIS Custom Resource.
+- **Key Arguments:**
+  - `ais_mpaths`: List of mount paths on each node (e.g., `["/ais/sda", "/ais/sdb", ...]`).
+  - `ais_mpath_size`: Size of each mount path (e.g., `9Ti`, `512Gi`).
 
-### 2. Creating an AIS cluster
+  > Note: Provide these variable by editing the [`vars/ais_mpaths.yml`](../vars/ais_mpaths.yml) (refer to the example below) or using the CLI argument, e.g. `-e ais_mpaths=["/ais/sda", "/ais/sdb",...,"/ais/sdj"]`
+  
+    **Device Configuration Example:**
+    Consider this example output from `lsblk`:
+    ```
+    NAME        MAJ:MIN RM  SIZE RO TYPE MOUNTPOINT
+    ...
+    nvme0n1     259:12   0  6.2T  0 disk /ais/nvme0n1
+    ...
+    nvme7n1     259:6    0  6.2T  0 disk /ais/nvme7n1
+    ```
+    Based on this, your configuration in `ais_mpaths.yml` would be:
+    ```yaml
+    ais_mpaths:
+      - "/ais/nvme0n1"
+      ...
+      - "/ais/nvme7n1"
 
-The `ais_deploy_cluster.yml` playbooks takes care of:
-* Creating PVs for local persistent volumes
-* Labeling K8s nodes to deploy AIS proxy/target pods
-* Creating a K8s namespace (in which AIStore cluster will be deployed), and finally
-* Deploying AIS Custom Resource
+    ais_mpath_size: 6.2Ti
+    ```
 
-> **NOTE:** The playbook assumes the hostnames provided in the ansible inventory match the K8s node names. To override this, use the `node_name` option below.
+- **Playbook Defaults**:
+    
+    In the [defaults file](../playbooks/roles/ais_deploy_cluster/defaults/main.yml) for the deploy cluster playbook, update values such as:
+    
+    - `node_image`: Specify the Docker image for AIS target/proxy containers (e.g., `aistorage/aisnode:v3.21`). Find the latest image at the [AIS Docker Hub repository](https://hub.docker.com/r/aistorage/aisnode/tags).
+    - `gcp_secret_name`/`aws_secret_name`: For cloud backend integration, create a Kubernetes secret with the necessary credentials as described in this [cloud credentials playbook](../playbooks/cloud/README.md).
+    - Protocol: Choose between 'http' or 'https'. For 'https', you'll need to create and provide the required certificate as a secret, detailed in [`ais_https_cert`](../playbooks/docs/ais_https_cert.md).
 
-#### Args
+- **Optional Arguments:**
 
-`ais_mpaths` - list of mountpaths on each node in cluster. Provide this variable by editing the `vars/ais_mpaths.yml` (refer to the example below) or using the CLI argument, e.g. `-e ais_mpaths=["/ais/sda", "/ais/sdb",...,"/ais/sdj"]`
+`node_name` (optional) - Specify if hostnames in the Ansible inventory do not match Kubernetes node names. e.g. to use `ansible_host` variable containing the IP address of the node, set `-e node_name=ansible_host`.
 
-`ais_mpath_size` - size of mountpath (eg. 9Ti, 512Gi, etc.)
+- **Execution Example:**
+  ```console
+  $ ansible-playbook -i host.ini ais_deploy_cluster.yml -e cluster=ais
+  ```
 
-```yaml
-# example vars/ais_mpaths.yml
-# ---
-ais_mpaths:
-  - "/ais/sda"
-  - "/ais/sdb"
-  - "/ais/sdc"
-  - "/ais/sdd"
-  - "/ais/sde"
-  - "/ais/sdf"
-  - "/ais/sdg"
-  - "/ais/sdh"
-  - "/ais/sdi"
-  - "/ais/sdj"
+### 3. Decommissioning an Existing AIS Cluster
 
-ais_mpath_size: 9Ti
+- **Playbook:** [`ais_destroy_cluster.yml`](../ais_destroy_cluster.yml)
+- **Actions:**
+  - Deletion of cluster map and configuration files.
+  - Destruction of AIS cluster Custom Resource.
+  - Deletion of PVCs and PVs used by AIS targets.
+  - Removal of node labels.
+- **Arguments:** `cluster` (same as used in creation)
+- **Execution Example:**
+  ```console
+  $ ansible-playbook -i host.ini ais_destroy_cluster.yml -e cluster=ais
+  ```
 
-```
+### 4. Cleanup of AIS Data and Metadata
 
-`node_image` (optional, e.g., `aistorage/aisnode:v3.21`) - docker image used by AIS target/proxy containers
+- **Playbook:** [`ais_cleanup_all.yml`](../ais_cleanup_all.yml)
+- **Purpose:** Complete removal of AIS data and metadata from each node.
+- **Warning:** This action is irreversible!
+- **Key Arguments:** `cluster`, `ais_mpaths` (same as used in cluster creation)
+- **Execution Example:**
+  ```console
+  $ ansible-playbook -i host.ini ais_cleanup_all.yml -e cluster=ais-1
+  ```
 
-`cluster` - specifies the ansible group to be used for deploying AIS cluster, eg.
-```ini
-# host.ini
-...
-[ais-1]
-node-08
-node-09
-node-10
-node-11
-```
+### 5. Undeploying AIS Kubernetes Operator
 
-`node_name` (optional) - By default, the node labels and persistent volumes will be created assuming the hostnames provided in your ansible inventory **match the node names** in your K8s cluster. If this is not the case, you can specify the variable to use here. For example, to use the `ansible_host` variable containing the IP address of the node, set `-e node_name=ansible_host`.
-
-#### Example
-
-```console
-$ ansible-playbook -i host.ini ais_deploy_cluster.yml -e cluster="ais-1"
-```
-
-
-### 3. Destroying an existing AIS cluster
-
-The `ais_destroy_cluster.yml` playbooks:
-* Destroys AIS cluster CR
-* Deletes all the PVCs and PVs used by AIS targets
-* Un-labels nodes
-
-#### Args
-
-`cluster` - same as above command
-
-#### Example
-
-```console
-$ ansible-playbook -i host.ini ais_destroy_cluster.yml  -e cluster=ais-1
-```
-
-### 4. Cleanup markers and data
-
-`ais_cleanup_all.yml` - cleanup all AIS Data and metadata on each node.
-
-> ***WARNING:*** Deleted data cannot be restored!!!
-
-#### Args:
-
-`cluster` - same as above command
-
-`ais_mpaths` - same as above command
-
-#### Example
-
-```console
-$ ansible-playbook -i host.ini ais_cleanup_markers.yml -e cluster=ais-1
-```
-
-
-The `ais_cleanup_markers.yml` is responsible for deleting the `.ais.vmd` and `.ais.markers` present on each node in the group. Data stored on disks and BMD are preserved.
-
-#### Args
-
-`cluster` - same as above commands
-
-`ais_mpaths` - same as above commands
-
-#### Example
-
-```console
-$ ansible-playbook -i host.ini ais_cleanup_all.yml -e cluster=ais-1
-```
-
-### 5. Undeploy AIS Operator
-
-`ais_undeploy_operator.yml` undeploy operator and delete all associated K8s resources
-
-#### Example
-
-```console
-$ ansible-playbook -i host.ini ais_undeploy_operator.yml
-```
+- **Playbook:** [`ais_undeploy_operator.yml`](../ais_undeploy_operator.yml)
+- **Action:** Removes the AIS operator and all associated Kubernetes resources.
+- **Execution Example:**
+  ```console
+  $ ansible-playbook -i host.ini ais_undeploy_operator.yml
+  ```
