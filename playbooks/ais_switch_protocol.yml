@@ -22,5 +22,6 @@
   vars_files:
     - "vars/ais_mpaths.yml"
     - "vars/https_config.yml"
+    - "vars/multihome.yml"
   vars:
     redeploy: "true"

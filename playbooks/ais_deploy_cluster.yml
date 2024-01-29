@@ -7,18 +7,21 @@
     - "vars/multihome.yml"
 
   pre_tasks:
-    - name: Validate required variables for AIS deployment
-      assert:
-        that:
-          - ais_mpaths is defined
-          - ais_mpath_size is defined
-          - cluster is defined
-        fail_msg: "Variable {{ item.key }} not specified! {{ item.value }}"
-        success_msg: "All required variables for AIS deployment are defined."
-      loop:
-        - { key: "ais_mpaths", value: "Refer to https://github.com/NVIDIA/ais-k8s/tree/master/docs#aistore-cluster-creation-process and poplulate the var in `ais_mpaths.yml`" }
-        - { key: "ais_mpath_size", value: "Refer to https://github.com/NVIDIA/ais-k8s/tree/master/docs#aistore-cluster-creation-process and poplulate the var in `ais_mpaths.yml`" }
-        - { key: "cluster", value: "Add the `cluster` variable during execution. Use: ansible-playbook -i hosts.ini playbooks/ais_deploy_cluster.yml -b -K -e cluster=ais" }
+    - name: Validate if ais_mpaths is defined
+      fail:
+        msg: "Variable 'ais_mpaths' not found. Refer to https://github.com/NVIDIA/ais-k8s/tree/master/docs#aistore-cluster-creation-process and poplulate the var in 'ais_mpaths.yml'"
+      when: ais_mpaths is undefined
 
+    - name: Validate if ais_mpath_size is defined
+      fail:
+        msg: "Variable 'aisais_mpath_size_mpaths' not found. Refer to https://github.com/NVIDIA/ais-k8s/tree/master/docs#aistore-cluster-creation-process and poplulate the var in 'ais_mpaths.yml'"
+      when: ais_mpath_size is undefined
+
+    - name: Validate if cluster is defined
+      fail:
+        msg: "Variable 'cluster' not found. Add the 'cluster' variable during execution. Use: ansible-playbook -i hosts.ini playbooks/ais_deploy_cluster.yml -b -K -e cluster=ais"
+      when: cluster is undefined
+
+  become: true
   roles:
     - ais_deploy_cluster
