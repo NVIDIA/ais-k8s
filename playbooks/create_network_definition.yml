@@ -4,13 +4,16 @@
   vars_files:
     - "vars/multihome.yml"
   pre_tasks:
-    - name: Check cluster variable
-      fail:
-        msg: "No cluster specified!"
-      when: cluster is undefined
     - name: Check network_attachment variable
       fail:
         msg: "`network_attachment` name must be provided!"
       when: network_attachment is undefined or network_attachment | length == 0
+
+    - name: Check network_interface variable
+      fail:
+        msg: "`network_interface` name must be provided!"
+      when: network_interface is undefined or network_interface | length == 0
+      
   roles:
+    - install_multus
     - create_network_definition

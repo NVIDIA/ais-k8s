@@ -1,0 +1,16 @@
+- name: Check multus installation
+  shell: "kubectl get pods -n kube-system | grep -i 'multus.*running'"
+  register: multus_pods_output
+  ignore_errors: true
+  
+- name: Set fact multus_running
+  set_fact:
+    multus_running: "{{ multus_pods_output.stdout_lines | length > 0 if multus_pods_output.rc == 0 else false }}"
+
+- name: Multus Status
+  debug:
+    msg: "Multus is {{ 'already' if multus_running else 'not' }} running. {{ 'Skipping install' if multus_running else 'Installing latest...' }}"
+
+- name: Install multus if necessary
+  script: install-multus.sh "{{ multus_url }}"
+  when: not multus_running

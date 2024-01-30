@@ -196,6 +196,9 @@ Before initiating the playbook, it's crucial to perform some preparatory configu
      - nvme7n1
     ```
 
+- **Multihome Deployment**:
+   - For a multihome deployment using multiple network interfaces, some extra configuration is required before deploying the cluster. Refer to the [multihome deploment doc](../playbooks/docs/deploy_with_multihome) for details. 
+
 - **Playbook Defaults**:
   - In the [defaults file](../playbooks/roles/ais_deploy_cluster/defaults/main.yml) for the deploy cluster playbook, update values such as:
     - `node_image`: Specify the Docker image for AIS target/proxy containers (e.g., `aistorage/aisnode:v3.21`). Find the latest image at the [AIS Docker Hub repository](https://hub.docker.com/r/aistorage/aisnode/tags).
