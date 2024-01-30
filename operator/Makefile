@@ -82,7 +82,7 @@ manifests: controller-gen
 bundle-manifests: manifests
 	mkdir -p dist/
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
-	$(KUSTOMIZE) build config/default > dist/ais-operator-${VERSION}.yaml
+	$(KUSTOMIZE) build config/default > dist/ais-operator.yaml
 
 # Run go fmt against code
 fmt:
