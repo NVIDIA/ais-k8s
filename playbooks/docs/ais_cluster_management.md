@@ -18,7 +18,7 @@ Includes playbooks that help with:
 
 #### Args
 
-`operator_version` (default: `v0.7`)- ais-k8s release version
+`operator_version` (default: `v0.97`)- ais-k8s release version
 
 #### Example
 
