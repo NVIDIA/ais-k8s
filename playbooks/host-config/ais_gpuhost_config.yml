@@ -2,7 +2,7 @@
 # Config specific to GPU hosts
 #
 ---
-- hosts: '{{ playhosts | default("gpu-worker-node") }}'
+- hosts: '{{ ais_hosts }}'
   vars_files:
     - "vars/host_config_packages.yml"
 

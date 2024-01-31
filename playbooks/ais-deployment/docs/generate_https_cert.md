@@ -27,4 +27,4 @@ To use this playbook, follow these steps:
    $ ansible-playbook -i hosts.ini ais_https_cert.yml -e cacert_file=local_ais_ca.crt
    ```
 
-   To fetch the certificate later, you can [use the ais_fetch_cert playbook](ais_https_configuration.md#fetching-ca-certificate)
+   To fetch the certificate later, you can [use the ais_fetch_cert playbook](https_configuration.md#fetching-ca-certificate)

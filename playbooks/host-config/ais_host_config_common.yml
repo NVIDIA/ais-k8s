@@ -7,7 +7,7 @@
 # addresses specific needs for GPU hosts.
 #
 ---
-- hosts: '{{ playhosts | default("ais") }}'
+- hosts: '{{ ais_hosts | default("ais") }}'
   vars_files:
     - "vars/host_config_sysctl.yml"
     - "vars/host_config.yml"

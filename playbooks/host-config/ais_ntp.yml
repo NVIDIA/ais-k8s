@@ -4,7 +4,7 @@
 # and to perform an initial possible large step sync to them.
 #
 ---
-- hosts: '{{ playhosts | default("k8s-cluster") }}'
+- hosts: '{{ ais_hosts | default("ais") }}'
   vars_files:
     - "vars/host_config.yml"
 

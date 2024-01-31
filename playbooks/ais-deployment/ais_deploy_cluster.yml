@@ -19,7 +19,7 @@
 
     - name: Validate if cluster is defined
       fail:
-        msg: "Variable 'cluster' not found. Add the 'cluster' variable during execution. Use: ansible-playbook -i hosts.ini playbooks/ais_deploy_cluster.yml -b -K -e cluster=ais"
+        msg: "Variable 'cluster' not found. Add the 'cluster' variable during execution. Use: ansible-playbook -i hosts.ini ais_deploy_cluster.yml -b -K -e cluster=ais"
       when: cluster is undefined
 
   become: true

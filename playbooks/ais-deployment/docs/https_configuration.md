@@ -10,13 +10,13 @@ We provide playbooks in this repo for generating a self-signed certificate using
 To deploy AIS with HTTPS initially: 
 1. Edit the TLS variables in `vars/https_config.yml`
 2. Create your TLS certificates
-   - We provide a playbook for automating self-signed cert generation: [ais_generate_https_cert](ais_generate_https_cert.md)
+   - We provide a playbook for automating self-signed cert generation: [generate_https_cert](generate_https_cert.md)
 3. Run the `ais_deploy_cluster` playbook to deploy as usual
 
 ## Switching an HTTP cluster to HTTPS
 
 We also provide a playbook to transition from HTTP to HTTPS without losing any data in the cluster. 
-First update the TLS variables and create a certficiate as described above. Next, follow the instructions in [ais_switch_protocol](ais_switch_protocol.md) to redeploy the cluster with access to that secret. 
+First update the TLS variables and create a certficiate as described above. Next, follow the instructions in [switch_protocol](switch_protocol.md) to redeploy the cluster with access to that secret. 
 
 ## Connecting to the HTTPS cluster
 

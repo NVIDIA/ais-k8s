@@ -101,7 +101,7 @@ When setting up AIStore, each target node needs to be equipped with one or more 
 
 - **Comparison with Other Filesystems**: We have found that ext4 does not perform as efficiently as XFS in our setups. Additionally, while OpenZFS was utilized in tests involving NVMe drives, it encountered a specific bottleneck. This issue seems to be a known limitation when using OpenZFS with NVMe drives.
 
-- **Ease of Setup**: For your convenience, we provide a [playbook](../playbooks/ais_datafs_mkfs.yml) to assist in configuring the disks appropriately for AIStore.
+- **Ease of Setup**: For your convenience, we provide a [playbook](../playbooks/host-config/ais_datafs_mkfs.yml) to assist in configuring the disks appropriately for AIStore.
 
 ### Optimizing Network Bandwidth
 

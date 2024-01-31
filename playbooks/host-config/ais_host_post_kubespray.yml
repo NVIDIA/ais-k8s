@@ -3,7 +3,7 @@
 # k8s installation.
 #
 ---
-- hosts: '{{ playhosts | default("k8s-cluster") }}'
+- hosts: '{{ ais_hosts | default("ais") }}'
 
   gather_facts: False
   roles:

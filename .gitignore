@@ -2,10 +2,14 @@
 *.tfstate*
 */**/.terraform/
 *.hcl
-playbooks/hosts.ini
-playbooks/ansible.cfg
 
 *.tgz
 *.lock
 *.state
 *.swp
+*.vscode
+
+*ansible.cfg
+
+*hosts.ini
+*hosts.yaml

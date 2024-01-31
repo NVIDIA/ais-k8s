@@ -11,7 +11,6 @@
   roles:
     - ais_https_cert
 
-
 - name: Fetch CA certificate for client
   hosts: controller
   gather_facts: false

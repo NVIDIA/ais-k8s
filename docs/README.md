@@ -43,7 +43,7 @@ For both bare-metal and managed K8s deployments:
 - **Kubernetes**: Version 1.27.x or later.
 - **Operating System (OS)**: Compatible with any Linux-based OS, though Ubuntu 22.04 is preferred.
 - **Drives**:
-  - AIStore's performance scales with the number and type of disks used. A separate [playbook](../playbooks/docs/ais_datafs.md) is available for disk formatting and mounting as required by AIS. We recommend NVMe drives, formatted with XFS, and mounted with specific options (no RAID setup). Mount options: noatime, nodiratime, logbufs=8, logbsize=256k, largeio, inode64, swalloc, allocsize=131072k, nobarrier.
+  - AIStore's performance scales with the number and type of disks used. A separate [playbook](../playbooks/host-config/docs/ais_datafs.md) is available for disk formatting and mounting as required by AIS. We recommend NVMe drives, formatted with XFS, and mounted with specific options (no RAID setup). Mount options: noatime, nodiratime, logbufs=8, logbsize=256k, largeio, inode64, swalloc, allocsize=131072k, nobarrier.
 
 - **Network**:
 The network setup plays a pivotal role in AIStore's performance. Here's a detailed breakdown of the recommended network configuration:
@@ -99,7 +99,7 @@ $ kubectl get pods -A
 ### Node Setup
 
 #### Disk Configuration
-Format all drives with XFS and mount them under `/ais/<device>` (e.g., `/ais/sda/nvme0n1`). Use the [ais_datafs_mkfs playbook](https://github.com/NVIDIA/ais-k8s/blob/master/playbooks/docs/ais_datafs.md) for assistance.
+Format all drives with XFS and mount them under `/ais/<device>` (e.g., `/ais/sda/nvme0n1`). Use the [ais_datafs_mkfs playbook](https://github.com/NVIDIA/ais-k8s/blob/master/playbooks/host-config/docs/ais_datafs.md) for assistance.
 
 #### Network Setup
 
@@ -107,34 +107,34 @@ Format all drives with XFS and mount them under `/ais/<device>` (e.g., `/ais/sda
    Confirm proper internet connectivity and DNS resolution (e.g., test with `ping github.com`).
 
 2. **Multi-queue Verification/Enablement**:
-   Check and enable multi-queue settings for network interfaces, especially on Linux systems. The `ethtool` command can be used for this purpose. Instructions are detailed in the [ais_enable_multiqueue playbook](../playbooks/docs/ais_enable_multiqueue.md).
+   Check and enable multi-queue settings for network interfaces, especially on Linux systems. The `ethtool` command can be used for this purpose. Instructions are detailed in the [ais_enable_multiqueue playbook](../playbooks/host-config/docs/ais_enable_multiqueue.md).
 
 3. **Optional Network Testing**:
    Conduct `iperf` tests between nodes to ensure robust network performance before deployment.
 
 #### AIS Configuration Playbooks
 
-To assist you in setting up your system for AIStore, we've included a comprehensive set of [configuration Ansible playbooks](../playbooks). For an effective initial setup, we suggest executing the [`ais_host_config_common guide`](../playbooks/docs/ais_host_config_common.md), especially with the `aisrequired` tag. This will help you fine-tune your system to meet AIStore's requirements, ensuring optimal performance.
+To assist you in setting up your system for AIStore, we've included a comprehensive set of [configuration Ansible playbooks](../playbooks). For an effective initial setup, we suggest executing the [`ais_host_config_common guide`](../playbooks/host-config/docs/ais_host_config_common.md), especially with the `aisrequired` tag. This will help you fine-tune your system to meet AIStore's requirements, ensuring optimal performance.
 
 ### Operator Deployment Procedure
 
 With Kubernetes installed and the nodes properly configured, it's time to deploy the AIS Operator. This operator is crucial for managing the AIStore cluster within the Kubernetes environment.
 
 **Guidance Document**:
-- Refer to the [ais_cluster_management](../playbooks/docs/ais_cluster_management.md) for detailed instructions on navigating the entire lifecycle of an AIS cluster. This includes all the necessary steps to deploy both the operator and a multi-node AIS cluster on Kubernetes.
+- Refer to the [ais_cluster_management](../playbooks/ais-deployment/docs/ais_cluster_management.md) for detailed instructions on navigating the entire lifecycle of an AIS cluster. This includes all the necessary steps to deploy both the operator and a multi-node AIS cluster on Kubernetes.
 
 **Deployment Steps**:
 1. **Preparation**:
-   - Begin by updating the AIS Operator's version. Modify the version specified in the [defaults file](../playbooks/roles/ais_deploy_operator/defaults/main.yml) to match the latest released version. This ensures you are deploying the most up-to-date version of the operator.
+   - Begin by updating the AIS Operator's version. Modify the version specified in the [defaults file](../playbooks/ais-deployment/roles/ais_deploy_operator/defaults/main.yml) to match the latest released version. This ensures you are deploying the most up-to-date version of the operator.
 
 2. **Building the Operator (Optional)**:
    - If you require customizations or want to incorporate specific changes to the operator, you have the option to build the operator from scratch. This step is optional and is recommended only if you need to deviate from the standard operator setup.
 
 3. **Running the Deployment Playbook**:
-   - Use the [ais_deploy_operator playbook](../playbooks/ais_deploy_operator.yml) to deploy the operator. Execute the playbook by running the following commands from the root of the ais-k8s repository:
+   - Use the [ais_deploy_operator playbook](../playbooks/ais-deployment/ais_deploy_operator.yml) to deploy the operator. Execute the playbook by running the following commands from the root of the ais-k8s repository:
      ```
      $ cd ais-k8s
-     $ ansible-playbook -i /path/to/host.ini playbooks/ais_deploy_operator.yml
+     $ ansible-playbook -i /path/to/host.ini playbooks/ais-deployment/ais_deploy_operator.yml
      ```
      This command triggers the Ansible playbook, which automates the deployment process of the AIS Operator on your Kubernetes cluster.
 
@@ -150,7 +150,7 @@ By following these steps, you'll have the AIS Operator deployed and running, rea
 
 ### AIStore Cluster Creation Process
 
-Having successfully deployed the AIS Operator, the next critical step is to establish an AIStore cluster. This process is streamlined through the [`ais_deploy_cluster.yml`](../playbooks/ais_deploy_cluster.yml) playbook, which encompasses several key tasks:
+Having successfully deployed the AIS Operator, the next critical step is to establish an AIStore cluster. This process is streamlined through the [`ais_deploy_cluster.yml`](../playbooks/ais-deployment/ais_deploy_cluster.yml) playbook, which encompasses several key tasks:
 
 1. **Persistent Volumes and Node Labeling**:
    - The playbook automates the creation of Persistent Volumes (PVs) for local persistent storage, ensuring a stable storage foundation for the cluster.
@@ -165,10 +165,10 @@ Having successfully deployed the AIS Operator, the next critical step is to esta
 Before initiating the playbook, it's crucial to perform some preparatory configurations:
 
 - **Mount Path Configuration**:
-  - Update the [`ais_mpaths`](../playbooks/vars/ais_mpaths.yml) variable with a list of mount paths for each node in the cluster. This can be done by editing the `vars/ais_mpaths.yml` file or using a command-line argument. For instance, `-e ais_mpaths=["/ais/sda", "/ais/sdb", ... , "/ais/sdj"]`.
+  - Update the [`ais_mpaths`](../playbooks/ais-deployment/vars/ais_mpaths.yml) variable with a list of mount paths for each node in the cluster. This can be done by editing the `vars/ais_mpaths.yml` file or using a command-line argument. For instance, `-e ais_mpaths=["/ais/sda", "/ais/sdb", ... , "/ais/sdj"]`.
 
 - **Mount Path Size Specification**:
-  - Define the size of each mount path in the [`ais_mpath_size`](../playbooks/ais_datafs_mkfs.yml) variable. Sizes can be specified in formats like '9Ti' or '512Gi'.
+  - Define the size of each mount path in the [`ais_mpath_size`](../playbooks/host-config/ais_datafs_mkfs.yml) variable. Sizes can be specified in formats like '9Ti' or '512Gi'.
 
 - **Device Configuration Example**:
   - Consider this example output from `lsblk`:
@@ -197,20 +197,20 @@ Before initiating the playbook, it's crucial to perform some preparatory configu
     ```
 
 - **Multihome Deployment**:
-   - For a multihome deployment using multiple network interfaces, some extra configuration is required before deploying the cluster. Refer to the [multihome deploment doc](../playbooks/docs/deploy_with_multihome) for details. 
+   - For a multihome deployment using multiple network interfaces, some extra configuration is required before deploying the cluster. Refer to the [multihome deploment doc](../playbooks/ais-deployment/docs/deploy_with_multihome) for details. 
 
 - **Playbook Defaults**:
-  - In the [defaults file](../playbooks/roles/ais_deploy_cluster/defaults/main.yml) for the deploy cluster playbook, update values such as:
+  - In the [defaults file](../playbooks/ais-deployment/roles/ais_deploy_cluster/defaults/main.yml) for the deploy cluster playbook, update values such as:
     - `node_image`: Specify the Docker image for AIS target/proxy containers (e.g., `aistorage/aisnode:v3.21`). Find the latest image at the [AIS Docker Hub repository](https://hub.docker.com/r/aistorage/aisnode/tags).
     - `gcp_secret_name`/`aws_secret_name`: For cloud backend integration, create a Kubernetes secret with the necessary credentials as described in this [cloud credentials playbook](../playbooks/cloud/README.md).
-    - Protocol: Choose between 'http' or 'https'. For 'https', you'll need to create and provide the required certificate as a secret, detailed in [`ais_https_cert`](../playbooks/docs/ais_https_cert.md).
+    - Protocol: Choose between 'http' or 'https'. For 'https', you'll need to create and provide the required certificate as a secret, detailed in [`ais_https_cert`](../playbooks/ais-deployment/docs/ais_https_cert.md).
 
 After these configurations, execute the playbook and monitor the pod statuses until they are all in the `Running` stage:
 ```
 $ watch kubectl get pods -n <cluster-namespace>
 ```
 
-**Important Note**: In some Kubernetes deployments, the default cluster domain name might differ from `cluster.local`. If this is the case, update the `clusterDomain` parameter in the playbook [templates](../playbooks/roles/ais_deploy_cluster/templates/ais.yaml.j2) accordingly.
+**Important Note**: In some Kubernetes deployments, the default cluster domain name might differ from `cluster.local`. If this is the case, update the `clusterDomain` parameter in the playbook [templates](../playbooks/ais-deployment/roles/ais_deploy_cluster/templates/ais.yaml.j2) accordingly.
 
 With these steps, your AIStore cluster on Kubernetes should be up and running. 
 

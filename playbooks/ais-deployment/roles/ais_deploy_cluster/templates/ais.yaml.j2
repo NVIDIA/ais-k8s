@@ -78,7 +78,7 @@ spec:
   # For local testing with `minikube` run `minikube tunnel` in background for emulation. ref: https://minikube.sigs.k8s.io/docs/commands/tunnel/
   enableExternalLB: false
 
-{% if hostname_map != "" %}
+{% if (hostname_map is defined) and (hostname_map != "") %}
   hostnameMap: {{ hostname_map }}
 {% endif %}
 

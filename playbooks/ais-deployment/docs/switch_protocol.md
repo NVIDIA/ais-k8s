@@ -32,7 +32,7 @@ Before using this playbook, ensure you meet the following prerequisites:
    $ ais cluster shutdown -y
    ```
 
-4. **Certificate Creation and Mounting:** Follow [ais_generate_https_cert](ais_generate_https_cert.md) to create your TLS certificates.
+4. **Certificate Creation and Mounting:** Follow [generate_https_cert](generate_https_cert.md) to create your TLS certificates.
 
 ### Playbook Execution
 
