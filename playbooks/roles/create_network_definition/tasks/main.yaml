@@ -1,3 +1,26 @@
+- name: Parse network attachment list
+  set_fact:
+    attachment_list: "{{ network_attachment.split(',') | map('trim') | list }}"
+
+- name: Parse network interface list
+  set_fact:
+    interface_list: "{{ network_interface.split(',') | map('trim') | list }}"
+
+- name: Ensure all interface names are unique
+  fail: 
+    msg: "Network interface list has duplicate entries!"
+  when: interface_list | length != interface_list | unique | length
+
+- name: Ensure all attachment names are unique
+  fail: 
+    msg: "Network attachment list has duplicate entries!"
+  when: attachment_list | length != attachment_list | unique | length
+
+- name: Ensure network_attachment and network_interface have the same number of entries
+  fail: 
+    msg: "network_attachment and network_interface must be the same length!"
+  when: attachment_list | length != interface_list | length
+
 - name: Create namespace if it does not exist
   shell: "kubectl create ns {{ attachment_namespace }} || true"
   register: namespaceout
@@ -13,4 +36,5 @@
     - "nad.template.yaml"
 
 - name: Apply network attachment definition
-  shell: "NAMESPACE={{ attachment_namespace }} NAME={{ network_attachment }} INTERFACE={{ network_interface }} /tmp/create-network-definition.sh"
+  shell: "NAMESPACE={{ attachment_namespace }} NAME={{ item.0 }} INTERFACE={{ item.1 }} /tmp/create-network-definition.sh"
+  loop: "{{ attachment_list | zip(interface_list) | list }}"

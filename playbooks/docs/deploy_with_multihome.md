@@ -16,15 +16,16 @@ By default, each K8s pod has access to only one IP on the default interface. To 
 
 The next step is to define a network attachment definition to specify how each pod can use additional interfaces. This can be configured differently for each deployment, but we provide a sample template for a simple macvlan bridge definition [here](../roles/create_network_definition/files/nad.template.yaml).
 
-For more info on creating your own definition, check the [multus documentation](https://github.com/k8snetworkplumbingwg/multus-cni/blob/master/docs/how-to-use.md#create-network-attachment-definition).
+For more info on creating your own definitions, check the [multus documentation](https://github.com/k8snetworkplumbingwg/multus-cni/blob/master/docs/how-to-use.md#create-network-attachment-definition).
 
-To create a singular additional definition with the default macvlan bridge, first update the [multihome variables](../vars/multihome.yml):
+To create network definitions with the default macvlan bridge, first update the [multihome variables](../vars/multihome.yml):
 
 ```yaml
-# Any name for your network attachment
+# Any name for your network attachment (can be comma-separated list)
 network_attachment: "macvlan-conf"
 
 # Name of the interface for which to create a network attachment definition
+# This can also be a comma-separated list, and must match the length of the network_attachment list as each entry will be paired together
 network_interface: "ens7f1np1"
 
 # Namespace for the attachment (this should match your AIS cluster namespace)
@@ -35,7 +36,7 @@ Next, run the `create_network_definition` playbook:
 
 `ansible-playbook -i ../hosts.ini create_network_definition.yml`
 
-This will create the network attachment definition as a custom resource definition in your K8s cluster. You can check existing definitions with kubectl:
+This will create one or more network attachment definitions as custom resource definitions in your K8s cluster. You can check existing definitions with kubectl:
 
 `kubectl get network-attachment-definitions -n ais`
 
