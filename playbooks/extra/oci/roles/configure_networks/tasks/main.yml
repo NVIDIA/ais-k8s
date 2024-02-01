@@ -1,0 +1,44 @@
+- name: Parse additional IP list
+  set_fact:
+    ip_list: "{{ additional_ips.split(',') | map('trim') | list }}"
+
+- name: Parse VNIC OCID list
+  set_fact:
+    vnic_list: "{{ ocids.split(',') | map('trim') | list }}"
+
+- name: Ensure all IPs are unique
+  fail: 
+    msg: "Additional IP list has duplicate entries!"
+  when: ip_list | length != ip_list | unique | length
+
+- name: Ensure all VNIC OCIDs are unique
+  fail: 
+    msg: "VNIC OCID list has duplicate entries!"
+  when: vnic_list | length != vnic_list | unique | length
+
+- name: Ensure IP and VNIC OCID lists have the same number of entries
+  fail: 
+    msg: "Additional IP list and VNIC OCID list must be the same length!"
+  when: ip_list | length != vnic_list | length
+
+- name: Copy oci_vnic_config.sh to remote host
+  copy:
+    src: oci_vnic_config.sh
+    dest: oci_vnic_config.sh
+    mode: 0755
+
+- name: Run oci_vnic_config.sh with -e argument to tell it which networks to configure
+  command:
+    cmd: "./oci_vnic_config.sh -e {{ item.0 }} {{ item.1 }}"
+  loop: "{{ ip_list | zip(vnic_list) | list }}"
+
+- name: Run oci_vnic_config.sh with -c argument to apply configuration
+  command:
+    cmd: "./oci_vnic_config.sh -c"
+
+- name: Ping new IPs to check connectivity
+  command: 
+    cmd: "ping -c 1 {{ item }}"
+  loop: "{{ ip_list }}"
+  register: ping_result
+  failed_when: ping_result.rc != 0

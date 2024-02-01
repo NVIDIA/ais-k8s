@@ -8,6 +8,7 @@
 *.state
 *.swp
 *.vscode
+.DS_Store
 
 *ansible.cfg
 

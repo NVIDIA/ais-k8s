@@ -1,0 +1,6 @@
+- name: Configure VNICs on OCI hosts
+  hosts: oci_hosts
+  gather_facts: false
+  become: true
+  roles:
+    - configure_networks
