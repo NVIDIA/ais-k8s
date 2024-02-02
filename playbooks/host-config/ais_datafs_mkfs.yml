@@ -21,31 +21,30 @@
 # You can list ais_devices in vars/ais_datafs.yml, but shouldn't list ais_hosts there.
 #
 ---
-- hosts: "{{ ais_hosts }}"
+- name: Confirm and proceed with filesystem creation
+  hosts: "{{ ais_hosts }}"
+  # TODO: perform gather facts only if mkfs_confirmation is true 
+  gather_facts: true
+  become: true
   vars_files:
     - "vars/ais_datafs.yml"
 
   vars_prompt:
-    - name: "mkfs_confirmation"
-      prompt: "Are you sure you want to destroy and mkfs AIS filesystems on {{ ais_hosts }}, devices {{ ais_devices }}? Type 'yes' to confirm."
+    - name: mkfs_confirmation
+      prompt: "Do you want to format drives with XFS and mount it on ais/<device>. Type 'yes' to confirm."
       default: "no"
       private: no
 
   pre_tasks:
-    - name: check confirmation
+    - name: check if ais_devices is present
       fail:
-        msg: "mkfs not confirmed/forced"
-      when: mkfs_confirmation != "yes"
-
-    - name: check disk list
-      fail:
-        msg: "no ais_devices specified!"
+        msg: "var 'ais_devices' not found! Please add the variable in `ais-k8s/playbooks/host-config/vars/ais_datafs.yml` or pass it as an env variable"
       when: ais_devices is undefined
-
-  gather_facts: true
 
   roles:
     - role: ais_datafs
-      ais_fs_umount_purge: true
-      ais_fs_losedata: "danger_danger"
-      ais_fs_mount: true
+      when: mkfs_confirmation | bool
+      vars:
+        ais_fs_umount_purge: true
+        ais_fs_losedata: "danger_danger"
+        ais_fs_mount: true

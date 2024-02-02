@@ -1,5 +1,6 @@
 ---
 - hosts: "controller"
   gather_facts: no
+  become: true
   roles:
     - ais_undeploy_operator

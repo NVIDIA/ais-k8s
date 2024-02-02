@@ -1,4 +1,8 @@
 ---
+- name: Operator version
+  debug:
+    msg: Deploying AIS Operator {{ operator_version }}
+
 - name: Copy operator deploy script
   template:
     src: "deploy-operator.sh.j2"
@@ -7,3 +11,6 @@
 
 - name: Run deploy operator scripts
   shell: "/tmp/deploy-operator.sh"
+
+- name: Wait for operator to be in Running state
+  shell: "kubectl wait --for=condition=available deployment/ais-operator-controller-manager -n ais-operator-system --timeout=5m"

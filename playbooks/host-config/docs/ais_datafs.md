@@ -39,18 +39,12 @@ ais_devices:
   - sdi
   - sdj
 
-$ ansible-playbook -i hosts.ini ais_datafs_mkfs.yml --become \
-  -e ais_hosts=...
+$ ansible-playbook -i hosts.ini ais_datafs_mkfs.yml -e ais_hosts=ais
 ```
 
-In initial cluster creation (and if using our Kubespray group names)
-you might set `ais_hosts=cpu-worker-node`, whereas in adding say one
-additoinal node you'd list just that.
-
 ```console
-$ ansible-playbook -i hosts.ini ais_datafs_mkfs.yml \
-  -e ais_hosts=cpu-worker-node  --become
-Are you sure you want to destroy and mkfs AIS filesystems on [cpu-worker-node], devices ['sda', 'sdb', 'sdc', 'sdd', 'sde', 'sdf', 'sdg', 'sdh', 'sdi', 'sdj']? Type 'yes' to confirm. [no]: yes
+$ ansible-playbook -i hosts.ini ais_datafs_mkfs.yml -e ais_hosts=ais
+Are you sure you want to destroy and mkfs AIS filesystems on [ais], devices ['sda', 'sdb', 'sdc', 'sdd', 'sde', 'sdf', 'sdg', 'sdh', 'sdi', 'sdj']? Type 'yes' to confirm. [no]: yes
 ```
 
 ## ais_datafs_{mount,umount,umount_purge}

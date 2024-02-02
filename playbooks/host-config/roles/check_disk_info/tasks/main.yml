@@ -1,0 +1,16 @@
+- name: Gather disk, mount path info, and filesystem type
+  ansible.builtin.shell: |
+    lsblk -f | grep sda | awk '{print $1, $2, $6}'
+  register: disk_info
+  loop: "{{ ais_devices }}"
+  ignore_errors: yes
+  when: disk_info_confirmation == "yes"
+
+- name: Show disk, mount path info, and filesystem type
+  debug:
+    msg: "Host: {{ inventory_hostname }}, Disk: {{ item.item }}, FS Type: {{ item.stdout.split(' ')[1] }}, Mounted On: {{ item.stdout.split(' ')[2] }}"
+  loop: "{{ disk_info.results | default([]) }}"
+  when: 
+    - disk_info_confirmation == "yes"
+    - "'results' in disk_info"
+    - item.rc == 0

@@ -17,7 +17,7 @@ of `mq-deadline` is performed in `ais_host_config_common.yml`.
 ## Usage
 
 ```console
-$ ansible-playbook -i hosts.ini ais_enble_multiqueue.yml -e playhosts=cpu-worker-node --become
+$ ansible-playbook -i hosts.ini ais_enble_multiqueue.yml -e ais_hosts=ais
 ```
 
 We need only apply this against nodes that will host AIStore target 

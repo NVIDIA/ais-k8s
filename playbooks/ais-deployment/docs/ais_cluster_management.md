@@ -98,7 +98,7 @@ The playbooks assist in the following tasks:
 - **Key Arguments:** `cluster`, `ais_mpaths` (same as used in cluster creation)
 - **Execution Example:**
   ```console
-  $ ansible-playbook -i host.ini ais_cleanup_all.yml -e cluster=ais-1
+  $ ansible-playbook -i host.ini ais_cleanup_all.yml -e cluster=ais
   ```
 
 ### 5. Undeploying AIS Kubernetes Operator

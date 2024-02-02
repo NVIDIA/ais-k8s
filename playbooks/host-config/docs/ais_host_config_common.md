@@ -41,15 +41,14 @@ For initial setups or when post-deployment tuning is planned:
 2. Run only the essential tasks (tagged `aisrequired`) to avoid unnecessary configurations:
 
    ```console
-   ansible-playbook -i hosts.ini ais_host_config_common.yml --become
+   ansible-playbook -i hosts.ini ais_host_config_common.yml -e ais_hosts=ais
    ```
 
 ### Running the Playbook - Full
 
 It's essential to thoroughly examine the variable files and, if possible, the role tasks to fully grasp their impact on your operating system setup. Modify the variable values as required, and identify any functional areas you may prefer to exclude. Feel free to utilize various Ansible options to tailor your execution. For example:
 ```console
-ansible-playbook --forks 20 -i hosts.ini ais_host_config_common.yml --become \
- --tags never --skip-tags mtu
+ansible-playbook --forks 20 -i hosts.ini ais_host_config_common.yml --tags never --skip-tags mtu -e ais_hosts=ais
 ```
 
 Before executing the playbook, it's advisable to use `--list-tasks --list-tags` to verify the tasks that will be executed during the run.

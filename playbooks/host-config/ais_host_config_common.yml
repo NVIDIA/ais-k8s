@@ -1,5 +1,5 @@
 #
-# Apply our desired config to the k8s-cluster host group, which spans worker
+# Apply our desired config to the 'ais' host group, which spans worker
 # nodes, masters, and etcd nodes. Can override to a specific set of hosts
 # by specifying targethosts on the cmdline.
 #
@@ -11,11 +11,18 @@
   vars_files:
     - "vars/host_config_sysctl.yml"
     - "vars/host_config.yml"
-
-  gather_facts: true
+  vars_prompt:
+    - name: host_config_confirmation
+      prompt: "Are you sure you want to run ais_host_config_common on {{ ais_hosts }} cluster? Type 'yes' to confirm."
+      default: "no"
+      private: no
+  become: true
+  gather_facts: false
   roles:
     - role: ais_host_config_common
+      when: host_config_confirmation | bool
     - role: pcm
+      when: host_config_confirmation | bool
       tags: 
         - never
         - aisdev

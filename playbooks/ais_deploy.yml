@@ -1,0 +1,137 @@
+# pretask - check if cluster is defined, controller is defined, ais_devices, ais_mpaths, ais_mpath_size
+- name: "Check if all variables exist"
+  hosts: 'localhost'
+  gather_facts: false
+  vars_files:
+    - "ais-deployment/vars/ais_mpaths.yml"
+
+  pre_tasks:    
+    - name: Validate if ais_mpaths is defined
+      fail:
+        msg: "Variable 'ais_mpaths' not found. Refer to https://github.com/NVIDIA/ais-k8s/tree/master/docs#aistore-cluster-creation-process and populate the var in 'ais_mpaths.yml'"
+      when: ais_mpaths is undefined
+
+    - name: Validate if ais_mpath_size is defined
+      fail:
+        msg: "Variable 'ais_mpath_size' not found. Refer to https://github.com/NVIDIA/ais-k8s/tree/master/docs#aistore-cluster-creation-process and populate the var in 'ais_mpaths.yml'"
+      when: ais_mpath_size is undefined
+
+    - name: Validate if cluster is defined
+      fail:
+        msg: "Variable 'cluster' not found. Add the 'cluster' variable during execution. Use: ansible-playbook -i hosts.ini ais_deploy_cluster.yml -e cluster=ais"
+      when: cluster is undefined
+
+# Setting up cluster
+# Deploy operator
+
+- hosts: "controller"
+  gather_facts: false
+  become: true
+  vars_prompt:
+    - name: operator_version
+      prompt: "Specify the operator_version. Skip to use `AIS Operator` from latest release (https://github.com/NVIDIA/ais-k8s/releases/latest)."
+      default: "v0.97"
+      private: no
+  roles:
+    - ais-deployment/roles/ais_deploy_operator
+
+# Create k8s creds
+# aws
+- name: Build with AWS
+  hosts: "controller"
+  vars_files:
+    - "cloud/vars/aws_config.yml"
+  vars_prompt:
+    - name: aws_confirmation
+      prompt: "Do you wish to set up AIStore with an AWS backend? If yes, ensure the 'config' and/or 'credentials' files for AWS are located in 'ais-k8s/playbooks/cloud/roles/aws_config/files', or add them before proceeding."
+      default: "no"
+      private: no
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Set aws-creds variable based on aws_confirmation
+      set_fact:
+        aws_secret_name: "aws-creds"
+      when: aws_confirmation | bool
+  roles:
+    - role: ais-deployment/roles/create_namespace
+      when: aws_confirmation | bool
+      vars:
+        k8s_namespace: "{{ cluster }}"
+    - role: cloud/roles/aws_config
+      when: aws_confirmation | bool
+
+# gcp
+- name: Add GCP Creds to your AIS Cluster
+  hosts: "controller"
+  vars_files:
+    - "cloud/vars/gcp_config.yml"
+  vars_prompt:
+    - name: gcp_confirmation
+      prompt: "Do you wish to set up AIStore with GCP backend? If 'yes' ensure 'gcp.json' file exist at 'ais-k8s/playbooks/cloud/roles/gcp_config/files, or add them before proceeding."
+      default: "no"
+      private: no
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Set gcp-creds variable based on gcp_confirmation
+      set_fact:
+        gcp_secret_name: "gcp-creds"
+      when: gcp_confirmation | bool
+  roles:
+    - role: ais-deployment/roles/create_namespace
+      when: gcp_confirmation | bool
+      vars:
+        k8s_namespace: "{{ cluster }}"
+    - role: cloud/roles/gcp_config
+      when: gcp_confirmation | bool
+
+# https support
+- name: Add TLS support to your AIS Cluster
+  hosts: "controller"
+  vars_files:
+    - "ais-deployment/vars/https_config.yml"
+  vars:
+    k8s_namespace: "{{ cert_namespace }}"
+  vars_prompt:
+    - name: https_confirmation
+      prompt: "Enable HTTPS for AIStore? Confirm with 'yes' and ensure (or edit) variables under 'ais-deployment/vars/https_config.yml' required for HTTPS. Select 'no' for HTTP support."
+      default: "no"
+      private: no
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Set protocol variable to HTTPS if confirmed
+      set_fact:
+        protocol: "https"
+      when: https_confirmation | bool
+
+  roles:
+    - role: ais-deployment/roles/create_namespace
+      when: https_confirmation | bool
+    - role: ais-deployment/roles/generate_https_cert
+      when: https_confirmation | bool
+
+# TODO: add multi-homing support
+
+# deploy cluster
+- name: Deploy AIS cluster
+  hosts: "controller"
+  # import in respective tasks
+  vars_files:
+    - "ais-deployment/vars/ais_mpaths.yml"
+    - "ais-deployment/vars/https_config.yml"
+    - "ais-deployment/vars/multihome.yml"
+  vars_prompt:
+    - name: init_image
+      prompt: "Specify the init_image. Skip for AIStore's latest image."
+      default: "aistorage/ais-init:v3.22"
+      private: no
+
+    - name: node_image
+      prompt: "Specify the node_image. Skip for AIStore's latest image."
+      default: "aistorage/aisnode:v3.21"
+      private: no
+  become: true
+  roles:
+    - ais-deployment/roles/ais_deploy_cluster
