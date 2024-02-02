@@ -1,0 +1,27 @@
+#
+# Add additional configs to the kubelet running on each node, for example to allow "unsafe" syctls
+#
+---
+- hosts: '{{ ais_hosts | default("ais") }}'
+  gather_facts: False
+  become: true
+
+  vars_prompt:
+    - name: "confirm_restart"
+      prompt: "Warning! This playbook will restart the kubelet service on each node. Do you want to continue? (yes/no)"
+      private: no
+
+    - name: "confirm_files"
+      prompt: "This playbook will overwrite the kubelet extra args configuration.
+      Make sure the conf file in roles/config_kubelet/files has all of the extra args your kubelet service needs. 
+      Type 'yes' to continue"
+      private: no
+
+  pre_tasks:
+    - name: Fail if not confirmed
+      fail:
+        msg: "Playbook execution cancelled by the user."
+      when: confirm_restart != 'yes' and confirm_restart != 'yes'
+
+  roles:
+    - config_kubelet

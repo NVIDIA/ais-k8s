@@ -1,0 +1,12 @@
+- name: Copy kubelet-extra-args config drop-in file for the kubelet service
+  ansible.builtin.copy:
+    src: "kubelet-extra-args.conf"
+    dest: "/etc/systemd/system/kubelet.service.d/kubelet-extra-args.conf"
+    mode: "644"
+
+- name: Restart kubeletenv
+  systemd:
+    name: kubelet
+    daemon-reload: yes
+    enabled: yes
+    state: restarted

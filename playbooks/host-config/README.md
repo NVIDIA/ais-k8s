@@ -16,7 +16,7 @@ Playbook(s) | Useful when
 [ais_enable_multiqueue](docs/ais_enable_multiqueue.md) | Enabling MQ IO schedulers in Ubuntu releases for which MQ is not the default
 [ais_host_config_common](docs/ais_host_config_common.md) | Tuning worker nodes
 [ais_datafs_mkfs](docs/ais_datafs.md) | Creating or recreating filesystems for AIStore
-[ais_host_post_kubespray](docs/ais_host_post_kubespray.md) | Using AIStore chart values that require "unsafe" sysctls; changes kubelet.env to enable them
+[config_kubelet](docs/config_kubelet.md) | Enabling K8s settings that must be set at a kubelet service level, e.g. unsafe sysctls
 ais_gpuhost_config | Configuring GPU compute nodes in the same cluster - install NVIDIA Docker 2, NVIDIA container runtime, etc.
 [ais_gpu_host_config (EXPERIMENTAL)](./ais_gpuhost_config.yml) | Additional setup to use Nvidia GPUs on hosts. This playbook is experimental, so check the roles and use at your own risk. 
 
@@ -34,9 +34,9 @@ We run the host config playbooks in the following order wrt other steps:
 1. Cluster hosts must be linux, preferrably Ubuntu >18.04 with ssh access from the ansible host.
 1. If necessary, enable MQ IO scheduler with `ais_enable_multiqueue` and reboot.
 1. Next we run `ais_host_config_common` on all nodes. Check the tags in [the task](roles/ais_host_config_common/tasks/main.yml) to see what's avaiable. At the least, run the playbook with the `aisrequired` tag.
-1. If we're install gpu worker nodes, run `ais_gpuhost_config`
-1. Make filesystems with `ais_datafs_mkfs`
+1. If we're install gpu worker nodes, run `ais_gpuhost_config`.
+1. Make filesystems with `ais_datafs_mkfs`.
 1. Establish K8s cluster using kubespray or other methods, e.g. kubeadm. 
-1. Since we use sysctl somaxconn in containers we need to change `kubelet.env` and playbook `ais_host_post_kubespray` does this for us.
+1. Allow "unsafe" network sysctls and any other required kubelet settings with `config_kubelet`.
 
 At this point your cluster should be ready to deploy the AIS resources, operator, and cluster. See the ais-deployment [section and guide](../ais-deployment/docs/ais_cluster_management.md)
