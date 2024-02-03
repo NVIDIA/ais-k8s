@@ -8,8 +8,11 @@
   gather_facts: false
   vars_files:
     - vars/https_config.yml
+  vars:
+    - k8s_namespace: "{{ cert_namespace }}"
   roles:
-    - ais_https_cert
+    - create_namespace
+    - generate_https_cert
 
 - name: Fetch CA certificate for client
   hosts: controller
@@ -23,5 +26,5 @@
   tasks:
     - name: Fetch certificate if cacert_file is defined
       include_role:
-        name: ais_fetch_cert
+        name: fetch_ca_cert
       when: not skip_play

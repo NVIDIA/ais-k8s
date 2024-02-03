@@ -1,5 +1,3 @@
-
-
 - name: Copy CA Creation yaml
   template:
     src: "ca.yaml.j2"

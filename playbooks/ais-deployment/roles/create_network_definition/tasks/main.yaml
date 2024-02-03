@@ -21,11 +21,6 @@
     msg: "network_attachment and network_interface must be the same length!"
   when: attachment_list | length != interface_list | length
 
-- name: Create namespace if it does not exist
-  shell: "kubectl create ns {{ attachment_namespace }} || true"
-  register: namespaceout
-  changed_when: "'created' in namespaceout.stdout"
-
 - name: Copy network attachment definition files
   copy:
     src: "{{ item }}"

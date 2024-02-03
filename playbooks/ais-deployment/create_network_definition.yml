@@ -3,6 +3,9 @@
   gather_facts: false
   vars_files:
     - "vars/multihome.yml"
+  vars:
+    - k8s_namespace: "{{ attachment_namespace }}"
+    
   pre_tasks:
     - name: Check network_attachment variable
       fail:
@@ -16,4 +19,5 @@
       
   roles:
     - install_multus
+    - create_namespace
     - create_network_definition

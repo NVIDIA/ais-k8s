@@ -5,6 +5,8 @@
     - "vars/ais_mpaths.yml"
     - "vars/https_config.yml"
     - "vars/multihome.yml"
+  vars:
+    - k8s_namespace: "{{cluster}}"
 
   pre_tasks:
     - name: Validate if ais_mpaths is defined
@@ -24,4 +26,5 @@
 
   become: true
   roles:
+    - create_namespace
     - ais_deploy_cluster

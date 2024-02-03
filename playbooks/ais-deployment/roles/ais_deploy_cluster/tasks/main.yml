@@ -52,11 +52,6 @@
     cluster: "{{ cluster }}"
     cluster_size: "{{ groups[cluster] | length }}"
 
-- name: Create namespace if it does not exist
-  shell: "kubectl create ns {{ cluster }} || true"
-  register: namespaceout
-  changed_when: "'created' in namespaceout.stdout"
-
 - name: Deploy cluster
   command: "kubectl apply -f /tmp/{{ cluster }}.yaml"
   register: createout

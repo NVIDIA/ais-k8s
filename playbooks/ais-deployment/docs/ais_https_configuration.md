@@ -8,7 +8,7 @@ We provide playbooks in this repo for generating a self-signed certificate using
 ## Deploying with HTTPS
 
 To deploy AIS with HTTPS initially: 
-1. Edit the TLS variables in `vars/https_config.yml`
+1. Edit the TLS variables in [vars/https_config.yml](../vars/https_config.yml)
 2. Create your TLS certificates
    - We provide a playbook for automating self-signed cert generation: [generate_https_cert](generate_https_cert.md)
 3. Run the `ais_deploy_cluster` playbook to deploy as usual
@@ -36,8 +36,8 @@ For client connectivity after deploying with HTTPS, you have a few options.
 
 ### Fetching CA certificate
 
-To fetch the CA certificate for verifying the server's cert on the client side, you can use the `ais_fetch_cert` playbook. Provide the `cacert_file` argument to specify the output file (default is `ais_ca.crt`). This will fetch the certificate from the K8s secret on the cluster so it can be used with a local client. 
+To fetch the CA certificate for verifying the server's cert on the client side, you can use the `fetch_ca_cert` playbook. Provide the `cacert_file` argument to specify the output file (default is `ais_ca.crt`). This will fetch the certificate from the K8s secret on the cluster so it can be used with a local client. 
 
 ```
-ansible-playbook -i ../../hosts.ini ais_fetch_cert.yml -e cacert_file=ca.crt
+ansible-playbook -i ../../hosts.ini fetch_ca_cert.yml -e cacert_file=ca.crt
 ```
