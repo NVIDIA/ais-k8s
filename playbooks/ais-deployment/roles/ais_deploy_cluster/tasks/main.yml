@@ -42,6 +42,11 @@
     loop_var: host_entry
   when: additional_hosts is defined
 
+- name: Load sysctl changes from template
+  set_fact:
+    sysctls: "{{ lookup('template', 'sysctls.json.j2') }}"
+  when: apply_sysctls | bool
+
 - name: Copy cluster yaml
   template:
     src: "ais.yaml.j2"

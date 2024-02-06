@@ -1,6 +1,14 @@
 ---
 init_image: aistorage/ais-init:v3.22
 node_image: aistorage/aisnode:v3.21
+
 # Cloud
 gcp_secret_name: ""
 aws_secret_name: ""
+
+# Extra sysctl config to apply to pods -- change apply_sysctls to true to apply
+apply_sysctls: false
+tcp_tw_reuse: 1
+tcp_max_tw_buckets: 1440000
+ip_local_port_range: 2048 65535
+somaxconn: 65535

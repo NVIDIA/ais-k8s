@@ -34,7 +34,10 @@ spec:
     portIntraData: 51082
     capabilities:
       privileged: true
-
+{% if (sysctls is defined) and (sysctls != "") %}
+    securityContext: 
+      sysctls: {{ sysctls }}
+{% endif %}
     nodeSelector:
       nvidia.com/ais-proxy: {{ cluster }}
   targetSpec:
@@ -45,6 +48,11 @@ spec:
     portIntraData: 51083
     capabilities:
       privileged: true
+    
+{% if (sysctls is defined) and (sysctls != "") %}
+    securityContext: 
+      sysctls: {{ sysctls }}
+{% endif %}
 
     nodeSelector:
       nvidia.com/ais-target: {{ cluster }}
