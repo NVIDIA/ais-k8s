@@ -8,11 +8,6 @@
     prompt: "Are you sure you would like to destroy cluster {{ cluster }}? Type 'yes' to confirm."
     default: "no"
     private: no
-  
-  - name: "delete_conf"
-    prompt: "Would you also like to delete all .ais.conf and .ais.override_config files from all nodes"
-    default: "no"
-    private: no
 
   pre_tasks:
     - name: check confirmation
@@ -34,5 +29,12 @@
   hosts: "{{ cluster }}"
   gather_facts: no
   become: true
+
+  vars_prompt:
+    - name: "delete_conf"
+      prompt: "Would you also like to delete all .ais.conf and .ais.override_config files from all nodes"
+      default: "no"
+      private: no
+
   roles:
     - role: ais_reset_config
