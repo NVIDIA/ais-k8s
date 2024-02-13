@@ -23,6 +23,9 @@ const (
 	ENVLocalConfigFilePath  = "AIS_LOCAL_CONF_FILE"              // Path to AIS local config file
 	EnvEnablePrometheus     = "AIS_PROMETHEUS"                   // Enable prometheus exporter
 	EnvUseHTTPS             = "AIS_USE_HTTPS"                    // Use HTTPS endpoints
+	EnvServerCert           = "AIS_SERVER_CRT"                   // Path to server certificate (TLS)
+	EnvServerKey            = "AIS_SERVER_KEY"                   // Path to server key (TLS)
+	EnvClientCaTls          = "AIS_CLIENT_CA_TLS"                // Path to Client CA (TLS)
 	EnvStatsDConfig         = "STATSD_CONF_FILE"                 // Path to StatsD config json
 	EnvNumTargets           = "TARGETS"                          // Expected target count // TODO: Add AIS_ prefix
 	EnvEnableExternalAccess = "ENABLE_EXTERNAL_ACCESS"           // Bool flag to indicate AIS daemon is exposed using LoadBalancer

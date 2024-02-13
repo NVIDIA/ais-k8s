@@ -88,6 +88,9 @@ func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
 	}
 	if ais.Spec.TLSSecretName != nil {
 		optionals = append(optionals, cmn.EnvFromValue(cmn.EnvUseHTTPS, "true"))
+		optionals = append(optionals, cmn.EnvFromValue(cmn.EnvServerCert, "/var/certs/tls.crt"))
+		optionals = append(optionals, cmn.EnvFromValue(cmn.EnvServerKey, "/var/certs/tls.key"))
+		optionals = append(optionals, cmn.EnvFromValue(cmn.EnvClientCaTls, "/var/certs/ca.cert"))
 	}
 
 	return corev1.PodSpec{

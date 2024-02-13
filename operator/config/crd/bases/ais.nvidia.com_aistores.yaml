@@ -271,6 +271,12 @@ spec:
                         properties:
                           chunked_transfer:
                             type: boolean
+                          client_auth_tls:
+                            type: integer
+                          client_ca_tls:
+                            type: string
+                          domain_tls:
+                            type: string
                           read_buffer_size:
                             type: integer
                           server_crt:
@@ -428,6 +434,12 @@ spec:
               gcpSecretName:
                 description: Secret name containing GCP credentials
                 type: string
+              hostnameMap:
+                additionalProperties:
+                  type: string
+                description: Map of primary host to comma-separated string of all
+                  hosts for multi-home
+                type: object
               hostpathPrefix:
                 type: string
               imagePullSecrets:
@@ -445,6 +457,10 @@ spec:
                   type: object
                 type: array
               initImage:
+                type: string
+              networkAttachment:
+                description: Commma-separated list of names of additional network
+                  attachment definitions to attach to each pod
                 type: string
               nodeImage:
                 type: string
