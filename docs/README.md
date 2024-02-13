@@ -210,7 +210,7 @@ After these configurations, execute the playbook and monitor the pod statuses un
 $ watch kubectl get pods -n <cluster-namespace>
 ```
 
-**Important Note**: In some Kubernetes deployments, the default cluster domain name might differ from `cluster.local`. If this is the case, update the `clusterDomain` parameter in the playbook [templates](../playbooks/ais-deployment/roles/ais_deploy_cluster/templates/ais.yaml.j2) accordingly.
+**Important Note**: In some Kubernetes deployments, the default cluster domain name might differ from `cluster.local` which can be overridden using the `cluster_domain` variable.
 
 With these steps, your AIStore cluster on Kubernetes should be up and running. 
 

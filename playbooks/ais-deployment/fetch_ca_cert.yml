@@ -9,5 +9,10 @@
     - vars/https_config.yml
   vars:
     - cacert_file: ais_ca.crt
+  pre_tasks:  
+    - name: Validate if cluster is defined
+      fail:
+        msg: "Variable 'cluster' not found. Add the 'cluster' variable during execution. e.g. ansible-playbook -i hosts.ini fetch_ca_cert.yml -e cluster=ais"
+      when: cluster is undefined
   roles:
     - fetch_ca_cert

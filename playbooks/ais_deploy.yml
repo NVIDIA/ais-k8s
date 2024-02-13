@@ -92,7 +92,7 @@
   vars_files:
     - "ais-deployment/vars/https_config.yml"
   vars:
-    k8s_namespace: "{{ cert_namespace }}"
+    k8s_namespace: "{{ cluster }}"
   vars_prompt:
     - name: https_confirmation
       prompt: "Enable HTTPS for AIStore? Confirm with 'yes' and ensure (or edit) variables under 'ais-deployment/vars/https_config.yml' required for HTTPS. Select 'no' for HTTP support."

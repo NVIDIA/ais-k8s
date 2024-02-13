@@ -22,7 +22,7 @@ First update the TLS variables and create a certficiate as described above. Next
 
 For client connectivity after deploying with HTTPS, you have a few options.
 
-1. Change the CLI config to skip X.509 verification:
+1. Change the CLI config to **skip X.509 verification**:
    ```bash
    $ ais config cli set cluster.skip_verify_crt true
    ```
@@ -30,7 +30,7 @@ For client connectivity after deploying with HTTPS, you have a few options.
 2. Get the issuer's ca.crt from the K8s secret using the playbook described [below](#fetching-ca-certificate) 
 
 3. Set up your client to use the certificate for verification
-   - **CLI**:  Set the environment variable for the AIS CLI described in the [AIStore docs](https://github.com/NVIDIA/aistore/blob/master/docs/cli.md#environment-variables)
+   - **CLI**:  Set the environment variable (`AIS_CLIENT_CA`) for the AIS CLI described in the [AIStore docs](https://github.com/NVIDIA/aistore/blob/master/docs/cli.md#environment-variables)
    - **Python SDK** See the [SDK docs](https://github.com/NVIDIA/aistore/tree/master/python/aistore/sdk#readme)
    - **HTTP (curl)** Use the `cacert` option, e.g. `curl https://localhost:51080/v1/daemon?what=smap --cacert ca.crt`
 
@@ -39,5 +39,9 @@ For client connectivity after deploying with HTTPS, you have a few options.
 To fetch the CA certificate for verifying the server's cert on the client side, you can use the `fetch_ca_cert` playbook. Provide the `cacert_file` argument to specify the output file (default is `ais_ca.crt`). This will fetch the certificate from the K8s secret on the cluster so it can be used with a local client. 
 
 ```
-ansible-playbook -i ../../hosts.ini fetch_ca_cert.yml -e cacert_file=ca.crt
+ansible-playbook -i ../../hosts.ini fetch_ca_cert.yml -e cacert_file=ca.crt -e cluster=ais
 ```
+
+> Note: The crt file is stored under `ais-k8s/playbooks/ais-deployment`
+
+To use this `ais_ca.crt` with CLI, run - `export AIS_CLIENT_CA=<path-to-cert>/ais_ca.crt`

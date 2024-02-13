@@ -11,7 +11,7 @@ apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: selfsigned-cert
-  namespace: {{ cert_namespace }}
+  namespace: {{ cluster }}
 spec:
   secretName: {{ ca_cert_secret }}
   isCA: true
@@ -32,7 +32,7 @@ apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
   name: ca-issuer
-  namespace: {{ cert_namespace }}
+  namespace: {{ cluster }}
 spec:
   ca:
     secretName: {{ ca_cert_secret }}

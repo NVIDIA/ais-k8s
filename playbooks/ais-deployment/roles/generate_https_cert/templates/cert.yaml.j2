@@ -2,7 +2,7 @@ apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: ais-server-cert
-  namespace: {{ cert_namespace }}
+  namespace: {{ cluster }}
 spec:
   secretName: {{ tls_secret }}
   isCA: false
@@ -10,7 +10,7 @@ spec:
   renewBefore: 720h  # 30 days
   dnsNames:
   {% for dns_name in dns_names %}
-    - {{ dns_name }}
+    - "{{ dns_name }}"
   {% endfor %}
   ipAddresses:
   {% for ip_addr in ip_addresses %}

@@ -1,4 +1,3 @@
----
 init_image: aistorage/ais-init:v3.22
 node_image: aistorage/aisnode:v3.22
 
@@ -12,3 +11,6 @@ tcp_tw_reuse: 1
 tcp_max_tw_buckets: 1440000
 ip_local_port_range: 2048 65535
 somaxconn: 65535
+
+# cluster domain name for DNS
+cluster_domain: "cluster.local"

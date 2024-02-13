@@ -1,0 +1,3 @@
+---
+# cluster domain name for DNS (used for generating TLS certificates)
+cluster_domain: "cluster.local"

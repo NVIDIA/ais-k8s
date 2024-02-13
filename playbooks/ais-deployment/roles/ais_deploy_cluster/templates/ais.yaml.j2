@@ -23,6 +23,8 @@ spec:
         server_key: "/var/certs/tls.key"
         use_https: true
         skip_verify: {{ skip_verify_cert }} # if you are using self signed certs
+        client_ca_tls: "/var/certs/ca.crt"
+        client_auth_tls: {{ client_auth_tls }}
 {% endif %}
 
   enablePromExporter: false
@@ -94,4 +96,4 @@ spec:
   networkAttachment: "{{ network_attachment }}"
 {% endif %}
 
-  clusterDomain: "cluster.local"
+  clusterDomain: "{{ cluster_domain }}"

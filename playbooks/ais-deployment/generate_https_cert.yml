@@ -8,8 +8,13 @@
   gather_facts: false
   vars_files:
     - vars/https_config.yml
+  pre_tasks:  
+    - name: Validate if cluster is defined
+      fail:
+        msg: "Variable 'cluster' not found. Add the 'cluster' variable during execution. e.g. ansible-playbook -i hosts.ini generate_https_cert.yml -e cluster=ais"
+      when: cluster is undefined
   vars:
-    - k8s_namespace: "{{ cert_namespace }}"
+    - k8s_namespace: "{{ cluster }}"
   roles:
     - create_namespace
     - generate_https_cert

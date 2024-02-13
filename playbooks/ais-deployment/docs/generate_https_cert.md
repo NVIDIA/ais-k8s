@@ -24,7 +24,7 @@ To use this playbook, follow these steps:
    To optionally output the resulting CA certificate to a local file, provide the `cacert_file` variable:
 
    ```console
-   $ ansible-playbook -i hosts.ini generate_https_cert.yml -e cacert_file=local_ais_ca.crt
+   $ ansible-playbook -i hosts.ini generate_https_cert.yml -e cacert_file=local_ais_ca.crt -e cluster=ais
    ```
 
    To fetch the certificate later, you can [use the fetch_ca_cert playbook](./ais_https_configuration.md#fetching-ca-certificate)

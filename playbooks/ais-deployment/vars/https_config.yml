@@ -1,19 +1,41 @@
 ---
-protocol: http
-cert_namespace: ais
-ca_cert_secret: ca-root-secret
-tls_secret: tls-certs
-# WIP option -- may cause issues
-skip_verify_cert: false
+protocol: "http"
 
-# Replace below with all the dns names your certificate should be valid for
+ca_cert_secret: "ca-root-secret"
+tls_secret: "tls-certs"
+
+# set the following vars, only if you actually want to verify the certificates
+skip_verify_cert: true
+
+# Replace below with all the dns names or Subject Alternative Names (SANs) your certificate should be valid for
 dns_names:
-  # - aistorecpu1010.nsv.sjc4.nvmetal.net
-  # - aistorecpu1011.nsv.sjc4.nvmetal.net
-  # - aistorecpu1012.nsv.sjc4.nvmetal.net
-  # - localhost
+  # mandatory if skip_verify_cert: false
+  # used for readiness and liveness check
+  - "localhost" 
+  - "127.0.0.1"
+  # used for registration of targets 
+  - "ais-proxy"
+  - "ais-target"
+  # used for intra cluster communication
+  - "*.ais-proxy.{{ cluster }}.svc.{{ cluster_domain }}"
+  - "*.ais-target.{{ cluster }}.svc.{{ cluster_domain }}"
+  # used for ais-operator communication
+  - "ais-proxy.ais"
+  # rest are ip addresses/hostnames from where cluster will be accessed (outside of cluster)
+  # - "10.150.56.225"
+  # - "10.150.56.227"
+  # - "10.150.56.230"
+  # - "aistorecpu1010.nsv.sjc4.nvmetal.net"
+  # - "aistorecpu1011.nsv.sjc4.nvmetal.net"
+  # - "aistorecpu1012.nsv.sjc4.nvmetal.net"
+  
 # Replace below with all the ip addresses your certificate should be valid for 
 ip_addresses:
+  - 127.0.0.1
   # - 10.150.56.225
   # - 10.150.56.227
   # - 10.150.56.230
+
+# ref: https://pkg.go.dev/crypto/tls#ClientAuthType
+# WIP option - may cause issues
+client_auth_tls: 0
