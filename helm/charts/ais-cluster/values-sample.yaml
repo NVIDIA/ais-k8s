@@ -1,0 +1,36 @@
+global:
+  nodes: 
+    - aistorecpu1004.nsv.sjc11.nvmetal.net
+    - aistorecpu1005.nsv.sjc11.nvmetal.net
+    - aistorecpu1006.nsv.sjc11.nvmetal.net
+  job_namespace: ais-jobs
+  namespace: ais
+  cluster: ais
+  mpath_size: 5.8Ti
+  mpaths:
+    - /ais/nvme0n1
+    - /ais/nvme1n1
+    - /ais/nvme3n1
+
+ais-cluster:
+  size: 3
+  protocol: http
+  https:
+    skipVerifyCert: true
+    tlsSecret: "tls-certs"
+  nodeImage:
+    name: aistorage/aisnode
+    tag: v3.22
+  initImage:
+    name: aistorage/ais-ninit
+    tag: v3.22
+  cloud:
+    awsSecretName: "aws-creds"
+    gcpSecretName: "gcp-creds"
+  multihome:
+    enabled: false
+    hostnameMap: 
+    networkAttachment:
+    
+
+

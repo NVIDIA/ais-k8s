@@ -1,6 +1,9 @@
+# Set variables based on the root context to be accessible within the range
 {{- $global := .Values.global -}}
+{{- $release := .Release -}}
+# Loop over all nodes and mpaths to create PVs
 {{- range $index, $node := $global.nodes }}
-  {{- range $mpathIndex, $mpath := $.Values.mpaths }}
+  {{- range $mpathIndex, $mpath := $.Values.global.mpaths }}
 apiVersion: v1
 kind: PersistentVolume
 metadata:
@@ -12,14 +15,14 @@ metadata:
 spec:
   storageClassName: ais-local-storage
   capacity:
-    storage: {{ $.Values.mpath_size }}
+    storage: {{ $.Values.global.mpath_size }}
   accessModes:
     - ReadWriteOnce
   hostPath:
     path: {{ $mpath }}
   claimRef:
     name: ais-{{ $mpath | replace "/" "-" | trimPrefix "-" }}-ais-target-{{ $index }}
-    namespace: {{ $global.namespace }}
+    namespace: {{ $release.Namespace }}
   nodeAffinity:
     required:
       nodeSelectorTerms:

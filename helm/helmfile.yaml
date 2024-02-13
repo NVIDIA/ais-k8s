@@ -1,0 +1,25 @@
+repositories:
+- name: ais-operator
+  url: https://github.com/NVIDIA/ais-k8s/releases/download/v1.0.0/
+
+releases:
+- name: ais-operator
+  namespace: ais-operator-system
+  createNamespace: true
+  chart: ais-operator/ais-operator
+  version: 0.1.0
+  wait: true
+
+- name: ais-cluster
+  namespace: ais
+  createNamespace: true
+  chart: charts/ais-cluster
+  version: 0.1.0
+  # Without this, helm diff cannot validate the CRD because the operator has not yet created it
+  disableValidationOnInstall: true
+  needs:
+    - ais-operator-system/ais-operator
+  values:
+  # Update this to the values file for your cluster
+    - charts/ais-cluster/sjc11values.yaml
+    

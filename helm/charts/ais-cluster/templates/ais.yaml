@@ -1,0 +1,79 @@
+apiVersion: ais.nvidia.com/v1beta1
+kind: AIStore
+metadata:
+  name: {{ .Values.global.cluster }}
+  namespace: {{ .Release.namespace }}
+spec:
+  size: {{ .Values.size }}
+  configToUpdate:
+    mirror:
+      enabled: false
+    rebalance:
+      enabled: true
+      bundle_multiplier: 2
+    resilver:
+      enabled: true
+    {{- if eq .Values.protocol "https" }}
+    net:
+      http:
+        server_crt: "/var/certs/tls.crt"
+        server_key: "/var/certs/tls.key"
+        use_https: true
+        skip_verify: {{ .Values.https.skipVerifyCert }}
+    {{- end }}
+  enablePromExporter: false
+  proxySpec:
+    hostPort: 51080
+    servicePort: 51080
+    portPublic: 51080
+    portIntraControl: 51081
+    portIntraData: 51082
+    capabilities:
+      privileged: true
+    # nodeSelector:
+    #   {{ .Values.global.nodes }}
+    nodeSelector:
+      nvidia.com/ais-proxy: {{ .Values.global.cluster }}
+  targetSpec:
+    hostPort: 51081
+    servicePort: 51081
+    portPublic: 51081
+    portIntraControl: 51082
+    portIntraData: 51083
+    capabilities:
+      privileged: true
+    # nodeSelector:
+    #   {{ .Values.global.nodes }}
+    nodeSelector:
+      nvidia.com/ais-target: {{ .Values.global.cluster }}
+    mounts:
+    {{- $size := .Values.global.mpath_size }}
+    {{- range .Values.global.mpaths }}
+      - path: {{ . }}
+        size: {{ $size }}
+        storageClass: "ais-local-storage"
+        selector:
+          matchLabels:
+            mpath: pv-{{ . | replace "/" "-" | trimPrefix "-" }}
+    {{- end }}
+
+  nodeImage: "{{ .Values.nodeImage.name }}:{{ .Values.nodeImage.tag }}"
+  initImage: "{{ .Values.initImage.name }}:{{ .Values.initImage.tag }}"
+  hostpathPrefix: "/etc/ais"
+  {{- if eq .Values.protocol "https" }}
+  tlsSecretName: {{ .Values.https.tlsSecret }}
+  {{- end }}
+  {{- if .Values.cloud.awsSecretName }}
+  awsSecretName: "{{ .Values.cloud.awsSecretName }}"
+  {{- end }}
+  {{- if .Values.cloud.gcpSecretName }}
+  gcpSecretName: "{{ .Values.cloud.gcpSecretName }}"
+  {{- end }}
+  enableExternalLB: false
+  {{- with .Values.multihome.hostnameMap }}
+  hostnameMap: {{ toJson . }}
+  {{- end }}
+  {{- if .Values.multihome.networkAttachment }}
+  networkAttachment: "{{ .Values.multihome.networkAttachment }}"
+  {{- end }}
+  clusterDomain: "cluster.local"
