@@ -1,9 +1,0 @@
-#
-# Storage class for local persistent volumes
-#
-apiVersion: storage.k8s.io/v1
-kind: StorageClass
-metadata:
-  name: ais-local-storage
-provisioner: kubernetes.io/no-provisioner
-volumeBindingMode: WaitForFirstConsumer

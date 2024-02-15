@@ -27,4 +27,5 @@
   become: true
   roles:
     - create_namespace
+    - create_pv
     - ais_deploy_cluster
