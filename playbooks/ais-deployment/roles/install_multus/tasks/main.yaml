@@ -12,5 +12,5 @@
     msg: "Multus is {{ 'already' if multus_running else 'not' }} running. {{ 'Skipping install' if multus_running else 'Installing latest...' }}"
 
 - name: Install multus if necessary
-  script: install-multus.sh "{{ multus_url }}"
+  shell: kubectl apply -f "{{ multus_url }}"
   when: not multus_running

@@ -1,1 +1,1 @@
-multus_url: https://github.com/k8snetworkplumbingwg/multus-cni/archive/refs/tags/v4.0.2.tar.gz
+multus_url: https://raw.githubusercontent.com/k8snetworkplumbingwg/multus-cni/master/deployments/multus-daemonset-thick.yml
