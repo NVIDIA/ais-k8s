@@ -11,12 +11,14 @@
 - name: Delete all AIS pods from the cluster
   hosts: controller
   gather_facts: false
+  become: true
   roles:
     - ais_delete_all_pods
 
 - name: Redeploy AIS cluster
   hosts: controller
   gather_facts: false
+  become: true
   roles:
     - ais_deploy_cluster
   vars_files:

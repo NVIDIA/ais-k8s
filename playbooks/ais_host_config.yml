@@ -8,7 +8,7 @@
   pre_tasks:    
     - name: Validate if ais_hosts is defined
       fail:
-        msg: "Variable 'ais_hosts' not found. Add the 'ais_hosts' variable during execution. Use: ansible-playbook -i hosts.ini ais_deploy_cluster.yml -b -K -e ais_hosts=ais"
+        msg: "Variable 'ais_hosts' not found. Add the 'ais_hosts' variable during execution. Use: ansible-playbook -i hosts.ini ais_host_config.yml -e ais_hosts=ais"
       when: ais_hosts is undefined
 
 # Setting up host-config

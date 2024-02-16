@@ -34,6 +34,8 @@ Before using this playbook, ensure you meet the following prerequisites:
 
 4. **Certificate Creation and Mounting:** Follow [generate_https_cert](generate_https_cert.md) to create your TLS certificates.
 
+> Note: If you are using AIS CLI and do not want to verify the certificate, use `$ ais config cli set cluster.skip_verify_crt true`.
+
 ### Playbook Execution
 
 Follow these steps to use the `ais_switch_protocol` playbook:
@@ -48,11 +50,11 @@ Follow these steps to use the `ais_switch_protocol` playbook:
 
 5. **Run the Playbook:** Execute the playbook using the following command:
    ```console
-   $ ansible-playbook -i hosts.ini ais_switch_protocol.yml -e cluster=ais -K
+   $ ansible-playbook -i hosts.ini ais_switch_protocol.yml -e cluster=ais
    ```
 
    To remove AIStore configuration files after performing significant upgrades to your cluster, execute the following command:
    
    ```console
-   $ ansible-playbook -i hosts.ini ais_switch_protocol.yml -K -e cluster=ais -e delete_conf=true
+   $ ansible-playbook -i hosts.ini ais_switch_protocol.yml -e cluster=ais -e delete_conf=true
    ```

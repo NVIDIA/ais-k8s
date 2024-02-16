@@ -57,7 +57,7 @@ Finally, we can deploy AIS and use the definitions we created above.
 
 3. Run the deploy playbook as usual:
 
-    `ansible-playbook -i ../hosts.ini ais_deploy_cluster.yml -b -K -e cluster=ais -e node_name=ansible_host`
+    `ansible-playbook -i ../hosts.ini ais_deploy_cluster.yml -e cluster=ais -e node_name=ansible_host`
 
 4. Check the cluster map.
 
