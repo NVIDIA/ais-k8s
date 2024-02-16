@@ -8,8 +8,8 @@ spec:
   proxySpec:
     servicePort: 51080
     portPublic: 51080
-    portIntraControl: 51081
-    portIntraData: 51082
+    portIntraControl: 51082
+    portIntraData: 51083
 
   targetSpec:
     servicePort: 51081

@@ -48,8 +48,8 @@ func NewAISClusterCR(args ClusterSpecArgs) *aisv1.AIStore {
 			ServiceSpec: aisv1.ServiceSpec{
 				ServicePort:      intstr.FromInt(51080),
 				PublicPort:       intstr.FromInt(51080),
-				IntraControlPort: intstr.FromInt(51081),
-				IntraDataPort:    intstr.FromInt(51082),
+				IntraControlPort: intstr.FromInt(51082),
+				IntraDataPort:    intstr.FromInt(51083),
 			},
 		},
 
