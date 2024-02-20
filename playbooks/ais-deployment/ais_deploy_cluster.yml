@@ -11,12 +11,12 @@
   pre_tasks:
     - name: Validate if ais_mpaths is defined
       fail:
-        msg: "Variable 'ais_mpaths' not found. Refer to https://github.com/NVIDIA/ais-k8s/tree/master/docs#aistore-cluster-creation-process and poplulate the var in 'ais_mpaths.yml'"
+        msg: "Variable 'ais_mpaths' not found. Refer to https://github.com/NVIDIA/ais-k8s/tree/master/docs#aistore-cluster-creation-process and populate the var in 'ais_mpaths.yml'"
       when: ais_mpaths is undefined
 
     - name: Validate if ais_mpath_size is defined
       fail:
-        msg: "Variable 'aisais_mpath_size_mpaths' not found. Refer to https://github.com/NVIDIA/ais-k8s/tree/master/docs#aistore-cluster-creation-process and poplulate the var in 'ais_mpaths.yml'"
+        msg: "Variable 'ais_mpath_size' not found. Refer to https://github.com/NVIDIA/ais-k8s/tree/master/docs#aistore-cluster-creation-process and populate the var in 'ais_mpaths.yml'"
       when: ais_mpath_size is undefined
 
     - name: Validate if cluster is defined

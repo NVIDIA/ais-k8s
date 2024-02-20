@@ -1,0 +1,16 @@
+helper-rbac:
+  namespace: ais-jobs
+
+label-nodes:
+  cluster: ais
+  nodes:
+  # - aistorecpu1000.nsv.sjc11.nvmetal.net
+  # - aistorecpu1001.nsv.sjc11.nvmetal.net
+  # - aistorecpu1002.nsv.sjc11.nvmetal.net
+  # - aistorecpu1003.nsv.sjc11.nvmetal.net
+  # - aistorecpu1004.nsv.sjc11.nvmetal.net
+  # - aistorecpu1005.nsv.sjc11.nvmetal.net
+  # - aistorecpu1006.nsv.sjc11.nvmetal.net
+  # - aistorecpu1007.nsv.sjc11.nvmetal.net
+  # - aistorecpu1008.nsv.sjc11.nvmetal.net
+  # - aistorecpu1009.nsv.sjc11.nvmetal.net

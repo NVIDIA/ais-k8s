@@ -1,0 +1,36 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ais-label-nodes
+spec:
+  template:
+    spec:
+      # Only run on control plane (with kubectl installed)
+      nodeSelector:
+        node-role.kubernetes.io/control-plane: ""
+      # Needed for cluster role to modify nodes
+      serviceAccountName: ais-deploy-helper
+      containers:
+      - name: node-labeler
+        image: aistorage/ais-deploy-helper:0.1.0
+        command: ["/bin/bash", "-c", "/files/label-nodes.sh"]
+        env:
+        - name: CLUSTER
+          value: "{{ .Values.cluster }}"
+        - name: NODES
+          value: "{{ join " " .Values.nodes }}"
+        volumeMounts:
+        - name: kubectl-binary
+          mountPath: /usr/local/bin/kubectl
+          readOnly: true
+        - name: kubectl-config
+          mountPath: "~/.kube/config"
+          readOnly: true
+      volumes:
+      - name: kubectl-binary
+        hostPath:
+          path: /usr/local/bin/kubectl
+      - name: kubectl-config
+        hostPath:
+          path: /root/.kube/config
+      restartPolicy: Never

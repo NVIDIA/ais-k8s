@@ -9,6 +9,7 @@ This repository includes a variety of resources to facilitate your deployment:
 - [**Documentation/Guide**](docs/README.md): This section provides detailed, step-by-step instructions for deploying AIStore on Kubernetes (K8s), covering essential [deployment scenarios and considerations](docs/k8s_discussion.md).
 - [**Ansible Playbooks**](playbooks/README.md): These playbooks are designed to streamline the setup of Kubernetes worker nodes for hosting AIStore deployments.
 - [**Kubernetes Operator**](operator/README.md): AIS K8s Operator simplifies critical tasks such as bootstrapping, deployment, scaling, graceful shutdowns, and upgrades. It extends Kubernetes' native API, automating the lifecycle management of AIStore clusters.
+- [**Helm Charts**](helm/README.md): **[In development]**. Helm charts for deploying AIS resources to be controlled by the operator (alternative to ansible).
 - [**Terraform Definitions**](terraform/README.md): These definitions facilitate the deployment of AIStore on public cloud platforms like GKE/GCP. **[No Longer Supported]**
 
 ## A Simple System Overview

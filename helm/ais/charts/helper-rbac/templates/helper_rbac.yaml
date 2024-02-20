@@ -1,0 +1,28 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ais-deploy-helper
+  namespace: {{ .Values.namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: ais-deploy-helper-role
+rules:
+- apiGroups: [""]
+  resources: ["nodes"]
+  verbs: ["get", "list", "watch", "patch", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: ais-deploy-helper-binding
+subjects:
+- kind: ServiceAccount
+  name: ais-deploy-helper
+  namespace: {{ .Values.namespace }}
+roleRef:
+  kind: ClusterRole
+  name: ais-deploy-helper-role
+  apiGroup: rbac.authorization.k8s.io

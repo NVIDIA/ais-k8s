@@ -1,0 +1,7 @@
+apiVersion: v2
+name: ais-label-nodes
+version: 0.1.0
+dependencies:
+- name: ais-helper-rbac
+  version: "0.1.0"
+  repository: "file://../helper-rbac"
