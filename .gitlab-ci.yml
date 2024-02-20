@@ -26,6 +26,15 @@ before_script:
     - merge_requests
     - schedules
 
+build:helper:
+  stage: build
+  image: aistorage/ci:latest
+  timeout: 10m
+  <<: *default_only_def
+  script:
+    - cd ais-deploy-helper
+    - make build
+
 build:operator:lint:
   stage: build
   image: aistorage/ci:latest

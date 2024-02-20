@@ -1,0 +1,30 @@
+# Builds and pushes the ais-deploy-helper image, containing scripts and templates to prepare systems for ais deployment
+name: Docker AIS Deploy Helper Image
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'AIS Deploy Helper image tag'
+        required: true
+
+env:
+  HELPER_IMAGE: 'aistorage/ais-deploy-helper'
+
+jobs:
+  docker:
+    runs-on: ubuntu-22.04
+    steps:
+
+    - uses: actions/checkout@v3
+    - name: Login to DockerHub
+      uses: docker/login-action@v2
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: aisoperator image
+      run: |
+        pushd $GITHUB_WORKSPACE/ais-deploy-helper
+        IMG="${{ env.HELPER_IMAGE }}:${{ inputs.image_tag }}" make build push
+        popd
