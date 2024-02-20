@@ -1,5 +1,5 @@
 # Builds and pushes the ais-deploy-helper image, containing scripts and templates to prepare systems for ais deployment
-name: Docker AIS Deploy Helper Image
+name: Docker Image -- AIS Deploy Helper
 
 on:
   workflow_dispatch:

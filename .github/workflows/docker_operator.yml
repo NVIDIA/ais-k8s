@@ -1,4 +1,4 @@
-name: Docker Images
+name: Docker Image -- Operator
 
 on:
   workflow_dispatch:
