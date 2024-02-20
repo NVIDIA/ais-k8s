@@ -71,4 +71,11 @@ To integrate new nodes into your cluster:
     ansible-playbook -i hosts.ini ais-deployment/ais_deploy_cluster.yml -e cluster=ais
     ```
 
+### Downscaling the AIS Cluster
+
+To decrease the number of nodes in your current AIS Cluster, use this playbook -
+  ```
+  ansible-playbook -i hosts.ini ais-deployment/ais_downscale_cluster.yml -e size=X
+  ```
+
 For additional ansible config tweaks, you can create an `ansible.cfg` file. Check the [Ansible documentation](https://docs.ansible.com/ansible/latest/installation_guide/intro_configuration.html) for this, as options may change with new versions. 

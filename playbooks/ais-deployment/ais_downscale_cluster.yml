@@ -1,0 +1,12 @@
+---
+- name: Patch AIStore Size
+  hosts: controller
+  vars_prompt:
+    - name: size
+      prompt: "Enter the new size for AIStore cluster"
+      private: no
+  tasks:
+    - name: "Patch AIStore resource to change its size"
+      shell: "kubectl patch aistore ais -n ais --type='json' -p='[{\"op\": \"replace\", \"path\": \"/spec/size\", \"value\":{{ size }}}]'"
+      args:
+        executable: /bin/bash

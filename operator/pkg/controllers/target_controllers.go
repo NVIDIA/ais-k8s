@@ -1,6 +1,6 @@
 // Package controllers contains k8s controller logic for AIS cluster
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+* Copyright (c) 2021-2024, NVIDIA CORPORATION. All rights reserved.
  */
 package controllers
 
@@ -127,12 +127,11 @@ func (r *AIStoreReconciler) handleTargetScaleDown(ctx context.Context, ais *aisv
 	}
 
 	// Decommission target scaling down statefulset
-	decomissioning, err := r.decommissionTargets(ctx, ais, *ss.Spec.Replicas)
-	if decomissioning || err != nil {
+	decommissioning, err := r.decommissionTargets(ctx, ais, *ss.Spec.Replicas)
+	if decommissioning || err != nil {
 		return false, err
 	}
-
-	// If anything was updated, we consider it not immediately ready.
+	r.log.Info("Targets decommissioned, scaling down statefulset to match AIS cluster spec size")
 	updated, err := r.client.UpdateStatefulSetReplicas(ctx, targetSS, ais.Spec.Size)
 	return !updated, err
 }
@@ -140,28 +139,34 @@ func (r *AIStoreReconciler) handleTargetScaleDown(ctx context.Context, ais *aisv
 func (r *AIStoreReconciler) decommissionTargets(ctx context.Context, ais *aisv1.AIStore, actualSize int32) (decommissioning bool, err error) {
 	params, err := r.getAPIParams(ctx, ais)
 	if err != nil {
+		r.log.Error(err, "Failed to get API params")
 		return false, err
 	}
 
 	smap, err := aisapi.GetClusterMap(*params)
 	if err != nil {
+		r.log.Error(err, "Failed to get cluster map")
 		return false, err
 	}
-
+	r.log.Info("Decommissioning targets", "Smap version", smap)
 	toDecommission := 0
 	for idx := actualSize; idx > ais.Spec.Size; idx-- {
 		podName := target.PodName(ais, idx-1)
+		r.log.Info("Attempting to decommission target", "podName", podName)
 		for _, node := range smap.Tmap {
 			if !strings.HasPrefix(node.ControlNet.Hostname, podName) {
 				continue
 			}
 			toDecommission++
 			if !smap.InMaintOrDecomm(node) {
-				r.log.Info("decommissioning node - " + node.String())
+				r.log.Info("Decommissioning node", "nodeID", node.ID())
 				_, err = aisapi.DecommissionNode(*params, &aisapc.ActValRmNode{DaemonID: node.ID(), RmUserData: true})
 				if err != nil {
+					r.log.Error(err, "Failed to decommission node", "nodeID", node.ID())
 					return
 				}
+			} else {
+				r.log.Info("Node is already in decommissioning state", "nodeID", node.ID())
 			}
 		}
 	}

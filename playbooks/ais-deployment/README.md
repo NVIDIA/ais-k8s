@@ -15,3 +15,4 @@ Playbook(s) | Description
 [fetch_ca_cert](fetch_ca_cert.yml) | Fetch the CA cert secret for a client to use self-signed certificate verification. See [ais_https_configuration docs](docs/ais_https_configuration.md)
 [generate_https_cert](generate_https_cert.yml) | Generate HTTPS certificates for the cluster. See [generate_https_cert docs](docs/generate_https_cert.md).
 [install_requirements.yml](install_requirements.yml) | Install required ansible collections locally and Python requirements on the K8s controller host.
+[ais_downscale_cluster](ais_downscale_cluster.yml) | Decrease the number of nodes (proxy and target) in your current AIS Cluster. See [scaling docs](../README.md#downscaling-the-ais-cluster).
