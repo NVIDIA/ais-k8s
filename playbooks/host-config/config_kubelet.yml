@@ -5,16 +5,12 @@
 - hosts: '{{ ais_hosts | default("ais") }}'
   gather_facts: False
   become: true
+  vars_files:
+    - "vars/kubelet.yml"
 
   vars_prompt:
     - name: "confirm_restart"
       prompt: "Warning! This playbook will restart the kubelet service on each node. Do you want to continue? (yes/no)"
-      private: no
-
-    - name: "confirm_files"
-      prompt: "This playbook will overwrite the kubelet extra args configuration.
-      Make sure the conf file in roles/config_kubelet/files has all of the extra args your kubelet service needs. 
-      Type 'yes' to continue"
       private: no
 
   pre_tasks:
@@ -23,5 +19,38 @@
         msg: "Playbook execution cancelled by the user."
       when: confirm_restart != 'yes' and confirm_restart != 'yes'
 
-  roles:
-    - config_kubelet
+  tasks: 
+    - name: Check for systemd drop-in config file location
+      stat:
+        path: "{{ kubelet_systemd_path }}"
+      register: systemd_path
+
+    - name: Use the systemd drop-in config file if the path exists
+      include_role:
+        name: config_kubelet_systemd
+      when: systemd_path.stat.exists
+
+    - name: Check for kubelet config file at {{ kubelet_var_path }}
+      stat:
+        path: "{{ kubelet_var_path }}"
+      register: kubelet_conf
+      when: not systemd_path.stat.exists
+
+    - name: Assert at least one kubelet config location is found
+      assert:
+        that:
+          - systemd_path.stat.exists or kubelet_conf.stat.exists
+        fail_msg: "No systemd drop-in directory found at {{ kubelet_systemd_path }} and no kubelet config file found at {{ kubelet_var_path }}. Required to update configuration. Exiting."
+      
+    - name: Modify the config file at {{ kubelet_var_path }}
+      include_role:
+        name: config_kubelet
+      when: not systemd_path.stat.exists
+
+  post_tasks:
+    - name: Restart kubelet service
+      systemd:
+        name: kubelet
+        daemon-reload: yes
+        enabled: yes
+        state: restarted

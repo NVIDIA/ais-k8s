@@ -1,0 +1,4 @@
+# Path for kubelet config drop-in, if supported
+kubelet_systemd_path: /etc/systemd/system/kubelet.service.d/
+# Path to kubelet config file (Depending on installation, could be /var/lib/kubelet/config.yaml)
+kubelet_var_path: /etc/kubernetes/kubelet-config.yaml

@@ -1,12 +1,17 @@
-- name: Copy kubelet-extra-args config drop-in file for the kubelet service
-  ansible.builtin.copy:
-    src: "kubelet-extra-args.conf"
-    dest: "/etc/systemd/system/kubelet.service.d/kubelet-extra-args.conf"
-    mode: "644"
+- name: Read the YAML file
+  ansible.builtin.slurp:
+    path: "{{ kubelet_var_path }}"
+  register: kubelet_conf
 
-- name: Restart kubeletenv
-  systemd:
-    name: kubelet
-    daemon-reload: yes
-    enabled: yes
-    state: restarted
+- name: Convert YAML content to a dictionary
+  ansible.builtin.set_fact:
+    yaml_content: "{{ kubelet_conf['content'] | b64decode | from_yaml }}"
+
+- name: Add or update the 'allowedUnsafeSysctls' entry
+  ansible.builtin.set_fact:
+    yaml_content: "{{ yaml_content | combine({'allowedUnsafeSysctls': unsafe_sysctls }, recursive=True) }}"
+
+- name: Write the modified YAML back to the file
+  ansible.builtin.copy:
+    content: "{{ yaml_content | to_yaml }}"
+    dest: "{{ kubelet_var_path }}"
