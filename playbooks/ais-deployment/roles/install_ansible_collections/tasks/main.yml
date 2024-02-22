@@ -1,0 +1,6 @@
+- name: Install ansible collections listed in the collections file
+  command:
+    cmd: ansible-galaxy collection install -r {{ role_path }}/files/collections.yml
+  register: install_result
+  changed_when: "'already installed' not in install_result.stdout"
+  ignore_errors: yes

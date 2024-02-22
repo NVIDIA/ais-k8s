@@ -1,0 +1,12 @@
+- name: Install requirements on localhost
+  hosts: localhost
+  gather_facts: no
+  roles:
+    - install_ansible_collections
+
+- name: Install requirements for controller hosts
+  hosts: controller
+  gather_facts: no
+  become: yes
+  roles: 
+    - install_controller_requirements

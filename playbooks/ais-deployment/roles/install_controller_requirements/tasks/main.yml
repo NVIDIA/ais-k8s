@@ -1,0 +1,24 @@
+- name: Ensure Python 3 and pip are installed
+  ansible.builtin.package:
+    name:
+      - python3
+      - python3-pip
+    state: present
+
+- name: Upgrade pip to the latest version
+  ansible.builtin.pip:
+    name: pip
+    state: latest
+    executable: pip3
+
+- name: Read local requirements.txt
+  set_fact:
+    requirements_list: "{{ lookup('file', '{{ role_path }}/files/requirements.txt').splitlines() }}"
+  delegate_to: localhost
+
+- name: Install Python packages from requirements file
+  ansible.builtin.pip:
+    name: "{{ requirements_list }}"
+    state: present
+    executable: pip3
+    extra_args: --ignore-installed

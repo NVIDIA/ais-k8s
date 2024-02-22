@@ -2,6 +2,16 @@
 
 This directory contains ansible playbooks for setting up an AIStore cluster in K8s.
 
+## Prerequisites
+
+1. Ansible installed locally
+  See the [Ansible installation guide](https://docs.ansible.com/ansible/latest/installation_guide/intro_installation.html).
+2. Requirements playbook
+  Some of our playbooks require additional ansible collections or additional Python packages on the controller host. From this directory, run
+  ```bash
+  ansible-playbook -i hosts.ini ais-deployment/install_requirements.yml
+  ```
+
 ## Getting Started
 
 The playbooks are broken up into multiple sections, which should be executed in order. 
@@ -18,12 +28,12 @@ For a streamlined setup, we offer playbooks for configuring hosts and deploying 
 
 - To configure hosts for AIS Deployment:
   ```bash
-  ansible-playbook -i hosts.ini playbooks/ais_host_config.yml -e ais_hosts=ais
+  ansible-playbook -i hosts.ini ais_host_config.yml -e ais_hosts=ais
   ```
 
 - To deploy the AIS Cluster:
   ```bash
-  ansible-playbook -i hosts.ini playbooks/ais_deploy.yml -e cluster=ais
+  ansible-playbook -i hosts.ini ais_deploy.yml -e cluster=ais
   ```
 
 ## Scaling the AIS Cluster
@@ -46,7 +56,7 @@ To integrate new nodes into your cluster:
 
 2. **Run the Host Configuration Playbook**: Execute the `ais_host_config.yml` playbook targeting the `new_nodes` group to configure the new hosts.
     ```bash
-    ansible-playbook -i hosts.ini playbooks/ais_host_config.yml -e ais_hosts=new_nodes
+    ansible-playbook -i hosts.ini ais_host_config.yml -e ais_hosts=new_nodes
     ```
 
 3. **Update the Hosts File**: After setting up the new hosts, include the `new_nodes` group under `[ais:children]` in the [hosts.ini](./hosts-example.ini) file. **NOTE:** Ensure that the `new_nodes` group is added at the bottom of the to list to avoid interference with the existing setup.
