@@ -64,7 +64,7 @@ func (r *AIStoreReconciler) initProxies(ctx context.Context, ais *aisv1.AIStore)
 	}
 
 	// 4. Start all the proxy daemons
-	changed, err = r.client.UpdateStatefulSetReplicas(ctx, proxy.StatefulSetNSName(ais), ais.Spec.Size)
+	changed, err = r.client.UpdateStatefulSetReplicas(ctx, proxy.StatefulSetNSName(ais), ais.GetProxySize())
 	if err != nil {
 		r.recordError(ais, err, "Failed to deploy StatefulSet")
 		return
@@ -98,21 +98,21 @@ func (r *AIStoreReconciler) handleProxyState(ctx context.Context, ais *aisv1.AIS
 		return ready, err
 	}
 
-	if *ss.Spec.Replicas != ais.Spec.Size {
-		if *ss.Spec.Replicas > ais.Spec.Size {
+	if *ss.Spec.Replicas != ais.GetProxySize() {
+		if *ss.Spec.Replicas > ais.GetProxySize() {
 			// If the cluster is scaling down, ensure the pod being delete is not primary.
 			r.handleProxyScaledown(ctx, ais, *ss.Spec.Replicas)
 		}
 
 		// If anything was updated, we consider it not immediately ready.
-		updated, err := r.client.UpdateStatefulSetReplicas(ctx, proxySSName, ais.Spec.Size)
+		updated, err := r.client.UpdateStatefulSetReplicas(ctx, proxySSName, ais.GetProxySize())
 		if updated || err != nil {
 			return false, err
 		}
 	}
 
 	// For now, state of proxy is considered ready if the number of proxy pods ready matches the size provided in AIS cluster spec.
-	return ss.Status.ReadyReplicas == ais.Spec.Size, nil
+	return ss.Status.ReadyReplicas == ais.GetProxySize(), nil
 }
 
 func (r *AIStoreReconciler) handleProxyImage(ctx context.Context, ais *aisv1.AIStore) (ready bool, err error) {
@@ -238,7 +238,7 @@ func (r *AIStoreReconciler) handleProxyScaledown(ctx context.Context, ais *aisv1
 	}
 
 	var oldPrimaryID string
-	for idx := actualSize; idx > ais.Spec.Size; idx-- {
+	for idx := actualSize; idx > ais.GetProxySize(); idx-- {
 		podName := proxy.PodName(ais, idx-1)
 		for daeID, node := range smap.Pmap {
 			if !strings.HasPrefix(node.ControlNet.Hostname, podName) {

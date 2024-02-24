@@ -89,19 +89,19 @@ func (r *AIStoreReconciler) handleTargetState(ctx context.Context, ais *aisv1.AI
 	if err != nil {
 		return ready, err
 	}
-	if *ss.Spec.Replicas != ais.Spec.Size {
+	if *ss.Spec.Replicas != ais.GetTargetSize() {
 		ready, err = r.handleTargetScaling(ctx, ais, ss, targetSSName)
 		if !ready || err != nil {
 			return false, err
 		}
 	}
 	// For now, state of target is considered ready if the number of target pods ready matches the size provided in AIS cluster spec.
-	ready = ss.Status.ReadyReplicas == ais.Spec.Size
+	ready = ss.Status.ReadyReplicas == ais.GetTargetSize()
 	return
 }
 
 func (r *AIStoreReconciler) handleTargetScaling(ctx context.Context, ais *aisv1.AIStore, ss *v1.StatefulSet, targetSS types.NamespacedName) (ready bool, err error) {
-	if *ss.Spec.Replicas < ais.Spec.Size {
+	if *ss.Spec.Replicas < ais.GetTargetSize() {
 		// Current SS has fewer replicas than expected size - scale up.
 		return r.handleTargetScaleUp(ctx, ais, targetSS)
 	}
@@ -113,7 +113,7 @@ func (r *AIStoreReconciler) handleTargetScaling(ctx context.Context, ais *aisv1.
 func (r *AIStoreReconciler) handleTargetScaleDown(ctx context.Context, ais *aisv1.AIStore, ss *v1.StatefulSet, targetSS types.NamespacedName) (ready bool, err error) {
 	if ais.Spec.EnableExternalLB {
 		ready = true
-		for idx := *ss.Spec.Replicas; idx > ais.Spec.Size; idx-- {
+		for idx := *ss.Spec.Replicas; idx > ais.GetTargetSize(); idx-- {
 			svcName := target.LoadBalancerSVCNSName(ais, idx-1)
 			singleExisted, err := r.client.DeleteServiceIfExists(ctx, svcName)
 			if err != nil {
@@ -133,7 +133,7 @@ func (r *AIStoreReconciler) handleTargetScaleDown(ctx context.Context, ais *aisv
 	}
 
 	// If anything was updated, we consider it not immediately ready.
-	updated, err := r.client.UpdateStatefulSetReplicas(ctx, targetSS, ais.Spec.Size)
+	updated, err := r.client.UpdateStatefulSetReplicas(ctx, targetSS, ais.GetTargetSize())
 	return !updated, err
 }
 
@@ -149,7 +149,7 @@ func (r *AIStoreReconciler) decommissionTargets(ctx context.Context, ais *aisv1.
 	}
 
 	toDecommission := 0
-	for idx := actualSize; idx > ais.Spec.Size; idx-- {
+	for idx := actualSize; idx > ais.GetTargetSize(); idx-- {
 		podName := target.PodName(ais, idx-1)
 		for _, node := range smap.Tmap {
 			if !strings.HasPrefix(node.ControlNet.Hostname, podName) {
@@ -202,7 +202,7 @@ func (r *AIStoreReconciler) handleTargetScaleUp(ctx context.Context, ais *aisv1.
 	}
 
 	// If anything was updated, we consider it not immediately ready.
-	updated, err := r.client.UpdateStatefulSetReplicas(ctx, targetSS, ais.Spec.Size)
+	updated, err := r.client.UpdateStatefulSetReplicas(ctx, targetSS, ais.GetTargetSize())
 	return !updated, err
 }
 

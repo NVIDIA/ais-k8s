@@ -24,6 +24,8 @@ type (
 		Namespace            string
 		StorageClass         string
 		Size                 int32
+		TargetSize           int32
+		ProxySize            int32
 		DisableAntiAffinity  bool
 		EnableExternalLB     bool
 		PreservePVCs         bool
@@ -76,6 +78,14 @@ func NewAISClusterCR(args ClusterSpecArgs) *aisv1.AIStore {
 				},
 			},
 		},
+	}
+
+	if args.TargetSize != 0 {
+		spec.TargetSpec.Size = &args.TargetSize
+	}
+
+	if args.ProxySize != 0 {
+		spec.ProxySpec.Size = &args.ProxySize
 	}
 
 	cluster := &aisv1.AIStore{

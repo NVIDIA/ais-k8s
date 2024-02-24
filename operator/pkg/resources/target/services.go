@@ -123,7 +123,7 @@ func NewTargetLoadBalancerSVC(ais *aisv1.AIStore, targetIndex int32) *corev1.Ser
 }
 
 func NewLoadBalancerSVCList(ais *aisv1.AIStore) []*corev1.Service {
-	return LoadBalancerSVCList(ais, 0, ais.Spec.Size)
+	return LoadBalancerSVCList(ais, 0, ais.GetTargetSize())
 }
 
 func LoadBalancerSVCList(ais *aisv1.AIStore, first, size int32) []*corev1.Service {

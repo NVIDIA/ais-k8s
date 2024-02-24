@@ -78,6 +78,15 @@ var _ = Describe("Run Controller", func() {
 				createAndDestroyCluster(cluster, nil, nil, false)
 			})
 
+			It("Should successfully create an hetero-sized AIS Cluster", func() {
+				args := defaultCluArgs()
+				args.TargetSize = 2
+				args.ProxySize = 1
+				args.DisableAntiAffinity = true
+				cluster := tutils.NewAISClusterCR(args)
+				createAndDestroyCluster(cluster, nil, nil, false)
+			})
+
 			It("Should create all required K8s objects, when AIS Cluster is created", func() {
 				tutils.CheckSkip(&tutils.SkipArgs{OnlyLong: true})
 				cluster := tutils.NewAISClusterCR(defaultCluArgs())
@@ -176,6 +185,23 @@ var _ = Describe("Run Controller", func() {
 				cluster := tutils.NewAISClusterCR(cluArgs)
 				scaleUpCluster := func(ctx context.Context, cluster *aisv1.AIStore) {
 					scaleCluster(ctx, cluster, 1)
+				}
+				createAndDestroyCluster(cluster, scaleUpCluster, nil, false)
+			})
+
+			It("Should be able to scale-up targets of existing cluster", func() {
+				tutils.CheckSkip(&tutils.SkipArgs{SkipInternal: testAsExternalClient})
+				cluArgs := tutils.ClusterSpecArgs{
+					Name:                 clusterName(),
+					Namespace:            testNSName,
+					StorageClass:         storageClass,
+					Size:                 1,
+					DisableAntiAffinity:  true,
+					AllowSharedOrNoDisks: testAllowSharedNoDisks,
+				}
+				cluster := tutils.NewAISClusterCR(cluArgs)
+				scaleUpCluster := func(ctx context.Context, cluster *aisv1.AIStore) {
+					scaleClusterTarget(ctx, cluster, 1)
 				}
 				createAndDestroyCluster(cluster, scaleUpCluster, nil, false)
 			})
@@ -497,7 +523,7 @@ func checkResExistance(ctx context.Context, cluster *aisv1.AIStore, exists bool,
 	// 4.4 ExternalLB Service (optional)
 	if cluster.Spec.EnableExternalLB {
 		timeout, interval := tutils.GetLBExistenceTimeout()
-		for i := int32(0); i < cluster.Spec.Size; i++ {
+		for i := int32(0); i < cluster.GetTargetSize(); i++ {
 			tutils.EventuallyServiceExists(ctx, k8sClient, target.LoadBalancerSVCNSName(cluster, i),
 				condition, timeout, interval)
 		}
@@ -548,6 +574,16 @@ func scaleCluster(ctx context.Context, cluster *aisv1.AIStore, factor int32) {
 	cr, err := k8sClient.GetAIStoreCR(ctx, cluster.NamespacedName())
 	Expect(err).ShouldNot(HaveOccurred())
 	cr.Spec.Size += factor
+	err = k8sClient.Update(ctx, cr)
+	Expect(err).ShouldNot(HaveOccurred())
+	tutils.WaitForClusterToBeReady(ctx, k8sClient, cr, clusterReadyTimeout, clusterReadyRetryInterval)
+}
+
+func scaleClusterTarget(ctx context.Context, cluster *aisv1.AIStore, factor int32) {
+	cr, err := k8sClient.GetAIStoreCR(ctx, cluster.NamespacedName())
+	Expect(err).ShouldNot(HaveOccurred())
+	newSize := cluster.GetTargetSize() + factor
+	cr.Spec.TargetSpec.Size = &newSize
 	err = k8sClient.Update(ctx, cr)
 	Expect(err).ShouldNot(HaveOccurred())
 	tutils.WaitForClusterToBeReady(ctx, k8sClient, cr, clusterReadyTimeout, clusterReadyRetryInterval)

@@ -177,7 +177,7 @@ func WaitForClusterToBeReady(ctx context.Context, client *aisclient.K8sClient, c
 ) {
 	Eventually(func() bool {
 		proxySS, err := client.GetStatefulSet(ctx, proxy.StatefulSetNSName(cluster))
-		replicasReady := cluster.Spec.Size == *proxySS.Spec.Replicas && proxySS.Status.ReadyReplicas == *proxySS.Spec.Replicas
+		replicasReady := cluster.GetProxySize() == *proxySS.Spec.Replicas && proxySS.Status.ReadyReplicas == *proxySS.Spec.Replicas
 		if err != nil || !replicasReady {
 			return false
 		}
@@ -241,7 +241,7 @@ func GetLoadBalancerIP(ctx context.Context, client *aisclient.K8sClient, name ty
 }
 
 func GetRandomProxyIP(ctx context.Context, client *aisclient.K8sClient, cluster *aisv1.AIStore) string {
-	proxyIndex := rand.Intn(int(cluster.Spec.Size))
+	proxyIndex := rand.Intn(int(cluster.GetProxySize()))
 	proxySSName := proxy.StatefulSetNSName(cluster)
 	proxySSName.Name = fmt.Sprintf("%s-%d", proxySSName.Name, proxyIndex)
 	pod, err := client.GetPodByName(ctx, proxySSName)
