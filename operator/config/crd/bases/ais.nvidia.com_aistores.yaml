@@ -1859,6 +1859,11 @@ spec:
                     - type: integer
                     - type: string
                     x-kubernetes-int-or-string: true
+                  size:
+                    description: Size holds number of AIS Daemon (proxy/target) replicas.
+                      Overrides value present in `AIStore` spec.
+                    format: int32
+                    type: integer
                   tolerations:
                     description: Tolerations - list of tolerations for AIS Daemon
                       pod
@@ -3375,6 +3380,11 @@ spec:
                     - type: integer
                     - type: string
                     x-kubernetes-int-or-string: true
+                  size:
+                    description: Size holds number of AIS Daemon (proxy/target) replicas.
+                      Overrides value present in `AIStore` spec.
+                    format: int32
+                    type: integer
                   tolerations:
                     description: Tolerations - list of tolerations for AIS Daemon
                       pod

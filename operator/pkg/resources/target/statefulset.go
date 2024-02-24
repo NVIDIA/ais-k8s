@@ -40,7 +40,10 @@ func PodLabels(ais *aisv1.AIStore) map[string]string {
 
 func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 	ls := PodLabels(ais)
-	var optionals []corev1.EnvVar
+	var (
+		optionals  []corev1.EnvVar
+		targetSize = ais.GetTargetSize()
+	)
 	if ais.Spec.TargetSpec.HostPort != nil {
 		optionals = []corev1.EnvVar{
 			cmn.EnvFromFieldPath(cmn.EnvPublicHostname, "status.hostIP"),
@@ -67,7 +70,7 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 			},
 			ServiceName:          headlessSVCName(ais),
 			PodManagementPolicy:  apiv1.ParallelPodManagement,
-			Replicas:             &ais.Spec.Size,
+			Replicas:             &targetSize,
 			VolumeClaimTemplates: targetVC(ais),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
@@ -181,7 +184,7 @@ func readinessProbe(port intstr.IntOrString, useHTTPS bool) *corev1.Probe {
 }
 
 func targetVC(ais *aisv1.AIStore) []corev1.PersistentVolumeClaim {
-	pvcs := make([]corev1.PersistentVolumeClaim, 0, int(ais.Spec.Size))
+	pvcs := make([]corev1.PersistentVolumeClaim, 0, int(ais.GetTargetSize()))
 	for _, res := range ais.Spec.TargetSpec.Mounts {
 		pvcs = append(pvcs, corev1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{

@@ -507,6 +507,11 @@ func (in *DaemonSpec) DeepCopyInto(out *DaemonSpec) {
 		*out = new(v1.PodSecurityContext)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.Size != nil {
+		in, out := &in.Size, &out.Size
+		*out = new(int32)
+		**out = **in
+	}
 	if in.ContainerSecurity != nil {
 		in, out := &in.ContainerSecurity, &out.ContainerSecurity
 		*out = new(v1.SecurityContext)

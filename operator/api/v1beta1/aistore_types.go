@@ -135,6 +135,12 @@ type DaemonSpec struct {
 	// SecurityContext holds pod-level security attributes and common container settings for AIS Daemon (proxy/target) object.
 	// +optional
 	SecurityContext *corev1.PodSecurityContext `json:"securityContext,omitempty"`
+
+	// Size holds number of AIS Daemon (proxy/target) replicas.
+	// Overrides value present in `AIStore` spec.
+	// +optional
+	Size *int32 `json:"size"`
+
 	// ContainerSecurity holds the secrity context for AIS Daemon containers.
 	// +optional
 	ContainerSecurity *corev1.SecurityContext `json:"capabilities,omitempty"`
@@ -318,6 +324,20 @@ func (ais *AIStore) GetClusterDomain() string {
 		return defaultClusterDomain
 	}
 	return *ais.Spec.ClusterDomain
+}
+
+func (ais *AIStore) GetProxySize() int32 {
+	if ais.Spec.ProxySpec.Size != nil {
+		return *ais.Spec.ProxySpec.Size
+	}
+	return ais.Spec.Size
+}
+
+func (ais *AIStore) GetTargetSize() int32 {
+	if ais.Spec.TargetSpec.Size != nil {
+		return *ais.Spec.TargetSpec.Size
+	}
+	return ais.Spec.Size
 }
 
 // +kubebuilder:object:root=true

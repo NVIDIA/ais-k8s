@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"reflect"
 
+	aisapc "github.com/NVIDIA/aistore/api/apc"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -30,14 +31,26 @@ func (r *AIStore) SetupWebhookWithManager(mgr ctrl.Manager) error {
 
 var _ webhook.Validator = &AIStore{}
 
-// ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (r *AIStore) ValidateCreate() (admission.Warnings, error) {
-	aistorelog.Info("validate create", "name", r.Name)
-
+func (r *AIStore) validateSize() (admission.Warnings, error) {
 	if r.Spec.Size <= 0 {
 		return nil, errInvalidClusterSize(r.Spec.Size)
 	}
+
+	if r.Spec.ProxySpec.Size != nil && *r.Spec.ProxySpec.Size <= 0 {
+		return nil, errInvalidDaemonSize(*r.Spec.ProxySpec.Size, aisapc.Proxy)
+	}
+
+	if r.Spec.TargetSpec.Size != nil && *r.Spec.TargetSpec.Size <= 0 {
+		return nil, errInvalidDaemonSize(*r.Spec.TargetSpec.Size, aisapc.Target)
+	}
+
 	return nil, nil
+}
+
+// ValidateCreate implements webhook.Validator so a webhook will be registered for the type
+func (r *AIStore) ValidateCreate() (admission.Warnings, error) {
+	aistorelog.Info("validate create", "name", r.Name)
+	return r.validateSize()
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
@@ -48,8 +61,8 @@ func (r *AIStore) ValidateUpdate(old runtime.Object) (admission.Warnings, error)
 }
 
 func (r *AIStore) vup(old runtime.Object) error {
-	if r.Spec.Size <= 0 {
-		return errInvalidClusterSize(r.Spec.Size)
+	if _, err := r.validateSize(); err != nil {
+		return err
 	}
 
 	prev, ok := old.(*AIStore)
@@ -92,6 +105,11 @@ func (r *AIStore) ValidateDelete() (admission.Warnings, error) {
 // errors
 func errInvalidClusterSize(size int32) error {
 	return fmt.Errorf("invalid cluster size %d, should be at least 1", size)
+}
+
+// errors
+func errInvalidDaemonSize(size int32, daeType string) error {
+	return fmt.Errorf("invalid %s daemon size %d, should be at least 1", daeType, size)
 }
 
 func errCannotUpdateSpec(specName string) error {
