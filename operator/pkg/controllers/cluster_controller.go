@@ -583,7 +583,6 @@ func _baseParams(_ *aisv1.AIStore, url string) *aisapi.BaseParams {
 		Timeout:          600 * time.Second,
 		IdleConnsPerHost: 100,
 		UseHTTPProxyEnv:  true,
-		UseHTTPS:         false,
 	})
 
 	return &aisapi.BaseParams{

@@ -90,7 +90,7 @@ func isTunnelRunning() bool {
 func SkipIfLoadBalancerNotSupported() {
 	// If the tests are running against non-minikube cluster or inside a pod within K8s cluster
 	// we cannot determine if the LoadBalancer service is supported. Proceed to running tests.
-	if GetK8sClusterProvider() != K8sProviderMinikube || k8s.Detect() == nil {
+	if GetK8sClusterProvider() != K8sProviderMinikube || !k8s.IsK8s() {
 		return
 	}
 

@@ -14,8 +14,8 @@ import (
 
 // TODO: Should be provided from test config.
 const (
-	aisNodeImage = "aistorage/aisnode:v3.21"
-	aisInitImage = "aistorage/ais-init:latest"
+	aisNodeImage = "aistorage/aisnode:v3.22"
+	aisInitImage = "aistorage/ais-init:v3.22"
 )
 
 type (
@@ -38,7 +38,7 @@ func NewAISClusterCR(args ClusterSpecArgs) *aisv1.AIStore {
 	}
 	spec := aisv1.AIStoreSpec{
 		Size:                   args.Size,
-		CleanupData:            apc.Bool(!args.PreservePVCs),
+		CleanupData:            apc.Ptr(!args.PreservePVCs),
 		NodeImage:              aisNodeImage,
 		InitImage:              aisInitImage,
 		HostpathPrefix:         "/etc/ais",

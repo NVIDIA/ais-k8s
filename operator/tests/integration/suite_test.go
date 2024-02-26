@@ -145,7 +145,7 @@ var _ = BeforeSuite(func() {
 		testNS, nsExists = tutils.CreateNSIfNotExists(context.Background(), k8sClient, testNSName)
 
 		// NOTE: On gitlab, tests run in a pod inside minikube cluster. In that case we can run the tests as an internal client, unless enforced to test as external client.
-		testAsExternalClient = cos.IsParseBool(os.Getenv(EnvTestEnforceExternal)) || aisk8s.Detect() != nil
+		testAsExternalClient = cos.IsParseBool(os.Getenv(EnvTestEnforceExternal)) || aisk8s.IsK8s()
 		setStorageClass()
 
 		testAllowSharedNoDisks = cos.IsParseBool(os.Getenv(EnvTestNoFsChecks))

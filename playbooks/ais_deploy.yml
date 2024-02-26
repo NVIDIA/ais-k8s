@@ -130,7 +130,7 @@
 
     - name: node_image
       prompt: "Specify the node_image. Skip for AIStore's latest image."
-      default: "aistorage/aisnode:v3.21"
+      default: "aistorage/aisnode:v3.22"
       private: no
   become: true
   roles:

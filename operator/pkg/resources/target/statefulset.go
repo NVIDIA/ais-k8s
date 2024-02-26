@@ -191,7 +191,7 @@ func targetVC(ais *aisv1.AIStore) []corev1.PersistentVolumeClaim {
 				AccessModes: []corev1.PersistentVolumeAccessMode{
 					corev1.ReadWriteOnce,
 				},
-				Resources: corev1.ResourceRequirements{
+				Resources: corev1.VolumeResourceRequirements{
 					Requests: corev1.ResourceList{corev1.ResourceStorage: res.Size},
 				},
 				StorageClassName: res.StorageClass,
