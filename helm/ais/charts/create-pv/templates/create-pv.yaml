@@ -1,0 +1,33 @@
+{{- $global := .Values.global -}}
+{{- range $index, $node := $global.nodes }}
+  {{- range $mpathIndex, $mpath := $.Values.mpaths }}
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ $node }}-pv-{{ $mpath | replace "/" "-" | trimPrefix "-" }}
+  labels:
+    type: local
+    cluster: {{ $global.cluster }}
+    mpath: pv-{{ $mpath | replace "/" "-" | trimPrefix "-" }}
+spec:
+  storageClassName: ais-local-storage
+  capacity:
+    storage: {{ $.Values.mpath_size }}
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: {{ $mpath }}
+  claimRef:
+    name: ais-{{ $mpath | replace "/" "-" | trimPrefix "-" }}-ais-target-{{ $index }}
+    namespace: {{ $global.namespace }}
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          - {{ $node }}
+---
+  {{- end }}
+{{- end }}

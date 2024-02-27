@@ -2,6 +2,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: ais-label-nodes
+  namespace: {{ .Values.global.job_namespace }}
 spec:
   template:
     spec:
@@ -18,7 +19,7 @@ spec:
         - name: CLUSTER
           value: "{{ .Values.cluster }}"
         - name: NODES
-          value: "{{ join " " .Values.nodes }}"
+          value: "{{ join " " .Values.global.nodes }}"
         volumeMounts:
         - name: kubectl-binary
           mountPath: /usr/local/bin/kubectl

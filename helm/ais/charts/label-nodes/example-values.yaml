@@ -1,0 +1,7 @@
+global:
+  job_namespace: ais-jobs
+  nodes:
+    - aistorecpu1004.nsv.sjc11.nvmetal.net
+    - aistorecpu1005.nsv.sjc11.nvmetal.net
+    - aistorecpu1006.nsv.sjc11.nvmetal.net
+  cluster: ais

@@ -11,3 +11,7 @@ dependencies:
     version: "0.1.0"
     repository: "file://./charts/label-nodes"
     enabled: true
+  - name: ais-create-pv
+    version: "0.1.0"
+    repository: "file://./charts/create-pv"
+    enabled: true
