@@ -1,12 +1,14 @@
 // Package controllers contains k8s controller logic for AIS cluster
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+* Copyright (c) 2021-2024, NVIDIA CORPORATION. All rights reserved.
  */
 package controllers
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
+	"net/http"
 	"sync"
 	"time"
 
@@ -456,6 +458,12 @@ func (r *AIStoreReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
+// checks if the BaseParams are valid for the given AIS cluster
+func hasValidBaseParams(baseParams *aisapi.BaseParams, ais *aisv1.AIStore) bool {
+	shouldUseHTTPS := ais.Spec.TLSSecretName != nil
+	return cos.IsHTTPS(baseParams.URL) == shouldUseHTTPS
+}
+
 // getAPIParams gets BaseAPIParams for the given AIS cluster.
 // Gets a cached object if exists, else creates a new one.
 func (r *AIStoreReconciler) getAPIParams(ctx context.Context,
@@ -463,7 +471,8 @@ func (r *AIStoreReconciler) getAPIParams(ctx context.Context,
 ) (baseParams *aisapi.BaseParams, err error) {
 	var exists bool
 	r.mu.RLock()
-	if baseParams, exists = r.clientParams[ais.NamespacedName().String()]; exists {
+	baseParams, exists = r.clientParams[ais.NamespacedName().String()]
+	if exists && hasValidBaseParams(baseParams, ais) {
 		r.mu.RUnlock()
 		return
 	}
@@ -535,7 +544,7 @@ func (r *AIStoreReconciler) primaryBaseParams(ctx context.Context, ais *aisv1.AI
 	if err != nil {
 		return nil, err
 	}
-	return _baseParams(ais, smap.Primary.URL(aiscmn.NetPublic)), nil
+	return _baseParams(smap.Primary.URL(aiscmn.NetPublic)), nil
 }
 
 func (r *AIStoreReconciler) newAISBaseParams(ctx context.Context,
@@ -571,22 +580,23 @@ createParams:
 		scheme = "https"
 	}
 	url := fmt.Sprintf("%s://%s:%s", scheme, serviceHostname, ais.Spec.ProxySpec.ServicePort.String())
-	return _baseParams(ais, url), nil
+	return _baseParams(url), nil
 }
 
-func _baseParams(_ *aisv1.AIStore, url string) *aisapi.BaseParams {
-	// TODO:
-	// 1. Get timeout from config
-	// 2. `UseHTTPS` should be set based on cluster config
-	// 3. Should handle auth
-	client := aiscmn.NewClient(aiscmn.TransportArgs{
-		Timeout:          600 * time.Second,
-		IdleConnsPerHost: 100,
-		UseHTTPProxyEnv:  true,
-	})
+func _baseParams(url string) *aisapi.BaseParams {
+	transportArgs := aiscmn.TransportArgs{
+		Timeout:         10 * time.Second,
+		UseHTTPProxyEnv: true,
+	}
+	transport := aiscmn.NewTransport(transportArgs)
+
+	transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 
 	return &aisapi.BaseParams{
-		Client: client,
-		URL:    url,
+		Client: &http.Client{
+			Transport: transport,
+			Timeout:   transportArgs.Timeout,
+		},
+		URL: url,
 	}
 }
