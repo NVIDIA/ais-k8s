@@ -1,5 +1,5 @@
 IMAGE_NAME=aistorage/ais-deploy-helper
-IMAGE_TAG=0.1.0
+IMAGE_TAG=0.1.1
 IMG ?= ${IMAGE_NAME}:${IMAGE_TAG}
 
 # Build the docker image
