@@ -1,3 +1,3 @@
 FROM debian:stable-slim
 WORKDIR /files
-COPY files .
+COPY --chmod=0755 files .
