@@ -71,10 +71,14 @@ func (r *AIStore) vup(old runtime.Object) error {
 	}
 
 	// TODO: better validation, maybe using AIS IterFields?
+	// users can update size for scaling up or down
+	prev.Spec.ProxySpec.Size = r.Spec.ProxySpec.Size
 	if !reflect.DeepEqual(r.Spec.ProxySpec, prev.Spec.ProxySpec) {
 		return errCannotUpdateSpec("proxySpec")
 	}
 
+	// same
+	prev.Spec.TargetSpec.Size = r.Spec.TargetSpec.Size
 	if !reflect.DeepEqual(r.Spec.TargetSpec, prev.Spec.TargetSpec) {
 		// TODO: For now, just log error if target specs are updated. Eventually, implement
 		// logic that compares target specs accurately.
