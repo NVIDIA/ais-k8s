@@ -14,6 +14,7 @@ BUNDLE_DEFAULT_CHANNEL := --default-channel=$(DEFAULT_CHANNEL)
 endif
 BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 
+LOCALBIN=$(shell pwd)/bin
 # Image URL to use all building/pushing image targets
 IMG ?= aistorage/ais-operator:latest
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
@@ -27,6 +28,8 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 SCRIPTS_DIR = ./scripts
+
+HELM_VERSION = v3.14.2
 
 all: manager
 
@@ -79,10 +82,12 @@ undeploy-metallb: kustomize
 manifests: controller-gen
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
-bundle-manifests: manifests
+bundle-manifests: kustomize helm helmify manifests
 	mkdir -p dist/
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
 	$(KUSTOMIZE) build config/default > dist/ais-operator.yaml
+	cat dist/ais-operator.yaml | $(HELMIFY) dist/ais-operator
+	$(HELM) package dist/ais-operator -d dist/ais-operator
 
 # Run go fmt against code
 fmt:
@@ -134,17 +139,29 @@ docker-push:
 	docker push ${IMG}
 
 # Download controller-gen locally if necessary
-CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
+CONTROLLER_GEN = $(LOCALBIN)/controller-gen
 controller-gen:
 	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.4.1)
 
 # Download kustomize locally if necessary
-KUSTOMIZE = $(shell pwd)/bin/kustomize
+KUSTOMIZE = $(LOCALBIN)/kustomize
+.PHONY: kustomize
 kustomize:
 	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v4@v4.5.7)
 
-# go-get-tool will 'go get' any package $2 and install it to $1.
-PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
+HELM = $(LOCALBIN)/helm
+.PHONY: helm
+helm:
+	$(call helm-get-tool)
+
+# Install helmify for generating helm chart from kustomize-generated manifests
+HELMIFY = $(LOCALBIN)/helmify
+.PHONY: helmify
+helmify:
+	$(call go-get-tool,$(HELMIFY),github.com/arttor/helmify/cmd/helmify@latest)
+    
+
+# go-get-tool will 'go get' any package $2 and install it to bin/ if $1 does not exist.
 define go-get-tool
 @[ -f $(1) ] || { \
 set -e ;\
@@ -152,8 +169,23 @@ TMP_DIR=$$(mktemp -d) ;\
 cd $$TMP_DIR ;\
 go mod init tmp ;\
 echo "Downloading $(2)" ;\
-GOBIN=$(PROJECT_DIR)/bin go install $(2) ;\
+GOBIN=$(LOCALBIN) go install $(2) ;\
 rm -rf $$TMP_DIR ;\
+}
+endef
+
+# get helm and install it locally
+define helm-get-tool
+@[ -f $(HELM) ] || { \
+set -e ;\
+TMP_DIR=$$(mktemp -d) ;\
+cd $$TMP_DIR ;\
+echo "Downloading Helm $(HELM_VERSION)" ;\
+curl -sSL https://get.helm.sh/helm-$(HELM_VERSION)-linux-amd64.tar.gz -o helm.tar.gz ;\
+tar -zxf helm.tar.gz ;\
+mv linux-amd64/helm $(LOCALBIN) ;\
+rm -rf $$TMP_DIR ;\
+echo "Helm $(HELM_VERSION) has been installed to $(LOCALBIN)" ;\
 }
 endef
 

@@ -14,3 +14,7 @@
 
 *hosts.ini
 *hosts.yaml
+
+bundle.Dockerfile
+bundle/
+dist/
