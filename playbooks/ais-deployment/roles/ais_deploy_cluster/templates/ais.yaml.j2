@@ -42,6 +42,10 @@ spec:
 {% endif %}
     nodeSelector:
       nvidia.com/ais-proxy: {{ cluster }}
+{% if proxy_size is defined and proxy_size | int > 0 and proxy_size | int <= cluster_size | int %}
+    size: {{ proxy_size }}
+{% endif %}
+
   targetSpec:
     hostPort: 51081
     servicePort: 51081
@@ -50,7 +54,10 @@ spec:
     portIntraData: 51083
     capabilities:
       privileged: true
-    
+{% if target_size is defined and target_size | int > 0 and target_size | int <= cluster_size | int %}
+    size: {{ target_size }}
+{% endif %}
+
 {% if (sysctls is defined) and (sysctls != "") %}
     securityContext: 
       sysctls: {{ sysctls }}

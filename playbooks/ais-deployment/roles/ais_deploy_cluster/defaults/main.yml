@@ -14,3 +14,8 @@ somaxconn: 65535
 
 # cluster domain name for DNS
 cluster_domain: "cluster.local"
+
+# unequal num of proxy and target
+# Note: 0 < proxy_size, target_size <= cluster_size
+# proxy_size: 1
+# target_size: 3
