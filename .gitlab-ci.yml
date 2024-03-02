@@ -26,18 +26,9 @@ before_script:
     - merge_requests
     - schedules
 
-build:helper:
-  stage: build
-  image: aistorage/ci:latest
-  timeout: 10m
-  <<: *default_only_def
-  script:
-    - cd ais-deploy-helper
-    - make build
-
 build:operator:lint:
   stage: build
-  image: aistorage/ci:latest
+  image: aistorage/ci:v3.22
   timeout: 10m
   <<: *default_only_def
   script:
@@ -48,7 +39,7 @@ build:operator:lint:
 
 build:operator:
   stage: build
-  image: aistorage/ci:latest
+  image: aistorage/ci:v3.22
   timeout: 10m
   <<: *default_only_def
   script:
@@ -57,7 +48,7 @@ build:operator:
 operator:minikube:short:
   stage: test:short
   needs: ["build:operator:lint", "build:operator"]
-  image: aistorage/ci:latest
+  image: aistorage/ci:v3.22
   <<: *default_only_def
   tags:
     - ais-k8s
@@ -68,7 +59,7 @@ operator:minikube:short:
 operator:minikube:long:
   stage: test:long
   needs: ["operator:minikube:short"]
-  image: aistorage/ci:latest
+  image: aistorage/ci:v3.22
   tags:
     - ais-k8s
   timeout: 40m
@@ -86,7 +77,7 @@ operator:minikube:long:
 operator:minikube:metallb:
   stage: test:long
   needs: ["operator:minikube:short"]
-  image: aistorage/ci:latest
+  image: aistorage/ci:v3.22
   variables:
     # NOTE: No particular reason why these addresses would be unavailable.
     EXTERNAL_ADDRESSES: 172.20.0.100–172.20.0.120
@@ -112,7 +103,7 @@ operator:minikube:metallb:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
   # If minikube fails - don't bother to try GCP.
   needs: ["operator:minikube:short"]
-  image: aistorage/ci:latest
+  image: aistorage/ci:v3.22
   timeout: 60m
   variables:
     GOOGLE_APPLICATION_CREDENTIALS: "/tmp/gcs.json"
