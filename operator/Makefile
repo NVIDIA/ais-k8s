@@ -2,6 +2,7 @@
 VERSION ?= v0.98
 BUILD_VERSION = $(VERSION).$(shell git rev-parse --short HEAD)
 BUILD_TIME = $(shell date +%FT%T%z)
+REPO = https://github.com/NVIDIA/ais-k8s
 
 # Default bundle image tag
 BUNDLE_IMG ?= ais-operator-bundle:$(VERSION)
@@ -82,12 +83,16 @@ undeploy-metallb: kustomize
 manifests: controller-gen
 	$(CONTROLLER_GEN) crd rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
-bundle-manifests: kustomize helm helmify manifests
+bundle-manifests: kustomize manifests
 	mkdir -p dist/
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
 	$(KUSTOMIZE) build config/default > dist/ais-operator.yaml
-	cat dist/ais-operator.yaml | $(HELMIFY) dist/ais-operator
-	$(HELM) package dist/ais-operator -d dist/ais-operator
+	
+bundle-manifests-helm: helm helmify bundle-manifests
+	mkdir -p dist/charts/
+	cat dist/ais-operator.yaml | $(HELMIFY) dist/charts/ais-operator
+	$(HELM) package dist/charts/ais-operator -d dist/
+	$(HELM) repo index --url $(REPO)/releases/download/$(VERSION) dist/
 
 # Run go fmt against code
 fmt:

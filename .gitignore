@@ -18,3 +18,4 @@
 bundle.Dockerfile
 bundle/
 dist/
+index.yaml

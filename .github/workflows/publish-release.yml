@@ -25,17 +25,16 @@ jobs:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-    - name: make aisoperator image
+    - name: Make aisoperator image
       run: |
         pushd $GITHUB_WORKSPACE/operator
         IMG="${{ env.AISOPERATOR_IMAGE }}:${{ env.VERSION }}" make docker-build docker-push
         popd
   
-    - name: make operator yaml file
+    - name: Make operator yaml file and helm chart
       run: |
         pushd $GITHUB_WORKSPACE/operator
-        make kustomize
-        VERSION="${{ env.VERSION }}" IMG="${{ env.AISOPERATOR_IMAGE }}:${{ env.VERSION }}" make bundle-manifests
+        VERSION="${{ env.VERSION }}" IMG="${{ env.AISOPERATOR_IMAGE }}:${{ env.VERSION }}" make bundle-manifests-helm
         popd
 
     - name: Release
