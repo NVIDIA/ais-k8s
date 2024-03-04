@@ -80,7 +80,7 @@ undeploy-metallb: kustomize
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen
-	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	$(CONTROLLER_GEN) crd rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
 bundle-manifests: kustomize helm helmify manifests
 	mkdir -p dist/
@@ -123,11 +123,11 @@ fmt-fix: ## Fix code formatting
 	@$(SHELL) "$(SCRIPTS_DIR)/lint.sh" fmt --fix
 
 spell-check: ## Run spell checker on the project
-	@GOOS="" GO111MODULE=off go get -u github.com/client9/misspell/cmd/misspell
+	@go install github.com/client9/misspell/cmd/misspell@v0.3.4
 	@$(SHELL) "$(SCRIPTS_DIR)/lint.sh" spell
 
 spell-fix: ## Fix spell checking issues
-	@GOOS="" GO111MODULE=off go get -u github.com/client9/misspell/cmd/misspell
+	@go install github.com/client9/misspell/cmd/misspell@v0.3.4
 	@$(SHELL) "$(SCRIPTS_DIR)/lint.sh" spell --fix
 
 # Build the docker image
@@ -141,7 +141,7 @@ docker-push:
 # Download controller-gen locally if necessary
 CONTROLLER_GEN = $(LOCALBIN)/controller-gen
 controller-gen:
-	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.4.1)
+	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.14.0)
 
 # Download kustomize locally if necessary
 KUSTOMIZE = $(LOCALBIN)/kustomize
