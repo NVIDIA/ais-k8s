@@ -1,5 +1,5 @@
 # Current Operator version
-VERSION ?= v0.98
+VERSION ?= v1.0.0
 BUILD_VERSION = $(VERSION).$(shell git rev-parse --short HEAD)
 BUILD_TIME = $(shell date +%FT%T%z)
 REPO = https://github.com/NVIDIA/ais-k8s

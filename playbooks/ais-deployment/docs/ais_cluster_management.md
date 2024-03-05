@@ -19,7 +19,7 @@ The playbooks assist in the following tasks:
 
 - **Playbook:** [`ais_deploy_operator.yml`](../ais_deploy_operator.yml)
 - **Purpose:** Deploys the AIS K8s operator to manage AIS cluster resources.
-- **Default Operator Version:** `v0.97` (modifiable in [defaults/main.yml](../roles/ais_deploy_operator/defaults/main.yml))
+- **Default Operator Version:** `v1.0.0` (modifiable in [defaults/main.yml](../roles/ais_deploy_operator/defaults/main.yml))
 - **Operator Releases:** [GitHub Releases](https://github.com/NVIDIA/ais-k8s/releases)
 - **Execution Example:**
   ```console
