@@ -9,15 +9,12 @@ spec:
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: self-signed-cert
+  name: selfsigned-cert
   namespace: ais-operator-system
 spec:
-  secretName: tls-certs
-  duration: 8760h  # 1 year
-  renewBefore: 720h  # 30 days
-  dnsNames:
-    - aistore-sample-proxy  # Add your domain name(s) as SANs
+  secretName: ca-root-secret
   isCA: true
+  commonName: selfsigned-ca
   privateKey:
     algorithm: RSA
     encoding: PKCS1
@@ -28,6 +25,39 @@ spec:
   issuerRef:
     name: selfsigned-issuer
     kind: ClusterIssuer
+    group: cert-manager.io
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: ca-issuer
+  namespace: ais-operator-system
+spec:
+  ca:
+    secretName: ca-root-secret
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: ais-server-cert
+  namespace: ais-operator-system
+spec:
+  secretName: tls-certs
+  isCA: false
+  duration: 8760h  # 1 year
+  renewBefore: 720h  # 30 days
+  dnsNames:
+    - "localhost"
+    - "127.0.0.1"
+    - "ais-proxy"
+    - "ais-target"
+    - "*.ais-proxy.ais.svc.cluster.local"
+    - "*.ais-target.ais.svc.cluster.local"
+    - "ais-proxy.ais"
+  ipAddresses:
+    - 127.0.0.1
+  issuerRef:
+    name: ca-issuer
 ---
 apiVersion: ais.nvidia.com/v1beta1
 kind: AIStore
@@ -65,6 +95,8 @@ spec:
         server_key: "/var/certs/tls.key"
         use_https: true
         skip_verify: true # if you are using self signed certs
+        client_ca_tls: "/var/certs/ca.crt"
+        client_auth_tls: 0
 
   nodeImage: "aistorage/aisnode:v3.22"
   initImage: "aistorage/ais-init:v3.22"

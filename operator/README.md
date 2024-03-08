@@ -6,8 +6,8 @@ This folder contains **AIS Operator** that provides for bootstrapping, deploymen
 
 > **WARNING:** AIS K8S Operator (or, simply, AIS Operator) is currently undergoing active development - non-backward compatible changes are to be expected at any moment.
 
-### Walkthrough
-If you'd like to get started quickly, you can find a [walkthrough here](../docs/walkthrough.md), taking you through a complete AIStore deployment using the operator.
+### Production Deployments
+If you want to deploy an AIStore Cluster in production setting we recommend deploying AIStore using our [ansible playbooks](../playbooks). We have provided detailed, step-by-step instructions for deploying AIStore on Kubernetes (K8s) in this [guide](../docs/README.md).
 
 ## Deploying AIS Cluster
 ### Prerequisites
@@ -24,7 +24,7 @@ For quick deployment, the `deploy` command provides an option to deploy a basic 
 
 ```console
 # Deploy AIS Operator
-$ IMG=aistore/ais-operator:latest make deploy
+$ IMG=aistorage/ais-operator:latest make deploy
 would you like to deploy cert-manager? [y/n]
 ...
 # Ensure the operator is ready
@@ -33,6 +33,7 @@ NAME                                               READY   STATUS    RESTARTS   
 ais-operator-controller-manager-64c8c86f7b-8g8pj   2/2     Running   0          18s
 
 # Deploy sample AIS Cluster
+# If you are testing on minikube, set `allowSharedNoDisks: true` in the below spec
 $ kubectl apply -f config/samples/ais_v1beta1_aistore.yaml -n ais-operator-system
 $ kubectl get pods -n ais-operator-system
 NAME                                                  READY   STATUS    RESTARTS   AGE
@@ -155,7 +156,7 @@ kubectl apply -f config/samples/ais_v1beta1_aistore_tls.yaml
 
 **Testing Considerations:**
 
-- If you're using the AIStore CLI for testing, set the `$ ais config cli set cluster.skip_verify_crt true` environment variable. This allows you to connect to the AIStore cluster without certificate verification.
+- For tests utilizing the AIStore Command Line Interface (CLI), configure the CLI to bypass certificate verification by applying the setting: execute `$ ais config cli set cluster.skip_verify_crt true`. This adjustment facilitates unverified connections to the AIStore cluster.
 
 - When using `curl` to interact with your AIStore cluster over HTTPS, use the `-k` flag to skip certificate validation. For example:
 
