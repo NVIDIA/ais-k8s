@@ -32,7 +32,7 @@
 
   vars_prompt:
     - name: "delete_conf"
-      prompt: "Would you also like to delete all .ais.conf and .ais.override_config files from all nodes"
+      prompt: "Would you also like to delete all AIS config files from all nodes"
       default: "no"
       private: no
 
