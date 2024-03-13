@@ -12,6 +12,8 @@
   hosts: "{{ cluster }}"
   gather_facts: false
   become: true
+  vars_files:
+    - "vars/ais_mpaths.yml"
   roles:
     - ais_reset_config
 

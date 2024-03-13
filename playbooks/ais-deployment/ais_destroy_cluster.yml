@@ -29,7 +29,8 @@
   hosts: "{{ cluster }}"
   gather_facts: no
   become: true
-
+  vars_files:
+    - "vars/ais_mpaths.yml"
   vars_prompt:
     - name: "delete_conf"
       prompt: "Would you also like to delete all AIS config files from all nodes"

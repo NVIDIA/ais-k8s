@@ -1,8 +1,16 @@
 - name: Delete .ais.smap files from all nodes
-  shell: find /etc/ais/ -type f -name ".ais.smap" | xargs rm
+  shell: find /etc/ais/ -type f -name ".ais.smap" -exec rm {} +
+
   ignore_errors: true
 
 - name: Delete all AIS configuration files from all nodes
-  shell: find /etc/ais/ -type f -name ".ais*" | xargs rm
+  shell: find /etc/ais/ -type f -name ".ais*" -exec rm {} +
+
+  ignore_errors: true
+  when: delete_conf | default(false) | bool
+
+- name: Delete AIS configuration files (.ais.vmd and .ais.bmd) from specified mount paths
+  shell: find "{{ item }}" -type f \( -name ".ais.vmd" -o -name ".ais.bmd" \) -exec rm -f {} +
+  loop: "{{ ais_mpaths }}"
   ignore_errors: true
   when: delete_conf | default(false) | bool
