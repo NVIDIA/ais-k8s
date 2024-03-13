@@ -1,6 +1,6 @@
 // Package cmn provides utilities for common AIS cluster resources
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION. All rights reserved.
  */
 package cmn
 
@@ -161,6 +161,11 @@ func NewAISVolumeMounts(ais *aisv1.AIStore) []corev1.VolumeMount {
 		{
 			Name:        "state-mount",
 			MountPath:   "/etc/ais",
+			SubPathExpr: hostMountSubPath,
+		},
+		{
+			Name:        "state-mount",
+			MountPath:   "/var/log/ais",
 			SubPathExpr: hostMountSubPath,
 		},
 		{
