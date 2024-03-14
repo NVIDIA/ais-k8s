@@ -46,7 +46,6 @@ func DefaultPrimaryNSName(ais *aisv1.AIStore) types.NamespacedName {
 
 func NewProxyStatefulSet(ais *aisv1.AIStore, size int32) *apiv1.StatefulSet {
 	ls := PodLabels(ais)
-	proxySpec := proxyPodSpec(ais)
 	return &apiv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      statefulSetName(ais),
@@ -65,7 +64,7 @@ func NewProxyStatefulSet(ais *aisv1.AIStore, size int32) *apiv1.StatefulSet {
 					Labels:      ls,
 					Annotations: cmn.ParseAnnotations(ais),
 				},
-				Spec: proxySpec,
+				Spec: proxyPodSpec(ais),
 			},
 		},
 	}
@@ -148,6 +147,7 @@ func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
 		SecurityContext:    ais.Spec.ProxySpec.SecurityContext,
 		Volumes:            cmn.NewAISVolumes(ais, aisapc.Proxy),
 		Tolerations:        ais.Spec.ProxySpec.Tolerations,
+		ImagePullSecrets:   ais.Spec.ImagePullSecrets,
 	}
 }
 

@@ -144,6 +144,7 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 					NodeSelector:       ais.Spec.TargetSpec.NodeSelector,
 					Volumes:            cmn.NewAISVolumes(ais, aisapc.Target),
 					Tolerations:        ais.Spec.TargetSpec.Tolerations,
+					ImagePullSecrets:   ais.Spec.ImagePullSecrets,
 				},
 			},
 		},
