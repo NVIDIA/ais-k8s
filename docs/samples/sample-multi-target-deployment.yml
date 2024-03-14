@@ -1,0 +1,100 @@
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: ais-aistorecpu1012-sda
+spec:
+  accessModes:
+  - ReadWriteOnce
+  capacity:
+    storage: 5T
+  claimRef:
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    name: ais-data-aistore-ais-target-0
+    namespace: ais
+  hostPath:
+    path: /ais/sda
+    type: ""
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+            - aistorecpu1012.nsv.sjc4.nvmetal.net
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: ais-aistorecpu1012-sdb
+spec:
+  accessModes:
+  - ReadWriteOnce
+  capacity:
+    storage: 5T
+  claimRef:
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    name: ais-data-aistore-ais-target-1
+    namespace: ais
+  hostPath:
+    path: /ais/sdb
+    type: ""
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+            - aistorecpu1012.nsv.sjc4.nvmetal.net
+---
+apiVersion: ais.nvidia.com/v1beta1
+kind: AIStore
+metadata:
+  name: ais
+  namespace: ais
+spec:
+  size: 2
+  disablePodAntiAffinity: true
+  configToUpdate:
+    mirror:
+      enabled: false
+    rebalance:
+      enabled: true
+      bundle_multiplier: 2
+    resilver:
+      enabled: true
+  enablePromExporter: false
+  proxySpec:
+    size: 1
+    servicePort: 51080
+    portPublic: 51080
+    portIntraControl: 51082
+    portIntraData: 51083
+    nodeSelector:
+      "kubernetes.io/hostname": "aistorecpu1012.nsv.sjc4.nvmetal.net"
+
+  targetSpec:
+    size: 2
+    allowSharedNoDisks: false
+    servicePort: 51081
+    portPublic: 51081
+    portIntraControl: 51082
+    portIntraData: 51083
+    capabilities:
+      privileged: true
+    nodeSelector:
+      "kubernetes.io/hostname": "aistorecpu1012.nsv.sjc4.nvmetal.net"
+    mounts:
+    - path: /data/aistore
+      size: 5T
+      storageClass: ais-local-storage
+  nodeImage: "aistorage/aisnode:latest"
+  initImage: "aistorage/ais-init:latest"
+  hostpathPrefix: "/etc/ais"
+  enableExternalLB: false
+  clusterDomain: "cluster.local"

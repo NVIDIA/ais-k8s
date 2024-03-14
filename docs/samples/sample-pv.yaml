@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: ais-aistorecpu1012-sdc # All PV names should be unique, a good practice is to use the node name and the mount path
+spec:
+  accessModes:
+  - ReadWriteOnce
+  capacity:
+    storage: 5T # The size of the volume
+  claimRef:
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    name: ais-data-aistore-ais-target-3 # The name of the PVC that will use this PV
+    namespace: ais
+  hostPath:
+    path: /ais/sdc
+    type: ""
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+            - aistorecpu1012.nsv.sjc4.nvmetal.net

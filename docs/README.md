@@ -212,7 +212,9 @@ After these configurations, execute the playbook and monitor the pod statuses un
 $ watch kubectl get pods -n <cluster-namespace>
 ```
 
-**Important Note**: In some Kubernetes deployments, the default cluster domain name might differ from `cluster.local` which can be overridden using the `cluster_domain` variable.
+> **Notes**
+> - In some Kubernetes deployments, the default cluster domain name might differ from `cluster.local` which can be overridden using the `cluster_domain` variable.
+> - For production environments, it's recommended to operate one proxy and one target per Kubernetes (K8s) node as shown in the above playbooks. But AIStore clusters are very flexible and [multiple storage targets](multiple_targets_per_node.md) can also be deployed on a single K8s node.
 
 With these steps, your AIStore cluster on Kubernetes should be up and running. 
 
