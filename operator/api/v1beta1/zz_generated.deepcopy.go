@@ -10,7 +10,6 @@ package v1beta1
 
 import (
 	"github.com/NVIDIA/aistore/cmn/cos"
-	"github.com/NVIDIA/aistore/cmn/feat"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -427,7 +426,7 @@ func (in *ConfigToUpdate) DeepCopyInto(out *ConfigToUpdate) {
 	}
 	if in.Features != nil {
 		in, out := &in.Features, &out.Features
-		*out = new(feat.Flags)
+		*out = new(string)
 		**out = **in
 	}
 }

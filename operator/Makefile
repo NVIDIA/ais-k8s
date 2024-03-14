@@ -1,11 +1,11 @@
 # Current Operator version
-VERSION ?= v1.0.0
+VERSION ?= 1.0.0
 BUILD_VERSION = $(VERSION).$(shell git rev-parse --short HEAD)
 BUILD_TIME = $(shell date +%FT%T%z)
 REPO = https://github.com/NVIDIA/ais-k8s
 
 # Default bundle image tag
-BUNDLE_IMG ?= ais-operator-bundle:$(VERSION)
+BUNDLE_IMG ?= ais-operator-bundle:v$(VERSION)
 # Options for 'bundle-build'
 ifneq ($(origin CHANNELS), undefined)
 BUNDLE_CHANNELS := --channels=$(CHANNELS)
@@ -92,7 +92,7 @@ bundle-manifests-helm: helm helmify bundle-manifests
 	mkdir -p dist/charts/
 	cat dist/ais-operator.yaml | $(HELMIFY) dist/charts/ais-operator
 	$(HELM) package dist/charts/ais-operator -d dist/
-	$(HELM) repo index --url $(REPO)/releases/download/$(VERSION) dist/
+	$(HELM) repo index --url $(REPO)/releases/download/v$(VERSION) dist/
 
 # Run go fmt against code
 fmt:

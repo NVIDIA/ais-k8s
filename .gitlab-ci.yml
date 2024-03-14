@@ -58,7 +58,7 @@ operator:minikube:long:
   needs: ["operator:minikube:short"]
   image: aistorage/ci:latest
   tags:
-    - ais-k8s-long
+    - ais-k8s
   timeout: 40m
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'

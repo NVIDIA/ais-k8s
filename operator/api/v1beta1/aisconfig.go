@@ -6,12 +6,11 @@ package v1beta1
 
 import (
 	"github.com/NVIDIA/aistore/cmn/cos"
-	"github.com/NVIDIA/aistore/cmn/feat"
 )
 
-// NOTE: `*ToUpdate` structures are duplicates of `*ToUpdate` structs from AIStore main respoitory.
+// NOTE: `*ToUpdate` structures are duplicates of `*ToUpdate` structs from AIStore main repository.
 // For custom types used in CRDs, `kubebuilder` auto-generates the `DeepCopyInto` method, which isn't possible for types from external packages.
-// IMPROTANT: Run "make" to regenerate code after modifying this file
+// IMPORTANT: Run "make" to regenerate code after modifying this file
 
 type (
 	ConfigToUpdate struct {
@@ -41,7 +40,7 @@ type (
 		TCB         *TCBConfToUpdate         `json:"tcb,omitempty"`
 		WritePolicy *WritePolicyConfToUpdate `json:"write_policy,omitempty"`
 		Proxy       *ProxyConfToUpdate       `json:"proxy,omitempty"`
-		Features    *feat.Flags              `json:"features,string,omitempty"`
+		Features    *string                  `json:"features,omitempty"`
 	}
 	// TODO -- FIXME: Declaring map[string]struct{} / map[string]interface{}
 	// raises error "name requested for invalid type: struct{}/interface{}"

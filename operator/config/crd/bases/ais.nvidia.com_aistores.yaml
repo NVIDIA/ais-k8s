@@ -168,8 +168,7 @@ spec:
                         type: integer
                     type: object
                   features:
-                    format: int64
-                    type: integer
+                    type: string
                   fshc:
                     properties:
                       enabled:
