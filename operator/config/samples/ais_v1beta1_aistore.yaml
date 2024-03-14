@@ -30,6 +30,7 @@ spec:
   nodeImage: "aistorage/aisnode:v3.22"
   initImage: "aistorage/ais-init:v3.22"
   hostpathPrefix: "/etc/ais"
+  logsDir: "/var/log/ais"
 
   # To be able to access the AIS deployment outside kubernetes cluster, set:
   # enableExternalLB: true

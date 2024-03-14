@@ -97,4 +97,5 @@ spec:
   initImage: "aistorage/ais-init:latest"
   hostpathPrefix: "/etc/ais"
   enableExternalLB: false
+  logsDir: "/var/log/ais"
   clusterDomain: "cluster.local"

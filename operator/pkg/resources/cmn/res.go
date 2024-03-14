@@ -101,6 +101,18 @@ func NewAISVolumes(ais *aisv1.AIStore, daeType string) []corev1.Volume {
 		})
 	}
 
+	if ais.Spec.LogsDirectory != "" {
+		volumes = append(volumes, corev1.Volume{
+			Name: "logs-dir",
+			VolumeSource: corev1.VolumeSource{
+				HostPath: &corev1.HostPathVolumeSource{
+					Path: path.Join(ais.Spec.LogsDirectory, ais.Namespace, ais.Name, daeType),
+					Type: hostPathTypePtr(corev1.HostPathDirectoryOrCreate),
+				},
+			},
+		})
+	}
+
 	return volumes
 }
 
@@ -164,11 +176,6 @@ func NewAISVolumeMounts(ais *aisv1.AIStore) []corev1.VolumeMount {
 			SubPathExpr: hostMountSubPath,
 		},
 		{
-			Name:        "state-mount",
-			MountPath:   "/var/log/ais",
-			SubPathExpr: hostMountSubPath,
-		},
-		{
 			Name:      "statsd-config",
 			MountPath: "/var/statsd_config",
 		},
@@ -193,6 +200,13 @@ func NewAISVolumeMounts(ais *aisv1.AIStore) []corev1.VolumeMount {
 			Name:      "tls-certs",
 			ReadOnly:  true,
 			MountPath: "/var/certs",
+		})
+	}
+	if ais.Spec.LogsDirectory != "" {
+		volumeMounts = append(volumeMounts, corev1.VolumeMount{
+			Name:        "logs-dir",
+			MountPath:   "/var/log/ais",
+			SubPathExpr: hostMountSubPath,
 		})
 	}
 

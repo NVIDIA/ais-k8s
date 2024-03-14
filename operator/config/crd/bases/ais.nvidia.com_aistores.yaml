@@ -465,6 +465,9 @@ spec:
                 type: array
               initImage:
                 type: string
+              logsDir:
+                description: Logs directory on host to store AIS logs
+                type: string
               networkAttachment:
                 description: Commma-separated list of names of additional network
                   attachment definitions to attach to each pod

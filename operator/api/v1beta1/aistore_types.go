@@ -91,6 +91,10 @@ type AIStoreSpec struct {
 	// +optional
 	AWSSecretName *string `json:"awsSecretName,omitempty"`
 
+	// Logs directory on host to store AIS logs
+	// +optional
+	LogsDirectory string `json:"logsDir,omitempty"`
+
 	// Secret name containing TLS cert/key
 	// +optional
 	TLSSecretName *string `json:"tlsSecretName,omitempty"`
