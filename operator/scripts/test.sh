@@ -19,4 +19,4 @@ if [[ $1 == "short" ]]; then
   short="1"
 fi
 
-SHORT=${short} TEST_ALLOW_SHARED_NO_DISKS="${TEST_ALLOW_SHARED_NO_DISKS}" TEST_STORAGECLASS="${TEST_STORAGECLASS}" USE_EXISTING_CLUSTER=true ginkgo -v -progress -trace $current_dir/../... -coverprofile cover.out
+SHORT=${short} TEST_STORAGECLASS="${TEST_STORAGECLASS}" USE_EXISTING_CLUSTER=true ginkgo -v -progress -trace $current_dir/../... -coverprofile cover.out

@@ -1,0 +1,14 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: operator-test
+  namespace: default
+spec:
+  ttlSecondsAfterFinished: 0
+  template:
+    spec:
+      containers:
+      - name: test-runner
+        image: docker.io/library/operator-test:latest
+        imagePullPolicy: Never
+      restartPolicy: Never

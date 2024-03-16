@@ -1,6 +1,6 @@
 // Package tutils provides utilities for running AIS operator tests
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+* Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
  */
 package tutils
 
@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"os"
 	"strings"
 	"time"
 
@@ -20,7 +21,9 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
@@ -37,6 +40,15 @@ const (
 )
 
 var k8sProvider = K8sProviderUninitialized
+
+type PVData struct {
+	storageClass string
+	ns           string
+	cluster      string
+	mpath        string
+	target       string
+	size         resource.Quantity
+}
 
 func checkClusterExists(ctx context.Context, client *aisclient.K8sClient, name types.NamespacedName) bool {
 	_, err := client.GetAIStoreCR(ctx, name)
@@ -58,9 +70,66 @@ func DestroyCluster(_ context.Context, client *aisclient.K8sClient,
 
 	_, err := client.DeleteResourceIfExists(context.Background(), cluster)
 	Expect(err).Should(Succeed())
+
 	Eventually(func() bool {
 		return checkClusterExists(context.Background(), client, cluster.NamespacedName())
 	}, intervals...).Should(BeFalse())
+}
+
+func DestroyPV(ctx context.Context, client *aisclient.K8sClient, pvs []*corev1.PersistentVolume) {
+	const pvExistenceInterval = 10 * time.Second
+	for _, pv := range pvs {
+		deleteAssociatedPVCs(ctx, pv, client)
+		existed, err := client.DeleteResourceIfExists(ctx, pv)
+		if existed {
+			fmt.Fprintf(os.Stdout, "Deleted PV : %s \n", pv.Name)
+		} else {
+			fmt.Fprintf(os.Stdout, "Attempted to delete PV '%s', not found", pv.Name)
+		}
+		Expect(err).Should(Succeed())
+	}
+	Eventually(func() bool {
+		return checkPVsExist(ctx, client, pvs)
+	}, pvExistenceInterval).Should(BeFalse())
+}
+
+func checkPVsExist(ctx context.Context, c *aisclient.K8sClient, pvs []*corev1.PersistentVolume) bool {
+	allPVs, err := GetAllPVs(ctx, c)
+	if errors.IsNotFound(err) {
+		return false
+	}
+	Expect(err).To(BeNil())
+	// create map of all PV names
+	pvMap := make(map[string]bool)
+	for i := range allPVs.Items {
+		pvMap[allPVs.Items[i].Name] = true
+	}
+	// check if any of the pvs provided still exist
+	for _, pv := range pvs {
+		if _, found := pvMap[pv.Name]; found {
+			return true
+		}
+	}
+	return false
+}
+
+func deleteAssociatedPVCs(ctx context.Context, pv *corev1.PersistentVolume, client *aisclient.K8sClient) {
+	if pv.Spec.ClaimRef == nil {
+		return
+	}
+	// Create a PVC reference from the PV's ClaimRef
+	pvc := &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      pv.Spec.ClaimRef.Name,
+			Namespace: pv.Spec.ClaimRef.Namespace,
+			UID:       pv.Spec.ClaimRef.UID,
+		},
+	}
+	_, err := client.DeleteResourceIfExists(ctx, pvc)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error deleting PVC %s: %v", pvc.Name, err)
+	}
+	fmt.Printf("Deleted PVC %s in namespace %s\n", pvc.Name, pvc.Namespace)
 }
 
 func checkCMExists(ctx context.Context, client *aisclient.K8sClient, name types.NamespacedName) bool {
@@ -172,9 +241,67 @@ func CreateNSIfNotExists(ctx context.Context, client *aisclient.K8sClient,
 	return
 }
 
-func WaitForClusterToBeReady(ctx context.Context, client *aisclient.K8sClient, cluster *aisv1.AIStore,
-	intervals ...interface{},
-) {
+func CreateAISStorageClass(ctx context.Context, client *aisclient.K8sClient, scName string) {
+	storageClass := &storagev1.StorageClass{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: scName,
+		},
+		Provisioner:       "kubernetes.io/no-provisioner",
+		VolumeBindingMode: new(storagev1.VolumeBindingMode),
+	}
+	*storageClass.VolumeBindingMode = storagev1.VolumeBindingImmediate
+
+	client.CreateResourceIfNotExists(ctx, nil, storageClass)
+}
+
+func CreatePV(ctx context.Context, client *aisclient.K8sClient, pvData *PVData) (*corev1.PersistentVolume, error) {
+	trimmedMpath := strings.TrimPrefix(strings.ReplaceAll(pvData.mpath, "/", "-"), "-")
+	// Target name must be included because node name doesn't change and this needs to be unique
+	pvName := fmt.Sprintf("%s-%s-%s-%s-pv", pvData.ns, pvData.cluster, trimmedMpath, pvData.target)
+
+	claimRefName := fmt.Sprintf("%s-%s-%s-%s", pvData.cluster, trimmedMpath, pvData.cluster, pvData.target)
+	fmt.Fprintf(os.Stdout, "Creating PV '%s' with claim ref '%s'\n", pvName, claimRefName)
+
+	pvSpec := &corev1.PersistentVolumeSpec{
+		Capacity: corev1.ResourceList{
+			corev1.ResourceStorage: pvData.size,
+		},
+		PersistentVolumeSource: corev1.PersistentVolumeSource{
+			HostPath: &corev1.HostPathVolumeSource{Path: pvData.mpath},
+		},
+		AccessModes:                   []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+		ClaimRef:                      &corev1.ObjectReference{Namespace: pvData.ns, Name: claimRefName},
+		StorageClassName:              pvData.storageClass,
+		PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimRetain,
+		NodeAffinity:                  createVolumeNodeAffinity("kubernetes.io/hostname", "minikube"),
+	}
+
+	pv := &corev1.PersistentVolume{
+		ObjectMeta: metav1.ObjectMeta{Name: pvName},
+		Spec:       *pvSpec,
+	}
+	if _, err := client.CreateResourceIfNotExists(ctx, nil, pv); err != nil {
+		fmt.Fprintf(os.Stderr, "Error creating new PV: %s", err)
+		return pv, err
+	}
+	return pv, nil
+}
+
+func createVolumeNodeAffinity(key, value string) *corev1.VolumeNodeAffinity {
+	return &corev1.VolumeNodeAffinity{
+		Required: &corev1.NodeSelector{
+			NodeSelectorTerms: []corev1.NodeSelectorTerm{
+				{
+					MatchExpressions: []corev1.NodeSelectorRequirement{
+						{Key: key, Operator: corev1.NodeSelectorOpIn, Values: []string{value}},
+					},
+				},
+			},
+		},
+	}
+}
+
+func WaitForClusterToBeReady(ctx context.Context, client *aisclient.K8sClient, cluster *aisv1.AIStore, intervals ...interface{}) {
 	Eventually(func() bool {
 		proxySS, err := client.GetStatefulSet(ctx, proxy.StatefulSetNSName(cluster))
 		replicasReady := cluster.GetProxySize() == *proxySS.Spec.Replicas && proxySS.Status.ReadyReplicas == *proxySS.Spec.Replicas
@@ -220,6 +347,16 @@ func InitK8sClusterProvider(ctx context.Context, client *aisclient.K8sClient) {
 		}
 	}
 	k8sProvider = K8sProviderUnknown
+}
+
+func GetAllPVs(ctx context.Context, c *aisclient.K8sClient) (*corev1.PersistentVolumeList, error) {
+	pvList := &corev1.PersistentVolumeList{}
+	err := c.List(ctx, pvList)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to fetch existing PVs; err %v\n", err)
+		return nil, err
+	}
+	return pvList, nil
 }
 
 func GetK8sClusterProvider() string {

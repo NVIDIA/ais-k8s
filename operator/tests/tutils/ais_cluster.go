@@ -5,8 +5,13 @@
 package tutils
 
 import (
+	"context"
+	"strconv"
+
 	"github.com/NVIDIA/aistore/api/apc"
 	aisv1 "github.com/ais-operator/api/v1beta1"
+	aisclient "github.com/ais-operator/pkg/client"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -20,25 +25,82 @@ const (
 
 type (
 	ClusterSpecArgs struct {
-		Name                 string
-		Namespace            string
-		StorageClass         string
-		Size                 int32
-		TargetSize           int32
-		ProxySize            int32
-		DisableAntiAffinity  bool
-		EnableExternalLB     bool
-		PreservePVCs         bool
-		AllowSharedOrNoDisks bool
+		Name                string
+		Namespace           string
+		StorageClass        string
+		Size                int32
+		TargetSize          int32
+		ProxySize           int32
+		DisableAntiAffinity bool
+		EnableExternalLB    bool
+		PreservePVCs        bool
+		// Create a cluster with more PVs than targets for future scaling
+		MaxPVs int32
 	}
 )
 
-func NewAISClusterCR(args ClusterSpecArgs) *aisv1.AIStore {
-	var storage *string
+func NewAISCluster(args ClusterSpecArgs, client *aisclient.K8sClient) (*aisv1.AIStore, []*corev1.PersistentVolume) {
+	var (
+		storage *string
+		pvNum   int
+	)
 	if args.StorageClass != "" {
 		storage = &args.StorageClass
 	}
-	mountLabel := "diskless"
+
+	if args.MaxPVs != 0 {
+		pvNum = int(args.MaxPVs)
+	} else {
+		if args.TargetSize != 0 {
+			pvNum = int(args.TargetSize)
+		} else {
+			pvNum = int(args.Size)
+		}
+	}
+
+	mounts := defineMounts(storage)
+
+	pvs := make([]*corev1.PersistentVolume, 0, len(mounts)*pvNum)
+
+	for i := 0; i < pvNum; i++ {
+		for _, mount := range mounts {
+			pvData := PVData{
+				storageClass: *storage,
+				ns:           args.Namespace,
+				cluster:      args.Name,
+				mpath:        mount.Path,
+				target:       "target-" + strconv.Itoa(i),
+				size:         mount.Size,
+			}
+			// Create required PVs
+			pv, err := CreatePV(context.Background(), client, &pvData)
+			if err == nil {
+				pvs = append(pvs, pv)
+			}
+		}
+	}
+	return newAISClusterCR(args, mounts), pvs
+}
+
+func defineMounts(storage *string) []aisv1.Mount {
+	mpathLabel := "disk1"
+	return []aisv1.Mount{
+		{
+			Path:         "/ais1",
+			Size:         resource.MustParse("2Gi"),
+			StorageClass: storage,
+			Label:        &mpathLabel,
+		},
+		{
+			Path:         "/ais2",
+			Size:         resource.MustParse("1Gi"),
+			StorageClass: storage,
+			Label:        &mpathLabel,
+		},
+	}
+}
+
+func newAISClusterCR(args ClusterSpecArgs, mounts []aisv1.Mount) *aisv1.AIStore {
 	spec := aisv1.AIStoreSpec{
 		Size:                   args.Size,
 		CleanupData:            apc.Ptr(!args.PreservePVCs),
@@ -65,20 +127,7 @@ func NewAISClusterCR(args ClusterSpecArgs) *aisv1.AIStore {
 					IntraDataPort:    intstr.FromInt(51083),
 				},
 			},
-			Mounts: []aisv1.Mount{
-				{
-					Path:         "/ais1",
-					Size:         resource.MustParse("2Gi"),
-					StorageClass: storage,
-					Label:        &mountLabel,
-				},
-				{
-					Path:         "/ais2",
-					Size:         resource.MustParse("1Gi"),
-					StorageClass: storage,
-					Label:        &mountLabel,
-				},
-			},
+			Mounts: mounts,
 		},
 	}
 

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -37,11 +38,10 @@ var (
 	testEnv   *envtest.Environment
 	testCtx   *testing.T
 
-	storageClass           string // storage-class to use in tests
-	testNS                 *corev1.Namespace
-	nsExists               bool
-	testAsExternalClient   bool
-	testAllowSharedNoDisks bool
+	storageClass         string // storage-class to use in tests
+	testNS               *corev1.Namespace
+	nsExists             bool
+	testAsExternalClient bool
 )
 
 const (
@@ -50,7 +50,8 @@ const (
 
 	EnvTestEnforceExternal = "TEST_EXTERNAL_CLIENT" // if set, will force the test suite to run as external client to deployed k8s cluster.
 	EnvTestStorageClass    = "TEST_STORAGECLASS"
-	EnvTestNoFsChecks      = "TEST_ALLOW_SHARED_NO_DISKS" // if set, deploys cluster with Fs ID/Disk check disabled
+
+	BeforeSuiteTimeout = 60
 )
 
 func TestAPIs(t *testing.T) {
@@ -66,7 +67,30 @@ func setStorageClass() {
 	storageClass = os.Getenv(EnvTestStorageClass)
 	if storageClass == "" && tutils.GetK8sClusterProvider() == tutils.K8sProviderGKE {
 		storageClass = tutils.GKEDefaultStorageClass
+	} else if storageClass == "" {
+		storageClass = "ais-operator-test-storage"
+		tutils.CreateAISStorageClass(context.Background(), k8sClient, storageClass)
 	}
+}
+
+func cleanupPV(c *aisclient.K8sClient, namespace string) {
+	pvList := &corev1.PersistentVolumeList{}
+	err := c.List(context.Background(), pvList)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to list PVs; err %v\n", err)
+		return
+	}
+	pvToDelete := make([]*corev1.PersistentVolume, 0, len(pvList.Items))
+	// Delete old PVs within the test namespace
+	for i := range pvList.Items {
+		pv := &pvList.Items[i]
+		old := time.Since(pv.CreationTimestamp.Time).Hours() > 1
+		if strings.HasPrefix(pv.Name, namespace) && old {
+			fmt.Fprintf(os.Stdout, "Deleting old PV '%s' with creation time '%s'\n", pv.Name, pv.CreationTimestamp.Time)
+			pvToDelete = append(pvToDelete, pv)
+		}
+	}
+	tutils.DestroyPV(context.Background(), c, pvToDelete)
 }
 
 func cleanupOldTestClusters(c *aisclient.K8sClient) {
@@ -86,8 +110,10 @@ func cleanupOldTestClusters(c *aisclient.K8sClient) {
 			continue
 		}
 		for i := range clusters.Items {
+			fmt.Fprintf(os.Stdout, "Destroying old cluster '%s'", clusters.Items[i].Name)
 			tutils.DestroyCluster(context.Background(), c, &clusters.Items[i])
 		}
+		cleanupPV(c, namespace)
 	}
 }
 
@@ -95,6 +121,7 @@ var _ = BeforeSuite(func() {
 	done := make(chan interface{})
 
 	go func() {
+		defer GinkgoRecover()
 		logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
 		By("Bootstrapping test environment")
@@ -148,11 +175,10 @@ var _ = BeforeSuite(func() {
 		testAsExternalClient = cos.IsParseBool(os.Getenv(EnvTestEnforceExternal)) || aisk8s.IsK8s()
 		setStorageClass()
 
-		testAllowSharedNoDisks = cos.IsParseBool(os.Getenv(EnvTestNoFsChecks))
 		close(done)
 	}()
 
-	Eventually(done, 60).Should(BeClosed())
+	Eventually(done, BeforeSuiteTimeout).Should(BeClosed())
 })
 
 var _ = AfterSuite(func() {
