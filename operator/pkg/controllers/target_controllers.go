@@ -67,6 +67,7 @@ func (r *AIStoreReconciler) cleanupTarget(ctx context.Context, ais *aisv1.AIStor
 
 func (r *AIStoreReconciler) cleanupTargetSS(ctx context.Context, ais *aisv1.AIStore) (anyUpdated bool, err error) {
 	// If the target statefulset it not present, we can return immediately.
+	r.log.Info("Cleaning up target statefulset")
 	targetSS := target.StatefulSetNSName(ais)
 	if exists, err := r.client.StatefulSetExists(ctx, targetSS); err != nil || !exists {
 		return false, err
@@ -75,6 +76,8 @@ func (r *AIStoreReconciler) cleanupTargetSS(ctx context.Context, ais *aisv1.AISt
 	// If we reach here implies, we didn't attempt to shutdown the cluster yet.
 	// Attempt graceful cluster shutdown followed by deleting target statefulset.
 	r.attemptGracefulShutdown(ctx, ais)
+	// TODO: if the environment is slow the statefulset controller might create new pods to compensate for the old ones being
+	// deleted in the shutdown/decomission operation. Find a way to stop the statefulset controller from creating new pods
 	return r.client.DeleteStatefulSetIfExists(ctx, targetSS)
 }
 

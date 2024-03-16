@@ -1,6 +1,6 @@
 // Package client contains wrapper for k8s client
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION. All rights reserved.
  */
 package client
 
@@ -10,6 +10,8 @@ import (
 	"time"
 
 	aisv1 "github.com/ais-operator/api/v1beta1"
+	"github.com/ais-operator/pkg/resources/proxy"
+	"github.com/ais-operator/pkg/resources/target"
 	apiv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -102,6 +104,34 @@ func (c *K8sClient) GetRoleByName(ctx context.Context, name types.NamespacedName
 }
 
 func (c *K8sClient) Status() client.StatusWriter { return c.client.Status() }
+
+// listPodsAndUpdateNodeNames lists pods based on the provided label selector and updates the uniqueNodeNames map with the node names of those pods
+func (c *K8sClient) listPodsAndUpdateNodeNames(ctx context.Context, ais *aisv1.AIStore, labelSelector map[string]string, uniqueNodeNames map[string]bool) error {
+	pods := &corev1.PodList{}
+	if err := c.List(ctx, pods, client.InNamespace(ais.Namespace), client.MatchingLabels(labelSelector)); err != nil {
+		return err
+	}
+	for i := range pods.Items {
+		pod := &pods.Items[i]
+		// check if the pod is running on a node (not failed or pending)
+		if pod.Spec.NodeName != "" {
+			uniqueNodeNames[pod.Spec.NodeName] = true
+		}
+	}
+	return nil
+}
+
+// ListNodesRunningAIS returns a map of unique node names where AIS pods are running
+func (c *K8sClient) ListNodesRunningAIS(ctx context.Context, ais *aisv1.AIStore) (map[string]bool, error) {
+	uniqueNodeNames := make(map[string]bool)
+	if err := c.listPodsAndUpdateNodeNames(ctx, ais, proxy.PodLabels(ais), uniqueNodeNames); err != nil {
+		return nil, err
+	}
+	if err := c.listPodsAndUpdateNodeNames(ctx, ais, target.PodLabels(ais), uniqueNodeNames); err != nil {
+		return nil, err
+	}
+	return uniqueNodeNames, nil
+}
 
 ///////////////////////////////////////
 //      create/update resources     //

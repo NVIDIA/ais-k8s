@@ -1,6 +1,6 @@
 // Package contains declaration of AIS Kubernetes Custom Resource Definitions
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION. All rights reserved.
  */
 package v1beta1
 
@@ -69,9 +69,15 @@ type AIStoreSpec struct {
 	ProxySpec  DaemonSpec `json:"proxySpec"`  // spec for proxy
 	TargetSpec TargetSpec `json:"targetSpec"` // spec for target
 
-	// Defines if the PVCs and (meta)data should be cleaned up when cluster is destroyed.
-	// Reclaiming of PVs associated with PVCs is defined by PV reclaim policy
-	// or default policy of associated StorageClass.
+	// DecommissionCluster indicates whether the cluster should be decommissioned upon deletion of the CR.
+	// When enabled, this process removes all AIS daemons and deletes metadata from the configuration directories.
+	// Note: Decommissioning is irreversible, and it may result in the permanent loss of the cluster and all user data**.
+	// +optional
+	DecommissionCluster *bool `json:"decommissionCluster,omitempty"`
+
+	// CleanupData determines whether to clean up PVCs and user data (including buckets and objects) when the cluster is decommissioned.
+	// The reclamation of PVs linked to the PVCs depends on the PV reclaim policy or the default policy of the associated StorageClass.
+	// This field is relevant only if DecommissionCluster is enabled.
 	// +optional
 	CleanupData *bool `json:"cleanupData,omitempty"`
 

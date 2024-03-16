@@ -44,9 +44,9 @@ spec:
                 type: string
               cleanupData:
                 description: |-
-                  Defines if the PVCs and (meta)data should be cleaned up when cluster is destroyed.
-                  Reclaiming of PVs associated with PVCs is defined by PV reclaim policy
-                  or default policy of associated StorageClass.
+                  CleanupData determines whether to clean up PVCs and user data (including buckets and objects) when the cluster is decommissioned.
+                  The reclamation of PVs linked to the PVCs depends on the PV reclaim policy or the default policy of the associated StorageClass.
+                  This field is relevant only if DecommissionCluster is enabled.
                 type: boolean
               clusterDomain:
                 description: 'Defines the cluster domain name for DNS. Default: cluster.local.'
@@ -423,6 +423,12 @@ spec:
                         type: string
                     type: object
                 type: object
+              decommissionCluster:
+                description: |-
+                  DecommissionCluster indicates whether the cluster should be decommissioned upon deletion of the CR.
+                  When enabled, this process removes all AIS daemons and deletes metadata from the configuration directories.
+                  Note: Decommissioning is irreversible, and it may result in the permanent loss of the cluster and all user data**.
+                type: boolean
               disablePodAntiAffinity:
                 description: DisablePodAntiAffinity, if set allows more than one target/proxy
                   daemon pods to be scheduled on same K8s node.
