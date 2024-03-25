@@ -1,0 +1,28 @@
+---
+# Playbook for shutting down the AIS cluster
+# In shutdown, all the nodes can easily get back and rejoin the cluster at any later time
+# User data (buckets, objects) is preserved, configuration is preserved
+
+- name: Shutdown AIS cluster
+  hosts: "controller"
+  vars_prompt:
+  - name: "shutdown_confirmation"
+    prompt: "Are you sure you would like to shut down the AIS cluster - {{ cluster }}? Type 'yes' to confirm."
+    default: "no"
+    private: no
+
+  pre_tasks:
+    - name: check confirmation
+      fail:
+        msg: "Shutdown cluster not confirmed/forced"
+      when: shutdown_confirmation != "yes"
+
+    - name: check cluster name
+      fail:
+        msg: "cluster name not specified!"
+      when: cluster is undefined
+
+  gather_facts: false
+  become: true
+  roles:
+    - role: ais_delete_cluster

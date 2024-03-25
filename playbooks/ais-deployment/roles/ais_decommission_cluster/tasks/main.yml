@@ -1,0 +1,60 @@
+---
+- name: Decommission cluster instead of shutdown
+  shell: kubectl patch aistores.ais.nvidia.com ais -n {{ cluster }} --type=merge -p '{"spec":{"decommissionCluster":true}}'
+  ignore_errors: true
+
+- name: Delete user data if `cleanup_data` is true
+  shell: kubectl patch aistores.ais.nvidia.com ais -n {{ cluster }} --type=merge -p '{"spec":{"cleanupData":true}}'
+  ignore_errors: true
+  when: cleanup_data | default(false) | bool
+
+- name: Get node names of all pods {{ cluster }} namespace
+  shell: >
+    kubectl get pods -n {{ cluster }} -o=jsonpath='{.items[*].spec.nodeName}' | tr ' ' '\n' | sort -u
+  register: pod_node_names
+  changed_when: false
+
+- name: Get list of PVCs in the cluster
+  shell: >
+    kubectl get pvc -n {{ cluster }} -o jsonpath="{.items[*].metadata.name}"
+  register: pvc_list
+  changed_when: false
+
+- name: Construct JSONPath query for PVC names
+  set_fact:
+    jsonpath_query: "[{{ pvc_list.stdout.split(' ') | map('regex_replace', '^(.*)$', '\"\\1\"') | join(', ') }}]"
+  when: pvc_list.stdout != ''
+
+- name: Get list of PVs corresponding to the PVCs
+  shell: >
+    kubectl get pvc -n {{ cluster }} -o jsonpath="{.items[?(@.metadata.name in {{ jsonpath_query }})].spec.volumeName}"
+  register: pv_list
+  changed_when: false
+  when: jsonpath_query is defined
+
+- name: Delete cluster
+  import_role:
+    name: ais_delete_cluster
+
+- name: Delete all PVCs in the namespace
+  shell: kubectl delete pvc --all -n {{ cluster }}
+  register: delete_pvc_result
+  changed_when: "'deleted' in delete_pvc_result.stdout"
+
+- name: Delete all PVs in the namespace
+  shell: kubectl delete pv {{ pv_list.stdout.split() | join(' ') }}
+  when: pv_list.stdout != ''
+  register: delete_pv_result
+  changed_when: "'deleted' in delete_pv_result.stdout"
+
+- name: Convert node names to a list
+  set_fact:
+    node_name_list: "{{ pod_node_names.stdout.split('\n') }}"
+  when: pod_node_names.stdout != ""
+
+- name: Unlabel all nodes
+  shell: >
+    kubectl label nodes {{ node_name_list | join(' ') }} nvidia.com/ais-proxy- nvidia.com/ais-target-
+  register: unlabel_result
+  changed_when: "'labeled' in unlabel_result.stdout or 'not labeled' not in unlabel_result.stdout"
+  when: node_name_list | length > 0

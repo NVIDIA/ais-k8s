@@ -8,10 +8,13 @@ Collection of Ansible playbooks designed for efficient management of AIStore (AI
 The playbooks assist in the following tasks:
 
 1. **Deploying AIS Kubernetes Operator:** Set up the AIS K8s operator, responsible for managing AIS cluster resources.
-2. **Creating a Multi-Node AIS Cluster:** Facilitate the deployment of a multi-node AIS cluster on Kubernetes.
-3. **Decommissioning an AIS Cluster:** Procedures for safely destroying an existing AIS cluster.
-4. **Cleanup of AIS Data and Metadata:** Tools for removing AIS data and metadata from the cluster nodes.
-5. **Undeploying AIS Kubernetes Operator:** Steps to undeploy the AIS K8s operator and delete associated Kubernetes resources.
+1. **Creating a Multi-Node AIS Cluster:** Facilitate the deployment of a multi-node AIS cluster on Kubernetes.
+1. **AIS Cluster Shutdown:** Guidelines for gracefully shutting down an AIS cluster.
+1. **AIS Cluster Decommission:** Steps for decommissioning and permanently removing an AIS cluster.
+1. **Cleanup of AIS Data and Metadata:** Tools for removing AIS data and metadata from the cluster nodes.
+1. **Undeploying AIS Kubernetes Operator:** Steps to undeploy the AIS K8s operator and delete associated Kubernetes resources.
+
+> **Note:** For comprehensive details on different cluster lifecycle operations, please visit the [AIS documentation](https://github.com/NVIDIA/aistore/blob/main/docs/lifecycle_node.md).
 
 ## Detailed Usage
 
@@ -77,21 +80,30 @@ The playbooks assist in the following tasks:
   $ ansible-playbook -i host.ini ais_deploy_cluster.yml -e cluster=ais
   ```
 
-### 3. Decommissioning an Existing AIS Cluster
+### 3. AIS Cluster Shutdown
 
-- **Playbook:** [`ais_destroy_cluster.yml`](../ais_destroy_cluster.yml)
-- **Actions:**
-  - Deletion of cluster map and configuration files.
-  - Destruction of AIS cluster Custom Resource.
-  - Deletion of PVCs and PVs used by AIS targets.
-  - Removal of node labels.
-- **Arguments:** `cluster` (same as used in creation)
-- **Execution Example:**
+- **Playbook:** [`ais_shutdown_cluster.yml`](../ais_shutdown_cluster.yml)
+- **Overview:**
+  - Gracefully shuts down an AIS cluster, preserving metadata and configuration for future restarts.
+- **Parameters:** `cluster` (identifier used during cluster setup)
+- **Usage:**
   ```console
-  $ ansible-playbook -i host.ini ais_destroy_cluster.yml -e cluster=ais
+  $ ansible-playbook -i host.ini ais_shutdown_cluster.yml -e cluster=ais
   ```
 
-### 4. Cleanup of AIS Data and Metadata
+### 4. AIS Cluster Decommission
+
+- **Playbook:** [`ais_decommission_cluster.yml`](../ais_decommission_cluster.yml)
+- **Overview:**
+  - Cleans up the AIS cluster's resources, including cluster maps, configuration files, PVCs, PVs, and node labels.
+  - Ensures a complete removal of the AIS cluster from the Kubernetes environment.
+- **Parameters:** `cluster` (identifier used during cluster setup)
+- **Usage:**
+  ```console
+  $ ansible-playbook -i host.ini ais_decommission_cluster.yml -e cluster=ais
+  ```
+
+### 5. Cleanup of AIS Data and Metadata
 
 - **Playbook:** [`ais_cleanup_all.yml`](../ais_cleanup_all.yml)
 - **Purpose:** Complete removal of AIS data and metadata from each node.
@@ -102,7 +114,7 @@ The playbooks assist in the following tasks:
   $ ansible-playbook -i host.ini ais_cleanup_all.yml -e cluster=ais
   ```
 
-### 5. Undeploying AIS Kubernetes Operator
+### 6. Undeploying AIS Kubernetes Operator
 
 - **Playbook:** [`ais_undeploy_operator.yml`](../ais_undeploy_operator.yml)
 - **Action:** Removes the AIS operator and all associated Kubernetes resources.

@@ -6,7 +6,7 @@
   gather_facts: false
   become: true
   roles:
-    - ais_delete_all_pods
+    - ais_delete_cluster
 
 - name: Reset AIS configuration
   hosts: "{{ cluster }}"
