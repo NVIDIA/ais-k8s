@@ -2701,9 +2701,10 @@ spec:
                         type: object
                     type: object
                   allowSharedNoDisks:
-                    description: AllowSharedOrNoDisks - disables FsID and mountpath
-                      disks validation on target nodes. NOT recommended for production
-                      deployments
+                    description: |-
+                      Deprecated: AllowSharedOrNoDisks - disables FsID and mountpath disks validation on target nodes
+                      NOT recommended for production deployments
+                      Use Mount.Label instead
                     type: boolean
                   capabilities:
                     description: ContainerSecurity holds the secrity context for AIS
@@ -2880,6 +2881,12 @@ spec:
                   mounts:
                     items:
                       properties:
+                        label:
+                          description: |-
+                            Mountpath labels can be used for mapping mountpaths to disks, enabling disk sharing,
+                            defining storage classes for bucket-specific storage, and allowing user-defined mountpath
+                            grouping for capacity and storage class differentiation
+                          type: string
                         path:
                           type: string
                         selector:

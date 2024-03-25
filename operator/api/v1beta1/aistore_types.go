@@ -171,7 +171,9 @@ type DaemonSpec struct {
 type TargetSpec struct {
 	DaemonSpec `json:",inline"`
 	Mounts     []Mount `json:"mounts"`
-	// AllowSharedOrNoDisks - disables FsID and mountpath disks validation on target nodes. NOT recommended for production deployments
+	// Deprecated: AllowSharedOrNoDisks - disables FsID and mountpath disks validation on target nodes
+	// NOT recommended for production deployments
+	// Use Mount.Label instead
 	// +optional
 	AllowSharedOrNoDisks *bool `json:"allowSharedNoDisks,omitempty"`
 }
@@ -181,6 +183,10 @@ type Mount struct {
 	Size         resource.Quantity     `json:"size"`
 	StorageClass *string               `json:"storageClass,omitempty"` // storage class for volume resource
 	Selector     *metav1.LabelSelector `json:"selector,omitempty"`     // selector for choosing PVs
+	// Mountpath labels can be used for mapping mountpaths to disks, enabling disk sharing,
+	// defining storage classes for bucket-specific storage, and allowing user-defined mountpath
+	// grouping for capacity and storage class differentiation
+	Label *string `json:"label,omitempty"`
 }
 
 // +kubebuilder:object:root=true

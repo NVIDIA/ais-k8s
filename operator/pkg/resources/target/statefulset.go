@@ -120,6 +120,7 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 								cmn.EnvFromValue(cmn.ENVLocalConfigFilePath, "/var/ais_config/ais_local.json"),
 								cmn.EnvFromValue(cmn.EnvStatsDConfig, "/var/statsd_config/statsd.json"),
 								cmn.EnvFromValue(cmn.EnvDaemonRole, aisapc.Target),
+								//nolint:all // Continue to set environment variable for AIS, deprecated in the CRD
 								cmn.EnvFromValue(
 									cmn.EnvAllowSharedOrNoDisks,
 									strconv.FormatBool(ais.Spec.TargetSpec.AllowSharedOrNoDisks != nil && *ais.Spec.TargetSpec.AllowSharedOrNoDisks),

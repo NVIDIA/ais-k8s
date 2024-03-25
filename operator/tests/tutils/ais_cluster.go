@@ -14,7 +14,7 @@ import (
 
 // TODO: Should be provided from test config.
 const (
-	aisNodeImage = "aistorage/aisnode:v3.22"
+	aisNodeImage = "aistorage/aisnode:v3.23-RC1"
 	aisInitImage = "aistorage/ais-init:v3.22"
 )
 
@@ -38,6 +38,7 @@ func NewAISClusterCR(args ClusterSpecArgs) *aisv1.AIStore {
 	if args.StorageClass != "" {
 		storage = &args.StorageClass
 	}
+	mountLabel := "diskless"
 	spec := aisv1.AIStoreSpec{
 		Size:                   args.Size,
 		CleanupData:            apc.Ptr(!args.PreservePVCs),
@@ -64,17 +65,18 @@ func NewAISClusterCR(args ClusterSpecArgs) *aisv1.AIStore {
 					IntraDataPort:    intstr.FromInt(51083),
 				},
 			},
-			AllowSharedOrNoDisks: &args.AllowSharedOrNoDisks,
 			Mounts: []aisv1.Mount{
 				{
 					Path:         "/ais1",
 					Size:         resource.MustParse("2Gi"),
 					StorageClass: storage,
+					Label:        &mountLabel,
 				},
 				{
 					Path:         "/ais2",
 					Size:         resource.MustParse("1Gi"),
 					StorageClass: storage,
+					Label:        &mountLabel,
 				},
 			},
 		},
