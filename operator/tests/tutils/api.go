@@ -77,7 +77,7 @@ func DestroyCluster(_ context.Context, client *aisclient.K8sClient,
 }
 
 func DestroyPV(ctx context.Context, client *aisclient.K8sClient, pvs []*corev1.PersistentVolume) {
-	const pvExistenceInterval = 10 * time.Second
+	const pvExistenceInterval = 30 * time.Second
 	for _, pv := range pvs {
 		deleteAssociatedPVCs(ctx, pv, client)
 		existed, err := client.DeleteResourceIfExists(ctx, pv)
