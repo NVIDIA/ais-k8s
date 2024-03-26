@@ -82,6 +82,13 @@ var _ = Describe("Run Controller", func() {
 				createAndDestroyCluster(cluster, pvs, nil, nil, false)
 			})
 
+			It("Should successfully create an AIS Cluster with AllowSharedOrNoDisks on > v3.23 image", func() {
+				args := defaultCluArgs()
+				args.AllowSharedOrNoDisks = true
+				cluster, pvs := tutils.NewAISCluster(args, k8sClient)
+				createAndDestroyCluster(cluster, pvs, nil, nil, false)
+			})
+
 			It("Should successfully create an hetero-sized AIS Cluster", func() {
 				args := defaultCluArgs()
 				args.TargetSize = 2

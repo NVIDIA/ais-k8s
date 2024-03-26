@@ -36,6 +36,8 @@ type (
 		PreservePVCs        bool
 		// Create a cluster with more PVs than targets for future scaling
 		MaxPVs int32
+		// For testing deprecated feature
+		AllowSharedOrNoDisks bool
 	}
 )
 
@@ -58,7 +60,7 @@ func NewAISCluster(args ClusterSpecArgs, client *aisclient.K8sClient) (*aisv1.AI
 		}
 	}
 
-	mounts := defineMounts(storage)
+	mounts := defineMounts(storage, !args.AllowSharedOrNoDisks)
 
 	pvs := make([]*corev1.PersistentVolume, 0, len(mounts)*pvNum)
 
@@ -82,22 +84,26 @@ func NewAISCluster(args ClusterSpecArgs, client *aisclient.K8sClient) (*aisv1.AI
 	return newAISClusterCR(args, mounts), pvs
 }
 
-func defineMounts(storage *string) []aisv1.Mount {
+func defineMounts(storage *string, useLabels bool) []aisv1.Mount {
 	mpathLabel := "disk1"
-	return []aisv1.Mount{
+	mounts := []aisv1.Mount{
 		{
 			Path:         "/ais1",
 			Size:         resource.MustParse("2Gi"),
 			StorageClass: storage,
-			Label:        &mpathLabel,
 		},
 		{
 			Path:         "/ais2",
 			Size:         resource.MustParse("1Gi"),
 			StorageClass: storage,
-			Label:        &mpathLabel,
 		},
 	}
+	if useLabels {
+		for i := range mounts {
+			mounts[i].Label = &mpathLabel
+		}
+	}
+	return mounts
 }
 
 func newAISClusterCR(args ClusterSpecArgs, mounts []aisv1.Mount) *aisv1.AIStore {
@@ -127,7 +133,8 @@ func newAISClusterCR(args ClusterSpecArgs, mounts []aisv1.Mount) *aisv1.AIStore 
 					IntraDataPort:    intstr.FromInt(51083),
 				},
 			},
-			Mounts: mounts,
+			Mounts:               mounts,
+			AllowSharedOrNoDisks: &args.AllowSharedOrNoDisks,
 		},
 	}
 

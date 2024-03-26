@@ -29,6 +29,4 @@ const (
 	EnvShutdownMarkerPath   = "AIS_SHUTDOWN_MARKER_PATH"         // Path where node shutdown marker will be located
 
 	EnvGCPCredsPath = "GOOGLE_APPLICATION_CREDENTIALS" // Path to GCP credentials
-
-	EnvAllowSharedOrNoDisks = "AIS_ALLOW_SHARED_NO_DISKS" // Bool flag to allow disk sharing and/or mountpaths with no disks
 )

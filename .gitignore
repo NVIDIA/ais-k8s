@@ -9,6 +9,7 @@
 *.swp
 *.vscode
 .DS_Store
+.idea
 
 *ansible.cfg
 

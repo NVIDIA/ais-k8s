@@ -22,18 +22,22 @@ AIS operator runs a webhook server with `tls` enabled, responsible for validatin
 
 For quick deployment, the `deploy` command provides an option to deploy a basic version of `cert-manager`. However, for more advanced deployments it's recommended to follow [cert-manager documentation](https://cert-manager.io/docs/installation/kubernetes/).
 
+
+### Deploy AIS Operator
 ```console
-# Deploy AIS Operator
 $ IMG=aistorage/ais-operator:latest make deploy
-would you like to deploy cert-manager? [y/n]
-...
-# Ensure the operator is ready
+```
+
+### Ensure the operator is ready
+```console
 $ kubectl get pods -n ais-operator-system
 NAME                                               READY   STATUS    RESTARTS   AGE
 ais-operator-controller-manager-64c8c86f7b-8g8pj   2/2     Running   0          18s
+```
 
-# Deploy sample AIS Cluster
-# If you are testing on minikube, set `allowSharedNoDisks: true` in the below spec
+### Deploy sample AIS Cluster
+**Note: If you are testing on minikube with multiple mounts, each mount defined in the AIS spec must have the same label**
+```console
 $ kubectl apply -f config/samples/ais_v1beta1_aistore.yaml -n ais-operator-system
 $ kubectl get pods -n ais-operator-system
 NAME                                                  READY   STATUS    RESTARTS   AGE
@@ -81,8 +85,9 @@ For more information and details on *minikube tunneling*, please see [this link]
 
 ### Deploying cluster with shared or no disks
 
-For development/testing K8s setup where the `mountpaths` attached to the storage targets pods are not block devices, i.e. have no disks, or share the disk, will result in the target pods to fail with `has no disks` or `filesystem sharing is not allowed` error.
-To deploy AIStore cluster on such K8s environments is possible by setting the `allowSharedNoDisks` property to `true`, as follows:
+In a development/testing K8s setup, the `mountpaths` attached to storage target pods may either be block devices (no disks) or share a disk. 
+This will result in target pod errors such as `has no disks` or `filesystem sharing is not allowed`.
+To deploy AIStore cluster on such K8s environments, set a shared label for each mountpath as follows:
 
 ```yaml
 # config/samples/ais_v1beta1_sample.yaml
@@ -91,13 +96,20 @@ kind: AIStore
 metadata:
   name: aistore-sample
 spec:
-  size: 4 # > number of K8s nodes
-  allowSharedNoDisks: true
+  targetSpec:
+    mounts:
+      - path: "/ais1"
+        size: 10Gi
+        label: "disk1"
+      - path: "/ais2"
+        size: 10Gi
+        label: "disk1"
 ...
 ```
 
-> **WARNING:** It is NOT recommended to set the `allowSharedNoDisks` property to `true` for production deployments.
+The above spec will tell AIS to allow both mounts to share a single disk as long as the `label` is the same. If the `label` does not exist as an actual disk, the target pod will accept it and run in diskless mode without disk statistics. 
 
+> **WARNING:** `allowSharedNoDisks` is deprecated. If you are using a cluster with allowSharedNoDisks, first update the operator to the latest version for compatibility with the latest AIS versions. `allowSharedNoDisks` will be removed in a future update. 
 
 ### Locally testing multi-node AIS cluster
 

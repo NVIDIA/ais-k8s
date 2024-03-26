@@ -161,31 +161,3 @@ func DefaultAISConf(ais *aisv1.AIStore) aiscmn.ClusterConfig {
 	}
 	return conf
 }
-
-func LocalConfTemplate(sp aisv1.ServiceSpec, mounts []aisv1.Mount) aiscmn.LocalConfig {
-	localConf := aiscmn.LocalConfig{
-		ConfigDir: "/etc/ais",
-		LogDir:    "/var/log/ais",
-		HostNet: aiscmn.LocalNetConfig{
-			Hostname:             "${AIS_PUBLIC_HOSTNAME}",
-			HostnameIntraControl: "${AIS_INTRA_HOSTNAME}",
-			HostnameIntraData:    "${AIS_DATA_HOSTNAME}",
-			Port:                 sp.PublicPort.IntValue(),
-			PortIntraControl:     sp.IntraControlPort.IntValue(),
-			PortIntraData:        sp.IntraDataPort.IntValue(),
-		},
-	}
-	if len(mounts) == 0 {
-		return localConf
-	}
-
-	localConf.FSP.Paths = cos.NewStrKVs(len(mounts))
-	for _, m := range mounts {
-		if m.Label != nil {
-			localConf.FSP.Paths[m.Path] = *m.Label
-		} else {
-			localConf.FSP.Paths[m.Path] = ""
-		}
-	}
-	return localConf
-}

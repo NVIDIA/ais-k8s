@@ -3,12 +3,13 @@ module github.com/ais-operator
 go 1.22
 
 require (
-	github.com/NVIDIA/aistore v1.3.23-0.20240325154819-acd9a2081e4e
+	github.com/NVIDIA/aistore v1.3.23-0.20240327211054-64920c582aec
 	github.com/go-logr/logr v1.4.1
 	github.com/json-iterator/go v1.1.12
 	github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.6.0
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.31.1
+	golang.org/x/mod v0.15.0
 	k8s.io/api v0.29.2
 	k8s.io/apimachinery v0.29.2
 	k8s.io/client-go v0.29.2
