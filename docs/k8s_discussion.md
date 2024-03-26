@@ -157,7 +157,7 @@ The choice between using in-cluster clients and external clients for AIStore has
 
 #### In-Cluster Clients: Simplified Management
 
-- **Ease of Management**: In-cluster clients offer a more straightforward management experience. Their integration within the Kubernetes environment streamlines various processes.
+- **Ease of Management**: In-cluster clients offer a more straightforward management experience. Their integration within the Kubernetes environment streamlines various processes. Daemons, including proxies and targets, are easily accessible via the `servicePort` specified in their configuration, facilitating inter-service communication.
 
 - **Utilizing Kubernetes DNS**: These clients can easily access AIStore endpoints using Kubernetes DNS names. This is particularly useful for connecting to the clusterIP proxy service, simplifying network configurations.
 
@@ -165,25 +165,28 @@ The choice between using in-cluster clients and external clients for AIStore has
 
 #### External Clients: Additional Setup Required
 
-- **Ingress Setup**: For external clients to access the AIStore cluster, you will need to establish ingress. This involves additional configuration steps not required for in-cluster clients.
+- **Ingress Setup**: For external clients to access the AIStore cluster, you will need to establish ingress. This involves additional configuration steps not required for in-cluster clients. In the [deployment guide](README.md) we use `hostPort` to map a container's port to a corresponding port on the host machine to facilitate external access. 
 
-- **Port Configuration**: It's necessary to open specific ports for the targets and proxies to ensure external clients can connect. The necessary port information is detailed in the deployment guide.
+- **Port Configuration**: It's necessary to open specific ports for the targets and proxies to ensure external clients can connect. The necessary port information is detailed in the [deployment guide](README.md).
 
 - **Performance Considerations**: Despite the differences in setup and management, the performance for in-cluster and external clients remains consistent. Both client types can achieve similar levels of efficiency and speed in data handling.
 
+> Note: For deploying multiple targets on a single host machine, please refer our [documentation](multiple_targets_per_node.md).
+
 #### LoadBalancer and Ingress
 
-- **Load Balancer Requirement**: When using external clients, it's recommended to have a load balancer in place. This ensures clients can connect to a single, well-known IP address or DNS entry.
+When using external clients, it's recommended to have a load balancer in place. This ensures clients can connect to a single, well-known IP address or DNS entry. To setup a load balancer you will need **external IPs**. The number of external IPs needed equals the number of targets plus one for the proxy.
 
-- **Ingress Service on Proxy ClusterIP**: You'll need to set up a LoadBalancer type ingress service targeting the AIStore proxy's clusterIP service. The purpose here is not to perform actual load balancing (as Kubernetes proxy/IPVS will handle this) but to direct traffic to the AIStore proxies.
-
-- **High Availability Proxy Endpoint**: With several proxy Pods supporting the clusterIP service, this configuration effectively creates a highly available (HA) proxy endpoint.
-
-#### Specific Solutions for Different Environments
-
+**Setting up external IPs**
 - **Bare-Metal On-Premises Deployments**: For these setups, we recommend using [MetalLB](https://metallb.universe.tf/), a popular solution for on-premises Kubernetes environments.
-
 - **Cloud-Based Deployments**: If your AIStore is running in a cloud environment, you can utilize standard HTTP load balancer services provided by the cloud provider.
+
+- **Proxy and Target Load Balancers**:
+   - **Proxy LB**: A single load balancer consolidates proxy access, creating a high-availability endpoint for the clusterIP service.
+   - **Target LBs**: Individual load balancers for each target direct traffic to specific AIStore targets, facilitating ingress rather than distributing load.
+
+**Automating Load Balancer Setup**:
+You can manually configure your load balancers or enable automatic setup by setting `externalLB` to `true` in your AIStore Custom Resource specification, allowing the AIS Operator to handle the configuration on your behalf.
 
 ### Host Performance Tuning
 
