@@ -7,6 +7,8 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"net"
+	"os"
 	"strings"
 	"time"
 
@@ -21,7 +23,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const primaryStartTimeout = time.Minute * 3
+const (
+	primaryStartTimeout = time.Minute
+	// Default coreDNS cache time is 30 seconds -- should be patched for faster runs on test runners
+	dnsEntryWaitTimeout = 40 * time.Second
+	dnsEntryInterval    = 2 * time.Second
+)
 
 func (r *AIStoreReconciler) initProxies(ctx context.Context, ais *aisv1.AIStore) (changed bool, err error) {
 	var (
@@ -74,7 +81,32 @@ func (r *AIStoreReconciler) initProxies(ctx context.Context, ais *aisv1.AIStore)
 		r.log.Info(msg)
 		r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonInitialized, msg)
 	}
+
+	// Wait for proxy service to have a registered DNS entry
+	if err = waitForDNSEntry(ctx, ais.GetClusterDomain(), svc, dnsEntryInterval, dnsEntryWaitTimeout); err != nil {
+		r.recordError(ais, err, "Failed while waiting for DNS entry for proxy service")
+	}
 	return
+}
+
+func waitForDNSEntry(ctx context.Context, clusterDomain string, svc *corev1.Service, retryInterval, timeout time.Duration) error {
+	ctxBack, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	for {
+		hostname := fmt.Sprintf("%s.%s.svc.%s", svc.Name, svc.Namespace, clusterDomain)
+		_, err := net.LookupIP(hostname)
+		if err == nil {
+			return nil // DNS entry found
+		}
+		fmt.Fprintf(os.Stdout, "Waiting for service '%s' to have a DNS entry...\n", hostname)
+		time.Sleep(retryInterval)
+		select {
+		case <-ctxBack.Done():
+			return ctxBack.Err()
+		default:
+			break
+		}
+	}
 }
 
 func (r *AIStoreReconciler) cleanupProxy(ctx context.Context, ais *aisv1.AIStore) (anyExisted bool, err error) {

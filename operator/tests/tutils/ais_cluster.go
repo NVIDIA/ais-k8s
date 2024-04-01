@@ -117,20 +117,20 @@ func newAISClusterCR(args ClusterSpecArgs, mounts []aisv1.Mount) *aisv1.AIStore 
 		DisablePodAntiAffinity: &args.DisableAntiAffinity,
 		ProxySpec: aisv1.DaemonSpec{
 			ServiceSpec: aisv1.ServiceSpec{
-				ServicePort:      intstr.FromInt(51080),
-				PublicPort:       intstr.FromInt(51080),
-				IntraControlPort: intstr.FromInt(51082),
-				IntraDataPort:    intstr.FromInt(51083),
+				ServicePort:      intstr.FromInt32(51080),
+				PublicPort:       intstr.FromInt32(51080),
+				IntraControlPort: intstr.FromInt32(51082),
+				IntraDataPort:    intstr.FromInt32(51083),
 			},
 		},
 
 		TargetSpec: aisv1.TargetSpec{
 			DaemonSpec: aisv1.DaemonSpec{
 				ServiceSpec: aisv1.ServiceSpec{
-					ServicePort:      intstr.FromInt(51081),
-					PublicPort:       intstr.FromInt(51081),
-					IntraControlPort: intstr.FromInt(51082),
-					IntraDataPort:    intstr.FromInt(51083),
+					ServicePort:      intstr.FromInt32(51081),
+					PublicPort:       intstr.FromInt32(51081),
+					IntraControlPort: intstr.FromInt32(51082),
+					IntraDataPort:    intstr.FromInt32(51083),
 				},
 			},
 			Mounts:               mounts,

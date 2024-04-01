@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	clusterReadyRetryInterval = 10 * time.Second
+	clusterReadyRetryInterval = 5 * time.Second
 	clusterReadyTimeout       = 3 * time.Minute
 )
 
@@ -466,6 +466,7 @@ func defaultCluArgs() tutils.ClusterSpecArgs {
 		Namespace:    testNSName,
 		StorageClass: storageClass,
 		Size:         1,
+		PreservePVCs: false,
 	}
 }
 
@@ -575,7 +576,7 @@ func createCluster(cluster *aisv1.AIStore, intervals ...interface{}) {
 	Eventually(func() bool {
 		r := &aisv1.AIStore{}
 		_ = k8sClient.Get(context.Background(), cluster.NamespacedName(), r)
-		return r.Status.State == aisv1.ConditionCreated
+		return r.Status.State == aisv1.ConditionCreated || r.Status.State == aisv1.ConditionReady
 	}, intervals...).Should(BeTrue())
 }
 
