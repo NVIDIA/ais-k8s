@@ -111,7 +111,7 @@ func definePathsWithLabels(spec aisv1.TargetSpec, conf *aiscmn.LocalConfig) {
 		if m.Label != nil {
 			fmt.Printf("Using provided mountpath labels for aisnode image > 3.22\n")
 			conf.FSP.Paths[m.Path] = *m.Label
-		} else if *spec.AllowSharedOrNoDisks {
+		} else if spec.AllowSharedOrNoDisks != nil && *spec.AllowSharedOrNoDisks {
 			// Support allowSharedNoDisks until removed from CR
 			fmt.Fprintf(os.Stderr, "Converting deprecated allowSharedNoDisks to mpath label!\n")
 			conf.FSP.Paths[m.Path] = "diskless"
