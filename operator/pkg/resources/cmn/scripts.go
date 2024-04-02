@@ -32,7 +32,6 @@ const (
 		url_scheme="https"
 	fi
 
-	source /var/ais_env/env || true
 	health_url="${url_scheme}://${CLUSTERIP_PROXY_SERVICE_HOSTNAME}:${CLUSTERIP_PROXY_SERVICE_PORT}/v1/health"
 	our_health_url="${url_scheme}://localhost:${CLUSTERIP_PROXY_SERVICE_PORT}/v1/health?readiness=true"
 
@@ -45,7 +44,8 @@ const (
 	stat=$(curl -X GET -o /dev/null --max-time 5 -k --silent -w "%{http_code}" "${health_url}")
 	if [[ "${stat}" != "200" ]]; then
 		# Looks like early deployment; make a special case for the initial primary
-		[[ "${AIS_IS_PRIMARY}" == "true" ]] && exit 0
+		# check if this pods name is the same as the default primary
+		[[ "${MY_POD}" == "${AIS_DEFAULT_PRIMARY}" ]] && exit 0
 	fi
 
 	# otherwise tell the truth for this pod

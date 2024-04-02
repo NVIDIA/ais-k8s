@@ -119,7 +119,7 @@ func cleanupOldTestClusters(c *aisclient.K8sClient) {
 
 var _ = BeforeSuite(func() {
 	done := make(chan interface{})
-
+	clustersInShutdown := make(map[string]bool)
 	go func() {
 		defer GinkgoRecover()
 		logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
@@ -158,6 +158,7 @@ var _ = BeforeSuite(func() {
 			mgr,
 			ctrl.Log.WithName("controllers").WithName("AIStore"),
 			testAsExternalClient,
+			clustersInShutdown,
 		).SetupWithManager(mgr)
 		Expect(err).NotTo(HaveOccurred())
 

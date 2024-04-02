@@ -28,6 +28,10 @@ var (
 
 	build     string
 	buildtime string
+
+	// TODO: store in k8s to persist beyond operator pod restarts
+	// A map tracking cluster names that are currently shut down but can be restarted
+	clustersInShutdown = make(map[string]bool)
 )
 
 func init() {
@@ -79,6 +83,7 @@ func main() {
 		mgr,
 		ctrl.Log.WithName("controllers").WithName("AIStore"),
 		deployTypeExternal,
+		clustersInShutdown,
 	).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "AIStore")
 		os.Exit(1)

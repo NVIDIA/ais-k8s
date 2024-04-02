@@ -55,8 +55,10 @@ func (r *AIStoreReconciler) initProxies(ctx context.Context, ais *aisv1.AIStore)
 		return
 	}
 
+	clusterInShudown := r.clustersInShutdown[ais.NamespacedName().String()]
+
 	// 3. Create a proxy statefulset with single replica as primary
-	pod := proxy.NewProxyStatefulSet(ais, 1)
+	pod := proxy.NewProxyStatefulSet(ais, 1, clusterInShudown)
 	if exists, err = r.client.CreateResourceIfNotExists(ctx, ais, pod); err != nil {
 		r.recordError(ais, err, "Failed to deploy Primary proxy")
 		return
