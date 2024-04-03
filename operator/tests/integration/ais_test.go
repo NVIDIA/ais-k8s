@@ -6,25 +6,22 @@ package integration
 
 import (
 	"context"
-	"testing"
 	"time"
 
+	aisapi "github.com/NVIDIA/aistore/api"
 	aisapc "github.com/NVIDIA/aistore/api/apc"
 	aiscmn "github.com/NVIDIA/aistore/cmn"
 	"github.com/NVIDIA/aistore/cmn/cos"
 	aistutils "github.com/NVIDIA/aistore/tools"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	"github.com/ais-operator/tests/tutils"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/ginkgo/extensions/table"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 )
 
 var (
 	proxyURL string
-	tests    = []TableEntry{
-		Entry("Should be able to put and get objects", "PutGetObjects", putGetObjects),
-	}
 )
 
 // Initialize AIS tutils to use the deployed cluster
@@ -51,38 +48,51 @@ func initAISCluster(ctx context.Context, cluster *aisv1.AIStore) {
 	Expect(aistutils.InitCluster(proxyURL, aistutils.ClusterTypeK8s)).NotTo(HaveOccurred())
 }
 
-func putGetObjects(t *testing.T) {
+var _ = Describe("Client tests", Ordered, Label("short"), func() {
 	var (
-		bck       = aiscmn.Bck{Name: "TEST_BUCKET", Provider: aisapc.AIS}
-		objPrefix = "test-opr/"
+		cc  *clientCluster
+		pvs []*corev1.PersistentVolume
 	)
-	// Since we are using the same mounts and bucket name, prior test failures may need cleanup
-	aistutils.DestroyBucket(t, proxyURL, bck)
-	aistutils.CreateBucket(t, proxyURL, bck, nil, true /*cleanup*/)
-	names, failCnt, err := aistutils.PutRandObjs(aistutils.PutObjectsArgs{
-		ProxyURL:  proxyURL,
-		Bck:       bck,
-		ObjPath:   objPrefix,
-		ObjCnt:    10,
-		ObjSize:   10 * cos.KiB,
-		FixedSize: true,
-		CksumType: cos.ChecksumXXHash,
-		IgnoreErr: false,
+	BeforeAll(func() {
+		cluArgs := tutils.ClusterSpecArgs{
+			Name:                clusterName(),
+			Namespace:           testNSName,
+			StorageClass:        storageClass,
+			Size:                1,
+			DisableAntiAffinity: true,
+			EnableExternalLB:    testAsExternalClient,
+		}
+		cc, pvs = newClientCluster(cluArgs)
+		cc.create()
 	})
-	Expect(err).NotTo(HaveOccurred())
-	Expect(failCnt).To(Equal(0))
-	aistutils.EnsureObjectsExist(t, aistutils.BaseAPIParams(proxyURL), bck, names...)
-}
 
-func runCustom(name string, method func(t *testing.T)) {
-	var success bool
-	defer func() {
-		GinkgoRecover()
-		Expect(success).To(BeTrue())
-	}()
-	safe := func(t *testing.T) {
-		defer GinkgoRecover()
-		method(t)
-	}
-	success = testCtx.Run(name, safe)
-}
+	It("Should be able to put and get objects", func() {
+		var (
+			bck       = aiscmn.Bck{Name: "TEST_BUCKET", Provider: aisapc.AIS}
+			objPrefix = "test-opr/"
+			baseParam = aistutils.BaseAPIParams(proxyURL)
+		)
+		// Since we are using the same mounts and bucket name, prior test failures may need cleanup
+		aisapi.DestroyBucket(baseParam, bck)
+		err := aisapi.CreateBucket(baseParam, bck, nil)
+		Expect(err).ShouldNot(HaveOccurred())
+		names, failCnt, err := aistutils.PutRandObjs(aistutils.PutObjectsArgs{
+			ProxyURL:  proxyURL,
+			Bck:       bck,
+			ObjPath:   objPrefix,
+			ObjCnt:    10,
+			ObjSize:   10 * cos.KiB,
+			FixedSize: true,
+			CksumType: cos.ChecksumXXHash,
+			IgnoreErr: false,
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(failCnt).To(Equal(0))
+		aistutils.EnsureObjectsExist(testCtx, aistutils.BaseAPIParams(proxyURL), bck, names...)
+	})
+
+	AfterAll(func() {
+		By("Executing final cleanup")
+		cc.cleanup(pvs)
+	})
+})

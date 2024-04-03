@@ -20,8 +20,7 @@ import (
 	"github.com/ais-operator/pkg/resources/statsd"
 	"github.com/ais-operator/pkg/resources/target"
 	"github.com/ais-operator/tests/tutils"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/ginkgo/extensions/table"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -75,16 +74,14 @@ func (cc *clientCluster) cleanup(pvs []*corev1.PersistentVolume) {
 }
 
 var _ = Describe("Run Controller", func() {
-	Context("Deploy and Destroy cluster", func() {
+	Context("Deploy and Destroy cluster", Label("short"), func() {
 		Context("without externalLB", func() {
-			It("Should successfully create an AIS Cluster", func() {
-				tutils.CheckSkip(&tutils.SkipArgs{ShortTest: true})
+			It("Should successfully create an AIS Cluster with required K8s objects", func() {
 				cluster, pvs := tutils.NewAISCluster(defaultCluArgs(), k8sClient)
-				createAndDestroyCluster(cluster, pvs, nil, nil, false)
+				createAndDestroyCluster(cluster, pvs, checkResExists, checkResShouldNotExist, false)
 			})
 
 			It("Should successfully create an AIS Cluster with AllowSharedOrNoDisks on > v3.23 image", func() {
-				tutils.CheckSkip(&tutils.SkipArgs{ShortTest: true})
 				args := defaultCluArgs()
 				args.AllowSharedOrNoDisks = true
 				cluster, pvs := tutils.NewAISCluster(args, k8sClient)
@@ -92,7 +89,6 @@ var _ = Describe("Run Controller", func() {
 			})
 
 			It("Should successfully create an hetero-sized AIS Cluster", func() {
-				tutils.CheckSkip(&tutils.SkipArgs{ShortTest: true})
 				args := defaultCluArgs()
 				args.TargetSize = 2
 				args.ProxySize = 1
@@ -100,30 +96,11 @@ var _ = Describe("Run Controller", func() {
 				cluster, pvs := tutils.NewAISCluster(args, k8sClient)
 				createAndDestroyCluster(cluster, pvs, nil, nil, false)
 			})
-
-			It("Should create all required K8s objects, when AIS Cluster is created", func() {
-				tutils.CheckSkip(&tutils.SkipArgs{LongTest: true})
-				cluster, pvs := tutils.NewAISCluster(defaultCluArgs(), k8sClient)
-				createAndDestroyCluster(cluster, pvs, checkResExists, checkResShouldNotExist, false)
-			})
 		})
 
 		Context("with externalLB", func() {
-			It("Should successfully create an AIS Cluster", func() {
+			It("Should successfully create an AIS Cluster with required K8s objects", func() {
 				tutils.CheckSkip(&tutils.SkipArgs{RequiresLB: true, ShortTest: true})
-				cluArgs := tutils.ClusterSpecArgs{
-					Name:             clusterName(),
-					Namespace:        testNSName,
-					StorageClass:     storageClass,
-					Size:             1,
-					EnableExternalLB: true,
-				}
-				cluster, pvs := tutils.NewAISCluster(cluArgs, k8sClient)
-				createAndDestroyCluster(cluster, pvs, nil, nil, true)
-			})
-
-			It("Should create all required K8s objects, when AIS Cluster is created", func() {
-				tutils.CheckSkip(&tutils.SkipArgs{RequiresLB: true, LongTest: true})
 				cluArgs := tutils.ClusterSpecArgs{
 					Name:             clusterName(),
 					Namespace:        testNSName,
@@ -137,10 +114,9 @@ var _ = Describe("Run Controller", func() {
 		})
 	})
 
-	Context("Multiple Deployments", func() {
+	Context("Multiple Deployments", Label("short"), func() {
 		// Running multiple clusters in the same cluster
 		It("Should allow running two clusters in the same namespace", func() {
-			tutils.CheckSkip(&tutils.SkipArgs{ShortTest: true})
 			ctx := context.Background()
 			cluster1, c1pvs := tutils.NewAISCluster(defaultCluArgs(), k8sClient)
 			cluster2, c2pvs := tutils.NewAISCluster(defaultCluArgs(), k8sClient)
@@ -159,7 +135,6 @@ var _ = Describe("Run Controller", func() {
 		})
 
 		It("Should allow two cluster with same name in different namespaces", func() {
-			tutils.CheckSkip(&tutils.SkipArgs{ShortTest: true})
 			ctx := context.Background()
 			cluArgs := defaultCluArgs()
 			otherCluArgs := cluArgs
@@ -189,9 +164,9 @@ var _ = Describe("Run Controller", func() {
 	})
 
 	Context("Scale existing cluster", func() {
-		Context("without externalLB", func() {
+		Context("without externalLB", Label("short"), func() {
 			It("Should be able to scale-up existing cluster", func() {
-				tutils.CheckSkip(&tutils.SkipArgs{SkipInternal: testAsExternalClient, ShortTest: true})
+				tutils.CheckSkip(&tutils.SkipArgs{SkipInternal: testAsExternalClient})
 				cluArgs := tutils.ClusterSpecArgs{
 					Name:                clusterName(),
 					Namespace:           testNSName,
@@ -208,7 +183,7 @@ var _ = Describe("Run Controller", func() {
 			})
 
 			It("Should be able to scale-up targets of existing cluster", func() {
-				tutils.CheckSkip(&tutils.SkipArgs{SkipInternal: testAsExternalClient, ShortTest: true})
+				tutils.CheckSkip(&tutils.SkipArgs{SkipInternal: testAsExternalClient})
 				cluArgs := tutils.ClusterSpecArgs{
 					Name:                clusterName(),
 					Namespace:           testNSName,
@@ -225,7 +200,7 @@ var _ = Describe("Run Controller", func() {
 			})
 
 			It("Should be able to scale-down existing cluster", func() {
-				tutils.CheckSkip(&tutils.SkipArgs{SkipInternal: testAsExternalClient, ShortTest: true})
+				tutils.CheckSkip(&tutils.SkipArgs{SkipInternal: testAsExternalClient})
 				cluArgs := tutils.ClusterSpecArgs{
 					Name:                clusterName(),
 					Namespace:           testNSName,
@@ -241,9 +216,9 @@ var _ = Describe("Run Controller", func() {
 			})
 		})
 
-		Context("with externalLB", func() {
+		Context("with externalLB", Label("long"), func() {
 			It("Should be able to scale-up existing cluster", func() {
-				tutils.CheckSkip(&tutils.SkipArgs{RequiresLB: true, LongTest: true})
+				tutils.CheckSkip(&tutils.SkipArgs{RequiresLB: true})
 				cluArgs := tutils.ClusterSpecArgs{
 					Name:                clusterName(),
 					Namespace:           testNSName,
@@ -261,7 +236,7 @@ var _ = Describe("Run Controller", func() {
 			})
 
 			It("Should be able to scale-down existing cluster", func() {
-				tutils.CheckSkip(&tutils.SkipArgs{RequiresLB: true, LongTest: true})
+				tutils.CheckSkip(&tutils.SkipArgs{RequiresLB: true})
 				cluArgs := tutils.ClusterSpecArgs{
 					Name:                clusterName(),
 					Namespace:           testNSName,
@@ -279,9 +254,8 @@ var _ = Describe("Run Controller", func() {
 		})
 	})
 
-	Describe("Data-safety tests", func() {
+	Describe("Data-safety tests", Label("long"), func() {
 		It("Re-deploying same cluster must retain data", func() {
-			tutils.CheckSkip(&tutils.SkipArgs{LongTest: true})
 			cluArgs := tutils.ClusterSpecArgs{
 				Name:             clusterName(),
 				Namespace:        testNSName,
@@ -325,7 +299,6 @@ var _ = Describe("Run Controller", func() {
 		})
 
 		It("Cluster scale down should ensure data safety", func() {
-			tutils.CheckSkip(&tutils.SkipArgs{LongTest: true})
 			cluArgs := tutils.ClusterSpecArgs{
 				Name:                clusterName(),
 				Namespace:           testNSName,
@@ -367,7 +340,6 @@ var _ = Describe("Run Controller", func() {
 		})
 
 		It("Re-deploying with CleanupData AND DecommissionCluster should wipe out all data", func() {
-			tutils.CheckSkip(&tutils.SkipArgs{LongTest: true})
 			// Define CleanupData and DecommissionCluster to wipe when we destroy the cluster
 			cluArgs := tutils.ClusterSpecArgs{
 				Name:                clusterName(),
@@ -413,43 +385,6 @@ var _ = Describe("Run Controller", func() {
 			Expect(aiscmn.IsStatusNotFound(err)).To(BeTrue())
 			cc.cleanup(pvs)
 		})
-	})
-
-	Describe("Client tests", func() {
-		var (
-			count = 0
-			cc    *clientCluster
-			pvs   []*corev1.PersistentVolume
-		)
-		// NOTE: the `BeforeEach`/`AfterEach` code intends to imitate non-existing `BeforeAll`/`AfterAll` functionalities.
-		BeforeEach(func() {
-			count++
-			if count == 1 {
-				Expect(count).To(Equal(1))
-				cluArgs := tutils.ClusterSpecArgs{
-					Name:                clusterName(),
-					Namespace:           testNSName,
-					StorageClass:        storageClass,
-					Size:                1,
-					DisableAntiAffinity: true,
-					EnableExternalLB:    testAsExternalClient,
-				}
-				cc, pvs = newClientCluster(cluArgs)
-				cc.create()
-			}
-		})
-		AfterEach(func() {
-			if count == len(tests) && cc != nil {
-				By("Executing final cleanup")
-				cc.cleanup(pvs)
-			}
-		})
-
-		DescribeTable(
-			"AIS cluster tests",
-			runCustom,
-			tests...,
-		)
 	})
 })
 

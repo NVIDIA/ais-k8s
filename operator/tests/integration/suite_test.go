@@ -19,7 +19,7 @@ import (
 	aisclient "github.com/ais-operator/pkg/client"
 	"github.com/ais-operator/pkg/controllers"
 	"github.com/ais-operator/tests/tutils"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
