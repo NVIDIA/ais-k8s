@@ -8,7 +8,7 @@ This directory provides the ability to test local operator changes on a local cl
 
 1. Export `MINIKUBE_HOME` to your minikube home (script default is `/var/local/minikube/.minikube`)
 
-1. Run `test_local.sh`. This will: 
+1. Run `test_local.sh` to run all tests. Optionally, provide a parameter `short` or `long` to run only those tests. This will: 
     1. Build an operator test image to deploy inside the cluster with all local changes
     1. Configures kubectl to access a minikube cluster
     1. Start a job defined by `test_job_spec.yaml` to run a single-run pod to run operator tests within the cluster. 

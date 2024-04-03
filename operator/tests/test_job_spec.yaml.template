@@ -8,7 +8,12 @@ spec:
   template:
     spec:
       containers:
-      - name: test-runner
+      - name: local-test-runner
         image: docker.io/library/operator-test:latest
         imagePullPolicy: Never
+        env:
+          - name: TEST_TYPE
+            value: "${TEST_TYPE}"
       restartPolicy: Never
+      nodeSelector:
+        kubernetes.io/hostname: minikube

@@ -15,8 +15,11 @@ fetch_envtest_tools ${envtest_assets_dir}
 setup_envtest_env ${envtest_assets_dir}
 
 short=""
+long=""
 if [[ $1 == "short" ]]; then
   short="1"
+elif [[ $1 == "long" ]]; then
+  long="1"
 fi
 
-SHORT=${short} TEST_STORAGECLASS="${TEST_STORAGECLASS}" USE_EXISTING_CLUSTER=true ginkgo -v -progress -trace $current_dir/../... -coverprofile cover.out
+SHORT=${short} LONG=${long} TEST_STORAGECLASS="${TEST_STORAGECLASS}" USE_EXISTING_CLUSTER=true ginkgo -v -progress -trace $current_dir/../... -coverprofile cover.out

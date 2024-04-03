@@ -18,21 +18,31 @@ import (
 
 const ClusterCreateInterval = time.Second
 
-var shortTestsOnly bool
+var shortMode bool
+var longMode bool
 
 type SkipArgs struct {
 	RequiredProvider string
-	OnlyLong         bool
+	ShortTest        bool
+	LongTest         bool
 	RequiresLB       bool
 	SkipInternal     bool // test should run inside K8s cluster
 }
 
 func init() {
-	shortTestsOnlyStr := os.Getenv("SHORT")
-	if shortTestsOnlyStr == "true" || shortTestsOnlyStr == "1" {
-		shortTestsOnly = true
+	if isEnvVarTrue("SHORT") {
+		shortMode = true
 		fmt.Println("Running tests in short mode")
 	}
+	if isEnvVarTrue("LONG") {
+		longMode = true
+		fmt.Println("Running tests in long mode")
+	}
+}
+
+func isEnvVarTrue(envVar string) bool {
+	varStr := os.Getenv(envVar)
+	return varStr == "true" || varStr == "1"
 }
 
 func GetClusterCreateTimeout() time.Duration {
@@ -57,8 +67,12 @@ func GetLBExistenceTimeout() (timeout, interval time.Duration) {
 }
 
 func CheckSkip(args *SkipArgs) {
-	if args.OnlyLong && shortTestsOnly {
-		ginkgo.Skip("Skipping test in short mode")
+	if args.LongTest && shortMode {
+		ginkgo.Skip("Skipping long test in short mode")
+	}
+
+	if args.ShortTest && longMode {
+		ginkgo.Skip("Skipping short test in long mode")
 	}
 
 	if args.SkipInternal {

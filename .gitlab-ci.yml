@@ -69,7 +69,7 @@ operator:minikube:long:
       when: manual
       allow_failure: true
   script:
-    - make -C operator test
+    - make -C operator test-long
 
 operator:minikube:metallb:
   stage: test:long

@@ -1,6 +1,6 @@
 // Package integration contains AIS operator integration tests
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION. All rights reserved.
  */
 package integration
 
@@ -56,6 +56,8 @@ func putGetObjects(t *testing.T) {
 		bck       = aiscmn.Bck{Name: "TEST_BUCKET", Provider: aisapc.AIS}
 		objPrefix = "test-opr/"
 	)
+	// Since we are using the same mounts and bucket name, prior test failures may need cleanup
+	aistutils.DestroyBucket(t, proxyURL, bck)
 	aistutils.CreateBucket(t, proxyURL, bck, nil, true /*cleanup*/)
 	names, failCnt, err := aistutils.PutRandObjs(aistutils.PutObjectsArgs{
 		ProxyURL:  proxyURL,

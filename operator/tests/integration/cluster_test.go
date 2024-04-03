@@ -1,6 +1,6 @@
 // Package integration contains AIS operator integration tests
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION. All rights reserved.
  */
 package integration
 
@@ -78,11 +78,13 @@ var _ = Describe("Run Controller", func() {
 	Context("Deploy and Destroy cluster", func() {
 		Context("without externalLB", func() {
 			It("Should successfully create an AIS Cluster", func() {
+				tutils.CheckSkip(&tutils.SkipArgs{ShortTest: true})
 				cluster, pvs := tutils.NewAISCluster(defaultCluArgs(), k8sClient)
 				createAndDestroyCluster(cluster, pvs, nil, nil, false)
 			})
 
 			It("Should successfully create an AIS Cluster with AllowSharedOrNoDisks on > v3.23 image", func() {
+				tutils.CheckSkip(&tutils.SkipArgs{ShortTest: true})
 				args := defaultCluArgs()
 				args.AllowSharedOrNoDisks = true
 				cluster, pvs := tutils.NewAISCluster(args, k8sClient)
@@ -90,6 +92,7 @@ var _ = Describe("Run Controller", func() {
 			})
 
 			It("Should successfully create an hetero-sized AIS Cluster", func() {
+				tutils.CheckSkip(&tutils.SkipArgs{ShortTest: true})
 				args := defaultCluArgs()
 				args.TargetSize = 2
 				args.ProxySize = 1
@@ -99,7 +102,7 @@ var _ = Describe("Run Controller", func() {
 			})
 
 			It("Should create all required K8s objects, when AIS Cluster is created", func() {
-				tutils.CheckSkip(&tutils.SkipArgs{OnlyLong: true})
+				tutils.CheckSkip(&tutils.SkipArgs{LongTest: true})
 				cluster, pvs := tutils.NewAISCluster(defaultCluArgs(), k8sClient)
 				createAndDestroyCluster(cluster, pvs, checkResExists, checkResShouldNotExist, false)
 			})
@@ -107,7 +110,7 @@ var _ = Describe("Run Controller", func() {
 
 		Context("with externalLB", func() {
 			It("Should successfully create an AIS Cluster", func() {
-				tutils.CheckSkip(&tutils.SkipArgs{RequiresLB: true})
+				tutils.CheckSkip(&tutils.SkipArgs{RequiresLB: true, ShortTest: true})
 				cluArgs := tutils.ClusterSpecArgs{
 					Name:             clusterName(),
 					Namespace:        testNSName,
@@ -120,7 +123,7 @@ var _ = Describe("Run Controller", func() {
 			})
 
 			It("Should create all required K8s objects, when AIS Cluster is created", func() {
-				tutils.CheckSkip(&tutils.SkipArgs{RequiresLB: true, OnlyLong: true})
+				tutils.CheckSkip(&tutils.SkipArgs{RequiresLB: true, LongTest: true})
 				cluArgs := tutils.ClusterSpecArgs{
 					Name:             clusterName(),
 					Namespace:        testNSName,
@@ -137,6 +140,7 @@ var _ = Describe("Run Controller", func() {
 	Context("Multiple Deployments", func() {
 		// Running multiple clusters in the same cluster
 		It("Should allow running two clusters in the same namespace", func() {
+			tutils.CheckSkip(&tutils.SkipArgs{ShortTest: true})
 			ctx := context.Background()
 			cluster1, c1pvs := tutils.NewAISCluster(defaultCluArgs(), k8sClient)
 			cluster2, c2pvs := tutils.NewAISCluster(defaultCluArgs(), k8sClient)
@@ -155,6 +159,7 @@ var _ = Describe("Run Controller", func() {
 		})
 
 		It("Should allow two cluster with same name in different namespaces", func() {
+			tutils.CheckSkip(&tutils.SkipArgs{ShortTest: true})
 			ctx := context.Background()
 			cluArgs := defaultCluArgs()
 			otherCluArgs := cluArgs
@@ -186,7 +191,7 @@ var _ = Describe("Run Controller", func() {
 	Context("Scale existing cluster", func() {
 		Context("without externalLB", func() {
 			It("Should be able to scale-up existing cluster", func() {
-				tutils.CheckSkip(&tutils.SkipArgs{SkipInternal: testAsExternalClient})
+				tutils.CheckSkip(&tutils.SkipArgs{SkipInternal: testAsExternalClient, ShortTest: true})
 				cluArgs := tutils.ClusterSpecArgs{
 					Name:                clusterName(),
 					Namespace:           testNSName,
@@ -203,7 +208,7 @@ var _ = Describe("Run Controller", func() {
 			})
 
 			It("Should be able to scale-up targets of existing cluster", func() {
-				tutils.CheckSkip(&tutils.SkipArgs{SkipInternal: testAsExternalClient})
+				tutils.CheckSkip(&tutils.SkipArgs{SkipInternal: testAsExternalClient, ShortTest: true})
 				cluArgs := tutils.ClusterSpecArgs{
 					Name:                clusterName(),
 					Namespace:           testNSName,
@@ -220,7 +225,7 @@ var _ = Describe("Run Controller", func() {
 			})
 
 			It("Should be able to scale-down existing cluster", func() {
-				tutils.CheckSkip(&tutils.SkipArgs{SkipInternal: testAsExternalClient})
+				tutils.CheckSkip(&tutils.SkipArgs{SkipInternal: testAsExternalClient, ShortTest: true})
 				cluArgs := tutils.ClusterSpecArgs{
 					Name:                clusterName(),
 					Namespace:           testNSName,
@@ -238,7 +243,7 @@ var _ = Describe("Run Controller", func() {
 
 		Context("with externalLB", func() {
 			It("Should be able to scale-up existing cluster", func() {
-				tutils.CheckSkip(&tutils.SkipArgs{RequiresLB: true, OnlyLong: true})
+				tutils.CheckSkip(&tutils.SkipArgs{RequiresLB: true, LongTest: true})
 				cluArgs := tutils.ClusterSpecArgs{
 					Name:                clusterName(),
 					Namespace:           testNSName,
@@ -256,7 +261,7 @@ var _ = Describe("Run Controller", func() {
 			})
 
 			It("Should be able to scale-down existing cluster", func() {
-				tutils.CheckSkip(&tutils.SkipArgs{RequiresLB: true, OnlyLong: true})
+				tutils.CheckSkip(&tutils.SkipArgs{RequiresLB: true, LongTest: true})
 				cluArgs := tutils.ClusterSpecArgs{
 					Name:                clusterName(),
 					Namespace:           testNSName,
@@ -276,14 +281,14 @@ var _ = Describe("Run Controller", func() {
 
 	Describe("Data-safety tests", func() {
 		It("Re-deploying same cluster must retain data", func() {
-			tutils.CheckSkip(&tutils.SkipArgs{OnlyLong: true})
+			tutils.CheckSkip(&tutils.SkipArgs{LongTest: true})
 			cluArgs := tutils.ClusterSpecArgs{
 				Name:             clusterName(),
 				Namespace:        testNSName,
 				StorageClass:     storageClass,
 				Size:             1,
 				EnableExternalLB: testAsExternalClient,
-				PreservePVCs:     true,
+				CleanupData:      false,
 			}
 			cc, pvs := newClientCluster(cluArgs)
 			cc.create()
@@ -309,12 +314,10 @@ var _ = Describe("Run Controller", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(failCnt).To(Equal(0))
 			aistutils.EnsureObjectsExist(testCtx, baseParam, bck, names...)
-			// cleanup without providing pvs to delete
+			// destroy cluster and pvs (data persists on mounts)
 			cc.cleanup(pvs)
 
 			// Re-deploy cluster and check if the data exists.
-			// Don't preserve the PVCs for re-deploy cluster (cleanup).
-			cluArgs.PreservePVCs = false
 			cc, pvs = newClientCluster(cluArgs)
 			cc.create()
 			aistutils.EnsureObjectsExist(testCtx, aistutils.BaseAPIParams(proxyURL), bck, names...)
@@ -322,7 +325,7 @@ var _ = Describe("Run Controller", func() {
 		})
 
 		It("Cluster scale down should ensure data safety", func() {
-			tutils.CheckSkip(&tutils.SkipArgs{OnlyLong: true})
+			tutils.CheckSkip(&tutils.SkipArgs{LongTest: true})
 			cluArgs := tutils.ClusterSpecArgs{
 				Name:                clusterName(),
 				Namespace:           testNSName,
@@ -363,22 +366,26 @@ var _ = Describe("Run Controller", func() {
 			cc.cleanup(pvs)
 		})
 
-		It("Re-deploying without preserving PVCs should wipeout all data", func() {
-			tutils.CheckSkip(&tutils.SkipArgs{OnlyLong: true})
+		It("Re-deploying with CleanupData AND DecommissionCluster should wipe out all data", func() {
+			tutils.CheckSkip(&tutils.SkipArgs{LongTest: true})
+			// Define CleanupData and DecommissionCluster to wipe when we destroy the cluster
 			cluArgs := tutils.ClusterSpecArgs{
-				Name:             clusterName(),
-				Namespace:        testNSName,
-				StorageClass:     storageClass,
-				Size:             1,
-				EnableExternalLB: testAsExternalClient,
+				Name:                clusterName(),
+				Namespace:           testNSName,
+				StorageClass:        storageClass,
+				Size:                1,
+				EnableExternalLB:    testAsExternalClient,
+				DecommissionCluster: true,
+				CleanupData:         true,
 			}
 			cc, pvs := newClientCluster(cluArgs)
 			cc.create()
 			// Create bucket
 			bck := aiscmn.Bck{Name: "TEST_BUCKET", Provider: aisapc.AIS}
 			baseParams := aistutils.BaseAPIParams(proxyURL)
-			aisapi.DestroyBucket(baseParams, bck)
-			err := aisapi.CreateBucket(baseParams, bck, nil)
+			err := aisapi.DestroyBucket(baseParams, bck)
+			Expect(err).ShouldNot(HaveOccurred())
+			err = aisapi.CreateBucket(baseParams, bck, nil)
 			Expect(err).ShouldNot(HaveOccurred())
 			_, failCnt, err := aistutils.PutRandObjs(aistutils.PutObjectsArgs{
 				ProxyURL:  proxyURL,
@@ -393,28 +400,17 @@ var _ = Describe("Run Controller", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(failCnt).To(Equal(0))
 			Expect(err).ShouldNot(HaveOccurred())
+			// destroy cluster and pvs (operator should clean up on shutdown before pvs are removed)
 			cc.cleanup(pvs)
 
 			checkResShouldNotExist(context.TODO(), cc.cluster)
-			// Re-deploy cluster and check if data is wipedoff
+			// Re-deployed cluster will use the same mounts, but all data should be removed
 			cc, pvs = newClientCluster(cluArgs)
 			cc.create()
 			baseParams = aistutils.BaseAPIParams(proxyURL)
+			// All data including metadata should be deleted -- bucket should not exist in new cluster
 			_, err = aisapi.HeadBucket(baseParams, bck, true)
-			if err == nil {
-				// NOTE: When we redeploy a cluster in same namespace, proxy metadata from previous deployment is not
-				// deleted due to the usage of `hostPath` volume for storing proxy metadata.
-				// New primary proxy finds the old BMD from previous deployment and metasyncs it,
-				// leading to creation of all the buckets. However, the bucket data doesn't exist anymore
-				// as the targets PVs/PVCs are deleted.
-				objList, err := aisapi.ListObjects(baseParams, bck, nil, aisapi.ListArgs{})
-				Expect(err).ShouldNot(HaveOccurred())
-				if objList != nil {
-					Expect(len(objList.Entries)).To(Equal(0))
-				}
-			} else {
-				Expect(aiscmn.IsStatusNotFound(err)).To(BeTrue())
-			}
+			Expect(aiscmn.IsStatusNotFound(err)).To(BeTrue())
 			cc.cleanup(pvs)
 		})
 	})
@@ -444,6 +440,7 @@ var _ = Describe("Run Controller", func() {
 		})
 		AfterEach(func() {
 			if count == len(tests) && cc != nil {
+				By("Executing final cleanup")
 				cc.cleanup(pvs)
 			}
 		})
@@ -466,30 +463,30 @@ func defaultCluArgs() tutils.ClusterSpecArgs {
 		Namespace:    testNSName,
 		StorageClass: storageClass,
 		Size:         1,
-		PreservePVCs: false,
+		CleanupData:  true,
 	}
 }
 
 func checkResExists(ctx context.Context, cluster *aisv1.AIStore) {
-	checkResExistance(ctx, cluster, true /*exists*/)
+	checkResExistence(ctx, cluster, true /*exists*/)
 }
 
 func checkResShouldNotExist(ctx context.Context, cluster *aisv1.AIStore) {
-	checkResExistance(ctx, cluster, false /*exists*/)
-
-	// PVCs should be deleted if Delete strategy is set.
-	if cluster.Spec.CleanupData != nil && *cluster.Spec.CleanupData {
-		pvcs := &corev1.PersistentVolumeClaimList{}
-		err := k8sClient.List(ctx, pvcs, client.InNamespace(cluster.Namespace), client.MatchingLabels(target.PodLabels(cluster)))
-		if apierrors.IsNotFound(err) {
-			err = nil
-		}
-		Expect(err).ShouldNot(HaveOccurred())
-		Expect(len(pvcs.Items)).To(Equal(0))
-	}
+	checkResExistence(ctx, cluster, false /*exists*/)
+	checkPVCDoesNotExist(ctx, cluster)
 }
 
-func checkResExistance(ctx context.Context, cluster *aisv1.AIStore, exists bool, intervals ...interface{}) {
+func checkPVCDoesNotExist(ctx context.Context, cluster *aisv1.AIStore) {
+	pvcs := &corev1.PersistentVolumeClaimList{}
+	err := k8sClient.List(ctx, pvcs, client.InNamespace(cluster.Namespace), client.MatchingLabels(target.PodLabels(cluster)))
+	if apierrors.IsNotFound(err) {
+		err = nil
+	}
+	Expect(err).ShouldNot(HaveOccurred())
+	Expect(len(pvcs.Items)).To(Equal(0))
+}
+
+func checkResExistence(ctx context.Context, cluster *aisv1.AIStore, exists bool, intervals ...interface{}) {
 	condition := BeTrue()
 	if !exists {
 		condition = BeFalse()

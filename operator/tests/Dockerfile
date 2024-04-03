@@ -3,6 +3,5 @@ FROM aistorage/ci:latest
 WORKDIR /operator
 COPY ais-k8s/operator .
 
-# Install make
-RUN apt update && apt install -y make
-CMD make test-short
+# Use an entrypoint script to run tests
+ENTRYPOINT ["/operator/tests/entrypoint.sh"]

@@ -25,3 +25,6 @@ testbin/*
 *~
 
 testbin/
+
+# Generated for local test runs
+tests/test_job_spec.yaml

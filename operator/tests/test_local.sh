@@ -6,7 +6,7 @@ MINIKUBE_HOST=https://$(minikube ip)
 eval $(minikube docker-env)
 
 # Build a docker image based on the current local repo
-# If you change this name, be sure to update it in test_job_spec.yaml as well
+# If you change this name, be sure to update it in test_job_spec.yaml.template as well
 IMG=operator-test:latest
 # build from the root of the directory to include the context
 docker build -t $IMG -f Dockerfile ../../../ --no-cache
@@ -26,6 +26,11 @@ kubectl config set-context minikube-context --cluster=minikube-cluster --user=mi
 kubectl config use-context minikube-context
 # Delete any previously running test jobs
 kubectl delete job $JOB --ignore-not-found=true
+
+# Select the type of test to run
+TEST_TYPE=${1:-""}
+export TEST_TYPE
+envsubst < test_job_spec.yaml.template > test_job_spec.yaml
 
 # Start the test job
 kubectl apply -f test_job_spec.yaml

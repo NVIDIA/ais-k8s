@@ -33,7 +33,8 @@ type (
 		ProxySize           int32
 		DisableAntiAffinity bool
 		EnableExternalLB    bool
-		PreservePVCs        bool
+		DecommissionCluster bool
+		CleanupData         bool
 		// Create a cluster with more PVs than targets for future scaling
 		MaxPVs int32
 		// For testing deprecated feature
@@ -109,7 +110,8 @@ func defineMounts(storage *string, useLabels bool) []aisv1.Mount {
 func newAISClusterCR(args ClusterSpecArgs, mounts []aisv1.Mount) *aisv1.AIStore {
 	spec := aisv1.AIStoreSpec{
 		Size:                   args.Size,
-		CleanupData:            apc.Ptr(!args.PreservePVCs),
+		DecommissionCluster:    apc.Ptr(args.DecommissionCluster),
+		CleanupData:            apc.Ptr(args.CleanupData),
 		NodeImage:              aisNodeImage,
 		InitImage:              aisInitImage,
 		HostpathPrefix:         "/etc/ais",
