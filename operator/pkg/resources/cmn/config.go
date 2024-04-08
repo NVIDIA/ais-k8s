@@ -147,17 +147,15 @@ func DefaultAISConf(ais *aisv1.AIStore) aiscmn.ClusterConfig {
 	var scheme string
 	conf := defaultAISConf
 	proxyPort := ais.Spec.ProxySpec.ServicePort.String()
-	itrCtrlPort := ais.Spec.ProxySpec.IntraControlPort.String()
 	if ais.Spec.TLSSecretName == nil {
 		scheme = "http"
 	} else {
 		scheme = "https"
 	}
 	proxyURL := scheme + "://" + ais.Name + "-proxy:" + proxyPort
-	primaryProxy := scheme + "://" + DefaultPrimaryProxyURL(ais, itrCtrlPort)
 
 	conf.Proxy = aiscmn.ProxyConf{
-		PrimaryURL:   primaryProxy,
+		PrimaryURL:   proxyURL,
 		OriginalURL:  proxyURL,
 		DiscoveryURL: proxyURL,
 	}

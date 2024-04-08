@@ -44,24 +44,22 @@ type (
 
 	// AIStoreReconciler reconciles a AIStore object
 	AIStoreReconciler struct {
-		mu                 sync.RWMutex
-		client             *aisclient.K8sClient
-		log                logr.Logger
-		recorder           record.EventRecorder
-		clientParams       map[string]*aisapi.BaseParams
-		isExternal         bool            // manager is deployed externally to K8s cluster
-		clustersInShutdown map[string]bool // clusters that are in shutdown state, that can be restarted
+		mu           sync.RWMutex
+		client       *aisclient.K8sClient
+		log          logr.Logger
+		recorder     record.EventRecorder
+		clientParams map[string]*aisapi.BaseParams
+		isExternal   bool // manager is deployed externally to K8s cluster
 	}
 )
 
-func NewAISReconciler(mgr manager.Manager, logger logr.Logger, isExternal bool, clustersInShutdown map[string]bool) *AIStoreReconciler {
+func NewAISReconciler(mgr manager.Manager, logger logr.Logger, isExternal bool) *AIStoreReconciler {
 	return &AIStoreReconciler{
-		client:             aisclient.NewClientFromMgr(mgr),
-		log:                logger,
-		recorder:           mgr.GetEventRecorderFor("ais-controller"),
-		clientParams:       make(map[string]*aisapi.BaseParams, 16),
-		isExternal:         isExternal,
-		clustersInShutdown: clustersInShutdown,
+		client:       aisclient.NewClientFromMgr(mgr),
+		log:          logger,
+		recorder:     mgr.GetEventRecorderFor("ais-controller"),
+		clientParams: make(map[string]*aisapi.BaseParams, 16),
+		isExternal:   isExternal,
 	}
 }
 
@@ -151,9 +149,6 @@ func (r *AIStoreReconciler) cleanup(ctx context.Context, ais *aisv1.AIStore) (up
 			r.log.Error(err, "Failed to run manual cleanup job")
 		}
 		// TODO: wait on job status to succeed before we remove the finalizer from the CR
-
-		// remove entry from clustersInShutdown
-		delete(r.clustersInShutdown, ais.NamespacedName().String())
 	}
 	return updated, err
 }
@@ -191,10 +186,6 @@ func (r *AIStoreReconciler) attemptGracefulShutdown(ctx context.Context, ais *ai
 		}
 		return
 	}
-	// save which clusters are in shutdown state
-	r.log.Info("Adding cluster to shutdown list", "cluster", ais.NamespacedName().String())
-	r.clustersInShutdown[ais.NamespacedName().String()] = true
-
 	r.log.Info("Attempting graceful shutdown of cluster")
 	if err = aisapi.ShutdownCluster(*params); err != nil {
 		r.log.Error(err, "Failed to gracefully shutdown cluster")

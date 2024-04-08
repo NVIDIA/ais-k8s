@@ -6,6 +6,9 @@ package proxy
 
 const initProxySh = `
 #!/bin/bash
+#
+envfile="/var/ais_env/env"
+rm -f $envfile
 
 #
 # Update configuration file,substitute environment variables.
@@ -23,4 +26,8 @@ source "/var/global_config/hostname_lookup.sh"
 local_conf_template="/var/ais_config_template/ais_local.json"
 local_conf_file="/var/ais_config/ais_local.json"
 envsubst < ${local_conf_template} > ${local_conf_file}
+
+if [[ "${MY_POD}" == "${AIS_DEFAULT_PRIMARY}" ]]; then
+	echo "export AIS_IS_PRIMARY=true" > $envfile
+fi
 `

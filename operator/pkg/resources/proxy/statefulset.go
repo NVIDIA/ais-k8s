@@ -17,29 +17,38 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+func statefulSetName(ais *aisv1.AIStore) string {
+	return ais.Name + "-" + aisapc.Proxy
+}
+
 func StatefulSetNSName(ais *aisv1.AIStore) types.NamespacedName {
 	return types.NamespacedName{
-		Name:      cmn.ProxyStatefulSetName(ais),
+		Name:      statefulSetName(ais),
 		Namespace: ais.Namespace,
 	}
 }
 
 func PodName(ais *aisv1.AIStore, idx int32) string {
-	return fmt.Sprintf("%s-%d", cmn.ProxyStatefulSetName(ais), idx)
+	return fmt.Sprintf("%s-%d", statefulSetName(ais), idx)
+}
+
+// DefaultPrimaryName returns name of pod used as default Primary
+func DefaultPrimaryName(ais *aisv1.AIStore) string {
+	return statefulSetName(ais) + "-0"
 }
 
 func DefaultPrimaryNSName(ais *aisv1.AIStore) types.NamespacedName {
 	return types.NamespacedName{
-		Name:      cmn.DefaultPrimaryProxyName(ais),
+		Name:      DefaultPrimaryName(ais),
 		Namespace: ais.Namespace,
 	}
 }
 
-func NewProxyStatefulSet(ais *aisv1.AIStore, size int32, clusterInShudown bool) *apiv1.StatefulSet {
+func NewProxyStatefulSet(ais *aisv1.AIStore, size int32) *apiv1.StatefulSet {
 	ls := PodLabels(ais)
 	return &apiv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cmn.ProxyStatefulSetName(ais),
+			Name:      statefulSetName(ais),
 			Namespace: ais.Namespace,
 			Labels:    ls,
 		},
@@ -55,7 +64,7 @@ func NewProxyStatefulSet(ais *aisv1.AIStore, size int32, clusterInShudown bool) 
 					Labels:      ls,
 					Annotations: cmn.ParseAnnotations(ais),
 				},
-				Spec: proxyPodSpec(ais, clusterInShudown),
+				Spec: proxyPodSpec(ais),
 			},
 		},
 	}
@@ -65,7 +74,7 @@ func NewProxyStatefulSet(ais *aisv1.AIStore, size int32, clusterInShudown bool) 
 //   helpers  //
 ////////////////
 
-func proxyPodSpec(ais *aisv1.AIStore, clusterInShudown bool) corev1.PodSpec {
+func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
 	var optionals []corev1.EnvVar
 	if ais.Spec.ProxySpec.HostPort != nil {
 		optionals = []corev1.EnvVar{
@@ -78,10 +87,6 @@ func proxyPodSpec(ais *aisv1.AIStore, clusterInShudown bool) corev1.PodSpec {
 	}
 	if ais.Spec.TLSSecretName != nil {
 		optionals = append(optionals, cmn.EnvFromValue(cmn.EnvUseHTTPS, "true"))
-	}
-	if clusterInShudown {
-		primaryProxy := cmn.DefaultPrimaryProxyURL(ais, ais.Spec.ProxySpec.IntraControlPort.String())
-		optionals = append(optionals, cmn.EnvFromValue(cmn.EnvPrimaryEP, primaryProxy))
 	}
 
 	return corev1.PodSpec{
@@ -99,7 +104,7 @@ func proxyPodSpec(ais *aisv1.AIStore, clusterInShudown bool) corev1.PodSpec {
 					cmn.EnvFromValue(cmn.EnvDaemonRole, aisapc.Proxy),
 					cmn.EnvFromValue(cmn.EnvProxyServiceName, HeadlessSVCName(ais)),
 					cmn.EnvFromValue(cmn.EnvProxyServicePort, ais.Spec.ProxySpec.ServicePort.String()),
-					cmn.EnvFromValue(cmn.EnvDefaultPrimaryPod, cmn.DefaultPrimaryProxyName(ais)),
+					cmn.EnvFromValue(cmn.EnvDefaultPrimaryPod, DefaultPrimaryName(ais)),
 				}, optionals...),
 				Args:         []string{"-c", "/bin/bash /var/ais_config_template/set_initial_primary_proxy_env.sh"},
 				Command:      []string{"/bin/bash"},

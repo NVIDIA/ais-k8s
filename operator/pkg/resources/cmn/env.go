@@ -27,6 +27,6 @@ const (
 	EnvNumTargets           = "TARGETS"                          // Expected target count // TODO: Add AIS_ prefix
 	EnvEnableExternalAccess = "ENABLE_EXTERNAL_ACCESS"           // Bool flag to indicate AIS daemon is exposed using LoadBalancer
 	EnvShutdownMarkerPath   = "AIS_SHUTDOWN_MARKER_PATH"         // Path where node shutdown marker will be located
-	EnvPrimaryEP            = "AIS_PRIMARY_EP"
-	EnvGCPCredsPath         = "GOOGLE_APPLICATION_CREDENTIALS" // Path to GCP credentials
+
+	EnvGCPCredsPath = "GOOGLE_APPLICATION_CREDENTIALS" // Path to GCP credentials
 )
