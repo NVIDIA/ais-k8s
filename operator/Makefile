@@ -30,6 +30,10 @@ SCRIPTS_DIR = ./scripts
 
 HELM_VERSION = v3.14.2
 
+GOLANGCI_LINT_VERSION := v1.57.2
+GOLANGCI_LINT := $(GOBIN)/golangci-lint
+GOLANGCI_INSTALLER := https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh
+
 all: manager
 
 
@@ -114,20 +118,22 @@ vet:
 generate: controller-gen
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
+## Update the linter version (removes previous one and downloads a new one)
+lint-update-latest:
+	rm -f $(GOLANGCI_LINT)
+	curl -sSfL $(GOLANGCI_INSTALLER) | sh -s -- -b $(GOBIN) latest
 
-lint-update: ## Update the linter version (removes previous one and downloads a new one)
-	@rm -f $(GOPATH)/bin/golangci-lint
-	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin latest
+## Install specific `golangci-lint` version
+lint-update-fixed:
+	@rm -f $(GOLANGCI_LINT)
+	curl -sSfL $(GOLANGCI_INSTALLER) | sh -s -- -b $(GOBIN) $(GOLANGCI_LINT_VERSION)
 
-## Install specific `golangci-lint` version (hardcoded below)
-## See also: .github/workflows/lint.yml
-lint-update-ci:
-	@rm -f $(GOPATH)/bin/golangci-lint
-	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(GOPATH)/bin v1.57.2
-
-lint: ## Run linter on whole project
-	@([[ ! -f $(GOPATH)/bin/golangci-lint ]] && curl -sfL "https://install.goreleaser.com/github.com/golangci/golangci-lint.sh" | sh -s -- -b $(GOPATH)/bin latest) || true
+## Run linter on whole project
+lint:
 	@$(SHELL) "$(SCRIPTS_DIR)/lint.sh" lint
+
+lint-fix:
+	@$(SHELL) "$(SCRIPTS_DIR)/lint.sh" lint --fix
 
 fmt-check: ## Check code formatting
 	@$(SHELL) "$(SCRIPTS_DIR)/lint.sh" fmt

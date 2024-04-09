@@ -141,6 +141,19 @@ func (r *AIStoreReconciler) handleTargetScaleDown(ctx context.Context, ais *aisv
 	return !updated, err
 }
 
+// Scale down the statefulset without decommissioning
+func (r *AIStoreReconciler) scaleTargetsToZero(ctx context.Context, ais *aisv1.AIStore) error {
+	changed, err := r.client.UpdateStatefulSetReplicas(ctx, target.StatefulSetNSName(ais), 0)
+	if err != nil {
+		r.log.Error(err, "Failed to update target StatefulSet replicas")
+	} else if changed {
+		r.log.Info("Target StatefulSet set to size 0", "name", ais.Name)
+	} else {
+		r.log.Info("Target StatefulSet already at size 0", "name", ais.Name)
+	}
+	return err
+}
+
 func (r *AIStoreReconciler) decommissionTargets(ctx context.Context, ais *aisv1.AIStore, actualSize int32) (decommissioning bool, err error) {
 	params, err := r.getAPIParams(ctx, ais)
 	if err != nil {
@@ -187,8 +200,7 @@ func (r *AIStoreReconciler) handleTargetImage(ctx context.Context, ais *aisv1.AI
 		return false, err
 	}
 
-	podList := &corev1.PodList{}
-	err = r.client.List(ctx, podList, client.InNamespace(ais.Namespace), client.MatchingLabels(target.PodLabels(ais)))
+	podList, err := r.client.ListTargetPods(ctx, ais)
 	if err != nil {
 		return
 	}

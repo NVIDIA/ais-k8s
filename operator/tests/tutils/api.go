@@ -50,7 +50,7 @@ type PVData struct {
 	size         resource.Quantity
 }
 
-func checkClusterExists(ctx context.Context, client *aisclient.K8sClient, name types.NamespacedName) bool {
+func checkCRExists(ctx context.Context, client *aisclient.K8sClient, name types.NamespacedName) bool {
 	_, err := client.GetAIStoreCR(ctx, name)
 	if errors.IsNotFound(err) {
 		return false
@@ -61,18 +61,23 @@ func checkClusterExists(ctx context.Context, client *aisclient.K8sClient, name t
 
 // DestroyCluster - Deletes the AISCluster resource, and waits for the resource to be cleaned up.
 // `intervals` refer - `gomega.Eventually`
-func DestroyCluster(_ context.Context, client *aisclient.K8sClient,
+func DestroyCluster(ctx context.Context, client *aisclient.K8sClient,
 	cluster *aisv1.AIStore, intervals ...interface{},
 ) {
 	if len(intervals) == 0 {
 		intervals = []interface{}{time.Minute, time.Second}
 	}
 
-	_, err := client.DeleteResourceIfExists(context.Background(), cluster)
+	_, err := client.DeleteResourceIfExists(ctx, cluster)
 	Expect(err).Should(Succeed())
+	EventuallyCRNotExists(ctx, client, cluster, intervals...)
+}
 
+func EventuallyCRNotExists(ctx context.Context, client *aisclient.K8sClient,
+	cluster *aisv1.AIStore, intervals ...interface{},
+) {
 	Eventually(func() bool {
-		return checkClusterExists(context.Background(), client, cluster.NamespacedName())
+		return checkCRExists(ctx, client, cluster.NamespacedName())
 	}, intervals...).Should(BeFalse())
 }
 
@@ -173,6 +178,38 @@ func checkSSExists(ctx context.Context, client *aisclient.K8sClient, name types.
 	}
 	Expect(err).To(BeNil())
 	return true
+}
+
+func EventuallyProxyIsSize(
+	ctx context.Context,
+	client *aisclient.K8sClient,
+	cluster *aisv1.AIStore,
+	size int,
+	intervals ...interface{},
+) {
+	Eventually(func() int {
+		podList, err := client.ListProxyPods(ctx, cluster)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to list proxy pods; err %v\n", err)
+		}
+		return len(podList.Items)
+	}, intervals...).Should(Equal(size))
+}
+
+func EventuallyTargetIsSize(
+	ctx context.Context,
+	client *aisclient.K8sClient,
+	cluster *aisv1.AIStore,
+	size int,
+	intervals ...interface{},
+) {
+	Eventually(func() int {
+		podList, err := client.ListTargetPods(ctx, cluster)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to list target pods; err %v\n", err)
+		}
+		return len(podList.Items)
+	}, intervals...).Should(Equal(size))
 }
 
 func EventuallySSExists(

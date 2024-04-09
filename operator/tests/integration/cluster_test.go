@@ -30,6 +30,7 @@ import (
 const (
 	clusterReadyRetryInterval = 5 * time.Second
 	clusterReadyTimeout       = 3 * time.Minute
+	clusterDestroyTimeout     = 2 * time.Minute
 )
 
 // clientCluster - used for managing cluster used AIS API tests
@@ -59,7 +60,7 @@ func newClientCluster(cluArgs tutils.ClusterSpecArgs) (*clientCluster, []*corev1
 
 func (cc *clientCluster) create() {
 	cc.ctx, cc.cancelLogsStream = context.WithCancel(context.Background())
-	createCluster(cc.cluster, cc.tout, tutils.ClusterCreateInterval)
+	createCluster(cc.ctx, cc.cluster, cc.tout, tutils.ClusterCreateInterval)
 	tutils.WaitForClusterToBeReady(context.Background(), k8sClient, cc.cluster, clusterReadyTimeout, clusterReadyRetryInterval)
 	initAISCluster(context.Background(), cc.cluster)
 	Expect(tutils.StreamLogs(cc.ctx, testNSName)).To(BeNil())
@@ -74,21 +75,21 @@ func (cc *clientCluster) cleanup(pvs []*corev1.PersistentVolume) {
 }
 
 var _ = Describe("Run Controller", func() {
-	Context("Deploy and Destroy cluster", Label("short"), func() {
+	Context("Deploy and Destroy cluster", func() {
 		Context("without externalLB", func() {
-			It("Should successfully create an AIS Cluster with required K8s objects", func() {
+			It("Should successfully create an AIS Cluster with required K8s objects", Label("short"), func() {
 				cluster, pvs := tutils.NewAISCluster(defaultCluArgs(), k8sClient)
 				createAndDestroyCluster(cluster, pvs, checkResExists, checkResShouldNotExist, false)
 			})
 
-			It("Should successfully create an AIS Cluster with AllowSharedOrNoDisks on > v3.23 image", func() {
+			It("Should successfully create an AIS Cluster with AllowSharedOrNoDisks on > v3.23 image", Label("short"), func() {
 				args := defaultCluArgs()
 				args.AllowSharedOrNoDisks = true
 				cluster, pvs := tutils.NewAISCluster(args, k8sClient)
 				createAndDestroyCluster(cluster, pvs, nil, nil, false)
 			})
 
-			It("Should successfully create an hetero-sized AIS Cluster", func() {
+			It("Should successfully create an hetero-sized AIS Cluster", Label("short"), func() {
 				args := defaultCluArgs()
 				args.TargetSize = 2
 				args.ProxySize = 1
@@ -96,11 +97,27 @@ var _ = Describe("Run Controller", func() {
 				cluster, pvs := tutils.NewAISCluster(args, k8sClient)
 				createAndDestroyCluster(cluster, pvs, nil, nil, false)
 			})
+
+			It("Should shutdown cluster when ShutdownCluster is true, scale up when false", Label("long"), func() {
+				ctx := context.Background()
+				cluster, pvs := tutils.NewAISCluster(defaultCluArgs(), k8sClient)
+				createCluster(ctx, cluster, tutils.GetClusterCreateTimeout(), tutils.ClusterCreateInterval)
+				// Shutdown, ensure statefulsets exist and are size 0
+				setClusterShutdown(ctx, cluster, true)
+				tutils.EventuallyProxyIsSize(ctx, k8sClient, cluster, 0, clusterDestroyTimeout)
+				tutils.EventuallyTargetIsSize(ctx, k8sClient, cluster, 0, clusterDestroyTimeout)
+				// Resume shutdown cluster, should become fully ready
+				setClusterShutdown(ctx, cluster, false)
+				tutils.WaitForClusterToBeReady(ctx, k8sClient, cluster,
+					clusterReadyTimeout, clusterReadyRetryInterval)
+				tutils.DestroyCluster(ctx, k8sClient, cluster, clusterDestroyTimeout)
+				tutils.DestroyPV(ctx, k8sClient, pvs)
+			})
 		})
 
-		Context("with externalLB", func() {
+		Context("with externalLB", Label("short"), func() {
 			It("Should successfully create an AIS Cluster with required K8s objects", func() {
-				tutils.CheckSkip(&tutils.SkipArgs{RequiresLB: true, ShortTest: true})
+				tutils.CheckSkip(&tutils.SkipArgs{RequiresLB: true})
 				cluArgs := tutils.ClusterSpecArgs{
 					Name:             clusterName(),
 					Namespace:        testNSName,
@@ -126,8 +143,8 @@ var _ = Describe("Run Controller", func() {
 				tutils.DestroyCluster(ctx, k8sClient, cluster1)
 				tutils.DestroyPV(ctx, k8sClient, c1pvs)
 			}()
-			createCluster(cluster1, tutils.GetClusterCreateTimeout(), tutils.ClusterCreateInterval)
-			createCluster(cluster2, tutils.GetClusterCreateTimeout(), tutils.ClusterCreateInterval)
+			createCluster(ctx, cluster1, tutils.GetClusterCreateTimeout(), tutils.ClusterCreateInterval)
+			createCluster(ctx, cluster2, tutils.GetClusterCreateTimeout(), tutils.ClusterCreateInterval)
 			tutils.WaitForClusterToBeReady(context.Background(), k8sClient, cluster1,
 				clusterReadyTimeout, clusterReadyRetryInterval)
 			tutils.WaitForClusterToBeReady(context.Background(), k8sClient, cluster2,
@@ -154,8 +171,8 @@ var _ = Describe("Run Controller", func() {
 				tutils.DestroyCluster(ctx, k8sClient, cluster1)
 				tutils.DestroyPV(ctx, k8sClient, c1PVs)
 			}()
-			createCluster(cluster1, tutils.GetClusterCreateTimeout(), tutils.ClusterCreateInterval)
-			createCluster(cluster2, tutils.GetClusterCreateTimeout(), tutils.ClusterCreateInterval)
+			createCluster(ctx, cluster1, tutils.GetClusterCreateTimeout(), tutils.ClusterCreateInterval)
+			createCluster(ctx, cluster2, tutils.GetClusterCreateTimeout(), tutils.ClusterCreateInterval)
 			tutils.WaitForClusterToBeReady(context.Background(), k8sClient, cluster2,
 				clusterReadyTimeout, clusterReadyRetryInterval)
 			tutils.WaitForClusterToBeReady(context.Background(), k8sClient, cluster2,
@@ -494,7 +511,7 @@ func createAndDestroyCluster(cluster *aisv1.AIStore, pvs []*corev1.PersistentVol
 		}
 	}()
 
-	createCluster(cluster, intervals...)
+	createCluster(ctx, cluster, intervals...)
 	tutils.WaitForClusterToBeReady(context.Background(), k8sClient, cluster,
 		clusterReadyTimeout, clusterReadyRetryInterval)
 	if postCreate != nil {
@@ -502,14 +519,23 @@ func createAndDestroyCluster(cluster *aisv1.AIStore, pvs []*corev1.PersistentVol
 	}
 }
 
-func createCluster(cluster *aisv1.AIStore, intervals ...interface{}) {
-	Expect(k8sClient.Create(context.Background(), cluster)).Should(Succeed())
-	By("Create cluster and mark status as 'Created'")
+func createCluster(ctx context.Context, cluster *aisv1.AIStore, intervals ...interface{}) {
+	Expect(k8sClient.Create(ctx, cluster)).Should(Succeed())
+	By("Create cluster and wait for it to be 'Ready'")
 	Eventually(func() bool {
 		r := &aisv1.AIStore{}
-		_ = k8sClient.Get(context.Background(), cluster.NamespacedName(), r)
-		return r.Status.State == aisv1.ConditionCreated || r.Status.State == aisv1.ConditionReady
+		_ = k8sClient.Get(ctx, cluster.NamespacedName(), r)
+		return r.Status.State == aisv1.ConditionReady
 	}, intervals...).Should(BeTrue())
+}
+
+func setClusterShutdown(ctx context.Context, cluster *aisv1.AIStore, shutdown bool) {
+	cr, err := k8sClient.GetAIStoreCR(ctx, cluster.NamespacedName())
+	Expect(err).ShouldNot(HaveOccurred())
+	patch := client.MergeFrom(cr.DeepCopy())
+	cr.Spec.ShutdownCluster = aisapc.Ptr(shutdown)
+	err = k8sClient.Patch(ctx, cr, patch)
+	Expect(err).ShouldNot(HaveOccurred())
 }
 
 func scaleCluster(ctx context.Context, cluster *aisv1.AIStore, targetOnly bool, factor int32) {

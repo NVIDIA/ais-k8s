@@ -61,6 +61,18 @@ func (c *K8sClient) ListAIStoreCR(ctx context.Context, namespace string) (*aisv1
 	return list, err
 }
 
+func (c *K8sClient) ListProxyPods(ctx context.Context, ais *aisv1.AIStore) (*corev1.PodList, error) {
+	podList := &corev1.PodList{}
+	err := c.client.List(ctx, podList, client.InNamespace(ais.Namespace), client.MatchingLabels(proxy.PodLabels(ais)))
+	return podList, err
+}
+
+func (c *K8sClient) ListTargetPods(ctx context.Context, ais *aisv1.AIStore) (*corev1.PodList, error) {
+	podList := &corev1.PodList{}
+	err := c.client.List(ctx, podList, client.InNamespace(ais.Namespace), client.MatchingLabels(target.PodLabels(ais)))
+	return podList, err
+}
+
 func (c *K8sClient) GetStatefulSet(ctx context.Context, name types.NamespacedName) (*apiv1.StatefulSet, error) {
 	ss := &apiv1.StatefulSet{}
 	err := c.client.Get(ctx, name, ss)
@@ -175,6 +187,10 @@ func (c *K8sClient) UpdateStatefulSetImage(ctx context.Context, name types.Names
 	ss.Spec.Template.Spec.Containers[idx].Image = newImage
 	err = c.client.Update(ctx, ss)
 	return
+}
+
+func (c *K8sClient) Patch(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
+	return c.client.Patch(ctx, obj, patch, opts...)
 }
 
 func (c *K8sClient) Create(ctx context.Context, obj client.Object, opts ...client.CreateOption) error {

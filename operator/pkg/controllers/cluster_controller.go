@@ -85,38 +85,16 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	if !r.isInitialized(ais) {
-		if !controllerutil.ContainsFinalizer(ais, aisFinalizer) {
-			controllerutil.AddFinalizer(ais, aisFinalizer)
-			err = r.client.Update(ctx, ais)
-			return reconcile.Result{}, err
-		}
-
-		ais.SetConditionInitialized()
-		retry, err := r.setStatus(ctx, ais,
-			aisv1.AIStoreStatus{State: aisv1.ConditionInitialized})
-		return reconcile.Result{Requeue: retry}, err
+		return r.initializeCR(ctx, ais)
 	}
 
+	// AIS CR has been deleted
 	if !ais.GetDeletionTimestamp().IsZero() {
-		r.log.Info("Deleting AIS cluster", "name", ais.Name)
-		if !hasFinalizer(ais) {
-			return reconcile.Result{}, nil
-		}
-		updated, err := r.cleanup(ctx, ais)
-		if err != nil {
-			r.recordError(ais, err, "Failed to delete instance")
-			return r.manageError(ctx, ais, aisv1.InstanceDeletionError, err)
-		}
-		if updated {
-			return reconcile.Result{RequeueAfter: requeueInterval}, nil
-		}
-		controllerutil.RemoveFinalizer(ais, aisFinalizer)
-		err = r.client.UpdateIfExists(ctx, ais)
-		if err != nil {
-			r.recordError(ais, err, "Failed to update instance")
-			return r.manageError(ctx, ais, aisv1.ResourceUpdateError, err)
-		}
-		return reconcile.Result{}, nil
+		return r.handleCRDeletion(ctx, ais)
+	}
+
+	if ais.HasState(aisv1.ConditionReady) && ais.ShouldShutdown() {
+		return r.shutdownCluster(ctx, ais)
 	}
 
 	if isNewCR(ais) {
@@ -124,6 +102,53 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	return r.handleCREvents(ctx, ais)
+}
+
+func (r *AIStoreReconciler) initializeCR(ctx context.Context, ais *aisv1.AIStore) (reconcile.Result, error) {
+	if !controllerutil.ContainsFinalizer(ais, aisFinalizer) {
+		controllerutil.AddFinalizer(ais, aisFinalizer)
+		err := r.client.Update(ctx, ais)
+		return reconcile.Result{}, err
+	}
+
+	ais.SetConditionInitialized()
+	retry, err := r.setStatus(ctx, ais,
+		aisv1.AIStoreStatus{State: aisv1.ConditionInitialized})
+	return reconcile.Result{Requeue: retry}, err
+}
+
+func (r *AIStoreReconciler) shutdownCluster(ctx context.Context, ais *aisv1.AIStore) (reconcile.Result, error) {
+	r.log.Info("Shutting down AIS cluster", "name", ais.Name)
+	r.attemptGracefulShutdown(ctx, ais)
+	r.log.Info("Scaling statefulsets to size 0", "name", ais.Name)
+	err := r.scaleProxiesToZero(ctx, ais)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	err = r.scaleTargetsToZero(ctx, ais)
+	return reconcile.Result{}, err
+}
+
+func (r *AIStoreReconciler) handleCRDeletion(ctx context.Context, ais *aisv1.AIStore) (reconcile.Result, error) {
+	r.log.Info("Deleting AIS cluster", "name", ais.Name)
+	if !hasFinalizer(ais) {
+		return reconcile.Result{}, nil
+	}
+	updated, err := r.cleanup(ctx, ais)
+	if err != nil {
+		r.recordError(ais, err, "Failed to delete instance")
+		return r.manageError(ctx, ais, aisv1.InstanceDeletionError, err)
+	}
+	if updated {
+		return reconcile.Result{RequeueAfter: requeueInterval}, nil
+	}
+	controllerutil.RemoveFinalizer(ais, aisFinalizer)
+	err = r.client.UpdateIfExists(ctx, ais)
+	if err != nil {
+		r.recordError(ais, err, "Failed to update instance")
+		return r.manageError(ctx, ais, aisv1.ResourceUpdateError, err)
+	}
+	return reconcile.Result{}, nil
 }
 
 func (r *AIStoreReconciler) cleanup(ctx context.Context, ais *aisv1.AIStore) (updated bool, err error) {
@@ -141,7 +166,7 @@ func (r *AIStoreReconciler) cleanup(ctx context.Context, ais *aisv1.AIStore) (up
 		func() (bool, error) { return r.cleanupProxy(ctx, ais) },
 		func() (bool, error) { return r.client.DeleteConfigMapIfExists(ctx, statsd.ConfigMapNSName(ais)) },
 		func() (bool, error) { return r.cleanupRBAC(ctx, ais) },
-		func() (bool, error) { return r.cleanupVolumes(ctx, ais) },
+		func() (bool, error) { return r.cleanupPVC(ctx, ais) },
 	)
 	if updated && decommissionCluster {
 		err := r.runManualCleanupJob(ctx, ais, nodeNames)
@@ -192,7 +217,7 @@ func (r *AIStoreReconciler) attemptGracefulShutdown(ctx context.Context, ais *ai
 	}
 }
 
-func (r *AIStoreReconciler) cleanupVolumes(ctx context.Context, ais *aisv1.AIStore) (anyUpdated bool, err error) {
+func (r *AIStoreReconciler) cleanupPVC(ctx context.Context, ais *aisv1.AIStore) (anyUpdated bool, err error) {
 	if ais.Spec.DecommissionCluster != nil && *ais.Spec.DecommissionCluster && ais.Spec.CleanupData != nil && *ais.Spec.CleanupData {
 		r.log.Info("Cleaning up PVCs")
 		return r.client.DeleteAllPVCsIfExist(ctx, ais.Namespace, target.PodLabels(ais))
@@ -542,7 +567,7 @@ func (r *AIStoreReconciler) manageSuccess(ctx context.Context, ais *aisv1.AIStor
 		r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonReady, "Created AIS cluster")
 		ais.SetConditionReady()
 	}
-	if ais.Status.State != aisv1.ConditionReady {
+	if !ais.HasState(aisv1.ConditionReady) {
 		result.Requeue, err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionReady})
 	}
 

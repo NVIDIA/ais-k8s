@@ -1801,6 +1801,12 @@ spec:
                 - portPublic
                 - servicePort
                 type: object
+              shutdownCluster:
+                description: |-
+                  ShutdownCluster can be set true if the desired state of the cluster is shutdown with a future restart expected
+                  When enabled, the operator will gracefully shut down the AIS cluster and scale cluster size to 0
+                  No data or configuration will be deleted
+                type: boolean
               size:
                 format: int32
                 type: integer

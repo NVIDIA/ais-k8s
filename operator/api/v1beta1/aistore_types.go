@@ -69,6 +69,12 @@ type AIStoreSpec struct {
 	ProxySpec  DaemonSpec `json:"proxySpec"`  // spec for proxy
 	TargetSpec TargetSpec `json:"targetSpec"` // spec for target
 
+	// ShutdownCluster can be set true if the desired state of the cluster is shutdown with a future restart expected
+	// When enabled, the operator will gracefully shut down the AIS cluster and scale cluster size to 0
+	// No data or configuration will be deleted
+	// +optional
+	ShutdownCluster *bool `json:"shutdownCluster,omitempty"`
+
 	// DecommissionCluster indicates whether the cluster should be decommissioned upon deletion of the CR.
 	// When enabled, this process removes all AIS daemons and deletes metadata from the configuration directories.
 	// Note: Decommissioning is irreversible, and it may result in the permanent loss of the cluster and all user data**.
@@ -354,6 +360,10 @@ func (ais *AIStore) GetTargetSize() int32 {
 		return *ais.Spec.TargetSpec.Size
 	}
 	return ais.Spec.Size
+}
+
+func (ais *AIStore) ShouldShutdown() bool {
+	return ais.Spec.ShutdownCluster != nil && *ais.Spec.ShutdownCluster
 }
 
 // +kubebuilder:object:root=true

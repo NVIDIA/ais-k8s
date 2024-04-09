@@ -20,7 +20,6 @@ import (
 	apiv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -170,8 +169,7 @@ func (r *AIStoreReconciler) handleProxyImage(ctx context.Context, ais *aisv1.AIS
 		return false, r.client.Update(ctx, ss)
 	}
 
-	podList := &corev1.PodList{}
-	err = r.client.List(ctx, podList, client.InNamespace(ais.Namespace), client.MatchingLabels(proxy.PodLabels(ais)))
+	podList, err := r.client.ListProxyPods(ctx, ais)
 	if err != nil {
 		return
 	}
@@ -300,6 +298,19 @@ func (r *AIStoreReconciler) handleProxyScaledown(ctx context.Context, ais *aisv1
 		}
 		decommissionNode(oldPrimaryID)
 	}
+}
+
+// Scale down the statefulset without decommissioning or resetting primary
+func (r *AIStoreReconciler) scaleProxiesToZero(ctx context.Context, ais *aisv1.AIStore) error {
+	changed, err := r.client.UpdateStatefulSetReplicas(ctx, proxy.StatefulSetNSName(ais), 0)
+	if err != nil {
+		r.log.Error(err, "Failed to update proxy StatefulSet replicas")
+	} else if changed {
+		r.log.Info("Proxy StatefulSet set to size 0", "name", ais.Name)
+	} else {
+		r.log.Info("Proxy StatefulSet already at size 0", "name", ais.Name)
+	}
+	return err
 }
 
 // enableProxyExternalService, creates a LoadBalancer service for proxy statefulset.

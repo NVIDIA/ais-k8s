@@ -1,20 +1,26 @@
 #!/bin/bash
 
-
 OPERATOR_DIR="$(cd "$(dirname "$0")/../"; pwd -P)"
-EXTERNAL_SRC_REGEX=".*\(venv\|build\|3rdparty\|dist\|.idea\|.vscode\)/.*"
 # This script is used by Makefile to run commands.
 source ${OPERATOR_DIR}/scripts/utils.sh
 
 case $1 in
 lint)
-  echo "Running lint..." >&2
-  golangci-lint run $(list_all_go_dirs)
-  exit $?
+  case $2 in
+  --fix)
+    echo "Running lint with --fix" >&2
+    golangci-lint run $(list_all_go_dirs) --fix
+    exit $?
+    ;;
+  *)
+    echo "Running lint..." >&2
+    golangci-lint run $(list_all_go_dirs)
+    exit $?
+    ;;
+  esac
   ;;
 
 fmt)
-  err_count=0
   case $2 in
   --fix)
     echo "Running style fixing..." >&2
