@@ -5,6 +5,7 @@
 package target
 
 import (
+	"log"
 	"strconv"
 	"strings"
 
@@ -12,8 +13,10 @@ import (
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	"github.com/ais-operator/pkg/resources/cmn"
 	"github.com/ais-operator/pkg/resources/proxy"
+	"gopkg.in/inf.v0"
 	apiv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -183,6 +186,16 @@ func readinessProbe(port intstr.IntOrString, useHTTPS bool) *corev1.Probe {
 func targetVC(ais *aisv1.AIStore) []corev1.PersistentVolumeClaim {
 	pvcs := make([]corev1.PersistentVolumeClaim, 0, int(ais.GetTargetSize()))
 	for _, res := range ais.Spec.TargetSpec.Mounts {
+		decSize := res.Size.AsDec()
+		// Round down and get the unscaled int size
+		roundedBytes, ok := decSize.Round(decSize, 0, inf.RoundDown).Unscaled()
+		var size resource.Quantity
+		if ok {
+			size = *resource.NewQuantity(roundedBytes, res.Size.Format)
+		} else {
+			log.Printf("Could not convert %s to a whole byte number. Creating PVC without size spec\n", res.Size.String())
+			size = resource.Quantity{}
+		}
 		pvcs = append(pvcs, corev1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: ais.Name + strings.ReplaceAll(res.Path, "/", "-"),
@@ -192,7 +205,7 @@ func targetVC(ais *aisv1.AIStore) []corev1.PersistentVolumeClaim {
 					corev1.ReadWriteOnce,
 				},
 				Resources: corev1.VolumeResourceRequirements{
-					Requests: corev1.ResourceList{corev1.ResourceStorage: res.Size},
+					Requests: corev1.ResourceList{corev1.ResourceStorage: size},
 				},
 				StorageClassName: res.StorageClass,
 				Selector:         res.Selector,
