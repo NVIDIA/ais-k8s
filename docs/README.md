@@ -197,7 +197,7 @@ Before initiating the playbook, it's crucial to perform some preparatory configu
     ```
 
 - **Multihome Deployment**:
-   - For a multihome deployment using multiple network interfaces, some extra configuration is required before deploying the cluster. Refer to the [multihome deploment doc](../playbooks/ais-deployment/docs/deploy_with_multihome) for details. 
+   - For a multihome deployment using multiple network interfaces, some extra configuration is required before deploying the cluster. Refer to the [multihome deployment doc](../playbooks/ais-deployment/docs/deploy_with_multihome) for details. 
 
 - **Playbook Defaults**:
   - In the [defaults file](../playbooks/ais-deployment/roles/ais_deploy_cluster/defaults/main.yml) for the deploy cluster playbook, update values such as:

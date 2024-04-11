@@ -1,5 +1,5 @@
 #
-# Add additional configs to the kubelet running on each node, for example to allow "unsafe" syctls
+# Add additional configs to the kubelet running on each node, for example to allow "unsafe" sysctls
 #
 ---
 - hosts: '{{ ais_hosts | default("ais") }}'

@@ -1,10 +1,10 @@
 # Multihome Deployment
 
-To take advantage of multiple network interfaces, AIS supports multi-homing to distribute traffic across all avaialable interfaces. The operator currently supports using [multus](https://github.com/k8snetworkplumbingwg/multus-cni) to enable multiple IPs for each K8s pod.
+To take advantage of multiple network interfaces, AIS supports multi-homing to distribute traffic across all available interfaces. The operator currently supports using [multus](https://github.com/k8snetworkplumbingwg/multus-cni) to enable multiple IPs for each K8s pod.
 
 `Note: Using more than 2 network interfaces has not yet been tested. Please reference the multus documentation or raise an issue if you run into errors assigning multiple IPs to a pod.`
 
-### Host Prequisites
+### Host Prerequisites
 
 Before updating the K8s cluster or deploying AIS, the hosts must be configured with each network interface having its own IP accessible by each of the other nodes in the K8s cluster. All nodes must be able to connect to all interfaces on all other nodes. 
 
