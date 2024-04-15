@@ -4,6 +4,7 @@
     msg: Deploying AIS Operator {{ operator_version }}
 
 - name: Copy operator deploy script
+  become: true
   template:
     src: "deploy-operator.sh.j2"
     dest: "/tmp/deploy-operator.sh"

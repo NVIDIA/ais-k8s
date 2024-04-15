@@ -1,5 +1,6 @@
 ---
 - name: Copy `delete_cluster` script after processing as a template
+  become: true
   template:
     src: "delete_cluster.sh.j2"
     dest: "/tmp/delete_cluster.sh"

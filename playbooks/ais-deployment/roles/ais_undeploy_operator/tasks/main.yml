@@ -1,5 +1,6 @@
 ---
 - name: Copy operator undeploy script
+  become: true
   copy:
     src: "undeploy-operator.sh"
     dest: "/tmp/"

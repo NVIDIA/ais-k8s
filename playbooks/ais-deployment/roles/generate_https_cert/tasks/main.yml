@@ -1,4 +1,5 @@
 - name: Copy CA Creation yaml
+  become: true
   template:
     src: "ca.yaml.j2"
     dest: "https_ca.yaml"
@@ -12,6 +13,7 @@
   shell: kubectl delete secret {{ tls_secret }} -n ais --ignore-not-found
 
 - name: Use CA to issue cert
+  become: true
   template:
     src: "cert.yaml.j2"
     dest: "https_cert.yaml"

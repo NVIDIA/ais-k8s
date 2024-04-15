@@ -26,7 +26,6 @@
 
 - hosts: "controller"
   gather_facts: false
-  become: true
   vars_prompt:
     - name: operator_version
       prompt: "Specify the operator_version. Skip to use `AIS Operator` from latest release (https://github.com/NVIDIA/ais-k8s/releases/latest)."

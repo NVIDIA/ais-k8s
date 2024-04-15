@@ -27,7 +27,6 @@
       when: cluster is undefined
 
   gather_facts: false
-  become: true
   roles:
     - role: ais_decommission_cluster
   vars:

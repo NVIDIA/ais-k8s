@@ -1,4 +1,5 @@
 - name: Copy PV scripts/templates
+  become: true
   copy:
     src: "{{ item }}"
     dest: "/tmp"
