@@ -10,13 +10,8 @@ spec:
       "master": "$NAD_IFACE",
       "mode": "bridge",
       "ipam": {
-        "type": "host-local",
-        "subnet": "192.168.1.0/24",
-        "rangeStart": "192.168.1.200",
-        "rangeEnd": "192.168.1.216",
-        "routes": [
-          { "dst": "0.0.0.0/0" }
-        ],
+        "type": "whereabouts",
+        "range": "192.168.1.0/24",
         "gateway": "192.168.1.1"
       }
     }'

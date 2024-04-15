@@ -14,3 +14,24 @@
 - name: Install multus if necessary
   shell: kubectl apply -f "{{ multus_url }}"
   when: not multus_running
+
+# https://github.com/k8snetworkplumbingwg/whereabouts
+- name: Check whereabouts installation
+  shell: "kubectl get pods -n kube-system | grep -i 'whereabouts.*running'"
+  register: whereabouts_pods_output
+  ignore_errors: true
+
+- name: Set fact whereabouts_running
+  set_fact:
+    whereabouts_running: "{{ whereabouts_pods_output.stdout_lines | length > 0 if whereabouts_pods_output.rc == 0 else false }}"
+
+- name: Whereabouts Status
+  debug:
+    msg: "Whereabouts is {{ 'already' if whereabouts_running else 'not' }} running. {{ 'Skipping install' if whereabouts_running else 'Installing latest...' }}"
+
+- name: Install whereabouts if necessary
+  shell: |
+    kubectl apply -f https://raw.githubusercontent.com/k8snetworkplumbingwg/whereabouts/master/doc/crds/daemonset-install.yaml
+    kubectl apply -f https://raw.githubusercontent.com/k8snetworkplumbingwg/whereabouts/master/doc/crds/whereabouts.cni.cncf.io_ippools.yaml
+    kubectl apply -f https://raw.githubusercontent.com/k8snetworkplumbingwg/whereabouts/master/doc/crds/whereabouts.cni.cncf.io_overlappingrangeipreservations.yaml
+  when: not whereabouts_running

@@ -12,6 +12,8 @@ Before updating the K8s cluster or deploying AIS, the hosts must be configured w
 
 By default, each K8s pod has access to only one IP on the default interface. To enable multiple interfaces, we'll need to install and use [multus](https://github.com/k8snetworkplumbingwg/multus-cni). This allows us to define additional networks for each pod to use. To install, follow the instruction on the multus github page or simply run the network attachment definition playbook as shown below to automatically install the latest release. 
 
+To assign IP addresses dynamically across your cluster we'll install [whereabouts](https://github.com/k8snetworkplumbingwg/whereabouts/tree/master). You can install whereabouts from the GitHub page or by running the network attachment definition playbook.
+
 ### Creating NetworkAttachmentDefinition
 
 The next step is to define a network attachment definition to specify how each pod can use additional interfaces. This can be configured differently for each deployment, but we provide a sample template for a simple macvlan bridge definition [here](../roles/create_network_definition/files/nad.template.yaml).
