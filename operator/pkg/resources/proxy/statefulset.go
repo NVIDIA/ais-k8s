@@ -17,29 +17,20 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func statefulSetName(ais *aisv1.AIStore) string {
-	return ais.Name + "-" + aisapc.Proxy
-}
-
 func StatefulSetNSName(ais *aisv1.AIStore) types.NamespacedName {
 	return types.NamespacedName{
-		Name:      statefulSetName(ais),
+		Name:      ais.ProxyStatefulSetName(),
 		Namespace: ais.Namespace,
 	}
 }
 
 func PodName(ais *aisv1.AIStore, idx int32) string {
-	return fmt.Sprintf("%s-%d", statefulSetName(ais), idx)
-}
-
-// DefaultPrimaryName returns name of pod used as default Primary
-func DefaultPrimaryName(ais *aisv1.AIStore) string {
-	return statefulSetName(ais) + "-0"
+	return fmt.Sprintf("%s-%d", ais.ProxyStatefulSetName(), idx)
 }
 
 func DefaultPrimaryNSName(ais *aisv1.AIStore) types.NamespacedName {
 	return types.NamespacedName{
-		Name:      DefaultPrimaryName(ais),
+		Name:      ais.DefaultPrimaryName(),
 		Namespace: ais.Namespace,
 	}
 }
@@ -48,7 +39,7 @@ func NewProxyStatefulSet(ais *aisv1.AIStore, size int32) *apiv1.StatefulSet {
 	ls := PodLabels(ais)
 	return &apiv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      statefulSetName(ais),
+			Name:      ais.ProxyStatefulSetName(),
 			Namespace: ais.Namespace,
 			Labels:    ls,
 		},
@@ -104,7 +95,7 @@ func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
 					cmn.EnvFromValue(cmn.EnvDaemonRole, aisapc.Proxy),
 					cmn.EnvFromValue(cmn.EnvProxyServiceName, HeadlessSVCName(ais)),
 					cmn.EnvFromValue(cmn.EnvProxyServicePort, ais.Spec.ProxySpec.ServicePort.String()),
-					cmn.EnvFromValue(cmn.EnvDefaultPrimaryPod, DefaultPrimaryName(ais)),
+					cmn.EnvFromValue(cmn.EnvDefaultPrimaryPod, ais.DefaultPrimaryName()),
 				}, optionals...),
 				Args:         []string{"-c", "/bin/bash /var/ais_config_template/set_initial_primary_proxy_env.sh"},
 				Command:      []string{"/bin/bash"},

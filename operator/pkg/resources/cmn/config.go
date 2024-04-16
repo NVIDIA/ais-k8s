@@ -5,6 +5,7 @@
 package cmn
 
 import (
+	"fmt"
 	"time"
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
@@ -146,13 +147,17 @@ var defaultAISConf = aiscmn.ClusterConfig{
 func DefaultAISConf(ais *aisv1.AIStore) aiscmn.ClusterConfig {
 	var scheme string
 	conf := defaultAISConf
-	proxyPort := ais.Spec.ProxySpec.ServicePort.String()
 	if ais.Spec.TLSSecretName == nil {
 		scheme = "http"
 	} else {
 		scheme = "https"
 	}
-	proxyURL := scheme + "://" + ais.Name + "-proxy:" + proxyPort
+	primaryProxy := ais.DefaultPrimaryName()
+	domain := ais.GetClusterDomain()
+	svcName := ais.ProxyStatefulSetName()
+	intraCtrlPort := ais.Spec.ProxySpec.IntraControlPort.String()
+	// Example: http://ais-proxy-0.ais-proxy.ais.svc.cluster.local:51080
+	proxyURL := fmt.Sprintf("%s://%s.%s.%s.svc.%s:%s", scheme, primaryProxy, svcName, ais.Namespace, domain, intraCtrlPort)
 
 	conf.Proxy = aiscmn.ProxyConf{
 		PrimaryURL:   proxyURL,

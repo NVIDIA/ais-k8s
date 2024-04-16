@@ -23,7 +23,7 @@ elif [[ $1 == "long" ]]; then
 elif [[ $1 == "manual" ]]; then
   LABELS="!short && !long && override"
 else
-  LABELS="short && long"
+  LABELS="short || long"
 fi 
 
 TEST_STORAGECLASS="${TEST_STORAGECLASS}" USE_EXISTING_CLUSTER=true ginkgo -vv --label-filter="${LABELS}" -trace $current_dir/../... -coverprofile cover.out
