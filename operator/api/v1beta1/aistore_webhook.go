@@ -32,16 +32,17 @@ func (r *AIStore) SetupWebhookWithManager(mgr ctrl.Manager) error {
 var _ webhook.Validator = &AIStore{}
 
 func (r *AIStore) validateSize() (admission.Warnings, error) {
-	if r.Spec.Size <= 0 {
-		return nil, errInvalidClusterSize(r.Spec.Size)
-	}
-
 	if r.Spec.ProxySpec.Size != nil && *r.Spec.ProxySpec.Size <= 0 {
 		return nil, errInvalidDaemonSize(*r.Spec.ProxySpec.Size, aisapc.Proxy)
 	}
 
 	if r.Spec.TargetSpec.Size != nil && *r.Spec.TargetSpec.Size <= 0 {
 		return nil, errInvalidDaemonSize(*r.Spec.TargetSpec.Size, aisapc.Target)
+	}
+
+	// Validate `.spec.size` only when `.spec.targetSpec.size` or `.spec.proxySpec.size` is not set.
+	if (r.Spec.TargetSpec.Size == nil || r.Spec.ProxySpec.Size == nil) && r.Spec.Size <= 0 {
+		return nil, errInvalidClusterSize(r.Spec.Size)
 	}
 
 	return nil, nil
