@@ -83,7 +83,12 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "AIStore")
 		os.Exit(1)
 	}
-	if err = (&aisv1.AIStore{}).SetupWebhookWithManager(mgr); err != nil {
+
+	err = ctrl.NewWebhookManagedBy(mgr).
+		For(&aisv1.AIStore{}).
+		WithValidator(&aisv1.AIStoreWebhook{}).
+		Complete()
+	if err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "AIStore")
 		os.Exit(1)
 	}
