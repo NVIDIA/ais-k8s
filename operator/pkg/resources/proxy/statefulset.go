@@ -128,7 +128,7 @@ func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
 					cmn.EnvFromValue(cmn.EnvEnablePrometheus,
 						strconv.FormatBool(ais.Spec.EnablePromExporter != nil && *ais.Spec.EnablePromExporter)),
 					cmn.EnvFromValue(cmn.EnvDaemonRole, aisapc.Proxy),
-					cmn.EnvFromValue(cmn.EnvNumTargets, strconv.Itoa(int(ais.GetProxySize()))),
+					cmn.EnvFromValue(cmn.EnvNumTargets, strconv.Itoa(int(ais.GetTargetSize()))),
 					cmn.EnvFromValue(cmn.EnvProxyServiceName, HeadlessSVCName(ais)),
 					cmn.EnvFromValue(cmn.EnvProxyServicePort, ais.Spec.ProxySpec.ServicePort.String()),
 					cmn.EnvFromValue(cmn.EnvNodeServicePort, ais.Spec.ProxySpec.PublicPort.String()),
