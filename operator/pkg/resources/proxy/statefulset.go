@@ -122,8 +122,8 @@ func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
 					cmn.EnvFromValue(cmn.EnvClusterDomain, ais.GetClusterDomain()),
 					cmn.EnvFromValue(cmn.EnvShutdownMarkerPath, "/var/ais_config"),
 					cmn.EnvFromValue(cmn.EnvCIDR, ""), // TODO: Should take from specs
-					cmn.EnvFromValue(cmn.ENVConfigFilePath, "/var/ais_config/ais.json"),
-					cmn.EnvFromValue(cmn.ENVLocalConfigFilePath, "/var/ais_config/ais_local.json"),
+					cmn.EnvFromValue(cmn.EnvConfigFilePath, "/var/ais_config/ais.json"),
+					cmn.EnvFromValue(cmn.EnvLocalConfigFilePath, "/var/ais_config/ais_local.json"),
 					cmn.EnvFromValue(cmn.EnvStatsDConfig, "/var/statsd_config/statsd.json"),
 					cmn.EnvFromValue(cmn.EnvEnablePrometheus,
 						strconv.FormatBool(ais.Spec.EnablePromExporter != nil && *ais.Spec.EnablePromExporter)),

@@ -19,8 +19,8 @@ const (
 	EnvDefaultPrimaryPod    = "AIS_DEFAULT_PRIMARY"              // Default Primary pod name
 	EnvCIDR                 = "AIS_CLUSTER_CIDR"                 // CIDR to use
 	EnvClusterDomain        = "AIS_K8S_CLUSTER_DOMAIN"           // K8s cluster DNS domain
-	ENVConfigFilePath       = "AIS_CONF_FILE"                    // Path to AIS config file
-	ENVLocalConfigFilePath  = "AIS_LOCAL_CONF_FILE"              // Path to AIS local config file
+	EnvConfigFilePath       = "AIS_CONF_FILE"                    // Path to AIS config file
+	EnvLocalConfigFilePath  = "AIS_LOCAL_CONF_FILE"              // Path to AIS local config file
 	EnvEnablePrometheus     = "AIS_PROMETHEUS"                   // Enable prometheus exporter
 	EnvUseHTTPS             = "AIS_USE_HTTPS"                    // Use HTTPS endpoints
 	EnvStatsDConfig         = "STATSD_CONF_FILE"                 // Path to StatsD config json
