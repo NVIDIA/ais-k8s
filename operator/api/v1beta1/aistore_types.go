@@ -183,6 +183,10 @@ type TargetSpec struct {
 	// Use Mount.Label instead
 	// +optional
 	AllowSharedOrNoDisks *bool `json:"allowSharedNoDisks,omitempty"`
+
+	// hostNetwork - if set to true, the AIS Daemon pods for target are created in the host's network namespace (used for multihoming)
+	// +optional
+	HostNetwork *bool `json:"hostNetwork,omitempty"`
 }
 
 type Mount struct {

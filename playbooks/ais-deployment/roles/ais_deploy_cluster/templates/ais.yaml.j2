@@ -54,6 +54,7 @@ spec:
     portIntraData: 51083
     capabilities:
       privileged: true
+    hostNetwork: {{ host_network }}
 {% if target_size is defined and target_size | int > 0 and target_size | int <= cluster_size | int %}
     size: {{ target_size }}
 {% endif %}

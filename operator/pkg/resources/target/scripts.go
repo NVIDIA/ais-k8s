@@ -33,8 +33,15 @@ export AIS_PUBLIC_HOSTNAME="${external_ip}"
 
 cluster_domain=${AIS_K8S_CLUSTER_DOMAIN:-"cluster.local"}
 pod_dns="${MY_POD}.${MY_SERVICE}.${K8S_NS}.svc.${cluster_domain}"
-export AIS_INTRA_HOSTNAME=${pod_dns}
-export AIS_DATA_HOSTNAME=${pod_dns}
+
+# Check if HOST_NETWORK is true and adjust AIS_INTRA_HOSTNAME and AIS_DATA_HOSTNAME accordingly
+if [[ "${HOST_NETWORK:-false}" == "true" ]]; then
+    export AIS_INTRA_HOSTNAME=""
+    export AIS_DATA_HOSTNAME=""
+else
+    export AIS_INTRA_HOSTNAME=${pod_dns}
+    export AIS_DATA_HOSTNAME=${pod_dns}
+fi
 
 # Run script to replace AIS_PUBLIC_HOSTNAME with its entry in the hostname config map if provided
 source "/var/global_config/hostname_lookup.sh"

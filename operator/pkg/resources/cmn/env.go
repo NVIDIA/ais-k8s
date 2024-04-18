@@ -29,4 +29,6 @@ const (
 	EnvShutdownMarkerPath   = "AIS_SHUTDOWN_MARKER_PATH"         // Path where node shutdown marker will be located
 
 	EnvGCPCredsPath = "GOOGLE_APPLICATION_CREDENTIALS" // Path to GCP credentials
+
+	EnvHostNetwork = "HOST_NETWORK" // Bool flag to indicate if host network is enabled for target
 )

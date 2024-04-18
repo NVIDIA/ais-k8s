@@ -2879,6 +2879,11 @@ spec:
                             type: string
                         type: object
                     type: object
+                  hostNetwork:
+                    description: hostNetwork - if set to true, the AIS Daemon pods
+                      for target are created in the host's network namespace (used
+                      for multihoming)
+                    type: boolean
                   hostPort:
                     description: HostPort - host port to use for hostnetworking
                     format: int32

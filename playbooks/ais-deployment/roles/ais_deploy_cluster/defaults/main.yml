@@ -22,3 +22,6 @@ logs_dir: "/var/log/ais"
 # Note: 0 < proxy_size, target_size <= cluster_size
 # proxy_size: 1
 # target_size: 3
+
+# if true, the AIS Daemon pods for target are created in the host's network namespace (used for multihoming)
+host_network: false

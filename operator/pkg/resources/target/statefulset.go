@@ -44,8 +44,10 @@ func PodLabels(ais *aisv1.AIStore) map[string]string {
 func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 	ls := PodLabels(ais)
 	var (
-		optionals  []corev1.EnvVar
-		targetSize = ais.GetTargetSize()
+		optionals   []corev1.EnvVar
+		targetSize                   = ais.GetTargetSize()
+		hostNetwork                  = false
+		dnsPolicy   corev1.DNSPolicy = corev1.DNSClusterFirst // default value for DNSPolicy
 	)
 	if ais.Spec.TargetSpec.HostPort != nil {
 		optionals = []corev1.EnvVar{
@@ -59,6 +61,12 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 	if ais.Spec.GCPSecretName != nil {
 		// TODO -- FIXME: Remove hardcoding for path
 		optionals = append(optionals, cmn.EnvFromValue(cmn.EnvGCPCredsPath, "/var/gcp/gcp.json"))
+	}
+
+	if ais.Spec.TargetSpec.HostNetwork != nil && *ais.Spec.TargetSpec.HostNetwork {
+		hostNetwork = true
+		dnsPolicy = corev1.DNSClusterFirstWithHostNet
+		optionals = append(optionals, cmn.EnvFromValue(cmn.EnvHostNetwork, "true"))
 	}
 
 	return &apiv1.StatefulSet{
@@ -137,6 +145,8 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 							ReadinessProbe:  readinessProbe(ais.Spec.TargetSpec.ServicePort, ais.Spec.TLSSecretName != nil),
 						},
 					},
+					HostNetwork:        hostNetwork,
+					DNSPolicy:          dnsPolicy,
 					ServiceAccountName: cmn.ServiceAccountName(ais),
 					SecurityContext:    ais.Spec.TargetSpec.SecurityContext,
 					Affinity:           cmn.NewAISPodAffinity(ais, ais.Spec.TargetSpec.Affinity, ls),
