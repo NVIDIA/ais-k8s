@@ -23,6 +23,7 @@
       when: cluster is undefined
 
   gather_facts: false
-  become: true
-  roles:
-    - role: ais_delete_cluster
+  tasks:
+    - name: Patch AIS cluster to initiate shutdown
+      command: kubectl patch aistores.ais.nvidia.com ais -n {{ cluster }} --type=merge -p '{"spec":{"shutdownCluster":true}}'
+      when: shutdown_confirmation == "yes"
