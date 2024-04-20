@@ -20,6 +20,7 @@ import (
 // log is for logging in this package.
 var aistorelog = logf.Log.WithName("aistore-resource")
 
+// +kubebuilder:object:generate=false
 type AIStoreWebhook struct{}
 
 // change verbs to "verbs=create;update;delete" if you want to enable deletion validation.

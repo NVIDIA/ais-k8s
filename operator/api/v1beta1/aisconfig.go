@@ -64,6 +64,7 @@ type (
 	}
 	LogConfToUpdate struct {
 		Level    *string      `json:"level,omitempty"`
+		ToStderr *bool        `json:"to_stderr,omitempty"`
 		MaxSize  *cos.SizeIEC `json:"max_size,omitempty"`
 		MaxTotal *cos.SizeIEC `json:"max_total,omitempty"`
 		// Elapsed time (nanoseconds).
