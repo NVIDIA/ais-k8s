@@ -76,15 +76,9 @@ type AIStoreSpec struct {
 	// +optional
 	ShutdownCluster *bool `json:"shutdownCluster,omitempty"`
 
-	// DecommissionCluster indicates whether the cluster should be decommissioned upon deletion of the CR.
-	// When enabled, this process removes all AIS daemons and deletes metadata from the configuration directories.
-	// Note: Decommissioning is irreversible, and it may result in the permanent loss of the cluster and all user data**.
-	// +optional
-	DecommissionCluster *bool `json:"decommissionCluster,omitempty"`
-
 	// CleanupData determines whether to clean up PVCs and user data (including buckets and objects) when the cluster is decommissioned.
 	// The reclamation of PVs linked to the PVCs depends on the PV reclaim policy or the default policy of the associated StorageClass.
-	// This field is relevant only if DecommissionCluster is enabled.
+	// This field is relevant only if you are deleting the CR (leading to decommissioning of the cluster).
 	// +optional
 	CleanupData *bool `json:"cleanupData,omitempty"`
 

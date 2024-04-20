@@ -1,8 +1,4 @@
 ---
-- name: Decommission cluster instead of shutdown
-  shell: kubectl patch aistores.ais.nvidia.com ais -n {{ cluster }} --type=merge -p '{"spec":{"decommissionCluster":true}}'
-  ignore_errors: true
-
 - name: Delete user data if `cleanup_data` is true
   shell: kubectl patch aistores.ais.nvidia.com ais -n {{ cluster }} --type=merge -p '{"spec":{"cleanupData":true}}'
   ignore_errors: true

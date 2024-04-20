@@ -302,9 +302,10 @@ func (r *AIStoreReconciler) handleProxyScaledown(ctx context.Context, ais *aisv1
 
 // Scale down the statefulset without decommissioning or resetting primary
 func (r *AIStoreReconciler) scaleProxiesToZero(ctx context.Context, ais *aisv1.AIStore) error {
+	r.log.Info("Scaling proxies to zero", "clusterName", ais.Name)
 	changed, err := r.client.UpdateStatefulSetReplicas(ctx, proxy.StatefulSetNSName(ais), 0)
 	if err != nil {
-		r.log.Error(err, "Failed to update proxy StatefulSet replicas")
+		r.log.Error(err, "Failed to scale proxies to zero", "clusterName", ais.Name)
 	} else if changed {
 		r.log.Info("Proxy StatefulSet set to size 0", "name", ais.Name)
 	} else {

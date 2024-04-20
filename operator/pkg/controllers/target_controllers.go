@@ -66,6 +66,8 @@ func (r *AIStoreReconciler) cleanupTarget(ctx context.Context, ais *aisv1.AIStor
 }
 
 func (r *AIStoreReconciler) cleanupTargetSS(ctx context.Context, ais *aisv1.AIStore) (anyUpdated bool, err error) {
+	var baseParams *aisapi.BaseParams
+
 	// If the target statefulset it not present, we can return immediately.
 	r.log.Info("Cleaning up target statefulset")
 	targetSS := target.StatefulSetNSName(ais)
@@ -73,9 +75,21 @@ func (r *AIStoreReconciler) cleanupTargetSS(ctx context.Context, ais *aisv1.AISt
 		return false, err
 	}
 
-	// If we reach here implies, we didn't attempt to shutdown the cluster yet.
-	// Attempt graceful cluster shutdown followed by deleting target statefulset.
-	r.attemptGracefulShutdown(ctx, ais)
+	if r.isExternal {
+		baseParams, err = r.getAPIParams(ctx, ais)
+	} else {
+		baseParams, err = r.primaryBaseParams(ctx, ais)
+	}
+	if err != nil {
+		r.log.Error(err, "Failed to get API parameters", "clusterName", ais.Name)
+		return false, err
+	}
+
+	// If we reach here implies, we didn't attempt to decommission the cluster yet.
+	// Attempt graceful cluster decommission followed by deleting target statefulset.
+	cleanupData := ais.Spec.CleanupData != nil && *ais.Spec.CleanupData
+	r.attemptGracefulDecommission(baseParams, cleanupData)
+
 	// TODO: if the environment is slow the statefulset controller might create new pods to compensate for the old ones being
 	// deleted in the shutdown/decomission operation. Find a way to stop the statefulset controller from creating new pods
 	return r.client.DeleteStatefulSetIfExists(ctx, targetSS)
@@ -143,9 +157,10 @@ func (r *AIStoreReconciler) handleTargetScaleDown(ctx context.Context, ais *aisv
 
 // Scale down the statefulset without decommissioning
 func (r *AIStoreReconciler) scaleTargetsToZero(ctx context.Context, ais *aisv1.AIStore) error {
+	r.log.Info("Scaling targets to zero", "clusterName", ais.Name)
 	changed, err := r.client.UpdateStatefulSetReplicas(ctx, target.StatefulSetNSName(ais), 0)
 	if err != nil {
-		r.log.Error(err, "Failed to update target StatefulSet replicas")
+		r.log.Error(err, "Failed to scale targets to zero", "clusterName", ais.Name)
 	} else if changed {
 		r.log.Info("Target StatefulSet set to size 0", "name", ais.Name)
 	} else {

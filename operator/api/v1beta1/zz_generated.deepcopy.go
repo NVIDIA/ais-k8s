@@ -101,11 +101,6 @@ func (in *AIStoreSpec) DeepCopyInto(out *AIStoreSpec) {
 		*out = new(bool)
 		**out = **in
 	}
-	if in.DecommissionCluster != nil {
-		in, out := &in.DecommissionCluster, &out.DecommissionCluster
-		*out = new(bool)
-		**out = **in
-	}
 	if in.CleanupData != nil {
 		in, out := &in.CleanupData, &out.CleanupData
 		*out = new(bool)

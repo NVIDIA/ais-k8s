@@ -116,17 +116,36 @@ func (r *AIStoreReconciler) initializeCR(ctx context.Context, ais *aisv1.AIStore
 		aisv1.AIStoreStatus{State: aisv1.ConditionInitialized})
 	return reconcile.Result{Requeue: retry}, err
 }
-
 func (r *AIStoreReconciler) shutdownCluster(ctx context.Context, ais *aisv1.AIStore) (reconcile.Result, error) {
-	r.log.Info("Shutting down AIS cluster", "name", ais.Name)
-	r.attemptGracefulShutdown(ctx, ais)
-	r.log.Info("Scaling statefulsets to size 0", "name", ais.Name)
-	err := r.scaleProxiesToZero(ctx, ais)
+	var (
+		params *aisapi.BaseParams
+		err    error
+	)
+
+	r.log.Info("Starting shutdown of AIS cluster", "clusterName", ais.Name)
+	if r.isExternal {
+		params, err = r.getAPIParams(ctx, ais)
+	} else {
+		params, err = r.primaryBaseParams(ctx, ais)
+	}
 	if err != nil {
+		r.log.Error(err, "Failed to get API parameters", "clusterName", ais.Name)
 		return reconcile.Result{}, err
 	}
-	err = r.scaleTargetsToZero(ctx, ais)
-	return reconcile.Result{}, err
+
+	r.log.Info("Attempting graceful shutdown", "clusterName", ais.Name)
+	r.attemptGracefulShutdown(params)
+
+	if err = r.scaleProxiesToZero(ctx, ais); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	if err = r.scaleTargetsToZero(ctx, ais); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	r.log.Info("AIS cluster shutdown completed", "clusterName", ais.Name)
+	return reconcile.Result{}, nil
 }
 
 func (r *AIStoreReconciler) handleCRDeletion(ctx context.Context, ais *aisv1.AIStore) (reconcile.Result, error) {
@@ -152,13 +171,10 @@ func (r *AIStoreReconciler) handleCRDeletion(ctx context.Context, ais *aisv1.AIS
 }
 
 func (r *AIStoreReconciler) cleanup(ctx context.Context, ais *aisv1.AIStore) (updated bool, err error) {
-	decommissionCluster := ais.Spec.DecommissionCluster != nil && *ais.Spec.DecommissionCluster
 	var nodeNames map[string]bool
-	if decommissionCluster {
-		nodeNames, err = r.client.ListNodesRunningAIS(ctx, ais)
-		if err != nil {
-			r.log.Error(err, "Failed to list nodes running AIS")
-		}
+	nodeNames, err = r.client.ListNodesRunningAIS(ctx, ais)
+	if err != nil {
+		r.log.Error(err, "Failed to list nodes running AIS")
 	}
 
 	updated, err = cmn.AnyFunc(
@@ -168,7 +184,7 @@ func (r *AIStoreReconciler) cleanup(ctx context.Context, ais *aisv1.AIStore) (up
 		func() (bool, error) { return r.cleanupRBAC(ctx, ais) },
 		func() (bool, error) { return r.cleanupPVC(ctx, ais) },
 	)
-	if updated && decommissionCluster {
+	if updated {
 		err := r.runManualCleanupJob(ctx, ais, nodeNames)
 		if err != nil {
 			r.log.Error(err, "Failed to run manual cleanup job")
@@ -189,36 +205,22 @@ func (r *AIStoreReconciler) runManualCleanupJob(ctx context.Context, ais *aisv1.
 	return nil
 }
 
-func (r *AIStoreReconciler) attemptGracefulShutdown(ctx context.Context, ais *aisv1.AIStore) {
-	var (
-		params *aisapi.BaseParams
-		err    error
-	)
-	if r.isExternal {
-		params, err = r.getAPIParams(ctx, ais)
-	} else {
-		params, err = r.primaryBaseParams(ctx, ais)
+func (r *AIStoreReconciler) attemptGracefulDecommission(params *aisapi.BaseParams, cleanupData bool) {
+	r.log.Info("Attempting graceful decommission of cluster")
+	if err := aisapi.DecommissionCluster(*params, cleanupData); err != nil {
+		r.log.Error(err, "Failed to gracefully decommission cluster")
 	}
-	if err != nil {
-		r.log.Error(err, "failed to create BaseAPIParams")
-		return
-	}
-	if ais.Spec.DecommissionCluster != nil && *ais.Spec.DecommissionCluster {
-		cleanupData := ais.Spec.CleanupData != nil && *ais.Spec.CleanupData
-		r.log.Info("Attempting graceful decommission of cluster")
-		if err = aisapi.DecommissionCluster(*params, cleanupData); err != nil {
-			r.log.Error(err, "Failed to gracefully decommission cluster")
-		}
-		return
-	}
+}
+
+func (r *AIStoreReconciler) attemptGracefulShutdown(params *aisapi.BaseParams) {
 	r.log.Info("Attempting graceful shutdown of cluster")
-	if err = aisapi.ShutdownCluster(*params); err != nil {
+	if err := aisapi.ShutdownCluster(*params); err != nil {
 		r.log.Error(err, "Failed to gracefully shutdown cluster")
 	}
 }
 
 func (r *AIStoreReconciler) cleanupPVC(ctx context.Context, ais *aisv1.AIStore) (anyUpdated bool, err error) {
-	if ais.Spec.DecommissionCluster != nil && *ais.Spec.DecommissionCluster && ais.Spec.CleanupData != nil && *ais.Spec.CleanupData {
+	if ais.Spec.CleanupData != nil && *ais.Spec.CleanupData {
 		r.log.Info("Cleaning up PVCs")
 		return r.client.DeleteAllPVCsIfExist(ctx, ais.Namespace, target.PodLabels(ais))
 	}

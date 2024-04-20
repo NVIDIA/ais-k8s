@@ -34,7 +34,6 @@ type (
 		DisableAntiAffinity bool
 		EnableExternalLB    bool
 		ShutdownCluster     bool
-		DecommissionCluster bool
 		CleanupData         bool
 		// Create a cluster with more PVs than targets for future scaling
 		MaxPVs int32
@@ -112,7 +111,6 @@ func newAISClusterCR(args ClusterSpecArgs, mounts []aisv1.Mount) *aisv1.AIStore 
 	spec := aisv1.AIStoreSpec{
 		Size:                   args.Size,
 		ShutdownCluster:        apc.Ptr(args.ShutdownCluster),
-		DecommissionCluster:    apc.Ptr(args.DecommissionCluster),
 		CleanupData:            apc.Ptr(args.CleanupData),
 		NodeImage:              aisNodeImage,
 		InitImage:              aisInitImage,

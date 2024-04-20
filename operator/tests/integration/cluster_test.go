@@ -356,16 +356,15 @@ var _ = Describe("Run Controller", func() {
 			cc.cleanup(pvs)
 		})
 
-		It("Re-deploying with CleanupData AND DecommissionCluster should wipe out all data", func() {
-			// Define CleanupData and DecommissionCluster to wipe when we destroy the cluster
+		It("Re-deploying with CleanupData should wipe out all data", func() {
+			// Define CleanupData to wipe when we destroy the cluster
 			cluArgs := tutils.ClusterSpecArgs{
-				Name:                clusterName(),
-				Namespace:           testNSName,
-				StorageClass:        storageClass,
-				Size:                1,
-				EnableExternalLB:    testAsExternalClient,
-				DecommissionCluster: true,
-				CleanupData:         true,
+				Name:             clusterName(),
+				Namespace:        testNSName,
+				StorageClass:     storageClass,
+				Size:             1,
+				EnableExternalLB: testAsExternalClient,
+				CleanupData:      true,
 			}
 			cc, pvs := newClientCluster(cluArgs)
 			cc.create()
