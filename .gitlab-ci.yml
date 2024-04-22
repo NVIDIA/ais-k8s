@@ -58,7 +58,7 @@ operator:minikube:long:
   needs: ["operator:minikube:short"]
   image: aistorage/ci:latest
   tags:
-    - ais-k8s
+    - ais-k8s-multinode
   timeout: 40m
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
@@ -79,7 +79,7 @@ operator:minikube:metallb:
     # NOTE: No particular reason why these addresses would be unavailable.
     EXTERNAL_ADDRESSES: 172.20.0.100–172.20.0.120
   tags:
-    - ais-k8s
+    - ais-k8s-multinode
   timeout: 20m
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
@@ -104,6 +104,8 @@ operator:minikube:metallb:
   timeout: 60m
   variables:
     GOOGLE_APPLICATION_CREDENTIALS: "/tmp/gcs.json"
+  tags:
+    - ais-k8s-multinode
   before_script:
     - apt-get update -y && apt install -y build-essential
     - make -C terraform ci-prepare
@@ -129,6 +131,8 @@ operator:gcp:
   - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     when: manual
     allow_failure: true
+  tags:
+    - ais-k8s-multinode
   script:
     - make -C terraform ci-deploy-k8s
     - make -C operator test

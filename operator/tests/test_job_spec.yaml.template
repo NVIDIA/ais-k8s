@@ -9,8 +9,8 @@ spec:
     spec:
       containers:
       - name: local-test-runner
-        image: docker.io/library/operator-test:latest
-        imagePullPolicy: Never
+        image: localhost:5000/operator-test:latest
+        imagePullPolicy: Always
         env:
           - name: TEST_TYPE
             value: "${TEST_TYPE}"

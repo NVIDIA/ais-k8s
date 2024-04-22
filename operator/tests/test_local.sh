@@ -2,14 +2,21 @@ export MINIKUBE_HOME=${MINIKUBE_HOME:-/var/local/minikube/.minikube}
 MINIKUBE_PORT=8443
 MINIKUBE_HOST=https://$(minikube ip)
 
-# Build using minikube docker daemon
-eval $(minikube docker-env)
-
 # Build a docker image based on the current local repo
-# If you change this name, be sure to update it in test_job_spec.yaml.template as well
+# If you change IMG or REGISTRY, be sure to update it in test_job_spec.yaml.template as well
 IMG=operator-test:latest
+REGISTRY=localhost:5000
 # build from the root of the directory to include the context
 docker build -t $IMG -f Dockerfile ../../../ --no-cache
+docker tag $IMG $REGISTRY/$IMG
+if ! nc -z localhost 5000; then
+    kubectl port-forward --namespace kube-system service/registry 5000:80 &
+fi
+while ! nc -z localhost 5000; do   
+  echo "Waiting for port-forward to be ready..."
+  sleep 1
+done
+docker push $REGISTRY/$IMG
 
 # Created by test_job_spec.yaml
 JOB=operator-test
