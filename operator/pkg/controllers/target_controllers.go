@@ -107,6 +107,10 @@ func (r *AIStoreReconciler) handleTargetState(ctx context.Context, ais *aisv1.AI
 		return ready, err
 	}
 	if *ss.Spec.Replicas != ais.GetTargetSize() {
+		err = r.verifyNodesAvailable(ctx, ais, aisapc.Target)
+		if err != nil {
+			return false, err
+		}
 		ready, err = r.handleTargetScaling(ctx, ais, ss, targetSSName)
 		if !ready || err != nil {
 			return false, err

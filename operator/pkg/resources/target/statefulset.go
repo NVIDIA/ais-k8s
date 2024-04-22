@@ -113,7 +113,7 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 								"/bin/bash /var/ais_config_template/set_initial_target_env.sh",
 							},
 							Command:      []string{"/bin/bash"},
-							VolumeMounts: cmn.NewInitVolumeMounts(ais.Spec.DisablePodAntiAffinity),
+							VolumeMounts: cmn.NewInitVolumeMounts(aisapc.Target),
 						},
 					},
 					Containers: []corev1.Container{
@@ -149,7 +149,7 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 					DNSPolicy:          dnsPolicy,
 					ServiceAccountName: cmn.ServiceAccountName(ais),
 					SecurityContext:    ais.Spec.TargetSpec.SecurityContext,
-					Affinity:           cmn.NewAISPodAffinity(ais, ais.Spec.TargetSpec.Affinity, ls),
+					Affinity:           createTargetAffinity(ais, ls),
 					NodeSelector:       ais.Spec.TargetSpec.NodeSelector,
 					Volumes:            cmn.NewAISVolumes(ais, aisapc.Target),
 					Tolerations:        ais.Spec.TargetSpec.Tolerations,
@@ -161,7 +161,7 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 }
 
 func volumeMounts(ais *aisv1.AIStore) []corev1.VolumeMount {
-	vols := cmn.NewAISVolumeMounts(ais)
+	vols := cmn.NewAISVolumeMounts(&ais.Spec, aisapc.Target)
 	for _, res := range ais.Spec.TargetSpec.Mounts {
 		vols = append(vols, corev1.VolumeMount{
 			Name:      ais.Name + strings.ReplaceAll(res.Path, "/", "-"),
@@ -223,4 +223,12 @@ func targetVC(ais *aisv1.AIStore) []corev1.PersistentVolumeClaim {
 		})
 	}
 	return pvcs
+}
+
+func createTargetAffinity(ais *aisv1.AIStore, podLabels map[string]string) *corev1.Affinity {
+	// Don't add additional rules to the affinity set in the target spec (can also be nil)
+	if ais.AllowTargetSharedNodes() {
+		return ais.Spec.TargetSpec.Affinity
+	}
+	return cmn.CreateAISAffinity(ais.Spec.TargetSpec.Affinity, podLabels)
 }

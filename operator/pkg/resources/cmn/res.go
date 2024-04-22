@@ -7,6 +7,7 @@ package cmn
 import (
 	"path"
 
+	aisapc "github.com/NVIDIA/aistore/api/apc"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -140,11 +141,8 @@ func NewAISNodeLifecycle() *corev1.Lifecycle {
 	}
 }
 
-func NewAISVolumeMounts(ais *aisv1.AIStore) []corev1.VolumeMount {
-	var hostMountSubPath string
-	if ais.Spec.DisablePodAntiAffinity != nil && *ais.Spec.DisablePodAntiAffinity {
-		hostMountSubPath = "$(MY_POD)"
-	}
+func NewAISVolumeMounts(spec *aisv1.AIStoreSpec, daeType string) []corev1.VolumeMount {
+	hostMountSubPath := getHostMountSubPath(daeType)
 	volumeMounts := []corev1.VolumeMount{
 		{
 			Name:      "config-mount",
@@ -181,28 +179,28 @@ func NewAISVolumeMounts(ais *aisv1.AIStore) []corev1.VolumeMount {
 		},
 	}
 
-	if ais.Spec.AWSSecretName != nil {
+	if spec.AWSSecretName != nil {
 		volumeMounts = append(volumeMounts, corev1.VolumeMount{
 			Name:      "aws-creds",
 			ReadOnly:  true,
 			MountPath: "/root/.aws",
 		})
 	}
-	if ais.Spec.GCPSecretName != nil {
+	if spec.GCPSecretName != nil {
 		volumeMounts = append(volumeMounts, corev1.VolumeMount{
 			Name:      "gcp-creds",
 			ReadOnly:  true,
 			MountPath: "/var/gcp",
 		})
 	}
-	if ais.Spec.TLSSecretName != nil {
+	if spec.TLSSecretName != nil {
 		volumeMounts = append(volumeMounts, corev1.VolumeMount{
 			Name:      "tls-certs",
 			ReadOnly:  true,
 			MountPath: "/var/certs",
 		})
 	}
-	if ais.Spec.LogsDirectory != "" {
+	if spec.LogsDirectory != "" {
 		volumeMounts = append(volumeMounts, corev1.VolumeMount{
 			Name:        "logs-dir",
 			MountPath:   "/var/log/ais",
@@ -213,11 +211,8 @@ func NewAISVolumeMounts(ais *aisv1.AIStore) []corev1.VolumeMount {
 	return volumeMounts
 }
 
-func NewInitVolumeMounts(antiAffinityDisabled *bool) []corev1.VolumeMount {
-	var hostMountSubPath string
-	if antiAffinityDisabled != nil && *antiAffinityDisabled {
-		hostMountSubPath = "$(MY_POD)"
-	}
+func NewInitVolumeMounts(daeType string) []corev1.VolumeMount {
+	hostMountSubPath := getHostMountSubPath(daeType)
 
 	return []corev1.VolumeMount{
 		{
@@ -255,38 +250,42 @@ func NewDaemonPorts(spec aisv1.DaemonSpec) []corev1.ContainerPort {
 	}
 }
 
-func NewAISPodAffinity(ais *aisv1.AIStore, affinity *corev1.Affinity, podLabels map[string]string) *corev1.Affinity {
-	var (
-		antiAffinityDisabled = IsBoolSet(ais.Spec.DisablePodAntiAffinity)
-		antiAffinity         *corev1.PodAntiAffinity
-	)
-	if affinity == nil && antiAffinityDisabled {
-		return nil
-	}
-
-	if !antiAffinityDisabled {
-		antiAffinity = &corev1.PodAntiAffinity{
-			RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
-				{
-					LabelSelector: &metav1.LabelSelector{
-						MatchLabels: podLabels,
-					},
-					TopologyKey: corev1.LabelHostname,
-				},
-			},
-		}
-	}
-
+func CreateAISAffinity(affinity *corev1.Affinity, podLabels map[string]string) *corev1.Affinity {
+	// If we have no affinity defined in spec, define an empty one
 	if affinity == nil {
-		return &corev1.Affinity{
-			PodAntiAffinity: antiAffinity,
-		}
+		affinity = &corev1.Affinity{}
 	}
 
+	// If we have an affinity but no specific PodAntiAffinity, set it
 	if affinity.PodAntiAffinity == nil {
-		affinity.PodAntiAffinity = antiAffinity
+		affinity.PodAntiAffinity = createPodAntiAffinity(podLabels)
 	}
+
 	return affinity
+}
+
+func createPodAntiAffinity(podLabels map[string]string) *corev1.PodAntiAffinity {
+	// Pods matching podLabels may not be scheduled on the same hostname
+	labelAffinity := corev1.PodAffinityTerm{
+		LabelSelector: &metav1.LabelSelector{
+			MatchLabels: podLabels,
+		},
+		TopologyKey: corev1.LabelHostname,
+	}
+
+	return &corev1.PodAntiAffinity{
+		RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
+			labelAffinity,
+		},
+	}
+}
+
+func getHostMountSubPath(daeType string) string {
+	// Always use the pod name as sub path for targets, since target pods are bound to specific nodes
+	if daeType == aisapc.Target {
+		return "$(MY_POD)"
+	}
+	return ""
 }
 
 func hostPathTypePtr(v corev1.HostPathType) *corev1.HostPathType {

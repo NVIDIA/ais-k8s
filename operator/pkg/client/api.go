@@ -16,6 +16,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -131,6 +132,14 @@ func (c *K8sClient) listPodsAndUpdateNodeNames(ctx context.Context, ais *aisv1.A
 		}
 	}
 	return nil
+}
+
+// ListNodesMatchingSelector returns a NodeList matching the given node selector
+func (c *K8sClient) ListNodesMatchingSelector(ctx context.Context, nodeSelector map[string]string) (*corev1.NodeList, error) {
+	nodeList := &corev1.NodeList{}
+	listOpts := &client.ListOptions{LabelSelector: labels.SelectorFromSet(nodeSelector)}
+	err := c.client.List(ctx, nodeList, listOpts)
+	return nodeList, err
 }
 
 // ListNodesRunningAIS returns a map of unique node names where AIS pods are running

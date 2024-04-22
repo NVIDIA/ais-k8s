@@ -109,14 +109,13 @@ func defineMounts(storage *string, useLabels bool) []aisv1.Mount {
 
 func newAISClusterCR(args ClusterSpecArgs, mounts []aisv1.Mount) *aisv1.AIStore {
 	spec := aisv1.AIStoreSpec{
-		Size:                   args.Size,
-		ShutdownCluster:        apc.Ptr(args.ShutdownCluster),
-		CleanupData:            apc.Ptr(args.CleanupData),
-		NodeImage:              aisNodeImage,
-		InitImage:              aisInitImage,
-		HostpathPrefix:         "/etc/ais",
-		EnableExternalLB:       args.EnableExternalLB,
-		DisablePodAntiAffinity: &args.DisableAntiAffinity,
+		Size:             args.Size,
+		ShutdownCluster:  apc.Ptr(args.ShutdownCluster),
+		CleanupData:      apc.Ptr(args.CleanupData),
+		NodeImage:        aisNodeImage,
+		InitImage:        aisInitImage,
+		HostpathPrefix:   "/etc/ais",
+		EnableExternalLB: args.EnableExternalLB,
 		ProxySpec: aisv1.DaemonSpec{
 			ServiceSpec: aisv1.ServiceSpec{
 				ServicePort:      intstr.FromInt32(51080),
@@ -135,8 +134,9 @@ func newAISClusterCR(args ClusterSpecArgs, mounts []aisv1.Mount) *aisv1.AIStore 
 					IntraDataPort:    intstr.FromInt32(51083),
 				},
 			},
-			Mounts:               mounts,
-			AllowSharedOrNoDisks: &args.AllowSharedOrNoDisks,
+			Mounts:                 mounts,
+			AllowSharedOrNoDisks:   &args.AllowSharedOrNoDisks,
+			DisablePodAntiAffinity: &args.DisableAntiAffinity,
 		},
 	}
 

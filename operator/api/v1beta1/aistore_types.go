@@ -35,6 +35,7 @@ const (
 
 	// ErrorReason
 	ReasonUnknown         ErrorReason = "Unknown"
+	IncompatibleSpecError ErrorReason = "IncompatibleSpecError"
 	RBACManagementError   ErrorReason = "RBACError"
 	ProxyCreationError    ErrorReason = "ProxyCreationError"
 	TargetCreationError   ErrorReason = "TargetCreationError"
@@ -110,9 +111,12 @@ type AIStoreSpec struct {
 	// More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod
 	// +optional
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
+
+	// Deprecated: use TargetSpec.DisablePodAntiAffinity
 	// DisablePodAntiAffinity, if set allows more than one target/proxy daemon pods to be scheduled on same K8s node.
 	// +optional
 	DisablePodAntiAffinity *bool `json:"disablePodAntiAffinity,omitempty"`
+
 	// EnableExternalLB, if set, enables external access to AIS cluster using LoadBalancer service
 	EnableExternalLB bool `json:"enableExternalLB"`
 }
@@ -177,6 +181,10 @@ type TargetSpec struct {
 	// Use Mount.Label instead
 	// +optional
 	AllowSharedOrNoDisks *bool `json:"allowSharedNoDisks,omitempty"`
+
+	// DisablePodAntiAffinity allows more than one target pod to be scheduled on same K8s node.
+	// +optional
+	DisablePodAntiAffinity *bool `json:"disablePodAntiAffinity,omitempty"`
 
 	// hostNetwork - if set to true, the AIS Daemon pods for target are created in the host's network namespace (used for multihoming)
 	// +optional
@@ -371,6 +379,14 @@ func (ais *AIStore) GetTargetSize() int32 {
 
 func (ais *AIStore) ShouldShutdown() bool {
 	return ais.Spec.ShutdownCluster != nil && *ais.Spec.ShutdownCluster
+}
+
+func (ais *AIStore) AllowTargetSharedNodes() bool {
+	allowSharedNodes := ais.Spec.TargetSpec.DisablePodAntiAffinity != nil && *ais.Spec.TargetSpec.DisablePodAntiAffinity
+	//nolint:all
+	deprecatedAllow := ais.Spec.DisablePodAntiAffinity != nil && *ais.Spec.DisablePodAntiAffinity
+	// Backwards compatible check -- allow if either is true
+	return allowSharedNodes || deprecatedAllow
 }
 
 // +kubebuilder:object:root=true

@@ -134,7 +134,10 @@ func (r *AIStoreReconciler) handleProxyState(ctx context.Context, ais *aisv1.AIS
 			// If the cluster is scaling down, ensure the pod being delete is not primary.
 			r.handleProxyScaledown(ctx, ais, *ss.Spec.Replicas)
 		}
-
+		err = r.verifyNodesAvailable(ctx, ais, aisapc.Proxy)
+		if err != nil {
+			return false, err
+		}
 		// If anything was updated, we consider it not immediately ready.
 		updated, err := r.client.UpdateStatefulSetReplicas(ctx, proxySSName, ais.GetProxySize())
 		if updated || err != nil {

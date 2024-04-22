@@ -13,6 +13,7 @@ import (
 	"time"
 
 	aisapi "github.com/NVIDIA/aistore/api"
+	aisapc "github.com/NVIDIA/aistore/api/apc"
 	aiscmn "github.com/NVIDIA/aistore/cmn"
 	"github.com/NVIDIA/aistore/cmn/cos"
 	aisv1 "github.com/ais-operator/api/v1beta1"
@@ -271,6 +272,15 @@ func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore
 		if configToUpdate, err = getConfigToUpdate(ais.Spec.ConfigToUpdate); err != nil {
 			return ctrl.Result{}, err
 		}
+	}
+	// Verify the k8s cluster can support this deployment
+	err = r.verifyDeployment(ctx, ais)
+	if err != nil {
+		r.recordError(ais, err, "Failed to verify desired deployment compatibility with K8s cluster")
+		// Don't use manageError, let k8s do a full exponential backoff by returning the error
+		ais.IncErrorCount()
+		ais.SetConditionError(aisv1.IncompatibleSpecError, err)
+		return ctrl.Result{}, err
 	}
 
 	// 1. Create rbac resources
@@ -556,7 +566,7 @@ func (r *AIStoreReconciler) manageError(ctx context.Context,
 
 	ais.IncErrorCount()
 	ais.SetConditionError(reason, err)
-	if retry, err := r.setStatus(ctx, ais, aisv1.AIStoreStatus{}); err != nil || retry {
+	if retry, statusErr := r.setStatus(ctx, ais, aisv1.AIStoreStatus{}); statusErr != nil || retry {
 		// Status update failed, requeue immediately.
 		return ctrl.Result{Requeue: true}, err
 	}
@@ -585,6 +595,48 @@ func getConfigToUpdate(cfg *aisv1.ConfigToUpdate) (toUpdate *aiscmn.ConfigToSet,
 func (r *AIStoreReconciler) recordError(ais *aisv1.AIStore, err error, msg string) {
 	r.log.Error(err, msg)
 	r.recorder.Eventf(ais, corev1.EventTypeWarning, EventReasonFailed, "%s, err: %v", msg, err)
+}
+
+func (r *AIStoreReconciler) verifyDeployment(ctx context.Context, ais *aisv1.AIStore) error {
+	err := r.verifyNodesAvailable(ctx, ais, aisapc.Proxy)
+	if err != nil {
+		return err
+	}
+	err = r.verifyNodesAvailable(ctx, ais, aisapc.Target)
+	return err
+}
+
+func (r *AIStoreReconciler) verifyNodesAvailable(ctx context.Context, ais *aisv1.AIStore, daeType string) error {
+	var (
+		requiredSize int
+		nodeSelector map[string]string
+		nodes        *corev1.NodeList
+		err          error
+	)
+	switch daeType {
+	case aisapc.Proxy:
+		requiredSize = int(ais.GetProxySize())
+		nodeSelector = ais.Spec.ProxySpec.NodeSelector
+	case aisapc.Target:
+		if ais.AllowTargetSharedNodes() {
+			return nil
+		}
+		requiredSize = int(ais.GetTargetSize())
+		nodeSelector = ais.Spec.TargetSpec.NodeSelector
+	default:
+		return nil
+	}
+
+	// Check that desired nodes matching this selector does not exceed available K8s cluster nodes
+	nodes, err = r.client.ListNodesMatchingSelector(ctx, nodeSelector)
+	if err != nil {
+		r.recordError(ais, err, "Failed to list nodes matching provided selector")
+		return err
+	}
+	if len(nodes.Items) >= requiredSize {
+		return nil
+	}
+	return fmt.Errorf("spec for AIS %s requires more K8s nodes matching the given selector: expected '%d' but found '%d'", daeType, requiredSize, len(nodes.Items))
 }
 
 func (r *AIStoreReconciler) primaryBaseParams(ctx context.Context, ais *aisv1.AIStore) (params *aisapi.BaseParams, err error) {

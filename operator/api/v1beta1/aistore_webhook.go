@@ -93,10 +93,6 @@ func (ais *AIStore) vup(prev *AIStore) error {
 		aistorelog.Error(err, fmt.Sprintf("%v != %v", ais.Spec.TargetSpec, prev.Spec.TargetSpec))
 	}
 
-	if !reflect.DeepEqual(ais.Spec.DisablePodAntiAffinity, prev.Spec.DisablePodAntiAffinity) {
-		return errCannotUpdateSpec("disablePodAntiAffinity")
-	}
-
 	if ais.Spec.EnableExternalLB != prev.Spec.EnableExternalLB {
 		return errCannotUpdateSpec("enableExternalLB")
 	}
