@@ -111,14 +111,14 @@ var defaultAISConf = aiscmn.ClusterConfig{
 		HousekeepTime:  cos.Duration(90 * time.Second),
 	},
 	LRU: aiscmn.LRUConf{
+		Enabled:         false,
 		DontEvictTime:   cos.Duration(120 * time.Minute),
 		CapacityUpdTime: cos.Duration(10 * time.Minute),
-		Enabled:         false,
 	},
 	Mirror: aiscmn.MirrorConf{
+		Enabled: false,
 		Copies:  2,
 		Burst:   512,
-		Enabled: true,
 	},
 	Periodic: aiscmn.PeriodConf{
 		StatsTime:     cos.Duration(10 * time.Second),
