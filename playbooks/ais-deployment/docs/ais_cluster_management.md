@@ -22,7 +22,7 @@ The playbooks assist in the following tasks:
 
 - **Playbook:** [`ais_deploy_operator.yml`](../ais_deploy_operator.yml)
 - **Purpose:** Deploys the AIS K8s operator to manage AIS cluster resources.
-- **Default Operator Version:** `v1.1.0` (modifiable in [defaults/main.yml](../roles/ais_deploy_operator/defaults/main.yml))
+- **Default Operator Version:** `v1.1.0` (modifiable in [defaults/main.yml](../roles/ais_deploy_operator/defaults/main.yml)). Refer to our [compatibility matrix](../../../docs/COMPATIBILITY.md) for supported versions.
 - **Operator Releases:** [GitHub Releases](https://github.com/NVIDIA/ais-k8s/releases)
 - **Execution Example:**
   ```console
@@ -66,7 +66,7 @@ The playbooks assist in the following tasks:
     
     In the [defaults file](../roles/ais_deploy_cluster/defaults/main.yml) for the deploy cluster playbook, update values such as:
     
-    - `node_image`: Specify the Docker image for AIS target/proxy containers (e.g., `aistorage/aisnode:v3.22`). Find the latest image at the [AIS Docker Hub repository](https://hub.docker.com/r/aistorage/aisnode/tags).
+    - `node_image`: Specify the Docker image for AIS target/proxy containers (e.g., `aistorage/aisnode:v3.22`). Find the latest image at the [AIS Docker Hub repository](https://hub.docker.com/r/aistorage/aisnode/tags). Refer to our [compatibility matrix](../../../docs/COMPATIBILITY.md) for supported versions.
     - `gcp_secret_name`/`aws_secret_name`: For cloud backend integration, create a Kubernetes secret with the necessary credentials as described in this [cloud credentials playbook](../../cloud/README.md).
     - `protocol`: Choose between 'http' or 'https'. For 'https', you'll need to create the required certificate by following the[`https configuration doc`](../../ais-deployment/docs/ais_https_configuration.md).
     - `proxy_size`, `target_size`: Number of proxy and target pods you want to deploy in your cluster. Note: 0 < `proxy_size`, `target_size` <= `cluster_size`

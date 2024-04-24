@@ -127,6 +127,8 @@ With Kubernetes installed and the nodes properly configured, it's time to deploy
 1. **Preparation**:
    - Begin by updating the AIS Operator's version. Modify the version specified in the [defaults file](../playbooks/ais-deployment/roles/ais_deploy_operator/defaults/main.yml) to match the latest released version. This ensures you are deploying the most up-to-date version of the operator.
 
+   **Note:** Please refer the [compatibilty matrix](COMPATIBILITY.md) for AIStore and ais-operater. We recommend and only support the latest versions for both.
+
 2. **Building the Operator (Optional)**:
    - If you require customizations or want to incorporate specific changes to the operator, you have the option to build the operator from scratch. This step is optional and is recommended only if you need to deviate from the standard operator setup.
 
@@ -201,7 +203,7 @@ Before initiating the playbook, it's crucial to perform some preparatory configu
 
 - **Playbook Defaults**:
   - In the [defaults file](../playbooks/ais-deployment/roles/ais_deploy_cluster/defaults/main.yml) for the deploy cluster playbook, update values such as:
-    - `node_image`: Specify the Docker image for AIS target/proxy containers (e.g., `aistorage/aisnode:v3.22`). Find the latest image at the [AIS Docker Hub repository](https://hub.docker.com/r/aistorage/aisnode/tags).
+    - `node_image`: Specify the Docker image for AIS target/proxy containers (e.g., `aistorage/aisnode:v3.22`). Find the latest image at the [AIS Docker Hub repository](https://hub.docker.com/r/aistorage/aisnode/tags). Refer to our [compatibility matrix](COMPATIBILITY.md) for supported versions.
     - `gcp_secret_name`/`aws_secret_name`: For cloud backend integration, create a Kubernetes secret with the necessary credentials as described in this [cloud credentials playbook](../playbooks/cloud/README.md).
     - `protocol`: Choose between 'http' or 'https'. For 'https', you'll need to create and provide the required certificate as a secret, detailed in [`ais_https_configuration`](../playbooks/ais-deployment/docs/ais_https_configuration.md).
     - `proxy_size`, `target_size`: Number of proxy and target pods you want to deploy in your cluster. Note: 0 < `proxy_size`, `target_size` <= `cluster_size`
