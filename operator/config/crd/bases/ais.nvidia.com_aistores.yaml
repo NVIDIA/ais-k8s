@@ -223,6 +223,8 @@ spec:
                         description: Elapsed time (nanoseconds).
                         format: int64
                         type: integer
+                      to_stderr:
+                        type: boolean
                     type: object
                   lru:
                     properties:
@@ -423,8 +425,9 @@ spec:
                     type: object
                 type: object
               disablePodAntiAffinity:
-                description: DisablePodAntiAffinity, if set allows more than one target/proxy
-                  daemon pods to be scheduled on same K8s node.
+                description: |-
+                  Deprecated: use TargetSpec.DisablePodAntiAffinity
+                  DisablePodAntiAffinity, if set allows more than one target/proxy daemon pods to be scheduled on same K8s node.
                 type: boolean
               enableExternalLB:
                 description: EnableExternalLB, if set, enables external access to
@@ -2873,6 +2876,10 @@ spec:
                             type: string
                         type: object
                     type: object
+                  disablePodAntiAffinity:
+                    description: DisablePodAntiAffinity allows more than one target
+                      pod to be scheduled on same K8s node.
+                    type: boolean
                   hostNetwork:
                     description: hostNetwork - if set to true, the AIS Daemon pods
                       for target are created in the host's network namespace (used

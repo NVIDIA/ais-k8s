@@ -1252,6 +1252,11 @@ func (in *TargetSpec) DeepCopyInto(out *TargetSpec) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.DisablePodAntiAffinity != nil {
+		in, out := &in.DisablePodAntiAffinity, &out.DisablePodAntiAffinity
+		*out = new(bool)
+		**out = **in
+	}
 	if in.HostNetwork != nil {
 		in, out := &in.HostNetwork, &out.HostNetwork
 		*out = new(bool)
