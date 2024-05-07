@@ -545,7 +545,7 @@ func scaleCluster(ctx context.Context, cluster *aisv1.AIStore, targetOnly bool, 
 	if targetOnly {
 		cr.Spec.TargetSpec.Size = &newSize
 	} else {
-		cr.Spec.Size = newSize
+		cr.Spec.Size = &newSize
 	}
 	Expect(err).ShouldNot(HaveOccurred())
 	err = k8sClient.Update(ctx, cr)

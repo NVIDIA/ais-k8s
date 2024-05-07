@@ -56,7 +56,10 @@ const (
 
 // AIStoreSpec defines the desired state of AIStore
 type AIStoreSpec struct {
-	Size           int32           `json:"size"`
+	// Size of the cluster i.e. number of proxies and number of targets.
+	// This can be changed by specifying size in either `proxySpec` or `targetSpec`.
+	// +optional
+	Size           *int32          `json:"size"`
 	NodeImage      string          `json:"nodeImage"` // docker image of aisnode
 	InitImage      string          `json:"initImage"` // init image for nodes
 	HostpathPrefix string          `json:"hostpathPrefix"`
@@ -367,14 +370,14 @@ func (ais *AIStore) GetProxySize() int32 {
 	if ais.Spec.ProxySpec.Size != nil {
 		return *ais.Spec.ProxySpec.Size
 	}
-	return ais.Spec.Size
+	return *ais.Spec.Size
 }
 
 func (ais *AIStore) GetTargetSize() int32 {
 	if ais.Spec.TargetSpec.Size != nil {
 		return *ais.Spec.TargetSpec.Size
 	}
-	return ais.Spec.Size
+	return *ais.Spec.Size
 }
 
 func (ais *AIStore) ShouldShutdown() bool {

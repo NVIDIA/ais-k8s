@@ -109,7 +109,7 @@ func defineMounts(storage *string, useLabels bool) []aisv1.Mount {
 
 func newAISClusterCR(args ClusterSpecArgs, mounts []aisv1.Mount) *aisv1.AIStore {
 	spec := aisv1.AIStoreSpec{
-		Size:             args.Size,
+		Size:             &args.Size,
 		ShutdownCluster:  apc.Ptr(args.ShutdownCluster),
 		CleanupData:      apc.Ptr(args.CleanupData),
 		NodeImage:        aisNodeImage,

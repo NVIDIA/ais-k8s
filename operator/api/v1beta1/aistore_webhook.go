@@ -38,7 +38,7 @@ func (ais *AIStore) validateSize() (admission.Warnings, error) {
 	}
 
 	// Validate `.spec.size` only when `.spec.targetSpec.size` or `.spec.proxySpec.size` is not set.
-	if (ais.Spec.TargetSpec.Size == nil || ais.Spec.ProxySpec.Size == nil) && ais.Spec.Size <= 0 {
+	if (ais.Spec.TargetSpec.Size == nil || ais.Spec.ProxySpec.Size == nil) && (ais.Spec.Size == nil || *ais.Spec.Size <= 0) {
 		return nil, errInvalidClusterSize(ais.Spec.Size)
 	}
 
@@ -115,8 +115,11 @@ func (*AIStoreWebhook) ValidateDelete(_ context.Context, obj runtime.Object) (ad
 }
 
 // errors
-func errInvalidClusterSize(size int32) error {
-	return fmt.Errorf("invalid cluster size %d, should be at least 1", size)
+func errInvalidClusterSize(size *int32) error {
+	if size == nil {
+		return fmt.Errorf("cluster size is not specified")
+	}
+	return fmt.Errorf("invalid cluster size %d, should be at least 1", *size)
 }
 
 // errors
