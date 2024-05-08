@@ -1,0 +1,26 @@
+# oci-proxy-lb.yaml
+# This YAML file defines a Kubernetes Service that configures a network load balancer (NLB)
+# for the AIStore proxy components in Oracle Cloud Infrastructure (OCI). The service is designed 
+# to be internal (accessible only within the cloud environment) and is set up to be scraped by Prometheus for monitoring purposes.
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    oci.oraclecloud.com/load-balancer-type: "nlb"
+    oci-network-load-balancer.oraclecloud.com/internal: "true"
+    prometheus.io/scrape: "true"
+  labels:
+    app: ais
+  name: ais-proxy-lb
+  namespace: ais
+spec:
+  ports:
+  - name: pub
+    port: 51080
+    protocol: TCP
+    targetPort: 51080
+  selector:
+    app: ais
+    component: proxy
+    function: gateway
+  type: LoadBalancer
