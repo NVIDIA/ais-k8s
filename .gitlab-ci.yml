@@ -4,7 +4,6 @@ stages:
   - build
   - test:short
   - test:long
-  - push
 
 # NOTE: uses default tag ':latest', as in: 'aistorage/aisnode:latest'
 variables:
@@ -52,6 +51,9 @@ operator:minikube:short:
   timeout: 30m
   script:
     - make -C operator test-short
+  except:
+    variables:
+      - $CI_MERGE_REQUEST_LABELS =~ /.*skip-ci.*/
 
 operator:minikube:long:
   stage: test:long
@@ -62,6 +64,8 @@ operator:minikube:long:
   timeout: 40m
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_LABELS =~ /.*skip-ci.*/'
+      when: never
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
         - operator/*
@@ -83,6 +87,8 @@ operator:minikube:metallb:
   timeout: 20m
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_LABELS =~ /.*skip-ci.*/'
+      when: never
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       when: manual
       allow_failure: true
@@ -98,6 +104,8 @@ operator:minikube:metallb:
   stage: test:long
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_LABELS =~ /.*skip-ci.*/'
+      when: never
   # If minikube fails - don't bother to try GCP.
   needs: ["operator:minikube:short"]
   image: aistorage/ci:latest
@@ -120,6 +128,8 @@ operator:gcp:
   extends: .operator_gcp
   rules:
   - if: '$CI_PIPELINE_SOURCE == "schedule"'
+  - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_LABELS =~ /.*skip-ci.*/'
+    when: never
   - if: '$CI_MERGE_REQUEST_LABELS =~ /.*skip-ci-gcp.*/'
     when: manual
     allow_failure: true
@@ -141,6 +151,8 @@ operator:gcp:cilium:
   extends: .operator_gcp
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_LABELS =~ /.*skip-ci.*/'
+      when: never
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       when: manual
       allow_failure: true
