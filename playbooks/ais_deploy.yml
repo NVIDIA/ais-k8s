@@ -45,7 +45,6 @@
       prompt: "Do you wish to set up AIStore with an AWS backend? If yes, ensure the 'config' and/or 'credentials' files for AWS are located in 'ais-k8s/playbooks/cloud/roles/aws_config/files', or add them before proceeding."
       default: "no"
       private: no
-  become: true
   gather_facts: false
   tasks:
     - name: Set aws-creds variable based on aws_confirmation
@@ -70,7 +69,6 @@
       prompt: "Do you wish to set up AIStore with GCP backend? If 'yes' ensure 'gcp.json' file exist at 'ais-k8s/playbooks/cloud/roles/gcp_config/files, or add them before proceeding."
       default: "no"
       private: no
-  become: true
   gather_facts: false
   tasks:
     - name: Set gcp-creds variable based on gcp_confirmation
@@ -97,7 +95,6 @@
       prompt: "Enable HTTPS for AIStore? Confirm with 'yes' and ensure (or edit) variables under 'ais-deployment/vars/https_config.yml' required for HTTPS. Select 'no' for HTTP support."
       default: "no"
       private: no
-  become: true
   gather_facts: false
   tasks:
     - name: Set protocol variable to HTTPS if confirmed
@@ -131,6 +128,5 @@
       prompt: "Specify the node_image. Skip for AIStore's latest image."
       default: "aistorage/aisnode:v3.22"
       private: no
-  become: true
   roles:
     - ais-deployment/roles/ais_deploy_cluster

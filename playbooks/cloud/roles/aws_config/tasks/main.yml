@@ -1,16 +1,19 @@
 - name: Create .aws if it does not exist
+  become: true  
   file:
     path: "{{ target_dir }}"
     state: directory
 
 # Add the aws config file to use to the roles/files directory
 - name: Copy aws config
+  become: true
   ansible.builtin.copy:
     src: "config"
     dest: "{{ target_dir }}/config"
 
 # Add the aws credentials file to use to the roles/files directory
 - name: Copy aws credentials
+  become: true
   ansible.builtin.copy:
     src: "credentials"
     dest: "{{ target_dir }}/credentials"
@@ -24,6 +27,7 @@
   --from-file=credentials={{ target_dir }}/credentials"
 
 - name: Clean up copied files
+  become: true
   file:
     path: "{{ target_dir }}"
     state: absent

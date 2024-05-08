@@ -1,9 +1,11 @@
 - name: Ensure target directory exists
+  become: true
   file:
     path: "{{ target_dir }}"
     state: directory
 
 - name: Copy GCP credentials JSON file to target directory
+  become: true
   ansible.builtin.copy:
     src: "gcp.json"
     dest: "{{ target_dir }}/gcp.json"
@@ -16,6 +18,7 @@
   --from-file=gcp.json={{ target_dir }}/gcp.json"
 
 - name: Clean up - remove target directory and its contents
+  become: true  
   file:
     path: "{{ target_dir }}"
     state: absent
