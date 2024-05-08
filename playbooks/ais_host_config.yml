@@ -15,7 +15,7 @@
 - hosts: 'localhost'
   tasks:
     - debug:
-        msg: "AIStore advises using XFS formatted drives, mounted at /ais/<device>. The following play sets up necessary filesystems for AIStore. Details: https://github.com/NVIDIA/ais-k8s/blob/master/playbooks/host-config/docs/ais_datafs.md"
+        msg: "AIStore advises using XFS formatted drives, mounted at /ais/<device>. The following play sets up necessary filesystems for AIStore. Details: https://github.com/NVIDIA/ais-k8s/blob/main/playbooks/host-config/docs/ais_datafs.md"
 
 - name: Display disk information and check filesystem type
   hosts: "{{ ais_hosts }}"
@@ -39,7 +39,7 @@
 - hosts: 'localhost'
   tasks:
     - debug:
-        msg: "The upcoming playbook, `host-config/ais_host_config_common.yml`, tunes the system for AIStore by maximizing open file descriptor limits in /etc/security/limits.conf and applying key sysctls from host-config/vars/host_config_sysctl.yml. For details, visit: https://github.com/NVIDIA/ais-k8s/blob/master/playbooks/host-config/docs/ais_host_config_common.md"
+        msg: "The upcoming playbook, `host-config/ais_host_config_common.yml`, tunes the system for AIStore by maximizing open file descriptor limits in /etc/security/limits.conf and applying key sysctls from host-config/vars/host_config_sysctl.yml. For details, visit: https://github.com/NVIDIA/ais-k8s/blob/main/playbooks/host-config/docs/ais_host_config_common.md"
 
 # Run host-config/ais_host_config_common.yml
 - import_playbook: host-config/ais_host_config_common.yml

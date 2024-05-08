@@ -4,6 +4,6 @@
 # Deploy AIS operator
 #
 
-curl https://raw.githubusercontent.com/NVIDIA/ais-k8s/master/operator/scripts/deploy.sh -o /tmp/deploy.sh
+curl https://raw.githubusercontent.com/NVIDIA/ais-k8s/main/operator/scripts/deploy.sh -o /tmp/deploy.sh
 chmod +x /tmp/deploy.sh
 { echo y; } | RELEASE="{{ operator_version }}"  /tmp/deploy.sh

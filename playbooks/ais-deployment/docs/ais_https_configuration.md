@@ -30,8 +30,8 @@ For client connectivity after deploying with HTTPS, you have a few options.
 2. Get the issuer's ca.crt from the K8s secret using the playbook described [below](#fetching-ca-certificate) 
 
 3. Set up your client to use the certificate for verification
-   - **CLI**:  Set the environment variable (`AIS_CLIENT_CA`) for the AIS CLI described in the [AIStore docs](https://github.com/NVIDIA/aistore/blob/master/docs/cli.md#environment-variables)
-   - **Python SDK** See the [SDK docs](https://github.com/NVIDIA/aistore/tree/master/python/aistore/sdk#readme)
+   - **CLI**:  Set the environment variable (`AIS_CLIENT_CA`) for the AIS CLI described in the [AIStore docs](https://github.com/NVIDIA/aistore/blob/main/docs/cli.md#environment-variables)
+   - **Python SDK** See the [SDK docs](https://github.com/NVIDIA/aistore/tree/main/python/aistore/sdk#readme)
    - **HTTP (curl)** Use the `cacert` option, e.g. `curl https://localhost:51080/v1/daemon?what=smap --cacert ca.crt`
 
 ### Fetching CA certificate

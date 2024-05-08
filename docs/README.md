@@ -73,7 +73,7 @@ The network setup plays a pivotal role in AIStore's performance. Here's a detail
       - **ServiceAuth**:
       - Port `52001` is used for service authentication purposes.
 
-   Some additional information about [network](https://github.com/NVIDIA/aistore/blob/master/docs/performance.md#network).
+   Some additional information about [network](https://github.com/NVIDIA/aistore/blob/main/docs/performance.md#network).
 - **AIS Nodes**:
   - While AIStore is resource-efficient, some extensions like ETL and Resharding demand more CPU and Memory. We recommend nodes with 32 CPUs and 64 GB of Memory.
 - **Host Configuration**:
@@ -99,7 +99,7 @@ $ kubectl get pods -A
 ### Node Setup
 
 #### Disk Configuration
-Format all drives with XFS and mount them under `/ais/<device>` (e.g., `/ais/sda/nvme0n1`). Use the [ais_datafs_mkfs playbook](https://github.com/NVIDIA/ais-k8s/blob/master/playbooks/host-config/docs/ais_datafs.md) for assistance.
+Format all drives with XFS and mount them under `/ais/<device>` (e.g., `/ais/sda/nvme0n1`). Use the [ais_datafs_mkfs playbook](https://github.com/NVIDIA/ais-k8s/blob/main/playbooks/host-config/docs/ais_datafs.md) for assistance.
 
 #### Network Setup
 
@@ -241,7 +241,7 @@ Inside the debug pod, set up the environment to connect to the AIStore cluster. 
 export AIS_ENDPOINT=http://aistore-proxy:51080
 ```
 
-The pod comes with the `ais` [CLI (command-line interface)](https://github.com/NVIDIA/aistore/blob/master/docs/cli.md) preinstalled. You can utilize the `ais` CLI to interact with your cluster. For example, to view the cluster's status, you can run:
+The pod comes with the `ais` [CLI (command-line interface)](https://github.com/NVIDIA/aistore/blob/main/docs/cli.md) preinstalled. You can utilize the `ais` CLI to interact with your cluster. For example, to view the cluster's status, you can run:
 
 ```bash
 ais cluster show
@@ -255,7 +255,7 @@ This section focuses on setting up monitoring and benchmarking for your AIStore 
 
 ### Monitoring - Using CLI
 
-AIStore provides a [CLI (command-line interface)](https://github.com/NVIDIA/aistore/blob/master/docs/cli.md) with a [`show performance`](https://github.com/NVIDIA/aistore/blob/master/docs/cli/show.md#ais-show-performance) command. This command offers a snapshot of the cluster's performance, including throughput, latencies, disk IO, capacity, and more.
+AIStore provides a [CLI (command-line interface)](https://github.com/NVIDIA/aistore/blob/main/docs/cli.md) with a [`show performance`](https://github.com/NVIDIA/aistore/blob/main/docs/cli/show.md#ais-show-performance) command. This command offers a snapshot of the cluster's performance, including throughput, latencies, disk IO, capacity, and more.
 
 ### Monitoring - Using kube-prometheus-stack
 You can setup your own k8s stack for monitoring. For a comprehensive monitoring setup, we recommend the [kube-prometheus-stack](https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack) helm chart. This chart installs and integrates several components:
@@ -389,7 +389,7 @@ Once logged in, you can import more dashboards to make the most of the `node-exp
 
 ### Performance Testing with aisloader
 
-For evaluating the efficiency of your storage cluster, the load generator `aisloader` is a useful tool. Detailed information about `aisloader` is available in its [documentation](https://github.com/NVIDIA/aistore/blob/master/docs/aisloader.md). Additionally, a specialized toolkit, known as [`aisloader-composer`](https://github.com/NVIDIA/aistore/tree/master/bench/tools/aisloader-composer), has been developed which includes a variety of scripts and Ansible playbooks, enabling comprehensive benchmarking of an AIStore (AIS) cluster across multiple hosts. These hosts are equipped with `aisloader` and are collectively managed through Ansible. You can find the setup instructions for `aisloader-composer` and examples of benchmark scripts [here](https://github.com/NVIDIA/aistore/tree/master/bench/tools/aisloader-composer).
+For evaluating the efficiency of your storage cluster, the load generator `aisloader` is a useful tool. Detailed information about `aisloader` is available in its [documentation](https://github.com/NVIDIA/aistore/blob/main/docs/aisloader.md). Additionally, a specialized toolkit, known as [`aisloader-composer`](https://github.com/NVIDIA/aistore/tree/main/bench/tools/aisloader-composer), has been developed which includes a variety of scripts and Ansible playbooks, enabling comprehensive benchmarking of an AIStore (AIS) cluster across multiple hosts. These hosts are equipped with `aisloader` and are collectively managed through Ansible. You can find the setup instructions for `aisloader-composer` and examples of benchmark scripts [here](https://github.com/NVIDIA/aistore/tree/main/bench/tools/aisloader-composer).
 
 Happy deploying! 🎉🚀🖥️
 
