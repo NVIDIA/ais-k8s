@@ -30,7 +30,7 @@ SCRIPTS_DIR = ./scripts
 
 HELM_VERSION = v3.14.2
 
-GOLANGCI_LINT_VERSION := v1.57.2
+GOLANGCI_LINT_VERSION := v1.58.1
 GOLANGCI_LINT := $(GOBIN)/golangci-lint
 GOLANGCI_INSTALLER := https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh
 
