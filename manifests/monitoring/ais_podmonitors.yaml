@@ -1,0 +1,18 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  labels:
+    podMonitorSelector: prometheus
+  name: aistore-podmonitor
+spec:
+  podMetricsEndpoints:
+  - interval: 30s
+    port: http
+    path: /metrics
+  namespaceSelector:
+    matchNames:
+    - ais
+  selector:
+    matchLabels:
+      app: "ais"
