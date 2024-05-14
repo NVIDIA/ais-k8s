@@ -56,7 +56,9 @@ Ensure `helm` is installed. If not, follow the [installation guide](https://helm
 
 3. Customize the chart values by editing [`kube_prometheus_stack_values.yaml`](../manifests/monitoring/kube_prometheus_stack_values.yaml). This involves setting `nodeAffinity`, `grafanaAdminPassword`, persistent stats storage (commented), and `securityContext`.
 
-4. For setting the `securityContext`, specify details of a non-root user (typically UID > 1000). To identify existing non-root users, use the following command:
+4. Customize the alert receivers in the [`kube_prometheus_stack_values.yaml`](../manifests/monitoring/kube_prometheus_stack_values.yaml) file. [AlertManager](https://prometheus.io/docs/alerting/latest/alertmanager/) supports various receivers, and you can configure them as needed. Refer to the [Prometheus Alerting Configuration](https://prometheus.io/docs/alerting/latest/configuration/#general-receiver-related-settings) for details on each receiver's config. A sample Slack receiver configuration is included and commented out in the file.
+
+5. For setting the `securityContext`, specify details of a non-root user (typically UID > 1000). To identify existing non-root users, use the following command:
    ```bash
    awk -F: '$3 >= 1000 {print $1}' /etc/passwd
    ```
@@ -90,8 +92,8 @@ When applied, the monitors will configure prometheus to scrape metrics from AISt
 ### Accessing Prometheus UI
 The UI is not directly accessible from outside the cluster. Options include changing the service type to `NodePort` or using port-forwarding:
 ```bash
-kubectl edit svc kube-prometheus-stack-prometheus -n monitoring
 # change `type: ClusterIP` to `type: NodePort`
+kubectl patch svc kube-prometheus-stack-prometheus -n monitoring -p '{"spec": {"type": "NodePort"}}'
 
 # or use port-forwarding:
 kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090
@@ -103,7 +105,7 @@ kubectl get svc kube-prometheus-stack-prometheus -n monitoring
 > Note: Depending on how you have configured you might need to `ssh -L <port>:localhost:<port> <user-name>@<ip-or-host-name>` into the machines port and view `localhost:<port>`.
 
 ![Prometheus UI](images/prometheus.png)
- 
+
 ## Setting Up Grafana Dashboard
 `kube-prometheus-stack`'s grafana deployment makes use of the [kiwigrid k8s sidecar](https://github.com/kiwigrid/k8s-sidecar) image, which allows us to provide our own dashboards as Kubernetes [configMaps](https://kubernetes.io/docs/concepts/configuration/configmap/).
 
@@ -116,8 +118,9 @@ kubectl apply -n monitoring -f https://raw.githubusercontent.com/NVIDIA/ais-k8s/
 
 Similar to Prometheus, to access Grafana dashboard you will have to either change the service type to `NodePort` or using port-forwarding:
    ```bash
-   kubectl edit svc kube-prometheus-stack-grafana -n monitoring
-   # change `type: ClusterIP` to `NodePort` or use port-forwarding:
+   # change `type: ClusterIP` to `NodePort`
+   kubectl patch svc kube-prometheus-stack-grafana -n monitoring -p '{"spec": {"type": "NodePort"}}'
+
    # or, use port-forwarding
    kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80
    ```
@@ -132,3 +135,13 @@ You'll need to use the username `admin` and the `grafanaAdminPassword` you chose
 ![Grafana Dashboard](images/grafana.png)
 
 Once logged in, you can import more dashboards to make the most of the `node-exporter` and `kube-state-metrics` deployments bundled with the chart if you wish. For detailed node and k8s related metrics we recommend this [dashboard](https://grafana.com/grafana/dashboards/1860-node-exporter-full/).
+
+## Setting Up AIStore-Specific Alerts
+
+To enhance your monitoring with AIStore-specific alerts, ensure you have configured your alert receivers in the [`kube_prometheus_stack_values.yaml`](../manifests/monitoring/kube_prometheus_stack_values.yaml) file. Once done, you can easily add AIStore-specific alerts by applying the following configuration:
+
+```bash
+kubectl apply -n monitoring -f https://raw.githubusercontent.com/NVIDIA/ais-k8s/main/manifests/monitoring/kube_prometheus_stack_aistore_rules.yaml
+```
+
+This command will set up additional AIStore-specific alerting rules to help you monitor and manage your AIStore environment effectively.

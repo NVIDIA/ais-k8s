@@ -1,0 +1,91 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: aistore
+  namespace: monitoring
+  labels:
+    app: aistore
+spec:
+  groups:
+    - name: AIStoreAlerts
+      rules:
+      - alert: AISHighDiskIOUtilization
+        expr: ais_target_disk_util > 95
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: High Disk IO Utilization on AIS Disks
+          description: "The disk IO utilization on disk '{{ $labels.disk }}' ({{ $labels.instance }}) in pod '{{ $labels.pod }}' (node {{ $labels.node_id }}, namespace '{{ $labels.namespace }})' is above 95% for a continuous period of 5 minutes."
+      - alert: AISHighDiskUtilization
+        expr: (sum by (instance, device) (node_filesystem_avail_bytes{job="node-exporter", mountpoint=~"^/ais/.*", fstype!="rootfs"}) / sum by (instance, device) (node_filesystem_size_bytes{job="node-exporter", mountpoint=~"^/ais/.*", fstype!="rootfs"})) < 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: Disk Space Critical on AIS Disks
+          description: "The disk space on device '{{ $labels.device }}' on instance '{{ $labels.instance }}' has exceeded 95% capacity."
+      - alert: AISHighDiskUtilizationInfo
+        expr: (sum by (instance, device) (node_filesystem_avail_bytes{job="node-exporter", mountpoint=~"^/ais/.*", fstype!="rootfs"}) / sum by (instance, device) (node_filesystem_size_bytes{job="node-exporter", mountpoint=~"^/ais/.*", fstype!="rootfs"})) < 0.25
+        for: 5m
+        labels:
+          severity: info
+        annotations:
+          summary: Disk Space Utilization High on AIS Disks
+          description: "The disk space utilization on device '{{ $labels.device }}' on instance '{{ $labels.instance }}' has exceeded 75% capacity."
+      - alert: K8sNodeDown
+        expr: kube_daemonset_status_number_unavailable{daemonset="kube-prometheus-stack-prometheus-node-exporter"} > 0
+        for: 4m
+        labels:
+          severity: critical
+        annotations:
+          summary: K8s Node is unavailable
+          description: "Node '{{ $labels.node }}' is unavailable."
+      - alert: AISProxyDown
+        expr: (max by (namespace, statefulset) (kube_statefulset_status_replicas{statefulset=~".*proxy$"}) - min by (namespace, statefulset) (kube_statefulset_status_replicas_ready{statefulset=~".*proxy$"})) > 0
+        for: 4m
+        labels:
+          severity: critical
+        annotations:
+          summary: AIS Proxy is unavailable
+          description: "Proxy '{{ $labels.statefulset }}' in namespace '{{ $labels.namespace }}' is unavailable."
+      - alert: AISTargetDown
+        expr: (max by (namespace, statefulset) (kube_statefulset_status_replicas{statefulset=~".*target$"}) - min by (namespace, statefulset) (kube_statefulset_status_replicas_ready{statefulset=~".*target$"})) > 0
+        for: 4m
+        labels:
+          severity: critical
+        annotations:
+          summary: AIS Target is unavailable
+          description: "Target '{{ $labels.statefulset }}' in namespace '{{ $labels.namespace }}' is unavailable."
+      - alert: K8sHighMemoryUtilization
+        expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100 > 80
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: High Memory Usage Detected
+          description: "Memory utilization on instance '{{ $labels.instance }}' has exceeded 80% for the last 5 minutes."
+      - alert: K8sHighCpuUtilization
+        expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: High CPU Usage Detected
+          description: "CPU utilization on instance '{{ $labels.instance }}' has exceeded 80% for the last 5 minutes."
+      - alert: AISTargetRestart
+        expr: increase(ais_target_restart_n[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: AIS Target Pod Restart Detected
+          description: "AIS Target pod '{{ $labels.pod }}' on node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) in namespace '{{ $labels.namespace }}' has restarted."
+      - alert: AISChecksumError
+        expr: increase(ais_target_err_cksum_n[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Checksum Error Detected on AIS Target
+          description: "A checksum error has been encountered on AIS Target pod '{{ $labels.pod }}' on node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) in namespace '{{ $labels.namespace }}'."
