@@ -1,4 +1,4 @@
-# pod-count-dashboard.yaml
+# aistore-dashboard.yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -34,7 +34,7 @@ data:
       "editable": true,
       "fiscalYearStartMonth": 0,
       "graphTooltip": 0,
-      "id": 32,
+      "id": 1,
       "links": [],
       "liveNow": false,
       "panels": [
@@ -2614,7 +2614,7 @@ data:
               },
               "disableTextWrap": false,
               "editorMode": "code",
-              "expr": "sum(ais_target_get_mbps{node_id=~\"$target\"})",
+              "expr": "sum(rate(ais_target_get_size{node_id=~\"$target\"}[1m])) or vector(0)",
               "format": "time_series",
               "fullMetaSearch": false,
               "hide": false,
@@ -2728,7 +2728,7 @@ data:
               },
               "disableTextWrap": false,
               "editorMode": "code",
-              "expr": "sum(ais_target_put_mbps{node_id=~\"$target\"})",
+              "expr": "sum(rate(ais_target_put_size{node_id=~\"$target\"}[1m])) or vector(0)",
               "format": "time_series",
               "fullMetaSearch": false,
               "hide": false,
@@ -4462,7 +4462,7 @@ data:
           "type": "timeseries"
         },
         {
-          "collapsed": true,
+          "collapsed": false,
           "gridPos": {
             "h": 1,
             "w": 24,
@@ -4470,294 +4470,295 @@ data:
             "y": 125
           },
           "id": 69,
-          "panels": [
+          "panels": [],
+          "title": "Errors",
+          "type": "row"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "description": "AIStore error rates, broken down by operation",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 8,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 126
+          },
+          "id": 30,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
             {
               "datasource": {
                 "type": "prometheus",
                 "uid": "prometheus"
               },
-              "description": "AIStore error rates, broken down by operation",
-              "fieldConfig": {
-                "defaults": {
-                  "color": {
-                    "mode": "palette-classic"
-                  },
-                  "custom": {
-                    "axisBorderShow": false,
-                    "axisCenteredZero": false,
-                    "axisColorMode": "text",
-                    "axisLabel": "",
-                    "axisPlacement": "auto",
-                    "barAlignment": 0,
-                    "drawStyle": "line",
-                    "fillOpacity": 8,
-                    "gradientMode": "none",
-                    "hideFrom": {
-                      "legend": false,
-                      "tooltip": false,
-                      "viz": false
-                    },
-                    "insertNulls": false,
-                    "lineInterpolation": "linear",
-                    "lineWidth": 1,
-                    "pointSize": 5,
-                    "scaleDistribution": {
-                      "type": "linear"
-                    },
-                    "showPoints": "auto",
-                    "spanNulls": false,
-                    "stacking": {
-                      "group": "A",
-                      "mode": "none"
-                    },
-                    "thresholdsStyle": {
-                      "mode": "off"
-                    }
-                  },
-                  "mappings": [],
-                  "thresholds": {
-                    "mode": "absolute",
-                    "steps": [
-                      {
-                        "color": "green"
-                      },
-                      {
-                        "color": "red",
-                        "value": 80
-                      }
-                    ]
-                  }
-                },
-                "overrides": []
-              },
-              "gridPos": {
-                "h": 8,
-                "w": 12,
-                "x": 0,
-                "y": 28
-              },
-              "id": 30,
-              "options": {
-                "legend": {
-                  "calcs": [],
-                  "displayMode": "list",
-                  "placement": "bottom",
-                  "showLegend": true
-                },
-                "tooltip": {
-                  "mode": "single",
-                  "sort": "none"
-                }
-              },
-              "targets": [
-                {
-                  "datasource": {
-                    "type": "prometheus",
-                    "uid": "prometheus"
-                  },
-                  "editorMode": "code",
-                  "expr": "sum(increase(ais_target_err_get_n[5m]))",
-                  "legendFormat": "__auto",
-                  "range": true,
-                  "refId": "A"
-                },
-                {
-                  "datasource": {
-                    "type": "prometheus",
-                    "uid": "prometheus"
-                  },
-                  "editorMode": "code",
-                  "expr": "sum(rate({__name__=~\"ais_proxy_${proxy}_err_get_n\"}[5m]))",
-                  "hide": false,
-                  "legendFormat": "Total errors / sec",
-                  "range": true,
-                  "refId": "B"
-                },
-                {
-                  "datasource": {
-                    "type": "prometheus",
-                    "uid": "prometheus"
-                  },
-                  "editorMode": "code",
-                  "expr": "sum(rate({__name__=~\"ais_proxy_${proxy}_err_delete_n\"}[5m]))",
-                  "hide": false,
-                  "legendFormat": "DELETE",
-                  "range": true,
-                  "refId": "C"
-                },
-                {
-                  "datasource": {
-                    "type": "prometheus",
-                    "uid": "prometheus"
-                  },
-                  "editorMode": "code",
-                  "expr": "sum(rate({__name__=~\"ais_proxy_${proxy}_err_post_n\"}[5m]))",
-                  "hide": false,
-                  "legendFormat": "POST",
-                  "range": true,
-                  "refId": "E"
-                },
-                {
-                  "datasource": {
-                    "type": "prometheus",
-                    "uid": "prometheus"
-                  },
-                  "editorMode": "code",
-                  "expr": "sum(rate({__name__=~\"ais_proxy_${proxy}_err_put_n\"}[5m]))",
-                  "hide": false,
-                  "legendFormat": "PUT",
-                  "range": true,
-                  "refId": "F"
-                },
-                {
-                  "datasource": {
-                    "type": "prometheus",
-                    "uid": "prometheus"
-                  },
-                  "editorMode": "code",
-                  "expr": "sum(rate({__name__=~\"ais_proxy_${proxy}_err_head_n\"}[5m]))",
-                  "hide": false,
-                  "legendFormat": "HEAD",
-                  "range": true,
-                  "refId": "G"
-                },
-                {
-                  "datasource": {
-                    "type": "prometheus",
-                    "uid": "prometheus"
-                  },
-                  "editorMode": "code",
-                  "expr": "sum(rate({__name__=~\"ais_proxy_${proxy}_err_list_n\"}[5m]))",
-                  "hide": false,
-                  "legendFormat": "list",
-                  "range": true,
-                  "refId": "H"
-                },
-                {
-                  "datasource": {
-                    "type": "prometheus",
-                    "uid": "prometheus"
-                  },
-                  "editorMode": "code",
-                  "expr": "sum(rate({__name__=~\"ais_proxy_${proxy}_err_range_n\"}[5m]))",
-                  "hide": false,
-                  "legendFormat": "range",
-                  "range": true,
-                  "refId": "I"
-                },
-                {
-                  "datasource": {
-                    "type": "prometheus",
-                    "uid": "prometheus"
-                  },
-                  "editorMode": "code",
-                  "expr": "sum(rate({__name__=~\"ais_proxy_${proxy}_err_dl_n\"}[5m]))",
-                  "hide": false,
-                  "legendFormat": "dl",
-                  "range": true,
-                  "refId": "J"
-                }
-              ],
-              "title": "AIStore Error Rates by Operation",
-              "type": "timeseries"
+              "editorMode": "code",
+              "expr": "sum(increase(ais_target_err_get_n[5m])) or vector(0)",
+              "legendFormat": "__auto",
+              "range": true,
+              "refId": "A"
             },
             {
               "datasource": {
                 "type": "prometheus",
                 "uid": "prometheus"
               },
-              "description": "Disk error rates, broken down by node",
-              "fieldConfig": {
-                "defaults": {
-                  "color": {
-                    "mode": "palette-classic"
-                  },
-                  "custom": {
-                    "axisBorderShow": false,
-                    "axisCenteredZero": false,
-                    "axisColorMode": "text",
-                    "axisLabel": "",
-                    "axisPlacement": "auto",
-                    "barAlignment": 0,
-                    "drawStyle": "line",
-                    "fillOpacity": 0,
-                    "gradientMode": "none",
-                    "hideFrom": {
-                      "legend": false,
-                      "tooltip": false,
-                      "viz": false
-                    },
-                    "insertNulls": false,
-                    "lineInterpolation": "linear",
-                    "lineWidth": 1,
-                    "pointSize": 5,
-                    "scaleDistribution": {
-                      "type": "linear"
-                    },
-                    "showPoints": "auto",
-                    "spanNulls": false,
-                    "stacking": {
-                      "group": "A",
-                      "mode": "none"
-                    },
-                    "thresholdsStyle": {
-                      "mode": "off"
-                    }
-                  },
-                  "mappings": [],
-                  "thresholds": {
-                    "mode": "absolute",
-                    "steps": [
-                      {
-                        "color": "green"
-                      },
-                      {
-                        "color": "red",
-                        "value": 80
-                      }
-                    ]
-                  }
-                },
-                "overrides": []
+              "editorMode": "code",
+              "expr": "sum(rate({__name__=~\"ais_proxy_${proxy}_err_get_n\"}[5m]))",
+              "hide": false,
+              "legendFormat": "Total errors / sec",
+              "range": true,
+              "refId": "B"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
               },
-              "gridPos": {
-                "h": 8,
-                "w": 12,
-                "x": 12,
-                "y": 28
+              "editorMode": "code",
+              "expr": "sum(rate({__name__=~\"ais_proxy_${proxy}_err_delete_n\"}[5m]))",
+              "hide": false,
+              "legendFormat": "DELETE",
+              "range": true,
+              "refId": "C"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
               },
-              "id": 77,
-              "options": {
-                "legend": {
-                  "calcs": [],
-                  "displayMode": "list",
-                  "placement": "bottom",
-                  "showLegend": true
-                },
-                "tooltip": {
-                  "mode": "single",
-                  "sort": "none"
-                }
+              "editorMode": "code",
+              "expr": "sum(rate({__name__=~\"ais_proxy_${proxy}_err_post_n\"}[5m]))",
+              "hide": false,
+              "legendFormat": "POST",
+              "range": true,
+              "refId": "E"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
               },
-              "targets": [
-                {
-                  "datasource": {
-                    "type": "prometheus",
-                    "uid": "prometheus"
-                  },
-                  "editorMode": "code",
-                  "expr": "sum by (instance) (rate(node_filesystem_device_error{mountpoint=~\"^/ais/.*$\"}[5m]))",
-                  "legendFormat": "__auto",
-                  "range": true,
-                  "refId": "A"
-                }
-              ],
-              "title": "Disk Error Rates By Node",
-              "type": "timeseries"
+              "editorMode": "code",
+              "expr": "sum(rate({__name__=~\"ais_proxy_${proxy}_err_put_n\"}[5m]))",
+              "hide": false,
+              "legendFormat": "PUT",
+              "range": true,
+              "refId": "F"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "editorMode": "code",
+              "expr": "sum(rate({__name__=~\"ais_proxy_${proxy}_err_head_n\"}[5m]))",
+              "hide": false,
+              "legendFormat": "HEAD",
+              "range": true,
+              "refId": "G"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "editorMode": "code",
+              "expr": "sum(rate({__name__=~\"ais_proxy_${proxy}_err_list_n\"}[5m]))",
+              "hide": false,
+              "legendFormat": "list",
+              "range": true,
+              "refId": "H"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "editorMode": "code",
+              "expr": "sum(rate({__name__=~\"ais_proxy_${proxy}_err_range_n\"}[5m]))",
+              "hide": false,
+              "legendFormat": "range",
+              "range": true,
+              "refId": "I"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "editorMode": "code",
+              "expr": "sum(rate({__name__=~\"ais_proxy_${proxy}_err_dl_n\"}[5m]))",
+              "hide": false,
+              "legendFormat": "dl",
+              "range": true,
+              "refId": "J"
             }
           ],
-          "title": "Errors",
-          "type": "row"
+          "title": "AIStore Error Rates by Operation",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "description": "Disk error rates, broken down by node",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 126
+          },
+          "id": 77,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "editorMode": "code",
+              "expr": "sum by (instance) (rate(node_filesystem_device_error{mountpoint=~\"^/ais/.*$\"}[5m]))",
+              "legendFormat": "__auto",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "Disk Error Rates By Node",
+          "type": "timeseries"
         },
         {
           "collapsed": false,
@@ -4765,7 +4766,7 @@ data:
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 126
+            "y": 134
           },
           "id": 67,
           "panels": [],
@@ -5196,7 +5197,7 @@ data:
             "h": 9,
             "w": 12,
             "x": 0,
-            "y": 127
+            "y": 135
           },
           "id": 80,
           "options": {
@@ -5669,7 +5670,7 @@ data:
             "h": 9,
             "w": 12,
             "x": 12,
-            "y": 127
+            "y": 135
           },
           "id": 81,
           "options": {
@@ -5796,7 +5797,7 @@ data:
           {
             "allValue": ".*",
             "current": {
-              "selected": true,
+              "selected": false,
               "text": "All",
               "value": "$__all"
             },
@@ -5823,7 +5824,7 @@ data:
           },
           {
             "current": {
-              "selected": true,
+              "selected": false,
               "text": "ais",
               "value": "ais"
             },
@@ -5878,9 +5879,13 @@ data:
           },
           {
             "current": {
-              "selected": true,
+              "selected": false,
               "text": "ens300np0",
               "value": "ens300np0"
+            },
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
             },
             "definition": "label_values(device)",
             "description": "Network Interface Card",
@@ -5911,6 +5916,6 @@ data:
       "timezone": "",
       "title": "AIStore Dashboard",
       "uid": "X5mAj7T4p",
-      "version": 15,
+      "version": 1,
       "weekStart": ""
     }
