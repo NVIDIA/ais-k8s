@@ -16,7 +16,7 @@ spec:
           severity: critical
         annotations:
           summary: High Disk IO Utilization on AIS Disks
-          description: "The disk IO utilization on disk '{{ $labels.disk }}' ({{ $labels.instance }}) in pod '{{ $labels.pod }}' (node {{ $labels.node_id }}, namespace '{{ $labels.namespace }})' is above 95% for a continuous period of 5 minutes."
+          description: "The disk IO utilization on disk '{{ $labels.disk }}' ({{ $labels.instance }}) in pod '{{ $labels.pod }}' (node {{ $labels.node_id }}, namespace '{{ $labels.namespace }}') is above 95% for a continuous period of 5 minutes."
       - alert: AISHighDiskUtilization
         expr: (sum by (instance, device) (node_filesystem_avail_bytes{job="node-exporter", mountpoint=~"^/ais/.*", fstype!="rootfs"}) / sum by (instance, device) (node_filesystem_size_bytes{job="node-exporter", mountpoint=~"^/ais/.*", fstype!="rootfs"})) < 0.05
         for: 5m
@@ -74,13 +74,21 @@ spec:
           summary: High CPU Usage Detected
           description: "CPU utilization on instance '{{ $labels.instance }}' has exceeded 80% for the last 5 minutes."
       - alert: AISTargetRestart
-        expr: increase(ais_target_restart_n[5m]) > 0
+        expr: (floor(ais_target_state_flags / 256)) % 2 == 1
         for: 1m
         labels:
           severity: critical
         annotations:
           summary: AIS Target Pod Restart Detected
           description: "AIS Target pod '{{ $labels.pod }}' on node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) in namespace '{{ $labels.namespace }}' has restarted."
+      - alert: AISMaintenanceMode
+        expr: (floor(ais_target_state_flags/ 1024)) % 2 == 1
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: AIS Node in Maintenance Mode
+          description: "AIS Node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) in namespace '{{ $labels.namespace }}' is in maintenance mode."
       - alert: AISChecksumError
         expr: increase(ais_target_err_cksum_n[5m]) > 0
         for: 1m
