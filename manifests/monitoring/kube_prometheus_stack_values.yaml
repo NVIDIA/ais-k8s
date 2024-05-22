@@ -45,8 +45,8 @@ alertmanager:
   #   route:
   #     receiver: 'slack-notifications'
   #     group_by: ['alertname']
-  #     group_wait: 30s
-  #     group_interval: 5m
+  #     group_wait: 10s
+  #     group_interval: 2m
   #     repeat_interval: 12h
   #     routes:
   #     - match:
@@ -61,7 +61,12 @@ alertmanager:
   #     - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK' # Replace with your Slack webhook URL
   #       channel: '#ais-alerts' # Replace with your Slack channel
   #       send_resolved: true
-  #       title: '{{ .CommonAnnotations.summary }}'
+  #       title: |
+  #         {{ if eq .Status "firing" }}
+  #         🚨 Alert: {{ .CommonAnnotations.summary }} 🚨
+  #         {{ else if eq .Status "resolved" }}
+  #         ✅ Resolved: {{ .CommonAnnotations.summary }} ✅
+  #         {{ end }}
   #       text: |
   #         {{ range .Alerts }}
   #         {{ .Annotations.description }}
