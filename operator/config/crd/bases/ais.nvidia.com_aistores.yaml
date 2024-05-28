@@ -1805,6 +1805,9 @@ spec:
                   No data or configuration will be deleted
                 type: boolean
               size:
+                description: |-
+                  Size of the cluster i.e. number of proxies and number of targets.
+                  This can be changed by specifying size in either `proxySpec` or `targetSpec`.
                 format: int32
                 type: integer
               targetSpec:
@@ -3224,7 +3227,6 @@ spec:
             - initImage
             - nodeImage
             - proxySpec
-            - size
             - targetSpec
             type: object
           status:

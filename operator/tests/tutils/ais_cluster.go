@@ -19,8 +19,8 @@ import (
 
 // TODO: Should be provided from test config.
 const (
-	aisNodeImage = "aistorage/aisnode:v3.23-rc2"
-	aisInitImage = "aistorage/ais-init:v3.22"
+	aisNodeImage = "aistorage/aisnode:v3.23"
+	aisInitImage = "aistorage/ais-init:v3.23"
 )
 
 type (

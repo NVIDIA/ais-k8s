@@ -121,12 +121,12 @@
   vars_prompt:
     - name: init_image
       prompt: "Specify the init_image. Skip for AIStore's latest image."
-      default: "aistorage/ais-init:v3.22"
+      default: "aistorage/ais-init:v3.23"
       private: no
 
     - name: node_image
       prompt: "Specify the node_image. Skip for AIStore's latest image."
-      default: "aistorage/aisnode:v3.22"
+      default: "aistorage/aisnode:v3.23"
       private: no
   roles:
     - ais-deployment/roles/ais_deploy_cluster

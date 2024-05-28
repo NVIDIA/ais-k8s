@@ -140,9 +140,11 @@ func checkLabelSupport(spec aisv1.AIStoreSpec) bool {
 		fmt.Printf("Image '%s' does not use semantic versioning, assuming it supports labels.\n", spec.NodeImage)
 		return true
 	}
-	// Check version is at least 3.23
-	if semver.Compare(spec.NodeImage, "v3.23") >= 0 {
+	// Check version is at least v3.23
+	if semver.Compare(tag, "v3.23") >= 0 {
+		fmt.Printf("Image '%s' supports labels.\n", spec.NodeImage)
 		return true
 	}
+	fmt.Printf("aisnode tag '%s' < v3.23, hence proceeding without labels.\n", tag)
 	return false
 }

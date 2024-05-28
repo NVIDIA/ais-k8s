@@ -84,7 +84,7 @@ Finally, we can deploy AIS and use the definitions we created above.
 
 If you see errors with the pods initializing or are missing the `pub_extra` field in the cluster map, check the following:
 
-- Make sure your ais-operator has been deployed with at least version v0.97 and your aisnode version is at least v3.22.
+- Make sure your ais-operator has been deployed with at least version v0.97 and your aisnode version is at least v3.23.
 - Check that your network attachment definitions exist in the proper namespace:
 
     `kubectl get network-attachment-definitions -n <your namespace>`

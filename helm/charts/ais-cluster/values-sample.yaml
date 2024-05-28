@@ -20,10 +20,10 @@ ais-cluster:
     tlsSecret: "tls-certs"
   nodeImage:
     name: aistorage/aisnode
-    tag: v3.22
+    tag: v3.23
   initImage:
-    name: aistorage/ais-ninit
-    tag: v3.22
+    name: aistorage/ais-init
+    tag: v3.23
   cloud:
     awsSecretName: "aws-creds"
     gcpSecretName: "gcp-creds"
