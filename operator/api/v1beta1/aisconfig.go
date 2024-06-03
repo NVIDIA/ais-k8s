@@ -9,13 +9,20 @@ import (
 )
 
 // NOTE: `*ToUpdate` structures are duplicates of `*ToUpdate` structs from AIStore main repository.
-// For custom types used in CRDs, `kubebuilder` auto-generates the `DeepCopyInto` method, which isn't possible for types from external packages.
+// For custom types used in CRDs, `kubebuilder` auto-generates the `DeepCopyInto` method,
+// which isn't possible for types from external packages.
 // IMPORTANT: Run "make" to regenerate code after modifying this file
+
+// Empty type is needed because declaring `map[string]struct{}` or `map[string]interface{}`
+// raises error "name requested for invalid type: struct{}/interface{}".
+// For more information see:
+//   - https://github.com/kubernetes-sigs/controller-tools/issues/636
+//   - https://github.com/kubernetes-sigs/kubebuilder/issues/528
+type Empty struct{}
 
 type (
 	ConfigToUpdate struct {
-		// ClusterConfig
-		Backend     *BackendConfToUpdate     `json:"backend,omitempty"`
+		Backend     *map[string]Empty        `json:"backend,omitempty"`
 		Mirror      *MirrorConfToUpdate      `json:"mirror,omitempty"`
 		EC          *ECConfToUpdate          `json:"ec,omitempty"`
 		Log         *LogConfToUpdate         `json:"log,omitempty"`
@@ -41,12 +48,6 @@ type (
 		WritePolicy *WritePolicyConfToUpdate `json:"write_policy,omitempty"`
 		Proxy       *ProxyConfToUpdate       `json:"proxy,omitempty"`
 		Features    *string                  `json:"features,omitempty"`
-	}
-	// TODO -- FIXME: Declaring map[string]struct{} / map[string]interface{}
-	// raises error "name requested for invalid type: struct{}/interface{}"
-	Empty               struct{}
-	BackendConfToUpdate struct {
-		Conf *map[string]Empty `json:"conf,omitempty"` // implementation depends on backend provider
 	}
 	MirrorConfToUpdate struct {
 		Copies  *int64 `json:"copies,omitempty"`
