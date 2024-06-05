@@ -5,24 +5,38 @@
 package cmn
 
 import (
+	"fmt"
 	"path"
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+const (
+	configVolume         = "config-mount"
+	configGlobalVolume   = "config-global"
+	configTemplateVolume = "config-template"
+	envVolume            = "env-mount"
+	stateVolume          = "state-mount"
+	awsSecretVolume      = "aws-creds"
+	gcpSecretVolume      = "gcp-creds"
+	tlsSecretVolume      = "tls-certs"
+	logsVolume           = "logs-dir"
 )
 
 func NewAISVolumes(ais *aisv1.AIStore, daeType string) []corev1.Volume {
 	volumes := []corev1.Volume{
 		{
-			Name: "config-mount",
+			Name: configVolume,
 			VolumeSource: corev1.VolumeSource{
 				EmptyDir: &corev1.EmptyDirVolumeSource{},
 			},
 		},
 		{
-			Name: "config-template-mount",
+			Name: configTemplateVolume,
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
 					LocalObjectReference: corev1.LocalObjectReference{
@@ -32,7 +46,7 @@ func NewAISVolumes(ais *aisv1.AIStore, daeType string) []corev1.Volume {
 			},
 		},
 		{
-			Name: "config-global",
+			Name: configGlobalVolume,
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
 					LocalObjectReference: corev1.LocalObjectReference{
@@ -41,24 +55,7 @@ func NewAISVolumes(ais *aisv1.AIStore, daeType string) []corev1.Volume {
 				},
 			},
 		},
-		{
-			Name: "env-mount",
-			VolumeSource: corev1.VolumeSource{
-				HostPath: &corev1.HostPathVolumeSource{
-					Path: path.Join(ais.Spec.HostpathPrefix, ais.Namespace, ais.Name, daeType+"_env"),
-					Type: hostPathTypePtr(corev1.HostPathDirectoryOrCreate),
-				},
-			},
-		},
-		{
-			Name: "state-mount",
-			VolumeSource: corev1.VolumeSource{
-				HostPath: &corev1.HostPathVolumeSource{
-					Path: path.Join(ais.Spec.HostpathPrefix, ais.Namespace, ais.Name, daeType),
-					Type: hostPathTypePtr(corev1.HostPathDirectoryOrCreate),
-				},
-			},
-		},
+
 		{
 			Name: "statsd-config",
 			VolumeSource: corev1.VolumeSource{
@@ -70,9 +67,35 @@ func NewAISVolumes(ais *aisv1.AIStore, daeType string) []corev1.Volume {
 			},
 		},
 	}
+
+	// Only create hostpath volumes if the prefix is set and no storage class is provided for state
+	if ais.Spec.HostpathPrefix != nil && ais.Spec.StateStorageClass == nil {
+		hostpathVolumes := []corev1.Volume{
+			{
+				Name: envVolume,
+				VolumeSource: corev1.VolumeSource{
+					HostPath: &corev1.HostPathVolumeSource{
+						Path: path.Join(*ais.Spec.HostpathPrefix, ais.Namespace, ais.Name, daeType+"_env"),
+						Type: hostPathTypePtr(corev1.HostPathDirectoryOrCreate),
+					},
+				},
+			},
+			{
+				Name: stateVolume,
+				VolumeSource: corev1.VolumeSource{
+					HostPath: &corev1.HostPathVolumeSource{
+						Path: path.Join(*ais.Spec.HostpathPrefix, ais.Namespace, ais.Name, daeType),
+						Type: hostPathTypePtr(corev1.HostPathDirectoryOrCreate),
+					},
+				},
+			},
+		}
+		volumes = append(volumes, hostpathVolumes...)
+	}
+
 	if ais.Spec.AWSSecretName != nil {
 		volumes = append(volumes, corev1.Volume{
-			Name: "aws-creds",
+			Name: awsSecretVolume,
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
 					SecretName: *ais.Spec.AWSSecretName,
@@ -82,7 +105,7 @@ func NewAISVolumes(ais *aisv1.AIStore, daeType string) []corev1.Volume {
 	}
 	if ais.Spec.GCPSecretName != nil {
 		volumes = append(volumes, corev1.Volume{
-			Name: "gcp-creds",
+			Name: gcpSecretVolume,
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
 					SecretName: *ais.Spec.GCPSecretName,
@@ -93,7 +116,7 @@ func NewAISVolumes(ais *aisv1.AIStore, daeType string) []corev1.Volume {
 
 	if ais.Spec.TLSSecretName != nil {
 		volumes = append(volumes, corev1.Volume{
-			Name: "tls-certs",
+			Name: tlsSecretVolume,
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
 					SecretName: *ais.Spec.TLSSecretName,
@@ -104,7 +127,7 @@ func NewAISVolumes(ais *aisv1.AIStore, daeType string) []corev1.Volume {
 
 	if ais.Spec.LogsDirectory != "" {
 		volumes = append(volumes, corev1.Volume{
-			Name: "logs-dir",
+			Name: logsVolume,
 			VolumeSource: corev1.VolumeSource{
 				HostPath: &corev1.HostPathVolumeSource{
 					Path: path.Join(ais.Spec.LogsDirectory, ais.Namespace, ais.Name, daeType),
@@ -141,37 +164,27 @@ func NewAISNodeLifecycle() *corev1.Lifecycle {
 	}
 }
 
-func NewAISVolumeMounts(spec *aisv1.AIStoreSpec, daeType string) []corev1.VolumeMount {
-	hostMountSubPath := getHostMountSubPath(daeType)
+func NewAISVolumeMounts(ais *aisv1.AIStore, daeType string) []corev1.VolumeMount {
+	spec := ais.Spec
 	volumeMounts := []corev1.VolumeMount{
 		{
-			Name:      "config-mount",
+			Name:      configVolume,
 			MountPath: "/var/ais_config",
 		},
 		{
-			Name:      "config-global",
+			Name:      configGlobalVolume,
 			MountPath: "/var/ais_config/ais.json",
 			SubPath:   "ais.json",
 		},
 		{
-			Name:      "config-global",
+			Name:      configGlobalVolume,
 			MountPath: "/var/ais_config/ais_liveness.sh",
 			SubPath:   "ais_liveness.sh",
 		},
 		{
-			Name:      "config-global",
+			Name:      configGlobalVolume,
 			MountPath: "/var/ais_config/ais_readiness.sh",
 			SubPath:   "ais_readiness.sh",
-		},
-		{
-			Name:        "env-mount",
-			MountPath:   "/var/ais_env",
-			SubPathExpr: hostMountSubPath,
-		},
-		{
-			Name:        "state-mount",
-			MountPath:   "/etc/ais",
-			SubPathExpr: hostMountSubPath,
 		},
 		{
 			Name:      "statsd-config",
@@ -179,30 +192,62 @@ func NewAISVolumeMounts(spec *aisv1.AIStoreSpec, daeType string) []corev1.Volume
 		},
 	}
 
+	hostMountSubPath := getHostMountSubPath(daeType)
+	if spec.StateStorageClass != nil {
+		volumeName := getPVCPrefix(ais) + "state"
+		dynamicMounts := []corev1.VolumeMount{
+			{
+				Name:      volumeName,
+				MountPath: "/var/ais_env",
+				SubPath:   "env/",
+			},
+			{
+				Name:      volumeName,
+				MountPath: "/etc/ais",
+				SubPath:   "state/",
+			},
+		}
+		volumeMounts = append(volumeMounts, dynamicMounts...)
+	} else if ais.Spec.HostpathPrefix != nil {
+		hostMounts := []corev1.VolumeMount{
+			{
+				Name:        envVolume,
+				MountPath:   "/var/ais_env",
+				SubPathExpr: hostMountSubPath,
+			},
+			{
+				Name:        stateVolume,
+				MountPath:   "/etc/ais",
+				SubPathExpr: hostMountSubPath,
+			},
+		}
+		volumeMounts = append(volumeMounts, hostMounts...)
+	}
+
 	if spec.AWSSecretName != nil {
 		volumeMounts = append(volumeMounts, corev1.VolumeMount{
-			Name:      "aws-creds",
+			Name:      awsSecretVolume,
 			ReadOnly:  true,
 			MountPath: "/root/.aws",
 		})
 	}
 	if spec.GCPSecretName != nil {
 		volumeMounts = append(volumeMounts, corev1.VolumeMount{
-			Name:      "gcp-creds",
+			Name:      gcpSecretVolume,
 			ReadOnly:  true,
 			MountPath: "/var/gcp",
 		})
 	}
 	if spec.TLSSecretName != nil {
 		volumeMounts = append(volumeMounts, corev1.VolumeMount{
-			Name:      "tls-certs",
+			Name:      tlsSecretVolume,
 			ReadOnly:  true,
 			MountPath: "/var/certs",
 		})
 	}
 	if spec.LogsDirectory != "" {
 		volumeMounts = append(volumeMounts, corev1.VolumeMount{
-			Name:        "logs-dir",
+			Name:        logsVolume,
 			MountPath:   "/var/log/ais",
 			SubPathExpr: hostMountSubPath,
 		})
@@ -211,28 +256,45 @@ func NewAISVolumeMounts(spec *aisv1.AIStoreSpec, daeType string) []corev1.Volume
 	return volumeMounts
 }
 
-func NewInitVolumeMounts(daeType string) []corev1.VolumeMount {
+func NewInitVolumeMounts(ais *aisv1.AIStore, daeType string) []corev1.VolumeMount {
 	hostMountSubPath := getHostMountSubPath(daeType)
 
-	return []corev1.VolumeMount{
+	volumeMounts := []corev1.VolumeMount{
 		{
-			Name:      "config-mount",
+			Name:      configVolume,
 			MountPath: "/var/ais_config",
 		},
 		{
-			Name:      "config-template-mount",
+			Name:      configTemplateVolume,
 			MountPath: "/var/ais_config_template",
 		},
 		{
-			Name:      "config-global",
+			Name:      configGlobalVolume,
 			MountPath: "/var/global_config",
 		},
-		{
-			Name:        "env-mount",
-			MountPath:   "/var/ais_env",
-			SubPathExpr: hostMountSubPath,
-		},
 	}
+
+	if ais.Spec.StateStorageClass != nil {
+		dynamicMounts := []corev1.VolumeMount{
+			{
+				Name:      getPVCPrefix(ais) + "state",
+				MountPath: "/var/ais_env",
+				SubPath:   "env/",
+			},
+		}
+		volumeMounts = append(volumeMounts, dynamicMounts...)
+	} else if ais.Spec.HostpathPrefix != nil {
+		hostMounts := []corev1.VolumeMount{
+			{
+				Name:        envVolume,
+				MountPath:   "/var/ais_env",
+				SubPathExpr: hostMountSubPath,
+			},
+		}
+		volumeMounts = append(volumeMounts, hostMounts...)
+	}
+
+	return volumeMounts
 }
 
 func NewDaemonPorts(spec aisv1.DaemonSpec) []corev1.ContainerPort {
@@ -290,4 +352,27 @@ func getHostMountSubPath(daeType string) string {
 
 func hostPathTypePtr(v corev1.HostPathType) *corev1.HostPathType {
 	return &v
+}
+
+// Generate PVC claim ref for a specific namespace and cluster
+func getPVCPrefix(ais *aisv1.AIStore) string {
+	return fmt.Sprintf("%s-%s-", ais.Namespace, ais.Name)
+}
+
+// DefineStatePVC Define a PVC to use for pod state using dynamically configured volumes
+func DefineStatePVC(ais *aisv1.AIStore, storageClass *string) *corev1.PersistentVolumeClaim {
+	return &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: getPVCPrefix(ais) + "state",
+		},
+		Spec: corev1.PersistentVolumeClaimSpec{
+			AccessModes: []corev1.PersistentVolumeAccessMode{
+				corev1.ReadWriteOnce,
+			},
+			Resources: corev1.VolumeResourceRequirements{
+				Requests: corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("1Gi")},
+			},
+			StorageClassName: storageClass,
+		},
+	}
 }

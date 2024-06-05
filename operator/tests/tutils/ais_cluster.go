@@ -114,7 +114,7 @@ func newAISClusterCR(args ClusterSpecArgs, mounts []aisv1.Mount) *aisv1.AIStore 
 		CleanupData:      apc.Ptr(args.CleanupData),
 		NodeImage:        aisNodeImage,
 		InitImage:        aisInitImage,
-		HostpathPrefix:   "/etc/ais",
+		HostpathPrefix:   apc.Ptr("/etc/ais"),
 		EnableExternalLB: args.EnableExternalLB,
 		ProxySpec: aisv1.DaemonSpec{
 			ServiceSpec: aisv1.ServiceSpec{

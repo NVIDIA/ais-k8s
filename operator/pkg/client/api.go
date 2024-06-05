@@ -15,6 +15,7 @@ import (
 	apiv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -154,6 +155,19 @@ func (c *K8sClient) ListNodesRunningAIS(ctx context.Context, ais *aisv1.AIStore)
 	return uniqueNodeNames, nil
 }
 
+// GetStorageClasses returns a map of installed storage classes in the k8s cluster
+func (c *K8sClient) GetStorageClasses(ctx context.Context) (map[string]*storagev1.StorageClass, error) {
+	scList := &storagev1.StorageClassList{}
+	if err := c.client.List(ctx, scList); err != nil {
+		return nil, err
+	}
+	scMap := make(map[string]*storagev1.StorageClass, len(scList.Items))
+	for i := range scList.Items {
+		scMap[scList.Items[i].Name] = &scList.Items[i]
+	}
+	return scMap, nil
+}
+
 ///////////////////////////////////////
 //      create/update resources     //
 //////////////////////////////////////
@@ -278,17 +292,27 @@ func (c *K8sClient) DeleteAllServicesIfExist(ctx context.Context, namespace stri
 	return
 }
 
-func (c *K8sClient) DeleteAllPVCsIfExist(ctx context.Context, namespace string, labels client.MatchingLabels) (anyExisted bool, err error) {
+func (c *K8sClient) DeletePVCs(ctx context.Context, namespace string, labels client.MatchingLabels, sc *string) (anyExisted bool, err error) {
+	listOpts := []client.ListOption{client.InNamespace(namespace)}
+	if labels != nil {
+		listOpts = append(listOpts, labels)
+	}
 	pvcs := &corev1.PersistentVolumeClaimList{}
-	err = c.client.List(ctx, pvcs, client.InNamespace(namespace), labels)
+	err = c.client.List(ctx, pvcs, listOpts...)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			err = nil
 		}
 		return
 	}
+	return c.deleteAllPVCsIfExist(ctx, pvcs, sc)
+}
 
+func (c *K8sClient) deleteAllPVCsIfExist(ctx context.Context, pvcs *corev1.PersistentVolumeClaimList, sc *string) (anyExisted bool, err error) {
 	for i := range pvcs.Items {
+		if sc != nil && pvcs.Items[i].Spec.StorageClassName != nil && *pvcs.Items[i].Spec.StorageClassName != *sc {
+			continue
+		}
 		var existed bool
 		existed, err = c.DeleteResourceIfExists(ctx, &pvcs.Items[i])
 		if err != nil {

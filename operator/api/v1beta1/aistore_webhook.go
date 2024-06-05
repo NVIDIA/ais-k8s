@@ -45,6 +45,17 @@ func (ais *AIStore) validateSize() (admission.Warnings, error) {
 	return nil, nil
 }
 
+func (ais *AIStore) validateStateStorage() (admission.Warnings, error) {
+	if ais.Spec.StateStorageClass != nil && ais.Spec.HostpathPrefix != nil {
+		warning := fmt.Sprintf("Spec defines both hostpathPrefix and stateStorageClass. Using stateStorageClass %s", *ais.Spec.StateStorageClass)
+		return []string{warning}, nil
+	}
+	if ais.Spec.StateStorageClass == nil && ais.Spec.HostpathPrefix == nil {
+		return nil, errUndefinedStateStorage()
+	}
+	return nil, nil
+}
+
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type.
 func (*AIStoreWebhook) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
 	ais, ok := obj.(*AIStore)
@@ -53,7 +64,26 @@ func (*AIStoreWebhook) ValidateCreate(_ context.Context, obj runtime.Object) (ad
 	}
 
 	aistorelog.Info("Validate create", "name", ais.Name)
-	return ais.validateSize()
+	return ais.validateSpec()
+}
+
+func (ais *AIStore) validateSpec() (admission.Warnings, error) {
+	var allWarnings admission.Warnings
+
+	validations := []func() (admission.Warnings, error){
+		ais.validateSize,
+		ais.validateStateStorage,
+	}
+
+	// Run each validation function, aggregate warnings, exit on error
+	for _, validate := range validations {
+		warnings, err := validate()
+		if err != nil {
+			return allWarnings, err
+		}
+		allWarnings = append(allWarnings, warnings...)
+	}
+	return allWarnings, nil
 }
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type.
@@ -97,8 +127,10 @@ func (ais *AIStore) vup(prev *AIStore) error {
 		return errCannotUpdateSpec("enableExternalLB")
 	}
 
-	if ais.Spec.HostpathPrefix != prev.Spec.HostpathPrefix {
-		return errCannotUpdateSpec("hostpathPrefix")
+	if ais.Spec.HostpathPrefix != nil && prev.Spec.HostpathPrefix != nil {
+		if *ais.Spec.HostpathPrefix != *prev.Spec.HostpathPrefix {
+			return errCannotUpdateSpec("hostpathPrefix")
+		}
 	}
 	return nil
 }
@@ -129,4 +161,8 @@ func errInvalidDaemonSize(size int32, daeType string) error {
 
 func errCannotUpdateSpec(specName string) error {
 	return fmt.Errorf("cannot update spec %q for an existing cluster", specName)
+}
+
+func errUndefinedStateStorage() error {
+	return fmt.Errorf("AIS spec does not define hostpathPrefix or stateStorageClass. Set hostpathPrefix to use a directory on each node or set stateStorageClass to use a dynamic storage class")
 }

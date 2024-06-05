@@ -47,9 +47,10 @@ func NewProxyStatefulSet(ais *aisv1.AIStore, size int32) *apiv1.StatefulSet {
 			Selector: &metav1.LabelSelector{
 				MatchLabels: ls,
 			},
-			ServiceName:         HeadlessSVCName(ais),
-			PodManagementPolicy: apiv1.ParallelPodManagement,
-			Replicas:            &size,
+			ServiceName:          HeadlessSVCName(ais),
+			PodManagementPolicy:  apiv1.ParallelPodManagement,
+			Replicas:             &size,
+			VolumeClaimTemplates: proxyVC(ais),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels:      ls,
@@ -99,7 +100,7 @@ func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
 				}, optionals...),
 				Args:         []string{"-c", "/bin/bash /var/ais_config_template/set_initial_primary_proxy_env.sh"},
 				Command:      []string{"/bin/bash"},
-				VolumeMounts: cmn.NewInitVolumeMounts(aisapc.Proxy),
+				VolumeMounts: cmn.NewInitVolumeMounts(ais, aisapc.Proxy),
 			},
 		},
 		Containers: []corev1.Container{
@@ -126,7 +127,7 @@ func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
 				}, optionals...),
 				Ports:           cmn.NewDaemonPorts(ais.Spec.ProxySpec),
 				SecurityContext: ais.Spec.ProxySpec.ContainerSecurity,
-				VolumeMounts:    cmn.NewAISVolumeMounts(&ais.Spec, aisapc.Proxy),
+				VolumeMounts:    cmn.NewAISVolumeMounts(ais, aisapc.Proxy),
 				Lifecycle:       cmn.NewAISNodeLifecycle(),
 				LivenessProbe:   cmn.NewAISLivenessProbe(),
 				ReadinessProbe:  readinessProbe(),
@@ -163,4 +164,13 @@ func readinessProbe() *corev1.Probe {
 		TimeoutSeconds:      5,
 		SuccessThreshold:    1,
 	}
+}
+
+func proxyVC(ais *aisv1.AIStore) []corev1.PersistentVolumeClaim {
+	if ais.Spec.StateStorageClass != nil {
+		if statePVC := cmn.DefineStatePVC(ais, ais.Spec.StateStorageClass); statePVC != nil {
+			return []corev1.PersistentVolumeClaim{*statePVC}
+		}
+	}
+	return nil
 }

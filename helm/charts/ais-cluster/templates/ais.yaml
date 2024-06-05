@@ -59,7 +59,9 @@ spec:
 
   nodeImage: "{{ .Values.nodeImage.name }}:{{ .Values.nodeImage.tag }}"
   initImage: "{{ .Values.initImage.name }}:{{ .Values.initImage.tag }}"
-  hostpathPrefix: "/etc/ais"
+  hostpathPrefix: {{ .Values.hostpathPrefix }}
+  stateStorageClass: {{ .Values.stateStorageClass }}
+  cleanupData: {{ .Values.cleanupData }}
   {{- if eq .Values.protocol "https" }}
   tlsSecretName: {{ .Values.https.tlsSecret }}
   {{- end }}

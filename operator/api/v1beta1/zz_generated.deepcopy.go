@@ -82,6 +82,16 @@ func (in *AIStoreSpec) DeepCopyInto(out *AIStoreSpec) {
 		*out = new(int32)
 		**out = **in
 	}
+	if in.HostpathPrefix != nil {
+		in, out := &in.HostpathPrefix, &out.HostpathPrefix
+		*out = new(string)
+		**out = **in
+	}
+	if in.StateStorageClass != nil {
+		in, out := &in.StateStorageClass, &out.StateStorageClass
+		*out = new(string)
+		**out = **in
+	}
 	if in.ConfigToUpdate != nil {
 		in, out := &in.ConfigToUpdate, &out.ConfigToUpdate
 		*out = new(ConfigToUpdate)

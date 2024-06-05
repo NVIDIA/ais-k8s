@@ -31,6 +31,12 @@ ais-cluster:
     enabled: false
     hostnameMap: 
     networkAttachment:
+  # Set one and only one of the below options for config and state storage
+  # hostpathPrefix defines a location on the physical k8s node
+  hostpathPrefix: "/etc/ais"
+  # stateStorageClass defines an existing storage class for dynamic creation of k8s volumes
+  stateStorageClass: 
+  cleanupData: false
     
 
 

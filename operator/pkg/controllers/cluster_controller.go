@@ -196,6 +196,9 @@ func (r *AIStoreReconciler) cleanup(ctx context.Context, ais *aisv1.AIStore) (up
 }
 
 func (r *AIStoreReconciler) runManualCleanupJob(ctx context.Context, ais *aisv1.AIStore, uniqueNodeNames map[string]bool) error {
+	if ais.Spec.StateStorageClass != nil {
+		return nil
+	}
 	r.log.Info("Running manual cleanup job")
 	for nodeName := range uniqueNodeNames {
 		r.log.Info("Creating cleanup job for node", "node", nodeName)
@@ -220,12 +223,35 @@ func (r *AIStoreReconciler) attemptGracefulShutdown(params *aisapi.BaseParams) {
 	}
 }
 
-func (r *AIStoreReconciler) cleanupPVC(ctx context.Context, ais *aisv1.AIStore) (anyUpdated bool, err error) {
+func (r *AIStoreReconciler) cleanupPVC(ctx context.Context, ais *aisv1.AIStore) (bool, error) {
 	if ais.Spec.CleanupData != nil && *ais.Spec.CleanupData {
-		r.log.Info("Cleaning up PVCs")
-		return r.client.DeleteAllPVCsIfExist(ctx, ais.Namespace, target.PodLabels(ais))
+		return r.deleteAllPVCs(ctx, ais)
+	}
+	if ais.Spec.StateStorageClass != nil {
+		return r.deleteStatePVCs(ctx, ais)
 	}
 	return false, nil
+}
+
+func (r *AIStoreReconciler) deleteAllPVCs(ctx context.Context, ais *aisv1.AIStore) (bool, error) {
+	r.log.Info("Cleaning up all target PVCs")
+	updated, err := r.client.DeletePVCs(ctx, ais.Namespace, target.PodLabels(ais), nil)
+	if err != nil {
+		return updated, err
+	}
+	r.log.Info("Cleaning up all proxy PVCs")
+	return r.client.DeletePVCs(ctx, ais.Namespace, proxy.PodLabels(ais), nil)
+}
+
+// Cleans up only dynamically created volumes by adding a filter by the defined state storage class
+func (r *AIStoreReconciler) deleteStatePVCs(ctx context.Context, ais *aisv1.AIStore) (bool, error) {
+	r.log.Info("Cleaning up dynamic target PVCs")
+	updated, err := r.client.DeletePVCs(ctx, ais.Namespace, target.PodLabels(ais), ais.Spec.StateStorageClass)
+	if err != nil {
+		return updated, err
+	}
+	r.log.Info("Cleaning up dynamic proxy PVCs")
+	return r.client.DeletePVCs(ctx, ais.Namespace, proxy.PodLabels(ais), ais.Spec.StateStorageClass)
 }
 
 func (r *AIStoreReconciler) cleanupRBAC(ctx context.Context, ais *aisv1.AIStore) (anyUpdated bool, err error) {
@@ -598,12 +624,13 @@ func (r *AIStoreReconciler) recordError(ais *aisv1.AIStore, err error, msg strin
 }
 
 func (r *AIStoreReconciler) verifyDeployment(ctx context.Context, ais *aisv1.AIStore) error {
-	err := r.verifyNodesAvailable(ctx, ais, aisapc.Proxy)
-	if err != nil {
+	if err := r.verifyNodesAvailable(ctx, ais, aisapc.Proxy); err != nil {
 		return err
 	}
-	err = r.verifyNodesAvailable(ctx, ais, aisapc.Target)
-	return err
+	if err := r.verifyNodesAvailable(ctx, ais, aisapc.Target); err != nil {
+		return err
+	}
+	return r.verifyRequiredStorageClasses(ctx, ais)
 }
 
 func (r *AIStoreReconciler) verifyNodesAvailable(ctx context.Context, ais *aisv1.AIStore, daeType string) error {
@@ -637,6 +664,23 @@ func (r *AIStoreReconciler) verifyNodesAvailable(ctx context.Context, ais *aisv1
 		return nil
 	}
 	return fmt.Errorf("spec for AIS %s requires more K8s nodes matching the given selector: expected '%d' but found '%d'", daeType, requiredSize, len(nodes.Items))
+}
+
+// Ensure all storage classes requested by the AIS resource are available in the cluster
+func (r *AIStoreReconciler) verifyRequiredStorageClasses(ctx context.Context, ais *aisv1.AIStore) error {
+	scMap, err := r.client.GetStorageClasses(ctx)
+	if err != nil {
+		return err
+	}
+	requiredClasses := []*string{ais.Spec.StateStorageClass}
+	for _, requiredClass := range requiredClasses {
+		if requiredClass != nil {
+			if _, exists := scMap[*requiredClass]; !exists {
+				return fmt.Errorf("required storage class '%s' not found", *requiredClass)
+			}
+		}
+	}
+	return nil
 }
 
 func (r *AIStoreReconciler) primaryBaseParams(ctx context.Context, ais *aisv1.AIStore) (params *aisapi.BaseParams, err error) {
