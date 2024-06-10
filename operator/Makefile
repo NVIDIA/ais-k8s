@@ -104,7 +104,7 @@ bundle-manifests-helm: helm helmify bundle-manifests
 	mkdir -p dist/charts/
 	cat dist/ais-operator.yaml | $(HELMIFY) dist/charts/ais-operator
 	$(HELM) package dist/charts/ais-operator -d dist/
-	$(HELM) repo index --url $(REPO)/releases/download/v$(VERSION) dist/
+	$(HELM) repo index --url $(REPO)/releases/download/$(VERSION) dist/
 
 # Run go fmt against code
 fmt:
