@@ -25,3 +25,8 @@ logs_dir: "/var/log/ais"
 
 # if true, the AIS Daemon pods for target are created in the host's network namespace (used for multihoming)
 host_network: false
+
+# Storage class for dynamically provisioning state volumes
+# If set to local-path, Rancher local-path-provisioner will be installed
+# If not set, AIS will use /etc/ais/ on the host
+dynamic_state_sc: "local-path"

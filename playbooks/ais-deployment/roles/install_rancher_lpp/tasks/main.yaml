@@ -1,0 +1,2 @@
+- name: Install Rancher's local path provisioner (https://github.com/rancher/local-path-provisioner)
+  shell: kubectl apply -f "{{ lpp_url }}"

@@ -15,6 +15,11 @@
     sysctls: "{{ lookup('template', 'sysctls.json.j2') }}"
   when: apply_sysctls | bool
 
+- name: Install local path provisioner on the cluster if dynamic_state_sc is "local-path"
+  include_role:
+    name: install_rancher_lpp
+  when: dynamic_state_sc == 'local-path'
+
 - name: Copy cluster yaml
   become: true
   template:

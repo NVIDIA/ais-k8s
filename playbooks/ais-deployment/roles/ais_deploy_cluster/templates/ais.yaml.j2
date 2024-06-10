@@ -78,7 +78,12 @@ spec:
 
   nodeImage: "{{ node_image }}"
   initImage: "{{ init_image }}"
+{% if dynamic_state_sc != "" %}
+  stateStorageClass: {{ dynamic_state_sc }}
+{% else %}
   hostpathPrefix: "/etc/ais"
+{% endif %}
+  
 {% if protocol == "https" %}
   tlsSecretName: {{ tls_secret }}
 {% endif %}
