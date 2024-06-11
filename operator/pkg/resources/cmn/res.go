@@ -13,6 +13,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 const (
@@ -33,6 +34,21 @@ const (
 	aisGlobalConfigFileName = "ais.json"
 	aisLocalConfigName      = "ais_local.json"
 	hostnameMapFileName     = "hostname_map.json"
+
+	// probe constants
+	// TODO: obtain probe specs from AIStore custom resource spec.
+	defaultProbePeriodSeconds        = 5
+	defaultProbeTimeoutSeconds       = 5
+	defaultReadinessFailureThreshold = 5
+
+	defaultStartupPeriodSeconds    = 5
+	defaultStartupFailureThreshold = 30
+
+	defaultLivenessFailureThreshold    = 10
+	defaultLivenessInitialDelaySeconds = 60
+
+	probeLivenessEndpoint  = "/v1/health"
+	probeReadinessEndpoint = probeLivenessEndpoint + "?readiness=true"
 )
 
 func NewAISVolumes(ais *aisv1.AIStore, daeType string) []corev1.Volume {
@@ -150,17 +166,63 @@ func NewAISVolumes(ais *aisv1.AIStore, daeType string) []corev1.Volume {
 	return volumes
 }
 
-func NewAISLivenessProbe() *corev1.Probe {
-	return &corev1.Probe{
-		ProbeHandler: corev1.ProbeHandler{
-			Exec: &corev1.ExecAction{
-				Command: []string{"/bin/bash", path.Join(aisConfigDir, "ais_liveness.sh")},
-			},
+func newHTTPProbeHandle(ais *aisv1.AIStore, daemonRole, probeEndpoint string) corev1.ProbeHandler {
+	var (
+		httpPort  intstr.IntOrString
+		uriScheme = corev1.URISchemeHTTP
+	)
+
+	if ais.Spec.TLSSecretName != nil {
+		uriScheme = corev1.URISchemeHTTPS
+	}
+
+	switch daemonRole {
+	case aisapc.Proxy:
+		httpPort = ais.Spec.ProxySpec.PublicPort
+	case aisapc.Target:
+		httpPort = ais.Spec.TargetSpec.PublicPort
+	}
+	return corev1.ProbeHandler{
+		HTTPGet: &corev1.HTTPGetAction{
+			Scheme: uriScheme,
+			Path:   probeEndpoint,
+			Port:   httpPort,
 		},
-		InitialDelaySeconds: 90,
-		PeriodSeconds:       5,
-		FailureThreshold:    3,
-		TimeoutSeconds:      5,
+	}
+}
+
+func NewLivenessProbe(ais *aisv1.AIStore, daemonRole string) *corev1.Probe {
+	return &corev1.Probe{
+		ProbeHandler:        newHTTPProbeHandle(ais, daemonRole, probeLivenessEndpoint),
+		InitialDelaySeconds: defaultLivenessInitialDelaySeconds,
+		PeriodSeconds:       defaultProbePeriodSeconds,
+		// liveness looks for the AIS daemon to successfully join the cluster.
+		// Cluster join sequence could take a bit long, so add some initial delay to
+		// ensure K8s doesn't kill the aisnode container prematurely.
+		FailureThreshold: defaultLivenessFailureThreshold,
+		TimeoutSeconds:   defaultProbeTimeoutSeconds,
+	}
+}
+
+func NewReadinessProbe(ais *aisv1.AIStore, daemonRole string) *corev1.Probe {
+	return &corev1.Probe{
+		ProbeHandler:     newHTTPProbeHandle(ais, daemonRole, probeReadinessEndpoint),
+		PeriodSeconds:    defaultProbePeriodSeconds,
+		FailureThreshold: defaultReadinessFailureThreshold,
+		TimeoutSeconds:   defaultProbeTimeoutSeconds,
+	}
+}
+
+func NewStartupProbe(ais *aisv1.AIStore, daemonRole string) *corev1.Probe {
+	return &corev1.Probe{
+		ProbeHandler: newHTTPProbeHandle(ais, daemonRole, probeReadinessEndpoint),
+		// For startup probe, which is a one-time probe we are more aggressive in checking for readiness.
+		// We leave up-to 30secs for the daemon to start responding to HTTP request.
+		// NOTE: Success here only means that the HTTP server is up and running, that doesn't imply AIS daemon is
+		// ready in terms of the AIStore cluster.
+		PeriodSeconds:    defaultStartupPeriodSeconds,
+		FailureThreshold: defaultStartupFailureThreshold,
+		TimeoutSeconds:   defaultProbeTimeoutSeconds,
 	}
 }
 
@@ -185,16 +247,6 @@ func NewAISVolumeMounts(ais *aisv1.AIStore, daeType string) []corev1.VolumeMount
 			Name:      configGlobalVolume,
 			MountPath: path.Join(aisConfigDir, aisGlobalConfigFileName),
 			SubPath:   aisGlobalConfigFileName,
-		},
-		{
-			Name:      configGlobalVolume,
-			MountPath: path.Join(aisConfigDir, "ais_liveness.sh"),
-			SubPath:   "ais_liveness.sh",
-		},
-		{
-			Name:      configGlobalVolume,
-			MountPath: path.Join(aisConfigDir, "ais_readiness.sh"),
-			SubPath:   "ais_readiness.sh",
 		},
 		{
 			Name:      "statsd-config",

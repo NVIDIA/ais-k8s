@@ -135,8 +135,9 @@ func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
 				SecurityContext: ais.Spec.ProxySpec.ContainerSecurity,
 				VolumeMounts:    cmn.NewAISVolumeMounts(ais, aisapc.Proxy),
 				Lifecycle:       cmn.NewAISNodeLifecycle(),
-				LivenessProbe:   cmn.NewAISLivenessProbe(),
-				ReadinessProbe:  readinessProbe(),
+				StartupProbe:    cmn.NewStartupProbe(ais, aisapc.Proxy),
+				LivenessProbe:   cmn.NewLivenessProbe(ais, aisapc.Proxy),
+				ReadinessProbe:  cmn.NewReadinessProbe(ais, aisapc.Proxy),
 			},
 		},
 		Affinity:           cmn.CreateAISAffinity(ais.Spec.ProxySpec.Affinity, PodLabels(ais)),
@@ -154,21 +155,6 @@ func PodLabels(ais *aisv1.AIStore) map[string]string {
 		"app":       ais.Name,
 		"component": aisapc.Proxy,
 		"function":  "gateway",
-	}
-}
-
-func readinessProbe() *corev1.Probe {
-	return &corev1.Probe{
-		ProbeHandler: corev1.ProbeHandler{
-			Exec: &corev1.ExecAction{
-				Command: []string{"/bin/bash", "/var/ais_config/ais_readiness.sh"},
-			},
-		},
-		InitialDelaySeconds: 5,
-		PeriodSeconds:       5,
-		FailureThreshold:    3,
-		TimeoutSeconds:      5,
-		SuccessThreshold:    1,
 	}
 }
 

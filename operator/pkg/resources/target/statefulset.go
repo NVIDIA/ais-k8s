@@ -19,7 +19,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 func statefulSetName(ais *aisv1.AIStore) string {
@@ -143,8 +142,9 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 							SecurityContext: ais.Spec.TargetSpec.ContainerSecurity,
 							VolumeMounts:    volumeMounts(ais),
 							Lifecycle:       cmn.NewAISNodeLifecycle(),
-							LivenessProbe:   cmn.NewAISLivenessProbe(),
-							ReadinessProbe:  readinessProbe(ais.Spec.TargetSpec.ServicePort, ais.Spec.TLSSecretName != nil),
+							StartupProbe:    cmn.NewStartupProbe(ais, aisapc.Target),
+							LivenessProbe:   cmn.NewLivenessProbe(ais, aisapc.Target),
+							ReadinessProbe:  cmn.NewReadinessProbe(ais, aisapc.Target),
 						},
 					},
 					HostNetwork:        hostNetwork,
@@ -171,28 +171,6 @@ func volumeMounts(ais *aisv1.AIStore) []corev1.VolumeMount {
 		})
 	}
 	return vols
-}
-
-func readinessProbe(port intstr.IntOrString, useHTTPS bool) *corev1.Probe {
-	scheme := corev1.URISchemeHTTP
-	if useHTTPS {
-		scheme = corev1.URISchemeHTTPS
-	}
-
-	return &corev1.Probe{
-		ProbeHandler: corev1.ProbeHandler{
-			HTTPGet: &corev1.HTTPGetAction{
-				Path:   "/v1/health?readiness=true",
-				Port:   port,
-				Scheme: scheme,
-			},
-		},
-		InitialDelaySeconds: 15,
-		PeriodSeconds:       5,
-		FailureThreshold:    8,
-		TimeoutSeconds:      5,
-		SuccessThreshold:    1,
-	}
 }
 
 func targetVC(ais *aisv1.AIStore) []corev1.PersistentVolumeClaim {
