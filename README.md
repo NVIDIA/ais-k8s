@@ -11,7 +11,6 @@ This repository includes a variety of resources to facilitate your deployment:
 - [**Kubernetes Operator**](operator/README.md): AIS K8s Operator simplifies critical tasks such as bootstrapping, deployment, scaling, graceful shutdowns, and upgrades. It extends Kubernetes' native API, automating the lifecycle management of AIStore clusters.
 - [**Helm Charts**](helm/README.md): **[In development]**. Helm charts for deploying AIS resources to be controlled by the operator (alternative to ansible).
 - [**Monitoring**](monitoring/README.md): This guide provides detailed instructions on how to monitor AIStore using both command-line tools and a Kubernetes-based monitoring stack.
-- [**Terraform Definitions**](terraform/README.md): These definitions facilitate the deployment of AIStore on public cloud platforms like GKE/GCP. **[No Longer Supported]**
 
 ## A Simple System Overview
 
@@ -32,11 +31,3 @@ To successfully implement a multi-node deployment of AIStore in a production env
 The AIS Operator is a key component in the ais-k8s system. It helps manage everything in an AIStore cluster, making tasks like starting, deploying, adjusting size, shutting down smoothly, and updating easier. It effectively handles AIStore resources within Kubernetes, adding to the Kubernetes API to fully automate the AIStore's lifecycle.
 
 > Important: Our deployment guide focuses on using the AIStore Operator for an easy and integrated setup process.
-
-## AIStore Cloud Deployment with Terraform (No Longer Supported)
-
-> Notice: We are no longer updating our Terraform definitions and scripts. We suggest using the [AIS Operator](operator/README.md) alongside [Ansible Playbooks](playbooks/README.md) for setting up and managing AIStore Clusters. However, we aim to resume support for Terraform soon.
-
-Our Terraform resources were previously designed to facilitate the deployment of AIStore clusters on Kubernetes within a cloud environment. This approach involved using Terraform to establish a Kubernetes cluster on your chosen cloud provider, followed by the deployment of AIStore onto Kubernetes using `kubectl` and `helm`. 
-
-If you encounter any problems during the deployment process or in `AIS Operator`, feel free to report them on the [AIStore repository's issues page](https://github.com/NVIDIA/aistore/issues).
