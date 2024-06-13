@@ -98,8 +98,7 @@ func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
 					cmn.EnvFromValue(cmn.EnvProxyServicePort, ais.Spec.ProxySpec.ServicePort.String()),
 					cmn.EnvFromValue(cmn.EnvDefaultPrimaryPod, ais.DefaultPrimaryName()),
 				}, optionals...),
-				Args:         []string{"-c", "/bin/bash /var/ais_config_template/set_initial_primary_proxy_env.sh"},
-				Command:      []string{"/bin/bash"},
+				Args:         cmn.NewInitContainerArgs(aisapc.Proxy, ais.Spec.HostnameMap),
 				VolumeMounts: cmn.NewInitVolumeMounts(ais, aisapc.Proxy),
 			},
 		},
@@ -108,6 +107,13 @@ func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
 				Name:            "ais-node",
 				Image:           ais.Spec.NodeImage,
 				ImagePullPolicy: corev1.PullAlways,
+				Command:         []string{"aisnode"},
+				Args: []string{
+					"-config=/var/ais_config/ais.json",
+					"-local_config=/var/ais_config/ais_local.json",
+					fmt.Sprintf("-ntargets=%d", ais.GetTargetSize()),
+					"-role=" + aisapc.Proxy,
+				},
 				Env: append([]corev1.EnvVar{
 					cmn.EnvFromFieldPath(cmn.EnvPodName, "metadata.name"),
 					cmn.EnvFromValue(cmn.EnvNS, ais.Namespace),

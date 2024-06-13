@@ -40,6 +40,7 @@ all: manager
 require-img:
 	@[ "${IMG}" ] || ( echo "IMG must be set for this make target"; exit 1 )
 
+
 # Run tests
 test: generate fmt vet manifests test-suite-deps
 	@$(SHELL) "$(SCRIPTS_DIR)/test.sh"
@@ -99,7 +100,7 @@ bundle-manifests: require-img kustomize manifests
 	mkdir -p dist/
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
 	$(KUSTOMIZE) build config/default > dist/ais-operator.yaml
-	
+
 bundle-manifests-helm: helm helmify bundle-manifests
 	mkdir -p dist/charts/
 	cat dist/ais-operator.yaml | $(HELMIFY) dist/charts/ais-operator
@@ -184,7 +185,7 @@ HELMIFY = $(LOCALBIN)/helmify
 .PHONY: helmify
 helmify:
 	$(call go-get-tool,$(HELMIFY),github.com/arttor/helmify/cmd/helmify@latest)
-    
+
 
 # go-get-tool will 'go get' any package $2 and install it to bin/ if $1 does not exist.
 define go-get-tool
@@ -226,3 +227,16 @@ bundle: require-img manifests kustomize
 .PHONY: bundle-build
 bundle-build:
 	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
+
+
+require-init-img:
+	@[ "${INIT_IMG}" ] || ( echo "INIT_IMG must be set for this make target"; exit 1 )
+
+aisinit:
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build  -ldflags "-w -s -X 'main.build=${BUILD_VERSION}' -X 'main.buildtime=${BUILD_TIME}'" -a -o bin/aisinit cmd/aisinit/main.go
+
+docker-build-aisinit: require-init-img
+	docker build -f cmd/aisinit/Dockerfile -t ${INIT_IMG} .
+
+docker-push-aisinit:
+	docker push ${INIT_IMG}

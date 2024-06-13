@@ -25,6 +25,14 @@ const (
 	gcpSecretVolume      = "gcp-creds"
 	tlsSecretVolume      = "tls-certs"
 	logsVolume           = "logs-dir"
+
+	configTemplateDir = "/var/ais_config_template"
+	globalConfigDir   = "/var/global_config"
+	aisConfigDir      = "/var/ais_config"
+
+	aisGlobalConfigFileName = "ais.json"
+	aisLocalConfigName      = "ais_local.json"
+	hostnameMapFileName     = "hostname_map.json"
 )
 
 func NewAISVolumes(ais *aisv1.AIStore, daeType string) []corev1.Volume {
@@ -144,7 +152,7 @@ func NewAISLivenessProbe() *corev1.Probe {
 	return &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
 			Exec: &corev1.ExecAction{
-				Command: []string{"/bin/bash", "/var/ais_config/ais_liveness.sh"},
+				Command: []string{"/bin/bash", path.Join(aisConfigDir, "ais_liveness.sh")},
 			},
 		},
 		InitialDelaySeconds: 90,
@@ -169,21 +177,21 @@ func NewAISVolumeMounts(ais *aisv1.AIStore, daeType string) []corev1.VolumeMount
 	volumeMounts := []corev1.VolumeMount{
 		{
 			Name:      configVolume,
-			MountPath: "/var/ais_config",
+			MountPath: aisConfigDir,
 		},
 		{
 			Name:      configGlobalVolume,
-			MountPath: "/var/ais_config/ais.json",
-			SubPath:   "ais.json",
+			MountPath: path.Join(aisConfigDir, aisGlobalConfigFileName),
+			SubPath:   aisGlobalConfigFileName,
 		},
 		{
 			Name:      configGlobalVolume,
-			MountPath: "/var/ais_config/ais_liveness.sh",
+			MountPath: path.Join(aisConfigDir, "ais_liveness.sh"),
 			SubPath:   "ais_liveness.sh",
 		},
 		{
 			Name:      configGlobalVolume,
-			MountPath: "/var/ais_config/ais_readiness.sh",
+			MountPath: path.Join(aisConfigDir, "ais_readiness.sh"),
 			SubPath:   "ais_readiness.sh",
 		},
 		{
@@ -256,21 +264,33 @@ func NewAISVolumeMounts(ais *aisv1.AIStore, daeType string) []corev1.VolumeMount
 	return volumeMounts
 }
 
+func NewInitContainerArgs(daeType string, hostnameMap map[string]string) []string {
+	args := []string{
+		"-role=" + daeType,
+		"-local_config_template=" + path.Join(configTemplateDir, aisLocalConfigName),
+		"-output_local_config=" + path.Join(aisConfigDir, aisLocalConfigName),
+	}
+	if len(hostnameMap) != 0 {
+		args = append(args, "-hostname_map_file="+path.Join(globalConfigDir, hostnameMapFileName))
+	}
+	return args
+}
+
 func NewInitVolumeMounts(ais *aisv1.AIStore, daeType string) []corev1.VolumeMount {
 	hostMountSubPath := getHostMountSubPath(daeType)
 
 	volumeMounts := []corev1.VolumeMount{
 		{
 			Name:      configVolume,
-			MountPath: "/var/ais_config",
+			MountPath: aisConfigDir,
 		},
 		{
 			Name:      configTemplateVolume,
-			MountPath: "/var/ais_config_template",
+			MountPath: configTemplateDir,
 		},
 		{
 			Name:      configGlobalVolume,
-			MountPath: "/var/global_config",
+			MountPath: globalConfigDir,
 		},
 	}
 

@@ -53,8 +53,7 @@ func NewTargetCM(ais *aisv1.AIStore) (*corev1.ConfigMap, error) {
 			Namespace: ais.Namespace,
 		},
 		Data: map[string]string{
-			"set_initial_target_env.sh": initTargetSh,
-			"ais_local.json":            localConfStr,
+			"ais_local.json": localConfStr,
 		},
 	}, nil
 }

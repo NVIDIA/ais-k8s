@@ -10,6 +10,7 @@ on:
 
 env:
   AISOPERATOR_IMAGE: 'aistorage/ais-operator'
+  AISINIT_IMAGE: 'aistorage/ais-init'
 
 jobs:
   docker:
@@ -30,4 +31,10 @@ jobs:
       run: |
         pushd $GITHUB_WORKSPACE/operator
         IMG="${{ env.AISOPERATOR_IMAGE }}:${{ inputs.image_tag }}" make docker-build docker-push
+        popd
+
+    - name: ais-init image
+      run: |
+        pushd $GITHUB_WORKSPACE/operator
+        INIT_IMG="${{ env.AISINIT_IMAGE }}:${{ inputs.image_tag }}" make docker-build-aisinit docker-push-aisinit
         popd

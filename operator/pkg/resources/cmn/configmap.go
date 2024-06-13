@@ -53,10 +53,9 @@ func NewGlobalCM(ais *aisv1.AIStore, toUpdate *aiscmn.ConfigToSet) (*corev1.Conf
 			Namespace: ais.Namespace,
 		},
 		Data: map[string]string{
-			"ais.json":           conf,
-			"ais_liveness.sh":    livenessSh,
-			"ais_readiness.sh":   readinessSh,
-			"hostname_lookup.sh": hostnameMapSh,
+			aisGlobalConfigFileName: conf,
+			"ais_liveness.sh":       livenessSh,
+			"ais_readiness.sh":      readinessSh,
 		},
 	}
 	if ais.Spec.HostnameMap != nil {
@@ -64,7 +63,7 @@ func NewGlobalCM(ais *aisv1.AIStore, toUpdate *aiscmn.ConfigToSet) (*corev1.Conf
 		if err != nil {
 			return nil, err
 		}
-		cm.Data["hostname_map.json"] = hostnameMap
+		cm.Data[hostnameMapFileName] = hostnameMap
 	}
 	return cm, nil
 }

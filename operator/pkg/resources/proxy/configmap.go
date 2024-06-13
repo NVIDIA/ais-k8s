@@ -37,8 +37,7 @@ func NewProxyCM(ais *aisv1.AIStore) (*corev1.ConfigMap, error) {
 			Namespace: ais.Namespace,
 		},
 		Data: map[string]string{
-			"ais_local.json":                   confLocal,
-			"set_initial_primary_proxy_env.sh": initProxySh,
+			"ais_local.json": confLocal,
 		},
 	}, nil
 }

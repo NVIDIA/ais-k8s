@@ -108,11 +108,7 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 								cmn.EnvFromValue(cmn.EnvProxyServiceName, proxy.HeadlessSVCName(ais)),
 								cmn.EnvFromValue(cmn.EnvProxyServicePort, ais.Spec.ProxySpec.ServicePort.String()),
 							}, optionals...),
-							Args: []string{
-								"-c",
-								"/bin/bash /var/ais_config_template/set_initial_target_env.sh",
-							},
-							Command:      []string{"/bin/bash"},
+							Args:         cmn.NewInitContainerArgs(aisapc.Target, ais.Spec.HostnameMap),
 							VolumeMounts: cmn.NewInitVolumeMounts(ais, aisapc.Target),
 						},
 					},
@@ -121,6 +117,12 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 							Name:            "ais-node",
 							Image:           ais.Spec.NodeImage,
 							ImagePullPolicy: corev1.PullAlways,
+							Command:         []string{"aisnode"},
+							Args: []string{
+								"-config=/var/ais_config/ais.json",
+								"-local_config=/var/ais_config/ais_local.json",
+								"-role=" + aisapc.Target,
+							},
 							Env: append([]corev1.EnvVar{
 								cmn.EnvFromFieldPath(cmn.EnvPodName, "metadata.name"),
 								cmn.EnvFromValue(cmn.EnvClusterDomain, ais.GetClusterDomain()),

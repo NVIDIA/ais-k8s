@@ -53,17 +53,4 @@ const (
 	[[ "${stat}" == "200" ]] && exit 0
 	exit 1
  `
-	hostnameMapSh = `
-	#!/bin/bash
-	# Lookup the primary hostname in the hostname config map
-	hostname_map="/var/global_config/hostname_map.json"
-	if [ -f "$hostname_map" ]; then
-		# Check if the key exists in the JSON, export matching hostname list
-		if jq -e --arg key "$AIS_PUBLIC_HOSTNAME" 'has($key)' "$hostname_map" > /dev/null; then
-			value=$(jq -r --arg key "$AIS_PUBLIC_HOSTNAME" '.[$key]' "$hostname_map")
-			echo "Setting AIS_PUBLIC_HOSTNAME to value from configMap: ${value}"
-			export AIS_PUBLIC_HOSTNAME="$value"
-		fi
-	fi
-`
 )
