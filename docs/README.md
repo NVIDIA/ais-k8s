@@ -3,7 +3,7 @@
 This document provides comprehensive, step-by-step guidance for deploying [AIStore](https://github.com/NVIDIA/aistore) clusters on Kubernetes (K8s). With a little bit of planning and preparation, AIStore can be optimally deployed on K8s, so let's embark on this journey together.
 
 
-# Contents
+## Contents
 
 1. [**AIStore K8s Deployment Guide**](#aistore-k8s-deployment-guide)
 2. [**Key Points to Remember**](#key-points-to-remember)
@@ -17,14 +17,7 @@ This document provides comprehensive, step-by-step guidance for deploying [AISto
    - [AIStore Cluster Creation Process](#aistore-cluster-creation-process)
    - [Setting Up a Debugging Pod](#setting-up-a-debugging-pod)
 5. [**Post-Deployment Steps**](#post-deployment-steps)
-   - [Monitoring - Using CLI](#monitoring-using-cli)
-   - [Monitoring - Using kube-prometheus-stack](#monitoring-using-kube-prometheus-stack)
-     - [Node Labeling for Monitoring](#node-labeling-for-monitoring)
-     - [Creating a Monitoring Namespace](#creating-a-monitoring-namespace)
-     - [Deploy kube-prometheus-stack](#deploy-kube-prometheus-stack)
-     - [Configuring Prometheus (Pod) Monitors](#configuring-prometheus-pod-monitors)
-     - [Accessing Prometheus UI](#accessing-prometheus-ui)
-     - [Setting Up Grafana Dashboard](#setting-up-grafana-dashboard)
+   - [Monitoring](#monitoring)
    - [Performance Testing with aisloader](#performance-testing-with-aisloader)
 
 ## Key Points to Remember:
