@@ -6,6 +6,7 @@ package tutils
 
 import (
 	"context"
+	"path"
 	"strconv"
 
 	"github.com/NVIDIA/aistore/api/apc"
@@ -37,23 +38,22 @@ type (
 		CleanupData         bool
 		// Create a cluster with more PVs than targets for future scaling
 		MaxPVs int32
+		// Where to mount the hostpath storage for actual storage PVs
+		StorageHostPath string
 		// For testing deprecated feature
 		AllowSharedOrNoDisks bool
 	}
 )
 
 func NewAISCluster(args ClusterSpecArgs, client *aisclient.K8sClient) (*aisv1.AIStore, []*corev1.PersistentVolume) {
-	var (
-		storage *string
-		pvNum   int
-	)
-	if args.StorageClass != "" {
-		storage = &args.StorageClass
-	}
+	mounts := defineMounts(args)
+	pvs := createStoragePVs(args, client, mounts)
+	return newAISClusterCR(args, mounts), pvs
+}
 
-	if args.MaxPVs != 0 {
-		pvNum = int(args.MaxPVs)
-	} else {
+func createStoragePVs(args ClusterSpecArgs, client *aisclient.K8sClient, mounts []aisv1.Mount) []*corev1.PersistentVolume {
+	pvNum := int(args.MaxPVs)
+	if pvNum == 0 {
 		if args.TargetSize != 0 {
 			pvNum = int(args.TargetSize)
 		} else {
@@ -61,14 +61,12 @@ func NewAISCluster(args ClusterSpecArgs, client *aisclient.K8sClient) (*aisv1.AI
 		}
 	}
 
-	mounts := defineMounts(storage, !args.AllowSharedOrNoDisks)
-
 	pvs := make([]*corev1.PersistentVolume, 0, len(mounts)*pvNum)
 
 	for i := 0; i < pvNum; i++ {
 		for _, mount := range mounts {
 			pvData := PVData{
-				storageClass: *storage,
+				storageClass: args.StorageClass,
 				ns:           args.Namespace,
 				cluster:      args.Name,
 				mpath:        mount.Path,
@@ -76,30 +74,35 @@ func NewAISCluster(args ClusterSpecArgs, client *aisclient.K8sClient) (*aisv1.AI
 				size:         mount.Size,
 			}
 			// Create required PVs
-			pv, err := CreatePV(context.Background(), client, &pvData)
-			if err == nil {
+			if pv, err := CreatePV(context.Background(), client, &pvData); err == nil {
 				pvs = append(pvs, pv)
 			}
 		}
 	}
-	return newAISClusterCR(args, mounts), pvs
+	return pvs
 }
 
-func defineMounts(storage *string, useLabels bool) []aisv1.Mount {
-	mpathLabel := "disk1"
+func defineMounts(args ClusterSpecArgs) []aisv1.Mount {
+	var storagePrefix string
+	if args.StorageHostPath == "" {
+		storagePrefix = "/etc/ais"
+	} else {
+		storagePrefix = args.StorageHostPath
+	}
 	mounts := []aisv1.Mount{
 		{
-			Path:         "/ais1",
+			Path:         path.Join(storagePrefix, "ais1"),
 			Size:         resource.MustParse("2Gi"),
-			StorageClass: storage,
+			StorageClass: &args.StorageClass,
 		},
 		{
-			Path:         "/ais2",
+			Path:         path.Join(storagePrefix, "ais2"),
 			Size:         resource.MustParse("1Gi"),
-			StorageClass: storage,
+			StorageClass: &args.StorageClass,
 		},
 	}
-	if useLabels {
+	mpathLabel := "disk1"
+	if !args.AllowSharedOrNoDisks {
 		for i := range mounts {
 			mounts[i].Label = &mpathLabel
 		}
@@ -109,13 +112,13 @@ func defineMounts(storage *string, useLabels bool) []aisv1.Mount {
 
 func newAISClusterCR(args ClusterSpecArgs, mounts []aisv1.Mount) *aisv1.AIStore {
 	spec := aisv1.AIStoreSpec{
-		Size:             &args.Size,
-		ShutdownCluster:  apc.Ptr(args.ShutdownCluster),
-		CleanupData:      apc.Ptr(args.CleanupData),
-		NodeImage:        aisNodeImage,
-		InitImage:        aisInitImage,
-		HostpathPrefix:   apc.Ptr("/etc/ais"),
-		EnableExternalLB: args.EnableExternalLB,
+		Size:              &args.Size,
+		ShutdownCluster:   apc.Ptr(args.ShutdownCluster),
+		CleanupData:       apc.Ptr(args.CleanupData),
+		NodeImage:         aisNodeImage,
+		InitImage:         aisInitImage,
+		StateStorageClass: apc.Ptr("local-path"),
+		EnableExternalLB:  args.EnableExternalLB,
 		ProxySpec: aisv1.DaemonSpec{
 			ServiceSpec: aisv1.ServiceSpec{
 				ServicePort:      intstr.FromInt32(51080),

@@ -92,7 +92,7 @@ func (r *AIStoreReconciler) waitForDNSEntry(ctx context.Context, clusterDomain s
 	hostname := fmt.Sprintf("%s.%s.svc.%s", svc.Name, svc.Namespace, clusterDomain)
 	return wait.PollUntilContextTimeout(ctx, retryInterval, timeout, true /*immediate*/, func(_ context.Context) (done bool, err error) {
 		if _, err = net.LookupIP(hostname); err != nil {
-			r.log.Error(err, "Failed to lookup DNS entry for service", "hostname", hostname)
+			r.log.Info("Waiting for proxy service DNS entry...", "hostname", hostname)
 			return false, nil
 		}
 		return true, nil // DNS entry found

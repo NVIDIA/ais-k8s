@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -19,6 +20,7 @@ import (
 	"github.com/ais-operator/pkg/resources/proxy"
 	"github.com/ais-operator/pkg/resources/target"
 	. "github.com/onsi/gomega"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -422,4 +424,103 @@ func GetRandomProxyIP(ctx context.Context, client *aisclient.K8sClient, cluster 
 	Expect(err).NotTo(HaveOccurred())
 	Expect(pod.Status.PodIP).NotTo(Equal(""))
 	return pod.Status.PodIP
+}
+
+func CreateCleanupJob(nodeName, namespace, hostPath string) *batchv1.Job {
+	hostVolumeName := "host-volume"
+	ttl := int32(0)
+	parentDir := filepath.Dir(hostPath)
+	pipelineDir := filepath.Base(hostPath)
+
+	affinity := &corev1.Affinity{
+		NodeAffinity: &corev1.NodeAffinity{
+			RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+				NodeSelectorTerms: []corev1.NodeSelectorTerm{
+					{
+						MatchExpressions: []corev1.NodeSelectorRequirement{
+							{
+								Key:      "kubernetes.io/hostname",
+								Operator: corev1.NodeSelectorOpIn,
+								Values:   []string{nodeName},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	hostVolume := corev1.Volume{
+		Name: hostVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			HostPath: &corev1.HostPathVolumeSource{
+				Path: parentDir,
+			},
+		},
+	}
+
+	deletionContainer := corev1.Container{
+		Name:  "delete-files",
+		Image: "busybox",
+		Command: []string{
+			"sh", "-c", fmt.Sprintf("rm -rf %s", hostPath),
+		},
+		VolumeMounts: []corev1.VolumeMount{
+			{
+				Name:      hostVolumeName,
+				MountPath: parentDir,
+			},
+		},
+	}
+
+	jobSpec := batchv1.JobSpec{
+		TTLSecondsAfterFinished: &ttl,
+		Template: corev1.PodTemplateSpec{
+			Spec: corev1.PodSpec{
+				Affinity: affinity,
+				Containers: []corev1.Container{
+					deletionContainer,
+				},
+				RestartPolicy: corev1.RestartPolicyNever,
+				Volumes: []corev1.Volume{
+					hostVolume,
+				},
+			},
+		},
+	}
+
+	return &batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("test-cleanup-%s-%s", nodeName, pipelineDir),
+			Namespace: namespace,
+		},
+		Spec: jobSpec,
+	}
+}
+
+func checkJobExists(ctx context.Context, client *aisclient.K8sClient, job *batchv1.Job) (bool, error) {
+	jobList, err := client.ListJobsInNamespace(ctx, job.Namespace)
+	if err != nil {
+		fmt.Printf("Error listing jobs: %v", err)
+		return false, err
+	}
+	for i := range jobList.Items {
+		if job.Name == jobList.Items[i].Name {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func EventuallyJobNotExists(ctx context.Context, client *aisclient.K8sClient,
+	job *batchv1.Job, intervals ...interface{},
+) {
+	Eventually(func() bool {
+		exists, err := checkJobExists(ctx, client, job)
+		if err != nil {
+			fmt.Printf("Error checking job existence: %v", err)
+			// Return true to keep checking
+			return true
+		}
+		return exists
+	}, intervals...).Should(BeFalse())
 }

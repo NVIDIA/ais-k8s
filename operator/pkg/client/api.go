@@ -13,6 +13,7 @@ import (
 	"github.com/ais-operator/pkg/resources/proxy"
 	"github.com/ais-operator/pkg/resources/target"
 	apiv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -73,6 +74,12 @@ func (c *K8sClient) ListTargetPods(ctx context.Context, ais *aisv1.AIStore) (*co
 	podList := &corev1.PodList{}
 	err := c.client.List(ctx, podList, client.InNamespace(ais.Namespace), client.MatchingLabels(target.PodLabels(ais)))
 	return podList, err
+}
+
+func (c *K8sClient) ListJobsInNamespace(ctx context.Context, namespace string) (*batchv1.JobList, error) {
+	jobList := &batchv1.JobList{}
+	err := c.client.List(ctx, jobList, client.InNamespace(namespace))
+	return jobList, err
 }
 
 func (c *K8sClient) GetStatefulSet(ctx context.Context, name types.NamespacedName) (*apiv1.StatefulSet, error) {

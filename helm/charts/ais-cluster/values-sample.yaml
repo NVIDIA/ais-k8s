@@ -37,6 +37,3 @@ ais-cluster:
   # stateStorageClass defines an existing storage class for dynamic creation of k8s volumes
   stateStorageClass: "local-path"
   cleanupData: false
-    
-
-

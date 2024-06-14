@@ -21,6 +21,7 @@ import (
 	"github.com/ais-operator/tests/tutils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -39,6 +40,7 @@ var (
 	testCtx   *testing.T
 
 	storageClass         string // storage-class to use in tests
+	storageHostPath      string // where to mount hostpath test storage
 	testNS               *corev1.Namespace
 	nsExists             bool
 	testAsExternalClient bool
@@ -50,8 +52,9 @@ const (
 
 	EnvTestEnforceExternal = "TEST_EXTERNAL_CLIENT" // if set, will force the test suite to run as external client to deployed k8s cluster.
 	EnvTestStorageClass    = "TEST_STORAGECLASS"
-
-	BeforeSuiteTimeout = 60
+	//
+	EnvTestStorageHostPath = "TEST_STORAGE_HOSTPATH"
+	BeforeSuiteTimeout     = 60
 )
 
 func TestAPIs(t *testing.T) {
@@ -70,6 +73,13 @@ func setStorageClass() {
 	} else if storageClass == "" {
 		storageClass = "ais-operator-test-storage"
 		tutils.CreateAISStorageClass(context.Background(), k8sClient, storageClass)
+	}
+}
+
+func setStorageHostPath() {
+	storageHostPath = os.Getenv(EnvTestStorageHostPath)
+	if storageHostPath == "" {
+		storageHostPath = "/etc/ais/" + strings.ToLower(cos.CryptoRandS(6))
 	}
 }
 
@@ -127,6 +137,7 @@ var _ = BeforeSuite(func() {
 		By("Bootstrapping test environment")
 		testEnv = &envtest.Environment{
 			CRDDirectoryPaths: []string{filepath.Join("..", "..", "config", "crd", "bases")},
+			CRDInstallOptions: envtest.CRDInstallOptions{CleanUpAfterUse: true},
 		}
 
 		cfg, err := testEnv.Start()
@@ -174,6 +185,7 @@ var _ = BeforeSuite(func() {
 		// NOTE: On gitlab, tests run in a pod inside minikube cluster. In that case we can run the tests as an internal client, unless enforced to test as external client.
 		testAsExternalClient = cos.IsParseBool(os.Getenv(EnvTestEnforceExternal)) || aisk8s.IsK8s()
 		setStorageClass()
+		setStorageHostPath()
 
 		close(done)
 	}()
@@ -181,8 +193,33 @@ var _ = BeforeSuite(func() {
 	Eventually(done, BeforeSuiteTimeout).Should(BeClosed())
 })
 
+// Statically created hostPath volumes have no reclaim policy to clean up the actual files on host, so this creates a
+// job to mount the host path and delete any files created by the test suite
+func CleanPVHostPath() {
+	nodes, err := k8sClient.ListNodesMatchingSelector(context.Background(), nil)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to list nodes to run cleanup; err %v\n", err)
+		return
+	}
+	jobs := make([]*batchv1.Job, len(nodes.Items))
+	for i := range nodes.Items {
+		nodeName := nodes.Items[i].Name
+		fmt.Fprintf(os.Stdout, "Starting job to clean up host path %s on node %s\n", storageHostPath, nodeName)
+		jobs[i] = tutils.CreateCleanupJob(nodeName, testNSName, storageHostPath)
+		if err = k8sClient.Create(context.Background(), jobs[i]); err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to create cleanup job %s; err %v\n", jobs[i].Name, err)
+		}
+	}
+	jobFinishTimeout := 2 * time.Minute
+	jobFinishInterval := 10 * time.Second
+	for _, job := range jobs {
+		tutils.EventuallyJobNotExists(context.Background(), k8sClient, job, jobFinishTimeout, jobFinishInterval)
+	}
+}
+
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")
+	CleanPVHostPath()
 	if !nsExists && testNS != nil {
 		_, err := k8sClient.DeleteResourceIfExists(context.Background(), testNS)
 		Expect(err).NotTo(HaveOccurred())

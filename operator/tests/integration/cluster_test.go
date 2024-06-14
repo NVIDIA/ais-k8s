@@ -90,11 +90,10 @@ var _ = Describe("Run Controller", func() {
 			})
 
 			It("Should successfully create an hetero-sized AIS Cluster", Label("short"), func() {
-				args := defaultCluArgs()
-				args.TargetSize = 2
-				args.ProxySize = 1
-				args.DisableAntiAffinity = true
-				cluster, pvs := tutils.NewAISCluster(args, k8sClient)
+				cluArgs := defaultCluArgs()
+				cluArgs.TargetSize = 2
+				cluArgs.ProxySize = 1
+				cluster, pvs := tutils.NewAISCluster(cluArgs, k8sClient)
 				createAndDestroyCluster(cluster, pvs, nil, nil, false)
 			})
 
@@ -118,13 +117,8 @@ var _ = Describe("Run Controller", func() {
 		Context("with externalLB", Label("short"), func() {
 			It("Should successfully create an AIS Cluster with required K8s objects", func() {
 				tutils.CheckSkip(&tutils.SkipArgs{RequiresLB: true})
-				cluArgs := tutils.ClusterSpecArgs{
-					Name:             clusterName(),
-					Namespace:        testNSName,
-					StorageClass:     storageClass,
-					Size:             1,
-					EnableExternalLB: true,
-				}
+				cluArgs := defaultCluArgs()
+				cluArgs.EnableExternalLB = true
 				cluster, pvs := tutils.NewAISCluster(cluArgs, k8sClient)
 				createAndDestroyCluster(cluster, pvs, checkResExists, checkResShouldNotExist, true)
 			})
@@ -184,14 +178,8 @@ var _ = Describe("Run Controller", func() {
 		Context("without externalLB", Label("long"), func() {
 			It("Should be able to scale-up existing cluster", func() {
 				tutils.CheckSkip(&tutils.SkipArgs{SkipInternal: testAsExternalClient})
-				cluArgs := tutils.ClusterSpecArgs{
-					Name:                clusterName(),
-					Namespace:           testNSName,
-					StorageClass:        storageClass,
-					Size:                1,
-					DisableAntiAffinity: true,
-					MaxPVs:              2,
-				}
+				cluArgs := defaultCluArgs()
+				cluArgs.MaxPVs = 2
 				cluster, pvs := tutils.NewAISCluster(cluArgs, k8sClient)
 				scaleUpCluster := func(ctx context.Context, cluster *aisv1.AIStore) {
 					scaleCluster(ctx, cluster, false, 1)
@@ -201,14 +189,8 @@ var _ = Describe("Run Controller", func() {
 
 			It("Should be able to scale-up targets of existing cluster", func() {
 				tutils.CheckSkip(&tutils.SkipArgs{SkipInternal: testAsExternalClient})
-				cluArgs := tutils.ClusterSpecArgs{
-					Name:                clusterName(),
-					Namespace:           testNSName,
-					StorageClass:        storageClass,
-					Size:                1,
-					DisableAntiAffinity: true,
-					MaxPVs:              2,
-				}
+				cluArgs := defaultCluArgs()
+				cluArgs.MaxPVs = 2
 				cluster, pvs := tutils.NewAISCluster(cluArgs, k8sClient)
 				scaleUpCluster := func(ctx context.Context, cluster *aisv1.AIStore) {
 					scaleCluster(ctx, cluster, true, 1)
@@ -218,13 +200,8 @@ var _ = Describe("Run Controller", func() {
 
 			It("Should be able to scale-down existing cluster", func() {
 				tutils.CheckSkip(&tutils.SkipArgs{SkipInternal: testAsExternalClient})
-				cluArgs := tutils.ClusterSpecArgs{
-					Name:                clusterName(),
-					Namespace:           testNSName,
-					StorageClass:        storageClass,
-					Size:                2,
-					DisableAntiAffinity: true,
-				}
+				cluArgs := defaultCluArgs()
+				cluArgs.Size = 2
 				cluster, pvs := tutils.NewAISCluster(cluArgs, k8sClient)
 				scaleDownCluster := func(ctx context.Context, cluster *aisv1.AIStore) {
 					scaleCluster(ctx, cluster, false, -1)
@@ -236,15 +213,9 @@ var _ = Describe("Run Controller", func() {
 		Context("with externalLB", Label("long"), func() {
 			It("Should be able to scale-up existing cluster", func() {
 				tutils.CheckSkip(&tutils.SkipArgs{RequiresLB: true})
-				cluArgs := tutils.ClusterSpecArgs{
-					Name:                clusterName(),
-					Namespace:           testNSName,
-					StorageClass:        storageClass,
-					Size:                1,
-					DisableAntiAffinity: true,
-					EnableExternalLB:    true,
-					MaxPVs:              2,
-				}
+				cluArgs := defaultCluArgs()
+				cluArgs.EnableExternalLB = true
+				cluArgs.MaxPVs = 2
 				cluster, pvs := tutils.NewAISCluster(cluArgs, k8sClient)
 				scaleUpCluster := func(ctx context.Context, cluster *aisv1.AIStore) {
 					scaleCluster(ctx, cluster, false, 1)
@@ -254,14 +225,9 @@ var _ = Describe("Run Controller", func() {
 
 			It("Should be able to scale-down existing cluster", func() {
 				tutils.CheckSkip(&tutils.SkipArgs{RequiresLB: true})
-				cluArgs := tutils.ClusterSpecArgs{
-					Name:                clusterName(),
-					Namespace:           testNSName,
-					StorageClass:        storageClass,
-					Size:                2,
-					DisableAntiAffinity: true,
-					EnableExternalLB:    true,
-				}
+				cluArgs := defaultCluArgs()
+				cluArgs.Size = 2
+				cluArgs.EnableExternalLB = true
 				cluster, pvs := tutils.NewAISCluster(cluArgs, k8sClient)
 				scaleDownCluster := func(ctx context.Context, cluster *aisv1.AIStore) {
 					scaleCluster(ctx, cluster, false, -1)
@@ -273,14 +239,9 @@ var _ = Describe("Run Controller", func() {
 
 	Describe("Data-safety tests", Label("long"), func() {
 		It("Re-deploying same cluster must retain data", func() {
-			cluArgs := tutils.ClusterSpecArgs{
-				Name:             clusterName(),
-				Namespace:        testNSName,
-				StorageClass:     storageClass,
-				Size:             1,
-				EnableExternalLB: testAsExternalClient,
-				CleanupData:      false,
-			}
+			cluArgs := defaultCluArgs()
+			cluArgs.EnableExternalLB = testAsExternalClient
+			cluArgs.CleanupData = false
 			cc, pvs := newClientCluster(cluArgs)
 			cc.create()
 			// put objects
@@ -316,14 +277,9 @@ var _ = Describe("Run Controller", func() {
 		})
 
 		It("Cluster scale down should ensure data safety", func() {
-			cluArgs := tutils.ClusterSpecArgs{
-				Name:                clusterName(),
-				Namespace:           testNSName,
-				StorageClass:        storageClass,
-				Size:                2,
-				DisableAntiAffinity: true,
-				EnableExternalLB:    testAsExternalClient,
-			}
+			cluArgs := defaultCluArgs()
+			cluArgs.Size = 2
+			cluArgs.EnableExternalLB = testAsExternalClient
 			cc, pvs := newClientCluster(cluArgs)
 			cc.create()
 			// put objects
@@ -357,15 +313,9 @@ var _ = Describe("Run Controller", func() {
 		})
 
 		It("Re-deploying with CleanupData should wipe out all data", func() {
-			// Define CleanupData to wipe when we destroy the cluster
-			cluArgs := tutils.ClusterSpecArgs{
-				Name:             clusterName(),
-				Namespace:        testNSName,
-				StorageClass:     storageClass,
-				Size:             1,
-				EnableExternalLB: testAsExternalClient,
-				CleanupData:      true,
-			}
+			// Default sets CleanupData to true -- wipe when we destroy the cluster
+			cluArgs := defaultCluArgs()
+			cluArgs.EnableExternalLB = testAsExternalClient
 			cc, pvs := newClientCluster(cluArgs)
 			cc.create()
 			// Create bucket
@@ -410,11 +360,13 @@ func clusterName() string {
 
 func defaultCluArgs() tutils.ClusterSpecArgs {
 	return tutils.ClusterSpecArgs{
-		Name:         clusterName(),
-		Namespace:    testNSName,
-		StorageClass: storageClass,
-		Size:         1,
-		CleanupData:  true,
+		Name:                clusterName(),
+		Namespace:           testNSName,
+		StorageClass:        storageClass,
+		StorageHostPath:     storageHostPath,
+		Size:                1,
+		CleanupData:         true,
+		DisableAntiAffinity: true,
 	}
 }
 

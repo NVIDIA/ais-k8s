@@ -15,6 +15,7 @@ before_script:
   - apt-get update -y --allow-releaseinfo-change && apt install -y docker.io build-essential
   - nohup dockerd >/dev/null 2>&1 & sleep 10
   - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD
+  - kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.27/deploy/local-path-storage.yaml
 
 .default_only_template: &default_only_def
   only:

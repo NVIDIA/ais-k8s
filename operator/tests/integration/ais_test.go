@@ -54,14 +54,8 @@ var _ = Describe("Client tests", Ordered, Label("short"), func() {
 		pvs []*corev1.PersistentVolume
 	)
 	BeforeAll(func() {
-		cluArgs := tutils.ClusterSpecArgs{
-			Name:                clusterName(),
-			Namespace:           testNSName,
-			StorageClass:        storageClass,
-			Size:                1,
-			DisableAntiAffinity: true,
-			EnableExternalLB:    testAsExternalClient,
-		}
+		cluArgs := defaultCluArgs()
+		cluArgs.EnableExternalLB = testAsExternalClient
 		cc, pvs = newClientCluster(cluArgs)
 		cc.create()
 	})
