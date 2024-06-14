@@ -46,6 +46,7 @@ func (ais *AIStore) validateSize() (admission.Warnings, error) {
 }
 
 func (ais *AIStore) validateStateStorage() (admission.Warnings, error) {
+	//nolint:all
 	if ais.Spec.StateStorageClass != nil && ais.Spec.HostpathPrefix != nil {
 		warning := fmt.Sprintf("Spec defines both hostpathPrefix and stateStorageClass. Using stateStorageClass %s", *ais.Spec.StateStorageClass)
 		return []string{warning}, nil

@@ -76,13 +76,14 @@ func NewAISVolumes(ais *aisv1.AIStore, daeType string) []corev1.Volume {
 		},
 	}
 
-	// Only create hostpath volumes if the prefix is set and no storage class is provided for state
-	if ais.Spec.HostpathPrefix != nil && ais.Spec.StateStorageClass == nil {
+	// Only create hostpath volumes if no storage class is provided for state
+	if ais.Spec.StateStorageClass == nil {
 		hostpathVolumes := []corev1.Volume{
 			{
 				Name: envVolume,
 				VolumeSource: corev1.VolumeSource{
 					HostPath: &corev1.HostPathVolumeSource{
+						//nolint:all
 						Path: path.Join(*ais.Spec.HostpathPrefix, ais.Namespace, ais.Name, daeType+"_env"),
 						Type: hostPathTypePtr(corev1.HostPathDirectoryOrCreate),
 					},
@@ -92,6 +93,7 @@ func NewAISVolumes(ais *aisv1.AIStore, daeType string) []corev1.Volume {
 				Name: stateVolume,
 				VolumeSource: corev1.VolumeSource{
 					HostPath: &corev1.HostPathVolumeSource{
+						//nolint:all
 						Path: path.Join(*ais.Spec.HostpathPrefix, ais.Namespace, ais.Name, daeType),
 						Type: hostPathTypePtr(corev1.HostPathDirectoryOrCreate),
 					},
@@ -216,7 +218,7 @@ func NewAISVolumeMounts(ais *aisv1.AIStore, daeType string) []corev1.VolumeMount
 			},
 		}
 		volumeMounts = append(volumeMounts, dynamicMounts...)
-	} else if ais.Spec.HostpathPrefix != nil {
+	} else {
 		hostMounts := []corev1.VolumeMount{
 			{
 				Name:        envVolume,
@@ -303,7 +305,7 @@ func NewInitVolumeMounts(ais *aisv1.AIStore, daeType string) []corev1.VolumeMoun
 			},
 		}
 		volumeMounts = append(volumeMounts, dynamicMounts...)
-	} else if ais.Spec.HostpathPrefix != nil {
+	} else {
 		hostMounts := []corev1.VolumeMount{
 			{
 				Name:        envVolume,

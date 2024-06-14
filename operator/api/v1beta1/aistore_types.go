@@ -59,11 +59,19 @@ type AIStoreSpec struct {
 	// Size of the cluster i.e. number of proxies and number of targets.
 	// This can be changed by specifying size in either `proxySpec` or `targetSpec`.
 	// +optional
-	Size              *int32          `json:"size"`
-	NodeImage         string          `json:"nodeImage"`                   // docker image of aisnode
-	InitImage         string          `json:"initImage"`                   // init image for nodes
-	HostpathPrefix    *string         `json:"hostpathPrefix,omitempty"`    // path on host used for state
-	StateStorageClass *string         `json:"stateStorageClass,omitempty"` // used for creating dynamic volumes for storing state
+	Size *int32 `json:"size"`
+	// Docker image of aisnode
+	NodeImage string `json:"nodeImage"`
+	// Init image for nodes
+	InitImage string `json:"initImage"`
+	// Deprecated: use StateStorageClass
+	// See docs/state_storage.md
+	// Path on host used for state
+	// +optional
+	HostpathPrefix *string `json:"hostpathPrefix,omitempty"`
+	// Used for creating dynamic volumes for storing state
+	// +optional
+	StateStorageClass *string         `json:"stateStorageClass,omitempty"`
 	ConfigToUpdate    *ConfigToUpdate `json:"configToUpdate,omitempty"`
 	// Map of primary host to comma-separated string of all hosts for multi-home
 	// +optional
