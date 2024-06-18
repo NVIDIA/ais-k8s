@@ -33,7 +33,7 @@ For bare-metal deployments:
 - **Kubespray Installation**: Follow the instructions provided in this [Kubespray document]](kubespray)
 
 For both bare-metal and managed K8s deployments:
-- **Kubernetes**: Version 1.27.x or later.
+- **Kubernetes**: v1.27.x or later.
 - **Operating System (OS)**: Compatible with any Linux-based OS, though Ubuntu 22.04 is preferred.
 - **Drives**:
   - AIStore's performance scales with the number and type of disks used. A separate [playbook](../playbooks/host-config/docs/ais_datafs.md) is available for disk formatting and mounting as required by AIS. We recommend NVMe drives, formatted with XFS, and mounted with specific options (no RAID setup). Mount options: noatime, nodiratime, logbufs=8, logbsize=256k, largeio, inode64, swalloc, allocsize=131072k, nobarrier.
@@ -52,19 +52,19 @@ The network setup plays a pivotal role in AIStore's performance. Here's a detail
    3. **Port Configuration**:
       The following port settings are essential for AIStore operation and need to be configured appropriately:
       - **General Requirement**:
-      - Open outbound ports 51080 and 51081 for ingress traffic to allow external access to the AIS cluster.
+        - Open outbound ports `51080` and `51081` for ingress traffic to allow external access to the AIS cluster.
       - **ProxySpec Settings**:
-      - `servicePort`: 51080 (used for general service access)
-      - `portPublic`: 51080 (public-facing port for external communication)
-      - `portIntraControl`: 51082 (internal control communication within the cluster)
-      - `portIntraData`: 51083 (data transfer within the cluster)
+        - `servicePort`: `51080` (used for general service access)
+        - `portPublic`: `51080` (public-facing port for external communication)
+        - `portIntraControl`: `51081` (internal control communication within the cluster)
+        - `portIntraData`: `51082` (data transfer within the cluster)
       - **TargetSpec Settings**:
-      - `servicePort`: 51081 (service port dedicated for target nodes)
-      - `portPublic`: 51081 (public-facing port for target nodes)
-      - `portIntraControl`: 51082 (control port for internal communication among target nodes)
-      - `portIntraData`: 51083 (data transfer port among target nodes)
+        - `servicePort`: `51081` (service port dedicated for target nodes)
+        - `portPublic`: `51081` (public-facing port for target nodes)
+        - `portIntraControl`: `51082` (control port for internal communication among target nodes)
+        - `portIntraData`: `51083` (data transfer port among target nodes)
       - **ServiceAuth**:
-      - Port `52001` is used for service authentication purposes.
+        - Port `52001` is used for service authentication purposes.
 
    Some additional information about [network](https://github.com/NVIDIA/aistore/blob/main/docs/performance.md#network).
 - **AIS Nodes**:
@@ -120,7 +120,7 @@ With Kubernetes installed and the nodes properly configured, it's time to deploy
 1. **Preparation**:
    - Begin by updating the AIS Operator's version. Modify the version specified in the [defaults file](../playbooks/ais-deployment/roles/ais_deploy_operator/defaults/main.yml) to match the latest released version. This ensures you are deploying the most up-to-date version of the operator.
 
-   **Note:** Please refer the [compatibilty matrix](COMPATIBILITY.md) for AIStore and ais-operater. We recommend and only support the latest versions for both.
+   **Note:** Please refer the [compatibility matrix](COMPATIBILITY.md) for AIStore and ais-operator. We recommend and only support the latest versions for both.
 
 2. **Building the Operator (Optional)**:
    - If you require customizations or want to incorporate specific changes to the operator, you have the option to build the operator from scratch. This step is optional and is recommended only if you need to deviate from the standard operator setup.
