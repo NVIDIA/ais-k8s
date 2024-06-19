@@ -281,17 +281,6 @@ data:
               "legendFormat": "__auto",
               "range": true,
               "refId": "A"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "prometheus"
-              },
-              "expr": "",
-              "hide": false,
-              "instant": false,
-              "range": true,
-              "refId": "B"
             }
           ],
           "title": "Errors",
