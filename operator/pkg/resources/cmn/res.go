@@ -226,16 +226,6 @@ func NewStartupProbe(ais *aisv1.AIStore, daemonRole string) *corev1.Probe {
 	}
 }
 
-func NewAISNodeLifecycle() *corev1.Lifecycle {
-	return &corev1.Lifecycle{
-		PreStop: &corev1.LifecycleHandler{
-			Exec: &corev1.ExecAction{
-				Command: []string{"/bin/bash", "-c", "/usr/bin/pkill -SIGINT aisnode"},
-			},
-		},
-	}
-}
-
 func NewAISVolumeMounts(ais *aisv1.AIStore, daeType string) []corev1.VolumeMount {
 	spec := ais.Spec
 	volumeMounts := []corev1.VolumeMount{

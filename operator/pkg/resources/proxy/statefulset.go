@@ -134,7 +134,6 @@ func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
 				Ports:           cmn.NewDaemonPorts(ais.Spec.ProxySpec),
 				SecurityContext: ais.Spec.ProxySpec.ContainerSecurity,
 				VolumeMounts:    cmn.NewAISVolumeMounts(ais, aisapc.Proxy),
-				Lifecycle:       cmn.NewAISNodeLifecycle(),
 				StartupProbe:    cmn.NewStartupProbe(ais, aisapc.Proxy),
 				LivenessProbe:   cmn.NewLivenessProbe(ais, aisapc.Proxy),
 				ReadinessProbe:  cmn.NewReadinessProbe(ais, aisapc.Proxy),
