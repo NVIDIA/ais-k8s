@@ -66,15 +66,15 @@ func (r *AIStoreReconciler) cleanupTarget(ctx context.Context, ais *aisv1.AIStor
 }
 
 func (r *AIStoreReconciler) cleanupTargetSS(ctx context.Context, ais *aisv1.AIStore) (anyUpdated bool, err error) {
-	var baseParams *aisapi.BaseParams
-
-	// If the target statefulset it not present, we can return immediately.
 	r.log.Info("Cleaning up target statefulset")
 	targetSS := target.StatefulSetNSName(ais)
+
+	// If the target statefulset is not present, we can return immediately.
 	if exists, err := r.client.StatefulSetExists(ctx, targetSS); err != nil || !exists {
 		return false, err
 	}
 
+	var baseParams *aisapi.BaseParams
 	if r.isExternal {
 		baseParams, err = r.getAPIParams(ctx, ais)
 	} else {
@@ -82,16 +82,25 @@ func (r *AIStoreReconciler) cleanupTargetSS(ctx context.Context, ais *aisv1.AISt
 	}
 	if err != nil {
 		r.log.Error(err, "Failed to get API parameters", "clusterName", ais.Name)
+		// If we cannot get API parameters, we may have a broken statefulset with no ready replicas so delete it
+		currentSS, ssErr := r.client.GetStatefulSet(ctx, targetSS)
+		if ssErr != nil {
+			return false, ssErr
+		}
+		if currentSS.Status.ReadyReplicas == 0 {
+			r.log.Info("Deleting target statefulset", "clusterName", ais.Name)
+			return r.client.DeleteStatefulSetIfExists(ctx, targetSS)
+		}
+		// Somehow we have ready replicas but cannot get parameters to properly decommission, so return the error
 		return false, err
 	}
 
-	// If we reach here implies, we didn't attempt to decommission the cluster yet.
-	// Attempt graceful cluster decommission followed by deleting target statefulset.
+	// Attempt graceful cluster decommission via API call before deleting statefulset
 	cleanupData := ais.Spec.CleanupData != nil && *ais.Spec.CleanupData
 	r.attemptGracefulDecommission(baseParams, cleanupData)
 
 	// TODO: if the environment is slow the statefulset controller might create new pods to compensate for the old ones being
-	// deleted in the shutdown/decomission operation. Find a way to stop the statefulset controller from creating new pods
+	// deleted in the shutdown/decommission operation. Find a way to stop the statefulset controller from creating new pods
 	return r.client.DeleteStatefulSetIfExists(ctx, targetSS)
 }
 
