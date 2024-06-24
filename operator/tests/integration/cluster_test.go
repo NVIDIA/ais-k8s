@@ -7,6 +7,7 @@ package integration
 import (
 	"context"
 	"strings"
+	"sync"
 	"time"
 
 	aisapi "github.com/NVIDIA/aistore/api"
@@ -137,15 +138,15 @@ var _ = Describe("Run Controller", func() {
 				tutils.DestroyCluster(ctx, k8sClient, cluster1)
 				tutils.DestroyPV(ctx, k8sClient, c1pvs)
 			}()
-			createCluster(ctx, cluster1, tutils.GetClusterCreateTimeout(), tutils.ClusterCreateInterval)
-			createCluster(ctx, cluster2, tutils.GetClusterCreateTimeout(), tutils.ClusterCreateInterval)
+			clusters := []*aisv1.AIStore{cluster1, cluster2}
+			createClusters(ctx, clusters, tutils.GetClusterCreateTimeout(), tutils.ClusterCreateInterval)
 			tutils.WaitForClusterToBeReady(context.Background(), k8sClient, cluster1,
 				clusterReadyTimeout, clusterReadyRetryInterval)
 			tutils.WaitForClusterToBeReady(context.Background(), k8sClient, cluster2,
 				clusterReadyTimeout, clusterReadyRetryInterval)
 		})
 
-		It("Should allow two cluster with same name in different namespaces", func() {
+		It("Should allow two clusters with same name in different namespaces", func() {
 			ctx := context.Background()
 			cluArgs := defaultCluArgs()
 			otherCluArgs := cluArgs
@@ -165,9 +166,9 @@ var _ = Describe("Run Controller", func() {
 				tutils.DestroyCluster(ctx, k8sClient, cluster1)
 				tutils.DestroyPV(ctx, k8sClient, c1PVs)
 			}()
-			createCluster(ctx, cluster1, tutils.GetClusterCreateTimeout(), tutils.ClusterCreateInterval)
-			createCluster(ctx, cluster2, tutils.GetClusterCreateTimeout(), tutils.ClusterCreateInterval)
-			tutils.WaitForClusterToBeReady(context.Background(), k8sClient, cluster2,
+			clusters := []*aisv1.AIStore{cluster1, cluster2}
+			createClusters(ctx, clusters, tutils.GetClusterCreateTimeout(), tutils.ClusterCreateInterval)
+			tutils.WaitForClusterToBeReady(context.Background(), k8sClient, cluster1,
 				clusterReadyTimeout, clusterReadyRetryInterval)
 			tutils.WaitForClusterToBeReady(context.Background(), k8sClient, cluster2,
 				clusterReadyTimeout, clusterReadyRetryInterval)
@@ -478,6 +479,20 @@ func createCluster(ctx context.Context, cluster *aisv1.AIStore, intervals ...int
 		_ = k8sClient.Get(ctx, cluster.NamespacedName(), r)
 		return r.Status.State == aisv1.ConditionReady
 	}, intervals...).Should(BeTrue())
+}
+
+func createClusters(ctx context.Context, clusters []*aisv1.AIStore, intervals ...interface{}) {
+	var wg sync.WaitGroup
+	wg.Add(len(clusters))
+
+	for _, cluster := range clusters {
+		go func(cluster *aisv1.AIStore) {
+			defer wg.Done()
+			createCluster(ctx, cluster, intervals...)
+		}(cluster)
+	}
+
+	wg.Wait()
 }
 
 func setClusterShutdown(ctx context.Context, cluster *aisv1.AIStore, shutdown bool) {
