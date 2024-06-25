@@ -70,6 +70,10 @@ operator:minikube:long:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
         - operator/*
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      changes:
+        - operator/*
+      allow_failure: true
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       when: manual
       allow_failure: true
