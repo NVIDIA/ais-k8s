@@ -5,6 +5,7 @@ metadata:
   namespace: default
 spec:
   ttlSecondsAfterFinished: 0
+  backoffLimit: 0
   template:
     spec:
       containers:

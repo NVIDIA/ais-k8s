@@ -14,6 +14,7 @@ import (
 	"time"
 
 	aisapi "github.com/NVIDIA/aistore/api"
+	aiscmn "github.com/NVIDIA/aistore/cmn"
 	aistutils "github.com/NVIDIA/aistore/tools"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	aisclient "github.com/ais-operator/pkg/client"
@@ -523,4 +524,11 @@ func EventuallyJobNotExists(ctx context.Context, client *aisclient.K8sClient,
 		}
 		return exists
 	}, intervals...).Should(BeFalse())
+}
+
+func ObjectsShouldExist(params aisapi.BaseParams, bck aiscmn.Bck, objectsNames ...string) {
+	for _, objName := range objectsNames {
+		_, err := aisapi.GetObject(params, bck, objName, nil)
+		Expect(err).NotTo(HaveOccurred())
+	}
 }

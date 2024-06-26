@@ -34,6 +34,10 @@ const (
 	clusterDestroyTimeout     = 2 * time.Minute
 )
 
+var (
+	proxyURL string
+)
+
 // clientCluster - used for managing cluster used AIS API tests
 type clientCluster struct {
 	cluster          *aisv1.AIStore
@@ -67,6 +71,26 @@ func (cc *clientCluster) create() {
 	Expect(tutils.StreamLogs(cc.ctx, testNSName)).To(BeNil())
 }
 
+// Initialize AIS tutils to use the deployed cluster
+func initAISCluster(ctx context.Context, cluster *aisv1.AIStore) {
+	proxyURL := tutils.GetProxyURL(ctx, k8sClient, cluster)
+	retries := 2
+	for retries > 0 {
+		err := aistutils.WaitNodeReady(proxyURL, &aistutils.WaitRetryOpts{
+			MaxRetries: 12,
+			Interval:   10 * time.Second,
+		})
+		if err == nil {
+			break
+		}
+		retries--
+		time.Sleep(5 * time.Second)
+	}
+
+	// Wait until the cluster has actually started (targets have registered).
+	Expect(aistutils.InitCluster(proxyURL, aistutils.ClusterTypeK8s)).NotTo(HaveOccurred())
+}
+
 func (cc *clientCluster) cleanup(pvs []*corev1.PersistentVolume) {
 	cc.cancelLogsStream()
 	tutils.DestroyCluster(context.Background(), k8sClient, cc.cluster, cc.tout, tutils.ClusterCreateInterval)
@@ -75,47 +99,36 @@ func (cc *clientCluster) cleanup(pvs []*corev1.PersistentVolume) {
 	}
 }
 
+func (cc *clientCluster) restart() {
+	restartCluster(cc.ctx, cc.cluster)
+	initAISCluster(cc.ctx, cc.cluster)
+}
+
 var _ = Describe("Run Controller", func() {
-	Context("Deploy and Destroy cluster", func() {
+	Context("Deploy and Destroy cluster", Label("short"), func() {
 		Context("without externalLB", func() {
-			It("Should successfully create an AIS Cluster with required K8s objects", Label("short"), func() {
+			It("Should successfully create an AIS Cluster with required K8s objects", func() {
 				cluster, pvs := tutils.NewAISCluster(defaultCluArgs(), k8sClient)
 				createAndDestroyCluster(cluster, pvs, checkResExists, checkResShouldNotExist, false)
 			})
 
-			It("Should successfully create an AIS Cluster with AllowSharedOrNoDisks on > v3.23 image", Label("short"), func() {
+			It("Should successfully create an AIS Cluster with AllowSharedOrNoDisks on > v3.23 image", func() {
 				args := defaultCluArgs()
 				args.AllowSharedOrNoDisks = true
 				cluster, pvs := tutils.NewAISCluster(args, k8sClient)
 				createAndDestroyCluster(cluster, pvs, nil, nil, false)
 			})
 
-			It("Should successfully create an hetero-sized AIS Cluster", Label("short"), func() {
+			It("Should successfully create an hetero-sized AIS Cluster", func() {
 				cluArgs := defaultCluArgs()
 				cluArgs.TargetSize = 2
 				cluArgs.ProxySize = 1
 				cluster, pvs := tutils.NewAISCluster(cluArgs, k8sClient)
 				createAndDestroyCluster(cluster, pvs, nil, nil, false)
 			})
-
-			It("Should shutdown cluster when ShutdownCluster is true, scale up when false", Label("long"), func() {
-				ctx := context.Background()
-				cluster, pvs := tutils.NewAISCluster(defaultCluArgs(), k8sClient)
-				createCluster(ctx, cluster, tutils.GetClusterCreateTimeout(), tutils.ClusterCreateInterval)
-				// Shutdown, ensure statefulsets exist and are size 0
-				setClusterShutdown(ctx, cluster, true)
-				tutils.EventuallyProxyIsSize(ctx, k8sClient, cluster, 0, clusterDestroyTimeout)
-				tutils.EventuallyTargetIsSize(ctx, k8sClient, cluster, 0, clusterDestroyTimeout)
-				// Resume shutdown cluster, should become fully ready
-				setClusterShutdown(ctx, cluster, false)
-				tutils.WaitForClusterToBeReady(ctx, k8sClient, cluster,
-					clusterReadyTimeout, clusterReadyRetryInterval)
-				tutils.DestroyCluster(ctx, k8sClient, cluster, clusterDestroyTimeout)
-				tutils.DestroyPV(ctx, k8sClient, pvs)
-			})
 		})
 
-		Context("with externalLB", Label("short"), func() {
+		Context("with externalLB", func() {
 			It("Should successfully create an AIS Cluster with required K8s objects", func() {
 				tutils.CheckSkip(&tutils.SkipArgs{RequiresLB: true})
 				cluArgs := defaultCluArgs()
@@ -239,19 +252,17 @@ var _ = Describe("Run Controller", func() {
 	})
 
 	Describe("Data-safety tests", Label("long"), func() {
-		It("Re-deploying same cluster must retain data", func() {
+		It("Restarting cluster must retain data", func() {
 			cluArgs := defaultCluArgs()
 			cluArgs.EnableExternalLB = testAsExternalClient
-			cluArgs.CleanupData = false
 			cc, pvs := newClientCluster(cluArgs)
 			cc.create()
 			// put objects
 			var (
-				bck       = aiscmn.Bck{Name: "TEST_BUCKET", Provider: aisapc.AIS}
+				bck       = aiscmn.Bck{Name: "TEST_BCK_DATA_SAFETY", Provider: aisapc.AIS}
 				objPrefix = "test-opr/"
 				baseParam = aistutils.BaseAPIParams(proxyURL)
 			)
-			aisapi.DestroyBucket(baseParam, bck)
 			err := aisapi.CreateBucket(baseParam, bck, nil)
 			Expect(err).ShouldNot(HaveOccurred())
 			names, failCnt, err := aistutils.PutRandObjs(aistutils.PutObjectsArgs{
@@ -266,14 +277,10 @@ var _ = Describe("Run Controller", func() {
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(failCnt).To(Equal(0))
-			aistutils.EnsureObjectsExist(testCtx, baseParam, bck, names...)
-			// destroy cluster and pvs (data persists on mounts)
-			cc.cleanup(pvs)
-
-			// Re-deploy cluster and check if the data exists.
-			cc, pvs = newClientCluster(cluArgs)
-			cc.create()
-			aistutils.EnsureObjectsExist(testCtx, aistutils.BaseAPIParams(proxyURL), bck, names...)
+			tutils.ObjectsShouldExist(baseParam, bck, names...)
+			// Restart cluster
+			cc.restart()
+			tutils.ObjectsShouldExist(aistutils.BaseAPIParams(proxyURL), bck, names...)
 			cc.cleanup(pvs)
 		})
 
@@ -285,12 +292,11 @@ var _ = Describe("Run Controller", func() {
 			cc.create()
 			// put objects
 			var (
-				bck       = aiscmn.Bck{Name: "TEST_BUCKET", Provider: aisapc.AIS}
-				objPrefix = "test-opr/"
-				baseParam = aistutils.BaseAPIParams(proxyURL)
+				bck        = aiscmn.Bck{Name: "TEST_BCK_SCALE_DOWN", Provider: aisapc.AIS}
+				objPrefix  = "test-opr/"
+				baseParams = aistutils.BaseAPIParams(proxyURL)
 			)
-			aisapi.DestroyBucket(baseParam, bck)
-			err := aisapi.CreateBucket(baseParam, bck, nil)
+			err := aisapi.CreateBucket(baseParams, bck, nil)
 			Expect(err).ShouldNot(HaveOccurred())
 			names, failCnt, err := aistutils.PutRandObjs(aistutils.PutObjectsArgs{
 				ProxyURL:  proxyURL,
@@ -304,12 +310,12 @@ var _ = Describe("Run Controller", func() {
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(failCnt).To(Equal(0))
-			aistutils.EnsureObjectsExist(testCtx, baseParam, bck, names...)
+			tutils.ObjectsShouldExist(baseParams, bck, names...)
 
 			// Scale down cluster
 			scaleCluster(context.TODO(), cc.cluster, false, -1)
 
-			aistutils.EnsureObjectsExist(testCtx, aistutils.BaseAPIParams(proxyURL), bck, names...)
+			tutils.ObjectsShouldExist(baseParams, bck, names...)
 			cc.cleanup(pvs)
 		})
 
@@ -320,11 +326,9 @@ var _ = Describe("Run Controller", func() {
 			cc, pvs := newClientCluster(cluArgs)
 			cc.create()
 			// Create bucket
-			bck := aiscmn.Bck{Name: "TEST_BUCKET", Provider: aisapc.AIS}
+			bck := aiscmn.Bck{Name: "TEST_BCK_CLEANUP", Provider: aisapc.AIS}
 			baseParams := aistutils.BaseAPIParams(proxyURL)
-			err := aisapi.DestroyBucket(baseParams, bck)
-			Expect(err).ShouldNot(HaveOccurred())
-			err = aisapi.CreateBucket(baseParams, bck, nil)
+			err := aisapi.CreateBucket(baseParams, bck, nil)
 			Expect(err).ShouldNot(HaveOccurred())
 			_, failCnt, err := aistutils.PutRandObjs(aistutils.PutObjectsArgs{
 				ProxyURL:  proxyURL,
@@ -493,6 +497,17 @@ func createClusters(ctx context.Context, clusters []*aisv1.AIStore, intervals ..
 	}
 
 	wg.Wait()
+}
+
+func restartCluster(ctx context.Context, cluster *aisv1.AIStore) {
+	// Shutdown, ensure statefulsets exist and are size 0
+	setClusterShutdown(ctx, cluster, true)
+	tutils.EventuallyProxyIsSize(ctx, k8sClient, cluster, 0, clusterDestroyTimeout)
+	tutils.EventuallyTargetIsSize(ctx, k8sClient, cluster, 0, clusterDestroyTimeout)
+	// Resume shutdown cluster, should become fully ready
+	setClusterShutdown(ctx, cluster, false)
+	tutils.WaitForClusterToBeReady(ctx, k8sClient, cluster,
+		clusterReadyTimeout, clusterReadyRetryInterval)
 }
 
 func setClusterShutdown(ctx context.Context, cluster *aisv1.AIStore, shutdown bool) {
