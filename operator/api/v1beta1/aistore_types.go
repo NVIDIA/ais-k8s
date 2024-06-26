@@ -26,6 +26,7 @@ const (
 	ConditionCreated               ClusterCondition = "Created"
 	ConditionReady                 ClusterCondition = "Ready"
 	ConditionUpgrading             ClusterCondition = "Upgrading"
+	ConditionShutdown              ClusterCondition = "Shutdown"
 	// TODO: Add more states, eg. Terminating etc.
 
 	// Condition types

@@ -93,8 +93,11 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return r.handleCRDeletion(ctx, ais)
 	}
 
-	if ais.HasState(aisv1.ConditionReady) && ais.ShouldShutdown() {
-		return r.shutdownCluster(ctx, ais)
+	if ais.ShouldShutdown() {
+		if ais.HasState(aisv1.ConditionReady) {
+			return r.shutdownCluster(ctx, ais)
+		}
+		return reconcile.Result{}, nil
 	}
 
 	if isNewCR(ais) {
@@ -144,8 +147,9 @@ func (r *AIStoreReconciler) shutdownCluster(ctx context.Context, ais *aisv1.AISt
 		return reconcile.Result{}, err
 	}
 
+	_, err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionShutdown})
 	r.log.Info("AIS cluster shutdown completed", "clusterName", ais.Name)
-	return reconcile.Result{}, nil
+	return reconcile.Result{}, err
 }
 
 func (r *AIStoreReconciler) handleCRDeletion(ctx context.Context, ais *aisv1.AIStore) (reconcile.Result, error) {
