@@ -1,0 +1,29 @@
+# External environment deploys all but the grafana/loki cluster and 
+# expects all persistence to be handled on a remote cluster
+
+# Update with the user and group to run monitoring
+securityContext:
+  runAsGroup: 1003
+  runAsNonRoot: true
+  runAsUser: 1005
+  fsGroup: 1005
+
+affinity:
+  enabled: true
+  nodeMatchKey: aistore.nvidia.com/role_monitoring
+
+grafana:
+  enabled: false
+
+loki:
+  enabled: false
+
+alertmanager:
+  enabled: true
+  slack:
+    # Update to allow slack alerts
+    webhook: ""
+    channel: ""
+
+promtail: 
+  clientUrl: "http://remote-loki-gateway/loki/api/v1/push"

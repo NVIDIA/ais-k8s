@@ -1,0 +1,54 @@
+environments: 
+  # Deploy the whole stack with local storage for persistence
+  default:
+    values:
+      - default.yaml
+  # Grafana and loki external, no prometheus persistence
+  external:
+    values:
+      - external.yaml
+
+---
+
+repositories:
+  - name: grafana
+    url: https://grafana.github.io/helm-charts
+  - name: prometheus-community
+    url: https://prometheus-community.github.io/helm-charts
+
+---
+
+releases:
+  - name: promtail
+    namespace: monitoring
+    createNamespace: true
+    chart: grafana/promtail
+    values:
+      - promtail/values.yaml.gotmpl
+  - name: loki
+    condition: loki.enabled
+    namespace: monitoring
+    createNamespace: true
+    chart: grafana/loki
+    values:
+      - loki/values.yaml.gotmpl
+  - name: kube-prometheus-stack
+    namespace: monitoring 
+    chart: prometheus-community/kube-prometheus-stack
+    createNamespace: true
+    disableValidation: true
+    values: 
+      - kube-prom/values.yaml.gotmpl
+      - kube-prom/alertmanager_config.yaml.gotmpl
+    hooks:
+      - events: ["postsync"]
+        showlogs: true
+        command: "kubectl"
+        args:
+          - "apply"
+          - "-f"
+          - "manifests/ais_podmonitors.yaml"
+          - "-f"
+          - "manifests/ais_dashboard.yaml"
+          - "-f"
+          - "manifests/ais_prometheus_rules.yaml"

@@ -1,0 +1,4 @@
+config:
+  clients:
+    - url: {{ .Values | get "promtail.clientUrl" }}
+      tenant_id: 1
