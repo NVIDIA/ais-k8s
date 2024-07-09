@@ -198,16 +198,14 @@ func hasFinalizer(ais *aisv1.AIStore) bool {
 }
 
 func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore) (result ctrl.Result, err error) {
-	var (
-		configToUpdate *aiscmn.ConfigToSet
-		changed        bool
-	)
+	var changed bool
 
-	if ais.Spec.ConfigToUpdate != nil {
-		if configToUpdate, err = getConfigToUpdate(ais.Spec.ConfigToUpdate); err != nil {
-			return ctrl.Result{}, err
-		}
+	globalCM, err := cmn.NewGlobalCM(ais, ais.Spec.ConfigToUpdate)
+	if err != nil {
+		r.recordError(ais, err, "Failed to construct global config")
+		return r.manageError(ctx, ais, aisv1.ConfigBuildError, err)
 	}
+
 	// Verify the k8s cluster can support this deployment
 	err = r.verifyDeployment(ctx, ais)
 	if err != nil {
@@ -267,11 +265,6 @@ func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore
 	}
 
 	// 4. Deploy global cluster config map.
-	globalCM, err := cmn.NewGlobalCM(ais, configToUpdate)
-	if err != nil {
-		r.recordError(ais, err, "Failed to construct global config")
-		return r.manageError(ctx, ais, aisv1.ConfigBuildError, err)
-	}
 	if _, err = r.client.CreateResourceIfNotExists(ctx, ais, globalCM); err != nil {
 		r.recordError(ais, err, "Failed to deploy global cluster ConfigMap")
 		return r.manageError(ctx, ais, aisv1.ResourceCreationError, err)
@@ -519,12 +512,6 @@ func (r *AIStoreReconciler) manageSuccess(ctx context.Context, ais *aisv1.AIStor
 	}
 
 	return
-}
-
-func getConfigToUpdate(cfg *aisv1.ConfigToUpdate) (toUpdate *aiscmn.ConfigToSet, err error) {
-	toUpdate = &aiscmn.ConfigToSet{}
-	err = cos.MorphMarshal(cfg, toUpdate)
-	return toUpdate, err
 }
 
 func (r *AIStoreReconciler) recordError(ais *aisv1.AIStore, err error, msg string) {

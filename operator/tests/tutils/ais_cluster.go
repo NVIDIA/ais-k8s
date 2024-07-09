@@ -9,7 +9,7 @@ import (
 	"path"
 	"strconv"
 
-	"github.com/NVIDIA/aistore/api/apc"
+	aisapc "github.com/NVIDIA/aistore/api/apc"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	aisclient "github.com/ais-operator/pkg/client"
 	corev1 "k8s.io/api/core/v1"
@@ -113,11 +113,11 @@ func defineMounts(args ClusterSpecArgs) []aisv1.Mount {
 func newAISClusterCR(args ClusterSpecArgs, mounts []aisv1.Mount) *aisv1.AIStore {
 	spec := aisv1.AIStoreSpec{
 		Size:              &args.Size,
-		ShutdownCluster:   apc.Ptr(args.ShutdownCluster),
-		CleanupData:       apc.Ptr(args.CleanupData),
+		ShutdownCluster:   aisapc.Ptr(args.ShutdownCluster),
+		CleanupData:       aisapc.Ptr(args.CleanupData),
 		NodeImage:         aisNodeImage,
 		InitImage:         aisInitImage,
-		StateStorageClass: apc.Ptr("local-path"),
+		StateStorageClass: aisapc.Ptr("local-path"),
 		EnableExternalLB:  args.EnableExternalLB,
 		ProxySpec: aisv1.DaemonSpec{
 			ServiceSpec: aisv1.ServiceSpec{

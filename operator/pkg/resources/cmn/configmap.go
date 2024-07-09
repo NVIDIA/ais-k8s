@@ -6,29 +6,24 @@ package cmn
 
 import (
 	aisapc "github.com/NVIDIA/aistore/api/apc"
-	aiscmn "github.com/NVIDIA/aistore/cmn"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	jsoniter "github.com/json-iterator/go"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 func globalConfigMapName(ais *aisv1.AIStore) string {
 	return ais.Name + "-global-cm"
 }
 
-func GlobalConfigMapNSName(ais *aisv1.AIStore) types.NamespacedName {
-	return types.NamespacedName{
-		Name:      globalConfigMapName(ais),
-		Namespace: ais.Namespace,
-	}
-}
-
-func NewGlobalCM(ais *aisv1.AIStore, toUpdate *aiscmn.ConfigToSet) (*corev1.ConfigMap, error) {
+func NewGlobalCM(ais *aisv1.AIStore, toUpdate *aisv1.ConfigToUpdate) (*corev1.ConfigMap, error) {
 	globalConf := DefaultAISConf(ais)
 	if toUpdate != nil {
-		if err := globalConf.Apply(toUpdate, aisapc.Cluster); err != nil {
+		toSet, err := convertConfig(toUpdate)
+		if err != nil {
+			return nil, err
+		}
+		if err := globalConf.Apply(toSet, aisapc.Cluster); err != nil {
 			return nil, err
 		}
 	}

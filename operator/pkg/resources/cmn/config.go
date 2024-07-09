@@ -1,6 +1,6 @@
 // Package cmn provides utilities for common AIS cluster resources
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION. All rights reserved.
  */
 package cmn
 
@@ -142,6 +142,12 @@ var defaultAISConf = aiscmn.ClusterConfig{
 		Enabled:         true,
 		ValidateWarmGet: false,
 	},
+}
+
+func convertConfig(cfg *aisv1.ConfigToUpdate) (toUpdate *aiscmn.ConfigToSet, err error) {
+	toUpdate = &aiscmn.ConfigToSet{}
+	err = cos.MorphMarshal(cfg, toUpdate)
+	return toUpdate, err
 }
 
 func DefaultAISConf(ais *aisv1.AIStore) aiscmn.ClusterConfig {

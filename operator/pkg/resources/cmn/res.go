@@ -101,7 +101,7 @@ func NewAISVolumes(ais *aisv1.AIStore, daeType string) []corev1.Volume {
 					HostPath: &corev1.HostPathVolumeSource{
 						//nolint:all
 						Path: path.Join(*ais.Spec.HostpathPrefix, ais.Namespace, ais.Name, daeType+"_env"),
-						Type: hostPathTypePtr(corev1.HostPathDirectoryOrCreate),
+						Type: aisapc.Ptr(corev1.HostPathDirectoryOrCreate),
 					},
 				},
 			},
@@ -111,7 +111,7 @@ func NewAISVolumes(ais *aisv1.AIStore, daeType string) []corev1.Volume {
 					HostPath: &corev1.HostPathVolumeSource{
 						//nolint:all
 						Path: path.Join(*ais.Spec.HostpathPrefix, ais.Namespace, ais.Name, daeType),
-						Type: hostPathTypePtr(corev1.HostPathDirectoryOrCreate),
+						Type: aisapc.Ptr(corev1.HostPathDirectoryOrCreate),
 					},
 				},
 			},
@@ -157,7 +157,7 @@ func NewAISVolumes(ais *aisv1.AIStore, daeType string) []corev1.Volume {
 			VolumeSource: corev1.VolumeSource{
 				HostPath: &corev1.HostPathVolumeSource{
 					Path: path.Join(ais.Spec.LogsDirectory, ais.Namespace, ais.Name, daeType),
-					Type: hostPathTypePtr(corev1.HostPathDirectoryOrCreate),
+					Type: aisapc.Ptr(corev1.HostPathDirectoryOrCreate),
 				},
 			},
 		})
@@ -412,10 +412,6 @@ func getHostMountSubPath(daeType string) string {
 		return "$(MY_POD)"
 	}
 	return ""
-}
-
-func hostPathTypePtr(v corev1.HostPathType) *corev1.HostPathType {
-	return &v
 }
 
 // Generate PVC claim ref for a specific namespace and cluster
