@@ -86,17 +86,11 @@ spec:
                   client:
                     properties:
                       client_long_timeout:
-                        description: Elapsed time (nanoseconds).
-                        format: int64
-                        type: integer
+                        type: string
                       client_timeout:
-                        description: Elapsed time (nanoseconds).
-                        format: int64
-                        type: integer
+                        type: string
                       list_timeout:
-                        description: Elapsed time (nanoseconds).
-                        format: int64
-                        type: integer
+                        type: string
                     type: object
                   disk:
                     properties:
@@ -110,22 +104,16 @@ spec:
                         format: int64
                         type: integer
                       iostat_time_long:
-                        description: Elapsed time (nanoseconds).
-                        format: int64
-                        type: integer
+                        type: string
                       iostat_time_short:
-                        description: Elapsed time (nanoseconds).
-                        format: int64
-                        type: integer
+                        type: string
                     type: object
                   distributed_sort:
                     properties:
                       bundle_multiplier:
                         type: integer
                       call_timeout:
-                        description: Elapsed time (nanoseconds).
-                        format: int64
-                        type: integer
+                        type: string
                       compression:
                         type: string
                       default_max_mem_usage:
@@ -144,9 +132,7 @@ spec:
                   downloader:
                     properties:
                       timeout:
-                        description: Elapsed time (nanoseconds).
-                        format: int64
-                        type: integer
+                        type: string
                     type: object
                   ec:
                     properties:
@@ -184,9 +170,7 @@ spec:
                           factor:
                             type: integer
                           interval:
-                            description: Elapsed time (nanoseconds).
-                            format: int64
-                            type: integer
+                            type: string
                           name:
                             type: string
                         type: object
@@ -197,9 +181,7 @@ spec:
                           factor:
                             type: integer
                           interval:
-                            description: Elapsed time (nanoseconds).
-                            format: int64
-                            type: integer
+                            type: string
                           name:
                             type: string
                         type: object
@@ -207,9 +189,7 @@ spec:
                   log:
                     properties:
                       flush_time:
-                        description: Elapsed time (nanoseconds).
-                        format: int64
-                        type: integer
+                        type: string
                       level:
                         type: string
                       max_size:
@@ -219,22 +199,16 @@ spec:
                         format: int64
                         type: integer
                       stats_time:
-                        description: Elapsed time (nanoseconds).
-                        format: int64
-                        type: integer
+                        type: string
                       to_stderr:
                         type: boolean
                     type: object
                   lru:
                     properties:
                       capacity_upd_time:
-                        description: Elapsed time (nanoseconds).
-                        format: int64
-                        type: integer
+                        type: string
                       dont_evict_time:
-                        description: Elapsed time (nanoseconds).
-                        format: int64
-                        type: integer
+                        type: string
                       enabled:
                         type: boolean
                     type: object
@@ -244,9 +218,7 @@ spec:
                         format: int64
                         type: integer
                       hk_time:
-                        description: Elapsed time (nanoseconds).
-                        format: int64
-                        type: integer
+                        type: string
                       min_free:
                         format: int64
                         type: integer
@@ -297,17 +269,11 @@ spec:
                   periodic:
                     properties:
                       notif_time:
-                        description: Elapsed time (nanoseconds).
-                        format: int64
-                        type: integer
+                        type: string
                       retry_sync_time:
-                        description: Elapsed time (nanoseconds).
-                        format: int64
-                        type: integer
+                        type: string
                       stats_time:
-                        description: Elapsed time (nanoseconds).
-                        format: int64
-                        type: integer
+                        type: string
                     type: object
                   proxy:
                     properties:
@@ -327,9 +293,7 @@ spec:
                       compression:
                         type: string
                       dest_retry_time:
-                        description: Elapsed time (nanoseconds).
-                        format: int64
-                        type: integer
+                        type: string
                       enabled:
                         type: boolean
                     required:
@@ -344,15 +308,23 @@ spec:
                     properties:
                       cleanupwm:
                         format: int64
+                        maximum: 100
+                        minimum: 0
                         type: integer
                       highwm:
                         format: int64
+                        maximum: 100
+                        minimum: 0
                         type: integer
                       lowwm:
                         format: int64
+                        maximum: 100
+                        minimum: 0
                         type: integer
                       out_of_space:
                         format: int64
+                        maximum: 100
+                        minimum: 0
                         type: integer
                     type: object
                   tcb:
@@ -365,38 +337,24 @@ spec:
                   timeout:
                     properties:
                       cplane_operation:
-                        description: Elapsed time (nanoseconds).
-                        format: int64
-                        type: integer
+                        type: string
                       join_startup_time:
-                        description: Elapsed time (nanoseconds).
-                        format: int64
-                        type: integer
+                        type: string
                       max_host_busy:
-                        description: Elapsed time (nanoseconds).
-                        format: int64
-                        type: integer
+                        type: string
                       max_keepalive:
-                        description: Elapsed time (nanoseconds).
-                        format: int64
-                        type: integer
+                        type: string
                       send_file_time:
-                        description: Elapsed time (nanoseconds).
-                        format: int64
-                        type: integer
+                        type: string
                       startup_time:
-                        description: Elapsed time (nanoseconds).
-                        format: int64
-                        type: integer
+                        type: string
                     type: object
                   transport:
                     properties:
                       burst_buffer:
                         type: integer
                       idle_teardown:
-                        description: Elapsed time (nanoseconds).
-                        format: int64
-                        type: integer
+                        type: string
                       lz4_block:
                         type: integer
                       lz4_frame_checksum:
@@ -404,9 +362,7 @@ spec:
                       max_header:
                         type: integer
                       quiescent:
-                        description: Elapsed time (nanoseconds).
-                        format: int64
-                        type: integer
+                        type: string
                     type: object
                   versioning:
                     properties:
@@ -445,6 +401,10 @@ spec:
                   hosts for multi-home
                 type: object
               hostpathPrefix:
+                description: |-
+                  Deprecated: use StateStorageClass
+                  See docs/state_storage.md
+                  Path on host used for state
                 type: string
               imagePullSecrets:
                 description: |-
@@ -465,6 +425,7 @@ spec:
                   x-kubernetes-map-type: atomic
                 type: array
               initImage:
+                description: Init image for nodes
                 type: string
               logsDir:
                 description: Logs directory on host to store AIS logs
@@ -474,6 +435,7 @@ spec:
                   attachment definitions to attach to each pod
                 type: string
               nodeImage:
+                description: Docker image of aisnode
                 type: string
               proxySpec:
                 description: NodeSpec defines the specs for AIS Daemon pods/containers
@@ -1809,6 +1771,9 @@ spec:
                   This can be changed by specifying size in either `proxySpec` or `targetSpec`.
                 format: int32
                 type: integer
+              stateStorageClass:
+                description: Used for creating dynamic volumes for storing state
+                type: string
               targetSpec:
                 properties:
                   affinity:
@@ -3222,7 +3187,6 @@ spec:
                 type: string
             required:
             - enableExternalLB
-            - hostpathPrefix
             - initImage
             - nodeImage
             - proxySpec

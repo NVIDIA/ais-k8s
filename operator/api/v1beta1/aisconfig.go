@@ -13,13 +13,6 @@ import (
 // which isn't possible for types from external packages.
 // IMPORTANT: Run "make" to regenerate code after modifying this file
 
-// Empty type is needed because declaring `map[string]struct{}` or `map[string]interface{}`
-// raises error "name requested for invalid type: struct{}/interface{}".
-// For more information see:
-//   - https://github.com/kubernetes-sigs/controller-tools/issues/636
-//   - https://github.com/kubernetes-sigs/kubebuilder/issues/528
-type Empty struct{}
-
 type (
 	ConfigToUpdate struct {
 		Backend     *map[string]Empty        `json:"backend,omitempty"`
@@ -50,9 +43,9 @@ type (
 		Features    *string                  `json:"features,omitempty"`
 	}
 	MirrorConfToUpdate struct {
+		Enabled *bool  `json:"enabled,omitempty"`
 		Copies  *int64 `json:"copies,omitempty"`
 		Burst   *int   `json:"burst_buffer,omitempty"`
-		Enabled *bool  `json:"enabled,omitempty"`
 	}
 	ECConfToUpdate struct {
 		ObjSizeLimit *int64  `json:"objsize_limit,omitempty"`
@@ -64,44 +57,30 @@ type (
 		DiskOnly     *bool   `json:"disk_only,omitempty"`
 	}
 	LogConfToUpdate struct {
-		Level    *string      `json:"level,omitempty"`
-		ToStderr *bool        `json:"to_stderr,omitempty"`
-		MaxSize  *cos.SizeIEC `json:"max_size,omitempty"`
-		MaxTotal *cos.SizeIEC `json:"max_total,omitempty"`
-		// Elapsed time (nanoseconds).
-		FlushTime *cos.Duration `json:"flush_time,omitempty"`
-		// Elapsed time (nanoseconds).
-		StatsTime *cos.Duration `json:"stats_time,omitempty"`
+		Level     *string      `json:"level,omitempty"`
+		ToStderr  *bool        `json:"to_stderr,omitempty"`
+		MaxSize   *cos.SizeIEC `json:"max_size,omitempty"`
+		MaxTotal  *cos.SizeIEC `json:"max_total,omitempty"`
+		FlushTime *Duration    `json:"flush_time,omitempty"`
+		StatsTime *Duration    `json:"stats_time,omitempty"`
 	}
 	PeriodConfToUpdate struct {
-		// Elapsed time (nanoseconds).
-		StatsTime *cos.Duration `json:"stats_time,omitempty"`
-		// Elapsed time (nanoseconds).
-		RetrySyncTime *cos.Duration `json:"retry_sync_time,omitempty"`
-		// Elapsed time (nanoseconds).
-		NotifTime *cos.Duration `json:"notif_time,omitempty"`
+		StatsTime     *Duration `json:"stats_time,omitempty"`
+		RetrySyncTime *Duration `json:"retry_sync_time,omitempty"`
+		NotifTime     *Duration `json:"notif_time,omitempty"`
 	}
 	TimeoutConfToUpdate struct {
-		// Elapsed time (nanoseconds).
-		CplaneOperation *cos.Duration `json:"cplane_operation,omitempty" list:"readonly"`
-		// Elapsed time (nanoseconds).
-		MaxKeepalive *cos.Duration `json:"max_keepalive,omitempty" list:"readonly"`
-		// Elapsed time (nanoseconds).
-		MaxHostBusy *cos.Duration `json:"max_host_busy,omitempty"`
-		// Elapsed time (nanoseconds).
-		Startup *cos.Duration `json:"startup_time,omitempty"`
-		// Elapsed time (nanoseconds).
-		JoinAtStartup *cos.Duration `json:"join_startup_time,omitempty"`
-		// Elapsed time (nanoseconds).
-		SendFile *cos.Duration `json:"send_file_time,omitempty"`
+		CplaneOperation *Duration `json:"cplane_operation,omitempty" list:"readonly"`
+		MaxKeepalive    *Duration `json:"max_keepalive,omitempty" list:"readonly"`
+		MaxHostBusy     *Duration `json:"max_host_busy,omitempty"`
+		Startup         *Duration `json:"startup_time,omitempty"`
+		JoinAtStartup   *Duration `json:"join_startup_time,omitempty"`
+		SendFile        *Duration `json:"send_file_time,omitempty"`
 	}
 	ClientConfToUpdate struct {
-		// Elapsed time (nanoseconds).
-		Timeout *cos.Duration `json:"client_timeout,omitempty"`
-		// Elapsed time (nanoseconds).
-		TimeoutLong *cos.Duration `json:"client_long_timeout,omitempty"`
-		// Elapsed time (nanoseconds).
-		ListObjects *cos.Duration `json:"list_timeout,omitempty"`
+		Timeout     *Duration `json:"client_timeout,omitempty"`
+		TimeoutLong *Duration `json:"client_long_timeout,omitempty"`
+		ListObjects *Duration `json:"list_timeout,omitempty"`
 	}
 	ProxyConfToUpdate struct {
 		PrimaryURL   *string `json:"primary_url,omitempty"`
@@ -110,33 +89,36 @@ type (
 		NonElectable *bool   `json:"non_electable,omitempty"`
 	}
 	SpaceConfToUpdate struct {
+		//+kubebuilder:validation:Minimum=0
+		//+kubebuilder:validation:Maximum=100
 		CleanupWM *int64 `json:"cleanupwm,omitempty"`
-		LowWM     *int64 `json:"lowwm,omitempty"`
-		HighWM    *int64 `json:"highwm,omitempty"`
-		OOS       *int64 `json:"out_of_space,omitempty"`
+		//+kubebuilder:validation:Minimum=0
+		//+kubebuilder:validation:Maximum=100
+		LowWM *int64 `json:"lowwm,omitempty"`
+		//+kubebuilder:validation:Minimum=0
+		//+kubebuilder:validation:Maximum=100
+		HighWM *int64 `json:"highwm,omitempty"`
+		//+kubebuilder:validation:Minimum=0
+		//+kubebuilder:validation:Maximum=100
+		OOS *int64 `json:"out_of_space,omitempty"`
 	}
 	LRUConfToUpdate struct {
-		// Elapsed time (nanoseconds).
-		DontEvictTime *cos.Duration `json:"dont_evict_time,omitempty"`
-		// Elapsed time (nanoseconds).
-		CapacityUpdTime *cos.Duration `json:"capacity_upd_time,omitempty"`
-		Enabled         *bool         `json:"enabled,omitempty"`
+		Enabled         *bool     `json:"enabled,omitempty"`
+		DontEvictTime   *Duration `json:"dont_evict_time,omitempty"`
+		CapacityUpdTime *Duration `json:"capacity_upd_time,omitempty"`
 	}
 	DiskConfToUpdate struct {
-		DiskUtilLowWM  *int64 `json:"disk_util_low_wm,omitempty"`
-		DiskUtilHighWM *int64 `json:"disk_util_high_wm,omitempty"`
-		DiskUtilMaxWM  *int64 `json:"disk_util_max_wm,omitempty"`
-		// Elapsed time (nanoseconds).
-		IostatTimeLong *cos.Duration `json:"iostat_time_long,omitempty"`
-		// Elapsed time (nanoseconds).
-		IostatTimeShort *cos.Duration `json:"iostat_time_short,omitempty"`
+		DiskUtilLowWM   *int64    `json:"disk_util_low_wm,omitempty"`
+		DiskUtilHighWM  *int64    `json:"disk_util_high_wm,omitempty"`
+		DiskUtilMaxWM   *int64    `json:"disk_util_max_wm,omitempty"`
+		IostatTimeLong  *Duration `json:"iostat_time_long,omitempty"`
+		IostatTimeShort *Duration `json:"iostat_time_short,omitempty"`
 	}
 	RebalanceConfToUpdate struct {
-		// Elapsed time (nanoseconds).
-		DestRetryTime *cos.Duration `json:"dest_retry_time,omitempty"`
-		Compression   *string       `json:"compression,omitempty"`
-		SbundleMult   *int          `json:"bundle_multiplier"`
-		Enabled       *bool         `json:"enabled,omitempty"`
+		Enabled       *bool     `json:"enabled,omitempty"`
+		DestRetryTime *Duration `json:"dest_retry_time,omitempty"`
+		Compression   *string   `json:"compression,omitempty"`
+		SbundleMult   *int      `json:"bundle_multiplier"`
 	}
 	ResilverConfToUpdate struct {
 		Enabled *bool `json:"enabled,omitempty"` // true=auto-resilver | manual resilvering
@@ -168,19 +150,18 @@ type (
 		Chunked         *bool   `json:"chunked_transfer,omitempty"`
 	}
 	FSHCConfToUpdate struct {
+		Enabled       *bool `json:"enabled,omitempty"`
 		TestFileCount *int  `json:"test_files,omitempty"`
 		ErrorLimit    *int  `json:"error_limit,omitempty"`
-		Enabled       *bool `json:"enabled,omitempty"`
 	}
 	AuthConfToUpdate struct {
-		Secret  *string `json:"secret,omitempty"`
 		Enabled *bool   `json:"enabled,omitempty"`
+		Secret  *string `json:"secret,omitempty"`
 	}
 	KeepaliveTrackerConfToUpdate struct {
-		// Elapsed time (nanoseconds).
-		Interval *cos.Duration `json:"interval,omitempty"`
-		Name     *string       `json:"name,omitempty"`
-		Factor   *uint8        `json:"factor,omitempty"`
+		Interval *Duration `json:"interval,omitempty"`
+		Name     *string   `json:"name,omitempty"`
+		Factor   *uint8    `json:"factor,omitempty"`
 	}
 	KeepaliveConfToUpdate struct {
 		Proxy       *KeepaliveTrackerConfToUpdate `json:"proxy,omitempty"`
@@ -188,39 +169,34 @@ type (
 		RetryFactor *uint8                        `json:"retry_factor,omitempty"`
 	}
 	DownloaderConfToUpdate struct {
-		// Elapsed time (nanoseconds).
-		Timeout *cos.Duration `json:"timeout,omitempty"`
+		Timeout *Duration `json:"timeout,omitempty"`
 	}
 	DSortConfToUpdate struct {
-		DuplicatedRecords  *string `json:"duplicated_records,omitempty"`
-		MissingShards      *string `json:"missing_shards,omitempty"`
-		EKMMalformedLine   *string `json:"ekm_malformed_line,omitempty"`
-		EKMMissingKey      *string `json:"ekm_missing_key,omitempty"`
-		DefaultMaxMemUsage *string `json:"default_max_mem_usage,omitempty"`
-		// Elapsed time (nanoseconds).
-		CallTimeout         *cos.Duration `json:"call_timeout,omitempty"`
-		DSorterMemThreshold *string       `json:"dsorter_mem_threshold,omitempty"`
-		Compression         *string       `json:"compression,omitempty"`
-		SbundleMult         *int          `json:"bundle_multiplier,omitempty"`
+		DuplicatedRecords   *string   `json:"duplicated_records,omitempty"`
+		MissingShards       *string   `json:"missing_shards,omitempty"`
+		EKMMalformedLine    *string   `json:"ekm_malformed_line,omitempty"`
+		EKMMissingKey       *string   `json:"ekm_missing_key,omitempty"`
+		DefaultMaxMemUsage  *string   `json:"default_max_mem_usage,omitempty"`
+		CallTimeout         *Duration `json:"call_timeout,omitempty"`
+		DSorterMemThreshold *string   `json:"dsorter_mem_threshold,omitempty"`
+		Compression         *string   `json:"compression,omitempty"`
+		SbundleMult         *int      `json:"bundle_multiplier,omitempty"`
 	}
 	TransportConfToUpdate struct {
-		MaxHeaderSize *int `json:"max_header,omitempty" list:"readonly"`
-		Burst         *int `json:"burst_buffer,omitempty" list:"readonly"`
-		// Elapsed time (nanoseconds).
-		IdleTeardown *cos.Duration `json:"idle_teardown,omitempty"`
-		// Elapsed time (nanoseconds).
-		QuiesceTime      *cos.Duration `json:"quiescent,omitempty"`
-		LZ4BlockMaxSize  *int          `json:"lz4_block,omitempty"`
-		LZ4FrameChecksum *bool         `json:"lz4_frame_checksum,omitempty"`
+		MaxHeaderSize    *int      `json:"max_header,omitempty" list:"readonly"`
+		Burst            *int      `json:"burst_buffer,omitempty" list:"readonly"`
+		IdleTeardown     *Duration `json:"idle_teardown,omitempty"`
+		QuiesceTime      *Duration `json:"quiescent,omitempty"`
+		LZ4BlockMaxSize  *int      `json:"lz4_block,omitempty"`
+		LZ4FrameChecksum *bool     `json:"lz4_frame_checksum,omitempty"`
 	}
 	MemsysConfToUpdate struct {
 		MinFree        *cos.SizeIEC `json:"min_free,omitempty" list:"readonly"`
 		DefaultBufSize *cos.SizeIEC `json:"default_buf,omitempty"`
 		SizeToGC       *cos.SizeIEC `json:"to_gc,omitempty"`
-		// Elapsed time (nanoseconds).
-		HousekeepTime *cos.Duration `json:"hk_time,omitempty"`
-		MinPctTotal   *int          `json:"min_pct_total,omitempty" list:"readonly"`
-		MinPctFree    *int          `json:"min_pct_free,omitempty" list:"readonly"`
+		HousekeepTime  *Duration    `json:"hk_time,omitempty"`
+		MinPctTotal    *int         `json:"min_pct_total,omitempty" list:"readonly"`
+		MinPctFree     *int         `json:"min_pct_free,omitempty" list:"readonly"`
 	}
 	TCBConfToUpdate struct {
 		Compression *string `json:"compression,omitempty"`
