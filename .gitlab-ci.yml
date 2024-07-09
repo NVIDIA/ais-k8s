@@ -40,7 +40,7 @@ build:operator:
   timeout: 10m
   <<: *default_only_def
   script:
-    - make -C operator manager
+    - make -C operator build
 
 operator:minikube:short:
   stage: test:short
