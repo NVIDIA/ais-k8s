@@ -1,0 +1,64 @@
+---
+# Ensure permissions on /etc/cron.* are configured
+- name: Set ownership and permissions for cron directories and files
+  block:
+    - name: Set ownership and permissions for /etc/crontab
+      file:
+        path: /etc/crontab
+        owner: root
+        group: root
+        mode: '0600'
+
+    - name: Set ownership and permissions for /etc/cron.hourly
+      file:
+        path: /etc/cron.hourly
+        owner: root
+        group: root
+        mode: '0600'
+
+    - name: Set ownership and permissions for /etc/cron.daily
+      file:
+        path: /etc/cron.daily
+        owner: root
+        group: root
+        mode: '0600'
+
+    - name: Set ownership and permissions for /etc/cron.weekly
+      file:
+        path: /etc/cron.weekly
+        owner: root
+        group: root
+        mode: '0600'
+
+    - name: Set ownership and permissions for /etc/cron.monthly
+      file:
+        path: /etc/cron.monthly
+        owner: root
+        group: root
+        mode: '0600'
+
+    - name: Set ownership and permissions for /etc/cron.d
+      file:
+        path: /etc/cron.d
+        owner: root
+        group: root
+        mode: '0600'
+
+- name: Ensure crontab is restricted to authorized users
+  block:
+    - name: Create /etc/cron.allow if it does not exist
+      file:
+        path: /etc/cron.allow
+        state: touch
+        owner: root
+        group: root
+        mode: '0640'
+
+    - name: Set permissions for /etc/cron.deny if it exists
+      file:
+        path: /etc/cron.deny
+        state: file
+        owner: root
+        group: root
+        mode: '0640'
+      when: ansible_facts['os_family'] == 'RedHat'

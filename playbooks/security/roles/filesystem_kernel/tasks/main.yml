@@ -1,0 +1,54 @@
+---
+# Configure Filesystem Kernel Modules
+
+# The cramfs filesystem type is a compressed read-only Linux filesystem embedded in small footprint systems. 
+# A cramfs image can be used without having to first decompress the image.
+- name: Prevent loading of the cramfs module
+  lineinfile:
+    path: /etc/modprobe.d/cramfs.conf
+    line: "install cramfs /bin/false"
+    create: yes
+
+- name: Blacklist the cramfs module
+  lineinfile:
+    path: /etc/modprobe.d/cramfs.conf
+    line: "blacklist cramfs"
+    create: yes
+
+- name: Unload the cramfs module from the running kernel
+  command: rmmod cramfs
+  ignore_errors: true
+
+# The jffs2 (journaling flash filesystem 2) filesystem type is a log-structured filesystem used in flash memory devices.
+- name: Prevent loading of the jffs2 module
+  lineinfile:
+    path: /etc/modprobe.d/jffs2.conf
+    line: "install jffs2 /bin/false"
+    create: yes
+
+- name: Blacklist the jffs2 module
+  lineinfile:
+    path: /etc/modprobe.d/jffs2.conf
+    line: "blacklist jffs2"
+    create: yes
+
+- name: Unload the jffs2 module from the running kernel
+  command: rmmod jffs2
+  ignore_errors: true
+
+#  Ensure usb-storage kernel module is not available
+- name: Prevent loading of the usb-storage module
+  lineinfile:
+    path: /etc/modprobe.d/usb-storage.conf
+    line: "install usb-storage /bin/false"
+    create: yes
+
+- name: Blacklist the usb-storage module
+  lineinfile:
+    path: /etc/modprobe.d/usb-storage.conf
+    line: "blacklist usb-storage"
+    create: yes
+
+- name: Unload the usb-storage module from the running kernel
+  command: rmmod usb-storage
+  ignore_errors: true

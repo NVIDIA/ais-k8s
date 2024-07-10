@@ -1,0 +1,179 @@
+---
+# Configure Network Kernel Parameters
+- name: Ensure sysctl configuration file exists for netipv4
+  file:
+    path: /etc/sysctl.d/60-netipv4_sysctl.conf
+    state: touch
+
+- name: Ensure net.ipv4.conf.all.send_redirects is set in the sysctl configuration
+  lineinfile:
+    path: /etc/sysctl.d/60-netipv4_sysctl.conf
+    state: present
+    regexp: '^net.ipv4.conf.all.send_redirects'
+    line: 'net.ipv4.conf.all.send_redirects=0'
+
+- name: Ensure net.ipv4.conf.default.send_redirects is set in the sysctl configuration
+  lineinfile:
+    path: /etc/sysctl.d/60-netipv4_sysctl.conf
+    state: present
+    regexp: '^net.ipv4.conf.default.send_redirects'
+    line: 'net.ipv4.conf.default.send_redirects=0'
+
+- name: Ensure net.ipv4.icmp_ignore_bogus_error_responses is set in the sysctl configuration
+  lineinfile:
+    path: /etc/sysctl.d/60-netipv4_sysctl.conf
+    state: present
+    regexp: '^net.ipv4.icmp_ignore_bogus_error_responses'
+    line: 'net.ipv4.icmp_ignore_bogus_error_responses=1'
+
+- name: Ensure net.ipv4.icmp_echo_ignore_broadcasts is set in the sysctl configuration
+  lineinfile:
+    path: /etc/sysctl.d/60-netipv4_sysctl.conf
+    state: present
+    regexp: '^net.ipv4.icmp_echo_ignore_broadcasts'
+    line: 'net.ipv4.icmp_echo_ignore_broadcasts=1'
+
+- name: Ensure net.ipv4.conf.all.accept_redirects is set in the sysctl configuration
+  lineinfile:
+    path: /etc/sysctl.d/60-netipv4_sysctl.conf
+    state: present
+    regexp: '^net.ipv4.conf.all.accept_redirects'
+    line: 'net.ipv4.conf.all.accept_redirects=0'
+
+- name: Ensure net.ipv4.conf.default.accept_redirects is set in the sysctl configuration
+  lineinfile:
+    path: /etc/sysctl.d/60-netipv4_sysctl.conf
+    state: present
+    regexp: '^net.ipv4.conf.default.accept_redirects'
+    line: 'net.ipv4.conf.default.accept_redirects=0'
+
+- name: Ensure net.ipv6.conf.all.accept_redirects is set in the sysctl configuration
+  lineinfile:
+    path: /etc/sysctl.d/60-netipv4_sysctl.conf
+    state: present
+    regexp: '^net.ipv6.conf.all.accept_redirects'
+    line: 'net.ipv6.conf.all.accept_redirects=0'
+
+- name: Ensure net.ipv6.conf.default.accept_redirects is set in the sysctl configuration
+  lineinfile:
+    path: /etc/sysctl.d/60-netipv4_sysctl.conf
+    state: present
+    regexp: '^net.ipv6.conf.default.accept_redirects'
+    line: 'net.ipv6.conf.default.accept_redirects=0'
+
+- name: Ensure net.ipv4.conf.all.secure_redirects is set in the sysctl configuration
+  lineinfile:
+    path: /etc/sysctl.d/60-netipv4_sysctl.conf
+    state: present
+    regexp: '^net.ipv4.conf.all.secure_redirects'
+    line: 'net.ipv4.conf.all.secure_redirects=0'
+
+- name: Ensure net.ipv4.conf.default.secure_redirects is set in the sysctl configuration
+  lineinfile:
+    path: /etc/sysctl.d/60-netipv4_sysctl.conf
+    state: present
+    regexp: '^net.ipv4.conf.default.secure_redirects'
+    line: 'net.ipv4.conf.default.secure_redirects=0'
+
+- name: Ensure net.ipv4.conf.all.rp_filter is set in the sysctl configuration
+  lineinfile:
+    path: /etc/sysctl.d/60-netipv4_sysctl.conf
+    state: present
+    regexp: '^net.ipv4.conf.all.rp_filter'
+    line: 'net.ipv4.conf.all.rp_filter=1'
+
+- name: Ensure net.ipv4.conf.default.rp_filter is set in the sysctl configuration
+  lineinfile:
+    path: /etc/sysctl.d/60-netipv4_sysctl.conf
+    state: present
+    regexp: '^net.ipv4.conf.default.rp_filter'
+    line: 'net.ipv4.conf.default.rp_filter=1'
+
+- name: Ensure net.ipv4.conf.all.accept_source_route is set in the sysctl configuration
+  lineinfile:
+    path: /etc/sysctl.d/60-netipv4_sysctl.conf
+    state: present
+    regexp: '^net.ipv4.conf.all.accept_source_route'
+    line: 'net.ipv4.conf.all.accept_source_route=0'
+
+- name: Ensure net.ipv4.conf.default.accept_source_route is set in the sysctl configuration
+  lineinfile:
+    path: /etc/sysctl.d/60-netipv4_sysctl.conf
+    state: present
+    regexp: '^net.ipv4.conf.default.accept_source_route'
+    line: 'net.ipv4.conf.default.accept_source_route=0'
+
+- name: Ensure net.ipv6.conf.all.accept_source_route is set in the sysctl configuration
+  lineinfile:
+    path: /etc/sysctl.d/60-netipv4_sysctl.conf
+    state: present
+    regexp: '^net.ipv6.conf.all.accept_source_route'
+    line: 'net.ipv6.conf.all.accept_source_route=0'
+
+- name: Ensure net.ipv6.conf.default.accept_source_route is set in the sysctl configuration
+  lineinfile:
+    path: /etc/sysctl.d/60-netipv4_sysctl.conf
+    state: present
+    regexp: '^net.ipv6.conf.default.accept_source_route'
+    line: 'net.ipv6.conf.default.accept_source_route=0'
+
+- name: Ensure net.ipv4.conf.all.log_martians is set in the sysctl configuration
+  lineinfile:
+    path: /etc/sysctl.d/60-netipv4_sysctl.conf
+    state: present
+    regexp: '^net.ipv4.conf.all.log_martians'
+    line: 'net.ipv4.conf.all.log_martians=1'
+
+- name: Ensure net.ipv4.conf.default.log_martians is set in the sysctl configuration
+  lineinfile:
+    path: /etc/sysctl.d/60-netipv4_sysctl.conf
+    state: present
+    regexp: '^net.ipv4.conf.default.log_martians'
+    line: 'net.ipv4.conf.default.log_martians=1'
+
+- name: Ensure net.ipv4.tcp_syncookies is set in the sysctl configuration
+  lineinfile:
+    path: /etc/sysctl.d/60-netipv4_sysctl.conf
+    state: present
+    regexp: '^net.ipv4.tcp_syncookies'
+    line: 'net.ipv4.tcp_syncookies=1'
+
+- name: Ensure net.ipv6.conf.all.accept_ra is set in the sysctl configuration
+  lineinfile:
+    path: /etc/sysctl.d/60-netipv4_sysctl.conf
+    state: present
+    regexp: '^net.ipv6.conf.all.accept_ra'
+    line: 'net.ipv6.conf.all.accept_ra=0'
+
+- name: Ensure net.ipv6.conf.default.accept_ra is set in the sysctl configuration
+  lineinfile:
+    path: /etc/sysctl.d/60-netipv4_sysctl.conf
+    state: present
+    regexp: '^net.ipv6.conf.default.accept_ra'
+    line: 'net.ipv6.conf.default.accept_ra=0'
+
+- name: Apply sysctl settings from the configuration file
+  shell: sysctl -p /etc/sysctl.d/60-netipv4_sysctl.conf
+
+# The rpcbind utility maps RPC services to the ports on which they listen. RPC processes notify rpcbind when they start, 
+# registering the ports they are listening on and the RPC program numbers they expect to serve. The client system then contacts 
+# rpcbind on the server with a particular RPC program number. The rpcbind.service redirects the client to the proper port number 
+# so it can communicate with the requested service.
+
+# A small request (~82 bytes via UDP) sent to the Portmapper generates a large response (7x to 28x amplification), 
+# which makes it a suitable tool for DDoS attacks. If rpcbind is not required, it is recommended to remove rpcbind 
+# package to reduce the potential attack surface.
+- name: Stop rpcbind services
+  systemd:
+    name: "{{ item }}"
+    state: stopped
+    enabled: no
+  with_items:
+    - rpcbind.socket
+    - rpcbind.service
+  ignore_errors: true
+
+- name: Remove rpcbind package
+  package:
+    name: rpcbind
+    state: absent

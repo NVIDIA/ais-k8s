@@ -1,0 +1,66 @@
+---
+# Ensure PAM configuration is hardened
+# Maintain password quality
+# Ensure password history is configured
+
+- name: Ensure password failed attempts lockout is configured
+  block:
+    - name: Ensure deny is set in /etc/security/faillock.conf
+      lineinfile:
+        path: /etc/security/faillock.conf
+        regexp: '^deny'
+        line: "deny = 5"
+        create: yes
+
+    - name: Ensure unlock_time is set in /etc/security/faillock.conf
+      lineinfile:
+        path: /etc/security/faillock.conf
+        regexp: '^unlock_time'
+        line: "unlock_time = 900"
+        create: yes
+
+- name: Ensure password quality for root user is enforced
+  block:
+    - name: Remove any existing enforce_for_root lines
+      lineinfile:
+        path: /etc/security/pwquality.conf
+        regexp: '^\s*#?\s*enforce_for_root\s*$'
+        state: absent
+
+    - name: Add enforce_for_root to /etc/security/pwquality.conf
+      lineinfile:
+        path: /etc/security/pwquality.conf
+        line: "enforce_for_root"
+        create: yes
+    
+    # set min password length to 14
+    - name: Remove any existing minlen lines
+      lineinfile:
+        path: /etc/security/pwquality.conf
+        regexp: '^\s*#?\s*minlen\s*$'
+        state: absent
+
+    - name: Add 'minlen = 14' to /etc/security/pwquality.conf
+      lineinfile:
+        path: /etc/security/pwquality.conf
+        line: "minlen = 14"
+        create: yes
+      
+    - name: Remove any existing maxsequence lines
+      lineinfile:
+        path: /etc/security/pwquality.conf
+        regexp: '^\s*#?\s*maxsequence\s*$'
+        state: absent
+
+    - name: Add 'maxsequence = 3' to /etc/security/pwquality.conf
+      lineinfile:
+        path: /etc/security/pwquality.conf
+        line: "maxsequence = 3"
+        create: yes
+
+- name: Ensure password history is configured
+  lineinfile:
+    path: /etc/security/pwhistory.conf
+    regexp: '^remember'
+    line: "remember = 24"
+    create: yes

@@ -1,0 +1,24 @@
+---
+# The /tmp directory is a world-writable directory used to store data used by the system and 
+# user applications for a short period of time. This data should have no expectation of surviving
+# a reboot, as this directory is intended to be emptied after each reboot.
+
+# Ensure /tmp is a separate partition
+- name: Set up /tmp to use tmpfs
+  command: systemctl unmask tmp.mount
+
+- name: Add entry to /etc/fstab for /tmp
+  lineinfile:
+    path: /etc/fstab
+    line: "tmpfs /tmp tmpfs defaults,rw,nosuid,nodev,noexec,relatime,size=2G 0 0"
+
+- name: Reload systemd configuration
+  command: systemctl daemon-reload
+
+- name: Mount /tmp
+  mount:
+    path: /tmp
+    src: tmpfs
+    fstype: tmpfs
+    opts: defaults,rw,nosuid,nodev,noexec,relatime,size=2G
+    state: mounted

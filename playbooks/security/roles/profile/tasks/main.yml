@@ -1,0 +1,66 @@
+---
+# Ensure root user umask is configured
+
+# The user file-creation mode mask ( umask ) is used to determine the file permission for 
+# newly created directories and files.
+- name: Ensure UMASK settings are configured
+  block:
+    - name: Update UMASK setting in /etc/profile
+      lineinfile:
+        path: /etc/profile
+        regexp: '^\s*umask\s+\d{3}'
+        line: 'umask 0027'
+        state: present
+
+    - name: Update UMASK setting in /etc/bashrc
+      lineinfile:
+        path: /etc/bashrc
+        regexp: '^\s*umask\s+\d{3}'
+        line: 'umask 0027'
+        state: present
+
+    - name: Update UMASK setting in /etc/login.defs
+      lineinfile:
+        path: /etc/login.defs
+        regexp: '^\s*UMASK\s+\d{3}'
+        line: 'UMASK 0027'
+        state: present
+
+    - name: Ensure system-wide UMASK configuration file exists
+      file:
+        path: /etc/profile.d/50-systemwide_umask.sh
+        state: touch
+
+    - name: Configure UMASK in a system-wide file
+      lineinfile:
+        path: /etc/profile.d/50-systemwide_umask.sh
+        regexp: '^\s*umask\s+\d{3}'
+        line: 'umask 0027'
+        state: present
+
+# TMOUT is an environmental setting that determines the timeout of a shell in seconds.
+- name: Ensure TMOUT settings are configured
+  lineinfile:
+    path: /etc/profile
+    line: "readonly TMOUT=900 ; export TMOUT"
+    create: yes
+
+- name: Ensure password expiration is 365 days or less
+  lineinfile:
+    path: /etc/login.defs
+    regexp: '^PASS_MAX_DAYS'
+    line: 'PASS_MAX_DAYS 365'
+    create: yes
+
+- name: Modify user parameters for all users with a password set
+  shell: |
+    for user in $(awk -F: '{ print $1 }' /etc/passwd); do
+      sudo chage --maxdays 365 $user
+    done
+
+- name: Ensure inactive password lock is 30 days or less
+  shell: |
+    sudo useradd -D -f 30
+    for user in $(awk -F: '{ print $1 }' /etc/passwd); do
+      sudo chage --inactive 30 $user
+    done

@@ -19,6 +19,7 @@ The playbooks are broken up into multiple sections, which should be executed in 
 1. [host-config](./host-config/README.md) playbooks configure system settings on K8s nodes
 2. [cloud](./cloud/README.md) playbooks set up credentials for accessing cloud backends, e.g. s3 and gcp
 3. [ais-deployment](./ais-deployment/README.md) playbooks configure resources in the AIS namespace including the operator and the AIS cluster pods
+4. [security](./security/README.md) contains [`os-hardening` playbook](security/os_hardening.yaml) are used to harden the OS for CISCAT scans. This includes various security measures such as configuring sysctl settings, journald, sshd, and ensuring audit logs and AIDE setup.
 
 An example hosts file is provided, [hosts-example.ini](./hosts-example.ini). You will need to set this up with your own hosts before running the playbooks.
 

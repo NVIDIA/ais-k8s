@@ -1,0 +1,16 @@
+- hosts: all
+  become: yes
+  roles:
+    - filesystem_kernel
+    - journald
+    - kernel
+    - network_kernel
+    - crypto_policy
+    - tmp_dir
+    - aide
+    - cron
+    - rsyslog
+    - pam
+    - sshd
+    - sudo
+    - profile

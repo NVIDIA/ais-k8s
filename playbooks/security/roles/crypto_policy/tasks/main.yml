@@ -1,0 +1,34 @@
+---
+# Configure system wide crypto policy
+- name: Create the subpolicy directory if it doesn't exist
+  file:
+    path: /etc/crypto-policies/policies/modules
+    state: directory
+    mode: '0755'
+
+- name: Create the NO-SHA1 subpolicy file
+  copy:
+    dest: /etc/crypto-policies/policies/modules/NO-SHA1.pmod
+    content: |
+      # This is a subpolicy dropping the SHA1 hash and signature support
+      hash = -SHA1
+      sign = -*-SHA1
+      sha1_in_certs = 0
+
+- name: Create the NO-SSHCBC subpolicy file
+  copy:
+    dest: /etc/crypto-policies/policies/modules/NO-SSHCBC.pmod
+    content: |
+      # This is a subpolicy to disable all CBC mode ciphers
+      # for the SSH protocol (libssh and OpenSSH)
+      cipher@SSH = -*-CBC
+
+- name: Create the NO-WEAKMAC subpolicy file
+  copy:
+    dest: /etc/crypto-policies/policies/modules/NO-WEAKMAC.pmod
+    content: |
+      # This is a subpolicy to disable weak macs
+      mac = -*-64
+
+- name: Update the system-wide cryptographic policy to include the NO-SHA1, NO-SSHCBC, and NO-WEAKMAC subpolicies
+  command: update-crypto-policies --set DEFAULT:NO-SHA1:NO-SSHCBC:NO-WEAKMAC

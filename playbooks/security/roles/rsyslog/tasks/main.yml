@@ -1,0 +1,18 @@
+---
+# Configure rsyslog
+# The rsyslog software package may be used instead of the default journald logging mechanism.
+- name: Ensure rsyslog configuration directory exists
+  file:
+    path: /etc/rsyslog.d
+    state: directory
+
+- name: Ensure rsyslog default file permissions are configured
+  lineinfile:
+    path: /etc/rsyslog.d/99-default-permissions.conf
+    line: '\$FileCreateMode 0640'
+    create: yes
+
+- name: Restart rsyslog service
+  service:
+    name: rsyslog
+    state: restarted

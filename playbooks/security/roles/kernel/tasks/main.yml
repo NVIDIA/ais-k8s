@@ -1,0 +1,32 @@
+---
+# Configure Additional Process Hardening 
+
+# Address space layout randomization (ASLR) is an exploit mitigation technique which randomly arranges 
+# the address space of key data areas of a process.
+
+# The ptrace() system call provides a means by which one process (the "tracer") may observe and control 
+# the execution of another process (the "tracee"), and examine and change the tracee's memory and registers.
+
+- name: Ensure sysctl configuration file exists
+  file:
+    path: /etc/sysctl.d/60-kernel_sysctl.conf
+    state: touch
+
+- name: Ensure kernel.randomize_va_space is set in the sysctl configuration
+  lineinfile:
+    path: /etc/sysctl.d/60-kernel_sysctl.conf
+    state: present
+    regexp: '^kernel.randomize_va_space'
+    line: 'kernel.randomize_va_space=2'
+
+- name: Ensure kernel.yama.ptrace_scope is set in the sysctl configuration
+  lineinfile:
+    path: /etc/sysctl.d/60-kernel_sysctl.conf
+    state: present
+    regexp: '^kernel.yama.ptrace_scope'
+    line: 'kernel.yama.ptrace_scope=1'
+
+- name: Apply sysctl settings from the temporary file
+  shell: sysctl -p /etc/sysctl.d/60-kernel_sysctl.conf
+
+

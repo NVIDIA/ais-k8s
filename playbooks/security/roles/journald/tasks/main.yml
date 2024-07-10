@@ -1,0 +1,21 @@
+---
+# Journald is a system service for collecting and storing log data, introduced with systemd. It tries to make it easier
+# for system administrators to find interesting and relevant information among an ever-increasing amount of log messages.
+- name: Ensure journald is configured to compress large log files
+  lineinfile:
+    path: /etc/systemd/journald.conf
+    regexp: '^Compress='
+    line: 'Compress=yes'
+    create: yes
+
+- name: Ensure journald is configured to write logfiles to persistent disk
+  lineinfile:
+    path: /etc/systemd/journald.conf
+    regexp: '^Storage='
+    line: 'Storage=persistent'
+    create: yes
+
+- name: Restart systemd-journald service
+  service:
+    name: systemd-journald
+    state: restarted

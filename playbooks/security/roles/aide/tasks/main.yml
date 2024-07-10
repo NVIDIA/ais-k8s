@@ -1,0 +1,91 @@
+---
+# Advanced Intrusion Detection Environment (AIDE) is an intrusion detection tool that uses predefined rules to check the integrity 
+# of files and directories in the Linux operating system. AIDE has its own database to check the integrity of files and directories.
+
+# aide takes a snapshot of files and directories including modification times, permissions, and file hashes which can then be used 
+# to compare against the current state of the filesystem to detect modifications to the system.
+
+- name: Ensure AIDE is installed
+  package:
+    name: aide
+    state: present
+
+- name: Check if AIDE database exists
+  stat:
+    path: /var/lib/aide/aide.db.new.gz
+  register: aide_db
+
+- name: Initialize AIDE if database does not exist
+  command: aide --init
+  when: not aide_db.stat.exists
+
+- name: Move new AIDE database to the proper location
+  command: mv /var/lib/aide/aide.db.new.gz /var/lib/aide/aide.db.gz
+
+- name: Create systemd service for AIDE
+  copy:
+    dest: /etc/systemd/system/aidecheck.service
+    content: |
+      [Unit]
+      Description=Aide Check
+
+      [Service]
+      Type=simple
+      ExecStart=/usr/sbin/aide --check
+
+      [Install]
+      WantedBy=multi-user.target
+
+- name: Create systemd timer for AIDE
+  copy:
+    dest: /etc/systemd/system/aidecheck.timer
+    content: |
+      [Unit]
+      Description=Aide check every day at 5AM
+
+      [Timer]
+      OnCalendar=*-*-* 05:00:00
+      Unit=aidecheck.service
+
+      [Install]
+      WantedBy=multi-user.target
+
+- name: Set permissions for aidecheck service file
+  file:
+    path: /etc/systemd/system/aidecheck.service
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Set permissions for aidecheck timer file
+  file:
+    path: /etc/systemd/system/aidecheck.timer
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Reload systemd and enable AIDE services
+  systemd:
+    daemon_reload: yes
+
+- name: Enable AIDE service
+  systemd:
+    name: aidecheck.service
+    enabled: yes
+
+- name: Enable AIDE timer
+  systemd:
+    name: aidecheck.timer
+    enabled: yes
+    state: started
+
+- name: Ensure cryptographic mechanisms are used to protect the integrity of audit tools
+  blockinfile:
+    path: /etc/aide.conf
+    block: |
+      /sbin/auditctl p+i+n+u+g+s+b+acl+xattrs+sha512
+      /sbin/auditd p+i+n+u+g+s+b+acl+xattrs+sha512
+      /sbin/ausearch p+i+n+u+g+s+b+acl+xattrs+sha512
+      /sbin/aureport p+i+n+u+g+s+b+acl+xattrs+sha512
+      /sbin/autrace p+i+n+u+g+s+b+acl+xattrs+sha512
+      /sbin/augenrules p+i+n+u+g+s+b+acl+xattrs+sha512

@@ -1,0 +1,65 @@
+---
+# Configure SSH Server
+- name: Set ownership and permissions for /etc/ssh/sshd_config
+  block:
+    - name: Set ownership and permissions for /etc/ssh/sshd_config
+      file:
+        path: /etc/ssh/sshd_config
+        owner: root
+        group: root
+        mode: '0640'
+
+    - name: Set ownership and permissions for .conf files in /etc/ssh/sshd_config.d
+      find:
+        paths: /etc/ssh/sshd_config.d
+        patterns: "*.conf"
+      register: sshd_conf_files
+
+    - name: Set permissions for each file
+      file:
+        path: "{{ item.path }}"
+        owner: root
+        group: root
+        mode: '0640'
+      with_items: "{{ sshd_conf_files.files }}"
+
+- name: Ensure sshd settings are configured
+  block:
+    - name: Configure sshd Banner
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^Banner'
+        line: "Banner /etc/issue.net"
+        create: yes
+
+    - name: Configure sshd Ciphers
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^Ciphers'
+        line: "Ciphers -3des-cbc,aes128-cbc,aes192-cbc,aes256-cbc,rijndael-cbc@lysator.liu.se"
+        create: yes
+
+    - name: Configure sshd ClientAliveInterval and ClientAliveCountMax
+      block:
+        - lineinfile:
+            path: /etc/ssh/sshd_config
+            regexp: '^ClientAliveInterval'
+            line: "ClientAliveInterval 15"
+            create: yes
+        - lineinfile:
+            path: /etc/ssh/sshd_config
+            regexp: '^ClientAliveCountMax'
+            line: "ClientAliveCountMax 3"
+            create: yes
+
+    - name: Disable HostbasedAuthentication
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^HostbasedAuthentication'
+        line: "HostbasedAuthentication no"
+        create: yes
+
+- name: Restart sshd service
+  service:
+    name: sshd
+    state: restarted

@@ -1,0 +1,32 @@
+---
+# sudo can be configured to run only from a pseudo terminal ( pseudo-pty ).
+- name: Ensure sudo commands use pty
+  lineinfile:
+    path: /etc/sudoers.d/use_pty
+    line: "Defaults use_pty"
+    create: yes
+
+- name: Ensure sudo log file exists
+  lineinfile:
+    path: /etc/sudoers.d/sudo_log
+    line: 'Defaults logfile="/var/log/sudo.log"'
+    create: yes
+
+- name: Set proper permissions for the sudoers.d files
+  file:
+    path: "{{ item }}"
+    owner: root
+    group: root
+    mode: '0440'
+  with_items:
+    - /etc/sudoers.d/use_pty
+    - /etc/sudoers.d/sudo_log
+
+- name: Create the sudo log file if it doesn't exist
+  file:
+    path: /var/log/sudo.log
+    state: touch
+    owner: root
+    group: root
+    mode: '0640'
+
