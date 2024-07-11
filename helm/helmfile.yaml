@@ -1,7 +1,20 @@
+environments: 
+  default:
+    values:
+    - https:
+        enabled: false
+  sjc11:
+    values: 
+    - https:
+        enabled: true
+---
+
 repositories:
   - name: ais-operator
-    url: https://github.com/NVIDIA/ais-k8s/releases/download/v1.1.0/
+    url: https://github.com/NVIDIA/ais-k8s/releases/download/v1.2.0/
     
+---
+
 releases:
   - name: ais-operator
     namespace: ais-operator-system
@@ -10,6 +23,29 @@ releases:
     version: 0.1.0
     wait: true
 
+  # Defines a self-signed issuer for acquiring a tls cert
+  - name: ais-tls-issuer
+    namespace: ais
+    createNamespace: true
+    chart: charts/tls-issuer
+    version: 0.1.0
+    condition: https.enabled
+    values:
+      - "./config/tls-issuer/{{ .Environment.Name }}.yaml"
+
+  # Acquires a tls cert from the specified issuer and stores in a secret for AIS
+  - name: ais-tls-cert
+    namespace: ais
+    createNamespace: true
+    chart: charts/tls-cert
+    version: 0.1.0
+    condition: https.enabled
+    needs:
+      - ais-tls-issuer
+    values:
+      - "./config/tls-cert/{{ .Environment.Name }}.yaml"
+      - "./config/ais/{{ .Environment.Name }}.yaml"
+    
   - name: ais-cluster
     namespace: ais
     createNamespace: true
@@ -20,8 +56,7 @@ releases:
     needs:
       - ais-operator-system/ais-operator
     values:
-    # Update this to the values file for your cluster
-      - charts/ais-cluster/sjc11values.yaml
+      - "./config/ais/{{ .Environment.Name }}.yaml"
     # Install pre-req local-path-provisioner to the cluster
     hooks:
       - events: ["presync"]

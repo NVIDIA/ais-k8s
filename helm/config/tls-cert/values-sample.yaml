@@ -1,0 +1,20 @@
+certificate:
+  duration: 8760h # 1 year
+  renewBefore: 720h # 30 days
+  subject:
+    organizations:
+      - NVIDIA Corporation
+    organizationalUnits:
+      - NGC Storage
+    countries:
+      - US
+  dnsNames:
+    - example.com
+    - www.example.com
+  ipAddresses:
+    - 192.168.0.1
+    - 192.168.0.2
+  emailAddress: ais@exchange.nvidia.com
+  issuerRef:
+    name: selfsigned
+    kind: Issuer

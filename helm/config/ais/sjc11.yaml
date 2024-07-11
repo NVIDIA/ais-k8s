@@ -1,0 +1,46 @@
+global:
+  nodes: 
+    - aistorecpu1004.nsv.sjc11.nvmetal.net
+    - aistorecpu1005.nsv.sjc11.nvmetal.net
+    - aistorecpu1006.nsv.sjc11.nvmetal.net
+  job_namespace: ais-jobs
+  namespace: ais
+  cluster: ais
+  mpath_size: 5.8Ti
+  mpaths:
+    - /ais/nvme0n1
+    - /ais/nvme1n1
+    - /ais/nvme2n1
+    - /ais/nvme3n1
+    - /ais/nvme4n1
+    - /ais/nvme5n1
+    - /ais/nvme6n1
+    - /ais/nvme7n1
+    - /ais/nvme8n1
+    - /ais/nvme9n1
+    - /ais/nvme10n1
+    - /ais/nvme11n1
+    - /ais/nvme12n1
+    - /ais/nvme13n1
+    - /ais/nvme14n1
+    - /ais/nvme15n1
+size: 3
+protocol: https
+https:
+  skipVerifyCert: false
+  tlsSecret: "tls-certs"
+nodeImage:
+  name: aistorage/aisnode
+  tag: v3.23
+initImage:
+  name: aistorage/ais-init
+  tag: v1.2.0
+cloud:
+  awsSecretName: ""
+  gcpSecretName: ""
+multihome:
+  enabled: false
+  hostnameMap: 
+  networkAttachment:
+cleanupData: false
+stateStorageClass: "local-path"

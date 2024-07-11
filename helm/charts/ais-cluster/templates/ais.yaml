@@ -20,6 +20,8 @@ spec:
         server_key: "/var/certs/tls.key"
         use_https: true
         skip_verify: {{ .Values.https.skipVerifyCert }}
+        client_ca_tls: "/var/certs/ca.crt"
+        client_auth_tls: 0
     {{- end }}
   enablePromExporter: false
   proxySpec:

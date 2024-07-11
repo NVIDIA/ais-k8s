@@ -1,0 +1,37 @@
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: {{ .Values.clusterIssuer.name }}
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Values.caCertificate.name }}
+  namespace: {{ .Release.namespace }}
+spec:
+  secretName: {{ .Values.ca_cert_secret }}
+  isCA: true
+  commonName: selfsigned-ca
+  privateKey:
+    algorithm: {{ .Values.caCertificate.privateKey.algorithm }}
+    encoding: {{ .Values.caCertificate.privateKey.encoding }}
+    size: {{ .Values.caCertificate.privateKey.size }}
+  subject:
+    organizations: {{ .Values.caCertificate.subject.organizations }}
+    organizationalUnits: {{ .Values.caCertificate.subject.organizationalUnits }}
+    countries: {{ .Values.caCertificate.subject.countries }}
+  issuerRef:
+    name: {{ .Values.clusterIssuer.name }}
+    kind: ClusterIssuer
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ .Values.Issuer.name }}
+  namespace: {{ .Release.namespace }}
+spec:
+  ca:
+    secretName: {{ .Values.ca_cert_secret }}

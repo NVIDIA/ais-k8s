@@ -1,0 +1,39 @@
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: ais-server-cert
+  namespace: {{ .Release.Namespace }}
+spec:
+  secretName: {{ .Values.https.tlsSecret }}
+  isCA: false
+  duration: {{ .Values.certificate.duration }}
+  renewBefore: {{ .Values.certificate.renewBefore }}
+  usages:
+    - server auth
+  subject:
+    organizations: 
+      {{- range .Values.certificate.subject.organizations }}
+      - {{ . }}
+      {{- end }}
+    organizationalUnits:
+      {{- range .Values.certificate.subject.organizationalUnits }}
+      - {{ . }}
+      {{- end }}
+    countries:
+      {{- range .Values.certificate.subject.countries }}
+      - {{ . }}
+      {{- end }}
+  dnsNames:
+    {{- range .Values.certificate.dnsNames }}
+    - "{{ . }}"
+    {{- end }}
+  ipAddresses:
+    {{- range .Values.certificate.ipAddresses }}
+    - "{{ . }}"
+    {{- end }}
+  emailAddresses:
+    - {{ .Values.certificate.emailAddress }}
+  issuerRef:
+    name: {{ .Values.certificate.issuerRef.name }}
+    kind: {{ .Values.certificate.issuerRef.kind }}
