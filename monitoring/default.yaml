@@ -37,3 +37,4 @@ alertmanager:
 
 promtail: 
   clientUrl: "http://loki-gateway/loki/api/v1/push"
+  tenant: "aistore"

@@ -42,7 +42,7 @@ alertmanager:
             channel: {{ .Values.alertmanager.slack.channel }}
             send_resolved: true
             title: |
-              {{- if eq .Status "firing" }}
+              {{`{{- if eq .Status "firing" }}
               {{-   if eq .CommonLabels.severity "warning" }}
               :warning: Warning: {{ .CommonAnnotations.summary }} :warning:
               {{-   else if eq .CommonLabels.severity "info" }}
@@ -52,9 +52,9 @@ alertmanager:
               {{-   end }}
               {{- else if eq .Status "resolved" }}
               :white_check_mark: Resolved: {{ .CommonAnnotations.summary }} :white_check_mark:
-              {{- end }}
+              {{- end }}`}}
             text: |
-              {{- range .Alerts }}
+              {{`{{- range .Alerts }}
               {{ .Annotations.description }}
-              {{- end }} 
+              {{- end }}`}} 
   {{- end }}

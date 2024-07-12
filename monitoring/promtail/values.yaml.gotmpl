@@ -1,4 +1,4 @@
 config:
   clients:
     - url: {{ .Values | get "promtail.clientUrl" }}
-      tenant_id: 1
+      tenant_id: {{ .Values | get "promtail.tenant" }}

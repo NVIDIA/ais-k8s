@@ -26,4 +26,5 @@ alertmanager:
     channel: ""
 
 promtail: 
-  clientUrl: "http://remote-loki-gateway/loki/api/v1/push"
+  clientUrl: "http://loki-gateway/loki/api/v1/push"
+  tenant: "aistore"
