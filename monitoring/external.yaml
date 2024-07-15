@@ -24,7 +24,8 @@ alertmanager:
     # Update to allow slack alerts
     webhook: ""
     channel: ""
-
+    
 promtail: 
   clientUrl: "http://loki-gateway/loki/api/v1/push"
   tenant: "aistore"
+  clusterLabel: "aistore-external"

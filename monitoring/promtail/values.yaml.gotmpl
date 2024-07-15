@@ -2,3 +2,7 @@ config:
   clients:
     - url: {{ .Values | get "promtail.clientUrl" }}
       tenant_id: {{ .Values | get "promtail.tenant" }}
+      external_labels: 
+        cluster: {{ .Values | get "promtail.clusterLabel" }}
+configmap:
+  enabled: true
