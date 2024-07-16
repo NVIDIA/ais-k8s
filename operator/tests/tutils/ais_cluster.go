@@ -6,6 +6,7 @@ package tutils
 
 import (
 	"context"
+	"fmt"
 	"path"
 	"strconv"
 
@@ -37,7 +38,7 @@ type (
 		ShutdownCluster     bool
 		CleanupData         bool
 		// Create a cluster with more PVs than targets for future scaling
-		MaxPVs int32
+		MaxTargets int32
 		// Where to mount the hostpath storage for actual storage PVs
 		StorageHostPath string
 		// For testing deprecated feature
@@ -52,24 +53,25 @@ func NewAISCluster(args ClusterSpecArgs, client *aisclient.K8sClient) (*aisv1.AI
 }
 
 func createStoragePVs(args ClusterSpecArgs, client *aisclient.K8sClient, mounts []aisv1.Mount) []*corev1.PersistentVolume {
-	pvNum := int(args.MaxPVs)
-	if pvNum == 0 {
+	targetNum := int(args.MaxTargets)
+	if targetNum == 0 {
 		if args.TargetSize != 0 {
-			pvNum = int(args.TargetSize)
+			targetNum = int(args.TargetSize)
 		} else {
-			pvNum = int(args.Size)
+			targetNum = int(args.Size)
 		}
 	}
 
-	pvs := make([]*corev1.PersistentVolume, 0, len(mounts)*pvNum)
+	pvs := make([]*corev1.PersistentVolume, 0, len(mounts)*targetNum)
 
-	for i := 0; i < pvNum; i++ {
+	for i := 0; i < targetNum; i++ {
 		for _, mount := range mounts {
 			pvData := PVData{
 				storageClass: args.StorageClass,
 				ns:           args.Namespace,
 				cluster:      args.Name,
 				mpath:        mount.Path,
+				node:         determineNode("minikube", "%s-m%02d", i),
 				target:       "target-" + strconv.Itoa(i),
 				size:         mount.Size,
 			}
@@ -80,6 +82,17 @@ func createStoragePVs(args ClusterSpecArgs, client *aisclient.K8sClient, mounts 
 		}
 	}
 	return pvs
+}
+
+// Determine the hostname of the node for PV affinity.
+// Targets will bind to specific PVs so in a multi-node multi-target test we must define the PVs on separate nodes
+// By default, a minikube multi-node cluster will create nodes named minikube, minikube-m02, minikube-m03...
+func determineNode(base, format string, ordinal int) string {
+	if ordinal == 0 {
+		return base
+	}
+	// minikube node names are not zero-indexed, so increment to match target names
+	return fmt.Sprintf(format, base, ordinal+1)
 }
 
 func defineMounts(args ClusterSpecArgs) []aisv1.Mount {

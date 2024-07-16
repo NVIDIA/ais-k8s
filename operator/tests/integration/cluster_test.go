@@ -193,7 +193,7 @@ var _ = Describe("Run Controller", func() {
 			It("Should be able to scale-up existing cluster", func() {
 				tutils.CheckSkip(&tutils.SkipArgs{SkipInternal: testAsExternalClient})
 				cluArgs := defaultCluArgs()
-				cluArgs.MaxPVs = 2
+				cluArgs.MaxTargets = 2
 				cluster, pvs := tutils.NewAISCluster(cluArgs, k8sClient)
 				scaleUpCluster := func(ctx context.Context, cluster *aisv1.AIStore) {
 					scaleCluster(ctx, cluster, false, 1)
@@ -204,7 +204,7 @@ var _ = Describe("Run Controller", func() {
 			It("Should be able to scale-up targets of existing cluster", func() {
 				tutils.CheckSkip(&tutils.SkipArgs{SkipInternal: testAsExternalClient})
 				cluArgs := defaultCluArgs()
-				cluArgs.MaxPVs = 2
+				cluArgs.MaxTargets = 2
 				cluster, pvs := tutils.NewAISCluster(cluArgs, k8sClient)
 				scaleUpCluster := func(ctx context.Context, cluster *aisv1.AIStore) {
 					scaleCluster(ctx, cluster, true, 1)
@@ -229,7 +229,7 @@ var _ = Describe("Run Controller", func() {
 				tutils.CheckSkip(&tutils.SkipArgs{RequiresLB: true})
 				cluArgs := defaultCluArgs()
 				cluArgs.EnableExternalLB = true
-				cluArgs.MaxPVs = 2
+				cluArgs.MaxTargets = 2
 				cluster, pvs := tutils.NewAISCluster(cluArgs, k8sClient)
 				scaleUpCluster := func(ctx context.Context, cluster *aisv1.AIStore) {
 					scaleCluster(ctx, cluster, false, 1)

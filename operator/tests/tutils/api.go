@@ -49,6 +49,7 @@ type PVData struct {
 	ns           string
 	cluster      string
 	mpath        string
+	node         string
 	target       string
 	size         resource.Quantity
 }
@@ -300,7 +301,7 @@ func CreatePV(ctx context.Context, client *aisclient.K8sClient, pvData *PVData) 
 	pvName := fmt.Sprintf("%s-%s-%s-%s-pv", pvData.ns, pvData.cluster, trimmedMpath, pvData.target)
 
 	claimRefName := fmt.Sprintf("%s-%s-%s-%s", pvData.cluster, trimmedMpath, pvData.cluster, pvData.target)
-	fmt.Fprintf(os.Stdout, "Creating PV '%s' with claim ref '%s'\n", pvName, claimRefName)
+	fmt.Fprintf(os.Stdout, "Creating PV '%s' with claim ref '%s' on node '%s'\n", pvName, claimRefName, pvData.node)
 
 	pvSpec := &corev1.PersistentVolumeSpec{
 		Capacity: corev1.ResourceList{
@@ -313,7 +314,7 @@ func CreatePV(ctx context.Context, client *aisclient.K8sClient, pvData *PVData) 
 		ClaimRef:                      &corev1.ObjectReference{Namespace: pvData.ns, Name: claimRefName},
 		StorageClassName:              pvData.storageClass,
 		PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimRetain,
-		NodeAffinity:                  createVolumeNodeAffinity("kubernetes.io/hostname", "minikube"),
+		NodeAffinity:                  createVolumeNodeAffinity("kubernetes.io/hostname", pvData.node),
 	}
 
 	pv := &corev1.PersistentVolume{
