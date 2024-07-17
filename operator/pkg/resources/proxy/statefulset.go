@@ -138,6 +138,7 @@ func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
 				LivenessProbe:   cmn.NewLivenessProbe(ais, aisapc.Proxy),
 				ReadinessProbe:  cmn.NewReadinessProbe(ais, aisapc.Proxy),
 			},
+			cmn.NewLogSidecar(aisapc.Proxy),
 		},
 		Affinity:           cmn.CreateAISAffinity(ais.Spec.ProxySpec.Affinity, PodLabels(ais)),
 		NodeSelector:       ais.Spec.ProxySpec.NodeSelector,

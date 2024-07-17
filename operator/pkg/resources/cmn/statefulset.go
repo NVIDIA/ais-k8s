@@ -5,8 +5,12 @@
 package cmn
 
 import (
+	"fmt"
+	"path/filepath"
+
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	nadv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 func ParseAnnotations(ais *aisv1.AIStore) map[string]string {
@@ -16,4 +20,17 @@ func ParseAnnotations(ais *aisv1.AIStore) map[string]string {
 		}
 	}
 	return nil
+}
+
+// NewLogSidecar Defines a container that mounts the location of logs and redirects output to the pod's stdout
+func NewLogSidecar(daeType string) corev1.Container {
+	logFile := filepath.Join(LogsDir, fmt.Sprintf("ais%s.INFO", daeType))
+	return corev1.Container{
+		Name:            "ais-logs",
+		Image:           "docker.io/library/busybox:1.36.1",
+		ImagePullPolicy: corev1.PullIfNotPresent,
+		Command:         []string{"/bin/sh", "-c", fmt.Sprintf("tail -n+1 -F %s", logFile)},
+		VolumeMounts:    []corev1.VolumeMount{newLogsVolumeMount(daeType)},
+		Env:             []corev1.EnvVar{EnvFromFieldPath(EnvPodName, "metadata.name")},
+	}
 }

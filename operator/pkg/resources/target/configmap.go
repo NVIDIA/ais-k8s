@@ -13,6 +13,7 @@ import (
 	aiscmn "github.com/NVIDIA/aistore/cmn"
 	"github.com/NVIDIA/aistore/cmn/cos"
 	aisv1 "github.com/ais-operator/api/v1beta1"
+	"github.com/ais-operator/pkg/resources/cmn"
 	jsoniter "github.com/json-iterator/go"
 	"golang.org/x/mod/semver"
 	corev1 "k8s.io/api/core/v1"
@@ -78,7 +79,7 @@ func buildLocalConf(spec aisv1.AIStoreSpec) (string, error) {
 func templateLocalConf(spec aisv1.AIStoreSpec, netConfig aiscmn.LocalNetConfig) aiscmn.LocalConfig {
 	localConf := aiscmn.LocalConfig{
 		ConfigDir: "/etc/ais",
-		LogDir:    "/var/log/ais",
+		LogDir:    cmn.LogsDir,
 		HostNet:   netConfig,
 	}
 	if len(spec.TargetSpec.Mounts) > 0 {
@@ -90,7 +91,7 @@ func templateLocalConf(spec aisv1.AIStoreSpec, netConfig aiscmn.LocalNetConfig) 
 func templateOldLocalConf(spec aisv1.AIStoreSpec, netConfig aiscmn.LocalNetConfig) v322LocalConfig {
 	localConf := v322LocalConfig{
 		ConfigDir: "/etc/ais",
-		LogDir:    "/var/log/ais",
+		LogDir:    cmn.LogsDir,
 		HostNet:   netConfig,
 	}
 	if len(spec.TargetSpec.Mounts) > 0 {

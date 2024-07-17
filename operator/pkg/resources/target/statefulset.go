@@ -145,6 +145,7 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 							LivenessProbe:   cmn.NewLivenessProbe(ais, aisapc.Target),
 							ReadinessProbe:  cmn.NewReadinessProbe(ais, aisapc.Target),
 						},
+						cmn.NewLogSidecar(aisapc.Target),
 					},
 					HostNetwork:        hostNetwork,
 					DNSPolicy:          dnsPolicy,

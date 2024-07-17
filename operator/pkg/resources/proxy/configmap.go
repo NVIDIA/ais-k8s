@@ -8,6 +8,7 @@ import (
 	aisapc "github.com/NVIDIA/aistore/api/apc"
 	aiscmn "github.com/NVIDIA/aistore/cmn"
 	aisv1 "github.com/ais-operator/api/v1beta1"
+	"github.com/ais-operator/pkg/resources/cmn"
 	jsoniter "github.com/json-iterator/go"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,9 +44,9 @@ func NewProxyCM(ais *aisv1.AIStore) (*corev1.ConfigMap, error) {
 }
 
 func localConfTemplate(spec aisv1.ServiceSpec) aiscmn.LocalConfig {
-	localConf := aiscmn.LocalConfig{
+	return aiscmn.LocalConfig{
 		ConfigDir: "/etc/ais",
-		LogDir:    "/var/log/ais",
+		LogDir:    cmn.LogsDir,
 		HostNet: aiscmn.LocalNetConfig{
 			Hostname:             "${AIS_PUBLIC_HOSTNAME}",
 			HostnameIntraControl: "${AIS_INTRA_HOSTNAME}",
@@ -55,5 +56,4 @@ func localConfTemplate(spec aisv1.ServiceSpec) aiscmn.LocalConfig {
 			PortIntraData:        spec.IntraDataPort.IntValue(),
 		},
 	}
-	return localConf
 }

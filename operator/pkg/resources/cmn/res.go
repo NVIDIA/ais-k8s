@@ -17,6 +17,8 @@ import (
 )
 
 const (
+	LogsDir = "/var/log/ais"
+
 	configVolume         = "config-mount"
 	configGlobalVolume   = "config-global"
 	configTemplateVolume = "config-template"
@@ -90,6 +92,7 @@ func NewAISVolumes(ais *aisv1.AIStore, daeType string) []corev1.Volume {
 				},
 			},
 		},
+		newLogsVolume(ais, daeType),
 	}
 
 	// Only create hostpath volumes if no storage class is provided for state
@@ -150,9 +153,12 @@ func NewAISVolumes(ais *aisv1.AIStore, daeType string) []corev1.Volume {
 			},
 		})
 	}
+	return volumes
+}
 
+func newLogsVolume(ais *aisv1.AIStore, daeType string) corev1.Volume {
 	if ais.Spec.LogsDirectory != "" {
-		volumes = append(volumes, corev1.Volume{
+		return corev1.Volume{
 			Name: logsVolume,
 			VolumeSource: corev1.VolumeSource{
 				HostPath: &corev1.HostPathVolumeSource{
@@ -160,10 +166,14 @@ func NewAISVolumes(ais *aisv1.AIStore, daeType string) []corev1.Volume {
 					Type: aisapc.Ptr(corev1.HostPathDirectoryOrCreate),
 				},
 			},
-		})
+		}
 	}
-
-	return volumes
+	return corev1.Volume{
+		Name: logsVolume,
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
+	}
 }
 
 func newHTTPProbeHandle(ais *aisv1.AIStore, daemonRole, probeEndpoint string) corev1.ProbeHandler {
@@ -242,6 +252,7 @@ func NewAISVolumeMounts(ais *aisv1.AIStore, daeType string) []corev1.VolumeMount
 			Name:      "statsd-config",
 			MountPath: "/var/statsd_config",
 		},
+		newLogsVolumeMount(daeType),
 	}
 
 	hostMountSubPath := getHostMountSubPath(daeType)
@@ -297,15 +308,16 @@ func NewAISVolumeMounts(ais *aisv1.AIStore, daeType string) []corev1.VolumeMount
 			MountPath: "/var/certs",
 		})
 	}
-	if spec.LogsDirectory != "" {
-		volumeMounts = append(volumeMounts, corev1.VolumeMount{
-			Name:        logsVolume,
-			MountPath:   "/var/log/ais",
-			SubPathExpr: hostMountSubPath,
-		})
-	}
 
 	return volumeMounts
+}
+
+func newLogsVolumeMount(daeType string) corev1.VolumeMount {
+	return corev1.VolumeMount{
+		Name:        logsVolume,
+		MountPath:   LogsDir,
+		SubPathExpr: getHostMountSubPath(daeType),
+	}
 }
 
 func NewInitContainerArgs(daeType string, hostnameMap map[string]string) []string {
