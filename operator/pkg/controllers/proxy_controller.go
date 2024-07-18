@@ -20,6 +20,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const (
@@ -77,22 +78,22 @@ func (r *AIStoreReconciler) initProxies(ctx context.Context, ais *aisv1.AIStore)
 	}
 	if changed {
 		msg := "Successfully initialized proxy nodes"
-		r.log.Info(msg)
+		logf.FromContext(ctx).Info(msg)
 		r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonInitialized, msg)
 	}
 
 	// Wait for proxy service to have a registered DNS entry
-	if err = r.waitForDNSEntry(ctx, ais.GetClusterDomain(), svc, dnsEntryInterval, dnsEntryWaitTimeout); err != nil {
+	if err = waitForDNSEntry(ctx, ais.GetClusterDomain(), svc, dnsEntryInterval, dnsEntryWaitTimeout); err != nil {
 		r.recordError(ais, err, "Failed while waiting for DNS entry for proxy service")
 	}
 	return
 }
 
-func (r *AIStoreReconciler) waitForDNSEntry(ctx context.Context, clusterDomain string, svc *corev1.Service, retryInterval, timeout time.Duration) error {
+func waitForDNSEntry(ctx context.Context, clusterDomain string, svc *corev1.Service, retryInterval, timeout time.Duration) error {
 	hostname := fmt.Sprintf("%s.%s.svc.%s", svc.Name, svc.Namespace, clusterDomain)
 	return wait.PollUntilContextTimeout(ctx, retryInterval, timeout, true /*immediate*/, func(_ context.Context) (done bool, err error) {
 		if _, err = net.LookupIP(hostname); err != nil {
-			r.log.Info("Waiting for proxy service DNS entry...", "hostname", hostname)
+			logf.FromContext(ctx).Info("Waiting for proxy service DNS entry...", "hostname", hostname)
 			return false, nil
 		}
 		return true, nil // DNS entry found
@@ -141,6 +142,7 @@ func (r *AIStoreReconciler) handleProxyState(ctx context.Context, ais *aisv1.AIS
 }
 
 func (r *AIStoreReconciler) handleProxyImage(ctx context.Context, ais *aisv1.AIStore) (ready bool, err error) {
+	logger := logf.FromContext(ctx)
 	ss, err := r.client.GetStatefulSet(ctx, proxy.StatefulSetNSName(ais))
 	if err != nil {
 		return
@@ -150,10 +152,10 @@ func (r *AIStoreReconciler) handleProxyImage(ctx context.Context, ais *aisv1.AIS
 	if updated {
 		if ss.Status.ReadyReplicas > 0 {
 			if err := r.setPrimaryTo(ctx, ais, 0); err != nil {
-				r.log.Error(err, "failed to set primary proxy")
+				logger.Error(err, "failed to set primary proxy")
 				return false, err
 			}
-			r.log.Info("updated primary to pod " + firstPodName)
+			logger.Info("updated primary to pod " + firstPodName)
 			ss.Spec.UpdateStrategy = apiv1.StatefulSetUpdateStrategy{
 				Type: apiv1.RollingUpdateStatefulSetStrategyType,
 				RollingUpdate: &apiv1.RollingUpdateStatefulSetStrategy{
@@ -183,8 +185,8 @@ func (r *AIStoreReconciler) handleProxyImage(ctx context.Context, ais *aisv1.AIS
 	}
 
 	// NOTE: In case of statefulset rolling update strategy,
-	// pod are updated in decending of their pod index.
-	// This implies, pod with largest index is oldest proxy,
+	// pod are updated in descending order of their pod index.
+	// This implies the pod with the largest index is the oldest proxy,
 	// and we set it as a primary.
 	if toUpdate == 1 && firstYetToUpdate {
 		if err := r.setPrimaryTo(ctx, ais, *ss.Spec.Replicas-1); err != nil {
@@ -198,12 +200,12 @@ func (r *AIStoreReconciler) handleProxyImage(ctx context.Context, ais *aisv1.AIS
 			},
 		}
 
-		if err := r.client.Update(ctx, ss); err != nil {
-			r.log.Error(err, "failed to update proxy statefulset update policy")
+		if err = r.client.Update(ctx, ss); err != nil {
+			logger.Error(err, "failed to update proxy statefulset update policy")
 			return false, err
 		}
 
-		// Delete the first pod to update it's docker image.
+		// Delete the first pod to update its docker image.
 		return false, r.client.DeletePodIfExists(ctx, types.NamespacedName{
 			Namespace: ais.Namespace,
 			Name:      firstPodName,
@@ -242,15 +244,16 @@ func (r *AIStoreReconciler) setPrimaryTo(ctx context.Context, ais *aisv1.AIStore
 // handleProxyScaledown decommissions all the proxy nodes that will be deleted due to scale down.
 // If the node being deleted is a primary, a new primary is designated before decommissioning.
 func (r *AIStoreReconciler) handleProxyScaledown(ctx context.Context, ais *aisv1.AIStore, actualSize int32) {
+	logger := logf.FromContext(ctx)
 	params, err := r.getAPIParams(ctx, ais)
 	if err != nil {
-		r.log.Error(err, "failed to obtain BaseAPIParams")
+		logger.Error(err, "failed to obtain BaseAPIParams")
 		return
 	}
 
 	smap, err := aisapi.GetClusterMap(*params)
 	if err != nil {
-		r.log.Error(err, "failed to obtain smap")
+		logger.Error(err, "failed to obtain smap")
 		return
 	}
 
@@ -259,7 +262,7 @@ func (r *AIStoreReconciler) handleProxyScaledown(ctx context.Context, ais *aisv1
 			DaemonID: daemonID,
 		})
 		if err != nil {
-			r.log.Error(err, "failed to decommission node - "+daemonID)
+			logger.Error(err, "failed to decommission node - "+daemonID)
 		}
 	}
 
@@ -287,9 +290,9 @@ func (r *AIStoreReconciler) handleProxyScaledown(ctx context.Context, ais *aisv1
 		if smap.InMaintOrDecomm(node) {
 			continue
 		}
-		err := aisapi.SetPrimaryProxy(*params, node.DaeID, true /*force*/)
+		err = aisapi.SetPrimaryProxy(*params, node.DaeID, true /*force*/)
 		if err != nil {
-			r.log.Error(err, "failed to set primary as "+node.DaeID)
+			logger.Error(err, "failed to set primary as "+node.DaeID)
 			continue
 		}
 		decommissionNode(oldPrimaryID)
@@ -298,14 +301,15 @@ func (r *AIStoreReconciler) handleProxyScaledown(ctx context.Context, ais *aisv1
 
 // Scale down the statefulset without decommissioning or resetting primary
 func (r *AIStoreReconciler) scaleProxiesToZero(ctx context.Context, ais *aisv1.AIStore) error {
-	r.log.Info("Scaling proxies to zero", "clusterName", ais.Name)
+	logger := logf.FromContext(ctx)
+	logger.Info("Scaling proxies to zero", "clusterName", ais.Name)
 	changed, err := r.client.UpdateStatefulSetReplicas(ctx, proxy.StatefulSetNSName(ais), 0)
 	if err != nil {
-		r.log.Error(err, "Failed to scale proxies to zero", "clusterName", ais.Name)
+		logger.Error(err, "Failed to scale proxies to zero")
 	} else if changed {
-		r.log.Info("Proxy StatefulSet set to size 0", "name", ais.Name)
+		logger.Info("Proxy StatefulSet set to size 0")
 	} else {
-		r.log.Info("Proxy StatefulSet already at size 0", "name", ais.Name)
+		logger.Info("Proxy StatefulSet already at size 0")
 	}
 	return err
 }

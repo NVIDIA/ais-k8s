@@ -21,6 +21,7 @@ import (
 	"github.com/ais-operator/pkg/resources/cmn"
 	"github.com/ais-operator/pkg/resources/proxy"
 	"github.com/ais-operator/pkg/resources/statsd"
+	"github.com/ais-operator/pkg/resources/target"
 	"github.com/go-logr/logr"
 	apiv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -81,7 +82,6 @@ func NewAISReconcilerFromMgr(mgr manager.Manager, logger logr.Logger, isExternal
 func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := r.log.WithValues("namespace", req.Namespace, "name", req.Name)
 	ctx = logf.IntoContext(ctx, logger)
-
 	logger.Info("Reconciling AIStore")
 
 	ais, err := r.client.GetAIStoreCR(ctx, req.NamespacedName)
@@ -103,28 +103,29 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 	}
 
-	// AIS CR has been marked to be deleted.
-	if !ais.HasState(aisv1.ConditionDecommissioning) && !ais.GetDeletionTimestamp().IsZero() {
+	if ais.ShouldDecommission() {
 		_, err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionDecommissioning})
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-		r.recorder.Event(ais, corev1.EventTypeNormal, "CRDeletion", "Decommissioning...")
+		r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonDeleted, "Decommissioning...")
 	}
 
-	if ais.ShouldShutdown() && ais.HasState(aisv1.ConditionReady) {
+	if ais.ShouldShutdown() {
 		_, err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionShuttingDown})
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-		r.recorder.Event(ais, corev1.EventTypeNormal, "CRUpdated", "Shutting down...")
+		r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonUpdated, "Shutting down...")
 	}
 
 	switch {
 	case ais.HasState(aisv1.ConditionShuttingDown):
 		return r.shutdownCluster(ctx, ais)
 	case ais.HasState(aisv1.ConditionDecommissioning):
-		return r.handleCRDeletion(ctx, ais)
+		return r.decommissionCluster(ctx, ais)
+	case ais.HasState(aisv1.ConditionCleanup):
+		return r.cleanupClusterRes(ctx, ais)
 	case isNewCR(ais):
 		return r.bootstrapNew(ctx, ais)
 	default:
@@ -132,13 +133,16 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 }
 
-func (r *AIStoreReconciler) initializeCR(ctx context.Context, ais *aisv1.AIStore) (result reconcile.Result, err error) {
-	logger := r.log.WithValues("namespace", ais.Namespace, "name", ais.Name)
+func (r *AIStoreReconciler) getLogger(ais *aisv1.AIStore) logr.Logger {
+	return r.log.WithValues("namespace", ais.Namespace, "name", ais.Name)
+}
 
+func (r *AIStoreReconciler) initializeCR(ctx context.Context, ais *aisv1.AIStore) (result reconcile.Result, err error) {
+	logger := logf.FromContext(ctx)
 	if !controllerutil.ContainsFinalizer(ais, aisFinalizer) {
 		logger.Info("Updating finalizer")
 		controllerutil.AddFinalizer(ais, aisFinalizer)
-		if err := r.client.Update(ctx, ais); err != nil {
+		if err = r.client.Update(ctx, ais); err != nil {
 			logger.Error(err, "Failed to update finalizer")
 			return result, err
 		}
@@ -158,53 +162,64 @@ func (r *AIStoreReconciler) initializeCR(ctx context.Context, ais *aisv1.AIStore
 }
 
 func (r *AIStoreReconciler) shutdownCluster(ctx context.Context, ais *aisv1.AIStore) (reconcile.Result, error) {
-	var (
-		params *aisapi.BaseParams
-		err    error
-	)
+	var err error
+	logger := logf.FromContext(ctx)
 
-	logger := r.log.WithValues("namespace", ais.Namespace, "name", ais.Name)
 	logger.Info("Starting shutdown of AIS cluster")
-	if r.isExternal {
-		params, err = r.getAPIParams(ctx, ais)
-	} else {
-		params, err = r.primaryBaseParams(ctx, ais)
+	if err = r.attemptGracefulShutdown(ctx, ais); err != nil {
+		logger.Error(err, "Graceful shutdown failed")
 	}
-	if err != nil {
-		logger.Error(err, "Failed to get API parameters")
-		return reconcile.Result{}, err
-	}
-
-	logger.Info("Attempting graceful shutdown")
-	r.attemptGracefulShutdown(params)
-
 	if err = r.scaleProxiesToZero(ctx, ais); err != nil {
 		return reconcile.Result{}, err
 	}
-
 	if err = r.scaleTargetsToZero(ctx, ais); err != nil {
 		return reconcile.Result{}, err
 	}
-
 	_, err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionShutdown})
+	if err != nil {
+		logger.Error(err, "Failed to update state", "state", aisv1.ConditionShutdown)
+		return reconcile.Result{}, err
+	}
 	logger.Info("AIS cluster shutdown completed")
-	return reconcile.Result{}, err
+	r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonShutdownCompleted, "Shutdown completed")
+	return reconcile.Result{}, nil
 }
 
-func (r *AIStoreReconciler) handleCRDeletion(ctx context.Context, ais *aisv1.AIStore) (reconcile.Result, error) {
-	logger := r.log.WithValues("namespace", ais.Namespace, "name", ais.Name)
-	logger.Info("Deleting AIS cluster")
+func (r *AIStoreReconciler) decommissionCluster(ctx context.Context, ais *aisv1.AIStore) (reconcile.Result, error) {
+	logger := logf.FromContext(ctx)
+	if r.isClusterRunning(ctx, ais) {
+		err := r.decommissionAIS(ctx, ais)
+		if err != nil {
+			logger.Info("Unable to gracefully decommission AIStore, retrying until cluster is not running")
+		}
+		return reconcile.Result{Requeue: true, RequeueAfter: requeueInterval}, nil
+	}
+	_, err := r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionCleanup})
+	if err != nil {
+		logger.Error(err, "Failed to update state", "state", aisv1.ConditionCleanup)
+		return reconcile.Result{}, err
+	}
+	logger.Info("AIS cluster decommission completed")
+	r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonDecommissionCompleted, "Decommission completed")
+	return reconcile.Result{}, nil
+}
+
+func (r *AIStoreReconciler) cleanupClusterRes(ctx context.Context, ais *aisv1.AIStore) (reconcile.Result, error) {
+	logger := logf.FromContext(ctx)
 	if !controllerutil.ContainsFinalizer(ais, aisFinalizer) {
+		logger.Info("No finalizer remaining on AIS")
 		return reconcile.Result{}, nil
 	}
+	logger.Info("Deleting AIS cluster resources")
 	updated, err := r.cleanup(ctx, ais)
 	if err != nil {
-		r.recordError(ais, err, "Failed to delete instance")
+		r.recordError(ais, err, "Failed to cleanup AIS Resources")
 		return r.manageError(ctx, ais, aisv1.InstanceDeletionError, err)
 	}
 	if updated {
 		return reconcile.Result{RequeueAfter: requeueInterval}, nil
 	}
+	logger.Info("Removing AIS finalizer")
 	controllerutil.RemoveFinalizer(ais, aisFinalizer)
 	err = r.client.UpdateIfExists(ctx, ais)
 	if err != nil {
@@ -214,18 +229,90 @@ func (r *AIStoreReconciler) handleCRDeletion(ctx context.Context, ais *aisv1.AIS
 	return reconcile.Result{}, nil
 }
 
-func (r *AIStoreReconciler) attemptGracefulDecommission(params *aisapi.BaseParams, cleanupData bool) {
-	r.log.Info("Attempting graceful decommission of cluster")
-	if err := aisapi.DecommissionCluster(*params, cleanupData); err != nil {
-		r.log.Error(err, "Failed to gracefully decommission cluster")
-	}
+func (r *AIStoreReconciler) isClusterRunning(ctx context.Context, ais *aisv1.AIStore) bool {
+	// Consider cluster running if both proxy and target ss have ready pods
+	return r.ssHasReadyReplicas(ctx, target.StatefulSetNSName(ais)) && r.ssHasReadyReplicas(ctx, proxy.StatefulSetNSName(ais))
 }
 
-func (r *AIStoreReconciler) attemptGracefulShutdown(params *aisapi.BaseParams) {
-	r.log.Info("Attempting graceful shutdown of cluster")
-	if err := aisapi.ShutdownCluster(*params); err != nil {
-		r.log.Error(err, "Failed to gracefully shutdown cluster")
+func (r *AIStoreReconciler) ssHasReadyReplicas(ctx context.Context, name types.NamespacedName) bool {
+	ss, err := r.client.GetStatefulSet(ctx, name)
+	if k8serrors.IsNotFound(err) {
+		return false
 	}
+	if err != nil {
+		logf.FromContext(ctx).Error(err, "Failed to get statefulset", "statefulset", name)
+		// Assume the ss has ready replicas unless we can confirm otherwise
+		return true
+	}
+	return ss.Status.ReadyReplicas > 0
+}
+
+func (r *AIStoreReconciler) decommissionAIS(ctx context.Context, ais *aisv1.AIStore) error {
+	var err error
+	logger := logf.FromContext(ctx)
+
+	if ais.ShouldCleanupMetadata() {
+		err = r.attemptGracefulDecommission(ctx, ais)
+		if err != nil {
+			logger.Info("Failed to decommission cluster")
+		}
+	} else {
+		// We are "decommissioning" on the operator side and will still delete the statefulsets
+		// This call to the AIS API preserves metadata for a future cluster, where decommission call would delete it all
+		err = r.attemptGracefulShutdown(ctx, ais)
+		if err != nil {
+			logger.Info("Failed to shutdown cluster")
+		}
+	}
+	return err
+}
+
+func (r *AIStoreReconciler) attemptGracefulDecommission(ctx context.Context, ais *aisv1.AIStore) error {
+	logger := logf.FromContext(ctx)
+	logger.Info("Attempting graceful decommission of cluster")
+	var (
+		baseParams *aisapi.BaseParams
+		err        error
+	)
+	if r.isExternal {
+		baseParams, err = r.getAPIParams(ctx, ais)
+	} else {
+		baseParams, err = r.primaryBaseParams(ctx, ais)
+	}
+	if err != nil {
+		logger.Error(err, "Failed to get API parameters")
+		return err
+	}
+	cleanupData := ais.Spec.CleanupData != nil && *ais.Spec.CleanupData
+	err = aisapi.DecommissionCluster(*baseParams, cleanupData)
+	if err != nil {
+		logger.Error(err, "Failed to gracefully decommission cluster")
+	}
+	return err
+}
+
+func (r *AIStoreReconciler) attemptGracefulShutdown(ctx context.Context, ais *aisv1.AIStore) error {
+	var (
+		params *aisapi.BaseParams
+		err    error
+	)
+	logger := logf.FromContext(ctx)
+	logger.Info("Attempting graceful shutdown")
+	if r.isExternal {
+		params, err = r.getAPIParams(ctx, ais)
+	} else {
+		params, err = r.primaryBaseParams(ctx, ais)
+	}
+	if err != nil {
+		logger.Error(err, "Failed to get API parameters")
+		return err
+	}
+	logger.Info("Attempting graceful shutdown of cluster")
+	err = aisapi.ShutdownCluster(*params)
+	if err != nil {
+		logger.Error(err, "Failed to gracefully shutdown cluster")
+	}
+	return err
 }
 
 func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore) (result ctrl.Result, err error) {
@@ -448,12 +535,12 @@ func (r *AIStoreReconciler) createRBACResources(ctx context.Context, ais *aisv1.
 }
 
 func (r *AIStoreReconciler) isInitialized(ais *aisv1.AIStore) bool {
-	r.log.Info("State: " + ais.Status.State.Str())
+	r.getLogger(ais).Info("State: " + ais.Status.State.Str())
 	return ais.Status.State != ""
 }
 
 func (r *AIStoreReconciler) setStatus(ctx context.Context, ais *aisv1.AIStore, status aisv1.AIStoreStatus) (retry bool, err error) {
-	logger := r.log.WithValues("namespace", ais.Namespace, "name", ais.Name)
+	logger := logf.FromContext(ctx)
 	if status.State != "" {
 		logger.Info("Updating AIS state", "state", status.State)
 		ais.SetState(status.State)
@@ -551,7 +638,7 @@ func (r *AIStoreReconciler) manageSuccess(ctx context.Context, ais *aisv1.AIStor
 }
 
 func (r *AIStoreReconciler) recordError(ais *aisv1.AIStore, err error, msg string) {
-	r.log.WithValues("namespace", ais.Namespace, "name", ais.Name).Error(err, msg)
+	r.getLogger(ais).Error(err, msg)
 	r.recorder.Eventf(ais, corev1.EventTypeWarning, EventReasonFailed, "%s, err: %v", msg, err)
 }
 

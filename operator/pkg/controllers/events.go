@@ -6,10 +6,14 @@ package controllers
 
 // Reason's to be used by event recorder
 const (
-	EventReasonInitialized = "Initialized"
-	EventReasonFailed      = "Failed"
-	EventReasonWaiting     = "Waiting"
-	EventReasonCreated     = "Created"
-	EventReasonReady       = "Ready"
-	EventReasonBackOff     = "BackOff"
+	EventReasonInitialized           = "Initialized"
+	EventReasonFailed                = "Failed"
+	EventReasonWaiting               = "Waiting"
+	EventReasonCreated               = "Created"
+	EventReasonReady                 = "Ready"
+	EventReasonBackOff               = "BackOff"
+	EventReasonShutdownCompleted     = "ShutdownCompleted"
+	EventReasonDecommissionCompleted = "DecommissionCompleted"
+	EventReasonDeleted               = "CRDeleted"
+	EventReasonUpdated               = "CRUpdated"
 )

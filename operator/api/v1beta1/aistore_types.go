@@ -27,8 +27,9 @@ const (
 	ConditionReady                 ClusterCondition = "Ready"
 	ConditionUpgrading             ClusterCondition = "Upgrading"
 	ConditionShuttingDown          ClusterCondition = "ShuttingDown"
-	ConditionDecommissioning       ClusterCondition = "Decommissioning"
 	ConditionShutdown              ClusterCondition = "Shutdown"
+	ConditionDecommissioning       ClusterCondition = "Decommissioning"
+	ConditionCleanup               ClusterCondition = "CleaningResources"
 	// TODO: Add more states, eg. Terminating etc.
 
 	// Condition types
@@ -91,6 +92,13 @@ type AIStoreSpec struct {
 	// No data or configuration will be deleted
 	// +optional
 	ShutdownCluster *bool `json:"shutdownCluster,omitempty"`
+
+	// CleanupMetadata determines whether to clean up cluster and bucket metadata when the cluster is decommissioned.
+	// When enabled, the cluster will fully decommission, removing metadata and optionally deleting user data.
+	// When disabled, the operator will call the AIS shutdown API to preserve metadata before deleting other k8s resources.
+	// The metadata stored in the state PVCs will be preserved to be usable in a future AIS deployment.
+	// +optional
+	CleanupMetadata *bool `json:"cleanupMetadata,omitempty"`
 
 	// CleanupData determines whether to clean up PVCs and user data (including buckets and objects) when the cluster is decommissioned.
 	// The reclamation of PVs linked to the PVCs depends on the PV reclaim policy or the default policy of the associated StorageClass.
@@ -393,7 +401,20 @@ func (ais *AIStore) GetTargetSize() int32 {
 }
 
 func (ais *AIStore) ShouldShutdown() bool {
-	return ais.Spec.ShutdownCluster != nil && *ais.Spec.ShutdownCluster
+	return ais.Spec.ShutdownCluster != nil && *ais.Spec.ShutdownCluster && ais.HasState(ConditionReady)
+}
+
+// ShouldDecommission Determines if we should begin decommissioning the cluster
+func (ais *AIStore) ShouldDecommission() bool {
+	// We should only begin decommissioning if
+	// 1. CR is marked for deletion
+	// 2. We are not currently decommissioning or cleaning up resources
+	return !ais.HasState(ConditionDecommissioning) && !ais.HasState(ConditionCleanup) && !ais.GetDeletionTimestamp().IsZero()
+}
+
+// ShouldCleanupMetadata Determines if we are doing a full decommission -- unrecoverable, including metadata
+func (ais *AIStore) ShouldCleanupMetadata() bool {
+	return ais.Spec.CleanupMetadata != nil && *ais.Spec.CleanupMetadata
 }
 
 func (ais *AIStore) AllowTargetSharedNodes() bool {

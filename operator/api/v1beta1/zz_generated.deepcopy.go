@@ -116,6 +116,11 @@ func (in *AIStoreSpec) DeepCopyInto(out *AIStoreSpec) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.CleanupMetadata != nil {
+		in, out := &in.CleanupMetadata, &out.CleanupMetadata
+		*out = new(bool)
+		**out = **in
+	}
 	if in.CleanupData != nil {
 		in, out := &in.CleanupData, &out.CleanupData
 		*out = new(bool)

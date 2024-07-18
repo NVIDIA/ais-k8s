@@ -357,6 +357,40 @@ var _ = Describe("Run Controller", func() {
 			Expect(aiscmn.IsStatusNotFound(err)).To(BeTrue())
 			cc.cleanup(pvs)
 		})
+
+		It("Re-deploying with CleanupMetadata disabled should recover cluster", func() {
+			cluArgs := defaultCluArgs()
+			cluArgs.CleanupMetadata = false
+			cluArgs.EnableExternalLB = testAsExternalClient
+			cc, pvs := newClientCluster(cluArgs)
+			cc.create()
+			// Create bucket
+			bck := aiscmn.Bck{Name: "TEST_BCK_DECOMM", Provider: aisapc.AIS}
+			err := aisapi.CreateBucket(aistutils.BaseAPIParams(proxyURL), bck, nil)
+			Expect(err).ShouldNot(HaveOccurred())
+			names, failCnt, err := aistutils.PutRandObjs(aistutils.PutObjectsArgs{
+				ProxyURL:  proxyURL,
+				Bck:       bck,
+				ObjPath:   "test-opr/",
+				ObjCnt:    10,
+				ObjSize:   10 * cos.KiB,
+				FixedSize: true,
+				CksumType: cos.ChecksumXXHash,
+				IgnoreErr: false,
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(failCnt).To(Equal(0))
+			Expect(err).ShouldNot(HaveOccurred())
+			// destroy cluster, leave pvs
+			cc.cleanup(nil)
+			// Cleanup metadata to remove PVCs so we can cleanup PVs at the end
+			cluArgs.CleanupMetadata = true
+			// Re-deployed cluster should recover all the same data and metadata
+			cc, _ = newClientCluster(cluArgs)
+			cc.create()
+			tutils.ObjectsShouldExist(aistutils.BaseAPIParams(proxyURL), bck, names...)
+			cc.cleanup(pvs)
+		})
 	})
 })
 
@@ -371,6 +405,7 @@ func defaultCluArgs() *tutils.ClusterSpecArgs {
 		StorageClass:     storageClass,
 		StorageHostPath:  storageHostPath,
 		Size:             1,
+		CleanupMetadata:  true,
 		CleanupData:      true,
 		TargetSharedNode: false,
 	}

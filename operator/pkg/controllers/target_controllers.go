@@ -15,9 +15,9 @@ import (
 	"github.com/ais-operator/pkg/resources/target"
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func (r *AIStoreReconciler) initTargets(ctx context.Context, ais *aisv1.AIStore) (changed bool, err error) {
@@ -48,7 +48,7 @@ func (r *AIStoreReconciler) initTargets(ctx context.Context, ais *aisv1.AIStore)
 		return false, err
 	} else if !exists {
 		msg := "Successfully initialized target nodes"
-		r.log.Info(msg)
+		logf.FromContext(ctx).Info(msg)
 		r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonInitialized, msg)
 		changed = true
 	}
@@ -67,41 +67,8 @@ func (r *AIStoreReconciler) cleanupTarget(ctx context.Context, ais *aisv1.AIStor
 }
 
 func (r *AIStoreReconciler) cleanupTargetSS(ctx context.Context, ais *aisv1.AIStore) (anyUpdated bool, err error) {
-	r.log.Info("Cleaning up target statefulset")
+	logf.FromContext(ctx).Info("Cleaning up target statefulset")
 	targetSS := target.StatefulSetNSName(ais)
-
-	// If the target statefulset is not present, we can return immediately.
-	if exists, err := r.client.StatefulSetExists(ctx, targetSS); err != nil || !exists {
-		return false, err
-	}
-
-	var baseParams *aisapi.BaseParams
-	if r.isExternal {
-		baseParams, err = r.getAPIParams(ctx, ais)
-	} else {
-		baseParams, err = r.primaryBaseParams(ctx, ais)
-	}
-	if err != nil {
-		r.log.Error(err, "Failed to get API parameters", "clusterName", ais.Name)
-		// If we cannot get API parameters, we may have a broken statefulset with no ready replicas so delete it
-		currentSS, ssErr := r.client.GetStatefulSet(ctx, targetSS)
-		if ssErr != nil && !k8serrors.IsNotFound(ssErr) {
-			return false, ssErr
-		}
-		if k8serrors.IsNotFound(ssErr) || currentSS.Status.ReadyReplicas == 0 {
-			r.log.Info("Deleting target statefulset", "clusterName", ais.Name)
-			return r.client.DeleteStatefulSetIfExists(ctx, targetSS)
-		}
-		// Somehow we have ready replicas but cannot get parameters to properly decommission, so return the error
-		return false, err
-	}
-
-	// Attempt graceful cluster decommission via API call before deleting statefulset
-	cleanupData := ais.Spec.CleanupData != nil && *ais.Spec.CleanupData
-	r.attemptGracefulDecommission(baseParams, cleanupData)
-
-	// TODO: if the environment is slow the statefulset controller might create new pods to compensate for the old ones being
-	// deleted in the shutdown/decommission operation. Find a way to stop the statefulset controller from creating new pods
 	return r.client.DeleteStatefulSetIfExists(ctx, targetSS)
 }
 
@@ -163,7 +130,7 @@ func (r *AIStoreReconciler) handleTargetScaleDown(ctx context.Context, ais *aisv
 		return false, err
 	}
 
-	r.log.Info("Targets decommissioned, scaling down statefulset to match AIS cluster spec size")
+	logf.FromContext(ctx).Info("Targets decommissioned, scaling down statefulset to match AIS cluster spec size")
 	// If anything was updated, we consider it not immediately ready.
 	updated, err := r.client.UpdateStatefulSetReplicas(ctx, targetSS, ais.GetTargetSize())
 	return !updated, err
@@ -171,49 +138,51 @@ func (r *AIStoreReconciler) handleTargetScaleDown(ctx context.Context, ais *aisv
 
 // Scale down the statefulset without decommissioning
 func (r *AIStoreReconciler) scaleTargetsToZero(ctx context.Context, ais *aisv1.AIStore) error {
-	r.log.Info("Scaling targets to zero", "clusterName", ais.Name)
+	logger := logf.FromContext(ctx)
+	logger.Info("Scaling targets to zero")
 	changed, err := r.client.UpdateStatefulSetReplicas(ctx, target.StatefulSetNSName(ais), 0)
 	if err != nil {
-		r.log.Error(err, "Failed to scale targets to zero", "clusterName", ais.Name)
+		logger.Error(err, "Failed to scale targets to zero")
 	} else if changed {
-		r.log.Info("Target StatefulSet set to size 0", "name", ais.Name)
+		logger.Info("Target StatefulSet set to size 0")
 	} else {
-		r.log.Info("Target StatefulSet already at size 0", "name", ais.Name)
+		logger.Info("Target StatefulSet already at size 0")
 	}
 	return err
 }
 
 func (r *AIStoreReconciler) decommissionTargets(ctx context.Context, ais *aisv1.AIStore, actualSize int32) (decommissioning bool, err error) {
+	logger := logf.FromContext(ctx)
 	params, err := r.getAPIParams(ctx, ais)
 	if err != nil {
-		r.log.Error(err, "Failed to get API params")
+		logger.Error(err, "Failed to get API params")
 		return false, err
 	}
 
 	smap, err := aisapi.GetClusterMap(*params)
 	if err != nil {
-		r.log.Error(err, "Failed to get cluster map")
+		logger.Error(err, "Failed to get cluster map")
 		return false, err
 	}
-	r.log.Info("Decommissioning targets", "Smap version", smap)
+	logger.Info("Decommissioning targets", "Smap version", smap)
 	toDecommission := 0
 	for idx := actualSize; idx > ais.GetTargetSize(); idx-- {
 		podName := target.PodName(ais, idx-1)
-		r.log.Info("Attempting to decommission target", "podName", podName)
+		logger.Info("Attempting to decommission target", "podName", podName)
 		for _, node := range smap.Tmap {
 			if !strings.HasPrefix(node.ControlNet.Hostname, podName) {
 				continue
 			}
 			toDecommission++
 			if !smap.InMaintOrDecomm(node) {
-				r.log.Info("Decommissioning node", "nodeID", node.ID())
+				logger.Info("Decommissioning node", "nodeID", node.ID())
 				_, err = aisapi.DecommissionNode(*params, &aisapc.ActValRmNode{DaemonID: node.ID(), RmUserData: true})
 				if err != nil {
-					r.log.Error(err, "Failed to decommission node", "nodeID", node.ID())
+					logger.Error(err, "Failed to decommission node", "nodeID", node.ID())
 					return
 				}
 			} else {
-				r.log.Info("Node is already in decommissioning state", "nodeID", node.ID())
+				logger.Info("Node is already in decommissioning state", "nodeID", node.ID())
 			}
 		}
 	}
@@ -225,7 +194,7 @@ func (r *AIStoreReconciler) handleTargetImage(ctx context.Context, ais *aisv1.AI
 	updated, err := r.client.UpdateStatefulSetImage(ctx,
 		target.StatefulSetNSName(ais), 0 /*idx*/, ais.Spec.NodeImage)
 	if updated || err != nil {
-		r.log.Info("target image updated")
+		logf.FromContext(ctx).Info("target image updated")
 		return false, err
 	}
 

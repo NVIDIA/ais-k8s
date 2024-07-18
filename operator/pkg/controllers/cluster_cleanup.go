@@ -24,7 +24,6 @@ func (r *AIStoreReconciler) cleanup(ctx context.Context, ais *aisv1.AIStore) (up
 	if err != nil {
 		r.log.Error(err, "Failed to list nodes running AIS")
 	}
-
 	updated, err = cmn.AnyFunc(
 		func() (bool, error) { return r.cleanupTarget(ctx, ais) },
 		func() (bool, error) { return r.cleanupProxy(ctx, ais) },
@@ -32,7 +31,7 @@ func (r *AIStoreReconciler) cleanup(ctx context.Context, ais *aisv1.AIStore) (up
 		func() (bool, error) { return r.cleanupRBAC(ctx, ais) },
 		func() (bool, error) { return r.cleanupPVC(ctx, ais) },
 	)
-	if updated {
+	if updated && ais.ShouldCleanupMetadata() {
 		jobs, err := r.createCleanupJobs(ctx, ais, nodeNames)
 		if err != nil {
 			r.log.Error(err, "Failed to run manual cleanup job")
@@ -95,6 +94,9 @@ func (r *AIStoreReconciler) waitForJobs(ctx context.Context, jobs []*batchv1.Job
 }
 
 func (r *AIStoreReconciler) cleanupPVC(ctx context.Context, ais *aisv1.AIStore) (bool, error) {
+	if !ais.ShouldCleanupMetadata() {
+		return false, nil
+	}
 	if ais.Spec.CleanupData != nil && *ais.Spec.CleanupData {
 		return r.deleteAllPVCs(ctx, ais)
 	}

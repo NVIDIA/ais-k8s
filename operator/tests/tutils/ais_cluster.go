@@ -36,6 +36,7 @@ type (
 		TargetSharedNode bool
 		EnableExternalLB bool
 		ShutdownCluster  bool
+		CleanupMetadata  bool
 		CleanupData      bool
 		// Create a cluster with more PVs than targets for future scaling
 		MaxTargets int32
@@ -133,6 +134,7 @@ func newAISClusterCR(args *ClusterSpecArgs, mounts []aisv1.Mount) *aisv1.AIStore
 	spec := aisv1.AIStoreSpec{
 		Size:              &args.Size,
 		ShutdownCluster:   aisapc.Ptr(args.ShutdownCluster),
+		CleanupMetadata:   aisapc.Ptr(args.CleanupMetadata),
 		CleanupData:       aisapc.Ptr(args.CleanupData),
 		NodeImage:         aisNodeImage,
 		InitImage:         aisInitImage,

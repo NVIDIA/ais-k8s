@@ -321,9 +321,13 @@ func CreatePV(ctx context.Context, client *aisclient.K8sClient, pvData *PVData) 
 		ObjectMeta: metav1.ObjectMeta{Name: pvName},
 		Spec:       *pvSpec,
 	}
-	if _, err := client.CreateResourceIfNotExists(ctx, nil, pv); err != nil {
+	exists, err := client.CreateResourceIfNotExists(ctx, nil, pv)
+	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating new PV: %s", err)
 		return pv, err
+	}
+	if exists {
+		fmt.Fprintf(os.Stdout, "PV %s already exists\n", pvName)
 	}
 	return pv, nil
 }
