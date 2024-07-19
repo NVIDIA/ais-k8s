@@ -7,22 +7,10 @@ environments:
     values: 
     - https:
         enabled: true
----
-
-repositories:
-  - name: ais-operator
-    url: https://github.com/NVIDIA/ais-k8s/releases/download/v1.2.0/
-    
+    kubeContext: sjc11
 ---
 
 releases:
-  - name: ais-operator
-    namespace: ais-operator-system
-    createNamespace: true
-    chart: ais-operator/ais-operator
-    version: 0.1.0
-    wait: true
-
   # Defines a self-signed issuer for acquiring a tls cert
   - name: ais-tls-issuer
     namespace: ais
@@ -51,10 +39,6 @@ releases:
     createNamespace: true
     chart: charts/ais-cluster
     version: 0.1.0
-    # Without this, helm diff cannot validate the CRD because the operator has not yet created it
-    disableValidationOnInstall: true
-    needs:
-      - ais-operator-system/ais-operator
     values:
       - "./config/ais/{{ .Environment.Name }}.yaml"
     # Install pre-req local-path-provisioner to the cluster

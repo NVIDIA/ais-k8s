@@ -1,0 +1,13 @@
+repositories:
+  - name: ais-operator
+    url: https://github.com/NVIDIA/ais-k8s/releases/download/v1.2.0/
+    
+---
+
+releases:
+  - name: ais-operator
+    namespace: ais-operator-system
+    createNamespace: true
+    chart: ais-operator/ais-operator
+    version: 0.1.0
+    wait: true
