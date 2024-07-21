@@ -2,7 +2,7 @@
 /*
  * Copyright (c) 2021-2024, NVIDIA CORPORATION. All rights reserved.
  */
-package integration
+package e2e
 
 import (
 	"context"

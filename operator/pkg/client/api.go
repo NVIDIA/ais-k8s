@@ -33,11 +33,15 @@ type (
 	}
 )
 
-func NewClientFromMgr(mgr manager.Manager) *K8sClient {
+func NewClient(c client.Client, s *runtime.Scheme) *K8sClient {
 	return &K8sClient{
-		client: mgr.GetClient(),
-		scheme: mgr.GetScheme(),
+		client: c,
+		scheme: s,
 	}
+}
+
+func NewClientFromMgr(mgr manager.Manager) *K8sClient {
+	return NewClient(mgr.GetClient(), mgr.GetScheme())
 }
 
 /////////////////////////////////////////

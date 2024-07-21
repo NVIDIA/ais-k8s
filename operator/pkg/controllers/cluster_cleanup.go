@@ -1,6 +1,6 @@
 // Package controllers contains k8s controller logic for AIS cluster
 /*
-* Copyright (c) 2024, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2024, NVIDIA CORPORATION. All rights reserved.
  */
 package controllers
 

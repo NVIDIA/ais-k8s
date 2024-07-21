@@ -2,7 +2,7 @@
 /*
  * Copyright (c) 2021-2024, NVIDIA CORPORATION. All rights reserved.
  */
-package integration
+package e2e
 
 import (
 	"context"
@@ -165,7 +165,7 @@ var _ = BeforeSuite(func() {
 			Expect(err).ToNot(HaveOccurred())
 		}()
 
-		err = controllers.NewAISReconciler(
+		err = controllers.NewAISReconcilerFromMgr(
 			mgr,
 			ctrl.Log.WithName("controllers").WithName("AIStore"),
 			testAsExternalClient,

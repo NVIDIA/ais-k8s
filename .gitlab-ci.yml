@@ -42,6 +42,18 @@ build:operator:
   script:
     - make -C operator build
 
+test:operator:unit:
+  stage: test:short
+  needs: ["build:operator:lint", "build:operator"]
+  image: aistorage/ci:latest
+  timeout: 10m
+  <<: *default_only_def
+  script:
+    - make -C operator test
+  except:
+    variables:
+      - $CI_MERGE_REQUEST_LABELS =~ /.*skip-ci.*/
+
 operator:minikube:short:
   stage: test:short
   needs: ["build:operator:lint", "build:operator"]
@@ -51,7 +63,7 @@ operator:minikube:short:
     - ais-k8s
   timeout: 30m
   script:
-    - make -C operator test-short
+    - make -C operator test-e2e-short
   except:
     variables:
       - $CI_MERGE_REQUEST_LABELS =~ /.*skip-ci.*/
@@ -76,7 +88,7 @@ operator:minikube:long:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "main"
       when: manual
   script:
-    - make -C operator test-long
+    - make -C operator test-e2e-long
 
 operator:minikube:metallb:
   stage: test:long
@@ -99,6 +111,6 @@ operator:minikube:metallb:
     - apt-get install gettext-base
     - make -C operator deploy-metallb
   script:
-    - make -C operator test
+    - make -C operator test-e2e
   after_script:
     - make -C operator undeploy-metallb

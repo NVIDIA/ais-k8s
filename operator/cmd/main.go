@@ -75,7 +75,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = controllers.NewAISReconciler(
+	if err = controllers.NewAISReconcilerFromMgr(
 		mgr,
 		ctrl.Log.WithName("controllers").WithName("AIStore"),
 		deployTypeExternal,

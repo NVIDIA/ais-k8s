@@ -1,6 +1,6 @@
 // Package controllers contains k8s controller logic for AIS cluster
 /*
-* Copyright (c) 2021-2024, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION. All rights reserved.
  */
 package controllers
 
@@ -24,7 +24,7 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -53,14 +53,20 @@ type (
 	}
 )
 
-func NewAISReconciler(mgr manager.Manager, logger logr.Logger, isExternal bool) *AIStoreReconciler {
+func NewAISReconciler(c *aisclient.K8sClient, recorder record.EventRecorder, logger logr.Logger, isExternal bool) *AIStoreReconciler {
 	return &AIStoreReconciler{
-		client:       aisclient.NewClientFromMgr(mgr),
+		client:       c,
 		log:          logger,
-		recorder:     mgr.GetEventRecorderFor("ais-controller"),
+		recorder:     recorder,
 		clientParams: make(map[string]*aisapi.BaseParams, 16),
 		isExternal:   isExternal,
 	}
+}
+
+func NewAISReconcilerFromMgr(mgr manager.Manager, logger logr.Logger, isExternal bool) *AIStoreReconciler {
+	c := aisclient.NewClientFromMgr(mgr)
+	recorder := mgr.GetEventRecorderFor("ais-controller")
+	return NewAISReconciler(c, recorder, logger, isExternal)
 }
 
 // +kubebuilder:rbac:groups=ais.nvidia.com,resources=aistores,verbs=get;list;watch;create;update;patch;delete
@@ -71,24 +77,29 @@ func NewAISReconciler(mgr manager.Manager, logger logr.Logger, isExternal bool) 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = r.log.WithValues("aistore", req.NamespacedName)
+	logger := r.log.WithValues("namespace", req.Namespace, "name", req.Name)
+	logger.Info("Reconciling AIStore")
+
 	ais, err := r.client.GetAIStoreCR(ctx, req.NamespacedName)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if k8serrors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
 			return reconcile.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
+		logger.Error(err, "Unable to fetch AIStore")
 		return reconcile.Result{}, err
 	}
 
 	if !r.isInitialized(ais) {
-		return r.initializeCR(ctx, ais)
+		if result, err := r.initializeCR(ctx, ais); err != nil {
+			return result, err
+		}
 	}
 
-	// AIS CR has been deleted
+	// AIS CR has been marked to be deleted.
 	if !ais.GetDeletionTimestamp().IsZero() {
 		return r.handleCRDeletion(ctx, ais)
 	}
@@ -107,36 +118,50 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	return r.handleCREvents(ctx, ais)
 }
 
-func (r *AIStoreReconciler) initializeCR(ctx context.Context, ais *aisv1.AIStore) (reconcile.Result, error) {
+func (r *AIStoreReconciler) initializeCR(ctx context.Context, ais *aisv1.AIStore) (result reconcile.Result, err error) {
+	logger := r.log.WithValues("namespace", ais.Namespace, "name", ais.Name)
+
 	if !controllerutil.ContainsFinalizer(ais, aisFinalizer) {
+		logger.Info("Updating finalizer")
 		controllerutil.AddFinalizer(ais, aisFinalizer)
-		err := r.client.Update(ctx, ais)
-		return reconcile.Result{}, err
+		if err := r.client.Update(ctx, ais); err != nil {
+			logger.Error(err, "Failed to update finalizer")
+			return result, err
+		}
+		logger.Info("Successfully updated finalizer")
 	}
 
+	logger.Info("Updating state and setting condition", "state", aisv1.ConditionInitialized)
 	ais.SetConditionInitialized()
-	retry, err := r.setStatus(ctx, ais,
-		aisv1.AIStoreStatus{State: aisv1.ConditionInitialized})
-	return reconcile.Result{Requeue: retry}, err
+	retry, err := r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionInitialized})
+	if err != nil {
+		logger.Error(err, "Failed to update state", "state", aisv1.ConditionInitialized)
+		return reconcile.Result{Requeue: retry}, err
+	}
+	logger.Info("Successfully updated state")
+
+	return
 }
+
 func (r *AIStoreReconciler) shutdownCluster(ctx context.Context, ais *aisv1.AIStore) (reconcile.Result, error) {
 	var (
 		params *aisapi.BaseParams
 		err    error
 	)
 
-	r.log.Info("Starting shutdown of AIS cluster", "clusterName", ais.Name)
+	logger := r.log.WithValues("namespace", ais.Namespace, "name", ais.Name)
+	logger.Info("Starting shutdown of AIS cluster")
 	if r.isExternal {
 		params, err = r.getAPIParams(ctx, ais)
 	} else {
 		params, err = r.primaryBaseParams(ctx, ais)
 	}
 	if err != nil {
-		r.log.Error(err, "Failed to get API parameters", "clusterName", ais.Name)
+		logger.Error(err, "Failed to get API parameters")
 		return reconcile.Result{}, err
 	}
 
-	r.log.Info("Attempting graceful shutdown", "clusterName", ais.Name)
+	logger.Info("Attempting graceful shutdown")
 	r.attemptGracefulShutdown(params)
 
 	if err = r.scaleProxiesToZero(ctx, ais); err != nil {
@@ -148,12 +173,13 @@ func (r *AIStoreReconciler) shutdownCluster(ctx context.Context, ais *aisv1.AISt
 	}
 
 	_, err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionShutdown})
-	r.log.Info("AIS cluster shutdown completed", "clusterName", ais.Name)
+	logger.Info("AIS cluster shutdown completed")
 	return reconcile.Result{}, err
 }
 
 func (r *AIStoreReconciler) handleCRDeletion(ctx context.Context, ais *aisv1.AIStore) (reconcile.Result, error) {
-	r.log.Info("Deleting AIS cluster", "name", ais.Name)
+	logger := r.log.WithValues("namespace", ais.Namespace, "name", ais.Name)
+	logger.Info("Deleting AIS cluster")
 	if !hasFinalizer(ais) {
 		return reconcile.Result{}, nil
 	}
@@ -206,14 +232,14 @@ func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore
 		return r.manageError(ctx, ais, aisv1.ConfigBuildError, err)
 	}
 
-	// Verify the k8s cluster can support this deployment
+	// Verify the Kubernetes cluster can support this deployment.
 	err = r.verifyDeployment(ctx, ais)
 	if err != nil {
 		r.recordError(ais, err, "Failed to verify desired deployment compatibility with K8s cluster")
 		// Don't use manageError, let k8s do a full exponential backoff by returning the error
 		ais.IncErrorCount()
 		ais.SetConditionError(aisv1.IncompatibleSpecError, err)
-		return ctrl.Result{}, err
+		return result, err
 	}
 
 	// 1. Create rbac resources
@@ -427,7 +453,7 @@ func (r *AIStoreReconciler) setStatus(ctx context.Context, ais *aisv1.AIStore, s
 	}
 
 	if err = r.client.Status().Update(ctx, ais); err != nil {
-		if errors.IsConflict(err) {
+		if k8serrors.IsConflict(err) {
 			r.log.Info("Versions conflict updating CR")
 			return true, nil
 		}
@@ -515,7 +541,7 @@ func (r *AIStoreReconciler) manageSuccess(ctx context.Context, ais *aisv1.AIStor
 }
 
 func (r *AIStoreReconciler) recordError(ais *aisv1.AIStore, err error, msg string) {
-	r.log.Error(err, msg)
+	r.log.WithValues("namespace", ais.Namespace, "name", ais.Name).Error(err, msg)
 	r.recorder.Eventf(ais, corev1.EventTypeWarning, EventReasonFailed, "%s, err: %v", msg, err)
 }
 

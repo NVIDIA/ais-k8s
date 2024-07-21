@@ -5,7 +5,7 @@ BUILD_TIME = $(shell date +%FT%T%z)
 # Image URL to use all building/pushing image targets
 IMG ?= controller:latest
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
-ENVTEST_K8S_VERSION = 1.23.0
+ENVTEST_K8S_VERSION = 1.25.0
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -65,30 +65,21 @@ fmt: ## Run go fmt against code.
 vet: ## Run go vet against code.
 	go vet ./...
 
-.PHONY: test test-short test-long test-manual test-suite-deps
-#test: manifests generate fmt vet envtest ## Run tests.
-#	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test $$(go list ./... | grep -v /e2e) -coverprofile cover.out
+.PHONY: test test-e2e test-e2-short test-e2-long test-e2e-manual
+test: manifests generate fmt vet envtest ## Run tests.
+	@KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test -v -coverprofile cover.out $$(go list ./... | grep -v /e2e)
 
-test: generate fmt vet manifests test-suite-deps
+test-e2e: manifests generate fmt vet envtest
 	@KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" $(SHELL) "$(SCRIPTS_DIR)/test.sh"
 
-test-short: generate fmt vet manifests test-suite-deps
+test-e2e-short: manifests generate fmt vet envtest
 	@KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" $(SHELL) "$(SCRIPTS_DIR)/test.sh" short
 
-test-long: generate fmt vet manifests test-suite-deps
+test-e2e-long: manifests generate fmt vet envtest
 	@KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" $(SHELL) "$(SCRIPTS_DIR)/test.sh" long
 
-test-manual: generate fmt vet manifests test-suite-deps
+test-e2e-manual: manifests generate fmt vet envtest
 	@KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" $(SHELL) "$(SCRIPTS_DIR)/test.sh" manual
-
-test-suite-deps: envtest
-	go env -w GOFLAGS=-mod=mod
-	go install github.com/onsi/ginkgo/v2/ginkgo
-
-# Utilize Kind or modify the e2e tests to load the image locally, enabling compatibility with other vendors.
-.PHONY: test-e2e  # Run the e2e tests against a Kind k8s instance that is spun up.
-test-e2e:
-	go test ./test/e2e/ -v -ginkgo.v
 
 .PHONY: lint
 lint: golangci-lint ## Run golangci-lint linter
