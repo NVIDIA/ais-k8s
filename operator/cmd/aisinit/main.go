@@ -143,6 +143,6 @@ func main() {
 
 	data, err := jsoniter.Marshal(localConf)
 	failOnError(err)
-	err = os.WriteFile(outputLocalConfig, data, 0o644)
+	err = os.WriteFile(outputLocalConfig, data, 0o644) //nolint:gosec // For now we don't want to change this.
 	failOnError(err)
 }

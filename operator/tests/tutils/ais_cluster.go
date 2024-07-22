@@ -64,7 +64,7 @@ func createStoragePVs(args ClusterSpecArgs, client *aisclient.K8sClient, mounts 
 
 	pvs := make([]*corev1.PersistentVolume, 0, len(mounts)*targetNum)
 
-	for i := 0; i < targetNum; i++ {
+	for i := range targetNum {
 		for _, mount := range mounts {
 			pvData := PVData{
 				storageClass: args.StorageClass,

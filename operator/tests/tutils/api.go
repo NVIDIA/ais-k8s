@@ -7,7 +7,7 @@ package tutils
 import (
 	"context"
 	"fmt"
-	"math/rand"
+	"math/rand/v2"
 	"os"
 	"path/filepath"
 	"strings"
@@ -419,7 +419,7 @@ func GetLoadBalancerIP(ctx context.Context, client *aisclient.K8sClient, name ty
 }
 
 func GetRandomProxyIP(ctx context.Context, client *aisclient.K8sClient, cluster *aisv1.AIStore) string {
-	proxyIndex := rand.Intn(int(cluster.GetProxySize()))
+	proxyIndex := rand.IntN(int(cluster.GetProxySize()))
 	proxySSName := proxy.StatefulSetNSName(cluster)
 	proxySSName.Name = fmt.Sprintf("%s-%d", proxySSName.Name, proxyIndex)
 	pod, err := client.GetPodByName(ctx, proxySSName)

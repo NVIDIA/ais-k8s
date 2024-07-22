@@ -25,7 +25,7 @@ const (
 	envVolume            = "env-mount"
 	stateVolume          = "state-mount"
 	awsSecretVolume      = "aws-creds"
-	gcpSecretVolume      = "gcp-creds"
+	gcpSecretVolume      = "gcp-creds" //nolint:gosec // This is not really credential.
 	tlsSecretVolume      = "tls-certs"
 	logsVolume           = "logs-dir"
 

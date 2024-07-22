@@ -437,7 +437,7 @@ func checkResExistence(ctx context.Context, cluster *aisv1.AIStore, exists bool,
 	// 4.4 ExternalLB Service (optional)
 	if cluster.Spec.EnableExternalLB {
 		timeout, interval := tutils.GetLBExistenceTimeout()
-		for i := int32(0); i < cluster.GetTargetSize(); i++ {
+		for i := range cluster.GetTargetSize() {
 			tutils.EventuallyServiceExists(ctx, k8sClient, target.LoadBalancerSVCNSName(cluster, i),
 				condition, timeout, interval)
 		}

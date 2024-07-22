@@ -28,6 +28,7 @@ const (
 	EnvEnableExternalAccess = "ENABLE_EXTERNAL_ACCESS"           // Bool flag to indicate AIS daemon is exposed using LoadBalancer
 	EnvShutdownMarkerPath   = "AIS_SHUTDOWN_MARKER_PATH"         // Path where node shutdown marker will be located
 
+	//nolint:gosec // This is not really credential.
 	EnvGCPCredsPath = "GOOGLE_APPLICATION_CREDENTIALS" // Path to GCP credentials
 
 	EnvHostNetwork = "HOST_NETWORK" // Bool flag to indicate if host network is enabled for target

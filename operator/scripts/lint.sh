@@ -5,21 +5,6 @@ OPERATOR_DIR="$(cd "$(dirname "$0")/../"; pwd -P)"
 source ${OPERATOR_DIR}/scripts/utils.sh
 
 case $1 in
-lint)
-  case $2 in
-  --fix)
-    echo "Running lint with --fix" >&2
-    golangci-lint --timeout=15m run $(list_all_go_dirs) --fix
-    exit $?
-    ;;
-  *)
-    echo "Running lint..." >&2
-    golangci-lint --timeout=15m run $(list_all_go_dirs)
-    exit $?
-    ;;
-  esac
-  ;;
-
 fmt)
   case $2 in
   --fix)
@@ -41,10 +26,10 @@ spell)
   echo "Running spell check..." >&2
   case $2 in
   --fix)
-    ${GOPATH}/bin/misspell -w -locale=US ${OPERATOR_DIR}
+    ${GOPATH}/bin/misspell -i "colour,importas" -w -locale=US ${OPERATOR_DIR}
     ;;
   *)
-    ${GOPATH}/bin/misspell -error -locale=US ${OPERATOR_DIR}
+    ${GOPATH}/bin/misspell -i "colour,importas" -error -locale=US ${OPERATOR_DIR}
     ;;
   esac
   ;;
