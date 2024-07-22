@@ -5,6 +5,7 @@ metadata:
   labels:
     podMonitorSelector: prometheus
   name: aistore-podmonitor
+  namespace: monitoring
 spec:
   podMetricsEndpoints:
   - interval: 30s
