@@ -100,22 +100,32 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	// AIS CR has been marked to be deleted.
-	if !ais.GetDeletionTimestamp().IsZero() {
-		return r.handleCRDeletion(ctx, ais)
-	}
-
-	if ais.ShouldShutdown() {
-		if ais.HasState(aisv1.ConditionReady) {
-			return r.shutdownCluster(ctx, ais)
+	if !ais.HasState(aisv1.ConditionDecommissioning) && !ais.GetDeletionTimestamp().IsZero() {
+		_, err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionDecommissioning})
+		if err != nil {
+			return reconcile.Result{}, err
 		}
-		return reconcile.Result{}, nil
+		r.recorder.Event(ais, corev1.EventTypeNormal, "CRDeletion", "Decommissioning...")
 	}
 
-	if isNewCR(ais) {
+	if ais.ShouldShutdown() && ais.HasState(aisv1.ConditionReady) {
+		_, err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionShuttingDown})
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		r.recorder.Event(ais, corev1.EventTypeNormal, "CRUpdated", "Shutting down...")
+	}
+
+	switch {
+	case ais.HasState(aisv1.ConditionShuttingDown):
+		return r.shutdownCluster(ctx, ais)
+	case ais.HasState(aisv1.ConditionDecommissioning):
+		return r.handleCRDeletion(ctx, ais)
+	case isNewCR(ais):
 		return r.bootstrapNew(ctx, ais)
+	default:
+		return r.handleCREvents(ctx, ais)
 	}
-
-	return r.handleCREvents(ctx, ais)
 }
 
 func (r *AIStoreReconciler) initializeCR(ctx context.Context, ais *aisv1.AIStore) (result reconcile.Result, err error) {
@@ -439,13 +449,15 @@ func (r *AIStoreReconciler) isInitialized(ais *aisv1.AIStore) bool {
 }
 
 func (r *AIStoreReconciler) setStatus(ctx context.Context, ais *aisv1.AIStore, status aisv1.AIStoreStatus) (retry bool, err error) {
+	logger := r.log.WithValues("namespace", ais.Namespace, "name", ais.Name)
 	if status.State != "" {
+		logger.Info("Updating AIS state", "state", status.State)
 		ais.SetState(status.State)
 	}
 
 	if err = r.client.Status().Update(ctx, ais); err != nil {
 		if k8serrors.IsConflict(err) {
-			r.log.Info("Versions conflict updating CR")
+			logger.Info("Conflict updating CR status")
 			return true, nil
 		}
 		r.recordError(ais, err, "Failed to update CR status")
