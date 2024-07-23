@@ -148,18 +148,20 @@ func (r *AIStoreReconciler) handleProxyImage(ctx context.Context, ais *aisv1.AIS
 	firstPodName := proxy.PodName(ais, 0)
 	updated := ss.Spec.Template.Spec.Containers[0].Image != ais.Spec.NodeImage
 	if updated {
-		if err := r.setPrimaryTo(ctx, ais, 0); err != nil {
-			r.log.Error(err, "failed to set primary proxy")
-			return false, err
+		if ss.Status.ReadyReplicas > 0 {
+			if err := r.setPrimaryTo(ctx, ais, 0); err != nil {
+				r.log.Error(err, "failed to set primary proxy")
+				return false, err
+			}
+			r.log.Info("updated primary to pod " + firstPodName)
+			ss.Spec.UpdateStrategy = apiv1.StatefulSetUpdateStrategy{
+				Type: apiv1.RollingUpdateStatefulSetStrategyType,
+				RollingUpdate: &apiv1.RollingUpdateStatefulSetStrategy{
+					Partition: func(v int32) *int32 { return &v }(1),
+				},
+			}
 		}
-		r.log.Info("updated primary to pod " + firstPodName)
 		ss.Spec.Template.Spec.Containers[0].Image = ais.Spec.NodeImage
-		ss.Spec.UpdateStrategy = apiv1.StatefulSetUpdateStrategy{
-			Type: apiv1.RollingUpdateStatefulSetStrategyType,
-			RollingUpdate: &apiv1.RollingUpdateStatefulSetStrategy{
-				Partition: func(v int32) *int32 { return &v }(1),
-			},
-		}
 		return false, r.client.Update(ctx, ss)
 	}
 

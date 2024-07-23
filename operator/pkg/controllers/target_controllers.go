@@ -15,6 +15,7 @@ import (
 	"github.com/ais-operator/pkg/resources/target"
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -84,10 +85,10 @@ func (r *AIStoreReconciler) cleanupTargetSS(ctx context.Context, ais *aisv1.AISt
 		r.log.Error(err, "Failed to get API parameters", "clusterName", ais.Name)
 		// If we cannot get API parameters, we may have a broken statefulset with no ready replicas so delete it
 		currentSS, ssErr := r.client.GetStatefulSet(ctx, targetSS)
-		if ssErr != nil {
+		if ssErr != nil && !k8serrors.IsNotFound(ssErr) {
 			return false, ssErr
 		}
-		if currentSS.Status.ReadyReplicas == 0 {
+		if k8serrors.IsNotFound(ssErr) || currentSS.Status.ReadyReplicas == 0 {
 			r.log.Info("Deleting target statefulset", "clusterName", ais.Name)
 			return r.client.DeleteStatefulSetIfExists(ctx, targetSS)
 		}

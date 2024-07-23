@@ -180,7 +180,7 @@ func (r *AIStoreReconciler) shutdownCluster(ctx context.Context, ais *aisv1.AISt
 func (r *AIStoreReconciler) handleCRDeletion(ctx context.Context, ais *aisv1.AIStore) (reconcile.Result, error) {
 	logger := r.log.WithValues("namespace", ais.Namespace, "name", ais.Name)
 	logger.Info("Deleting AIS cluster")
-	if !hasFinalizer(ais) {
+	if !controllerutil.ContainsFinalizer(ais, aisFinalizer) {
 		return reconcile.Result{}, nil
 	}
 	updated, err := r.cleanup(ctx, ais)
@@ -212,15 +212,6 @@ func (r *AIStoreReconciler) attemptGracefulShutdown(params *aisapi.BaseParams) {
 	if err := aisapi.ShutdownCluster(*params); err != nil {
 		r.log.Error(err, "Failed to gracefully shutdown cluster")
 	}
-}
-
-func hasFinalizer(ais *aisv1.AIStore) bool {
-	for _, fin := range ais.GetFinalizers() {
-		if fin == aisFinalizer {
-			return true
-		}
-	}
-	return false
 }
 
 func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore) (result ctrl.Result, err error) {
