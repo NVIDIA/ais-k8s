@@ -17,6 +17,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	storagev1 "k8s.io/api/storage/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -245,6 +246,29 @@ func (c *K8sClient) CreateResourceIfNotExists(ctx context.Context, owner *aisv1.
 		err = nil
 	}
 	return
+}
+
+func (c *K8sClient) CreateOrUpdateResource(ctx context.Context, owner *aisv1.AIStore, res client.Object) (changed bool, err error) {
+	exists, err := c.CreateResourceIfNotExists(ctx, owner, res)
+	if err != nil {
+		return false, err
+	}
+
+	if !exists {
+		// resource create for first time
+		return true, nil
+	}
+
+	key := client.ObjectKeyFromObject(res)
+	existingObj := res.DeepCopyObject().(client.Object)
+	if err := c.client.Get(ctx, key, existingObj); err != nil {
+		return false, err
+	}
+	if equality.Semantic.DeepDerivative(res, existingObj) {
+		return false, nil
+	}
+	err = c.client.Update(ctx, res)
+	return err == nil, err
 }
 
 func (c *K8sClient) CheckIfNamespaceExists(ctx context.Context, name string) (exists bool, err error) {

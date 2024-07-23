@@ -29,14 +29,14 @@ func (r *AIStoreReconciler) initTargets(ctx context.Context, ais *aisv1.AIStore)
 		return
 	}
 
-	if _, err = r.client.CreateResourceIfNotExists(context.TODO(), ais, cm); err != nil {
+	if _, err = r.client.CreateOrUpdateResource(context.TODO(), ais, cm); err != nil {
 		r.recordError(ais, err, "Failed to deploy target ConfigMap")
 		return
 	}
 
 	// 2. Deploy services
 	svc := target.NewTargetHeadlessSvc(ais)
-	if _, err = r.client.CreateResourceIfNotExists(ctx, ais, svc); err != nil {
+	if _, err = r.client.CreateOrUpdateResource(ctx, ais, svc); err != nil {
 		r.recordError(ais, err, "Failed to deploy target SVC")
 		return
 	}
@@ -268,7 +268,7 @@ func (r *AIStoreReconciler) enableTargetExternalService(ctx context.Context,
 	)
 	// 1. Try creating a LoadBalancer for each target pod, if the SVC are already created (`allExists` == true), then proceed to checking their status.
 	for _, svc := range targetSVCList {
-		exists, err = r.client.CreateResourceIfNotExists(ctx, ais, svc)
+		exists, err = r.client.CreateOrUpdateResource(ctx, ais, svc)
 		if err != nil {
 			return
 		}

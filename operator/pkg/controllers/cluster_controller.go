@@ -22,6 +22,7 @@ import (
 	"github.com/ais-operator/pkg/resources/proxy"
 	"github.com/ais-operator/pkg/resources/statsd"
 	"github.com/go-logr/logr"
+	apiv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -289,13 +290,13 @@ func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore
 
 	// 3. Deploy statsd config map. Required by both proxies and targets
 	statsDCM := statsd.NewStatsDCM(ais)
-	if _, err = r.client.CreateResourceIfNotExists(ctx, ais, statsDCM); err != nil {
+	if _, err = r.client.CreateOrUpdateResource(ctx, ais, statsDCM); err != nil {
 		r.recordError(ais, err, "Failed to deploy StatsD ConfigMap")
 		return r.manageError(ctx, ais, aisv1.ResourceCreationError, err)
 	}
 
 	// 4. Deploy global cluster config map.
-	if _, err = r.client.CreateResourceIfNotExists(ctx, ais, globalCM); err != nil {
+	if _, err = r.client.CreateOrUpdateResource(ctx, ais, globalCM); err != nil {
 		r.recordError(ais, err, "Failed to deploy global cluster ConfigMap")
 		return r.manageError(ctx, ais, aisv1.ResourceCreationError, err)
 	}
@@ -399,7 +400,7 @@ func (r *AIStoreReconciler) patchRole(ctx context.Context, ais *aisv1.AIStore, r
 func (r *AIStoreReconciler) createRBACResources(ctx context.Context, ais *aisv1.AIStore) (err error) {
 	// 1. Create service account if not exists
 	sa := cmn.NewAISServiceAccount(ais)
-	if _, err = r.client.CreateResourceIfNotExists(ctx, nil, sa); err != nil {
+	if _, err = r.client.CreateOrUpdateResource(ctx, nil, sa); err != nil {
 		r.recordError(ais, err, "Failed to create ServiceAccount")
 		return
 	}
@@ -410,7 +411,7 @@ func (r *AIStoreReconciler) createRBACResources(ctx context.Context, ais *aisv1.
 		exists bool
 	)
 
-	if exists, err = r.client.CreateResourceIfNotExists(ctx, nil, role); err != nil {
+	if exists, err = r.client.CreateOrUpdateResource(ctx, nil, role); err != nil {
 		r.recordError(ais, err, "Failed to create Role")
 		return
 	}
@@ -425,14 +426,14 @@ func (r *AIStoreReconciler) createRBACResources(ctx context.Context, ais *aisv1.
 
 	// 3. Create binding for the Role
 	rb := cmn.NewAISRBACRoleBinding(ais)
-	if _, err = r.client.CreateResourceIfNotExists(ctx, nil, rb); err != nil {
+	if _, err = r.client.CreateOrUpdateResource(ctx, nil, rb); err != nil {
 		r.recordError(ais, err, "Failed to create RoleBinding")
 		return
 	}
 
 	// 4. Create AIS ClusterRole
 	cluRole := cmn.NewAISRBACClusterRole(ais)
-	if _, err = r.client.CreateResourceIfNotExists(ctx, nil, cluRole); err != nil {
+	if _, err = r.client.CreateOrUpdateResource(ctx, nil, cluRole); err != nil {
 		errMsg := "Failed to create ClusterRole"
 		r.recordError(ais, err, errMsg)
 		return
@@ -440,7 +441,7 @@ func (r *AIStoreReconciler) createRBACResources(ctx context.Context, ais *aisv1.
 
 	// 5. Create binding for ClusterRole
 	crb := cmn.NewAISRBACClusterRoleBinding(ais)
-	if _, err = r.client.CreateResourceIfNotExists(ctx, nil, crb); err != nil {
+	if _, err = r.client.CreateOrUpdateResource(ctx, nil, crb); err != nil {
 		r.recordError(ais, err, "Failed to create ClusterRoleBinding")
 	}
 	return
@@ -477,6 +478,9 @@ func isNewCR(ais *aisv1.AIStore) (isNew bool) {
 func (r *AIStoreReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&aisv1.AIStore{}).
+		Owns(&apiv1.StatefulSet{}).
+		Owns(&corev1.ConfigMap{}).
+		Owns(&corev1.Service{}).
 		Complete(r)
 }
 

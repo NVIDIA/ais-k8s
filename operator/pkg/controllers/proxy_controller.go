@@ -42,21 +42,21 @@ func (r *AIStoreReconciler) initProxies(ctx context.Context, ais *aisv1.AIStore)
 		return
 	}
 
-	if _, err = r.client.CreateResourceIfNotExists(context.TODO(), ais, cm); err != nil {
+	if _, err = r.client.CreateOrUpdateResource(context.TODO(), ais, cm); err != nil {
 		r.recordError(ais, err, "Failed to deploy ConfigMap")
 		return
 	}
 
 	// 2. Deploy services
 	svc := proxy.NewProxyHeadlessSvc(ais)
-	if _, err = r.client.CreateResourceIfNotExists(ctx, ais, svc); err != nil {
+	if _, err = r.client.CreateOrUpdateResource(ctx, ais, svc); err != nil {
 		r.recordError(ais, err, "Failed to deploy SVC")
 		return
 	}
 
 	// 3. Create a proxy statefulset with single replica as primary
-	pod := proxy.NewProxyStatefulSet(ais, 1)
-	if exists, err = r.client.CreateResourceIfNotExists(ctx, ais, pod); err != nil {
+	ss := proxy.NewProxyStatefulSet(ais, 1)
+	if exists, err = r.client.CreateResourceIfNotExists(ctx, ais, ss); err != nil {
 		r.recordError(ais, err, "Failed to deploy Primary proxy")
 		return
 	} else if !exists {
@@ -317,7 +317,7 @@ func (r *AIStoreReconciler) enableProxyExternalService(ctx context.Context,
 	ais *aisv1.AIStore,
 ) (ready bool, err error) {
 	proxyLBSVC := proxy.NewProxyLoadBalancerSVC(ais)
-	exists, err := r.client.CreateResourceIfNotExists(ctx, ais, proxyLBSVC)
+	exists, err := r.client.CreateOrUpdateResource(ctx, ais, proxyLBSVC)
 	if err != nil || !exists {
 		return
 	}
