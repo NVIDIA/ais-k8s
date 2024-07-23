@@ -27,16 +27,16 @@ const (
 
 type (
 	ClusterSpecArgs struct {
-		Name                string
-		Namespace           string
-		StorageClass        string
-		Size                int32
-		TargetSize          int32
-		ProxySize           int32
-		DisableAntiAffinity bool
-		EnableExternalLB    bool
-		ShutdownCluster     bool
-		CleanupData         bool
+		Name             string
+		Namespace        string
+		StorageClass     string
+		Size             int32
+		TargetSize       int32
+		ProxySize        int32
+		TargetSharedNode bool
+		EnableExternalLB bool
+		ShutdownCluster  bool
+		CleanupData      bool
 		// Create a cluster with more PVs than targets for future scaling
 		MaxTargets int32
 		// Where to mount the hostpath storage for actual storage PVs
@@ -66,12 +66,18 @@ func createStoragePVs(args ClusterSpecArgs, client *aisclient.K8sClient, mounts 
 
 	for i := range targetNum {
 		for _, mount := range mounts {
+			var k8sNodeName string
+			if args.TargetSharedNode {
+				k8sNodeName = "minikube"
+			} else {
+				k8sNodeName = determineNode("minikube", "%s-m%02d", i)
+			}
 			pvData := PVData{
 				storageClass: args.StorageClass,
 				ns:           args.Namespace,
 				cluster:      args.Name,
 				mpath:        mount.Path,
-				node:         determineNode("minikube", "%s-m%02d", i),
+				node:         k8sNodeName,
 				target:       "target-" + strconv.Itoa(i),
 				size:         mount.Size,
 			}
@@ -152,7 +158,7 @@ func newAISClusterCR(args ClusterSpecArgs, mounts []aisv1.Mount) *aisv1.AIStore 
 			},
 			Mounts:                 mounts,
 			AllowSharedOrNoDisks:   &args.AllowSharedOrNoDisks,
-			DisablePodAntiAffinity: &args.DisableAntiAffinity,
+			DisablePodAntiAffinity: &args.TargetSharedNode,
 		},
 	}
 

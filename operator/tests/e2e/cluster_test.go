@@ -123,6 +123,7 @@ var _ = Describe("Run Controller", func() {
 				cluArgs := defaultCluArgs()
 				cluArgs.TargetSize = 2
 				cluArgs.ProxySize = 1
+				cluArgs.TargetSharedNode = true
 				cluster, pvs := tutils.NewAISCluster(cluArgs, k8sClient)
 				createAndDestroyCluster(cluster, pvs, nil, nil, false)
 			})
@@ -365,13 +366,13 @@ func clusterName() string {
 
 func defaultCluArgs() tutils.ClusterSpecArgs {
 	return tutils.ClusterSpecArgs{
-		Name:                clusterName(),
-		Namespace:           testNSName,
-		StorageClass:        storageClass,
-		StorageHostPath:     storageHostPath,
-		Size:                1,
-		CleanupData:         true,
-		DisableAntiAffinity: true,
+		Name:             clusterName(),
+		Namespace:        testNSName,
+		StorageClass:     storageClass,
+		StorageHostPath:  storageHostPath,
+		Size:             1,
+		CleanupData:      true,
+		TargetSharedNode: false,
 	}
 }
 

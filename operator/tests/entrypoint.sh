@@ -3,5 +3,5 @@
 if [ "$TEST_TYPE" = "" ]; then
     make test
 else
-    make "test-$TEST_TYPE"
+    make "test-e2e-$TEST_TYPE"
 fi
