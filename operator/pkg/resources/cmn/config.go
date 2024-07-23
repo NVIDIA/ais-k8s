@@ -78,7 +78,7 @@ var defaultAISConf = aiscmn.ClusterConfig{
 	FSHC: aiscmn.FSHCConf{
 		Enabled:       true,
 		TestFileCount: 4,
-		ErrorLimit:    2,
+		HardErrs:      2, // `error_limit`
 	},
 	Keepalive: aiscmn.KeepaliveConf{
 		Proxy: aiscmn.KeepaliveTrackerConf{
