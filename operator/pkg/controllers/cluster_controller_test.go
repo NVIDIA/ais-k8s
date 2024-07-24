@@ -47,7 +47,7 @@ var _ = Describe("AIStoreController", func() {
 					Name: "node-1",
 				},
 			})
-			Expect(err).ToNot(HaveOccurred())
+			Expect(client.IgnoreAlreadyExists(err)).ToNot(HaveOccurred())
 
 			tmpClient := aisclient.NewClient(c, c.Scheme())
 			Expect(tmpClient).NotTo(BeNil())
@@ -118,6 +118,37 @@ var _ = Describe("AIStoreController", func() {
 				var targetSS appsv1.StatefulSet
 				err = c.Get(ctx, types.NamespacedName{Name: "ais-target", Namespace: namespace}, &targetSS)
 				Expect(err).To(HaveOccurred())
+			})
+
+			It("should properly sync external edits to owned resources", func() {
+				_, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: "ais", Namespace: namespace}})
+				Expect(err).ToNot(HaveOccurred())
+
+				var proxyService corev1.Service
+				err = c.Get(ctx, types.NamespacedName{Name: "ais-proxy", Namespace: namespace}, &proxyService)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(proxyService.Spec.Type).To(Equal(corev1.ServiceTypeClusterIP))
+				Expect(proxyService.Spec.ClusterIP).To(Equal(corev1.ClusterIPNone))
+				Expect(proxyService.Spec.Ports).To(HaveLen(3))
+
+				// Delete service
+				err = c.Delete(ctx, &proxyService)
+				Expect(err).NotTo(HaveOccurred())
+
+				err = c.Get(ctx, types.NamespacedName{Name: "ais-proxy", Namespace: namespace}, &proxyService)
+				Expect(err).To(HaveOccurred())
+				Expect(client.IgnoreNotFound(err)).ToNot(HaveOccurred())
+
+				// Reconcile
+				_, err = r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: "ais", Namespace: namespace}})
+				Expect(err).ToNot(HaveOccurred())
+
+				// Ensure service is recreated
+				err = c.Get(ctx, types.NamespacedName{Name: "ais-proxy", Namespace: namespace}, &proxyService)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(proxyService.Spec.Type).To(Equal(corev1.ServiceTypeClusterIP))
+				Expect(proxyService.Spec.ClusterIP).To(Equal(corev1.ClusterIPNone))
+				Expect(proxyService.Spec.Ports).To(HaveLen(3))
 			})
 		})
 	})

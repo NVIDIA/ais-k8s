@@ -156,11 +156,16 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return r.decommissionCluster(ctx, ais)
 	case ais.HasState(aisv1.ConditionCleanup):
 		return r.cleanupClusterRes(ctx, ais)
-	case !ais.IsConditionTrue(aisv1.ConditionCreated.Str()):
-		return r.bootstrapNew(ctx, ais)
-	default:
-		return r.handleCREvents(ctx, ais)
 	}
+
+	if result, err := r.ensurePrereqs(ctx, ais); !result.IsZero() || err != nil {
+		return result, err
+	}
+
+	if !ais.IsConditionTrue(aisv1.ConditionCreated.Str()) {
+		return r.bootstrapNew(ctx, ais)
+	}
+	return r.handleCREvents(ctx, ais)
 }
 
 func (r *AIStoreReconciler) getLogger(ais *aisv1.AIStore) logr.Logger {
@@ -346,7 +351,7 @@ func (r *AIStoreReconciler) attemptGracefulShutdown(ctx context.Context, ais *ai
 	return err
 }
 
-func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore) (result ctrl.Result, err error) {
+func (r *AIStoreReconciler) ensurePrereqs(ctx context.Context, ais *aisv1.AIStore) (result ctrl.Result, err error) {
 	globalCM, err := cmn.NewGlobalCM(ais, ais.Spec.ConfigToUpdate)
 	if err != nil {
 		r.recordError(ais, err, "Failed to construct global config")
@@ -407,18 +412,27 @@ func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore
 
 	// 3. Deploy statsd config map. Required by both proxies and targets
 	statsDCM := statsd.NewStatsDCM(ais)
-	if _, err = r.client.CreateOrUpdateResource(ctx, ais, statsDCM); err != nil {
+	if err = r.client.CreateOrUpdateResource(ctx, ais, statsDCM); err != nil {
 		r.recordError(ais, err, "Failed to deploy StatsD ConfigMap")
 		return r.manageError(ctx, ais, aisv1.ResourceCreationError, err)
 	}
 
 	// 4. Deploy global cluster config map.
-	if _, err = r.client.CreateOrUpdateResource(ctx, ais, globalCM); err != nil {
+	if err = r.client.CreateOrUpdateResource(ctx, ais, globalCM); err != nil {
 		r.recordError(ais, err, "Failed to deploy global cluster ConfigMap")
 		return r.manageError(ctx, ais, aisv1.ResourceCreationError, err)
 	}
 
-	// 5. Bootstrap proxies
+	err = r.ensureProxyPrereqs(ctx, ais)
+	if err != nil {
+		return
+	}
+	err = r.ensureTargetPrereqs(ctx, ais)
+	return
+}
+
+func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore) (result ctrl.Result, err error) {
+	// 1. Bootstrap proxies
 	if result.Requeue, err = r.initProxies(ctx, ais); err != nil {
 		r.recordError(ais, err, "Failed to create Proxy resources")
 		return r.manageError(ctx, ais, aisv1.ProxyCreationError, err)
@@ -426,7 +440,7 @@ func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore
 		return
 	}
 
-	// 6. Bootstrap targets
+	// 2. Bootstrap targets
 	if result.Requeue, err = r.initTargets(ctx, ais); err != nil {
 		r.recordError(ais, err, "Failed to create Target resources")
 		return r.manageError(ctx, ais, aisv1.TargetCreationError, err)
@@ -454,12 +468,6 @@ func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore
 //  2. Similarly, check the resource state for targets and ensure the state matches the reconciler request.
 //  3. If both proxy and target daemons have expected state, keep requeuing the event until all the pods are ready.
 func (r *AIStoreReconciler) handleCREvents(ctx context.Context, ais *aisv1.AIStore) (result ctrl.Result, err error) {
-	// Ensure correct RBAC resources exists
-	err = r.createRBACResources(ctx, ais)
-	if err != nil {
-		return r.manageError(ctx, ais, aisv1.RBACManagementError, err)
-	}
-
 	var proxyReady, targetReady bool
 	if proxyReady, err = r.handleProxyState(ctx, ais); err != nil {
 		return
@@ -487,35 +495,35 @@ requeue:
 func (r *AIStoreReconciler) createRBACResources(ctx context.Context, ais *aisv1.AIStore) (err error) {
 	// 1. Create service account if not exists
 	sa := cmn.NewAISServiceAccount(ais)
-	if _, err = r.client.CreateOrUpdateResource(ctx, nil, sa); err != nil {
+	if err = r.client.CreateOrUpdateResource(ctx, nil, sa); err != nil {
 		r.recordError(ais, err, "Failed to create ServiceAccount")
 		return
 	}
 
 	// 2. Create AIS Role
 	role := cmn.NewAISRBACRole(ais)
-	if _, err = r.client.CreateOrUpdateResource(ctx, nil, role); err != nil {
+	if err = r.client.CreateOrUpdateResource(ctx, nil, role); err != nil {
 		r.recordError(ais, err, "Failed to create Role")
 		return
 	}
 
 	// 3. Create binding for the Role
 	rb := cmn.NewAISRBACRoleBinding(ais)
-	if _, err = r.client.CreateOrUpdateResource(ctx, nil, rb); err != nil {
+	if err = r.client.CreateOrUpdateResource(ctx, nil, rb); err != nil {
 		r.recordError(ais, err, "Failed to create RoleBinding")
 		return
 	}
 
 	// 4. Create AIS ClusterRole
 	cluRole := cmn.NewAISRBACClusterRole(ais)
-	if _, err = r.client.CreateOrUpdateResource(ctx, nil, cluRole); err != nil {
+	if err = r.client.CreateOrUpdateResource(ctx, nil, cluRole); err != nil {
 		r.recordError(ais, err, "Failed to create ClusterRole")
 		return
 	}
 
 	// 5. Create binding for ClusterRole
 	crb := cmn.NewAISRBACClusterRoleBinding(ais)
-	if _, err = r.client.CreateOrUpdateResource(ctx, nil, crb); err != nil {
+	if err = r.client.CreateOrUpdateResource(ctx, nil, crb); err != nil {
 		r.recordError(ais, err, "Failed to create ClusterRoleBinding")
 		return
 	}
@@ -748,7 +756,6 @@ createParams:
 
 	// Get admin token if AuthN is enabled
 	token, err = r.getAdminToken(ais, scheme)
-
 	if err != nil {
 		return nil, err
 	}

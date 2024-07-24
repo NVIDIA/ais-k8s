@@ -20,28 +20,30 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-func (r *AIStoreReconciler) initTargets(ctx context.Context, ais *aisv1.AIStore) (requeue bool, err error) {
-	var cm *corev1.ConfigMap
+func (r *AIStoreReconciler) ensureTargetPrereqs(ctx context.Context, ais *aisv1.AIStore) (err error) {
 	// 1. Deploy required ConfigMap
-	cm, err = target.NewTargetCM(ctx, ais)
+	cm, err := target.NewTargetCM(ctx, ais)
 	if err != nil {
 		r.recordError(ais, err, "Failed to generate valid target ConfigMap")
 		return
 	}
 
-	if _, err = r.client.CreateOrUpdateResource(context.TODO(), ais, cm); err != nil {
+	if err = r.client.CreateOrUpdateResource(context.TODO(), ais, cm); err != nil {
 		r.recordError(ais, err, "Failed to deploy target ConfigMap")
 		return
 	}
 
 	// 2. Deploy services
 	svc := target.NewTargetHeadlessSvc(ais)
-	if _, err = r.client.CreateOrUpdateResource(ctx, ais, svc); err != nil {
+	if err = r.client.CreateOrUpdateResource(ctx, ais, svc); err != nil {
 		r.recordError(ais, err, "Failed to deploy target SVC")
 		return
 	}
+	return
+}
 
-	// 3. Deploy statefulset
+func (r *AIStoreReconciler) initTargets(ctx context.Context, ais *aisv1.AIStore) (changed bool, err error) {
+	// Deploy statefulset
 	ss := target.NewTargetSS(ais)
 	if exists, err := r.client.CreateResourceIfNotExists(ctx, ais, ss); err != nil {
 		r.recordError(ais, err, "Failed to deploy target statefulset")
@@ -50,7 +52,7 @@ func (r *AIStoreReconciler) initTargets(ctx context.Context, ais *aisv1.AIStore)
 		msg := "Successfully initialized target nodes"
 		logf.FromContext(ctx).Info(msg)
 		r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonInitialized, msg)
-		requeue = true
+		changed = true
 	}
 	return
 }
@@ -84,10 +86,6 @@ func (r *AIStoreReconciler) handleTargetState(ctx context.Context, ais *aisv1.AI
 		return ready, err
 	}
 	if *ss.Spec.Replicas != ais.GetTargetSize() {
-		err = r.verifyNodesAvailable(ctx, ais, aisapc.Target)
-		if err != nil {
-			return false, err
-		}
 		ready, err = r.handleTargetScaling(ctx, ais, ss, targetSSName)
 		if !ready || err != nil {
 			return false, err
@@ -230,21 +228,13 @@ func (r *AIStoreReconciler) handleTargetScaleUp(ctx context.Context, ais *aisv1.
 func (r *AIStoreReconciler) enableTargetExternalService(ctx context.Context,
 	ais *aisv1.AIStore,
 ) (ready bool, err error) {
-	var (
-		targetSVCList = target.NewLoadBalancerSVCList(ais)
-		exists        bool
-		allExist      = true
-	)
+	targetSVCList := target.NewLoadBalancerSVCList(ais)
 	// 1. Try creating a LoadBalancer for each target pod, if the SVC are already created (`allExists` == true), then proceed to checking their status.
 	for _, svc := range targetSVCList {
-		exists, err = r.client.CreateOrUpdateResource(ctx, ais, svc)
+		err = r.client.CreateOrUpdateResource(ctx, ais, svc)
 		if err != nil {
 			return
 		}
-		allExist = allExist && exists
-	}
-	if !allExist {
-		return
 	}
 
 	// 2. If all the SVC already exist, ensure every `service` has an external IP assigned to it.

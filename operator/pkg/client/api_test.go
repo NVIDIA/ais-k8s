@@ -58,14 +58,13 @@ var _ = Describe("K8sClient", func() {
 		})
 
 		It("should create an object if not exists", func() {
-			changed, err := k8sClient.CreateOrUpdateResource(ctx, ais, &corev1.ConfigMap{
+			err := k8sClient.CreateOrUpdateResource(ctx, ais, &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-configmap",
 					Namespace: ns.GetName(),
 				},
 				Data: map[string]string{"hello": "from-aistore"},
 			})
-			Expect(changed).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -77,8 +76,7 @@ var _ = Describe("K8sClient", func() {
 				},
 				Data: map[string]string{"hello": "from-aistore"},
 			}
-			changed, err := k8sClient.CreateOrUpdateResource(ctx, ais, cm)
-			Expect(changed).To(BeTrue())
+			err := k8sClient.CreateOrUpdateResource(ctx, ais, cm)
 			Expect(err).NotTo(HaveOccurred())
 
 			updatedCM := &corev1.ConfigMap{
@@ -88,8 +86,7 @@ var _ = Describe("K8sClient", func() {
 				},
 				Data: map[string]string{"hello": "from-aistore-updated"},
 			}
-			changed, err = k8sClient.CreateOrUpdateResource(ctx, ais, updatedCM)
-			Expect(changed).To(BeTrue())
+			err = k8sClient.CreateOrUpdateResource(ctx, ais, updatedCM)
 			Expect(err).NotTo(HaveOccurred())
 
 			fetchCM := &corev1.ConfigMap{}
@@ -106,12 +103,10 @@ var _ = Describe("K8sClient", func() {
 				},
 				Data: map[string]string{"hello": "from-aistore"},
 			}
-			changed, err := k8sClient.CreateOrUpdateResource(ctx, ais, cm.DeepCopy())
-			Expect(changed).To(BeTrue())
+			err := k8sClient.CreateOrUpdateResource(ctx, ais, cm.DeepCopy())
 			Expect(err).NotTo(HaveOccurred())
 
-			changed, err = k8sClient.CreateOrUpdateResource(ctx, ais, cm.DeepCopy())
-			Expect(changed).To(BeFalse())
+			err = k8sClient.CreateOrUpdateResource(ctx, ais, cm.DeepCopy())
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -130,8 +125,7 @@ var _ = Describe("K8sClient", func() {
 				},
 			}
 			newRes := podObj.DeepCopy()
-			changed, err := k8sClient.CreateOrUpdateResource(ctx, ais, newRes)
-			Expect(changed).To(BeTrue())
+			err := k8sClient.CreateOrUpdateResource(ctx, ais, newRes)
 			Expect(err).NotTo(HaveOccurred())
 
 			podWithStatus := podObj.DeepCopy()
@@ -141,8 +135,7 @@ var _ = Describe("K8sClient", func() {
 			err = c.Status().Update(ctx, podWithStatus)
 			Expect(err).NotTo(HaveOccurred())
 
-			changed, err = k8sClient.CreateOrUpdateResource(ctx, ais, podObj)
-			Expect(changed).To(BeFalse())
+			err = k8sClient.CreateOrUpdateResource(ctx, ais, podObj)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -162,8 +155,7 @@ var _ = Describe("K8sClient", func() {
 				},
 			}
 
-			changed, err := k8sClient.CreateOrUpdateResource(ctx, ais, podObj)
-			Expect(changed).To(BeTrue())
+			err := k8sClient.CreateOrUpdateResource(ctx, ais, podObj)
 			Expect(err).NotTo(HaveOccurred())
 
 			newObj := &corev1.Pod{
@@ -180,8 +172,7 @@ var _ = Describe("K8sClient", func() {
 					// missing sa name.
 				},
 			}
-			changed, err = k8sClient.CreateOrUpdateResource(ctx, ais, newObj)
-			Expect(changed).To(BeFalse())
+			err = k8sClient.CreateOrUpdateResource(ctx, ais, newObj)
 			Expect(err).NotTo(HaveOccurred())
 
 			comparePod := &corev1.Pod{}

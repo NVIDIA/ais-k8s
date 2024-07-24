@@ -226,27 +226,26 @@ func (c *K8sClient) CreateResourceIfNotExists(ctx context.Context, owner *aisv1.
 	return
 }
 
-func (c *K8sClient) CreateOrUpdateResource(ctx context.Context, owner *aisv1.AIStore, res client.Object) (changed bool, err error) {
+func (c *K8sClient) CreateOrUpdateResource(ctx context.Context, owner *aisv1.AIStore, res client.Object) (err error) {
 	exists, err := c.CreateResourceIfNotExists(ctx, owner, res)
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	if !exists {
 		// resource create for first time
-		return true, nil
+		return nil
 	}
 
 	key := client.ObjectKeyFromObject(res)
 	existingObj := res.DeepCopyObject().(client.Object)
 	if err := c.client.Get(ctx, key, existingObj); err != nil {
-		return false, err
+		return err
 	}
 	if equality.Semantic.DeepDerivative(res, existingObj) {
-		return false, nil
+		return nil
 	}
-	err = c.client.Update(ctx, res)
-	return err == nil, err
+	return c.client.Update(ctx, res)
 }
 
 func (c *K8sClient) CheckIfNamespaceExists(ctx context.Context, name string) (exists bool, err error) {
