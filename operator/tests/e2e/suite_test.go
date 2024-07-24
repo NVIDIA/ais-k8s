@@ -137,7 +137,6 @@ var _ = BeforeSuite(func() {
 		By("Bootstrapping test environment")
 		testEnv = &envtest.Environment{
 			CRDDirectoryPaths: []string{filepath.Join("..", "..", "config", "crd", "bases")},
-			CRDInstallOptions: envtest.CRDInstallOptions{CleanUpAfterUse: true},
 		}
 
 		cfg, err := testEnv.Start()
