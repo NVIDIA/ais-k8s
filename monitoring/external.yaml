@@ -12,6 +12,9 @@ affinity:
   enabled: true
   nodeMatchKey: aistore.nvidia.com/role_monitoring
 
+prometheus:
+  remote_url: http://mimir-endpoint/api/v1/push
+
 grafana:
   enabled: false
 

@@ -33,6 +33,10 @@ prometheus:
     probeSelectorNilUsesHelmValues: false
     ruleSelectorNilUsesHelmValues: false
     serviceMonitorSelectorNilUsesHelmValues: false
+    {{- if hasKey .Values.prometheus "remote_url" }}
+    remoteWrite:
+      - url: {{ .Values.prometheus.remote_url }}
+    {{- end }}
 
 thanosRuler:
   thanosRulerSpec:
