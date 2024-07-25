@@ -44,7 +44,7 @@ func ConfigMapNSName(ais *aisv1.AIStore) types.NamespacedName {
 }
 
 func NewTargetCM(ctx context.Context, ais *aisv1.AIStore) (*corev1.ConfigMap, error) {
-	localConfStr, err := buildLocalConf(ctx, ais.Spec)
+	localConfStr, err := buildLocalConf(ctx, &ais.Spec)
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +59,7 @@ func NewTargetCM(ctx context.Context, ais *aisv1.AIStore) (*corev1.ConfigMap, er
 	}, nil
 }
 
-func buildLocalConf(ctx context.Context, spec aisv1.AIStoreSpec) (string, error) {
+func buildLocalConf(ctx context.Context, spec *aisv1.AIStoreSpec) (string, error) {
 	serviceSpec := spec.TargetSpec.ServiceSpec
 	netConfig := aiscmn.LocalNetConfig{
 		Hostname:             "${AIS_PUBLIC_HOSTNAME}",
@@ -71,36 +71,36 @@ func buildLocalConf(ctx context.Context, spec aisv1.AIStoreSpec) (string, error)
 	}
 	// Check if we support the new format for mpath labels to determine which conf version to use
 	if checkLabelSupport(ctx, spec) {
-		return jsoniter.MarshalToString(templateLocalConf(ctx, spec, netConfig))
+		return jsoniter.MarshalToString(templateLocalConf(ctx, spec, &netConfig))
 	}
-	return jsoniter.MarshalToString(templateOldLocalConf(spec, netConfig))
+	return jsoniter.MarshalToString(templateOldLocalConf(spec, &netConfig))
 }
 
-func templateLocalConf(ctx context.Context, spec aisv1.AIStoreSpec, netConfig aiscmn.LocalNetConfig) aiscmn.LocalConfig {
+func templateLocalConf(ctx context.Context, spec *aisv1.AIStoreSpec, netConfig *aiscmn.LocalNetConfig) aiscmn.LocalConfig {
 	localConf := aiscmn.LocalConfig{
 		ConfigDir: "/etc/ais",
 		LogDir:    cmn.LogsDir,
-		HostNet:   netConfig,
+		HostNet:   *netConfig,
 	}
 	if len(spec.TargetSpec.Mounts) > 0 {
-		definePathsWithLabels(ctx, spec.TargetSpec, &localConf)
+		definePathsWithLabels(ctx, &spec.TargetSpec, &localConf)
 	}
 	return localConf
 }
 
-func templateOldLocalConf(spec aisv1.AIStoreSpec, netConfig aiscmn.LocalNetConfig) v322LocalConfig {
+func templateOldLocalConf(spec *aisv1.AIStoreSpec, netConfig *aiscmn.LocalNetConfig) v322LocalConfig {
 	localConf := v322LocalConfig{
 		ConfigDir: "/etc/ais",
 		LogDir:    cmn.LogsDir,
-		HostNet:   netConfig,
+		HostNet:   *netConfig,
 	}
 	if len(spec.TargetSpec.Mounts) > 0 {
-		definePathsNoLabels(spec.TargetSpec, &localConf)
+		definePathsNoLabels(&spec.TargetSpec, &localConf)
 	}
 	return localConf
 }
 
-func definePathsWithLabels(ctx context.Context, spec aisv1.TargetSpec, conf *aiscmn.LocalConfig) {
+func definePathsWithLabels(ctx context.Context, spec *aisv1.TargetSpec, conf *aiscmn.LocalConfig) {
 	logger := logf.FromContext(ctx)
 
 	mounts := spec.Mounts
@@ -123,7 +123,7 @@ func definePathsWithLabels(ctx context.Context, spec aisv1.TargetSpec, conf *ais
 	}
 }
 
-func definePathsNoLabels(spec aisv1.TargetSpec, conf *v322LocalConfig) {
+func definePathsNoLabels(spec *aisv1.TargetSpec, conf *v322LocalConfig) {
 	mounts := spec.Mounts
 	conf.FSP.Paths = make(cos.StrSet, len(mounts))
 	for _, m := range mounts {
@@ -131,7 +131,7 @@ func definePathsNoLabels(spec aisv1.TargetSpec, conf *v322LocalConfig) {
 	}
 }
 
-func checkLabelSupport(ctx context.Context, spec aisv1.AIStoreSpec) bool {
+func checkLabelSupport(ctx context.Context, spec *aisv1.AIStoreSpec) bool {
 	logger := logf.FromContext(ctx)
 
 	parts := strings.Split(spec.NodeImage, ":")

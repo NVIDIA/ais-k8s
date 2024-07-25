@@ -27,7 +27,7 @@ func ConfigMapNSName(ais *aisv1.AIStore) types.NamespacedName {
 }
 
 func NewProxyCM(ais *aisv1.AIStore) (*corev1.ConfigMap, error) {
-	localConf := localConfTemplate(ais.Spec.ProxySpec.ServiceSpec)
+	localConf := localConfTemplate(&ais.Spec.ProxySpec.ServiceSpec)
 	confLocal, err := jsoniter.MarshalToString(localConf)
 	if err != nil {
 		return nil, err
@@ -43,7 +43,7 @@ func NewProxyCM(ais *aisv1.AIStore) (*corev1.ConfigMap, error) {
 	}, nil
 }
 
-func localConfTemplate(spec aisv1.ServiceSpec) aiscmn.LocalConfig {
+func localConfTemplate(spec *aisv1.ServiceSpec) aiscmn.LocalConfig {
 	return aiscmn.LocalConfig{
 		ConfigDir: "/etc/ais",
 		LogDir:    cmn.LogsDir,

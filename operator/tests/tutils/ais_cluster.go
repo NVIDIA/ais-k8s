@@ -46,13 +46,13 @@ type (
 	}
 )
 
-func NewAISCluster(args ClusterSpecArgs, client *aisclient.K8sClient) (*aisv1.AIStore, []*corev1.PersistentVolume) {
+func NewAISCluster(args *ClusterSpecArgs, client *aisclient.K8sClient) (*aisv1.AIStore, []*corev1.PersistentVolume) {
 	mounts := defineMounts(args)
 	pvs := createStoragePVs(args, client, mounts)
 	return newAISClusterCR(args, mounts), pvs
 }
 
-func createStoragePVs(args ClusterSpecArgs, client *aisclient.K8sClient, mounts []aisv1.Mount) []*corev1.PersistentVolume {
+func createStoragePVs(args *ClusterSpecArgs, client *aisclient.K8sClient, mounts []aisv1.Mount) []*corev1.PersistentVolume {
 	targetNum := int(args.MaxTargets)
 	if targetNum == 0 {
 		if args.TargetSize != 0 {
@@ -101,7 +101,7 @@ func determineNode(base, format string, ordinal int) string {
 	return fmt.Sprintf(format, base, ordinal+1)
 }
 
-func defineMounts(args ClusterSpecArgs) []aisv1.Mount {
+func defineMounts(args *ClusterSpecArgs) []aisv1.Mount {
 	var storagePrefix string
 	if args.StorageHostPath == "" {
 		storagePrefix = "/etc/ais"
@@ -129,7 +129,7 @@ func defineMounts(args ClusterSpecArgs) []aisv1.Mount {
 	return mounts
 }
 
-func newAISClusterCR(args ClusterSpecArgs, mounts []aisv1.Mount) *aisv1.AIStore {
+func newAISClusterCR(args *ClusterSpecArgs, mounts []aisv1.Mount) *aisv1.AIStore {
 	spec := aisv1.AIStoreSpec{
 		Size:              &args.Size,
 		ShutdownCluster:   aisapc.Ptr(args.ShutdownCluster),

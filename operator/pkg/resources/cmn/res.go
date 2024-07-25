@@ -373,7 +373,7 @@ func NewInitVolumeMounts(ais *aisv1.AIStore, daeType string) []corev1.VolumeMoun
 	return volumeMounts
 }
 
-func NewDaemonPorts(spec aisv1.DaemonSpec) []corev1.ContainerPort {
+func NewDaemonPorts(spec *aisv1.DaemonSpec) []corev1.ContainerPort {
 	var hostPort int32
 	if spec.HostPort != nil {
 		hostPort = *spec.HostPort

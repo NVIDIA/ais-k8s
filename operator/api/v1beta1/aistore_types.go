@@ -230,16 +230,16 @@ type AIStore struct {
 }
 
 // AddOrUpdateCondition is used to add a new/update an existing condition type.
-func (ais *AIStore) AddOrUpdateCondition(c metav1.Condition) {
+func (ais *AIStore) AddOrUpdateCondition(c *metav1.Condition) {
 	c.LastTransitionTime = metav1.Now()
 	c.ObservedGeneration = ais.GetGeneration()
 	for i, condition := range ais.Status.Conditions {
 		if c.Type == condition.Type {
-			ais.Status.Conditions[i] = c
+			ais.Status.Conditions[i] = *c
 			return
 		}
 	}
-	ais.Status.Conditions = append(ais.Status.Conditions, c)
+	ais.Status.Conditions = append(ais.Status.Conditions, *c)
 }
 
 // GetLastCondition returns the last condition based on the condition timestamp.
@@ -265,7 +265,7 @@ func (ais *AIStore) GetLastCondition() (latest metav1.Condition, exists bool) {
 
 // SetConditionInitialized add a new condition type `Initialized` and sets it to `True`
 func (ais *AIStore) SetConditionInitialized() {
-	ais.AddOrUpdateCondition(metav1.Condition{
+	ais.AddOrUpdateCondition(&metav1.Condition{
 		Type:    ConditionInitialized.Str(),
 		Status:  metav1.ConditionTrue,
 		Reason:  ConditionInitialized.Str(),
@@ -275,7 +275,7 @@ func (ais *AIStore) SetConditionInitialized() {
 
 // SetConditionCreated add a new condition type `Created` and sets it to `True`
 func (ais *AIStore) SetConditionCreated() {
-	ais.AddOrUpdateCondition(metav1.Condition{
+	ais.AddOrUpdateCondition(&metav1.Condition{
 		Type:    ConditionCreated.Str(),
 		Status:  metav1.ConditionTrue,
 		Reason:  ConditionCreated.Str(),
@@ -285,7 +285,7 @@ func (ais *AIStore) SetConditionCreated() {
 
 // SetConditionReady add a new condition type `Ready` and sets it to `True`
 func (ais *AIStore) SetConditionReady() {
-	ais.AddOrUpdateCondition(metav1.Condition{
+	ais.AddOrUpdateCondition(&metav1.Condition{
 		Type:    ConditionReady.Str(),
 		Status:  metav1.ConditionTrue,
 		Reason:  ConditionReady.Str(),
@@ -297,7 +297,7 @@ func (ais *AIStore) SetConditionReady() {
 // reason - tag why the condition is being set to `False`.
 // message - a human readable message indicating details about state change.
 func (ais *AIStore) UnsetConditionReady(reason, message string) {
-	ais.AddOrUpdateCondition(metav1.Condition{
+	ais.AddOrUpdateCondition(&metav1.Condition{
 		Type:    ConditionReady.Str(),
 		Status:  metav1.ConditionFalse,
 		Reason:  reason,
@@ -310,7 +310,7 @@ func (ais *AIStore) SetConditionError(reason ErrorReason, err error) {
 	if err == nil {
 		return
 	}
-	ais.AddOrUpdateCondition(metav1.Condition{
+	ais.AddOrUpdateCondition(&metav1.Condition{
 		Type:    ReconcilerError,
 		Status:  metav1.ConditionTrue,
 		Reason:  reason.Str(),
@@ -322,7 +322,7 @@ func (ais *AIStore) IncErrorCount()   { ais.Status.ConsecutiveErrorCount++ }
 func (ais *AIStore) ResetErrorCount() { ais.Status.ConsecutiveErrorCount = 0 }
 func (ais *AIStore) SetConditionSuccess() {
 	ais.Status.ConsecutiveErrorCount = 0
-	ais.AddOrUpdateCondition(metav1.Condition{
+	ais.AddOrUpdateCondition(&metav1.Condition{
 		Type:   ReconcilerSuccess,
 		Status: metav1.ConditionTrue,
 		Reason: ReconcilerSuccessReason,

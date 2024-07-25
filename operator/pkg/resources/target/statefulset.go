@@ -138,7 +138,7 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 								cmn.EnvFromValue(cmn.EnvProxyServicePort, ais.Spec.ProxySpec.ServicePort.String()),
 								cmn.EnvFromValue(cmn.EnvNodeServicePort, ais.Spec.TargetSpec.PublicPort.String()),
 							}, optionals...),
-							Ports:           cmn.NewDaemonPorts(ais.Spec.TargetSpec.DaemonSpec),
+							Ports:           cmn.NewDaemonPorts(&ais.Spec.TargetSpec.DaemonSpec),
 							SecurityContext: ais.Spec.TargetSpec.ContainerSecurity,
 							VolumeMounts:    volumeMounts(ais),
 							StartupProbe:    cmn.NewStartupProbe(ais, aisapc.Target),

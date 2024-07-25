@@ -46,7 +46,7 @@ type clientCluster struct {
 	cancelLogsStream context.CancelFunc
 }
 
-func newClientCluster(cluArgs tutils.ClusterSpecArgs) (*clientCluster, []*corev1.PersistentVolume) {
+func newClientCluster(cluArgs *tutils.ClusterSpecArgs) (*clientCluster, []*corev1.PersistentVolume) {
 	cluster, pvs := tutils.NewAISCluster(cluArgs, k8sClient)
 	cc := &clientCluster{
 		cluster: cluster,
@@ -163,7 +163,7 @@ var _ = Describe("Run Controller", func() {
 		It("Should allow two clusters with same name in different namespaces", func() {
 			ctx := context.Background()
 			cluArgs := defaultCluArgs()
-			otherCluArgs := cluArgs
+			otherCluArgs := defaultCluArgs()
 			otherCluArgs.Namespace = testNSAnotherName
 			newNS, nsExists := tutils.CreateNSIfNotExists(ctx, k8sClient, testNSAnotherName)
 			if !nsExists {
@@ -364,8 +364,8 @@ func clusterName() string {
 	return "aistore-test-cluster-" + strings.ToLower(cos.CryptoRandS(4))
 }
 
-func defaultCluArgs() tutils.ClusterSpecArgs {
-	return tutils.ClusterSpecArgs{
+func defaultCluArgs() *tutils.ClusterSpecArgs {
+	return &tutils.ClusterSpecArgs{
 		Name:             clusterName(),
 		Namespace:        testNSName,
 		StorageClass:     storageClass,
@@ -492,6 +492,7 @@ func createClusters(ctx context.Context, clusters []*aisv1.AIStore, intervals ..
 
 	for _, cluster := range clusters {
 		go func(cluster *aisv1.AIStore) {
+			defer GinkgoRecover()
 			defer wg.Done()
 			createCluster(ctx, cluster, intervals...)
 		}(cluster)
