@@ -5,8 +5,7 @@
 package target
 
 import (
-	"fmt"
-	"os"
+	"context"
 	"strings"
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
@@ -19,6 +18,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type (
@@ -43,8 +43,8 @@ func ConfigMapNSName(ais *aisv1.AIStore) types.NamespacedName {
 	}
 }
 
-func NewTargetCM(ais *aisv1.AIStore) (*corev1.ConfigMap, error) {
-	localConfStr, err := buildLocalConf(ais.Spec)
+func NewTargetCM(ctx context.Context, ais *aisv1.AIStore) (*corev1.ConfigMap, error) {
+	localConfStr, err := buildLocalConf(ctx, ais.Spec)
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +59,7 @@ func NewTargetCM(ais *aisv1.AIStore) (*corev1.ConfigMap, error) {
 	}, nil
 }
 
-func buildLocalConf(spec aisv1.AIStoreSpec) (string, error) {
+func buildLocalConf(ctx context.Context, spec aisv1.AIStoreSpec) (string, error) {
 	serviceSpec := spec.TargetSpec.ServiceSpec
 	netConfig := aiscmn.LocalNetConfig{
 		Hostname:             "${AIS_PUBLIC_HOSTNAME}",
@@ -70,20 +70,20 @@ func buildLocalConf(spec aisv1.AIStoreSpec) (string, error) {
 		PortIntraData:        serviceSpec.IntraDataPort.IntValue(),
 	}
 	// Check if we support the new format for mpath labels to determine which conf version to use
-	if checkLabelSupport(spec) {
-		return jsoniter.MarshalToString(templateLocalConf(spec, netConfig))
+	if checkLabelSupport(ctx, spec) {
+		return jsoniter.MarshalToString(templateLocalConf(ctx, spec, netConfig))
 	}
 	return jsoniter.MarshalToString(templateOldLocalConf(spec, netConfig))
 }
 
-func templateLocalConf(spec aisv1.AIStoreSpec, netConfig aiscmn.LocalNetConfig) aiscmn.LocalConfig {
+func templateLocalConf(ctx context.Context, spec aisv1.AIStoreSpec, netConfig aiscmn.LocalNetConfig) aiscmn.LocalConfig {
 	localConf := aiscmn.LocalConfig{
 		ConfigDir: "/etc/ais",
 		LogDir:    cmn.LogsDir,
 		HostNet:   netConfig,
 	}
 	if len(spec.TargetSpec.Mounts) > 0 {
-		definePathsWithLabels(spec.TargetSpec, &localConf)
+		definePathsWithLabels(ctx, spec.TargetSpec, &localConf)
 	}
 	return localConf
 }
@@ -100,7 +100,9 @@ func templateOldLocalConf(spec aisv1.AIStoreSpec, netConfig aiscmn.LocalNetConfi
 	return localConf
 }
 
-func definePathsWithLabels(spec aisv1.TargetSpec, conf *aiscmn.LocalConfig) {
+func definePathsWithLabels(ctx context.Context, spec aisv1.TargetSpec, conf *aiscmn.LocalConfig) {
+	logger := logf.FromContext(ctx)
+
 	mounts := spec.Mounts
 	if len(mounts) == 0 {
 		return
@@ -109,11 +111,11 @@ func definePathsWithLabels(spec aisv1.TargetSpec, conf *aiscmn.LocalConfig) {
 	for _, m := range mounts {
 		//nolint:all // Backwards compatible with old CR option
 		if m.Label != nil {
-			fmt.Printf("Using provided mountpath labels for aisnode image > 3.22\n")
+			logger.Info("Using provided mountpath labels for aisnode image > 3.22")
 			conf.FSP.Paths[m.Path] = *m.Label
 		} else if spec.AllowSharedOrNoDisks != nil && *spec.AllowSharedOrNoDisks {
 			// Support allowSharedNoDisks until removed from CR
-			fmt.Fprintf(os.Stderr, "Converting deprecated allowSharedNoDisks to mpath label!\n")
+			logger.Info("WARNING: Converting deprecated allowSharedNoDisks to mpath label")
 			conf.FSP.Paths[m.Path] = "diskless"
 		} else {
 			conf.FSP.Paths[m.Path] = ""
@@ -129,22 +131,24 @@ func definePathsNoLabels(spec aisv1.TargetSpec, conf *v322LocalConfig) {
 	}
 }
 
-func checkLabelSupport(spec aisv1.AIStoreSpec) bool {
+func checkLabelSupport(ctx context.Context, spec aisv1.AIStoreSpec) bool {
+	logger := logf.FromContext(ctx)
+
 	parts := strings.Split(spec.NodeImage, ":")
 	if len(parts) != 2 {
-		fmt.Printf("Image '%s' does not have a proper tag.\n", spec.NodeImage)
+		logger.Info("Image does not have a proper tag", "node_image", spec.NodeImage)
 		return true
 	}
 	tag := parts[1]
 	if !semver.IsValid(tag) {
-		fmt.Printf("Image '%s' does not use semantic versioning, assuming it supports labels.\n", spec.NodeImage)
+		logger.Info("Image does not use semantic versioning, assuming it supports labels", "node_image", spec.NodeImage)
 		return true
 	}
 	// Check version is at least v3.23
 	if semver.Compare(tag, "v3.23") >= 0 {
-		fmt.Printf("Image '%s' supports labels.\n", spec.NodeImage)
+		logger.Info("Image supports labels", "node_image", spec.NodeImage)
 		return true
 	}
-	fmt.Printf("aisnode tag '%s' < v3.23, hence proceeding without labels.\n", tag)
+	logger.Info("Image tag < v3.23, hence proceeding without labels", "node_image", spec.NodeImage)
 	return false
 }

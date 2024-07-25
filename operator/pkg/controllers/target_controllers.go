@@ -23,7 +23,7 @@ import (
 func (r *AIStoreReconciler) initTargets(ctx context.Context, ais *aisv1.AIStore) (changed bool, err error) {
 	var cm *corev1.ConfigMap
 	// 1. Deploy required ConfigMap
-	cm, err = target.NewTargetCM(ais)
+	cm, err = target.NewTargetCM(ctx, ais)
 	if err != nil {
 		r.recordError(ais, err, "Failed to generate valid target ConfigMap")
 		return

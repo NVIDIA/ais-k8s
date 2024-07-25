@@ -29,6 +29,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -78,6 +79,8 @@ func NewAISReconcilerFromMgr(mgr manager.Manager, logger logr.Logger, isExternal
 // move the current state of the cluster closer to the desired state.
 func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := r.log.WithValues("namespace", req.Namespace, "name", req.Name)
+	ctx = logf.IntoContext(ctx, logger)
+
 	logger.Info("Reconciling AIStore")
 
 	ais, err := r.client.GetAIStoreCR(ctx, req.NamespacedName)
