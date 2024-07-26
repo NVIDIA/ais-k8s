@@ -9,31 +9,25 @@ import (
 	"fmt"
 	"net"
 	"strings"
-	"time"
 
 	aisapi "github.com/NVIDIA/aistore/api"
 	aisapc "github.com/NVIDIA/aistore/api/apc"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	"github.com/ais-operator/pkg/resources/cmn"
 	"github.com/ais-operator/pkg/resources/proxy"
-	apiv1 "k8s.io/api/apps/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-const (
-	primaryStartTimeout = time.Minute
-	// Default coreDNS cache time is 30 seconds -- should be patched for faster runs on test runners
-	dnsEntryWaitTimeout = 40 * time.Second
-	dnsEntryInterval    = 2 * time.Second
-)
+func (r *AIStoreReconciler) initProxies(ctx context.Context, ais *aisv1.AIStore) (requeue bool, err error) {
+	logger := logf.FromContext(ctx)
 
-func (r *AIStoreReconciler) initProxies(ctx context.Context, ais *aisv1.AIStore) (changed bool, err error) {
 	var (
-		cm     *corev1.ConfigMap
-		exists bool
+		cm      *corev1.ConfigMap
+		exists  bool
+		changed bool
 	)
 
 	// 1. Deploy required ConfigMap
@@ -61,13 +55,15 @@ func (r *AIStoreReconciler) initProxies(ctx context.Context, ais *aisv1.AIStore)
 		r.recordError(ais, err, "Failed to deploy Primary proxy")
 		return
 	} else if !exists {
-		changed = true
+		requeue = true
 		return
 	}
 
 	// Wait for primary to start-up.
-	if err = r.client.WaitForPodReady(ctx, proxy.DefaultPrimaryNSName(ais), primaryStartTimeout); err != nil {
-		return
+	if _, err := r.client.GetReadyPod(ctx, proxy.DefaultPrimaryNSName(ais)); err != nil {
+		logger.Info("Waiting for primary proxy to come up", "err", err)
+		r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonWaiting, "Waiting for primary proxy to come up")
+		return true /*requeue*/, nil
 	}
 
 	// 4. Start all the proxy daemons
@@ -78,26 +74,25 @@ func (r *AIStoreReconciler) initProxies(ctx context.Context, ais *aisv1.AIStore)
 	}
 	if changed {
 		msg := "Successfully initialized proxy nodes"
-		logf.FromContext(ctx).Info(msg)
+		logger.Info(msg)
 		r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonInitialized, msg)
+		requeue = true
 	}
 
-	// Wait for proxy service to have a registered DNS entry
-	if err = waitForDNSEntry(ctx, ais.GetClusterDomain(), svc, dnsEntryInterval, dnsEntryWaitTimeout); err != nil {
-		r.recordError(ais, err, "Failed while waiting for DNS entry for proxy service")
+	// Check whether proxy service to have a registered DNS entry.
+	if err = checkDNSEntry(ctx, ais.GetClusterDomain(), svc); err != nil {
+		logger.Error(err, "Failed to lookup DNS entries for primary proxy service")
+		r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonWaiting, "Waiting for proxy service to have registered DNS entries")
+		return true /*requeue*/, nil
 	}
+
 	return
 }
 
-func waitForDNSEntry(ctx context.Context, clusterDomain string, svc *corev1.Service, retryInterval, timeout time.Duration) error {
+func checkDNSEntry(ctx context.Context, clusterDomain string, svc *corev1.Service) error {
 	hostname := fmt.Sprintf("%s.%s.svc.%s", svc.Name, svc.Namespace, clusterDomain)
-	return wait.PollUntilContextTimeout(ctx, retryInterval, timeout, true /*immediate*/, func(_ context.Context) (done bool, err error) {
-		if _, err = net.LookupIP(hostname); err != nil {
-			logf.FromContext(ctx).Info("Waiting for proxy service DNS entry...", "hostname", hostname)
-			return false, nil
-		}
-		return true, nil // DNS entry found
-	})
+	_, err := net.DefaultResolver.LookupIPAddr(ctx, hostname)
+	return err
 }
 
 func (r *AIStoreReconciler) cleanupProxy(ctx context.Context, ais *aisv1.AIStore) (anyExisted bool, err error) {
@@ -156,9 +151,9 @@ func (r *AIStoreReconciler) handleProxyImage(ctx context.Context, ais *aisv1.AIS
 				return false, err
 			}
 			logger.Info("updated primary to pod " + firstPodName)
-			ss.Spec.UpdateStrategy = apiv1.StatefulSetUpdateStrategy{
-				Type: apiv1.RollingUpdateStatefulSetStrategyType,
-				RollingUpdate: &apiv1.RollingUpdateStatefulSetStrategy{
+			ss.Spec.UpdateStrategy = appsv1.StatefulSetUpdateStrategy{
+				Type: appsv1.RollingUpdateStatefulSetStrategyType,
+				RollingUpdate: &appsv1.RollingUpdateStatefulSetStrategy{
 					Partition: func(v int32) *int32 { return &v }(1),
 				},
 			}
@@ -193,9 +188,9 @@ func (r *AIStoreReconciler) handleProxyImage(ctx context.Context, ais *aisv1.AIS
 			return false, err
 		}
 		// Revert statefulset partition spec
-		ss.Spec.UpdateStrategy = apiv1.StatefulSetUpdateStrategy{
-			Type: apiv1.RollingUpdateStatefulSetStrategyType,
-			RollingUpdate: &apiv1.RollingUpdateStatefulSetStrategy{
+		ss.Spec.UpdateStrategy = appsv1.StatefulSetUpdateStrategy{
+			Type: appsv1.RollingUpdateStatefulSetStrategyType,
+			RollingUpdate: &appsv1.RollingUpdateStatefulSetStrategy{
 				Partition: func(v int32) *int32 { return &v }(0),
 			},
 		}

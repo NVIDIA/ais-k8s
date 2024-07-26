@@ -7,7 +7,6 @@ package client
 import (
 	"context"
 	"fmt"
-	"time"
 
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	"github.com/ais-operator/pkg/resources/proxy"
@@ -380,28 +379,13 @@ func (c *K8sClient) DeletePodIfExists(ctx context.Context, name types.Namespaced
 	return
 }
 
-func (c *K8sClient) WaitForPodReady(ctx context.Context, name types.NamespacedName, timeout time.Duration) error {
-	var (
-		retryInterval   = 3 * time.Second
-		ctxBack, cancel = context.WithTimeout(ctx, timeout)
-		pod             *corev1.Pod
-		err             error
-	)
-	defer cancel()
-	for {
-		pod, err = c.GetPodByName(ctx, name)
-		if err != nil {
-			continue
-		}
-		if pod.Status.Phase == corev1.PodRunning {
-			return nil
-		}
-		time.Sleep(retryInterval)
-		select {
-		case <-ctxBack.Done():
-			return ctxBack.Err()
-		default:
-			break
-		}
+func (c *K8sClient) GetReadyPod(ctx context.Context, name types.NamespacedName) (pod *corev1.Pod, err error) {
+	pod, err = c.GetPodByName(ctx, name)
+	if err != nil {
+		return
 	}
+	if pod.Status.Phase != corev1.PodRunning {
+		return pod, fmt.Errorf("pod is not yet running (phase: %s)", pod.Status.Phase)
+	}
+	return pod, nil
 }

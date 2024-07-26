@@ -158,7 +158,7 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return r.decommissionCluster(ctx, ais)
 	case ais.HasState(aisv1.ConditionCleanup):
 		return r.cleanupClusterRes(ctx, ais)
-	case isNewCR(ais):
+	case !ais.IsConditionTrue(aisv1.ConditionCreated.Str()):
 		return r.bootstrapNew(ctx, ais)
 	default:
 		return r.handleCREvents(ctx, ais)
@@ -587,10 +587,6 @@ func (r *AIStoreReconciler) setStatus(ctx context.Context, ais *aisv1.AIStore, s
 	}
 
 	return
-}
-
-func isNewCR(ais *aisv1.AIStore) (isNew bool) {
-	return !ais.IsConditionTrue(aisv1.ConditionCreated.Str())
 }
 
 // SetupWithManager sets up the controller with the Manager.
