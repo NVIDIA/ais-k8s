@@ -1,6 +1,6 @@
 // Package client contains wrapper for k8s client
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2024, NVIDIA CORPORATION. All rights reserved.
  */
 package client
 
