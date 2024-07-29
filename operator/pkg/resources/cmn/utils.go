@@ -26,6 +26,20 @@ func EnvFromValue(envName, value string) corev1.EnvVar {
 	}
 }
 
+func EnvFromSecret(envName, secret, key string) corev1.EnvVar {
+	return corev1.EnvVar{
+		Name: envName,
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: secret,
+				},
+				Key: key,
+			},
+		},
+	}
+}
+
 // IsBoolSet checks if a boolean pointer is set to true.
 func IsBoolSet(v *bool) bool {
 	return v != nil && *v

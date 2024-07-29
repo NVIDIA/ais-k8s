@@ -151,6 +151,11 @@ func (in *AIStoreSpec) DeepCopyInto(out *AIStoreSpec) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.AuthNSecretName != nil {
+		in, out := &in.AuthNSecretName, &out.AuthNSecretName
+		*out = new(string)
+		**out = **in
+	}
 	if in.ImagePullSecrets != nil {
 		in, out := &in.ImagePullSecrets, &out.ImagePullSecrets
 		*out = make([]v1.LocalObjectReference, len(*in))

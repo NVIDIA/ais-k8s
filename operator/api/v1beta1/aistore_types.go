@@ -130,6 +130,10 @@ type AIStoreSpec struct {
 	// +optional
 	TLSSecretName *string `json:"tlsSecretName,omitempty"`
 
+	// Secret name containing AuthN's JWT signing key
+	// +optional
+	AuthNSecretName *string `json:"authNSecretName,omitempty"`
+
 	// ImagePullScerets is an optional list of references to secrets in the same namespace to pull container images of AIS Daemons
 	// More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod
 	// +optional

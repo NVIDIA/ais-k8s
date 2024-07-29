@@ -170,5 +170,6 @@ func DefaultAISConf(ais *aisv1.AIStore) aiscmn.ClusterConfig {
 		OriginalURL:  proxyURL,
 		DiscoveryURL: proxyURL,
 	}
+
 	return conf
 }

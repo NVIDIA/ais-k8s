@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
+	"github.com/NVIDIA/aistore/api/env"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	"github.com/ais-operator/pkg/resources/cmn"
 	apiv1 "k8s.io/api/apps/v1"
@@ -79,6 +80,10 @@ func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
 	}
 	if ais.Spec.TLSSecretName != nil {
 		optionals = append(optionals, cmn.EnvFromValue(cmn.EnvUseHTTPS, "true"))
+	}
+
+	if ais.Spec.AuthNSecretName != nil {
+		optionals = append(optionals, cmn.EnvFromSecret(env.AuthN.SecretKey, *ais.Spec.AuthNSecretName, cmn.EnvAuthNSecretKey))
 	}
 
 	return corev1.PodSpec{

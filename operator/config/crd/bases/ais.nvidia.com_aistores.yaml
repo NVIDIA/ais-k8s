@@ -39,6 +39,9 @@ spec:
           spec:
             description: AIStoreSpec defines the desired state of AIStore
             properties:
+              authNSecretName:
+                description: Secret name containing AuthN's JWT signing key
+                type: string
               awsSecretName:
                 description: Secret name containing AWS credentials
                 type: string

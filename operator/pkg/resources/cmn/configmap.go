@@ -38,6 +38,13 @@ func NewGlobalCM(ais *aisv1.AIStore, toUpdate *aisv1.ConfigToUpdate) (*corev1.Co
 			globalConf.Backend.Conf["gcp"] = aisv1.Empty{}
 		}
 	}
+
+	// AuthN
+	if ais.Spec.AuthNSecretName != nil {
+		globalConf.Auth.Enabled = true
+		// secret will be set through env var `AIS_AUTHN_SECRET_KEY`
+	}
+
 	conf, err := jsoniter.MarshalToString(globalConf)
 	if err != nil {
 		return nil, err

@@ -9,11 +9,13 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
 	aisapi "github.com/NVIDIA/aistore/api"
 	aisapc "github.com/NVIDIA/aistore/api/apc"
+	"github.com/NVIDIA/aistore/api/env"
 	aiscmn "github.com/NVIDIA/aistore/cmn"
 	"github.com/NVIDIA/aistore/cmn/cos"
 	aisv1 "github.com/ais-operator/api/v1beta1"
@@ -41,10 +43,11 @@ const (
 
 	requeueInterval = 10 * time.Second
 	errBackOffTime  = 10 * time.Second
+
+	userAgent = "ais-operator"
 )
 
 type (
-
 	// AIStoreReconciler reconciles a AIStore object
 	AIStoreReconciler struct {
 		mu           sync.RWMutex
@@ -53,6 +56,8 @@ type (
 		recorder     record.EventRecorder
 		clientParams map[string]*aisapi.BaseParams
 		isExternal   bool // manager is deployed externally to K8s cluster
+		// AuthN Server Config
+		authN authNConfig
 	}
 )
 
@@ -63,6 +68,33 @@ func NewAISReconciler(c *aisclient.K8sClient, recorder record.EventRecorder, log
 		recorder:     recorder,
 		clientParams: make(map[string]*aisapi.BaseParams, 16),
 		isExternal:   isExternal,
+		authN:        newAuthNConfig(),
+	}
+}
+
+func newAuthNConfig() authNConfig {
+	userName := os.Getenv(env.AuthN.AdminUsername)
+	if userName == "" {
+		userName = AuthNAdminUser
+	}
+	pass := os.Getenv(env.AuthN.AdminPassword)
+	if pass == "" {
+		pass = AuthNAdminPass
+	}
+	host := os.Getenv(AuthNServiceHostVar)
+	if host == "" {
+		host = AuthNServiceHostName
+	}
+	port := os.Getenv(AuthNServicePortVar)
+	if port == "" {
+		port = AuthNServicePort
+	}
+
+	return authNConfig{
+		adminUser: userName,
+		adminPass: pass,
+		port:      port,
+		host:      host,
 	}
 }
 
@@ -571,10 +603,20 @@ func (r *AIStoreReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-// checks if the BaseParams are valid for the given AIS cluster
+// hasValidBaseParams checks if the BaseParams are valid for the given AIS cluster configuration
 func hasValidBaseParams(baseParams *aisapi.BaseParams, ais *aisv1.AIStore) bool {
+	// Determine whether HTTPS should be used based on the presence of a TLS secret
 	shouldUseHTTPS := ais.Spec.TLSSecretName != nil
-	return cos.IsHTTPS(baseParams.URL) == shouldUseHTTPS
+
+	// Verify if the URL's protocol matches the expected protocol (HTTPS or HTTP)
+	httpsCheck := cos.IsHTTPS(baseParams.URL) == shouldUseHTTPS
+
+	// Check if the token and AuthN secret are correctly aligned:
+	// - Valid if both are either set or both are unset
+	authNCheck := (baseParams.Token == "" && ais.Spec.AuthNSecretName == nil) ||
+		(baseParams.Token != "" && ais.Spec.AuthNSecretName != nil)
+
+	return httpsCheck && authNCheck
 }
 
 // getAPIParams gets BaseAPIParams for the given AIS cluster.
@@ -711,13 +753,16 @@ func (r *AIStoreReconciler) primaryBaseParams(ctx context.Context, ais *aisv1.AI
 	if err != nil {
 		return nil, err
 	}
-	return _baseParams(smap.Primary.URL(aiscmn.NetPublic)), nil
+	return _baseParams(smap.Primary.URL(aiscmn.NetPublic), baseParams.Token), nil
 }
 
 func (r *AIStoreReconciler) newAISBaseParams(ctx context.Context,
 	ais *aisv1.AIStore,
 ) (params *aisapi.BaseParams, err error) {
-	var serviceHostname string
+	var (
+		serviceHostname string
+		token           string
+	)
 	// If LoadBalancer is configured and `isExternal` flag is set use the LB service to contact the API.
 	if r.isExternal && ais.Spec.EnableExternalLB {
 		var proxyLBSVC *corev1.Service
@@ -747,10 +792,18 @@ createParams:
 		scheme = "https"
 	}
 	url := fmt.Sprintf("%s://%s:%s", scheme, serviceHostname, ais.Spec.ProxySpec.ServicePort.String())
-	return _baseParams(url), nil
+
+	// Get admin token if AuthN is enabled
+	token, err = r.getAdminToken(ais, scheme)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return _baseParams(url, token), nil
 }
 
-func _baseParams(url string) *aisapi.BaseParams {
+func _baseParams(url, token string) *aisapi.BaseParams {
 	transportArgs := aiscmn.TransportArgs{
 		Timeout:         10 * time.Second,
 		UseHTTPProxyEnv: true,
@@ -764,6 +817,8 @@ func _baseParams(url string) *aisapi.BaseParams {
 			Transport: transport,
 			Timeout:   transportArgs.Timeout,
 		},
-		URL: url,
+		URL:   url,
+		Token: token,
+		UA:    userAgent,
 	}
 }

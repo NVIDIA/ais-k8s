@@ -33,6 +33,16 @@ spec:
         name: manager
         securityContext:
           allowPrivilegeEscalation: false
+        env:
+        # Env variables for the AuthN (if its running in the same k8s cluster)
+        - name: AIS_AUTHN_SU_NAME
+          value: "admin" # Replace with the actual AuthN server admin username
+        - name: AIS_AUTHN_SU_PASS
+          value: "admin" # Replace with the actual AuthN server admin password
+        - name: AIS_AUTHN_SERVICE_HOST
+          value: "ais-authn.ais" # Replace with the actual AIS AuthN service host
+        - name: AIS_AUTHN_SERVICE_PORT
+          value: "52001" # Replace with the actual AIS AuthN service port
         livenessProbe:
           httpGet:
             path: /healthz
