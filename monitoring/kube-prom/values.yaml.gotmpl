@@ -33,9 +33,15 @@ prometheus:
     probeSelectorNilUsesHelmValues: false
     ruleSelectorNilUsesHelmValues: false
     serviceMonitorSelectorNilUsesHelmValues: false
-    {{- if hasKey .Values.prometheus "remote_url" }}
+    {{- if hasKey .Values "prometheus" }}
+    {{- if hasKey .Values.prometheus "remoteUrl" }}
     remoteWrite:
-      - url: {{ .Values.prometheus.remote_url }}
+      - url: {{ .Values.prometheus.remoteUrl }}
+    {{- end }}
+    {{- if hasKey .Values.prometheus "clusterLabel" }}
+    externalLabels:
+      cluster: {{ .Values.prometheus.clusterLabel }}
+    {{- end }}
     {{- end }}
 
 thanosRuler:

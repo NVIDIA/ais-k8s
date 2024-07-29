@@ -13,7 +13,8 @@ affinity:
   nodeMatchKey: aistore.nvidia.com/role_monitoring
 
 prometheus:
-  remote_url: http://mimir-endpoint/api/v1/push
+  remoteUrl: http://mimir-endpoint/api/v1/push
+  clusterLabel: aistore
 
 grafana:
   enabled: false
