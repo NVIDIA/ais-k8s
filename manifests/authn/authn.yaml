@@ -47,15 +47,27 @@ spec:
         # Port on which AuthN listens to requests
         - name: AIS_AUTHN_PORT
           value: "52001"
-        # Enable HTTPS for AuthN server. If true, requires AIS_SERVER_CRT and AIS_SERVER_KEY to be set
-        - name: AIS_AUTHN_USE_HTTPS
-          value: "false"
-        # Path to the certificate file for HTTPS
-        - name: AIS_SERVER_CRT
-          value: ""
-        # Path to the key file for HTTPS
-        - name: AIS_SERVER_KEY
-          value: ""
+      # Uncomment the following block to enable HTTPS for AuthN server
+      #   # Enable HTTPS for AuthN server. If true, requires AIS_SERVER_CRT and AIS_SERVER_KEY to be set
+      #   - name: AIS_AUTHN_USE_HTTPS
+      #     value: "true"
+      #   # Path to the certificate file for HTTPS
+      #   - name: AIS_SERVER_CRT
+      #     value: "/var/certs/tls.crt"
+      #   # Path to the key file for HTTPS
+      #   - name: AIS_SERVER_KEY
+      #     value: "/var/certs/tls.key"
+      #   - name: AIS_AUTHN_USE_HTTPS
+      #     value: "true"
+      #   volumeMounts:
+      #   - mountPath: /var/certs
+      #     name: tls-certs
+      #     readOnly: true
+      # volumes:
+      # - name: tls-certs
+      #   secret:
+      #     secretName: tls-certs
+      #     defaultMode: 420
 ---
 # Service for the AuthN Server to be accessed by CLI, SDKs, etc.
 apiVersion: v1

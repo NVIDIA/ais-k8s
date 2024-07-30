@@ -1,0 +1,36 @@
+---
+- name: Base64 encode JWT signing key
+  set_fact:
+    jwt_signing_key_base64: "{{ jwt_signing_key | b64encode }}"
+
+- name: Create JWT Signing Key Secret file from template
+  template:
+    src: jwt-signing-key-secret.yaml.j2
+    dest: /tmp/jwt-signing-key-secret.yaml
+
+- name: Apply JWT Signing Key Secret configuration
+  command: kubectl apply -f /tmp/jwt-signing-key-secret.yaml
+
+- name: Create AuthN Deployment file from template
+  template:
+    src: authn-deployment.yaml.j2
+    dest: /tmp/authn-deployment.yaml
+
+- name: Apply AuthN Deployment configuration
+  command: kubectl apply -f /tmp/authn-deployment.yaml
+
+- name: Create AuthN NodePort Service file from template
+  template:
+    src: authn-nodeport-service.yaml.j2
+    dest: /tmp/authn-nodeport-service.yaml
+
+- name: Apply AuthN NodePort Service configuration
+  command: kubectl apply -f /tmp/authn-nodeport-service.yaml
+
+- name: Create AuthN ClusterIP Service file from template
+  template:
+    src: authn-clusterip-service.yaml.j2
+    dest: /tmp/authn-clusterip-service.yaml
+
+- name: Apply AuthN ClusterIP Service configuration
+  command: kubectl apply -f /tmp/authn-clusterip-service.yaml

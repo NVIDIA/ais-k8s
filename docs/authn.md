@@ -4,15 +4,37 @@ The AIStore Authentication Server (AuthN) provides secure access to AIStore by l
 
 For more information on AuthN, visit the [AIStore AuthN documentation](https://github.com/NVIDIA/aistore/blob/main/docs/authn.md).
 
-## Setting Up AuthN for Production
+## Setting Up AuthN in Kubernetes
 
-To set up the AIStore Authentication Server (AuthN) in a production environment, follow these steps. All the necessary specifications are provided in [`authn.yaml`](../manifests/authn/authn.yaml). Please review the specifications file before applying the configurations and adjust necessary [environment variables](https://github.com/NVIDIA/aistore/blob/main/docs/authn.md#environment-and-configuration).
+To set up the AIStore Authentication Server (AuthN) in a production environment, follow these steps. All necessary specifications are provided in the [`authn.yaml`](../manifests/authn/authn.yaml) file. Please review and adjust the specifications and [environment variables](https://github.com/NVIDIA/aistore/blob/main/docs/authn.md#environment-and-configuration) as needed before applying the configurations.
+
+### Using `kubectl`
+
+You can apply the specifications using `kubectl`:
 
 ```bash
-$ kubectl apply -f manifests/authn/authn.yaml
+kubectl apply -f manifests/authn/authn.yaml
 ```
 
-### Steps to Run AuthN in Production
+### Using Ansible
+
+Alternatively, you can use Ansible playbooks to [deploy](../playbooks/ais-deployment/ais_deploy_authn.yml) or [undeploy](../playbooks/ais-deployment/ais_undeploy_authn.yml) the AuthN server.
+
+#### Deploy AuthN Server
+
+```bash
+ansible-playbook -i inventory.ini playbooks/ais-deployment/ais_deploy_authn.yml -e cluster=ais
+```
+
+#### Undeploy AuthN Server
+
+To undeploy the AuthN server, run:
+
+```bash
+ansible-playbook -i inventory.ini playbooks/ais-deployment/ais_undeploy_authn.yml -e cluster=ais
+```
+
+### Steps to Run AuthN in Kubernetes
 
 1. **Create a Secret for the Signing Key**  
    - This secret is used by both the AuthN server and the AIStore pods. It contains the key used to sign JWT tokens.

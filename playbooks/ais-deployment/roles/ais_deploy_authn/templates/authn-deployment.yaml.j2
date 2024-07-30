@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: authn-deployment
+  namespace: {{ k8s_namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: authn
+  template:
+    metadata:
+      labels:
+        app: authn
+    spec:
+      containers:
+      - name: authn
+        image: {{ authn_image }}
+        ports:
+        - containerPort: {{ authn_port }}
+        env:
+        - name: AIS_AUTHN_SU_NAME
+          value: "{{ admin_username }}"
+        - name: AIS_AUTHN_SU_PASS
+          value: "{{ admin_password }}"
+        - name: AIS_AUTHN_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: jwt-signing-key
+              key: SIGNING-KEY
+        - name: AIS_AUTHN_PORT
+          value: "{{ authn_port }}"
+        - name: AIS_AUTHN_USE_HTTPS
+          value: "{{ enable_https | lower }}"
+        - name: AIS_SERVER_CRT
+          value: "{{ tls_cert }}"
+        - name: AIS_SERVER_KEY
+          value: "{{ tls_key }}"
+        {% if enable_https %}
+
+        volumeMounts:
+        - mountPath: /var/certs
+          name: tls-certs
+          readOnly: true
+        {% endif %}
+      {% if enable_https %}
+      
+      volumes:
+      - name: tls-certs
+        secret:
+          secretName: {{ tls_secret }}
+          defaultMode: 420
+      {% endif %}

@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ais-authn-nodeport
+  namespace: {{ cluster }}
+spec:
+  selector:
+    app: authn
+  ports:
+  - protocol: TCP
+    port: {{ authn_port }}
+    targetPort: {{ authn_port }}
+    nodePort: 30001
+  type: NodePort
