@@ -32,13 +32,9 @@ type (
 	}
 )
 
-func configMapName(ais *aisv1.AIStore) string {
-	return ais.Name + "-" + aisapc.Target
-}
-
 func ConfigMapNSName(ais *aisv1.AIStore) types.NamespacedName {
 	return types.NamespacedName{
-		Name:      configMapName(ais),
+		Name:      cmn.AISConfigMapName(ais, aisapc.Target),
 		Namespace: ais.Namespace,
 	}
 }
@@ -50,11 +46,11 @@ func NewTargetCM(ctx context.Context, ais *aisv1.AIStore) (*corev1.ConfigMap, er
 	}
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      configMapName(ais),
+			Name:      cmn.AISConfigMapName(ais, aisapc.Target),
 			Namespace: ais.Namespace,
 		},
 		Data: map[string]string{
-			"ais_local.json": localConfStr,
+			cmn.AISLocalConfigName: localConfStr,
 		},
 	}, nil
 }
@@ -78,7 +74,7 @@ func buildLocalConf(ctx context.Context, spec *aisv1.AIStoreSpec) (string, error
 
 func templateLocalConf(ctx context.Context, spec *aisv1.AIStoreSpec, netConfig *aiscmn.LocalNetConfig) aiscmn.LocalConfig {
 	localConf := aiscmn.LocalConfig{
-		ConfigDir: "/etc/ais",
+		ConfigDir: cmn.StateDir,
 		LogDir:    cmn.LogsDir,
 		HostNet:   *netConfig,
 	}
@@ -90,7 +86,7 @@ func templateLocalConf(ctx context.Context, spec *aisv1.AIStoreSpec, netConfig *
 
 func templateOldLocalConf(spec *aisv1.AIStoreSpec, netConfig *aiscmn.LocalNetConfig) v322LocalConfig {
 	localConf := v322LocalConfig{
-		ConfigDir: "/etc/ais",
+		ConfigDir: cmn.StateDir,
 		LogDir:    cmn.LogsDir,
 		HostNet:   *netConfig,
 	}

@@ -1,6 +1,6 @@
 // Package main contains logic for managing AIS operator manager
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION. All rights reserved.
  */
 package main
 

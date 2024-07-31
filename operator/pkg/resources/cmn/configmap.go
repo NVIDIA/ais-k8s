@@ -55,7 +55,7 @@ func NewGlobalCM(ais *aisv1.AIStore, toUpdate *aisv1.ConfigToUpdate) (*corev1.Co
 			Namespace: ais.Namespace,
 		},
 		Data: map[string]string{
-			aisGlobalConfigFileName: conf,
+			AISGlobalConfigName: conf,
 		},
 	}
 	if ais.Spec.HostnameMap != nil {
@@ -66,4 +66,8 @@ func NewGlobalCM(ais *aisv1.AIStore, toUpdate *aisv1.ConfigToUpdate) (*corev1.Co
 		cm.Data[hostnameMapFileName] = hostnameMap
 	}
 	return cm, nil
+}
+
+func AISConfigMapName(ais *aisv1.AIStore, daeType string) string {
+	return ais.Name + "-" + daeType
 }

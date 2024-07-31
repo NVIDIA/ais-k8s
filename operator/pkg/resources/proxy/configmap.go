@@ -15,13 +15,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func configMapName(ais *aisv1.AIStore) string {
-	return ais.Name + "-" + aisapc.Proxy
-}
-
 func ConfigMapNSName(ais *aisv1.AIStore) types.NamespacedName {
 	return types.NamespacedName{
-		Name:      configMapName(ais),
+		Name:      cmn.AISConfigMapName(ais, aisapc.Proxy),
 		Namespace: ais.Namespace,
 	}
 }
@@ -34,18 +30,18 @@ func NewProxyCM(ais *aisv1.AIStore) (*corev1.ConfigMap, error) {
 	}
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      configMapName(ais),
+			Name:      cmn.AISConfigMapName(ais, aisapc.Proxy),
 			Namespace: ais.Namespace,
 		},
 		Data: map[string]string{
-			"ais_local.json": confLocal,
+			cmn.AISLocalConfigName: confLocal,
 		},
 	}, nil
 }
 
 func localConfTemplate(spec *aisv1.ServiceSpec) aiscmn.LocalConfig {
 	return aiscmn.LocalConfig{
-		ConfigDir: "/etc/ais",
+		ConfigDir: cmn.StateDir,
 		LogDir:    cmn.LogsDir,
 		HostNet: aiscmn.LocalNetConfig{
 			Hostname:             "${AIS_PUBLIC_HOSTNAME}",

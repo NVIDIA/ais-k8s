@@ -11,13 +11,15 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func configMapName(ais *aisv1.AIStore) string {
+const ConfigFile = "statsd.json"
+
+func ConfigMapName(ais *aisv1.AIStore) string {
 	return ais.Name + "-statsd"
 }
 
 func ConfigMapNSName(ais *aisv1.AIStore) types.NamespacedName {
 	return types.NamespacedName{
-		Name:      configMapName(ais),
+		Name:      ConfigMapName(ais),
 		Namespace: ais.Namespace,
 	}
 }
@@ -25,11 +27,11 @@ func ConfigMapNSName(ais *aisv1.AIStore) types.NamespacedName {
 func NewStatsDCM(ais *aisv1.AIStore) *corev1.ConfigMap {
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      ais.Name + "-statsd",
+			Name:      ConfigMapName(ais),
 			Namespace: ais.Namespace,
 		},
 		Data: map[string]string{
-			"statsd.json": `{
+			ConfigFile: `{
 				"graphiteHost": "",
 				"graphitePort": 2003
 			}`,

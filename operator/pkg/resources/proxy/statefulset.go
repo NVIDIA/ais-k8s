@@ -6,12 +6,14 @@ package proxy
 
 import (
 	"fmt"
+	"path"
 	"strconv"
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
 	"github.com/NVIDIA/aistore/api/env"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	"github.com/ais-operator/pkg/resources/cmn"
+	"github.com/ais-operator/pkg/resources/statsd"
 	apiv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -104,7 +106,7 @@ func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
 					cmn.EnvFromValue(cmn.EnvDefaultPrimaryPod, ais.DefaultPrimaryName()),
 				}, optionals...),
 				Args:         cmn.NewInitContainerArgs(aisapc.Proxy, ais.Spec.HostnameMap),
-				VolumeMounts: cmn.NewInitVolumeMounts(ais, aisapc.Proxy),
+				VolumeMounts: cmn.NewInitVolumeMounts(),
 			},
 		},
 		Containers: []corev1.Container{
@@ -113,21 +115,16 @@ func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
 				Image:           ais.Spec.NodeImage,
 				ImagePullPolicy: corev1.PullAlways,
 				Command:         []string{"aisnode"},
-				Args: []string{
-					"-config=/var/ais_config/ais.json",
-					"-local_config=/var/ais_config/ais_local.json",
-					fmt.Sprintf("-ntargets=%d", ais.GetTargetSize()),
-					"-role=" + aisapc.Proxy,
-				},
+				Args:            cmn.NewAISContainerArgs(ais, aisapc.Proxy),
 				Env: append([]corev1.EnvVar{
 					cmn.EnvFromFieldPath(cmn.EnvPodName, "metadata.name"),
 					cmn.EnvFromValue(cmn.EnvNS, ais.Namespace),
 					cmn.EnvFromValue(cmn.EnvClusterDomain, ais.GetClusterDomain()),
-					cmn.EnvFromValue(cmn.EnvShutdownMarkerPath, "/var/ais_config"),
+					cmn.EnvFromValue(cmn.EnvShutdownMarkerPath, cmn.AisConfigDir),
 					cmn.EnvFromValue(cmn.EnvCIDR, ""), // TODO: Should take from specs
-					cmn.EnvFromValue(cmn.EnvConfigFilePath, "/var/ais_config/ais.json"),
-					cmn.EnvFromValue(cmn.EnvLocalConfigFilePath, "/var/ais_config/ais_local.json"),
-					cmn.EnvFromValue(cmn.EnvStatsDConfig, "/var/statsd_config/statsd.json"),
+					cmn.EnvFromValue(cmn.EnvConfigFilePath, path.Join(cmn.AisConfigDir, cmn.AISGlobalConfigName)),
+					cmn.EnvFromValue(cmn.EnvLocalConfigFilePath, path.Join(cmn.AisConfigDir, cmn.AISLocalConfigName)),
+					cmn.EnvFromValue(cmn.EnvStatsDConfig, path.Join(cmn.StatsDDir, statsd.ConfigFile)),
 					cmn.EnvFromValue(cmn.EnvEnablePrometheus,
 						strconv.FormatBool(ais.Spec.EnablePromExporter != nil && *ais.Spec.EnablePromExporter)),
 					cmn.EnvFromValue(cmn.EnvDaemonRole, aisapc.Proxy),

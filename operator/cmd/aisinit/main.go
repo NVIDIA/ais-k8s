@@ -1,3 +1,7 @@
+// Package main contains logic for the aisinit container
+/*
+ * Copyright (c) 2024, NVIDIA CORPORATION. All rights reserved.
+ */
 package main
 
 import (
@@ -88,6 +92,9 @@ func getMappedHostname(original, mapPath string) string {
 	return original
 }
 
+// AIS init is intended to be deployed inside the same pod as the aisnode container
+// The purpose of AIS init is to take a template config and output a result config based on the environment of the
+// deployed pod, with optional additional flags
 func main() {
 	var (
 		role                   string

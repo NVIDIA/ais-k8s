@@ -6,6 +6,7 @@ package target
 
 import (
 	"log"
+	"path"
 	"strconv"
 	"strings"
 
@@ -13,6 +14,7 @@ import (
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	"github.com/ais-operator/pkg/resources/cmn"
 	"github.com/ais-operator/pkg/resources/proxy"
+	"github.com/ais-operator/pkg/resources/statsd"
 	"gopkg.in/inf.v0"
 	apiv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -108,7 +110,7 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 								cmn.EnvFromValue(cmn.EnvProxyServicePort, ais.Spec.ProxySpec.ServicePort.String()),
 							}, optionals...),
 							Args:         cmn.NewInitContainerArgs(aisapc.Target, ais.Spec.HostnameMap),
-							VolumeMounts: cmn.NewInitVolumeMounts(ais, aisapc.Target),
+							VolumeMounts: cmn.NewInitVolumeMounts(),
 						},
 					},
 					Containers: []corev1.Container{
@@ -117,20 +119,16 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 							Image:           ais.Spec.NodeImage,
 							ImagePullPolicy: corev1.PullAlways,
 							Command:         []string{"aisnode"},
-							Args: []string{
-								"-config=/var/ais_config/ais.json",
-								"-local_config=/var/ais_config/ais_local.json",
-								"-role=" + aisapc.Target,
-							},
+							Args:            cmn.NewAISContainerArgs(ais, aisapc.Target),
 							Env: append([]corev1.EnvVar{
 								cmn.EnvFromFieldPath(cmn.EnvPodName, "metadata.name"),
 								cmn.EnvFromValue(cmn.EnvClusterDomain, ais.GetClusterDomain()),
 								cmn.EnvFromValue(cmn.EnvNS, ais.Namespace),
 								cmn.EnvFromValue(cmn.EnvCIDR, ""), // TODO: add
-								cmn.EnvFromValue(cmn.EnvConfigFilePath, "/var/ais_config/ais.json"),
-								cmn.EnvFromValue(cmn.EnvShutdownMarkerPath, "/var/ais_config"),
-								cmn.EnvFromValue(cmn.EnvLocalConfigFilePath, "/var/ais_config/ais_local.json"),
-								cmn.EnvFromValue(cmn.EnvStatsDConfig, "/var/statsd_config/statsd.json"),
+								cmn.EnvFromValue(cmn.EnvConfigFilePath, path.Join(cmn.AisConfigDir, cmn.AISGlobalConfigName)),
+								cmn.EnvFromValue(cmn.EnvShutdownMarkerPath, cmn.AisConfigDir),
+								cmn.EnvFromValue(cmn.EnvLocalConfigFilePath, path.Join(cmn.AisConfigDir, cmn.AISLocalConfigName)),
+								cmn.EnvFromValue(cmn.EnvStatsDConfig, path.Join(cmn.StatsDDir, statsd.ConfigFile)),
 								cmn.EnvFromValue(cmn.EnvDaemonRole, aisapc.Target),
 								cmn.EnvFromValue(cmn.EnvEnablePrometheus,
 									strconv.FormatBool(ais.Spec.EnablePromExporter != nil && *ais.Spec.EnablePromExporter)),
