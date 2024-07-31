@@ -44,6 +44,8 @@ To monitor AIS, create [PodMonitor](https://github.com/prometheus-operator/prome
 
 You can find an AIS `PodMonitor` definition in [`ais_podmonitors.yaml`](kube-prom/ais_podmonitors.yaml) which will be automatically applied after syncing the kube-prometheus chart. 
 
+If using HTTPS for AIS, be sure to update the PodMonitor definition with the appropriate configs for scheme and TLS (an example is provided in the definition). 
+
 When applied, the monitors will configure prometheus to scrape metrics from AIStore's proxy and target pods individually every 30 seconds.
 
 ### <a id="external-access"></a> Accessing internal services (Prometheus, Grafana)
