@@ -20,7 +20,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-func (r *AIStoreReconciler) initTargets(ctx context.Context, ais *aisv1.AIStore) (changed bool, err error) {
+func (r *AIStoreReconciler) initTargets(ctx context.Context, ais *aisv1.AIStore) (requeue bool, err error) {
 	var cm *corev1.ConfigMap
 	// 1. Deploy required ConfigMap
 	cm, err = target.NewTargetCM(ctx, ais)
@@ -45,12 +45,12 @@ func (r *AIStoreReconciler) initTargets(ctx context.Context, ais *aisv1.AIStore)
 	ss := target.NewTargetSS(ais)
 	if exists, err := r.client.CreateResourceIfNotExists(ctx, ais, ss); err != nil {
 		r.recordError(ais, err, "Failed to deploy target statefulset")
-		return false, err
+		return true, err
 	} else if !exists {
 		msg := "Successfully initialized target nodes"
 		logf.FromContext(ctx).Info(msg)
 		r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonInitialized, msg)
-		changed = true
+		requeue = true
 	}
 	return
 }

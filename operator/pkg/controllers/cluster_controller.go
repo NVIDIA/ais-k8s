@@ -39,11 +39,10 @@ import (
 
 const (
 	aisFinalizer = "finalize.ais"
+	userAgent    = "ais-operator"
 
-	requeueInterval = 10 * time.Second
-	errBackOffTime  = 10 * time.Second
-
-	userAgent = "ais-operator"
+	// errBackOffTime defines time between retries in case of error that repeats.
+	errBackOffTime = 5 * time.Second
 )
 
 type (
@@ -221,9 +220,9 @@ func (r *AIStoreReconciler) decommissionCluster(ctx context.Context, ais *aisv1.
 	if r.isClusterRunning(ctx, ais) {
 		err := r.decommissionAIS(ctx, ais)
 		if err != nil {
-			logger.Info("Unable to gracefully decommission AIStore, retrying until cluster is not running")
+			logger.Error(err, "Unable to gracefully decommission AIStore, retrying until cluster is not running")
 		}
-		return reconcile.Result{Requeue: true, RequeueAfter: requeueInterval}, nil
+		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 	_, err := r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionCleanup})
 	if err != nil {
@@ -248,7 +247,8 @@ func (r *AIStoreReconciler) cleanupClusterRes(ctx context.Context, ais *aisv1.AI
 		return r.manageError(ctx, ais, aisv1.InstanceDeletionError, err)
 	}
 	if updated {
-		return reconcile.Result{RequeueAfter: requeueInterval}, nil
+		// It is better to delay the requeue little bit since cleanup can take some time.
+		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 	logger.Info("Removing AIS finalizer")
 	controllerutil.RemoveFinalizer(ais, aisFinalizer)
@@ -347,8 +347,6 @@ func (r *AIStoreReconciler) attemptGracefulShutdown(ctx context.Context, ais *ai
 }
 
 func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore) (result ctrl.Result, err error) {
-	var changed bool
-
 	globalCM, err := cmn.NewGlobalCM(ais, ais.Spec.ConfigToUpdate)
 	if err != nil {
 		r.recordError(ais, err, "Failed to construct global config")
@@ -391,17 +389,18 @@ func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore
 			if !ais.HasState(aisv1.ConditionInitializingLBService) && !ais.HasState(aisv1.ConditionPendingLBService) {
 				retry, err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionInitializingLBService})
 				if !retry && err == nil {
-					r.recorder.Event(ais, corev1.EventTypeNormal,
-						EventReasonInitialized, "Successfully initialized LoadBalancer service")
+					r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonInitialized, "Successfully initialized LoadBalancer service")
 				}
 			} else {
 				retry, err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionPendingLBService})
 				if !retry && err == nil {
-					str := fmt.Sprintf("Waiting for LoadBalancer service to be ready; proxy ready=%t, target ready=%t", proxyReady, targetReady)
-					r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonWaiting, str)
+					r.recorder.Eventf(
+						ais, corev1.EventTypeNormal, EventReasonWaiting,
+						"Waiting for LoadBalancer service to be ready; proxy ready=%t, target ready=%t", proxyReady, targetReady,
+					)
 				}
 			}
-			result.RequeueAfter = requeueInterval
+			result.Requeue = true
 			return
 		}
 	}
@@ -420,20 +419,18 @@ func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore
 	}
 
 	// 5. Bootstrap proxies
-	if changed, err = r.initProxies(ctx, ais); err != nil {
+	if result.Requeue, err = r.initProxies(ctx, ais); err != nil {
 		r.recordError(ais, err, "Failed to create Proxy resources")
 		return r.manageError(ctx, ais, aisv1.ProxyCreationError, err)
-	} else if changed {
-		result.RequeueAfter = requeueInterval
+	} else if result.Requeue {
 		return
 	}
 
 	// 6. Bootstrap targets
-	if changed, err = r.initTargets(ctx, ais); err != nil {
+	if result.Requeue, err = r.initTargets(ctx, ais); err != nil {
 		r.recordError(ais, err, "Failed to create Target resources")
 		return r.manageError(ctx, ais, aisv1.TargetCreationError, err)
-	} else if changed {
-		result.RequeueAfter = requeueInterval
+	} else if result.Requeue {
 		return
 	}
 
@@ -441,10 +438,11 @@ func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore
 	result.Requeue, err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionCreated})
 	if err != nil {
 		return
+	} else if result.Requeue {
+		return
 	}
-	if !result.Requeue {
-		r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonCreated, "Successfully created AIS cluster")
-	}
+
+	r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonCreated, "Successfully created AIS cluster")
 	return
 }
 
@@ -465,27 +463,24 @@ func (r *AIStoreReconciler) handleCREvents(ctx context.Context, ais *aisv1.AISto
 	var proxyReady, targetReady bool
 	if proxyReady, err = r.handleProxyState(ctx, ais); err != nil {
 		return
-	}
-	if !proxyReady {
+	} else if !proxyReady {
 		goto requeue
 	}
 
 	if targetReady, err = r.handleTargetState(ctx, ais); err != nil {
 		return
+	} else if !targetReady {
+		goto requeue
 	}
 
-	if targetReady && proxyReady {
-		return r.manageSuccess(ctx, ais)
-	}
+	return r.manageSuccess(ctx, ais)
 
 requeue:
 	// We requeue till the AIStore cluster becomes ready.
-	// TODO: Remove explicit requeue after enabling event watchers for owned resources (e.g. proxy/target statefulsets).
 	if ais.IsConditionTrue(aisv1.ConditionReady.Str()) {
 		ais.UnsetConditionReady(aisv1.ConditionUpgrading.Str(), "Waiting for cluster to upgrade")
 		_, err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionUpgrading})
 	}
-	result.RequeueAfter = 5 * time.Second
 	return
 }
 
