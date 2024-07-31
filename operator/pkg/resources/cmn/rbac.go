@@ -12,11 +12,11 @@ import (
 )
 
 const (
-	ResourceTypePodsExec    = "pods/exec"
-	resourceTypeStatfulSets = "statefulsets"
-	resourceTypeDaemonSets  = "daemonsets"
-	resourceTypeNodes       = "nodes"
-	resourceTypePodLogs     = "pods/log"
+	ResourceTypePodsExec     = "pods/exec"
+	resourceTypeStatefulSets = "statefulsets"
+	resourceTypeDaemonSets   = "daemonsets"
+	resourceTypeNodes        = "nodes"
+	resourceTypePodLogs      = "pods/log"
 
 	verbAll = "*"
 
@@ -58,7 +58,7 @@ func NewAISRBACRole(ais *aisv1.AIStore) *rbacv1.Role {
 				Resources: []string{
 					string(corev1.ResourceSecrets), string(corev1.ResourcePods),
 					string(corev1.ResourceConfigMaps), string(corev1.ResourceServices),
-					resourceTypeStatfulSets, resourceTypeDaemonSets, ResourceTypePodsExec,
+					resourceTypeStatefulSets, resourceTypeDaemonSets, ResourceTypePodsExec,
 				},
 				Verbs: []string{verbAll}, // TODO: set only required permissions
 			},
