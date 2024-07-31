@@ -51,6 +51,13 @@ spec:
                   The reclamation of PVs linked to the PVCs depends on the PV reclaim policy or the default policy of the associated StorageClass.
                   This field is relevant only if you are deleting the CR (leading to decommissioning of the cluster).
                 type: boolean
+              cleanupMetadata:
+                description: |-
+                  CleanupMetadata determines whether to clean up cluster and bucket metadata when the cluster is decommissioned.
+                  When enabled, the cluster will fully decommission, removing metadata and optionally deleting user data.
+                  When disabled, the operator will call the AIS shutdown API to preserve metadata before deleting other k8s resources.
+                  The metadata stored in the state PVCs will be preserved to be usable in a future AIS deployment.
+                type: boolean
               clusterDomain:
                 description: 'Defines the cluster domain name for DNS. Default: cluster.local.'
                 type: string
