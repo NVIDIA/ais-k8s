@@ -499,7 +499,7 @@ func (r *AIStoreReconciler) patchRole(ctx context.Context, ais *aisv1.AIStore, r
 		}
 		return false
 	}
-	existingRole, err := r.client.GetRoleByName(ctx, types.NamespacedName{Namespace: role.Namespace, Name: role.Name})
+	existingRole, err := r.client.GetRole(ctx, types.NamespacedName{Namespace: role.Namespace, Name: role.Name})
 	if err != nil {
 		r.recordError(ais, err, "Failed to fetch Role")
 		return err
@@ -762,7 +762,7 @@ func (r *AIStoreReconciler) newAISBaseParams(ctx context.Context,
 	// If LoadBalancer is configured and `isExternal` flag is set use the LB service to contact the API.
 	if r.isExternal && ais.Spec.EnableExternalLB {
 		var proxyLBSVC *corev1.Service
-		proxyLBSVC, err = r.client.GetServiceByName(ctx, proxy.LoadBalancerSVCNSName(ais))
+		proxyLBSVC, err = r.client.GetService(ctx, proxy.LoadBalancerSVCNSName(ais))
 		if err != nil {
 			return nil, err
 		}

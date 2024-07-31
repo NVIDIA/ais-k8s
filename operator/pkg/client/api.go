@@ -7,11 +7,12 @@ package client
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	"github.com/ais-operator/pkg/resources/proxy"
 	"github.com/ais-operator/pkg/resources/target"
-	apiv1 "k8s.io/api/apps/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -86,46 +87,24 @@ func (c *K8sClient) ListJobsInNamespace(ctx context.Context, namespace string) (
 	return jobList, err
 }
 
-func (c *K8sClient) GetStatefulSet(ctx context.Context, name types.NamespacedName) (*apiv1.StatefulSet, error) {
-	ss := &apiv1.StatefulSet{}
-	err := c.client.Get(ctx, name, ss)
-	return ss, err
+func (c *K8sClient) GetStatefulSet(ctx context.Context, name types.NamespacedName) (*appsv1.StatefulSet, error) {
+	return getResource[*appsv1.StatefulSet](c.client, ctx, name)
 }
 
-func (c *K8sClient) StatefulSetExists(ctx context.Context, name types.NamespacedName) (exists bool, err error) {
-	_, err = c.GetStatefulSet(ctx, name)
-	if err == nil {
-		exists = true
-		return
-	}
-	if apierrors.IsNotFound(err) {
-		err = nil
-	}
-	return
+func (c *K8sClient) GetService(ctx context.Context, name types.NamespacedName) (*corev1.Service, error) {
+	return getResource[*corev1.Service](c.client, ctx, name)
 }
 
-func (c *K8sClient) GetServiceByName(ctx context.Context, name types.NamespacedName) (*corev1.Service, error) {
-	svc := &corev1.Service{}
-	err := c.client.Get(ctx, name, svc)
-	return svc, err
+func (c *K8sClient) GetConfigMap(ctx context.Context, name types.NamespacedName) (*corev1.ConfigMap, error) {
+	return getResource[*corev1.ConfigMap](c.client, ctx, name)
 }
 
-func (c *K8sClient) GetCMByName(ctx context.Context, name types.NamespacedName) (*corev1.ConfigMap, error) {
-	cm := &corev1.ConfigMap{}
-	err := c.client.Get(ctx, name, cm)
-	return cm, err
+func (c *K8sClient) GetPod(ctx context.Context, name types.NamespacedName) (*corev1.Pod, error) {
+	return getResource[*corev1.Pod](c.client, ctx, name)
 }
 
-func (c *K8sClient) GetPodByName(ctx context.Context, name types.NamespacedName) (*corev1.Pod, error) {
-	pod := &corev1.Pod{}
-	err := c.client.Get(ctx, name, pod)
-	return pod, err
-}
-
-func (c *K8sClient) GetRoleByName(ctx context.Context, name types.NamespacedName) (*rbacv1.Role, error) {
-	role := &rbacv1.Role{}
-	err := c.client.Get(ctx, name, role)
-	return role, err
+func (c *K8sClient) GetRole(ctx context.Context, name types.NamespacedName) (*rbacv1.Role, error) {
+	return getResource[*rbacv1.Role](c.client, ctx, name)
 }
 
 func (c *K8sClient) Status() client.StatusWriter { return c.client.Status() }
@@ -179,8 +158,8 @@ func (c *K8sClient) GetStorageClasses(ctx context.Context) (map[string]*storagev
 	return scMap, nil
 }
 
-///////////////////////////////////////
-//      create/update resources     //
+//////////////////////////////////////
+//      Create/Update resources     //
 //////////////////////////////////////
 
 func (c *K8sClient) Update(ctx context.Context, obj client.Object, opts ...client.UpdateOption) error {
@@ -283,7 +262,7 @@ func (c *K8sClient) CheckIfNamespaceExists(ctx context.Context, name string) (ex
 
 /////////////////////////////////
 //       Delete resources      //
-////////////////////////////////
+/////////////////////////////////
 
 // DeleteResourceIfExists deletes an existing resource. It doesn't fail if the resource does not exist
 func (c *K8sClient) DeleteResourceIfExists(ctx context.Context, obj client.Object) (existed bool, err error) {
@@ -299,10 +278,7 @@ func (c *K8sClient) DeleteResourceIfExists(ctx context.Context, obj client.Objec
 }
 
 func (c *K8sClient) DeleteServiceIfExists(ctx context.Context, name types.NamespacedName) (existed bool, err error) {
-	svc := &corev1.Service{}
-	svc.SetName(name.Name)
-	svc.SetNamespace(name.Namespace)
-	return c.DeleteResourceIfExists(ctx, svc)
+	return deleteResourceIfExists[*corev1.Service](c, ctx, name)
 }
 
 func (c *K8sClient) DeleteAllServicesIfExist(ctx context.Context, namespace string, labels client.MatchingLabels) (anyExisted bool, err error) {
@@ -358,29 +334,19 @@ func (c *K8sClient) deleteAllPVCsIfExist(ctx context.Context, pvcs *corev1.Persi
 }
 
 func (c *K8sClient) DeleteStatefulSetIfExists(ctx context.Context, name types.NamespacedName) (existed bool, err error) {
-	ss := &apiv1.StatefulSet{}
-	ss.SetName(name.Name)
-	ss.SetNamespace(name.Namespace)
-	return c.DeleteResourceIfExists(ctx, ss)
+	return deleteResourceIfExists[*appsv1.StatefulSet](c, ctx, name)
 }
 
 func (c *K8sClient) DeleteConfigMapIfExists(ctx context.Context, name types.NamespacedName) (existed bool, err error) {
-	ss := &corev1.ConfigMap{}
-	ss.SetName(name.Name)
-	ss.SetNamespace(name.Namespace)
-	return c.DeleteResourceIfExists(ctx, ss)
+	return deleteResourceIfExists[*corev1.ConfigMap](c, ctx, name)
 }
 
-func (c *K8sClient) DeletePodIfExists(ctx context.Context, name types.NamespacedName) (err error) {
-	pod := &corev1.Pod{}
-	pod.SetName(name.Name)
-	pod.SetNamespace(name.Namespace)
-	_, err = c.DeleteResourceIfExists(ctx, pod)
-	return
+func (c *K8sClient) DeletePodIfExists(ctx context.Context, name types.NamespacedName) (existed bool, err error) {
+	return deleteResourceIfExists[*corev1.Pod](c, ctx, name)
 }
 
 func (c *K8sClient) GetReadyPod(ctx context.Context, name types.NamespacedName) (pod *corev1.Pod, err error) {
-	pod, err = c.GetPodByName(ctx, name)
+	pod, err = c.GetPod(ctx, name)
 	if err != nil {
 		return
 	}
@@ -388,4 +354,21 @@ func (c *K8sClient) GetReadyPod(ctx context.Context, name types.NamespacedName) 
 		return pod, fmt.Errorf("pod is not yet running (phase: %s)", pod.Status.Phase)
 	}
 	return pod, nil
+}
+
+// GENERICS
+
+func getResource[T client.Object](c client.Client, ctx context.Context, name types.NamespacedName) (T, error) { //nolint:revive // This is special case where it is just better to pass client first instead of context.
+	var r T
+	rv := reflect.New(reflect.TypeOf(r).Elem()).Interface().(T)
+	err := c.Get(ctx, name, rv)
+	return rv, err
+}
+
+func deleteResourceIfExists[T client.Object](c *K8sClient, ctx context.Context, name types.NamespacedName) (existed bool, err error) { //nolint:revive // This is special case where it is just better to pass client first instead of context.
+	var r T
+	rv := reflect.New(reflect.TypeOf(r).Elem()).Interface().(T)
+	rv.SetName(name.Name)
+	rv.SetNamespace(name.Namespace)
+	return c.DeleteResourceIfExists(ctx, rv)
 }

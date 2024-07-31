@@ -201,10 +201,11 @@ func (r *AIStoreReconciler) handleProxyImage(ctx context.Context, ais *aisv1.AIS
 		}
 
 		// Delete the first pod to update its docker image.
-		return false, r.client.DeletePodIfExists(ctx, types.NamespacedName{
+		_, err = r.client.DeletePodIfExists(ctx, types.NamespacedName{
 			Namespace: ais.Namespace,
 			Name:      firstPodName,
 		})
+		return false, err
 	}
 	return toUpdate == 0, nil
 }
@@ -322,7 +323,7 @@ func (r *AIStoreReconciler) enableProxyExternalService(ctx context.Context,
 	}
 
 	// If SVC already exists, check if external IP is allocated
-	proxyLBSVC, err = r.client.GetServiceByName(ctx, proxy.LoadBalancerSVCNSName(ais))
+	proxyLBSVC, err = r.client.GetService(ctx, proxy.LoadBalancerSVCNSName(ais))
 	if err != nil {
 		return
 	}

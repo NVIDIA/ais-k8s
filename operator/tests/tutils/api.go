@@ -142,7 +142,7 @@ func deleteAssociatedPVCs(ctx context.Context, pv *corev1.PersistentVolume, clie
 }
 
 func checkCMExists(ctx context.Context, client *aisclient.K8sClient, name types.NamespacedName) bool {
-	_, err := client.GetCMByName(ctx, name)
+	_, err := client.GetConfigMap(ctx, name)
 	if errors.IsNotFound(err) {
 		return false
 	}
@@ -159,7 +159,7 @@ func EventuallyCMExists(ctx context.Context, client *aisclient.K8sClient, name t
 }
 
 func checkServiceExists(ctx context.Context, client *aisclient.K8sClient, name types.NamespacedName) bool {
-	_, err := client.GetServiceByName(ctx, name)
+	_, err := client.GetService(ctx, name)
 	if errors.IsNotFound(err) {
 		return false
 	}
@@ -410,7 +410,7 @@ func GetK8sClusterProvider() string {
 }
 
 func GetLoadBalancerIP(ctx context.Context, client *aisclient.K8sClient, name types.NamespacedName) (ip string) {
-	svc, err := client.GetServiceByName(ctx, name)
+	svc, err := client.GetService(ctx, name)
 	Expect(err).NotTo(HaveOccurred())
 
 	for _, ing := range svc.Status.LoadBalancer.Ingress {
@@ -426,7 +426,7 @@ func GetRandomProxyIP(ctx context.Context, client *aisclient.K8sClient, cluster 
 	proxyIndex := rand.IntN(int(cluster.GetProxySize()))
 	proxySSName := proxy.StatefulSetNSName(cluster)
 	proxySSName.Name = fmt.Sprintf("%s-%d", proxySSName.Name, proxyIndex)
-	pod, err := client.GetPodByName(ctx, proxySSName)
+	pod, err := client.GetPod(ctx, proxySSName)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(pod.Status.PodIP).NotTo(Equal(""))
 	return pod.Status.PodIP
