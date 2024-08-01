@@ -208,9 +208,10 @@ CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen-$(CONTROLLER_TOOLS_VERSION)
 ENVTEST ?= $(LOCALBIN)/setup-envtest-$(ENVTEST_VERSION)
 GOLANGCI_LINT = $(LOCALBIN)/golangci-lint-$(GOLANGCI_LINT_VERSION)
 HELMIFY = $(LOCALBIN)/helmify
+HELM = $(LOCALBIN)/helm
 
 ## Tool Versions
-HELM_VERSION ?= v3.14.2
+HELM_VERSION ?= v3.15.3
 KUSTOMIZE_VERSION ?= v5.4.1
 CONTROLLER_TOOLS_VERSION ?= v0.15.0
 ENVTEST_VERSION ?= release-0.18
@@ -238,7 +239,7 @@ $(GOLANGCI_LINT): $(LOCALBIN)
 
 .PHONY: helm
 helm:
-	@[ `command -v helm` ] || { curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash; }
+	$(call helm-get-tool)
 
 .PHONY: helmify
 helmify: $(HELMIFY)
@@ -256,5 +257,21 @@ package=$(2)@$(3) ;\
 echo "Downloading $${package}" ;\
 GOBIN=$(LOCALBIN) go install $${package} ;\
 mv "$$(echo "$(1)" | sed "s/-$(3)$$//")" $(1) ;\
+}
+endef
+
+
+# get helm and install it locally
+define helm-get-tool
+@[ -f $(HELM) ] || { \
+set -e ;\
+TMP_DIR=$$(mktemp -d) ;\
+cd $$TMP_DIR ;\
+echo "Downloading Helm $(HELM_VERSION)" ;\
+curl -sSL https://get.helm.sh/helm-$(HELM_VERSION)-linux-amd64.tar.gz -o helm.tar.gz ;\
+tar -zxf helm.tar.gz ;\
+mv linux-amd64/helm $(LOCALBIN) ;\
+rm -rf $$TMP_DIR ;\
+echo "Helm $(HELM_VERSION) has been installed to $(LOCALBIN)" ;\
 }
 endef
