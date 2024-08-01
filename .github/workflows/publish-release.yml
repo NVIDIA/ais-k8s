@@ -34,7 +34,7 @@ jobs:
     - name: Make operator yaml file and helm chart
       run: |
         pushd $GITHUB_WORKSPACE/operator
-        VERSION="${{ env.VERSION }}" IMG="${{ env.AISOPERATOR_IMAGE }}:${{ env.VERSION }}" make bundle-manifests-helm
+        VERSION="${{ env.VERSION }}" IMG="${{ env.AISOPERATOR_IMAGE }}:${{ env.VERSION }}" make build-installer-helm
         popd
 
     - name: Release
