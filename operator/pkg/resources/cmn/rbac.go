@@ -12,12 +12,6 @@ import (
 )
 
 const (
-	ResourceTypePodsExec     = "pods/exec"
-	resourceTypeStatefulSets = "statefulsets"
-	resourceTypeDaemonSets   = "daemonsets"
-	resourceTypeNodes        = "nodes"
-	resourceTypePodLogs      = "pods/log"
-
 	verbAll = "*"
 
 	roleKind        = "Role"
@@ -56,9 +50,15 @@ func NewAISRBACRole(ais *aisv1.AIStore) *rbacv1.Role {
 			{
 				APIGroups: []string{""},
 				Resources: []string{
-					string(corev1.ResourceSecrets), string(corev1.ResourcePods),
-					string(corev1.ResourceConfigMaps), string(corev1.ResourceServices),
-					resourceTypeStatefulSets, resourceTypeDaemonSets, ResourceTypePodsExec,
+					"secrets",
+					"configmaps",
+
+					// ETL + enable-external LB.
+					"services",
+
+					// These resources are needed to support ETL in `aisnode`.
+					"pods",
+					"pods/exec",
 				},
 				Verbs: []string{verbAll}, // TODO: set only required permissions
 			},
@@ -103,8 +103,13 @@ func NewAISRBACClusterRole(ais *aisv1.AIStore) *rbacv1.ClusterRole {
 		Rules: []rbacv1.PolicyRule{
 			{
 				APIGroups: []string{""},
-				Resources: []string{resourceTypeNodes, resourceTypePodLogs},
-				Verbs:     []string{verbAll}, // TODO: set only required permissions
+				Resources: []string{
+					"nodes",
+
+					// These resources are needed to support ETL in `aisnode`.
+					"pods/log",
+				},
+				Verbs: []string{"get", "list"},
 			},
 		},
 	}

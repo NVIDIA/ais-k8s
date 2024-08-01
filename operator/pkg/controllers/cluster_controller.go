@@ -27,7 +27,6 @@ import (
 	"github.com/go-logr/logr"
 	apiv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
@@ -490,32 +489,6 @@ requeue:
 	return
 }
 
-func (r *AIStoreReconciler) patchRole(ctx context.Context, ais *aisv1.AIStore, role *rbacv1.Role) error {
-	sliceContains := func(keys []string, e string) bool {
-		for _, v := range keys {
-			if v == e {
-				return true
-			}
-		}
-		return false
-	}
-	existingRole, err := r.client.GetRole(ctx, types.NamespacedName{Namespace: role.Namespace, Name: role.Name})
-	if err != nil {
-		r.recordError(ais, err, "Failed to fetch Role")
-		return err
-	}
-
-	for _, rule := range existingRole.Rules {
-		if sliceContains(rule.Resources, cmn.ResourceTypePodsExec) {
-			return nil
-		}
-	}
-	if err = r.client.UpdateIfExists(ctx, role); err != nil {
-		r.recordError(ais, err, "Failed updating Role")
-	}
-	return err
-}
-
 func (r *AIStoreReconciler) createRBACResources(ctx context.Context, ais *aisv1.AIStore) (err error) {
 	// 1. Create service account if not exists
 	sa := cmn.NewAISServiceAccount(ais)
@@ -525,22 +498,10 @@ func (r *AIStoreReconciler) createRBACResources(ctx context.Context, ais *aisv1.
 	}
 
 	// 2. Create AIS Role
-	var (
-		role   = cmn.NewAISRBACRole(ais)
-		exists bool
-	)
-
-	if exists, err = r.client.CreateOrUpdateResource(ctx, nil, role); err != nil {
+	role := cmn.NewAISRBACRole(ais)
+	if _, err = r.client.CreateOrUpdateResource(ctx, nil, role); err != nil {
 		r.recordError(ais, err, "Failed to create Role")
 		return
-	}
-
-	// If the role already exists, ensure it has `pods/exec`.
-	if exists {
-		err = r.patchRole(ctx, ais, role)
-		if err != nil {
-			return
-		}
 	}
 
 	// 3. Create binding for the Role
