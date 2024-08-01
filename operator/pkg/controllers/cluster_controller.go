@@ -553,8 +553,7 @@ func (r *AIStoreReconciler) createRBACResources(ctx context.Context, ais *aisv1.
 	// 4. Create AIS ClusterRole
 	cluRole := cmn.NewAISRBACClusterRole(ais)
 	if _, err = r.client.CreateOrUpdateResource(ctx, nil, cluRole); err != nil {
-		errMsg := "Failed to create ClusterRole"
-		r.recordError(ais, err, errMsg)
+		r.recordError(ais, err, "Failed to create ClusterRole")
 		return
 	}
 
@@ -562,7 +561,9 @@ func (r *AIStoreReconciler) createRBACResources(ctx context.Context, ais *aisv1.
 	crb := cmn.NewAISRBACClusterRoleBinding(ais)
 	if _, err = r.client.CreateOrUpdateResource(ctx, nil, crb); err != nil {
 		r.recordError(ais, err, "Failed to create ClusterRoleBinding")
+		return
 	}
+
 	return
 }
 
