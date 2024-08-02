@@ -63,6 +63,7 @@ spec:
   initImage: "{{ .Values.initImage.name }}:{{ .Values.initImage.tag }}"
   hostpathPrefix: {{ .Values.hostpathPrefix }}
   stateStorageClass: {{ .Values.stateStorageClass }}
+  cleanupMetadata: {{ .Values.cleanupMetadata }}
   cleanupData: {{ .Values.cleanupData }}
   {{- if eq .Values.protocol "https" }}
   tlsSecretName: {{ .Values.https.tlsSecret }}
