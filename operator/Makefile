@@ -1,9 +1,7 @@
-VERSION ?= 1.1.0
+VERSION ?= 1.3.0
 BUILD_VERSION = $(VERSION)+$(shell git rev-parse --short HEAD)
 BUILD_TIME = $(shell date +%FT%T%z)
 
-# Image URL to use all building/pushing image targets
-IMG ?= controller:latest
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.25.0
 
@@ -42,6 +40,9 @@ all: build
 # https://en.wikipedia.org/wiki/ANSI_escape_code#SGR_parameters
 # More info on the awk command:
 # http://linuxcommand.org/lc3_adv_awk.php
+
+require-img:
+	@[ "${IMG}" ] || ( echo "IMG must be set for this make target"; exit 1 )
 
 .PHONY: help
 help: ## Display this help.
@@ -122,11 +123,11 @@ run: manifests generate fmt vet ## Run a controller from your host.
 # (i.e. docker build --platform linux/arm64). However, you must enable docker buildKit for it.
 # More info: https://docs.docker.com/develop/develop-images/build_enhancements/
 .PHONY: docker-build
-docker-build: ## Build docker image with the manager.
+docker-build: require-img ## Build docker image with the manager.
 	$(CONTAINER_TOOL) build -t ${IMG} .
 
 .PHONY: docker-push
-docker-push: ## Push docker image with the manager.
+docker-push: require-img ## Push docker image with the manager.
 	$(CONTAINER_TOOL) push ${IMG}
 
 # PLATFORMS defines the target platforms for the manager image be built to provide support to multiple
@@ -147,13 +148,13 @@ docker-buildx: ## Build and push docker image for the manager for cross-platform
 	rm Dockerfile.cross
 
 .PHONY: build-installer
-build-installer: manifests generate kustomize ## Generate a consolidated YAML with CRDs and deployment.
+build-installer: require-img manifests generate kustomize ## Generate a consolidated YAML with CRDs and deployment.
 	mkdir -p dist
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
 	$(KUSTOMIZE) build config/default > dist/install.yaml
 
 .PHONY: build-installer-helm
-bundle-installer-helm: helm helmify build-installer
+build-installer-helm: require-img helm helmify build-installer
 	mkdir -p dist/charts/
 	cat dist/install.yaml | $(HELMIFY) dist/charts/ais-operator
 	$(HELM) package dist/charts/ais-operator -d dist/
@@ -186,7 +187,7 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 	$(KUSTOMIZE) build config/crd | $(KUBECTL) delete --ignore-not-found=$(ignore-not-found) -f -
 
 .PHONY: deploy
-deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
+deploy: require-img manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
 	$(KUSTOMIZE) build config/default | $(KUBECTL) apply -f -
 
