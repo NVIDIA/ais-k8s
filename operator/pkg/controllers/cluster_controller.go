@@ -162,7 +162,7 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return r.cleanupClusterRes(ctx, ais)
 	}
 
-	if result, err := r.ensurePrereqs(ctx, ais); !result.IsZero() || err != nil {
+	if result, err := r.ensurePrereqs(ctx, ais); err != nil || !result.IsZero() {
 		return result, err
 	}
 
@@ -355,7 +355,9 @@ func (r *AIStoreReconciler) attemptGracefulShutdown(ctx context.Context, ais *ai
 	return err
 }
 
-func (r *AIStoreReconciler) ensurePrereqs(ctx context.Context, ais *aisv1.AIStore) (result ctrl.Result, err error) {
+// reconcileResources is responsible for reconciling all resources that given
+// AIStore CRD is managing. It handles initial reconcile as well as any updates.
+func (r *AIStoreReconciler) reconcileResources(ctx context.Context, ais *aisv1.AIStore) (result ctrl.Result, err error) {
 	_, err = ais.ValidateSpec(ctx)
 	if err != nil {
 		r.recordError(ais, err, "Failed to validate AIStore spec")
@@ -370,10 +372,38 @@ func (r *AIStoreReconciler) ensurePrereqs(ctx context.Context, ais *aisv1.AIStor
 		return r.manageError(ctx, ais, aisv1.ConfigBuildError, err)
 	}
 
-	// 1. Create rbac resources
-	err = r.createRBACResources(ctx, ais)
+	// 1. Deploy RBAC resources.
+	err = r.createOrUpdateRBACResources(ctx, ais)
 	if err != nil {
-		return r.manageError(ctx, ais, aisv1.RBACManagementError, err)
+		return r.manageError(ctx, ais, aisv1.ResourceCreationError, err)
+	}
+
+	// 2. Deploy statsd ConfigMap. Required by both proxies and targets.
+	statsDCM := statsd.NewStatsDCM(ais)
+	if err = r.client.CreateOrUpdateResource(ctx, ais, statsDCM); err != nil {
+		r.recordError(ais, err, "Failed to deploy StatsD ConfigMap")
+		return r.manageError(ctx, ais, aisv1.ResourceCreationError, err)
+	}
+
+	// 3. Deploy global cluster ConfigMap.
+	if err = r.client.CreateOrUpdateResource(ctx, ais, globalCM); err != nil {
+		r.recordError(ais, err, "Failed to deploy global cluster ConfigMap")
+		return r.manageError(ctx, ais, aisv1.ResourceCreationError, err)
+	}
+
+	// FIXME: We should also move the logic from `bootstrapNew` and `handleCREvents`.
+
+	// FIXME: To make sure that we don't forget to update StatefulSets we should
+	//  add annotations with hashes of the configmaps - thanks to this even if we
+	//  would restart on next reconcile we can compare hashes.
+
+	return ctrl.Result{}, nil
+}
+
+func (r *AIStoreReconciler) ensurePrereqs(ctx context.Context, ais *aisv1.AIStore) (result ctrl.Result, err error) {
+	// 1. Reconcile basic resources like RBAC and ConfigMaps.
+	if result, err = r.reconcileResources(ctx, ais); err != nil || !result.IsZero() {
+		return result, err
 	}
 
 	// 2. Check if the cluster needs external access.
@@ -410,19 +440,6 @@ func (r *AIStoreReconciler) ensurePrereqs(ctx context.Context, ais *aisv1.AIStor
 			result.Requeue = true
 			return
 		}
-	}
-
-	// 3. Deploy statsd config map. Required by both proxies and targets
-	statsDCM := statsd.NewStatsDCM(ais)
-	if err = r.client.CreateOrUpdateResource(ctx, ais, statsDCM); err != nil {
-		r.recordError(ais, err, "Failed to deploy StatsD ConfigMap")
-		return r.manageError(ctx, ais, aisv1.ResourceCreationError, err)
-	}
-
-	// 4. Deploy global cluster config map.
-	if err = r.client.CreateOrUpdateResource(ctx, ais, globalCM); err != nil {
-		r.recordError(ais, err, "Failed to deploy global cluster ConfigMap")
-		return r.manageError(ctx, ais, aisv1.ResourceCreationError, err)
 	}
 
 	err = r.ensureProxyPrereqs(ctx, ais)
@@ -494,7 +511,7 @@ requeue:
 	return
 }
 
-func (r *AIStoreReconciler) createRBACResources(ctx context.Context, ais *aisv1.AIStore) (err error) {
+func (r *AIStoreReconciler) createOrUpdateRBACResources(ctx context.Context, ais *aisv1.AIStore) (err error) {
 	// 1. Create service account if not exists
 	sa := cmn.NewAISServiceAccount(ais)
 	if err = r.client.CreateOrUpdateResource(ctx, nil, sa); err != nil {

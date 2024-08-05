@@ -39,7 +39,6 @@ const (
 
 	// ErrorReason
 	ReasonUnknown         ErrorReason = "Unknown"
-	RBACManagementError   ErrorReason = "RBACError"
 	ProxyCreationError    ErrorReason = "ProxyCreationError"
 	TargetCreationError   ErrorReason = "TargetCreationError"
 	InstanceDeletionError ErrorReason = "InstanceDeletionError"
