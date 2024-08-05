@@ -16,7 +16,6 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
@@ -143,19 +142,6 @@ func (c *K8sClient) ListNodesRunningAIS(ctx context.Context, ais *aisv1.AIStore)
 		return nil, err
 	}
 	return uniqueNodeNames, nil
-}
-
-// GetStorageClasses returns a map of installed storage classes in the k8s cluster
-func (c *K8sClient) GetStorageClasses(ctx context.Context) (map[string]*storagev1.StorageClass, error) {
-	scList := &storagev1.StorageClassList{}
-	if err := c.client.List(ctx, scList); err != nil {
-		return nil, err
-	}
-	scMap := make(map[string]*storagev1.StorageClass, len(scList.Items))
-	for i := range scList.Items {
-		scMap[scList.Items[i].Name] = &scList.Items[i]
-	}
-	return scMap, nil
 }
 
 //////////////////////////////////////

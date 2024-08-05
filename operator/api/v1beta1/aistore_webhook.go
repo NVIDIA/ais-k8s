@@ -11,17 +11,23 @@ import (
 	"reflect"
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
+	corev1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 // log is for logging in this package.
-var aistorelog = logf.Log.WithName("aistore-resource")
+var webhooklog = logf.Log.WithName("aistore-resource")
 
 // +kubebuilder:object:generate=false
-type AIStoreWebhook struct{}
+type AIStoreWebhook struct {
+	Client client.Client
+}
 
 // change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
 // +kubebuilder:webhook:path=/validate-ais-nvidia-com-v1beta1-aistore,mutating=false,failurePolicy=fail,sideEffects=None,groups=ais.nvidia.com,resources=aistores,verbs=create;update,versions=v1beta1,name=vaistore.kb.io,admissionReviewVersions={v1,v1beta1}
@@ -58,23 +64,33 @@ func (ais *AIStore) validateStateStorage() (admission.Warnings, error) {
 }
 
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type.
-func (*AIStoreWebhook) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
+func (aisw *AIStoreWebhook) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	ais, ok := obj.(*AIStore)
 	if !ok {
 		return nil, fmt.Errorf("failed to covert runtime.Object to AIStore")
 	}
 
-	aistorelog.Info("Validate create", "name", ais.Name)
-	return ais.validateSpec()
+	webhooklog.WithValues("name", ais.Name, "namespace", ais.Namespace).Info("Validate create")
+	return aisw.validateCreate(ctx, ais)
 }
 
-func (ais *AIStore) validateSpec() (admission.Warnings, error) {
+func (aisw *AIStoreWebhook) validateCreate(ctx context.Context, ais *AIStore) (admission.Warnings, error) {
+	return ais.ValidateSpec(ctx,
+		func() (admission.Warnings, error) {
+			err := aisw.verifyDeployment(ctx, ais)
+			return nil, err
+		},
+	)
+}
+
+func (ais *AIStore) ValidateSpec(_ context.Context, extraValidations ...func() (admission.Warnings, error)) (admission.Warnings, error) {
 	var allWarnings admission.Warnings
 
 	validations := []func() (admission.Warnings, error){
 		ais.validateSize,
 		ais.validateStateStorage,
 	}
+	validations = append(validations, extraValidations...)
 
 	// Run each validation function, aggregate warnings, exit on error
 	for _, validate := range validations {
@@ -88,7 +104,7 @@ func (ais *AIStore) validateSpec() (admission.Warnings, error) {
 }
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type.
-func (*AIStoreWebhook) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+func (aisw *AIStoreWebhook) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
 	prev, ok := oldObj.(*AIStore)
 	if !ok {
 		return nil, fmt.Errorf("failed to covert runtime.Object to AIStore")
@@ -98,42 +114,40 @@ func (*AIStoreWebhook) ValidateUpdate(_ context.Context, oldObj, newObj runtime.
 		return nil, fmt.Errorf("failed to covert runtime.Object to AIStore")
 	}
 
-	aistorelog.Info("Validate update", "name", ais.Name)
-
-	return nil, ais.vup(prev)
+	webhooklog.WithValues("name", ais.Name, "namespace", ais.Namespace).Info("Validate update")
+	return aisw.validateUpdate(ctx, prev, ais)
 }
 
-func (ais *AIStore) vup(prev *AIStore) error {
-	if _, err := ais.validateSize(); err != nil {
-		return err
+func (aisw *AIStoreWebhook) validateUpdate(ctx context.Context, prev, ais *AIStore) (admission.Warnings, error) {
+	if warnings, err := aisw.validateCreate(ctx, ais); err != nil {
+		return warnings, err
 	}
 
 	// TODO: better validation, maybe using AIS IterFields?
 	// users can update size for scaling up or down
 	prev.Spec.ProxySpec.Size = ais.Spec.ProxySpec.Size
 	if !reflect.DeepEqual(ais.Spec.ProxySpec, prev.Spec.ProxySpec) {
-		return errCannotUpdateSpec("proxySpec")
+		// TODO: For now, just error if proxy specs are updated. Eventually, this should be implemented.
+		return nil, errCannotUpdateSpec("proxySpec")
 	}
 
 	// same
 	prev.Spec.TargetSpec.Size = ais.Spec.TargetSpec.Size
 	if !reflect.DeepEqual(ais.Spec.TargetSpec, prev.Spec.TargetSpec) {
-		// TODO: For now, just log error if target specs are updated. Eventually, implement
-		// logic that compares target specs accurately.
-		err := errCannotUpdateSpec("targetSpec")
-		aistorelog.Error(err, fmt.Sprintf("%v != %v", ais.Spec.TargetSpec, prev.Spec.TargetSpec))
+		// TODO: For now, just error if target specs are updated. Eventually, this should be implemented.
+		return nil, errCannotUpdateSpec("targetSpec")
 	}
 
 	if ais.Spec.EnableExternalLB != prev.Spec.EnableExternalLB {
-		return errCannotUpdateSpec("enableExternalLB")
+		return nil, errCannotUpdateSpec("enableExternalLB")
 	}
 
 	if ais.Spec.HostpathPrefix != nil && prev.Spec.HostpathPrefix != nil {
 		if *ais.Spec.HostpathPrefix != *prev.Spec.HostpathPrefix {
-			return errCannotUpdateSpec("hostpathPrefix")
+			return nil, errCannotUpdateSpec("hostpathPrefix")
 		}
 	}
-	return nil
+	return nil, nil
 }
 
 // ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type.
@@ -143,8 +157,72 @@ func (*AIStoreWebhook) ValidateDelete(_ context.Context, obj runtime.Object) (ad
 		return nil, fmt.Errorf("failed to covert runtime.Object to AIStore")
 	}
 
-	aistorelog.Info("Validate delete", "name", ais.Name)
+	webhooklog.WithValues("name", ais.Name, "namespace", ais.Namespace).Info("Validate delete")
 	return nil, nil
+}
+
+func (aisw *AIStoreWebhook) verifyDeployment(ctx context.Context, ais *AIStore) error {
+	if err := aisw.verifyNodesAvailable(ctx, ais, aisapc.Proxy); err != nil {
+		return err
+	}
+	if err := aisw.verifyNodesAvailable(ctx, ais, aisapc.Target); err != nil {
+		return err
+	}
+	return aisw.verifyRequiredStorageClasses(ctx, ais)
+}
+
+func (aisw *AIStoreWebhook) verifyNodesAvailable(ctx context.Context, ais *AIStore, daeType string) error {
+	var (
+		requiredSize int
+		nodeSelector map[string]string
+		nodes        = &corev1.NodeList{}
+	)
+	switch daeType {
+	case aisapc.Proxy:
+		requiredSize = int(ais.GetProxySize())
+		nodeSelector = ais.Spec.ProxySpec.NodeSelector
+	case aisapc.Target:
+		if ais.AllowTargetSharedNodes() {
+			return nil
+		}
+		requiredSize = int(ais.GetTargetSize())
+		nodeSelector = ais.Spec.TargetSpec.NodeSelector
+	default:
+		return nil
+	}
+
+	// Check that desired nodes matching this selector does not exceed available K8s cluster nodes
+	err := aisw.Client.List(ctx, nodes, &client.ListOptions{LabelSelector: labels.SelectorFromSet(nodeSelector)})
+	if err != nil {
+		return err
+	}
+	if len(nodes.Items) >= requiredSize {
+		return nil
+	}
+	return fmt.Errorf("spec for AIS %s requires more K8s nodes matching the given selector: expected '%d' but found '%d'", daeType, requiredSize, len(nodes.Items))
+}
+
+// Ensure all storage classes requested by the AIS resource are available in the cluster
+func (aisw *AIStoreWebhook) verifyRequiredStorageClasses(ctx context.Context, ais *AIStore) error {
+	scList := &storagev1.StorageClassList{}
+	err := aisw.Client.List(ctx, scList)
+	if err != nil {
+		return err
+	}
+	scMap := make(map[string]*storagev1.StorageClass, len(scList.Items))
+	for i := range scList.Items {
+		scMap[scList.Items[i].Name] = &scList.Items[i]
+	}
+
+	requiredClasses := []*string{ais.Spec.StateStorageClass}
+	for _, requiredClass := range requiredClasses {
+		if requiredClass != nil {
+			if _, exists := scMap[*requiredClass]; !exists {
+				return fmt.Errorf("required storage class '%s' not found", *requiredClass)
+			}
+		}
+	}
+	return nil
 }
 
 // errors

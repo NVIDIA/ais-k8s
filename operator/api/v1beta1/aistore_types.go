@@ -39,7 +39,6 @@ const (
 
 	// ErrorReason
 	ReasonUnknown         ErrorReason = "Unknown"
-	IncompatibleSpecError ErrorReason = "IncompatibleSpecError"
 	RBACManagementError   ErrorReason = "RBACError"
 	ProxyCreationError    ErrorReason = "ProxyCreationError"
 	TargetCreationError   ErrorReason = "TargetCreationError"
@@ -51,6 +50,7 @@ const (
 	ResourceCreationError ErrorReason = "ResourceCreationError"
 	ResourceFetchError    ErrorReason = "ResouceFetchError" // failed to fetch a resource using K8s API
 	ResourceUpdateError   ErrorReason = "ResourceUpdateError"
+	InvalidSpecError      ErrorReason = "InvalidSpecError"
 
 	defaultClusterDomain = "cluster.local"
 )

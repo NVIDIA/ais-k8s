@@ -86,7 +86,9 @@ func main() {
 
 	err = ctrl.NewWebhookManagedBy(mgr).
 		For(&aisv1.AIStore{}).
-		WithValidator(&aisv1.AIStoreWebhook{}).
+		WithValidator(&aisv1.AIStoreWebhook{
+			Client: mgr.GetClient(),
+		}).
 		Complete()
 	if err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "AIStore")
