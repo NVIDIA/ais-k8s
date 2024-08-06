@@ -6,6 +6,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	aisapi "github.com/NVIDIA/aistore/api"
@@ -15,7 +16,6 @@ import (
 	"github.com/ais-operator/pkg/resources/target"
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -75,95 +75,116 @@ func (r *AIStoreReconciler) cleanupTargetSS(ctx context.Context, ais *aisv1.AISt
 }
 
 func (r *AIStoreReconciler) handleTargetState(ctx context.Context, ais *aisv1.AIStore) (ready bool, err error) {
+	logger := logf.FromContext(ctx)
 	if hasLatest, err := r.handleTargetImage(ctx, ais); !hasLatest || err != nil {
 		return false, err
 	}
-
-	targetSSName := target.StatefulSetNSName(ais)
-	// Fetch the latest StatefulSet for targets and check if it's spec (for now just replicas), matches the AIS cluster spec.
-	ss, err := r.client.GetStatefulSet(ctx, targetSSName)
+	// Fetch the latest target StatefulSet
+	ss, err := r.client.GetStatefulSet(ctx, target.StatefulSetNSName(ais))
 	if err != nil {
-		return ready, err
+		return
 	}
+	if ais.HasState(aisv1.ConditionScaling) {
+		// If desired does not match AIS, update the statefulset
+		if *ss.Spec.Replicas != ais.GetTargetSize() {
+			err = r.resolveStatefulSetScaling(ctx, ais)
+			if err != nil {
+				return false, err
+			}
+		} else if *ss.Spec.Replicas != ss.Status.ReadyReplicas {
+			logger.Info("Waiting for statefulset replicas to match desired count")
+			return false, nil
+		}
+	}
+	// Start the target scaling process by updating services and contacting the AIS API
 	if *ss.Spec.Replicas != ais.GetTargetSize() {
-		ready, err = r.handleTargetScaling(ctx, ais, ss, targetSSName)
-		if !ready || err != nil {
+		err = r.startTargetScaling(ctx, ais, ss)
+		if err != nil {
 			return false, err
 		}
+		// If successful, mark as scaling so future reconciliations will update the SS
+		_, err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionScaling})
+		return false, err
 	}
 	// For now, state of target is considered ready if the number of target pods ready matches the size provided in AIS cluster spec.
 	ready = ss.Status.ReadyReplicas == ais.GetTargetSize()
 	return
 }
 
-func (r *AIStoreReconciler) handleTargetScaling(ctx context.Context, ais *aisv1.AIStore, ss *v1.StatefulSet, targetSS types.NamespacedName) (ready bool, err error) {
-	if *ss.Spec.Replicas < ais.GetTargetSize() {
-		// Current SS has fewer replicas than expected size - scale up.
-		return r.handleTargetScaleUp(ctx, ais, targetSS)
-	}
-
-	// Otherwise - scale down.
-	return r.handleTargetScaleDown(ctx, ais, ss, targetSS)
-}
-
-func (r *AIStoreReconciler) handleTargetScaleDown(ctx context.Context, ais *aisv1.AIStore, ss *v1.StatefulSet, targetSS types.NamespacedName) (ready bool, err error) {
-	if ais.Spec.EnableExternalLB {
-		ready = true
-		for idx := *ss.Spec.Replicas; idx > ais.GetTargetSize(); idx-- {
-			svcName := target.LoadBalancerSVCNSName(ais, idx-1)
-			singleExisted, err := r.client.DeleteServiceIfExists(ctx, svcName)
-			if err != nil {
-				return false, err
-			}
-			ready = ready && !singleExisted
-		}
-		if !ready {
-			return
-		}
-	}
-
-	// Decommission target scaling down statefulset
-	decommissioning, err := r.decommissionTargets(ctx, ais, *ss.Spec.Replicas)
-	if decommissioning || err != nil {
-		return false, err
-	}
-
-	logf.FromContext(ctx).Info("Targets decommissioned, scaling down statefulset to match AIS cluster spec size")
-	// If anything was updated, we consider it not immediately ready.
-	updated, err := r.client.UpdateStatefulSetReplicas(ctx, targetSS, ais.GetTargetSize())
-	return !updated, err
-}
-
-// Scale down the statefulset without decommissioning
-func (r *AIStoreReconciler) scaleTargetsToZero(ctx context.Context, ais *aisv1.AIStore) error {
+func (r *AIStoreReconciler) resolveStatefulSetScaling(ctx context.Context, ais *aisv1.AIStore) error {
 	logger := logf.FromContext(ctx)
-	logger.Info("Scaling targets to zero")
-	changed, err := r.client.UpdateStatefulSetReplicas(ctx, target.StatefulSetNSName(ais), 0)
+	desiredSize := ais.GetTargetSize()
+	current, err := r.client.GetStatefulSet(ctx, target.StatefulSetNSName(ais))
 	if err != nil {
-		logger.Error(err, "Failed to scale targets to zero")
-	} else if changed {
-		logger.Info("Target StatefulSet set to size 0")
-	} else {
-		logger.Info("Target StatefulSet already at size 0")
+		return err
 	}
-	return err
+	// Scaling up
+	if desiredSize > *current.Spec.Replicas {
+		logger.Info("Scaling up target statefulset to match AIS cluster spec size", "desiredSize", desiredSize)
+	} else if desiredSize < *current.Spec.Replicas {
+		if !r.isReadyToScaleDown(ctx, ais) {
+			// No err, but don't proceed to update state to ready
+			return nil
+		}
+		logger.Info("Scaling down target statefulset to match AIS cluster spec size", "desiredSize", desiredSize)
+	}
+	_, err = r.client.UpdateStatefulSetReplicas(ctx, target.StatefulSetNSName(ais), desiredSize)
+	if err != nil {
+		return err
+	}
+	logger.Info("Finished scaling target statefulset")
+	ais.SetState(aisv1.ConditionReady)
+	return nil
 }
 
-func (r *AIStoreReconciler) decommissionTargets(ctx context.Context, ais *aisv1.AIStore, actualSize int32) (decommissioning bool, err error) {
+func (r *AIStoreReconciler) isReadyToScaleDown(ctx context.Context, ais *aisv1.AIStore) bool {
+	// Make sure no rebalance jobs are running
 	logger := logf.FromContext(ctx)
 	params, err := r.getAPIParams(ctx, ais)
 	if err != nil {
 		logger.Error(err, "Failed to get API params")
-		return false, err
+		return false
+	}
+	jobs, err := aisapi.GetAllRunningXactions(*params, aisapc.ActRebalance)
+	if err != nil {
+		logger.Error(err, "Failed to get rebalance jobs")
+		return false
+	}
+	if len(jobs) > 0 {
+		logger.Info(fmt.Sprintf("Found %d running rebalance jobs, delaying scaling", len(jobs)))
+		return false
+	}
+	return true
+}
+
+func (r *AIStoreReconciler) startTargetScaling(ctx context.Context, ais *aisv1.AIStore, ss *v1.StatefulSet) error {
+	if *ss.Spec.Replicas < ais.GetTargetSize() {
+		// Current SS has fewer replicas than expected size - scale up.
+		return r.scaleUpLB(ctx, ais)
+	}
+	// Otherwise - scale down.
+	err := r.scaleDownLB(ctx, ais, ss)
+	if err != nil {
+		return err
+	}
+	// Decommission target through AIS API
+	return r.decommissionTargets(ctx, ais, *ss.Spec.Replicas)
+}
+
+func (r *AIStoreReconciler) decommissionTargets(ctx context.Context, ais *aisv1.AIStore, actualSize int32) error {
+	logger := logf.FromContext(ctx)
+	params, err := r.getAPIParams(ctx, ais)
+	if err != nil {
+		logger.Error(err, "Failed to get API params")
+		return err
 	}
 
 	smap, err := aisapi.GetClusterMap(*params)
 	if err != nil {
 		logger.Error(err, "Failed to get cluster map")
-		return false, err
+		return err
 	}
 	logger.Info("Decommissioning targets", "Smap version", smap)
-	toDecommission := 0
 	for idx := actualSize; idx > ais.GetTargetSize(); idx-- {
 		podName := target.PodName(ais, idx-1)
 		logger.Info("Attempting to decommission target", "podName", podName)
@@ -171,21 +192,19 @@ func (r *AIStoreReconciler) decommissionTargets(ctx context.Context, ais *aisv1.
 			if !strings.HasPrefix(node.ControlNet.Hostname, podName) {
 				continue
 			}
-			toDecommission++
 			if !smap.InMaintOrDecomm(node) {
-				logger.Info("Decommissioning node", "nodeID", node.ID())
+				logger.Info("Decommissioning target", "nodeID", node.ID())
 				_, err = aisapi.DecommissionNode(*params, &aisapc.ActValRmNode{DaemonID: node.ID(), RmUserData: true})
 				if err != nil {
 					logger.Error(err, "Failed to decommission node", "nodeID", node.ID())
-					return
+					return err
 				}
 			} else {
-				logger.Info("Node is already in decommissioning state", "nodeID", node.ID())
+				logger.Info("AIS target is already in decommissioning state", "nodeID", node.ID())
 			}
 		}
 	}
-	decommissioning = toDecommission != 0
-	return
+	return nil
 }
 
 func (r *AIStoreReconciler) handleTargetImage(ctx context.Context, ais *aisv1.AIStore) (ready bool, err error) {
@@ -209,49 +228,53 @@ func (r *AIStoreReconciler) handleTargetImage(ctx context.Context, ais *aisv1.AI
 	return true, nil
 }
 
-func (r *AIStoreReconciler) handleTargetScaleUp(ctx context.Context, ais *aisv1.AIStore, targetSS types.NamespacedName) (ready bool, err error) {
-	if ais.Spec.EnableExternalLB {
-		ready, err = r.enableTargetExternalService(ctx, ais)
-		// External services not fully ready yet, end here and wait for another retry.
-		// Do not proceed to updating targets SS until all external services are ready.
-		if !ready || err != nil {
-			return
+func (r *AIStoreReconciler) scaleUpLB(ctx context.Context, ais *aisv1.AIStore) error {
+	if !ais.Spec.EnableExternalLB {
+		return nil
+	}
+	return r.enableTargetExternalService(ctx, ais)
+}
+
+func (r *AIStoreReconciler) scaleDownLB(ctx context.Context, ais *aisv1.AIStore, ss *v1.StatefulSet) error {
+	if !ais.Spec.EnableExternalLB {
+		return nil
+	}
+	for idx := *ss.Spec.Replicas; idx > ais.GetTargetSize(); idx-- {
+		svcName := target.LoadBalancerSVCNSName(ais, idx-1)
+		_, err := r.client.DeleteServiceIfExists(ctx, svcName)
+		if err != nil {
+			return err
 		}
 	}
-
-	// If anything was updated, we consider it not immediately ready.
-	updated, err := r.client.UpdateStatefulSetReplicas(ctx, targetSS, ais.GetTargetSize())
-	return !updated, err
+	return nil
 }
 
 // enableTargetExternalService, creates a loadbalancer service per target and checks if all the services are assigned an external IP.
 func (r *AIStoreReconciler) enableTargetExternalService(ctx context.Context,
 	ais *aisv1.AIStore,
-) (ready bool, err error) {
+) error {
 	targetSVCList := target.NewLoadBalancerSVCList(ais)
-	// 1. Try creating a LoadBalancer for each target pod, if the SVC are already created (`allExists` == true), then proceed to checking their status.
+	// 1. Try creating a LoadBalancer service for each target pod
 	for _, svc := range targetSVCList {
-		err = r.client.CreateOrUpdateResource(ctx, ais, svc)
+		err := r.client.CreateOrUpdateResource(ctx, ais, svc)
 		if err != nil {
-			return
+			return err
 		}
 	}
 
-	// 2. If all the SVC already exist, ensure every `service` has an external IP assigned to it.
-	//    If not, `ready` will be set to false.
+	// 2. Ensure every service has an ingress IP assigned to it.
 	svcList := &corev1.ServiceList{}
-	err = r.client.List(ctx, svcList, client.MatchingLabels(target.ExternalServiceLabels(ais)))
+	err := r.client.List(ctx, svcList, client.MatchingLabels(target.ExternalServiceLabels(ais)))
 	if err != nil {
-		return
+		return err
 	}
 
 	for i := range svcList.Items {
 		for _, ing := range svcList.Items[i].Status.LoadBalancer.Ingress {
 			if ing.IP == "" {
-				return
+				return fmt.Errorf("ingress IP not set for Load Balancer")
 			}
 		}
 	}
-	ready = true
-	return
+	return nil
 }

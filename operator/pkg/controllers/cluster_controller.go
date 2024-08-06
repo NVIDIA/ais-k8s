@@ -203,10 +203,11 @@ func (r *AIStoreReconciler) shutdownCluster(ctx context.Context, ais *aisv1.AISt
 	if err = r.attemptGracefulShutdown(ctx, ais); err != nil {
 		logger.Error(err, "Graceful shutdown failed")
 	}
-	if err = r.scaleProxiesToZero(ctx, ais); err != nil {
+	//TODO: wait for AIS graceful shutdown to finish before scaling down
+	if err = r.scaleStatefulSetToZero(ctx, proxy.StatefulSetNSName(ais)); err != nil {
 		return reconcile.Result{}, err
 	}
-	if err = r.scaleTargetsToZero(ctx, ais); err != nil {
+	if err = r.scaleStatefulSetToZero(ctx, target.StatefulSetNSName(ais)); err != nil {
 		return reconcile.Result{}, err
 	}
 	_, err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionShutdown})
@@ -267,6 +268,20 @@ func (r *AIStoreReconciler) cleanupClusterRes(ctx context.Context, ais *aisv1.AI
 func (r *AIStoreReconciler) isClusterRunning(ctx context.Context, ais *aisv1.AIStore) bool {
 	// Consider cluster running if both proxy and target ss have ready pods
 	return r.ssHasReadyReplicas(ctx, target.StatefulSetNSName(ais)) && r.ssHasReadyReplicas(ctx, proxy.StatefulSetNSName(ais))
+}
+
+func (r *AIStoreReconciler) scaleStatefulSetToZero(ctx context.Context, name types.NamespacedName) error {
+	logger := logf.FromContext(ctx).WithValues("statefulset", name.String())
+	logger.Info("Scaling statefulset to zero")
+	changed, err := r.client.UpdateStatefulSetReplicas(ctx, name, 0)
+	if err != nil {
+		logger.Error(err, "Failed to scale statefulset to zero")
+	} else if changed {
+		logger.Info("StatefulSet set to size 0")
+	} else {
+		logger.Info("StatefulSet already at size 0")
+	}
+	return err
 }
 
 func (r *AIStoreReconciler) ssHasReadyReplicas(ctx context.Context, name types.NamespacedName) bool {
@@ -410,14 +425,14 @@ func (r *AIStoreReconciler) ensurePrereqs(ctx context.Context, ais *aisv1.AIStor
 			r.recordError(ais, err, "Failed to enable proxy external service")
 			return r.manageError(ctx, ais, aisv1.ExternalServiceError, err)
 		}
-		targetReady, err = r.enableTargetExternalService(ctx, ais)
+		err = r.enableTargetExternalService(ctx, ais)
 		if err != nil {
 			r.recordError(ais, err, "Failed to enable target external service")
 			return r.manageError(ctx, ais, aisv1.ExternalServiceError, err)
 		}
 		// When external access is enabled, we need external IPs of all the targets before deploying AIS cluster.
 		// To ensure correct behavior of cluster, we requeue the reconciler till we have all the external IPs.
-		if !targetReady || !proxyReady {
+		if !proxyReady {
 			if !ais.HasState(aisv1.ConditionInitializingLBService) && !ais.HasState(aisv1.ConditionPendingLBService) {
 				retry, err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionInitializingLBService})
 				if !retry && err == nil {

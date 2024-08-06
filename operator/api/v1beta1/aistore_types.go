@@ -26,6 +26,7 @@ const (
 	ConditionCreated               ClusterCondition = "Created"
 	ConditionReady                 ClusterCondition = "Ready"
 	ConditionUpgrading             ClusterCondition = "Upgrading"
+	ConditionScaling               ClusterCondition = "Scaling"
 	ConditionShuttingDown          ClusterCondition = "ShuttingDown"
 	ConditionShutdown              ClusterCondition = "Shutdown"
 	ConditionDecommissioning       ClusterCondition = "Decommissioning"

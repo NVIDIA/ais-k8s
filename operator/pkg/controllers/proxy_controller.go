@@ -293,21 +293,6 @@ func (r *AIStoreReconciler) handleProxyScaledown(ctx context.Context, ais *aisv1
 	}
 }
 
-// Scale down the statefulset without decommissioning or resetting primary
-func (r *AIStoreReconciler) scaleProxiesToZero(ctx context.Context, ais *aisv1.AIStore) error {
-	logger := logf.FromContext(ctx)
-	logger.Info("Scaling proxies to zero", "clusterName", ais.Name)
-	changed, err := r.client.UpdateStatefulSetReplicas(ctx, proxy.StatefulSetNSName(ais), 0)
-	if err != nil {
-		logger.Error(err, "Failed to scale proxies to zero")
-	} else if changed {
-		logger.Info("Proxy StatefulSet set to size 0")
-	} else {
-		logger.Info("Proxy StatefulSet already at size 0")
-	}
-	return err
-}
-
 // enableProxyExternalService, creates a LoadBalancer service for proxy statefulset.
 // NOTE: As opposed to `target` external services, where we have a separate LoadBalancer service per pod,
 // `proxies` have a single LoadBalancer service across all the proxy pods.
