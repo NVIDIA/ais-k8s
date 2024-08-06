@@ -104,7 +104,12 @@ func NewAISReconcilerFromMgr(mgr manager.Manager, logger logr.Logger, isExternal
 // +kubebuilder:rbac:groups=ais.nvidia.com,resources=aistores,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=ais.nvidia.com,resources=aistores/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=ais.nvidia.com,resources=aistores/finalizers,verbs=update
-// +kubebuilder:rbac:groups=*,resources=*,verbs=*
+// +kubebuilder:rbac:groups="",resources=namespaces;nodes;pods,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=delete;get;list
+// +kubebuilder:rbac:groups="";rbac.authorization.k8s.io,resources=serviceaccounts;roles;rolebindings;clusterroles;clusterrolesbindings,verbs=create;delete;get;list;watch;patch;update
+// +kubebuilder:rbac:groups="";apps,resources=configmaps;services;statefulsets,verbs=create;delete;get;list;watch;patch;update
+// +kubebuilder:rbac:groups=storage.k8s.io,resources=storageclasses,verbs=list
+// +kubebuilder:rbac:groups=batch,resources=jobs,verbs=create;delete;get
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
