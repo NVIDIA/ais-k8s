@@ -1,4 +1,4 @@
-image: ubuntu:22.04
+image: aistorage/ci:latest
 
 stages:
   - build
@@ -11,12 +11,6 @@ variables:
   AISNODE_IMAGE: "aistorage/aisnode"
   TEST_ALLOW_SHARED_NO_DISKS: "true"
 
-before_script:
-  - apt-get update -y --allow-releaseinfo-change && apt install -y docker.io build-essential
-  - nohup dockerd >/dev/null 2>&1 & sleep 10
-  - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD
-  - kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.27/deploy/local-path-storage.yaml
-
 .default_only_template: &default_only_def
   only:
     - main
@@ -25,7 +19,6 @@ before_script:
 
 build:operator:lint:
   stage: build
-  image: aistorage/ci:latest
   timeout: 10m
   <<: *default_only_def
   script:
@@ -38,7 +31,6 @@ build:operator:lint:
 
 build:operator:
   stage: build
-  image: aistorage/ci:latest
   timeout: 10m
   <<: *default_only_def
   script:
@@ -47,7 +39,6 @@ build:operator:
 test:operator:unit:
   stage: test:short
   needs: ["build:operator:lint", "build:operator"]
-  image: aistorage/ci:latest
   timeout: 10m
   <<: *default_only_def
   script:
@@ -59,11 +50,12 @@ test:operator:unit:
 operator:minikube:short:
   stage: test:short
   needs: ["build:operator:lint", "build:operator"]
-  image: aistorage/ci:latest
   <<: *default_only_def
   tags:
     - ais-k8s
   timeout: 30m
+  before_script:
+    - kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.27/deploy/local-path-storage.yaml
   script:
     - make -C operator test-e2e-short
   except:
@@ -73,7 +65,6 @@ operator:minikube:short:
 operator:minikube:long:
   stage: test:long
   needs: ["operator:minikube:short"]
-  image: aistorage/ci:latest
   tags:
     - ais-k8s-multinode
   timeout: 40m
@@ -89,13 +80,14 @@ operator:minikube:long:
         - operator/*
     - if: $CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "main"
       when: manual
+  before_script:
+    - kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.27/deploy/local-path-storage.yaml
   script:
     - make -C operator test-e2e-long
 
 operator:minikube:metallb:
   stage: test:long
   needs: ["operator:minikube:short"]
-  image: aistorage/ci:latest
   variables:
     # NOTE: No particular reason why these addresses would be unavailable.
     EXTERNAL_ADDRESSES: 172.20.0.100–172.20.0.120
