@@ -77,8 +77,13 @@ func (aisw *AIStoreWebhook) ValidateCreate(ctx context.Context, obj runtime.Obje
 func (aisw *AIStoreWebhook) validateCreate(ctx context.Context, ais *AIStore) (admission.Warnings, error) {
 	return ais.ValidateSpec(ctx,
 		func() (admission.Warnings, error) {
-			err := aisw.verifyDeployment(ctx, ais)
-			return nil, err
+			return aisw.verifyNodesAvailable(ctx, ais, aisapc.Proxy)
+		},
+		func() (admission.Warnings, error) {
+			return aisw.verifyNodesAvailable(ctx, ais, aisapc.Target)
+		},
+		func() (admission.Warnings, error) {
+			return aisw.verifyRequiredStorageClasses(ctx, ais)
 		},
 	)
 }
@@ -118,8 +123,8 @@ func (aisw *AIStoreWebhook) ValidateUpdate(ctx context.Context, oldObj, newObj r
 	return aisw.validateUpdate(ctx, prev, ais)
 }
 
-func (aisw *AIStoreWebhook) validateUpdate(ctx context.Context, prev, ais *AIStore) (admission.Warnings, error) {
-	if warnings, err := aisw.validateCreate(ctx, ais); err != nil {
+func (aisw *AIStoreWebhook) validateUpdate(ctx context.Context, prev, ais *AIStore) (warnings admission.Warnings, err error) {
+	if warnings, err = aisw.validateCreate(ctx, ais); err != nil {
 		return warnings, err
 	}
 
@@ -130,7 +135,7 @@ func (aisw *AIStoreWebhook) validateUpdate(ctx context.Context, prev, ais *AISto
 	if diff != nil {
 		webhooklog.Info(fmt.Sprintf("Differences found in proxy spec:\n%+v", diff))
 		// TODO: For now, just error if proxy specs are updated. Eventually, this should be implemented.
-		return nil, errCannotUpdateSpec("proxySpec")
+		return warnings, errCannotUpdateSpec("proxySpec")
 	}
 
 	// same
@@ -139,19 +144,20 @@ func (aisw *AIStoreWebhook) validateUpdate(ctx context.Context, prev, ais *AISto
 	if diff != nil {
 		webhooklog.Info(fmt.Sprintf("Differences found in target spec:\n%+v", diff))
 		// TODO: For now, just error if target specs are updated. Eventually, this should be implemented.
-		return nil, errCannotUpdateSpec("targetSpec")
+		return warnings, errCannotUpdateSpec("targetSpec")
 	}
 
 	if ais.Spec.EnableExternalLB != prev.Spec.EnableExternalLB {
-		return nil, errCannotUpdateSpec("enableExternalLB")
+		return warnings, errCannotUpdateSpec("enableExternalLB")
 	}
 
 	if ais.Spec.HostpathPrefix != nil && prev.Spec.HostpathPrefix != nil {
 		if *ais.Spec.HostpathPrefix != *prev.Spec.HostpathPrefix {
-			return nil, errCannotUpdateSpec("hostpathPrefix")
+			return warnings, errCannotUpdateSpec("hostpathPrefix")
 		}
 	}
-	return nil, nil
+
+	return
 }
 
 // ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type.
@@ -165,17 +171,7 @@ func (*AIStoreWebhook) ValidateDelete(_ context.Context, obj runtime.Object) (ad
 	return nil, nil
 }
 
-func (aisw *AIStoreWebhook) verifyDeployment(ctx context.Context, ais *AIStore) error {
-	if err := aisw.verifyNodesAvailable(ctx, ais, aisapc.Proxy); err != nil {
-		return err
-	}
-	if err := aisw.verifyNodesAvailable(ctx, ais, aisapc.Target); err != nil {
-		return err
-	}
-	return aisw.verifyRequiredStorageClasses(ctx, ais)
-}
-
-func (aisw *AIStoreWebhook) verifyNodesAvailable(ctx context.Context, ais *AIStore, daeType string) error {
+func (aisw *AIStoreWebhook) verifyNodesAvailable(ctx context.Context, ais *AIStore, daeType string) (admission.Warnings, error) {
 	var (
 		requiredSize int
 		nodeSelector map[string]string
@@ -187,31 +183,33 @@ func (aisw *AIStoreWebhook) verifyNodesAvailable(ctx context.Context, ais *AISto
 		nodeSelector = ais.Spec.ProxySpec.NodeSelector
 	case aisapc.Target:
 		if ais.AllowTargetSharedNodes() {
-			return nil
+			return nil, nil
 		}
 		requiredSize = int(ais.GetTargetSize())
 		nodeSelector = ais.Spec.TargetSpec.NodeSelector
 	default:
-		return nil
+		return nil, fmt.Errorf("invalid daemon type: %s", daeType)
 	}
 
 	// Check that desired nodes matching this selector does not exceed available K8s cluster nodes
 	err := aisw.Client.List(ctx, nodes, &client.ListOptions{LabelSelector: labels.SelectorFromSet(nodeSelector)})
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if len(nodes.Items) >= requiredSize {
-		return nil
+		return nil, nil
 	}
-	return fmt.Errorf("spec for AIS %s requires more K8s nodes matching the given selector: expected '%d' but found '%d'", daeType, requiredSize, len(nodes.Items))
+	return admission.Warnings{
+		fmt.Sprintf("spec for AIS %s requires more K8s nodes matching the given selector: expected '%d' but found '%d'", daeType, requiredSize, len(nodes.Items)),
+	}, nil
 }
 
 // Ensure all storage classes requested by the AIS resource are available in the cluster
-func (aisw *AIStoreWebhook) verifyRequiredStorageClasses(ctx context.Context, ais *AIStore) error {
+func (aisw *AIStoreWebhook) verifyRequiredStorageClasses(ctx context.Context, ais *AIStore) (admission.Warnings, error) {
 	scList := &storagev1.StorageClassList{}
 	err := aisw.Client.List(ctx, scList)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	scMap := make(map[string]*storagev1.StorageClass, len(scList.Items))
 	for i := range scList.Items {
@@ -222,11 +220,11 @@ func (aisw *AIStoreWebhook) verifyRequiredStorageClasses(ctx context.Context, ai
 	for _, requiredClass := range requiredClasses {
 		if requiredClass != nil {
 			if _, exists := scMap[*requiredClass]; !exists {
-				return fmt.Errorf("required storage class '%s' not found", *requiredClass)
+				return nil, fmt.Errorf("required storage class '%s' not found", *requiredClass)
 			}
 		}
 	}
-	return nil
+	return nil, nil
 }
 
 // errors
