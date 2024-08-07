@@ -107,7 +107,6 @@ func definePathsWithLabels(ctx context.Context, spec *aisv1.TargetSpec, conf *ai
 	for _, m := range mounts {
 		//nolint:all // Backwards compatible with old CR option
 		if m.Label != nil {
-			logger.Info("Using provided mountpath labels for aisnode image > 3.22")
 			conf.FSP.Paths[m.Path] = *m.Label
 		} else if spec.AllowSharedOrNoDisks != nil && *spec.AllowSharedOrNoDisks {
 			// Support allowSharedNoDisks until removed from CR
