@@ -21,8 +21,8 @@ import (
 
 // TODO: Should be provided from test config.
 const (
-	aisNodeImage = "aistorage/aisnode:v3.24-rc2"
-	aisInitImage = "aistorage/ais-init:v1.2.0"
+	NodeImage = "aistorage/aisnode:v3.24-rc2"
+	InitImage = "aistorage/ais-init:v1.2.0"
 )
 
 type (
@@ -136,8 +136,8 @@ func newAISClusterCR(args *ClusterSpecArgs, mounts []aisv1.Mount) *aisv1.AIStore
 		ShutdownCluster:   aisapc.Ptr(args.ShutdownCluster),
 		CleanupMetadata:   aisapc.Ptr(args.CleanupMetadata),
 		CleanupData:       aisapc.Ptr(args.CleanupData),
-		NodeImage:         aisNodeImage,
-		InitImage:         aisInitImage,
+		NodeImage:         NodeImage,
+		InitImage:         InitImage,
 		StateStorageClass: aisapc.Ptr("local-path"),
 		EnableExternalLB:  args.EnableExternalLB,
 		ProxySpec: aisv1.DaemonSpec{

@@ -89,7 +89,9 @@ func (r *AIStoreReconciler) initProxies(ctx context.Context, ais *aisv1.AIStore)
 	return
 }
 
-func checkDNSEntry(ctx context.Context, ais *aisv1.AIStore) error {
+var checkDNSEntry = checkDNSEntryDefault
+
+func checkDNSEntryDefault(ctx context.Context, ais *aisv1.AIStore) error {
 	nsName := proxy.HeadlessSVCNSName(ais)
 	clusterDomain := ais.GetClusterDomain()
 	hostname := fmt.Sprintf("%s.%s.svc.%s", nsName.Name, nsName.Namespace, clusterDomain)

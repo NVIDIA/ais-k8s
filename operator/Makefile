@@ -5,6 +5,9 @@ BUILD_TIME = $(shell date +%FT%T%z)
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.25.0
 
+# KIND_K8S_VERSION refers to the version of container images for nodes that are being created during cluster setup.
+KIND_K8S_VERSION ?= v1.28.7
+
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
 GOBIN=$(shell go env GOPATH)/bin
@@ -68,7 +71,8 @@ vet: ## Run go vet against code.
 
 .PHONY: test test-e2e test-e2-short test-e2-long test-e2e-manual
 test: manifests generate fmt vet envtest ## Run tests.
-	@KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test -v -coverprofile cover.out $$(go list ./... | grep -v /e2e)
+	@[[ $$(command -v ginkgo) ]] || go install github.com/onsi/ginkgo/v2/ginkgo
+	@KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" ginkgo --vv --skip-package e2e --coverprofile cover.out ./...
 
 test-e2e: manifests generate fmt vet envtest
 	@KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" $(SHELL) "$(SCRIPTS_DIR)/test.sh"
@@ -81,6 +85,14 @@ test-e2e-long: manifests generate fmt vet envtest
 
 test-e2e-manual: manifests generate fmt vet envtest
 	@KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" $(SHELL) "$(SCRIPTS_DIR)/test.sh" manual
+
+.PHONY: kind kind-setup kind-teardown
+kind:
+	@[[ $$(command -v kind) ]] || go install sigs.k8s.io/kind@v0.23.0
+kind-setup: kind
+	kind create cluster --name ais-operator-test --image kindest/node:$(KIND_K8S_VERSION) --config scripts/kind_cluster_local.yaml
+kind-teardown: kind
+	kind delete cluster --name ais-operator-test
 
 .PHONY: lint
 lint: golangci-lint ## Run golangci-lint linter

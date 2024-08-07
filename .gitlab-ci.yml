@@ -38,7 +38,6 @@ build:operator:
 
 test:operator:unit:
   stage: test:short
-  needs: ["build:operator:lint", "build:operator"]
   timeout: 10m
   <<: *default_only_def
   script:
@@ -47,9 +46,42 @@ test:operator:unit:
     variables:
       - $CI_MERGE_REQUEST_LABELS =~ /.*skip-ci.*/
 
+test:operator:kind:unit:
+  stage: test:short
+  services: ["docker:24.0.5-dind"]
+  tags: ["ais"]
+  variables:
+    RUNNER_SCRIPT_TIMEOUT: 10m
+    RUNNER_AFTER_SCRIPT_TIMEOUT: 2m
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+  rules:
+    - when: manual
+      allow_failure: true
+  parallel:
+    matrix:
+      - KUBERNETES_VERSION:
+          - v1.28.9
+          - v1.29.4
+          - v1.30.2
+  before_script:
+    - make -C operator kind
+    - kind create cluster --name ais-operator-test --image "kindest/node:${KUBERNETES_VERSION}" --config operator/scripts/kind_cluster_gitlab.yaml --retain
+    - sed -i -E -e 's/localhost|0\.0\.0\.0/docker/g' "$HOME/.kube/config"
+    - kubectl cluster-info
+  script:
+    - export USE_EXISTING_CLUSTER=true
+    - make -C operator test
+  after_script:
+    - kind export logs logs --name ais-operator-test
+    - kind delete cluster --name ais-operator-test
+  artifacts:
+    when: on_failure
+    paths: ["logs/"]
+    expire_in: 1 day
+
 operator:minikube:short:
   stage: test:short
-  needs: ["build:operator:lint", "build:operator"]
   <<: *default_only_def
   tags:
     - ais-k8s
@@ -72,13 +104,9 @@ operator:minikube:long:
     - if: $CI_PIPELINE_SOURCE == "schedule"
     - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_LABELS =~ /.*skip-ci.*/
       when: never
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      changes:
-        - operator/*
-    - if: $CI_COMMIT_BRANCH == "main"
-      changes:
-        - operator/*
     - if: $CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "main"
+      changes:
+        - operator/*
       when: manual
   before_script:
     - kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.27/deploy/local-path-storage.yaml
