@@ -195,6 +195,10 @@ var _ = BeforeSuite(func() {
 // Statically created hostPath volumes have no reclaim policy to clean up the actual files on host, so this creates a
 // job to mount the host path and delete any files created by the test suite
 func CleanPVHostPath() {
+	if storageHostPath == "" {
+		return
+	}
+
 	nodes, err := k8sClient.ListNodesMatchingSelector(context.Background(), nil)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to list nodes to run cleanup; err %v\n", err)
