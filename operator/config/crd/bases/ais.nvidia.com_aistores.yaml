@@ -453,7 +453,7 @@ spec:
                 minLength: 1
                 type: string
               proxySpec:
-                description: NodeSpec defines the specs for AIS Daemon pods/containers
+                description: Proxy deployment specification.
                 properties:
                   affinity:
                     description: Affinity  - AIS Daemon pod's scheduling constraints
@@ -1808,6 +1808,7 @@ spec:
                       Size holds number of AIS Daemon (proxy/target) replicas.
                       Overrides value present in `AIStore` spec.
                     format: int32
+                    minimum: 0
                     type: integer
                   tolerations:
                     description: Tolerations - list of tolerations for AIS Daemon
@@ -1866,11 +1867,13 @@ spec:
                   Size of the cluster i.e. number of proxies and number of targets.
                   This can be changed by specifying size in either `proxySpec` or `targetSpec`.
                 format: int32
+                minimum: 0
                 type: integer
               stateStorageClass:
                 description: Used for creating dynamic volumes for storing state
                 type: string
               targetSpec:
+                description: Target deployment specification.
                 properties:
                   affinity:
                     description: Affinity  - AIS Daemon pod's scheduling constraints
@@ -3313,6 +3316,7 @@ spec:
                       Size holds number of AIS Daemon (proxy/target) replicas.
                       Overrides value present in `AIStore` spec.
                     format: int32
+                    minimum: 0
                     type: integer
                   tolerations:
                     description: Tolerations - list of tolerations for AIS Daemon
@@ -3371,6 +3375,12 @@ spec:
             - proxySpec
             - targetSpec
             type: object
+            x-kubernetes-validations:
+            - fieldPath: .size
+              message: Invalid cluster size, it is either not specified or value is
+                not valid
+              rule: (has(self.targetSpec.size) && has(self.proxySpec.size)) || (has(self.size)
+                && self.size > 0)
           status:
             description: AIStoreStatus defines the observed state of AIStore
             properties:

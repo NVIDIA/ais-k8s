@@ -96,11 +96,13 @@ const (
 // IMPORTANT: Run "make" to regenerate code after modifying this file
 
 // AIStoreSpec defines the desired state of AIStore
+// +kubebuilder:validation:XValidation:rule="(has(self.targetSpec.size) && has(self.proxySpec.size)) || (has(self.size) && self.size > 0)",message="Invalid cluster size, it is either not specified or value is not valid",fieldPath=".size"
 type AIStoreSpec struct {
 	// Size of the cluster i.e. number of proxies and number of targets.
 	// This can be changed by specifying size in either `proxySpec` or `targetSpec`.
+	// +kubebuilder:validation:Minimum=0
 	// +optional
-	Size *int32 `json:"size"`
+	Size *int32 `json:"size,omitempty"`
 	// Container image used for `aisnode` container.
 	// +kubebuilder:validation:MinLength=1
 	NodeImage string `json:"nodeImage"`
@@ -123,8 +125,10 @@ type AIStoreSpec struct {
 	// +optional
 	NetAttachment *string `json:"networkAttachment,omitempty"`
 
-	ProxySpec  DaemonSpec `json:"proxySpec"`  // spec for proxy
-	TargetSpec TargetSpec `json:"targetSpec"` // spec for target
+	// Proxy deployment specification.
+	ProxySpec DaemonSpec `json:"proxySpec"`
+	// Target deployment specification.
+	TargetSpec TargetSpec `json:"targetSpec"`
 
 	// ShutdownCluster can be set true if the desired state of the cluster is shutdown with a future restart expected
 	// When enabled, the operator will gracefully shut down the AIS cluster and scale cluster size to 0
@@ -221,8 +225,9 @@ type DaemonSpec struct {
 
 	// Size holds number of AIS Daemon (proxy/target) replicas.
 	// Overrides value present in `AIStore` spec.
+	// +kubebuilder:validation:Minimum=0
 	// +optional
-	Size *int32 `json:"size"`
+	Size *int32 `json:"size,omitempty"`
 
 	// ContainerSecurity holds the secrity context for AIS Daemon containers.
 	// +optional
