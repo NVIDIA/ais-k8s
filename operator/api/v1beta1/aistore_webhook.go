@@ -8,9 +8,9 @@ package v1beta1
 import (
 	"context"
 	"fmt"
-	"reflect"
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
+	"github.com/go-test/deep"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -67,7 +67,7 @@ func (ais *AIStore) validateStateStorage() (admission.Warnings, error) {
 func (aisw *AIStoreWebhook) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	ais, ok := obj.(*AIStore)
 	if !ok {
-		return nil, fmt.Errorf("failed to covert runtime.Object to AIStore")
+		return nil, fmt.Errorf("failed to convert runtime.Object to AIStore")
 	}
 
 	webhooklog.WithValues("name", ais.Name, "namespace", ais.Namespace).Info("Validate create")
@@ -107,11 +107,11 @@ func (ais *AIStore) ValidateSpec(_ context.Context, extraValidations ...func() (
 func (aisw *AIStoreWebhook) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
 	prev, ok := oldObj.(*AIStore)
 	if !ok {
-		return nil, fmt.Errorf("failed to covert runtime.Object to AIStore")
+		return nil, fmt.Errorf("failed to convert runtime.Object to AIStore")
 	}
 	ais, ok := newObj.(*AIStore)
 	if !ok {
-		return nil, fmt.Errorf("failed to covert runtime.Object to AIStore")
+		return nil, fmt.Errorf("failed to convert runtime.Object to AIStore")
 	}
 
 	webhooklog.WithValues("name", ais.Name, "namespace", ais.Namespace).Info("Validate update")
@@ -126,14 +126,18 @@ func (aisw *AIStoreWebhook) validateUpdate(ctx context.Context, prev, ais *AISto
 	// TODO: better validation, maybe using AIS IterFields?
 	// users can update size for scaling up or down
 	prev.Spec.ProxySpec.Size = ais.Spec.ProxySpec.Size
-	if !reflect.DeepEqual(ais.Spec.ProxySpec, prev.Spec.ProxySpec) {
+	diff := deep.Equal(ais.Spec.TargetSpec, prev.Spec.TargetSpec)
+	if diff != nil {
+		webhooklog.Info(fmt.Sprintf("Differences found in proxy spec:\n%+v", diff))
 		// TODO: For now, just error if proxy specs are updated. Eventually, this should be implemented.
 		return nil, errCannotUpdateSpec("proxySpec")
 	}
 
 	// same
 	prev.Spec.TargetSpec.Size = ais.Spec.TargetSpec.Size
-	if !reflect.DeepEqual(ais.Spec.TargetSpec, prev.Spec.TargetSpec) {
+	diff = deep.Equal(ais.Spec.TargetSpec, prev.Spec.TargetSpec)
+	if diff != nil {
+		webhooklog.Info(fmt.Sprintf("Differences found in target spec:\n%+v", diff))
 		// TODO: For now, just error if target specs are updated. Eventually, this should be implemented.
 		return nil, errCannotUpdateSpec("targetSpec")
 	}
@@ -154,7 +158,7 @@ func (aisw *AIStoreWebhook) validateUpdate(ctx context.Context, prev, ais *AISto
 func (*AIStoreWebhook) ValidateDelete(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
 	ais, ok := obj.(*AIStore)
 	if !ok {
-		return nil, fmt.Errorf("failed to covert runtime.Object to AIStore")
+		return nil, fmt.Errorf("failed to convert runtime.Object to AIStore")
 	}
 
 	webhooklog.WithValues("name", ais.Name, "namespace", ais.Namespace).Info("Validate delete")

@@ -5,6 +5,7 @@ go 1.22.3
 require (
 	github.com/NVIDIA/aistore v1.3.24-0.20240722173140-d50c2237a986
 	github.com/go-logr/logr v1.4.2
+	github.com/go-test/deep v1.1.1
 	github.com/json-iterator/go v1.1.12
 	github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.6.0
 	github.com/onsi/ginkgo/v2 v2.19.0
