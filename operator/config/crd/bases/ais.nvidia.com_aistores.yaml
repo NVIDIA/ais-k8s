@@ -440,7 +440,8 @@ spec:
                   x-kubernetes-map-type: atomic
                 type: array
               initImage:
-                description: Init image for nodes
+                description: Container image used for `ais-init` container.
+                minLength: 1
                 type: string
               logsDir:
                 description: Logs directory on host to store AIS logs
@@ -450,7 +451,8 @@ spec:
                   attachment definitions to attach to each pod
                 type: string
               nodeImage:
-                description: Docker image of aisnode
+                description: Container image used for `aisnode` container.
+                minLength: 1
                 type: string
               proxySpec:
                 description: NodeSpec defines the specs for AIS Daemon pods/containers

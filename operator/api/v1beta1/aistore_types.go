@@ -64,9 +64,11 @@ type AIStoreSpec struct {
 	// This can be changed by specifying size in either `proxySpec` or `targetSpec`.
 	// +optional
 	Size *int32 `json:"size"`
-	// Docker image of aisnode
+	// Container image used for `aisnode` container.
+	// +kubebuilder:validation:MinLength=1
 	NodeImage string `json:"nodeImage"`
-	// Init image for nodes
+	// Container image used for `ais-init` container.
+	// +kubebuilder:validation:MinLength=1
 	InitImage string `json:"initImage"`
 	// Deprecated: use StateStorageClass
 	// See docs/state_storage.md
