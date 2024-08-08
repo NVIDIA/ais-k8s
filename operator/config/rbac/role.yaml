@@ -5,55 +5,11 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
-  - ""
+  - '*'
   resources:
-  - namespaces
-  - nodes
-  - pods
+  - '*'
   verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - persistentvolumeclaims
-  verbs:
-  - delete
-  - get
-  - list
-- apiGroups:
-  - ""
-  - apps
-  resources:
-  - configmaps
-  - services
-  - statefulsets
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - ""
-  - rbac.authorization.k8s.io
-  resources:
-  - clusterroles
-  - clusterrolesbindings
-  - rolebindings
-  - roles
-  - serviceaccounts
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
+  - '*'
 - apiGroups:
   - ais.nvidia.com
   resources:
@@ -80,17 +36,3 @@ rules:
   - get
   - patch
   - update
-- apiGroups:
-  - batch
-  resources:
-  - jobs
-  verbs:
-  - create
-  - delete
-  - get
-- apiGroups:
-  - storage.k8s.io
-  resources:
-  - storageclasses
-  verbs:
-  - list
