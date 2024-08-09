@@ -1,26 +1,34 @@
 image: aistorage/ci:latest
 
 stages:
-  - build
-  - test:short
-  - test:long
+  - operator:build
+  - operator:test:short
+  - operator:test:long
 
-# NOTE: uses default tag ':latest', as in: 'aistorage/aisnode:latest'
-variables:
-  ADMIN_IMAGE: "aistorage/admin"
-  AISNODE_IMAGE: "aistorage/aisnode"
-  TEST_ALLOW_SHARED_NO_DISKS: "true"
+.operator_default_rules_template: &operator_default_rules_def
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "main"
+      changes:
+        - operator/**/*
+    # If there are no changes in `operator` dir we should still be able to run jobs manually.
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "main"
+      when: manual
+      allow_failure: true
 
-.default_only_template: &default_only_def
-  only:
-    - main
-    - merge_requests
-    - schedules
+.operator_skipci_rules_template: &operator_skipci_rules_def
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_LABELS =~ /.*skip-ci.*/
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "main"
+      changes:
+        - operator/**/*
 
-build:operator:lint:
-  stage: build
+operator:lint:
+  stage: operator:build
   timeout: 10m
-  <<: *default_only_def
+  <<: *operator_default_rules_def
   script:
     - cd operator
     - make lint
@@ -29,35 +37,32 @@ build:operator:lint:
     - make generate && [[ -z "$(git status -s)" ]] || { echo "You need to run 'make generate'"; exit 1; }
     - make manifests && [[ -z "$(git status -s)" ]] || { echo "You need to run 'make manifests'"; exit 1; }
 
-build:operator:
-  stage: build
+operator:build:
+  stage: operator:build
   timeout: 10m
-  <<: *default_only_def
+  <<: *operator_default_rules_def
   script:
     - make -C operator build
 
-test:operator:unit:
-  stage: test:short
+operator:test:unit:
+  stage: operator:test:short
   timeout: 10m
-  <<: *default_only_def
+  <<: *operator_default_rules_def
   script:
     - make -C operator test
-  except:
-    variables:
-      - $CI_MERGE_REQUEST_LABELS =~ /.*skip-ci.*/
 
-test:operator:kind:unit:
-  stage: test:short
+operator:test:kind:unit:
+  stage: operator:test:short
   services: ["docker:24.0.5-dind"]
   tags: ["ais"]
+  rules:
+    - when: manual
+      allow_failure: true
   variables:
     RUNNER_SCRIPT_TIMEOUT: 10m
     RUNNER_AFTER_SCRIPT_TIMEOUT: 2m
     DOCKER_HOST: tcp://docker:2375
     DOCKER_TLS_CERTDIR: ""
-  rules:
-    - when: manual
-      allow_failure: true
   parallel:
     matrix:
       - KUBERNETES_VERSION:
@@ -80,55 +85,46 @@ test:operator:kind:unit:
     paths: ["logs/"]
     expire_in: 1 day
 
-operator:minikube:short:
-  stage: test:short
-  <<: *default_only_def
-  tags:
-    - ais-k8s
+operator:test:minikube:short:
+  stage: operator:test:short
+  tags: ["ais-k8s"]
   timeout: 30m
+  <<: *operator_skipci_rules_def
   before_script:
     - kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.27/deploy/local-path-storage.yaml
   script:
     - make -C operator test-e2e-short
-  except:
-    variables:
-      - $CI_MERGE_REQUEST_LABELS =~ /.*skip-ci.*/
 
-operator:minikube:long:
-  stage: test:long
-  needs: ["operator:minikube:short"]
-  tags:
-    - ais-k8s-multinode
+operator:test:minikube:long:
+  stage: operator:test:long
+  needs: ["operator:test:minikube:short"]
+  tags: ["ais-k8s-multinode"]
   timeout: 40m
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "schedule"
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_LABELS =~ /.*skip-ci.*/
-      when: never
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "main"
-      changes:
-        - operator/**/*
-      when: manual
+  <<: *operator_skipci_rules_def
   before_script:
     - kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.27/deploy/local-path-storage.yaml
   script:
     - make -C operator test-e2e-long
 
-operator:minikube:metallb:
-  stage: test:long
-  needs: ["operator:minikube:short"]
-  variables:
-    # NOTE: No particular reason why these addresses would be unavailable.
-    EXTERNAL_ADDRESSES: 172.20.0.100–172.20.0.120
-  tags:
-    - ais-k8s-multinode
-  timeout: 20m
+operator:test:minikube:metallb:
+  stage: operator:test:long
+  needs: ["operator:test:minikube:short"]
+  tags: ["ais-k8s-multinode"]
+  timeout: 25m
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "schedule"'
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_LABELS =~ /.*skip-ci.*/'
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_LABELS =~ /.*skip-ci.*/
       when: never
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - operator/**/*
       when: manual
       allow_failure: true
+  variables:
+    RUNNER_SCRIPT_TIMEOUT: 20m
+    RUNNER_AFTER_SCRIPT_TIMEOUT: 2m
+    # NOTE: No particular reason why these addresses would be unavailable.
+    EXTERNAL_ADDRESSES: 172.20.0.100–172.20.0.120
   before_script:
     - apt-get install gettext-base
     - make -C operator deploy-metallb
