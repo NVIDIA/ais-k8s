@@ -14,8 +14,9 @@ import (
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	"github.com/ais-operator/pkg/resources/cmn"
 	"github.com/ais-operator/pkg/resources/target"
-	v1 "k8s.io/api/apps/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -76,14 +77,24 @@ func (r *AIStoreReconciler) cleanupTargetSS(ctx context.Context, ais *aisv1.AISt
 
 func (r *AIStoreReconciler) handleTargetState(ctx context.Context, ais *aisv1.AIStore) (ready bool, err error) {
 	logger := logf.FromContext(ctx)
-	if hasLatest, err := r.handleTargetImage(ctx, ais); !hasLatest || err != nil {
-		return false, err
-	}
-	// Fetch the latest target StatefulSet
+
+	// Fetch the latest target StatefulSet.
 	ss, err := r.client.GetStatefulSet(ctx, target.StatefulSetNSName(ais))
 	if err != nil {
-		return
+		if k8serrors.IsNotFound(err) {
+			// FIXME: We should likely set condition that `ais-target` StatefulSet
+			// needs to reconciled and we should invoke this function over and over
+			// until done.
+			requeue, err := r.initTargets(ctx, ais)
+			return !requeue, err
+		}
+		return ready, err
 	}
+
+	if hasLatest, err := r.handleTargetImage(ctx, ais, ss); !hasLatest || err != nil {
+		return false, err
+	}
+
 	if ais.HasState(aisv1.ConditionScaling) {
 		// If desired does not match AIS, update the statefulset
 		if *ss.Spec.Replicas != ais.GetTargetSize() {
@@ -165,7 +176,7 @@ func (r *AIStoreReconciler) isReadyToScaleDown(ctx context.Context, ais *aisv1.A
 	return true, nil
 }
 
-func (r *AIStoreReconciler) startTargetScaling(ctx context.Context, ais *aisv1.AIStore, ss *v1.StatefulSet) error {
+func (r *AIStoreReconciler) startTargetScaling(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) error {
 	if *ss.Spec.Replicas < ais.GetTargetSize() {
 		// Current SS has fewer replicas than expected size - scale up.
 		return r.scaleUpLB(ctx, ais)
@@ -214,15 +225,14 @@ func (r *AIStoreReconciler) decommissionTargets(ctx context.Context, ais *aisv1.
 	return nil
 }
 
-func (r *AIStoreReconciler) handleTargetImage(ctx context.Context, ais *aisv1.AIStore) (ready bool, err error) {
-	updated, err := r.client.UpdateStatefulSetImage(ctx,
-		target.StatefulSetNSName(ais), 0 /*idx*/, ais.Spec.NodeImage)
-	if updated || err != nil {
+func (r *AIStoreReconciler) handleTargetImage(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) (ready bool, err error) {
+	updated, err := r.client.UpdateStatefulSetImage(ctx, target.StatefulSetNSName(ais), 0 /*idx*/, ais.Spec.NodeImage)
+	if err != nil || updated {
 		logf.FromContext(ctx).Info("target image updated")
 		return false, err
 	}
 
-	podList, err := r.client.ListTargetPods(ctx, ais)
+	podList, err := r.client.ListPods(ctx, ss)
 	if err != nil {
 		return
 	}
@@ -242,7 +252,7 @@ func (r *AIStoreReconciler) scaleUpLB(ctx context.Context, ais *aisv1.AIStore) e
 	return r.enableTargetExternalService(ctx, ais)
 }
 
-func (r *AIStoreReconciler) scaleDownLB(ctx context.Context, ais *aisv1.AIStore, ss *v1.StatefulSet) error {
+func (r *AIStoreReconciler) scaleDownLB(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) error {
 	if !ais.Spec.EnableExternalLB {
 		return nil
 	}

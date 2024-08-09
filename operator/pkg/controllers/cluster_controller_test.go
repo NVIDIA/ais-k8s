@@ -62,8 +62,12 @@ var _ = Describe("AIStoreController", func() {
 		})
 
 		Describe("Reconcile", func() {
+			var (
+				ais *aisv1.AIStore
+			)
+
 			BeforeEach(func() {
-				err := c.Create(ctx, &aisv1.AIStore{
+				ais = &aisv1.AIStore{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "ais",
 						Namespace: namespace,
@@ -101,7 +105,8 @@ var _ = Describe("AIStoreController", func() {
 							},
 						},
 					},
-				})
+				}
+				err := c.Create(ctx, ais)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -137,6 +142,40 @@ var _ = Describe("AIStoreController", func() {
 					Expect(proxyService.Spec.Type).To(Equal(corev1.ServiceTypeClusterIP))
 					Expect(proxyService.Spec.ClusterIP).To(Equal(corev1.ClusterIPNone))
 					Expect(proxyService.Spec.Ports).To(HaveLen(3))
+				})
+
+				It("should create proxy StatefulSet when it was removed", func() {
+					var ss appsv1.StatefulSet
+
+					By("Check that proxy StatefulSet does not exist")
+					err := c.Get(ctx, types.NamespacedName{Name: "ais-proxy", Namespace: namespace}, &ss)
+					Expect(err).To(HaveOccurred())
+
+					By("Reconcile to create proxy StatefulSet")
+					ready, err := r.handleProxyState(ctx, ais)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(ready).To(BeFalse())
+
+					By("Ensure that proxy StatefulSet has been created")
+					err = c.Get(ctx, types.NamespacedName{Name: "ais-proxy", Namespace: namespace}, &ss)
+					Expect(err).ToNot(HaveOccurred())
+				})
+
+				It("should create target StatefulSet when it was removed", func() {
+					var ss appsv1.StatefulSet
+
+					By("Check that target StatefulSet does not exist")
+					err := c.Get(ctx, types.NamespacedName{Name: "ais-target", Namespace: namespace}, &ss)
+					Expect(err).To(HaveOccurred())
+
+					By("Reconcile to create target StatefulSet")
+					ready, err := r.handleTargetState(ctx, ais)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(ready).To(BeFalse())
+
+					By("Ensure that target StatefulSet has been created")
+					err = c.Get(ctx, types.NamespacedName{Name: "ais-target", Namespace: namespace}, &ss)
+					Expect(err).ToNot(HaveOccurred())
 				})
 			})
 

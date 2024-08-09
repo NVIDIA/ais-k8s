@@ -17,6 +17,7 @@ import (
 	"github.com/ais-operator/pkg/resources/proxy"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -48,8 +49,9 @@ func (r *AIStoreReconciler) initProxies(ctx context.Context, ais *aisv1.AIStore)
 	var (
 		exists  bool
 		changed bool
+		logger  = logf.FromContext(ctx)
 	)
-	logger := logf.FromContext(ctx)
+
 	// 1. Create a proxy statefulset with single replica as primary
 	ss := proxy.NewProxyStatefulSet(ais, 1)
 	if exists, err = r.client.CreateResourceIfNotExists(ctx, ais, ss); err != nil {
@@ -109,15 +111,22 @@ func (r *AIStoreReconciler) cleanupProxy(ctx context.Context, ais *aisv1.AIStore
 }
 
 func (r *AIStoreReconciler) handleProxyState(ctx context.Context, ais *aisv1.AIStore) (ready bool, err error) {
-	if hasLatest, err := r.handleProxyImage(ctx, ais); !hasLatest || err != nil {
-		return false, err
-	}
-
+	// Fetch the latest proxy StatefulSet.
 	proxySSName := proxy.StatefulSetNSName(ais)
-	// Fetch the latest statefulset for proxies and check if it's spec (for now just replicas), matches the AIS cluster spec.
 	ss, err := r.client.GetStatefulSet(ctx, proxySSName)
 	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			// FIXME: We should likely set condition that `ais-proxy` StatefulSet
+			// needs to reconciled and we should invoke this function over and over
+			// until done.
+			requeue, err := r.initProxies(ctx, ais)
+			return !requeue, err
+		}
 		return ready, err
+	}
+
+	if hasLatest, err := r.handleProxyImage(ctx, ais, ss); !hasLatest || err != nil {
+		return false, err
 	}
 
 	if *ss.Spec.Replicas != ais.GetProxySize() {
@@ -136,12 +145,9 @@ func (r *AIStoreReconciler) handleProxyState(ctx context.Context, ais *aisv1.AIS
 	return ss.Status.ReadyReplicas == ais.GetProxySize(), nil
 }
 
-func (r *AIStoreReconciler) handleProxyImage(ctx context.Context, ais *aisv1.AIStore) (ready bool, err error) {
+func (r *AIStoreReconciler) handleProxyImage(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) (ready bool, err error) {
 	logger := logf.FromContext(ctx)
-	ss, err := r.client.GetStatefulSet(ctx, proxy.StatefulSetNSName(ais))
-	if err != nil {
-		return
-	}
+
 	firstPodName := proxy.PodName(ais, 0)
 	updated := ss.Spec.Template.Spec.Containers[0].Image != ais.Spec.NodeImage
 	if updated {
@@ -162,7 +168,7 @@ func (r *AIStoreReconciler) handleProxyImage(ctx context.Context, ais *aisv1.AIS
 		return false, r.client.Update(ctx, ss)
 	}
 
-	podList, err := r.client.ListProxyPods(ctx, ais)
+	podList, err := r.client.ListPods(ctx, ss)
 	if err != nil {
 		return
 	}
