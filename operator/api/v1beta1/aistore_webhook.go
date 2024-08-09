@@ -8,11 +8,13 @@ package v1beta1
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
 	"github.com/go-test/deep"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -131,20 +133,20 @@ func (aisw *AIStoreWebhook) validateUpdate(ctx context.Context, prev, ais *AISto
 	// TODO: better validation, maybe using AIS IterFields?
 	// users can update size for scaling up or down
 	prev.Spec.ProxySpec.Size = ais.Spec.ProxySpec.Size
-	diff := deep.Equal(ais.Spec.TargetSpec, prev.Spec.TargetSpec)
-	if diff != nil {
-		webhooklog.Info(fmt.Sprintf("Differences found in proxy spec:\n%+v", diff))
+	if !equality.Semantic.DeepEqual(ais.Spec.ProxySpec, prev.Spec.ProxySpec) {
+		diff := deep.Equal(ais.Spec.ProxySpec, prev.Spec.ProxySpec)
+		webhooklog.Info(fmt.Sprintf("Differences found in proxy spec: [%s]", strings.Join(diff, ", ")))
 		// TODO: For now, just error if proxy specs are updated. Eventually, this should be implemented.
-		return warnings, errCannotUpdateSpec("proxySpec")
+		return warnings, errCannotUpdateSpec("proxySpec", diff...)
 	}
 
 	// same
 	prev.Spec.TargetSpec.Size = ais.Spec.TargetSpec.Size
-	diff = deep.Equal(ais.Spec.TargetSpec, prev.Spec.TargetSpec)
-	if diff != nil {
-		webhooklog.Info(fmt.Sprintf("Differences found in target spec:\n%+v", diff))
+	if !equality.Semantic.DeepEqual(ais.Spec.TargetSpec, prev.Spec.TargetSpec) {
+		diff := deep.Equal(ais.Spec.TargetSpec, prev.Spec.TargetSpec)
+		webhooklog.Info(fmt.Sprintf("Differences found in target spec: [%s]", strings.Join(diff, ", ")))
 		// TODO: For now, just error if target specs are updated. Eventually, this should be implemented.
-		return warnings, errCannotUpdateSpec("targetSpec")
+		return warnings, errCannotUpdateSpec("targetSpec", diff...)
 	}
 
 	if ais.Spec.EnableExternalLB != prev.Spec.EnableExternalLB {
@@ -240,7 +242,10 @@ func errInvalidDaemonSize(size int32, daeType string) error {
 	return fmt.Errorf("invalid %s daemon size %d, should be at least 1", daeType, size)
 }
 
-func errCannotUpdateSpec(specName string) error {
+func errCannotUpdateSpec(specName string, diff ...string) error {
+	if len(diff) > 0 {
+		return fmt.Errorf("cannot update spec %q for an existing cluster, diff: [%s]", specName, strings.Join(diff, ", "))
+	}
 	return fmt.Errorf("cannot update spec %q for an existing cluster", specName)
 }
 
