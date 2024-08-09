@@ -199,20 +199,99 @@ Any modifications to these type definitions requires updating of the auto-genera
 We use the following commands to achieve this:
 
 ```console
-$ # updating the auto-generated code
+$ # Updating the auto-generated code.
 $ make generate
-$ # updating the YAML manifests under config/
+$
+$ # Updating the YAML manifests under `config/`.
 $ make manifests
 ```
 
-For building and pushing the operator docker images, use the following commands:
+For building and pushing the operator Docker images, use the following commands:
 
 ```console
-$ # building the docker image
+$ # Building the Docker image.
 $ IMG=<REPOSITORY>/<IMAGE_TAG> make docker-build
-$ # pushing the docker image
+$
+$ # Pushing the Docker image.
 $ IMG=<REPOSITORY>/<IMAGE_TAG> make docker-push
 ```
+
+## Testing
+
+Testing the AIS operator is categorized into two groups: tests that require a Kubernetes cluster and those that do not.
+
+### Unit tests
+
+You can run unit tests without an existing cluster by executing:
+```console
+$ make test
+```
+
+You can also run unit tests with existing cluster with:
+```console
+$ export USE_EXISTING_CLUSTER=true 
+$ make test
+```
+
+### End-to-End (E2E) tests
+
+E2E tests require an existing Kubernetes cluster.
+To run them, execute:
+```console
+$ make test-e2e-short
+$
+$ # To use a custom Kubernetes `StorageClass` for tests set the environment 
+$ # variable `TEST_STORAGECLASS` as follows:
+$ TEST_STORAGECLASS="standard" make test-e2e-short
+```
+
+### `kind` cluster
+
+You can create a Kubernetes cluster using the [`kind` tool](https://kind.sigs.k8s.io/).
+To make `kind` work you need to have `docker` or `podman` installed.
+
+To bootstrap `kind` cluster run:
+```console
+$ make kind-setup
+$
+$ # You can also specify which Kubernetes version should be used to bootstrap the cluster.
+$ # For example:
+$ KIND_K8S_VERSION="v1.30.2" make kind-setup 
+```
+
+To tear down the local cluster after testing, run:
+```bash
+make kind-teardown
+```
+
+#### Running tests
+
+After that you can run tests:
+```console
+$ export USE_EXISTING_CLUSTER=true 
+$ make test
+```
+**Note:** Running E2E tests with a `kind` cluster might be possible, but we cannot guarantee full compatibility at this time.
+
+#### Testing local changes
+
+You can also build your local changes and test them using `kind` cluster:
+```console
+$ export IMG=ais-operator:testing
+$ make docker-build
+$ kind load docker-image --name ais-operator-test "${IMG}"
+$
+$ kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.10.0/cert-manager.yaml
+$ wait 20
+$
+$ # Make sure that in `config/manager/manager.yaml` you set `imagePullPolicy: Never`.
+$ # This makes sures that `kind` cluster won't be trying to download this image from outside. 
+$ make deploy
+```
+
+After that you can deploy your `AIStore` CRD and test if everything works properly.
+
+### `minikube` cluster
 
 To deploy and test local changes using `minikube`, we recommend enabling and using docker registry with minikube, by using the following commands:
 
@@ -226,21 +305,9 @@ $ docker kill registry-fwd || true
 $ # map localhost:5000 to the registry of minikube
 $ docker run --name registry-fwd --rm -d -it --network=host alpine ash -c "apk add socat && socat TCP-LISTEN:5000,reuseaddr,fork TCP:$(minikube ip):5000"
 
-
 $ # build, push and deploy operator
 $ IMG=localhost:5000/opr-test:1 make docker-build docker-push deploy
 ```
 
-## Testing
-
-Testing AIS operator requires having a running K8s cluster. You could run the tests using the following command:
-
-```console
-$ make test
-```
-Some tests require the K8s cluster to allocate external IP addresses. For a `minikube` based deployment, you could use `tunnel` as described [here](#enabling-external-access)
-
-To use a custom K8s storage-class for tests set the environment variable `TEST_STORAGECLASS` as follows:
-```console
-$ TEST_STORAGECLASS="standard" make test
-```
+Some tests require the K8s cluster to allocate external IP addresses.
+For a `minikube` based deployment, you could use `tunnel` as described [here](#enabling-external-access)
