@@ -17,6 +17,7 @@ import (
 	"github.com/NVIDIA/aistore/api/env"
 	aiscmn "github.com/NVIDIA/aistore/cmn"
 	"github.com/NVIDIA/aistore/cmn/cos"
+	"github.com/NVIDIA/aistore/core/meta"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	aisclient "github.com/ais-operator/pkg/client"
 	"github.com/ais-operator/pkg/resources/cmn"
@@ -679,11 +680,21 @@ func (r *AIStoreReconciler) primaryBaseParams(ctx context.Context, ais *aisv1.AI
 	if err != nil {
 		return nil, err
 	}
-	smap, err := aisapi.GetClusterMap(*baseParams)
+	smap, err := r.GetSmap(ctx, baseParams)
 	if err != nil {
 		return nil, err
 	}
 	return _baseParams(smap.Primary.URL(aiscmn.NetPublic), baseParams.Token), nil
+}
+
+func (*AIStoreReconciler) GetSmap(ctx context.Context, params *aisapi.BaseParams) (*meta.Smap, error) {
+	logger := logf.FromContext(ctx)
+	smap, err := aisapi.GetClusterMap(*params)
+	if err != nil {
+		logger.Error(err, "Failed to get cluster map")
+		return nil, err
+	}
+	return smap, nil
 }
 
 func (r *AIStoreReconciler) newAISBaseParams(ctx context.Context,

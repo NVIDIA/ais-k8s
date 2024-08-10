@@ -118,13 +118,14 @@ func (r *AIStoreReconciler) resolveStatefulSetScaling(ctx context.Context, ais *
 	if err != nil {
 		return err
 	}
+	currentSize := *current.Spec.Replicas
 	// Scaling up
-	if desiredSize > *current.Spec.Replicas {
+	if desiredSize > currentSize {
 		logger.Info("Scaling up target statefulset to match AIS cluster spec size", "desiredSize", desiredSize)
-	} else if desiredSize < *current.Spec.Replicas {
-		if !r.isReadyToScaleDown(ctx, ais) {
-			// No err, but don't proceed to update state to ready
-			return nil
+	} else if desiredSize < currentSize {
+		// Don't proceed to update state to ready until we can proceed to statefulset scale-down
+		if ready, scaleErr := r.isReadyToScaleDown(ctx, ais, currentSize); scaleErr != nil || !ready {
+			return scaleErr
 		}
 		logger.Info("Scaling down target statefulset to match AIS cluster spec size", "desiredSize", desiredSize)
 	}
@@ -137,24 +138,31 @@ func (r *AIStoreReconciler) resolveStatefulSetScaling(ctx context.Context, ais *
 	return nil
 }
 
-func (r *AIStoreReconciler) isReadyToScaleDown(ctx context.Context, ais *aisv1.AIStore) bool {
-	// Make sure no rebalance jobs are running
+func (r *AIStoreReconciler) isReadyToScaleDown(ctx context.Context, ais *aisv1.AIStore, currentSize int32) (bool, error) {
 	logger := logf.FromContext(ctx)
 	params, err := r.getAPIParams(ctx, ais)
 	if err != nil {
 		logger.Error(err, "Failed to get API params")
-		return false
+		return false, err
 	}
-	jobs, err := aisapi.GetAllRunningXactions(*params, aisapc.ActRebalance)
+
+	smap, err := r.GetSmap(ctx, params)
 	if err != nil {
-		logger.Error(err, "Failed to get rebalance jobs")
-		return false
+		return false, err
 	}
-	if len(jobs) > 0 {
-		logger.Info(fmt.Sprintf("Found %d running rebalance jobs, delaying scaling", len(jobs)))
-		return false
+	// If any targets are still in the smap as decommissioning, delay scaling
+	for _, targetNode := range smap.Tmap {
+		if smap.InMaintOrDecomm(targetNode) && !smap.InMaint(targetNode) {
+			logger.Info("Delaying scaling. Target still in decommissioning state", "target", targetNode.ID())
+			return false, nil
+		}
 	}
-	return true
+	// If we have the same number of target nodes as current replicas and none showed as decommissioned, don't scale
+	if int32(len(smap.Tmap)) == currentSize {
+		logger.Info("Delaying scaling. All target nodes are still listed as active")
+		return false, nil
+	}
+	return true, nil
 }
 
 func (r *AIStoreReconciler) startTargetScaling(ctx context.Context, ais *aisv1.AIStore, ss *v1.StatefulSet) error {
@@ -179,9 +187,8 @@ func (r *AIStoreReconciler) decommissionTargets(ctx context.Context, ais *aisv1.
 		return err
 	}
 
-	smap, err := aisapi.GetClusterMap(*params)
+	smap, err := r.GetSmap(ctx, params)
 	if err != nil {
-		logger.Error(err, "Failed to get cluster map")
 		return err
 	}
 	logger.Info("Decommissioning targets", "Smap version", smap)

@@ -354,6 +354,12 @@ func WaitForClusterToBeReady(ctx context.Context, client *aisclient.K8sClient, c
 			return false
 		}
 
+		targetSS, err := client.GetStatefulSet(ctx, target.StatefulSetNSName(cluster))
+		replicasReady = cluster.GetTargetSize() == *targetSS.Spec.Replicas && targetSS.Status.ReadyReplicas == *targetSS.Spec.Replicas
+		if err != nil || !replicasReady {
+			return false
+		}
+
 		// Ensure primary is ready (including rebalance)
 		proxyURL := GetProxyURL(ctx, client, cluster)
 		smap, err := aisapi.GetClusterMap(aistutils.BaseAPIParams(proxyURL))
@@ -361,15 +367,7 @@ func WaitForClusterToBeReady(ctx context.Context, client *aisclient.K8sClient, c
 			return false
 		}
 		err = aisapi.Health(aistutils.BaseAPIParams(smap.Primary.PubNet.URL), true)
-		if err != nil {
-			return false
-		}
-
-		targetSS, err := client.GetStatefulSet(ctx, target.StatefulSetNSName(cluster))
-		if err != nil {
-			return false
-		}
-		return targetSS.Status.ReadyReplicas == *targetSS.Spec.Replicas
+		return err == nil
 	}, intervals...).Should(BeTrue())
 }
 

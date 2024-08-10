@@ -218,9 +218,8 @@ func (r *AIStoreReconciler) setPrimaryTo(ctx context.Context, ais *aisv1.AIStore
 		return err
 	}
 
-	smap, err := aisapi.GetClusterMap(*params)
+	smap, err := r.GetSmap(ctx, params)
 	if err != nil {
-		err = fmt.Errorf("failed to obtain smap, err: %v", err)
 		return err
 	}
 
@@ -247,9 +246,8 @@ func (r *AIStoreReconciler) handleProxyScaledown(ctx context.Context, ais *aisv1
 		return
 	}
 
-	smap, err := aisapi.GetClusterMap(*params)
+	smap, err := r.GetSmap(ctx, params)
 	if err != nil {
-		logger.Error(err, "failed to obtain smap")
 		return
 	}
 

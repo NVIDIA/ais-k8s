@@ -7,7 +7,7 @@ MINIKUBE_HOST=https://$(minikube ip)
 IMG=operator-test:latest
 REGISTRY=localhost:5000
 # build from the root of the directory to include the context
-docker build -t $IMG -f Dockerfile ../../../ --no-cache
+docker build -t $IMG -f Dockerfile ../../../
 docker tag $IMG $REGISTRY/$IMG
 if ! nc -z localhost 5000; then
     kubectl port-forward --namespace kube-system service/registry 5000:80 &
