@@ -1,4 +1,3 @@
----
 # The /tmp directory is a world-writable directory used to store data used by the system and 
 # user applications for a short period of time. This data should have no expectation of surviving
 # a reboot, as this directory is intended to be emptied after each reboot.
@@ -10,7 +9,7 @@
 - name: Add entry to /etc/fstab for /tmp
   lineinfile:
     path: /etc/fstab
-    line: "tmpfs /tmp tmpfs defaults,rw,nosuid,nodev,noexec,relatime,size=2G 0 0"
+    line: "tmpfs /tmp tmpfs defaults,rw,nosuid,nodev,relatime,size=2G 0 0"
 
 - name: Reload systemd configuration
   command: systemctl daemon-reload
@@ -20,5 +19,5 @@
     path: /tmp
     src: tmpfs
     fstype: tmpfs
-    opts: defaults,rw,nosuid,nodev,noexec,relatime,size=2G
+    opts: defaults,rw,nosuid,nodev,relatime,size=2G
     state: mounted

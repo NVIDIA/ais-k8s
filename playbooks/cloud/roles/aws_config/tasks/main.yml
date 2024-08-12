@@ -1,8 +1,9 @@
 - name: Create .aws if it does not exist
-  become: true  
+  become: true
   file:
     path: "{{ target_dir }}"
     state: directory
+    mode: '0755'  # Permissions set to 755 to allow read and execute access by others
 
 # Add the aws config file to use to the roles/files directory
 - name: Copy aws config
