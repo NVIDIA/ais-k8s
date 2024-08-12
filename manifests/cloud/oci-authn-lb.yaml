@@ -1,0 +1,22 @@
+---
+# oci-authn-lb.yaml
+# This YAML file defines a Kubernetes Service that configures a network load balancer (NLB)
+# for the AIStore AuthN components in Oracle Cloud Infrastructure (OCI).
+apiVersion: v1
+kind: Service
+metadata:
+  name: ais-authn-lb
+  namespace: ais
+  annotations:
+    oci.oraclecloud.com/load-balancer-type: "nlb"
+    oci-network-load-balancer.oraclecloud.com/internal: "true"
+  labels:
+    app: authn
+spec:
+  selector:
+    app: authn
+  ports:
+    - protocol: TCP
+      port: 52001
+      targetPort: 52001
+  type: LoadBalancer
