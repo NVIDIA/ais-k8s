@@ -19,12 +19,23 @@ type (
 )
 
 const (
-	ConditionInitialized           ClusterCondition = "Initialized"
+	// Cluster condition constants.
+	// FIXME: This constants are often used in 3 different contexts (condition, reason and state).
+
+	ConditionInitialized ClusterCondition = "Initialized"
+	ConditionCreated     ClusterCondition = "Created"
+	ConditionReady       ClusterCondition = "Ready"
+	ReconcilerError      string           = "ReconcilerError"
+	ReconcilerSuccess    string           = "ReconcilerSuccess"
+
+	// Cluster condition reason constants.
+
+	ReconcilerSuccessReason string = "LastReconcileCycleSucceded"
+
+	// Cluster state constants.
+
 	ConditionInitializingLBService ClusterCondition = "InitializingLoadBalancerService"
 	ConditionPendingLBService      ClusterCondition = "PendingLoadBalancerService"
-	ConditionFailed                ClusterCondition = "Failed"
-	ConditionCreated               ClusterCondition = "Created"
-	ConditionReady                 ClusterCondition = "Ready"
 	ConditionUpgrading             ClusterCondition = "Upgrading"
 	ConditionScaling               ClusterCondition = "Scaling"
 	ConditionShuttingDown          ClusterCondition = "ShuttingDown"
@@ -33,24 +44,18 @@ const (
 	ConditionCleanup               ClusterCondition = "CleaningResources"
 	// TODO: Add more states, eg. Terminating etc.
 
-	// Condition types
-	ReconcilerError         string = "ReconcilerError"
-	ReconcilerSuccess       string = "ReconcilerSuccess"
-	ReconcilerSuccessReason string = "LastReconcileCycleSucceded"
+	// Error reason constants.
 
-	// ErrorReason
-	ReasonUnknown         ErrorReason = "Unknown"
 	ProxyCreationError    ErrorReason = "ProxyCreationError"
 	TargetCreationError   ErrorReason = "TargetCreationError"
 	InstanceDeletionError ErrorReason = "InstanceDeletionError"
-	ConfigChangeError     ErrorReason = "ConfigChangeError"
 	ConfigBuildError      ErrorReason = "ConfigBuildError"
-	OwnerReferenceError   ErrorReason = "OwnerReferenceError"
 	ExternalServiceError  ErrorReason = "ExternalService"
 	ResourceCreationError ErrorReason = "ResourceCreationError"
-	ResourceFetchError    ErrorReason = "ResouceFetchError" // failed to fetch a resource using K8s API
 	ResourceUpdateError   ErrorReason = "ResourceUpdateError"
 	InvalidSpecError      ErrorReason = "InvalidSpecError"
+
+	// Helper constants.
 
 	defaultClusterDomain = "cluster.local"
 )
