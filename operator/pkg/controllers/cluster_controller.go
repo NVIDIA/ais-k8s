@@ -128,13 +128,13 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	if ais.HasState("") {
-		if result, err := r.initializeCR(ctx, ais); err != nil {
-			return result, err
+		if err := r.initializeCR(ctx, ais); err != nil {
+			return reconcile.Result{}, err
 		}
 	}
 
 	if ais.ShouldDecommission() {
-		_, err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionDecommissioning})
+		err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionDecommissioning})
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -142,7 +142,7 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	if ais.ShouldShutdown() {
-		_, err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionShuttingDown})
+		err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionShuttingDown})
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -168,24 +168,24 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	return r.handleCREvents(ctx, ais)
 }
 
-func (r *AIStoreReconciler) initializeCR(ctx context.Context, ais *aisv1.AIStore) (result reconcile.Result, err error) {
+func (r *AIStoreReconciler) initializeCR(ctx context.Context, ais *aisv1.AIStore) (err error) {
 	logger := logf.FromContext(ctx)
 	if !controllerutil.ContainsFinalizer(ais, aisFinalizer) {
 		logger.Info("Updating finalizer")
 		controllerutil.AddFinalizer(ais, aisFinalizer)
 		if err = r.client.Update(ctx, ais); err != nil {
 			logger.Error(err, "Failed to update finalizer")
-			return result, err
+			return err
 		}
 		logger.Info("Successfully updated finalizer")
 	}
 
 	logger.Info("Updating state and setting condition", "state", aisv1.ConditionInitialized)
 	ais.SetConditionInitialized()
-	retry, err := r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionInitialized})
+	err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionInitialized})
 	if err != nil {
 		logger.Error(err, "Failed to update state", "state", aisv1.ConditionInitialized)
-		return reconcile.Result{Requeue: retry}, err
+		return err
 	}
 	logger.Info("Successfully updated state")
 
@@ -207,7 +207,7 @@ func (r *AIStoreReconciler) shutdownCluster(ctx context.Context, ais *aisv1.AISt
 	if err = r.scaleStatefulSetToZero(ctx, target.StatefulSetNSName(ais)); err != nil {
 		return reconcile.Result{}, err
 	}
-	_, err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionShutdown})
+	err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionShutdown})
 	if err != nil {
 		logger.Error(err, "Failed to update state", "state", aisv1.ConditionShutdown)
 		return reconcile.Result{}, err
@@ -226,7 +226,7 @@ func (r *AIStoreReconciler) decommissionCluster(ctx context.Context, ais *aisv1.
 		}
 		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 	}
-	_, err := r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionCleanup})
+	err := r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionCleanup})
 	if err != nil {
 		logger.Error(err, "Failed to update state", "state", aisv1.ConditionCleanup)
 		return reconcile.Result{}, err
@@ -416,7 +416,7 @@ func (r *AIStoreReconciler) ensurePrereqs(ctx context.Context, ais *aisv1.AIStor
 	// 2. Check if the cluster needs external access.
 	// If yes, create a LoadBalancer services for targets and proxies and wait for external IP to be allocated.
 	if ais.Spec.EnableExternalLB {
-		var proxyReady, targetReady, retry bool
+		var proxyReady, targetReady bool
 		proxyReady, err = r.enableProxyExternalService(ctx, ais)
 		if err != nil {
 			r.recordError(ctx, ais, err, "Failed to enable proxy external service")
@@ -431,13 +431,13 @@ func (r *AIStoreReconciler) ensurePrereqs(ctx context.Context, ais *aisv1.AIStor
 		// To ensure correct behavior of cluster, we requeue the reconciler till we have all the external IPs.
 		if !proxyReady {
 			if !ais.HasState(aisv1.ConditionInitializingLBService) && !ais.HasState(aisv1.ConditionPendingLBService) {
-				retry, err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionInitializingLBService})
-				if !retry && err == nil {
+				err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionInitializingLBService})
+				if err == nil {
 					r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonInitialized, "Successfully initialized LoadBalancer service")
 				}
 			} else {
-				retry, err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionPendingLBService})
-				if !retry && err == nil {
+				err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionPendingLBService})
+				if err == nil {
 					r.recorder.Eventf(
 						ais, corev1.EventTypeNormal, EventReasonWaiting,
 						"Waiting for LoadBalancer service to be ready; proxy ready=%t, target ready=%t", proxyReady, targetReady,
@@ -475,10 +475,8 @@ func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore
 	}
 
 	ais.SetConditionCreated()
-	result.Requeue, err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionCreated})
+	err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionCreated})
 	if err != nil {
-		return
-	} else if result.Requeue {
 		return
 	}
 
@@ -513,7 +511,7 @@ requeue:
 	// We requeue till the AIStore cluster becomes ready.
 	if ais.IsConditionTrue(aisv1.ConditionReady.Str()) {
 		ais.UnsetConditionReady(aisv1.ConditionUpgrading.Str(), "Waiting for cluster to upgrade")
-		_, err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionUpgrading})
+		err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionUpgrading})
 	}
 	return
 }
@@ -557,22 +555,19 @@ func (r *AIStoreReconciler) createOrUpdateRBACResources(ctx context.Context, ais
 	return
 }
 
-func (r *AIStoreReconciler) setStatus(ctx context.Context, ais *aisv1.AIStore, status aisv1.AIStoreStatus) (retry bool, err error) {
+func (r *AIStoreReconciler) setStatus(ctx context.Context, ais *aisv1.AIStore, status aisv1.AIStoreStatus) error {
 	logger := logf.FromContext(ctx)
 	if status.State != "" {
 		logger.Info("Updating AIS state", "state", status.State)
 		ais.SetState(status.State)
 	}
 
-	if err = r.client.Status().Update(ctx, ais); err != nil {
-		if k8serrors.IsConflict(err) {
-			logger.Info("Conflict updating CR status")
-			return true, nil
-		}
+	if err := r.client.Status().Update(ctx, ais); err != nil {
 		r.recordError(ctx, ais, err, "Failed to update CR status")
+		return err
 	}
 
-	return
+	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -641,9 +636,9 @@ func (r *AIStoreReconciler) manageError(ctx context.Context,
 
 	ais.IncErrorCount()
 	ais.SetConditionError(reason, err)
-	if retry, statusErr := r.setStatus(ctx, ais, aisv1.AIStoreStatus{}); statusErr != nil || retry {
+	if err := r.setStatus(ctx, ais, aisv1.AIStoreStatus{}); err != nil {
 		// Status update failed, requeue immediately.
-		return ctrl.Result{Requeue: true}, err
+		return ctrl.Result{}, err
 	}
 	return ctrl.Result{RequeueAfter: requeueAfter}, err
 }
@@ -655,7 +650,7 @@ func (r *AIStoreReconciler) manageSuccess(ctx context.Context, ais *aisv1.AIStor
 		ais.SetConditionReady()
 	}
 	if !ais.HasState(aisv1.ConditionReady) {
-		result.Requeue, err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionReady})
+		err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionReady})
 	}
 
 	return
