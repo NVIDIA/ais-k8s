@@ -28,18 +28,18 @@ func (r *AIStoreReconciler) ensureProxyPrereqs(ctx context.Context, ais *aisv1.A
 	// 1. Deploy required ConfigMap
 	cm, err = proxy.NewProxyCM(ais)
 	if err != nil {
-		r.recordError(ais, err, "Failed to generate valid proxy ConfigMap")
+		r.recordError(ctx, ais, err, "Failed to generate valid proxy ConfigMap")
 		return
 	}
 
 	if err = r.client.CreateOrUpdateResource(context.TODO(), ais, cm); err != nil {
-		r.recordError(ais, err, "Failed to deploy ConfigMap")
+		r.recordError(ctx, ais, err, "Failed to deploy ConfigMap")
 		return
 	}
 
 	svc := proxy.NewProxyHeadlessSvc(ais)
 	if err = r.client.CreateOrUpdateResource(ctx, ais, svc); err != nil {
-		r.recordError(ais, err, "Failed to deploy SVC")
+		r.recordError(ctx, ais, err, "Failed to deploy SVC")
 		return
 	}
 	return
@@ -55,7 +55,7 @@ func (r *AIStoreReconciler) initProxies(ctx context.Context, ais *aisv1.AIStore)
 	// 1. Create a proxy statefulset with single replica as primary
 	ss := proxy.NewProxyStatefulSet(ais, 1)
 	if exists, err = r.client.CreateResourceIfNotExists(ctx, ais, ss); err != nil {
-		r.recordError(ais, err, "Failed to deploy Primary proxy")
+		r.recordError(ctx, ais, err, "Failed to deploy Primary proxy")
 		return
 	} else if !exists {
 		requeue = true
@@ -72,7 +72,7 @@ func (r *AIStoreReconciler) initProxies(ctx context.Context, ais *aisv1.AIStore)
 	// 2. Start all the proxy daemons
 	changed, err = r.client.UpdateStatefulSetReplicas(ctx, proxy.StatefulSetNSName(ais), ais.GetProxySize())
 	if err != nil {
-		r.recordError(ais, err, "Failed to deploy StatefulSet")
+		r.recordError(ctx, ais, err, "Failed to deploy StatefulSet")
 		return
 	}
 	if changed {
