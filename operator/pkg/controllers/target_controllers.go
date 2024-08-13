@@ -95,7 +95,7 @@ func (r *AIStoreReconciler) handleTargetState(ctx context.Context, ais *aisv1.AI
 		return false, err
 	}
 
-	if ais.HasState(aisv1.ConditionScaling) {
+	if ais.HasState(aisv1.ClusterScaling) {
 		// If desired does not match AIS, update the statefulset
 		if *ss.Spec.Replicas != ais.GetTargetSize() {
 			err = r.resolveStatefulSetScaling(ctx, ais)
@@ -114,7 +114,7 @@ func (r *AIStoreReconciler) handleTargetState(ctx context.Context, ais *aisv1.AI
 			return false, err
 		}
 		// If successful, mark as scaling so future reconciliations will update the SS
-		err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionScaling})
+		err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ClusterScaling})
 		return false, err
 	}
 	// For now, state of target is considered ready if the number of target pods ready matches the size provided in AIS cluster spec.
@@ -145,7 +145,7 @@ func (r *AIStoreReconciler) resolveStatefulSetScaling(ctx context.Context, ais *
 		return err
 	}
 	logger.Info("Finished scaling target statefulset")
-	ais.SetState(aisv1.ConditionReady)
+	ais.SetState(aisv1.ClusterReady) // FIXME: This is not synced with `r.client.Status().Update(...)`
 	return nil
 }
 

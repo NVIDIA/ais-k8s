@@ -515,9 +515,9 @@ func createCluster(ctx context.Context, cluster *aisv1.AIStore, intervals ...int
 	Expect(k8sClient.Create(ctx, cluster)).Should(Succeed())
 	By("Create cluster and wait for it to be 'Ready'")
 	Eventually(func() bool {
-		r := &aisv1.AIStore{}
-		_ = k8sClient.Get(ctx, cluster.NamespacedName(), r)
-		return r.Status.State == aisv1.ConditionReady
+		ais := &aisv1.AIStore{}
+		_ = k8sClient.Get(ctx, cluster.NamespacedName(), ais)
+		return ais.HasState(aisv1.ClusterReady)
 	}, intervals...).Should(BeTrue())
 }
 

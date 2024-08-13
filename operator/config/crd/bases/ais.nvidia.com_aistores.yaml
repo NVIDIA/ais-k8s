@@ -3387,7 +3387,7 @@ spec:
               conditions:
                 description: |-
                   Represents the observations of a AIStores's current state.
-                  Known .status.conditions.type are: "Initialized", "Created", and "Ready"
+                  Known condition types are: "Initialized", "Created", and "Ready".
                 items:
                   description: "Condition contains details for one aspect of the current
                     state of this API Resource.\n---\nThis struct is intended for
@@ -3462,6 +3462,9 @@ spec:
               consecutive_error_count:
                 type: integer
               state:
+                description: |-
+                  The state of a AIStore is a simple, high-level summary of where the cluster is in its lifecycle.
+                  The conditions array field contain more detail about the cluster's status.
                 type: string
             required:
             - conditions

@@ -17,7 +17,7 @@ import (
 	"github.com/NVIDIA/aistore/api/env"
 	aiscmn "github.com/NVIDIA/aistore/cmn"
 	"github.com/NVIDIA/aistore/cmn/cos"
-	"github.com/NVIDIA/aistore/core/meta"
+	aismeta "github.com/NVIDIA/aistore/core/meta"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	aisclient "github.com/ais-operator/pkg/client"
 	"github.com/ais-operator/pkg/resources/cmn"
@@ -28,6 +28,7 @@ import (
 	apiv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -134,7 +135,7 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	if ais.ShouldDecommission() {
-		err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionDecommissioning})
+		err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ClusterDecommissioning})
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -142,7 +143,7 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	if ais.ShouldShutdown() {
-		err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionShuttingDown})
+		err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ClusterShuttingDown})
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -150,11 +151,11 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	switch {
-	case ais.HasState(aisv1.ConditionShuttingDown):
+	case ais.HasState(aisv1.ClusterShuttingDown):
 		return r.shutdownCluster(ctx, ais)
-	case ais.HasState(aisv1.ConditionDecommissioning):
+	case ais.HasState(aisv1.ClusterDecommissioning):
 		return r.decommissionCluster(ctx, ais)
-	case ais.HasState(aisv1.ConditionCleanup):
+	case ais.HasState(aisv1.ClusterCleanup):
 		return r.cleanupClusterRes(ctx, ais)
 	}
 
@@ -162,7 +163,7 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return result, err
 	}
 
-	if !ais.IsConditionTrue(aisv1.ConditionCreated.Str()) {
+	if !ais.IsConditionTrue(aisv1.ConditionCreated) {
 		return r.bootstrapNew(ctx, ais)
 	}
 	return r.handleCREvents(ctx, ais)
@@ -181,8 +182,8 @@ func (r *AIStoreReconciler) initializeCR(ctx context.Context, ais *aisv1.AIStore
 	}
 
 	logger.Info("Updating state and setting condition", "state", aisv1.ConditionInitialized)
-	ais.SetConditionInitialized()
-	err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionInitialized})
+	ais.SetCondition(aisv1.ConditionInitialized)
+	err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ClusterInitialized})
 	if err != nil {
 		logger.Error(err, "Failed to update state", "state", aisv1.ConditionInitialized)
 		return err
@@ -207,9 +208,9 @@ func (r *AIStoreReconciler) shutdownCluster(ctx context.Context, ais *aisv1.AISt
 	if err = r.scaleStatefulSetToZero(ctx, target.StatefulSetNSName(ais)); err != nil {
 		return reconcile.Result{}, err
 	}
-	err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionShutdown})
+	err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ClusterShutdown})
 	if err != nil {
-		logger.Error(err, "Failed to update state", "state", aisv1.ConditionShutdown)
+		logger.Error(err, "Failed to update state", "state", aisv1.ClusterShutdown)
 		return reconcile.Result{}, err
 	}
 	logger.Info("AIS cluster shutdown completed")
@@ -226,9 +227,9 @@ func (r *AIStoreReconciler) decommissionCluster(ctx context.Context, ais *aisv1.
 		}
 		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 	}
-	err := r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionCleanup})
+	err := r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ClusterCleanup})
 	if err != nil {
-		logger.Error(err, "Failed to update state", "state", aisv1.ConditionCleanup)
+		logger.Error(err, "Failed to update state", "state", aisv1.ClusterCleanup)
 		return reconcile.Result{}, err
 	}
 	logger.Info("AIS cluster decommission completed")
@@ -430,13 +431,13 @@ func (r *AIStoreReconciler) ensurePrereqs(ctx context.Context, ais *aisv1.AIStor
 		// When external access is enabled, we need external IPs of all the targets before deploying AIS cluster.
 		// To ensure correct behavior of cluster, we requeue the reconciler till we have all the external IPs.
 		if !proxyReady {
-			if !ais.HasState(aisv1.ConditionInitializingLBService) && !ais.HasState(aisv1.ConditionPendingLBService) {
-				err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionInitializingLBService})
+			if !ais.HasState(aisv1.ClusterInitializingLBService) && !ais.HasState(aisv1.ClusterPendingLBService) {
+				err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ClusterInitializingLBService})
 				if err == nil {
 					r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonInitialized, "Successfully initialized LoadBalancer service")
 				}
 			} else {
-				err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionPendingLBService})
+				err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ClusterPendingLBService})
 				if err == nil {
 					r.recorder.Eventf(
 						ais, corev1.EventTypeNormal, EventReasonWaiting,
@@ -474,8 +475,8 @@ func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore
 		return
 	}
 
-	ais.SetConditionCreated()
-	err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionCreated})
+	ais.SetCondition(aisv1.ConditionCreated)
+	err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ClusterCreated})
 	if err != nil {
 		return
 	}
@@ -509,9 +510,9 @@ func (r *AIStoreReconciler) handleCREvents(ctx context.Context, ais *aisv1.AISto
 
 requeue:
 	// We requeue till the AIStore cluster becomes ready.
-	if ais.IsConditionTrue(aisv1.ConditionReady.Str()) {
-		ais.UnsetConditionReady(aisv1.ConditionUpgrading.Str(), "Waiting for cluster to upgrade")
-		err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionUpgrading})
+	if ais.IsConditionTrue(aisv1.ConditionReady) {
+		ais.UnsetConditionReady(aisv1.ReasonUpgrading, "Waiting for cluster to upgrade")
+		err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ClusterUpgrading})
 	}
 	return
 }
@@ -624,9 +625,9 @@ func (r *AIStoreReconciler) manageError(ctx context.Context,
 	ais *aisv1.AIStore, reason aisv1.ErrorReason, err error,
 ) (ctrl.Result, error) {
 	var requeueAfter time.Duration
-	condition, _ := ais.GetLastCondition()
 
-	if reason.Equals(condition.Reason) {
+	condition := meta.FindStatusCondition(ais.Status.Conditions, string(aisv1.ConditionReconcilerError))
+	if condition != nil && reason.Equals(condition.Reason) {
 		requeueAfter = errBackOffTime
 	} else {
 		// If the error with given reason occurred for the first time,
@@ -645,12 +646,12 @@ func (r *AIStoreReconciler) manageError(ctx context.Context,
 
 func (r *AIStoreReconciler) manageSuccess(ctx context.Context, ais *aisv1.AIStore) (result ctrl.Result, err error) {
 	ais.SetConditionSuccess()
-	if !ais.IsConditionTrue(aisv1.ConditionReady.Str()) {
+	if !ais.IsConditionTrue(aisv1.ConditionReady) {
 		r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonReady, "Created AIS cluster")
-		ais.SetConditionReady()
+		ais.SetCondition(aisv1.ConditionReady)
 	}
-	if !ais.HasState(aisv1.ConditionReady) {
-		err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ConditionReady})
+	if !ais.HasState(aisv1.ClusterReady) {
+		err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ClusterReady})
 	}
 
 	return
@@ -673,7 +674,7 @@ func (r *AIStoreReconciler) primaryBaseParams(ctx context.Context, ais *aisv1.AI
 	return _baseParams(smap.Primary.URL(aiscmn.NetPublic), baseParams.Token), nil
 }
 
-func (*AIStoreReconciler) GetSmap(ctx context.Context, params *aisapi.BaseParams) (*meta.Smap, error) {
+func (*AIStoreReconciler) GetSmap(ctx context.Context, params *aisapi.BaseParams) (*aismeta.Smap, error) {
 	logger := logf.FromContext(ctx)
 	smap, err := aisapi.GetClusterMap(*params)
 	if err != nil {

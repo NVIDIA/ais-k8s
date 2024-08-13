@@ -194,7 +194,7 @@ var _ = Describe("AIStoreController", func() {
 					err = c.Get(ctx, types.NamespacedName{Name: "ais", Namespace: namespace}, &ais)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(ais.GetFinalizers()).To(HaveLen(1))
-					Expect(ais.Status.State).To(Equal(aisv1.ConditionInitialized))
+					Expect(ais.Status.State).To(Equal(aisv1.ClusterInitialized))
 
 					By("Ensure that proxy Service has been created")
 					var proxyService corev1.Service

@@ -7,6 +7,7 @@ package v1beta1
 import (
 	aisapc "github.com/NVIDIA/aistore/api/apc"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -14,38 +15,68 @@ import (
 )
 
 type (
-	ClusterCondition string
-	ErrorReason      string
+	// ClusterState represents the various states a cluster can be in during its
+	// lifecycle, such as Created, Ready, or ShuttingDown.
+	ClusterState string
+	// ClusterConditionType is a valid value for Condition.Type
+	ClusterConditionType string
+	// ClusterConditionReason is a valid value for Condition.Reason
+	ClusterConditionReason string
+	// ErrorReason represents a string identifier for an error, typically used
+	// to categorize or describe the cause of an error in cluster operations.
+	ErrorReason string
 )
 
+// Cluster state constants represent various stages in the cluster lifecycle.
 const (
-	// Cluster condition constants.
-	// FIXME: This constants are often used in 3 different contexts (condition, reason and state).
+	// ClusterInitialized indicates the cluster is initialized but not yet provisioned.
+	ClusterInitialized ClusterState = "Initialized"
+	// ClusterCreated means the cluster is created with basic resources but not yet fully operational.
+	ClusterCreated ClusterState = "Created"
+	// ClusterReady indicates the cluster is fully operational and ready for workloads.
+	ClusterReady ClusterState = "Ready"
+	// ClusterInitializingLBService means the cluster is setting up the load-balancer service.
+	ClusterInitializingLBService ClusterState = "InitializingLoadBalancerService"
+	// ClusterPendingLBService indicates the cluster is waiting for the load-balancer to become operational.
+	ClusterPendingLBService ClusterState = "PendingLoadBalancerService"
+	// ClusterUpgrading signifies the cluster is undergoing an upgrade process.
+	ClusterUpgrading ClusterState = "Upgrading"
+	// ClusterScaling indicates the cluster is adjusting its resources (up or down).
+	ClusterScaling ClusterState = "Scaling"
+	// ClusterShuttingDown means the cluster is in the process of shutting down.
+	ClusterShuttingDown ClusterState = "ShuttingDown"
+	// ClusterShutdown indicates the cluster is fully shut down and not operational.
+	ClusterShutdown ClusterState = "Shutdown"
+	// ClusterDecommissioning means the cluster is being dismantled and resources are being reclaimed.
+	ClusterDecommissioning ClusterState = "Decommissioning"
+	// ClusterCleanup indicates the cluster is cleaning up residual resources.
+	ClusterCleanup ClusterState = "CleaningResources"
+	// TODO: Add more states, e.g., Terminating, etc.
+)
 
-	ConditionInitialized ClusterCondition = "Initialized"
-	ConditionCreated     ClusterCondition = "Created"
-	ConditionReady       ClusterCondition = "Ready"
-	ReconcilerError      string           = "ReconcilerError"
-	ReconcilerSuccess    string           = "ReconcilerSuccess"
+// These are built-in cluster conditions.
+// Applications can define custom conditions as needed.
+const (
+	// ConditionInitialized indicates the cluster has been initialized.
+	ConditionInitialized ClusterConditionType = "Initialized"
+	// ConditionCreated means the cluster has been successfully created.
+	ConditionCreated ClusterConditionType = "Created"
+	// ConditionReady indicates the cluster is fully operational and ready for use.
+	ConditionReady ClusterConditionType = "Ready"
+	// ConditionReconcilerError signifies an error occurred during the reconciliation process.
+	ConditionReconcilerError ClusterConditionType = "ReconcilerError"
+	// ConditionReconcilerSuccess means the reconciliation process completed successfully.
+	ConditionReconcilerSuccess ClusterConditionType = "ReconcilerSuccess"
+)
 
-	// Cluster condition reason constants.
+// These are reasons for a AIStore's transition to a condition.
+const (
+	ReasonUpgrading         ClusterConditionReason = "Upgrading"
+	ReasonReconcilerSuccess ClusterConditionReason = "LastReconcileCycleSucceeded"
+)
 
-	ReconcilerSuccessReason string = "LastReconcileCycleSucceded"
-
-	// Cluster state constants.
-
-	ConditionInitializingLBService ClusterCondition = "InitializingLoadBalancerService"
-	ConditionPendingLBService      ClusterCondition = "PendingLoadBalancerService"
-	ConditionUpgrading             ClusterCondition = "Upgrading"
-	ConditionScaling               ClusterCondition = "Scaling"
-	ConditionShuttingDown          ClusterCondition = "ShuttingDown"
-	ConditionShutdown              ClusterCondition = "Shutdown"
-	ConditionDecommissioning       ClusterCondition = "Decommissioning"
-	ConditionCleanup               ClusterCondition = "CleaningResources"
-	// TODO: Add more states, eg. Terminating etc.
-
-	// Error reason constants.
-
+// Error reason constants.
+const (
 	ProxyCreationError    ErrorReason = "ProxyCreationError"
 	TargetCreationError   ErrorReason = "TargetCreationError"
 	InstanceDeletionError ErrorReason = "InstanceDeletionError"
@@ -54,9 +85,10 @@ const (
 	ResourceCreationError ErrorReason = "ResourceCreationError"
 	ResourceUpdateError   ErrorReason = "ResourceUpdateError"
 	InvalidSpecError      ErrorReason = "InvalidSpecError"
+)
 
-	// Helper constants.
-
+// Helper constants.
+const (
 	defaultClusterDomain = "cluster.local"
 )
 
@@ -157,15 +189,17 @@ type AIStoreSpec struct {
 
 // AIStoreStatus defines the observed state of AIStore
 type AIStoreStatus struct {
+	// The state of a AIStore is a simple, high-level summary of where the cluster is in its lifecycle.
+	// The conditions array field contain more detail about the cluster's status.
+	// +optional
+	State ClusterState `json:"state"`
 	// Represents the observations of a AIStores's current state.
-	// Known .status.conditions.type are: "Initialized", "Created", and "Ready"
+	// Known condition types are: "Initialized", "Created", and "Ready".
 	// +patchMergeKey=type
 	// +patchStrategy=merge
 	// +listType=map
 	// +listMapKey=type
 	Conditions []metav1.Condition `json:"conditions"`
-	// +optional
-	State ClusterCondition `json:"state"`
 	// +optional
 	ConsecutiveErrorCount int `json:"consecutive_error_count"` // number of times an error occurred
 }
@@ -250,76 +284,41 @@ type AIStore struct {
 
 // AddOrUpdateCondition is used to add a new/update an existing condition type.
 func (ais *AIStore) AddOrUpdateCondition(c *metav1.Condition) {
-	c.LastTransitionTime = metav1.Now()
 	c.ObservedGeneration = ais.GetGeneration()
-	for i, condition := range ais.Status.Conditions {
-		if c.Type == condition.Type {
-			ais.Status.Conditions[i] = *c
-			return
-		}
-	}
-	ais.Status.Conditions = append(ais.Status.Conditions, *c)
+	meta.SetStatusCondition(&ais.Status.Conditions, *c)
 }
 
-// GetLastCondition returns the last condition based on the condition timestamp.
-// Return false if no condition is present.
-func (ais *AIStore) GetLastCondition() (latest metav1.Condition, exists bool) {
-	if len(ais.Status.Conditions) == 0 {
-		return
-	}
-	exists = true
-	latest = ais.Status.Conditions[0]
-	lastTime := latest.LastTransitionTime
-	for i, condition := range ais.Status.Conditions {
-		if i == 0 {
-			continue
-		}
-		if lastTime.Before(&condition.LastTransitionTime) {
-			latest = condition
-			lastTime = condition.LastTransitionTime
-		}
-	}
-	return
+func (ais *AIStore) IsConditionTrue(conditionType ClusterConditionType) bool {
+	return meta.IsStatusConditionTrue(ais.Status.Conditions, string(conditionType))
 }
 
-// SetConditionInitialized add a new condition type `Initialized` and sets it to `True`
-func (ais *AIStore) SetConditionInitialized() {
+// SetCondition add a new condition and sets it to `True`.
+func (ais *AIStore) SetCondition(conditionType ClusterConditionType) {
+	var msg string
+	switch conditionType {
+	case ConditionInitialized:
+		msg = "Success initializing cluster"
+	case ConditionCreated:
+		msg = "Success creating AIS cluster"
+	case ConditionReady:
+		msg = "Cluster is ready"
+	}
 	ais.AddOrUpdateCondition(&metav1.Condition{
-		Type:    ConditionInitialized.Str(),
+		Type:    string(conditionType),
 		Status:  metav1.ConditionTrue,
-		Reason:  ConditionInitialized.Str(),
-		Message: "Success initializing cluster",
+		Reason:  string(conditionType),
+		Message: msg,
 	})
 }
 
-// SetConditionCreated add a new condition type `Created` and sets it to `True`
-func (ais *AIStore) SetConditionCreated() {
+// UnsetConditionReady add/updates condition setting type `Ready` to `False`.
+//   - `reason` - tag why the condition is being set to `False`.
+//   - `message` - a human-readable message indicating details about state change.
+func (ais *AIStore) UnsetConditionReady(reason ClusterConditionReason, message string) {
 	ais.AddOrUpdateCondition(&metav1.Condition{
-		Type:    ConditionCreated.Str(),
-		Status:  metav1.ConditionTrue,
-		Reason:  ConditionCreated.Str(),
-		Message: "Success creating AIS cluster",
-	})
-}
-
-// SetConditionReady add a new condition type `Ready` and sets it to `True`
-func (ais *AIStore) SetConditionReady() {
-	ais.AddOrUpdateCondition(&metav1.Condition{
-		Type:    ConditionReady.Str(),
-		Status:  metav1.ConditionTrue,
-		Reason:  ConditionReady.Str(),
-		Message: "Cluster is ready",
-	})
-}
-
-// UnsetConditionReady add/updates condition setting type `Ready` to `False`
-// reason - tag why the condition is being set to `False`.
-// message - a human readable message indicating details about state change.
-func (ais *AIStore) UnsetConditionReady(reason, message string) {
-	ais.AddOrUpdateCondition(&metav1.Condition{
-		Type:    ConditionReady.Str(),
+		Type:    string(ConditionReady),
 		Status:  metav1.ConditionFalse,
-		Reason:  reason,
+		Reason:  string(reason),
 		Message: message,
 	})
 }
@@ -330,7 +329,7 @@ func (ais *AIStore) SetConditionError(reason ErrorReason, err error) {
 		return
 	}
 	ais.AddOrUpdateCondition(&metav1.Condition{
-		Type:    ReconcilerError,
+		Type:    string(ConditionReconcilerError),
 		Status:  metav1.ConditionTrue,
 		Reason:  reason.Str(),
 		Message: err.Error(),
@@ -342,36 +341,17 @@ func (ais *AIStore) ResetErrorCount() { ais.Status.ConsecutiveErrorCount = 0 }
 func (ais *AIStore) SetConditionSuccess() {
 	ais.Status.ConsecutiveErrorCount = 0
 	ais.AddOrUpdateCondition(&metav1.Condition{
-		Type:   ReconcilerSuccess,
+		Type:   string(ConditionReconcilerSuccess),
 		Status: metav1.ConditionTrue,
-		Reason: ReconcilerSuccessReason,
+		Reason: string(ReasonReconcilerSuccess),
 	})
 }
 
-func (ais *AIStore) getCondition(conditionType string) (metav1.Condition, bool) {
-	for _, condition := range ais.Status.Conditions {
-		if condition.Type == conditionType {
-			return condition, true
-		}
-	}
-	return metav1.Condition{}, false
-}
-
-// IsConditionTrue checks if the `Status` for given type is set to true
-func (ais *AIStore) IsConditionTrue(conditionType string) (isTrue bool) {
-	condition, ok := ais.getCondition(conditionType)
-	if !ok {
-		return
-	}
-	isTrue = condition.Status == metav1.ConditionTrue
-	return
-}
-
-func (ais *AIStore) SetState(state ClusterCondition) {
+func (ais *AIStore) SetState(state ClusterState) {
 	ais.Status.State = state
 }
 
-func (ais *AIStore) HasState(state ClusterCondition) bool {
+func (ais *AIStore) HasState(state ClusterState) bool {
 	return ais.Status.State == state
 }
 
@@ -412,7 +392,7 @@ func (ais *AIStore) GetTargetSize() int32 {
 }
 
 func (ais *AIStore) ShouldShutdown() bool {
-	return ais.Spec.ShutdownCluster != nil && *ais.Spec.ShutdownCluster && ais.HasState(ConditionReady)
+	return ais.Spec.ShutdownCluster != nil && *ais.Spec.ShutdownCluster && ais.HasState(ClusterReady)
 }
 
 // ShouldDecommission Determines if we should begin decommissioning the cluster
@@ -420,7 +400,7 @@ func (ais *AIStore) ShouldDecommission() bool {
 	// We should only begin decommissioning if
 	// 1. CR is marked for deletion
 	// 2. We are not currently decommissioning or cleaning up resources
-	return !ais.HasState(ConditionDecommissioning) && !ais.HasState(ConditionCleanup) && !ais.GetDeletionTimestamp().IsZero()
+	return !ais.HasState(ClusterDecommissioning) && !ais.HasState(ClusterCleanup) && !ais.GetDeletionTimestamp().IsZero()
 }
 
 // ShouldCleanupMetadata Determines if we are doing a full decommission -- unrecoverable, including metadata
@@ -459,12 +439,4 @@ func (e ErrorReason) Equals(value string) bool {
 
 func (e ErrorReason) Str() string {
 	return string(e)
-}
-
-/////////////////////////////////
-//     ClusterCondition       //
-///////////////////////////////
-
-func (c ClusterCondition) Str() string {
-	return string(c)
 }
