@@ -144,8 +144,7 @@ func (r *AIStoreReconciler) resolveStatefulSetScaling(ctx context.Context, ais *
 	if err != nil {
 		return err
 	}
-	logger.Info("Finished scaling target statefulset")
-	ais.SetState(aisv1.ClusterReady) // FIXME: This is not synced with `r.client.Status().Update(...)`
+	logger.Info("Updated replica count for target statefulset")
 	return nil
 }
 
