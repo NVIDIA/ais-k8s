@@ -21,7 +21,7 @@ import (
 
 // TODO: Should be provided from test config.
 const (
-	NodeImage = "aistorage/aisnode:v3.24-rc2"
+	NodeImage = "aistorage/aisnode:v3.24-rc3"
 	InitImage = "aistorage/ais-init:v1.2.0"
 )
 

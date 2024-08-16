@@ -126,7 +126,7 @@
 
     - name: node_image
       prompt: "Specify the node_image. Skip for AIStore's latest image."
-      default: "aistorage/aisnode:v3.24-rc2"
+      default: "aistorage/aisnode:latest"
       private: no
   roles:
     - ais-deployment/roles/create_namespace
