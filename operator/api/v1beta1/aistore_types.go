@@ -22,9 +22,6 @@ type (
 	ClusterConditionType string
 	// ClusterConditionReason is a valid value for Condition.Reason
 	ClusterConditionReason string
-	// ErrorReason represents a string identifier for an error, typically used
-	// to categorize or describe the cause of an error in cluster operations.
-	ErrorReason string
 )
 
 // Cluster state constants represent various stages in the cluster lifecycle.
@@ -63,28 +60,11 @@ const (
 	ConditionCreated ClusterConditionType = "Created"
 	// ConditionReady indicates the cluster is fully operational and ready for use.
 	ConditionReady ClusterConditionType = "Ready"
-	// ConditionReconcilerError signifies an error occurred during the reconciliation process.
-	ConditionReconcilerError ClusterConditionType = "ReconcilerError"
-	// ConditionReconcilerSuccess means the reconciliation process completed successfully.
-	ConditionReconcilerSuccess ClusterConditionType = "ReconcilerSuccess"
 )
 
 // These are reasons for a AIStore's transition to a condition.
 const (
-	ReasonUpgrading         ClusterConditionReason = "Upgrading"
-	ReasonReconcilerSuccess ClusterConditionReason = "LastReconcileCycleSucceeded"
-)
-
-// Error reason constants.
-const (
-	ProxyCreationError    ErrorReason = "ProxyCreationError"
-	TargetCreationError   ErrorReason = "TargetCreationError"
-	InstanceDeletionError ErrorReason = "InstanceDeletionError"
-	ConfigBuildError      ErrorReason = "ConfigBuildError"
-	ExternalServiceError  ErrorReason = "ExternalService"
-	ResourceCreationError ErrorReason = "ResourceCreationError"
-	ResourceUpdateError   ErrorReason = "ResourceUpdateError"
-	InvalidSpecError      ErrorReason = "InvalidSpecError"
+	ReasonUpgrading ClusterConditionReason = "Upgrading"
 )
 
 // Helper constants.
@@ -204,8 +184,9 @@ type AIStoreStatus struct {
 	// +listType=map
 	// +listMapKey=type
 	Conditions []metav1.Condition `json:"conditions"`
+	// Deprecated: this field is no longer used.
 	// +optional
-	ConsecutiveErrorCount int `json:"consecutive_error_count"` // number of times an error occurred
+	ConsecutiveErrorCount int `json:"consecutive_error_count,omitempty"`
 }
 
 // ServiceSpec defines the specs of AIS Gateways
@@ -328,30 +309,6 @@ func (ais *AIStore) UnsetConditionReady(reason ClusterConditionReason, message s
 	})
 }
 
-// SetConditionError sets records error occurred in reconciler loop
-func (ais *AIStore) SetConditionError(reason ErrorReason, err error) {
-	if err == nil {
-		return
-	}
-	ais.AddOrUpdateCondition(&metav1.Condition{
-		Type:    string(ConditionReconcilerError),
-		Status:  metav1.ConditionTrue,
-		Reason:  reason.Str(),
-		Message: err.Error(),
-	})
-}
-
-func (ais *AIStore) IncErrorCount()   { ais.Status.ConsecutiveErrorCount++ }
-func (ais *AIStore) ResetErrorCount() { ais.Status.ConsecutiveErrorCount = 0 }
-func (ais *AIStore) SetConditionSuccess() {
-	ais.Status.ConsecutiveErrorCount = 0
-	ais.AddOrUpdateCondition(&metav1.Condition{
-		Type:   string(ConditionReconcilerSuccess),
-		Status: metav1.ConditionTrue,
-		Reason: string(ReasonReconcilerSuccess),
-	})
-}
-
 func (ais *AIStore) SetState(state ClusterState) {
 	ais.Status.State = state
 }
@@ -432,16 +389,4 @@ type AIStoreList struct {
 
 func init() {
 	SchemeBuilder.Register(&AIStore{}, &AIStoreList{})
-}
-
-////////////////////////
-//    ErrorReason     //
-///////////////////////
-
-func (e ErrorReason) Equals(value string) bool {
-	return string(e) == value
-}
-
-func (e ErrorReason) Str() string {
-	return string(e)
 }

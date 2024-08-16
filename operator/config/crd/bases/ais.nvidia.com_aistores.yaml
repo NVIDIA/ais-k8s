@@ -3467,6 +3467,7 @@ spec:
                 - type
                 x-kubernetes-list-type: map
               consecutive_error_count:
+                description: 'Deprecated: this field is no longer used.'
                 type: integer
               state:
                 description: |-

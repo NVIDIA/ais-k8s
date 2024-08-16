@@ -27,7 +27,6 @@ import (
 	apiv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -42,9 +41,6 @@ const (
 	userAgent    = "ais-operator"
 
 	configHashAnnotation = "config.aistore.nvidia.com/hash"
-
-	// errBackOffTime defines time between retries in case of error that repeats.
-	errBackOffTime = 5 * time.Second
 )
 
 type (
@@ -236,7 +232,7 @@ func (r *AIStoreReconciler) cleanupClusterRes(ctx context.Context, ais *aisv1.AI
 	updated, err := r.cleanup(ctx, ais)
 	if err != nil {
 		r.recordError(ctx, ais, err, "Failed to cleanup AIS Resources")
-		return r.manageError(ctx, ais, aisv1.InstanceDeletionError, err)
+		return reconcile.Result{}, err
 	}
 	if updated {
 		// It is better to delay the requeue little bit since cleanup can take some time.
@@ -247,7 +243,7 @@ func (r *AIStoreReconciler) cleanupClusterRes(ctx context.Context, ais *aisv1.AI
 	err = r.client.UpdateIfExists(ctx, ais)
 	if err != nil {
 		r.recordError(ctx, ais, err, "Failed to update instance")
-		return r.manageError(ctx, ais, aisv1.ResourceUpdateError, err)
+		return reconcile.Result{}, err
 	}
 	return reconcile.Result{}, nil
 }
@@ -354,38 +350,37 @@ func (r *AIStoreReconciler) attemptGracefulShutdown(ctx context.Context, ais *ai
 
 // reconcileResources is responsible for reconciling all resources that given
 // AIStore CRD is managing. It handles initial reconcile as well as any updates.
-func (r *AIStoreReconciler) reconcileResources(ctx context.Context, ais *aisv1.AIStore) (result ctrl.Result, err error) {
+func (r *AIStoreReconciler) reconcileResources(ctx context.Context, ais *aisv1.AIStore) (err error) {
 	_, err = ais.ValidateSpec(ctx)
 	if err != nil {
 		r.recordError(ctx, ais, err, "Failed to validate AIStore spec")
-		ais.IncErrorCount()
-		ais.SetConditionError(aisv1.InvalidSpecError, err)
-		return result, err
+		return err
 	}
 
 	globalCM, err := cmn.NewGlobalCM(ais, ais.Spec.ConfigToUpdate)
 	if err != nil {
 		r.recordError(ctx, ais, err, "Failed to construct global config")
-		return r.manageError(ctx, ais, aisv1.ConfigBuildError, err)
+		return err
 	}
 
 	// 1. Deploy RBAC resources.
 	err = r.createOrUpdateRBACResources(ctx, ais)
 	if err != nil {
-		return r.manageError(ctx, ais, aisv1.ResourceCreationError, err)
+		r.recordError(ctx, ais, err, "Failed to create/update RBAC resources")
+		return err
 	}
 
 	// 2. Deploy statsd ConfigMap. Required by both proxies and targets.
 	statsDCM := statsd.NewStatsDCM(ais)
 	if err = r.client.CreateOrUpdateResource(ctx, ais, statsDCM); err != nil {
 		r.recordError(ctx, ais, err, "Failed to deploy StatsD ConfigMap")
-		return r.manageError(ctx, ais, aisv1.ResourceCreationError, err)
+		return err
 	}
 
 	// 3. Deploy global cluster ConfigMap.
 	if err = r.client.CreateOrUpdateResource(ctx, ais, globalCM); err != nil {
 		r.recordError(ctx, ais, err, "Failed to deploy global cluster ConfigMap")
-		return r.manageError(ctx, ais, aisv1.ResourceCreationError, err)
+		return err
 	}
 
 	// FIXME: We should also move the logic from `bootstrapNew` and `handleCREvents`.
@@ -394,12 +389,12 @@ func (r *AIStoreReconciler) reconcileResources(ctx context.Context, ais *aisv1.A
 	//  add annotations with hashes of the configmaps - thanks to this even if we
 	//  would restart on next reconcile we can compare hashes.
 
-	return ctrl.Result{}, nil
+	return nil
 }
 
 func (r *AIStoreReconciler) ensurePrereqs(ctx context.Context, ais *aisv1.AIStore) (result ctrl.Result, err error) {
 	// 1. Reconcile basic resources like RBAC and ConfigMaps.
-	if result, err = r.reconcileResources(ctx, ais); err != nil || !result.IsZero() {
+	if err = r.reconcileResources(ctx, ais); err != nil {
 		return result, err
 	}
 
@@ -410,12 +405,12 @@ func (r *AIStoreReconciler) ensurePrereqs(ctx context.Context, ais *aisv1.AIStor
 		proxyReady, err = r.enableProxyExternalService(ctx, ais)
 		if err != nil {
 			r.recordError(ctx, ais, err, "Failed to enable proxy external service")
-			return r.manageError(ctx, ais, aisv1.ExternalServiceError, err)
+			return result, err
 		}
 		err = r.enableTargetExternalService(ctx, ais)
 		if err != nil {
 			r.recordError(ctx, ais, err, "Failed to enable target external service")
-			return r.manageError(ctx, ais, aisv1.ExternalServiceError, err)
+			return result, err
 		}
 		// When external access is enabled, we need external IPs of all the targets before deploying AIS cluster.
 		// To ensure correct behavior of cluster, we requeue the reconciler till we have all the external IPs.
@@ -451,7 +446,7 @@ func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore
 	// 1. Bootstrap proxies
 	if result.Requeue, err = r.initProxies(ctx, ais); err != nil {
 		r.recordError(ctx, ais, err, "Failed to create Proxy resources")
-		return r.manageError(ctx, ais, aisv1.ProxyCreationError, err)
+		return result, err
 	} else if result.Requeue {
 		return
 	}
@@ -459,7 +454,7 @@ func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore
 	// 2. Bootstrap targets
 	if result.Requeue, err = r.initTargets(ctx, ais); err != nil {
 		r.recordError(ctx, ais, err, "Failed to create Target resources")
-		return r.manageError(ctx, ais, aisv1.TargetCreationError, err)
+		return result, err
 	} else if result.Requeue {
 		return
 	}
@@ -502,7 +497,7 @@ func (r *AIStoreReconciler) handleCREvents(ctx context.Context, ais *aisv1.AISto
 		goto requeue
 	}
 
-	return r.manageSuccess(ctx, ais)
+	return r.handleSuccessfulReconcile(ctx, ais)
 
 requeue:
 	// We requeue till the AIStore cluster becomes ready.
@@ -652,40 +647,20 @@ func (r *AIStoreReconciler) getAPIParams(ctx context.Context,
 	return
 }
 
-// misc helpers
-func (r *AIStoreReconciler) manageError(ctx context.Context,
-	ais *aisv1.AIStore, reason aisv1.ErrorReason, err error,
-) (ctrl.Result, error) {
-	var requeueAfter time.Duration
-
-	condition := meta.FindStatusCondition(ais.Status.Conditions, string(aisv1.ConditionReconcilerError))
-	if condition != nil && reason.Equals(condition.Reason) {
-		requeueAfter = errBackOffTime
-	} else {
-		// If the error with given reason occurred for the first time,
-		// requeue immediately and reset the error count
-		ais.ResetErrorCount()
-	}
-
-	ais.IncErrorCount()
-	ais.SetConditionError(reason, err)
-	if err := r.setStatus(ctx, ais, aisv1.AIStoreStatus{}); err != nil {
-		// Status update failed, requeue immediately.
-		return ctrl.Result{}, err
-	}
-	return ctrl.Result{RequeueAfter: requeueAfter}, err
-}
-
-func (r *AIStoreReconciler) manageSuccess(ctx context.Context, ais *aisv1.AIStore) (result ctrl.Result, err error) {
-	ais.SetConditionSuccess()
+func (r *AIStoreReconciler) handleSuccessfulReconcile(ctx context.Context, ais *aisv1.AIStore) (result ctrl.Result, err error) {
+	var needsUpdate bool
 	if !ais.IsConditionTrue(aisv1.ConditionReady) {
-		r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonReady, "Created AIS cluster")
+		r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonReady, "Successfully reconciled AIStore cluster")
 		ais.SetCondition(aisv1.ConditionReady)
+		needsUpdate = true
 	}
 	if !ais.HasState(aisv1.ClusterReady) {
-		err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ClusterReady})
+		ais.SetState(aisv1.ClusterReady)
+		needsUpdate = true
 	}
-
+	if needsUpdate {
+		err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{})
+	}
 	return
 }
 
