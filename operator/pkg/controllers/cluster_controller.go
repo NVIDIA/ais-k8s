@@ -9,7 +9,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
-	"os"
 	"sync"
 	"time"
 
@@ -70,30 +69,18 @@ func NewAISReconciler(c *aisclient.K8sClient, recorder record.EventRecorder, log
 		authN:        newAuthNConfig(),
 	}
 }
-
 func newAuthNConfig() authNConfig {
-	userName := os.Getenv(env.AuthN.AdminUsername)
-	if userName == "" {
-		userName = AuthNAdminUser
-	}
-	pass := os.Getenv(env.AuthN.AdminPassword)
-	if pass == "" {
-		pass = AuthNAdminPass
-	}
-	host := os.Getenv(AuthNServiceHostVar)
-	if host == "" {
-		host = AuthNServiceHostName
-	}
-	port := os.Getenv(AuthNServicePortVar)
-	if port == "" {
-		port = AuthNServicePort
+	protocol := "http"
+	if useHTTPS, err := cos.IsParseEnvBoolOrDefault(env.AuthN.UseHTTPS, false); err == nil && useHTTPS {
+		protocol = "https"
 	}
 
 	return authNConfig{
-		adminUser: userName,
-		adminPass: pass,
-		port:      port,
-		host:      host,
+		adminUser: cos.GetEnvOrDefault(env.AuthN.AdminUsername, AuthNAdminUser),
+		adminPass: cos.GetEnvOrDefault(env.AuthN.AdminPassword, AuthNAdminPass),
+		host:      cos.GetEnvOrDefault(AuthNServiceHostVar, AuthNServiceHostName),
+		port:      cos.GetEnvOrDefault(AuthNServicePortVar, AuthNServicePort),
+		protocol:  protocol,
 	}
 }
 
@@ -722,7 +709,7 @@ createParams:
 	url := fmt.Sprintf("%s://%s:%s", scheme, serviceHostname, ais.Spec.ProxySpec.ServicePort.String())
 
 	// Get admin token if AuthN is enabled
-	token, err = r.getAdminToken(ais, scheme)
+	token, err = r.getAdminToken(ais)
 	if err != nil {
 		return nil, err
 	}

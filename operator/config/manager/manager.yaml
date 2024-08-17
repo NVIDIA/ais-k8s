@@ -43,6 +43,8 @@ spec:
           value: "ais-authn.ais" # Replace with the actual AIS AuthN service host
         - name: AIS_AUTHN_SERVICE_PORT
           value: "52001" # Replace with the actual AIS AuthN service port
+        - name: AIS_AUTHN_USE_HTTPS
+          value: "true" # Set to "true" if AuthN is running with HTTPS
         livenessProbe:
           httpGet:
             path: /healthz

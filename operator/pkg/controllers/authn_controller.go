@@ -17,6 +17,7 @@ type authNConfig struct {
 	adminPass string
 	port      string
 	host      string
+	protocol  string
 }
 
 // AuthN constants
@@ -31,12 +32,12 @@ const (
 )
 
 // getAdminToken retrieves an admin token from AuthN service for the given AIS cluster.
-func (r *AIStoreReconciler) getAdminToken(ais *aisv1.AIStore, scheme string) (string, error) {
+func (r *AIStoreReconciler) getAdminToken(ais *aisv1.AIStore) (string, error) {
 	if ais.Spec.AuthNSecretName == nil {
 		return "", nil
 	}
 
-	authNURL := fmt.Sprintf("%s://%s:%s", scheme, r.authN.host, r.authN.port)
+	authNURL := fmt.Sprintf("%s://%s:%s", r.authN.protocol, r.authN.host, r.authN.port)
 	authNBP := _baseParams(authNURL, "")
 	zeroDuration := time.Duration(0)
 
