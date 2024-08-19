@@ -19,7 +19,7 @@ func globalConfigMapName(ais *aisv1.AIStore) string {
 func NewGlobalCM(ais *aisv1.AIStore, toUpdate *aisv1.ConfigToUpdate) (*corev1.ConfigMap, error) {
 	globalConf := DefaultAISConf(ais)
 	if toUpdate != nil {
-		toSet, err := convertConfig(toUpdate)
+		toSet, err := toUpdate.Convert()
 		if err != nil {
 			return nil, err
 		}

@@ -7,9 +7,12 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"time"
 
+	aisapi "github.com/NVIDIA/aistore/api"
 	"github.com/NVIDIA/aistore/api/apc"
 	"github.com/NVIDIA/aistore/cmn/cos"
 	aisv1 "github.com/ais-operator/api/v1beta1"
@@ -296,6 +299,31 @@ var _ = Describe("AIStoreController", func() {
 					By("Ensure that target StatefulSet has been created")
 					err = c.Get(ctx, types.NamespacedName{Name: "ais-target", Namespace: namespace}, &ss)
 					Expect(err).ToNot(HaveOccurred())
+				})
+
+				It("should properly handle config update", func() {
+					By("Update CRD")
+					ais.Spec.ConfigToUpdate.Features = apc.Ptr("2568")
+					err := c.Update(ctx, ais)
+					Expect(err).ToNot(HaveOccurred())
+
+					// FIXME: We should be able to mock the AIStore client without the need to create a fake server.
+					By("Mock AIStore server")
+					server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+					DeferCleanup(func() {
+						server.Close()
+					})
+					r.clientParams = map[string]*aisapi.BaseParams{ais.NamespacedName().String(): _baseParams(server.URL, "")}
+
+					By("Reconcile to propagate config")
+					ready, err := r.handleConfigState(ctx, ais)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(ready).To(BeTrue())
+
+					By("Ensure that config update is propagated to proxies/targets")
+					err = c.Get(ctx, types.NamespacedName{Name: ais.Name, Namespace: namespace}, ais)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(ais.Annotations[configHashAnnotation]).ToNot(BeEmpty())
 				})
 			})
 

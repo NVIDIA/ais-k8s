@@ -5,7 +5,12 @@
 package v1beta1
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+
+	aiscmn "github.com/NVIDIA/aistore/cmn"
 	"github.com/NVIDIA/aistore/cmn/cos"
+	jsoniter "github.com/json-iterator/go"
 )
 
 // NOTE: `*ToUpdate` structures are duplicates of `*ToUpdate` structs from AIStore main repository.
@@ -207,3 +212,15 @@ type (
 		MD   *string `json:"md,omitempty"`
 	}
 )
+
+func (c *ConfigToUpdate) Hash() string {
+	data, _ := jsoniter.Marshal(c)
+	hash := sha256.Sum256(data)
+	return hex.EncodeToString(hash[:])
+}
+
+func (c *ConfigToUpdate) Convert() (toUpdate *aiscmn.ConfigToSet, err error) {
+	toUpdate = &aiscmn.ConfigToSet{}
+	err = cos.MorphMarshal(c, toUpdate)
+	return toUpdate, err
+}

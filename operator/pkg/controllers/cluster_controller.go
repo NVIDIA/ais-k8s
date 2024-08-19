@@ -41,6 +41,8 @@ const (
 	aisFinalizer = "finalize.ais"
 	userAgent    = "ais-operator"
 
+	configHashAnnotation = "config.aistore.nvidia.com/hash"
+
 	// errBackOffTime defines time between retries in case of error that repeats.
 	errBackOffTime = 5 * time.Second
 )
@@ -475,12 +477,13 @@ func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore
 // handlerCREvents matches the AIS cluster state obtained from reconciler request against the existing cluster state.
 // It applies changes to cluster resources to ensure the request state is reached.
 // Stages:
-//  1. Check if the proxy daemon resources have a state (e.g. replica count) that matches the latest `ais` cluster spec.
+//  1. Check if the proxy daemon resources have a state (e.g. replica count) that matches the latest cluster spec.
 //     If not, update the state to match the request spec and requeue the request. If they do, proceed to next set of checks.
 //  2. Similarly, check the resource state for targets and ensure the state matches the reconciler request.
-//  3. If both proxy and target daemons have expected state, keep requeuing the event until all the pods are ready.
+//  3. Check if config is properly updated in the cluster.
+//  4. If expected state is not yet met we should reconcile until everything is ready.
 func (r *AIStoreReconciler) handleCREvents(ctx context.Context, ais *aisv1.AIStore) (result ctrl.Result, err error) {
-	var proxyReady, targetReady bool
+	var proxyReady, targetReady, configReady bool
 	if proxyReady, err = r.handleProxyState(ctx, ais); err != nil {
 		return
 	} else if !proxyReady {
@@ -493,6 +496,12 @@ func (r *AIStoreReconciler) handleCREvents(ctx context.Context, ais *aisv1.AISto
 		goto requeue
 	}
 
+	if configReady, err = r.handleConfigState(ctx, ais); err != nil {
+		return
+	} else if !configReady {
+		goto requeue
+	}
+
 	return r.manageSuccess(ctx, ais)
 
 requeue:
@@ -502,6 +511,42 @@ requeue:
 		err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ClusterUpgrading})
 	}
 	return
+}
+
+// handleConfigState properly reconciles any changes in `.spec.configToUpdate` field.
+//
+// ConfigMap that also contain the value of this field is updated earlier, but
+// we have to make sure that the cluster also has expected config.
+func (r *AIStoreReconciler) handleConfigState(ctx context.Context, ais *aisv1.AIStore) (ready bool, err error) {
+	currentHash := ais.Spec.ConfigToUpdate.Hash()
+	if ais.Annotations[configHashAnnotation] == currentHash {
+		return true, nil
+	}
+
+	// Update cluster config based on what we have in the CRD spec.
+	baseParams, err := r.getAPIParams(ctx, ais)
+	if err != nil {
+		return false, err
+	}
+	configToSet, err := ais.Spec.ConfigToUpdate.Convert()
+	if err != nil {
+		return false, err
+	}
+	err = aisapi.SetClusterConfigUsingMsg(*baseParams, configToSet, false /*transient*/)
+	if err != nil {
+		return false, err
+	}
+
+	// Finally update CRD with proper annotation.
+	if ais.Annotations == nil {
+		ais.Annotations = map[string]string{}
+	}
+	ais.Annotations[configHashAnnotation] = currentHash
+	if err := r.client.Update(ctx, ais); err != nil {
+		return false, err
+	}
+
+	return true, nil
 }
 
 func (r *AIStoreReconciler) createOrUpdateRBACResources(ctx context.Context, ais *aisv1.AIStore) (err error) {

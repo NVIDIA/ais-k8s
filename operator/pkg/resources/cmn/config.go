@@ -144,12 +144,6 @@ var defaultAISConf = aiscmn.ClusterConfig{
 	},
 }
 
-func convertConfig(cfg *aisv1.ConfigToUpdate) (toUpdate *aiscmn.ConfigToSet, err error) {
-	toUpdate = &aiscmn.ConfigToSet{}
-	err = cos.MorphMarshal(cfg, toUpdate)
-	return toUpdate, err
-}
-
 func DefaultAISConf(ais *aisv1.AIStore) aiscmn.ClusterConfig {
 	var scheme string
 	conf := defaultAISConf

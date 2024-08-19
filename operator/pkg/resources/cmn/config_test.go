@@ -13,7 +13,7 @@ import (
 )
 
 var _ = Describe("Config", Label("short"), func() {
-	Describe("convertConfig", func() {
+	Describe("Convert", func() {
 		It("should convert without an error", func() {
 			toUpdate := &aisv1.ConfigToUpdate{
 				Space: &aisv1.SpaceConfToUpdate{
@@ -29,7 +29,7 @@ var _ = Describe("Config", Label("short"), func() {
 				Features: aisapc.Ptr("2568"),
 			}
 
-			toSet, err := convertConfig(toUpdate)
+			toSet, err := toUpdate.Convert()
 			Expect(err).ToNot(HaveOccurred())
 			cfg := &cmn.ClusterConfig{}
 			err = cfg.Apply(toSet, aisapc.Cluster)
