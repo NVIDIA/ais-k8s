@@ -29,7 +29,7 @@ var defaultAISConf = aiscmn.ClusterConfig{
 	},
 	Transport: aiscmn.TransportConf{
 		MaxHeaderSize:   4096,
-		Burst:           32,
+		Burst:           512,
 		IdleTeardown:    cos.Duration(4 * time.Second),
 		QuiesceTime:     cos.Duration(10 * time.Second),
 		LZ4BlockMaxSize: cos.SizeIEC(256 * cos.KiB),
