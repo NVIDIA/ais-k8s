@@ -134,14 +134,14 @@ func checkLabelSupport(ctx context.Context, spec *aisv1.AIStoreSpec) bool {
 		logger.Info("Image does not have a proper tag", "node_image", spec.NodeImage)
 		return true
 	}
-	tag := parts[1]
+	// Allow for hyphen-separated tags, e.g. aisnode:v3.24-rc3
+	tag := strings.Split(parts[1], "-")[0]
 	if !semver.IsValid(tag) {
 		logger.Info("Image does not use semantic versioning, assuming it supports labels", "node_image", spec.NodeImage)
 		return true
 	}
 	// Check version is at least v3.23
 	if semver.Compare(tag, "v3.23") >= 0 {
-		logger.Info("Image supports labels", "node_image", spec.NodeImage)
 		return true
 	}
 	logger.Info("Image tag < v3.23, hence proceeding without labels", "node_image", spec.NodeImage)
