@@ -12,21 +12,17 @@ const (
 	EnvServiceName = "MY_SERVICE" // K8s service associated with Pod
 
 	EnvPublicHostname       = "AIS_PUBLIC_HOSTNAME"
-	EnvDaemonRole           = "AIS_NODE_ROLE"                    // Role of AIS daemon (Proxy or Target)
-	EnvProxyServiceName     = "CLUSTERIP_PROXY_SERVICE_HOSTNAME" // Service name of Proxy StatefulSets
-	EnvProxyServicePort     = "CLUSTERIP_PROXY_SERVICE_PORT"     // Port used by Proxy Service
-	EnvNodeServicePort      = "AIS_NODE_SERVICE_PORT"            // PublicNet service port
-	EnvDefaultPrimaryPod    = "AIS_DEFAULT_PRIMARY"              // Default Primary pod name
-	EnvCIDR                 = "AIS_CLUSTER_CIDR"                 // CIDR to use
-	EnvClusterDomain        = "AIS_K8S_CLUSTER_DOMAIN"           // K8s cluster DNS domain
-	EnvConfigFilePath       = "AIS_CONF_FILE"                    // Path to AIS config file
-	EnvLocalConfigFilePath  = "AIS_LOCAL_CONF_FILE"              // Path to AIS local config file
-	EnvEnablePrometheus     = "AIS_PROMETHEUS"                   // Enable prometheus exporter
-	EnvUseHTTPS             = "AIS_USE_HTTPS"                    // Use HTTPS endpoints
-	EnvStatsDConfig         = "STATSD_CONF_FILE"                 // Path to StatsD config json
-	EnvNumTargets           = "TARGETS"                          // Expected target count // TODO: Add AIS_ prefix
-	EnvEnableExternalAccess = "ENABLE_EXTERNAL_ACCESS"           // Bool flag to indicate AIS daemon is exposed using LoadBalancer
-	EnvShutdownMarkerPath   = "AIS_SHUTDOWN_MARKER_PATH"         // Path where node shutdown marker will be located
+	EnvDefaultPrimaryPod    = "AIS_DEFAULT_PRIMARY"      // Default Primary pod name
+	EnvCIDR                 = "AIS_CLUSTER_CIDR"         // CIDR to use
+	EnvClusterDomain        = "AIS_K8S_CLUSTER_DOMAIN"   // K8s cluster DNS domain
+	EnvConfigFilePath       = "AIS_CONF_FILE"            // Path to AIS config file
+	EnvLocalConfigFilePath  = "AIS_LOCAL_CONF_FILE"      // Path to AIS local config file
+	EnvEnablePrometheus     = "AIS_PROMETHEUS"           // Enable prometheus exporter
+	EnvUseHTTPS             = "AIS_USE_HTTPS"            // Use HTTPS endpoints
+	EnvStatsDConfig         = "STATSD_CONF_FILE"         // Path to StatsD config json
+	EnvNumTargets           = "TARGETS"                  // Expected target count // TODO: Add AIS_ prefix
+	EnvEnableExternalAccess = "ENABLE_EXTERNAL_ACCESS"   // Bool flag to indicate AIS daemon is exposed using LoadBalancer
+	EnvShutdownMarkerPath   = "AIS_SHUTDOWN_MARKER_PATH" // Path where node shutdown marker will be located
 
 	//nolint:gosec // This is not really credential.
 	EnvGCPCredsPath = "GOOGLE_APPLICATION_CREDENTIALS" // Path to GCP credentials

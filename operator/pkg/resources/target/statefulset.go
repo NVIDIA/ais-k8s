@@ -13,7 +13,6 @@ import (
 	aisapc "github.com/NVIDIA/aistore/api/apc"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	"github.com/ais-operator/pkg/resources/cmn"
-	"github.com/ais-operator/pkg/resources/proxy"
 	"github.com/ais-operator/pkg/resources/statsd"
 	"gopkg.in/inf.v0"
 	apiv1 "k8s.io/api/apps/v1"
@@ -98,16 +97,13 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 							Env: append([]corev1.EnvVar{
 								cmn.EnvFromFieldPath(cmn.EnvNodeName, "spec.nodeName"),
 								cmn.EnvFromFieldPath(cmn.EnvPodName, "metadata.name"),
-								cmn.EnvFromValue(cmn.EnvClusterDomain, ais.GetClusterDomain()),
 								cmn.EnvFromValue(cmn.EnvNS, ais.Namespace),
+								cmn.EnvFromValue(cmn.EnvServiceName, headlessSVCName(ais)),
+								cmn.EnvFromValue(cmn.EnvClusterDomain, ais.GetClusterDomain()),
 								cmn.EnvFromValue(
 									cmn.EnvEnableExternalAccess,
 									strconv.FormatBool(ais.Spec.EnableExternalLB),
 								),
-								cmn.EnvFromValue(cmn.EnvServiceName, headlessSVCName(ais)),
-								cmn.EnvFromValue(cmn.EnvDaemonRole, aisapc.Target),
-								cmn.EnvFromValue(cmn.EnvProxyServiceName, proxy.HeadlessSVCName(ais)),
-								cmn.EnvFromValue(cmn.EnvProxyServicePort, ais.Spec.ProxySpec.ServicePort.String()),
 							}, optionals...),
 							Args:         cmn.NewInitContainerArgs(aisapc.Target, ais.Spec.HostnameMap),
 							VolumeMounts: cmn.NewInitVolumeMounts(),
@@ -122,19 +118,17 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 							Args:            cmn.NewAISContainerArgs(ais, aisapc.Target),
 							Env: append([]corev1.EnvVar{
 								cmn.EnvFromFieldPath(cmn.EnvPodName, "metadata.name"),
-								cmn.EnvFromValue(cmn.EnvClusterDomain, ais.GetClusterDomain()),
 								cmn.EnvFromValue(cmn.EnvNS, ais.Namespace),
+								cmn.EnvFromValue(cmn.EnvClusterDomain, ais.GetClusterDomain()),
 								cmn.EnvFromValue(cmn.EnvCIDR, ""), // TODO: add
 								cmn.EnvFromValue(cmn.EnvConfigFilePath, path.Join(cmn.AisConfigDir, cmn.AISGlobalConfigName)),
 								cmn.EnvFromValue(cmn.EnvShutdownMarkerPath, cmn.AisConfigDir),
 								cmn.EnvFromValue(cmn.EnvLocalConfigFilePath, path.Join(cmn.AisConfigDir, cmn.AISLocalConfigName)),
 								cmn.EnvFromValue(cmn.EnvStatsDConfig, path.Join(cmn.StatsDDir, statsd.ConfigFile)),
-								cmn.EnvFromValue(cmn.EnvDaemonRole, aisapc.Target),
-								cmn.EnvFromValue(cmn.EnvEnablePrometheus,
-									strconv.FormatBool(ais.Spec.EnablePromExporter != nil && *ais.Spec.EnablePromExporter)),
-								cmn.EnvFromValue(cmn.EnvProxyServiceName, proxy.HeadlessSVCName(ais)),
-								cmn.EnvFromValue(cmn.EnvProxyServicePort, ais.Spec.ProxySpec.ServicePort.String()),
-								cmn.EnvFromValue(cmn.EnvNodeServicePort, ais.Spec.TargetSpec.PublicPort.String()),
+								cmn.EnvFromValue(
+									cmn.EnvEnablePrometheus,
+									strconv.FormatBool(ais.Spec.EnablePromExporter != nil && *ais.Spec.EnablePromExporter),
+								),
 							}, optionals...),
 							Ports:           cmn.NewDaemonPorts(&ais.Spec.TargetSpec.DaemonSpec),
 							SecurityContext: ais.Spec.TargetSpec.ContainerSecurity,
