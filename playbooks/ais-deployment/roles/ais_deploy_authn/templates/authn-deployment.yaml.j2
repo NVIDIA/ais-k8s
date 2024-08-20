@@ -36,18 +36,32 @@ spec:
           value: "{{ tls_cert }}"
         - name: AIS_SERVER_KEY
           value: "{{ tls_key }}"
+        volumeMounts:
         {% if enable_https %}
 
-        volumeMounts:
         - mountPath: /var/certs
           name: tls-certs
           readOnly: true
         {% endif %}
-      {% if enable_https %}
-      
+
+        - mountPath: /etc/ais/authn
+          name: authn-storage
+        - mountPath: /etc/ais/authn/authn.json
+          name: authn-config
+          subPath: authn.json
+          readOnly: true
       volumes:
+      {% if enable_https %}
+
       - name: tls-certs
         secret:
           secretName: {{ tls_secret }}
           defaultMode: 420
       {% endif %}
+
+      - name: authn-storage
+        persistentVolumeClaim:
+          claimName: authn-pvc
+      - name: authn-config
+        configMap:
+          name: authn-config

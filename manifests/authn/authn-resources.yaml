@@ -1,0 +1,68 @@
+---
+# Creates a K8s Secret with the JWT Signing Key. Same secret can be used by AIStore Pods
+apiVersion: v1
+kind: Secret
+metadata:
+  name: jwt-signing-key
+  namespace: ais
+type: Opaque
+data:
+  SIGNING-KEY: YUJpdExvbmdTZWNyZXRLZXk= # base64 encoded value of "aBitLongSecretKey", `echo -n "aBitLongSecretKey" | base64`
+---
+# ConfigMap for AuthN Server with the default configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: authn-config
+  namespace: ais
+data:
+  authn.json: |
+    {
+      "log": {
+        "dir": "/var/log/ais/authn/",
+        "level": "3"
+      },
+      "net": {
+        "http": {
+          "port": 52001,
+          "use_https": false,
+          "server_crt": "",
+          "server_key": ""
+        }
+      },
+      "auth": {
+        "secret": "aBitLongSecretKey",
+        "expiration_time": "24h"
+      },
+      "timeout": {
+        "default_timeout": "30s"
+      }
+    }
+---
+# AuthN PV for storing AuthN configuration and user data
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: authn-pv
+  namespace: ais
+spec:
+  capacity:
+    storage: 50Mi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /etc/ais/authn
+  persistentVolumeReclaimPolicy: Retain
+---
+# AuthN PVC for storing AuthN configuration and user data
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: authn-pvc
+  namespace: ais
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Mi

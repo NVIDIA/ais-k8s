@@ -3,11 +3,13 @@
   gather_facts: no
   vars:
     k8s_namespace: "{{ cluster }}"
+    operator_namespace: "ais-operator-system"
     jwt_signing_key: "aBitLongSecretKey" # Plain text value of the signing key
     authn_image: "aistorage/authn:latest"
     admin_username: "admin"
     admin_password: "admin"
     authn_port: 52001
+    authn_host: "ais-authn.ais"
     enable_https: false
     tls_secret: "tls-certs"
     tls_cert: "/var/certs/tls.crt"

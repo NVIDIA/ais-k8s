@@ -11,6 +11,22 @@
 - name: Apply JWT Signing Key Secret configuration
   command: kubectl apply -f /tmp/jwt-signing-key-secret.yaml
 
+- name: Create AuthN Default Config Map
+  template:
+    src: authn-default-config.yaml.j2
+    dest: /tmp/authn-default-config.yaml
+
+- name: Apply AuthN Default Config Map
+  command: kubectl apply -f /tmp/authn-default-config.yaml
+
+- name: Create AuthN PV/PVC for Config Dir
+  template:
+    src: authn-conf-dir-pv-pvc.yaml.j2
+    dest: /tmp/authn-conf-dir-pv-pvc.yaml
+
+- name: Apply AuthN PV/PVC for Config Dir
+  command: kubectl apply -f /tmp/authn-conf-dir-pv-pvc.yaml
+
 - name: Create AuthN Deployment file from template
   template:
     src: authn-deployment.yaml.j2
@@ -18,6 +34,23 @@
 
 - name: Apply AuthN Deployment configuration
   command: kubectl apply -f /tmp/authn-deployment.yaml
+
+- name: Patch AIS Operator to update environment variables for AuthN
+  command: >
+    kubectl patch deployment ais-operator-controller-manager
+    -n {{ operator_namespace }}
+    --type=json
+    --patch '[{
+      "op": "replace",
+      "path": "/spec/template/spec/containers/0/env",
+      "value": [
+        {"name": "AIS_AUTHN_SU_NAME", "value": "{{ admin_username }}"},
+        {"name": "AIS_AUTHN_SU_PASS", "value": "{{ admin_password }}"},
+        {"name": "AIS_AUTHN_SERVICE_HOST", "value": "{{ authn_host }}"},
+        {"name": "AIS_AUTHN_SERVICE_PORT", "value": "{{ authn_port | string }}"},
+        {"name": "AIS_AUTHN_USE_HTTPS", "value": "{{ enable_https | lower | string }}"}
+      ]
+    }]'
 
 - name: Create AuthN NodePort Service file from template
   template:
