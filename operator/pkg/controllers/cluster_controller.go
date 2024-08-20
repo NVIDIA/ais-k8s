@@ -40,7 +40,8 @@ const (
 	aisFinalizer = "finalize.ais"
 	userAgent    = "ais-operator"
 
-	configHashAnnotation = "config.aistore.nvidia.com/hash"
+	configHashAnnotation    = "config.aistore.nvidia.com/hash"
+	aisShutdownRequeueDelay = 2 * time.Second
 )
 
 type (
@@ -128,6 +129,10 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	if ais.ShouldShutdown() {
+		if err = r.attemptGracefulShutdown(ctx, ais); err != nil {
+			logger.Error(err, "Graceful shutdown failed")
+			return reconcile.Result{}, err
+		}
 		err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ClusterShuttingDown})
 		if err != nil {
 			return reconcile.Result{}, err
@@ -138,6 +143,11 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	switch {
 	case ais.HasState(aisv1.ClusterShuttingDown):
 		return r.shutdownCluster(ctx, ais)
+	case ais.HasState(aisv1.ClusterShutdown):
+		// Remain in shutdown state unless the spec field changes
+		if ais.Spec.ShutdownCluster != nil && !*ais.Spec.ShutdownCluster {
+			return reconcile.Result{}, nil
+		}
 	case ais.HasState(aisv1.ClusterDecommissioning):
 		return r.decommissionCluster(ctx, ais)
 	case ais.HasState(aisv1.ClusterCleanup):
@@ -178,19 +188,28 @@ func (r *AIStoreReconciler) initializeCR(ctx context.Context, ais *aisv1.AIStore
 	return
 }
 
-func (r *AIStoreReconciler) shutdownCluster(ctx context.Context, ais *aisv1.AIStore) (reconcile.Result, error) {
-	var err error
+func (r *AIStoreReconciler) shutdownCluster(ctx context.Context, ais *aisv1.AIStore) (result reconcile.Result, err error) {
 	logger := logf.FromContext(ctx)
 
-	logger.Info("Starting shutdown of AIS cluster")
-	if err = r.attemptGracefulShutdown(ctx, ais); err != nil {
-		logger.Error(err, "Graceful shutdown failed")
+	// TODO: Handle potential case if AIS does not shutdown
+	// Try to contact the cluster -- if it's still up, requeue
+	params, err := r.getAPIParams(ctx, ais)
+	if err != nil {
+		return
 	}
-	//TODO: wait for AIS graceful shutdown to finish before scaling down
-	if err = r.scaleStatefulSetToZero(ctx, proxy.StatefulSetNSName(ais)); err != nil {
+	_, err = aisapi.GetClusterMap(*params)
+	if err == nil {
+		logger.Info("AIS cluster still running, delaying statefulset scale down")
+		// Give AIS time to shut down, but requeue often enough to scale down before pods restart
+		result.RequeueAfter = aisShutdownRequeueDelay
+		return
+	}
+
+	// Scale down both statefulsets to 0
+	if _, err = r.client.UpdateStatefulSetReplicas(ctx, proxy.StatefulSetNSName(ais), 0); err != nil {
 		return reconcile.Result{}, err
 	}
-	if err = r.scaleStatefulSetToZero(ctx, target.StatefulSetNSName(ais)); err != nil {
+	if _, err = r.client.UpdateStatefulSetReplicas(ctx, target.StatefulSetNSName(ais), 0); err != nil {
 		return reconcile.Result{}, err
 	}
 	err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ClusterShutdown})
@@ -251,20 +270,6 @@ func (r *AIStoreReconciler) cleanupClusterRes(ctx context.Context, ais *aisv1.AI
 func (r *AIStoreReconciler) isClusterRunning(ctx context.Context, ais *aisv1.AIStore) bool {
 	// Consider cluster running if both proxy and target ss have ready pods
 	return r.ssHasReadyReplicas(ctx, target.StatefulSetNSName(ais)) && r.ssHasReadyReplicas(ctx, proxy.StatefulSetNSName(ais))
-}
-
-func (r *AIStoreReconciler) scaleStatefulSetToZero(ctx context.Context, name types.NamespacedName) error {
-	logger := logf.FromContext(ctx).WithValues("statefulset", name.String())
-	logger.Info("Scaling statefulset to zero")
-	changed, err := r.client.UpdateStatefulSetReplicas(ctx, name, 0)
-	if err != nil {
-		logger.Error(err, "Failed to scale statefulset to zero")
-	} else if changed {
-		logger.Info("StatefulSet set to size 0")
-	} else {
-		logger.Info("StatefulSet already at size 0")
-	}
-	return err
 }
 
 func (r *AIStoreReconciler) ssHasReadyReplicas(ctx context.Context, name types.NamespacedName) bool {
@@ -329,7 +334,6 @@ func (r *AIStoreReconciler) attemptGracefulShutdown(ctx context.Context, ais *ai
 		err    error
 	)
 	logger := logf.FromContext(ctx)
-	logger.Info("Attempting graceful shutdown")
 	if r.isExternal {
 		params, err = r.getAPIParams(ctx, ais)
 	} else {

@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
@@ -169,6 +170,7 @@ func (c *K8sClient) UpdateIfExists(ctx context.Context, res client.Object) error
 }
 
 func (c *K8sClient) UpdateStatefulSetReplicas(ctx context.Context, name types.NamespacedName, size int32) (updated bool, err error) {
+	logger := logf.FromContext(ctx).WithValues("statefulset", name.String())
 	ss, err := c.GetStatefulSet(ctx, name)
 	if err != nil {
 		return
@@ -177,8 +179,15 @@ func (c *K8sClient) UpdateStatefulSetReplicas(ctx context.Context, name types.Na
 	if !updated {
 		return
 	}
+	logger = logger.WithValues("before", *ss.Spec.Replicas, "after", size)
+	logger.Info("Scaling statefulset")
 	ss.Spec.Replicas = &size
 	err = c.client.Update(ctx, ss)
+	if err != nil {
+		logger.Error(err, "Failed to scale statefulset")
+		return
+	}
+	logger.Info("StatefulSet size updated")
 	return
 }
 
