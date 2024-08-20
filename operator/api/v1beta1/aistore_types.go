@@ -76,7 +76,7 @@ const (
 // IMPORTANT: Run "make" to regenerate code after modifying this file
 
 // AIStoreSpec defines the desired state of AIStore
-// +kubebuilder:validation:XValidation:rule="(has(self.targetSpec.size) && has(self.proxySpec.size)) || (has(self.size) && self.size > 0)",message="Invalid cluster size, it is either not specified or value is not valid",fieldPath=".size"
+// +kubebuilder:validation:XValidation:rule="(has(self.targetSpec.size) && has(self.proxySpec.size)) || (has(self.size) && self.size > 0)",message="Invalid cluster size, it is either not specified or value is not valid"
 type AIStoreSpec struct {
 	// Size of the cluster i.e. number of proxies and number of targets.
 	// This can be changed by specifying size in either `proxySpec` or `targetSpec`.

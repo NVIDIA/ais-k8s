@@ -3396,8 +3396,7 @@ spec:
             - targetSpec
             type: object
             x-kubernetes-validations:
-            - fieldPath: .size
-              message: Invalid cluster size, it is either not specified or value is
+            - message: Invalid cluster size, it is either not specified or value is
                 not valid
               rule: (has(self.targetSpec.size) && has(self.proxySpec.size)) || (has(self.size)
                 && self.size > 0)
