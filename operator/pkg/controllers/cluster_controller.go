@@ -313,7 +313,6 @@ func (r *AIStoreReconciler) attemptGracefulDecommission(ctx context.Context, ais
 		baseParams, err = r.primaryBaseParams(ctx, ais)
 	}
 	if err != nil {
-		logger.Error(err, "Failed to get API parameters")
 		return err
 	}
 	cleanupData := ais.Spec.CleanupData != nil && *ais.Spec.CleanupData
@@ -337,7 +336,6 @@ func (r *AIStoreReconciler) attemptGracefulShutdown(ctx context.Context, ais *ai
 		params, err = r.primaryBaseParams(ctx, ais)
 	}
 	if err != nil {
-		logger.Error(err, "Failed to get API parameters")
 		return err
 	}
 	logger.Info("Attempting graceful shutdown of cluster")
@@ -629,9 +627,8 @@ func hasValidBaseParams(baseParams *aisapi.BaseParams, ais *aisv1.AIStore) bool 
 func (r *AIStoreReconciler) getAPIParams(ctx context.Context,
 	ais *aisv1.AIStore,
 ) (baseParams *aisapi.BaseParams, err error) {
-	var exists bool
 	r.mu.RLock()
-	baseParams, exists = r.clientParams[ais.NamespacedName().String()]
+	baseParams, exists := r.clientParams[ais.NamespacedName().String()]
 	if exists && hasValidBaseParams(baseParams, ais) {
 		r.mu.RUnlock()
 		return
@@ -639,6 +636,7 @@ func (r *AIStoreReconciler) getAPIParams(ctx context.Context,
 	r.mu.RUnlock()
 	baseParams, err = r.newAISBaseParams(ctx, ais)
 	if err != nil {
+		logf.FromContext(ctx).Error(err, "Failed to get AIS API parameters")
 		return
 	}
 	r.mu.Lock()

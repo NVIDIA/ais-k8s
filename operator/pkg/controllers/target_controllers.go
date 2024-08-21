@@ -152,7 +152,6 @@ func (r *AIStoreReconciler) isReadyToScaleDown(ctx context.Context, ais *aisv1.A
 	logger := logf.FromContext(ctx)
 	params, err := r.getAPIParams(ctx, ais)
 	if err != nil {
-		logger.Error(err, "Failed to get API params")
 		return false, err
 	}
 
@@ -193,7 +192,6 @@ func (r *AIStoreReconciler) decommissionTargets(ctx context.Context, ais *aisv1.
 	logger := logf.FromContext(ctx)
 	params, err := r.getAPIParams(ctx, ais)
 	if err != nil {
-		logger.Error(err, "Failed to get API params")
 		return err
 	}
 
