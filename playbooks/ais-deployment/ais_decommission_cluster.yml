@@ -9,7 +9,10 @@
     prompt: "Are you sure you would like to decommission cluster - {{ cluster }}? Type 'yes' to confirm."
     default: "no"
     private: no
-
+  - name: "cleanup_metadata"
+    prompt: "Would you like to cleanup all metadata (api.DecommissionCluster)? Type 'yes' to confirm."
+    default: "no"
+    private: no
   - name: "cleanup_data"
     prompt: "Would you like to cleanup all user data (buckets and objects) from disks? Type 'yes' to confirm."
     default: "no"
@@ -31,18 +34,3 @@
     - role: ais_decommission_cluster
   vars:
     decommission_cluster: true
-
-- name: Reset AIS configuration
-  hosts: "{{ cluster }}"
-  gather_facts: no
-  become: true
-  vars_files:
-    - "vars/ais_mpaths.yml"
-  vars_prompt:
-    - name: "delete_conf"
-      prompt: "Would you also like to delete all AIS config files from all nodes"
-      default: "no"
-      private: no
-
-  roles:
-    - role: ais_reset_config
