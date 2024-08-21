@@ -17,6 +17,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/validation"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -65,6 +67,34 @@ func (ais *AIStore) validateStateStorage() (admission.Warnings, error) {
 	return nil, nil
 }
 
+func (ss *ServiceSpec) validate(path *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	for _, msg := range validation.IsValidPortNum(ss.ServicePort.IntValue()) {
+		allErrs = append(allErrs, field.Invalid(path.Child("servicePort"), ss.ServicePort.IntValue(), msg))
+	}
+	for _, msg := range validation.IsValidPortNum(ss.PublicPort.IntValue()) {
+		allErrs = append(allErrs, field.Invalid(path.Child("portPublic"), ss.PublicPort.IntValue(), msg))
+	}
+	for _, msg := range validation.IsValidPortNum(ss.IntraControlPort.IntValue()) {
+		allErrs = append(allErrs, field.Invalid(path.Child("portIntraControl"), ss.IntraControlPort.IntValue(), msg))
+	}
+	for _, msg := range validation.IsValidPortNum(ss.IntraDataPort.IntValue()) {
+		allErrs = append(allErrs, field.Invalid(path.Child("portIntraData"), ss.IntraDataPort.IntValue(), msg))
+	}
+
+	return allErrs
+}
+
+func (ais *AIStore) validateServiceSpec() (admission.Warnings, error) {
+	allErrs := field.ErrorList{}
+
+	allErrs = append(allErrs, ais.Spec.ProxySpec.ServiceSpec.validate(field.NewPath("spec", "proxySpec"))...)
+	allErrs = append(allErrs, ais.Spec.TargetSpec.ServiceSpec.validate(field.NewPath("spec", "targetSpec"))...)
+
+	return nil, allErrs.ToAggregate()
+}
+
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type.
 func (aisw *AIStoreWebhook) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	ais, ok := obj.(*AIStore)
@@ -96,6 +126,7 @@ func (ais *AIStore) ValidateSpec(_ context.Context, extraValidations ...func() (
 	validations := []func() (admission.Warnings, error){
 		ais.validateSize,
 		ais.validateStateStorage,
+		ais.validateServiceSpec,
 	}
 	validations = append(validations, extraValidations...)
 
