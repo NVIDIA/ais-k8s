@@ -13,8 +13,36 @@ To set up the AIStore Authentication Server (AuthN) in a production environment,
 You can apply the specifications using `kubectl`:
 
 ```bash
-kubectl apply -f manifests/authn/authn.yaml
+kubectl apply -f https://raw.githubusercontent.com/NVIDIA/ais-k8s/main/manifests/authn/authn-resources.yaml
+kubectl apply -f https://raw.githubusercontent.com/NVIDIA/ais-k8s/main/manifests/authn/authn.yaml
+kubectl apply -f https://raw.githubusercontent.com/NVIDIA/ais-k8s/main/manifests/authn/authn-services.yaml
 ```
+
+#### Running AuthN with TLS
+
+To enable TLS for the AuthN server, you'll need a certificate and a key. You can reuse the certificate and key generated for your AIStore deployment using the [generate certs playbook](../playbooks/ais-deployment/docs/generate_https_cert.md).
+
+Once you have these, ensure they are stored in a Kubernetes secret named `tls-certs`. With this in place, you can deploy the AuthN server with TLS enabled by running:
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/NVIDIA/ais-k8s/main/manifests/authn/authn-resources.yaml
+kubectl apply -f https://raw.githubusercontent.com/NVIDIA/ais-k8s/main/manifests/authn/authn-tls.yaml
+kubectl apply -f https://raw.githubusercontent.com/NVIDIA/ais-k8s/main/manifests/authn/authn-services.yaml
+```
+
+This will configure the AuthN server to securely handle requests over HTTPS.
+
+#### Deleting the AuthN Server and Its Resources
+
+To completely remove the AuthN server along with all associated resources, execute the following command:
+
+```bash
+kubectl delete -f https://raw.githubusercontent.com/NVIDIA/ais-k8s/main/manifests/authn/authn-resources.yaml
+kubectl delete -f https://raw.githubusercontent.com/NVIDIA/ais-k8s/main/manifests/authn/authn.yaml
+kubectl delete -f https://raw.githubusercontent.com/NVIDIA/ais-k8s/main/manifests/authn/authn-services.yaml
+```
+
+This command ensures that the AuthN deployment, including the TLS configurations and any related resources, are fully deleted from your Kubernetes cluster.
 
 ### Using Ansible
 
@@ -34,24 +62,25 @@ To undeploy the AuthN server, run:
 ansible-playbook -i inventory.ini playbooks/ais-deployment/ais_undeploy_authn.yml -e cluster=ais
 ```
 
-### Steps to Run AuthN in Kubernetes
+### AuthN Resources in Kubernetes
 
-1. **Create a Secret for the Signing Key**  
-   - This secret is used by both the AuthN server and the AIStore pods. It contains the key used to sign JWT tokens.
+1. **Signing Key Secret**  
+   - This secret holds the key used to sign JWT tokens, which is used by both the AuthN server and AIStore pods.
 
-2. **Create a ConfigMap for AuthN Configuration**  
-   - This ConfigMap contains the configuration template for the AuthN server. Environment variables in the Init container of the AuthN deployment will override this template.
+2. **AuthN Configuration ConfigMap**  
+   - The ConfigMap stores the default configuration of the AuthN server. Environment variables defined in specification of the AuthN deployment will override the config values at runtime.
 
-3. **Deploy AuthN**  
-   The deployment includes two containers:
-   - **Init Container**: Replaces environment variables in the ConfigMap template.
-   - **AuthN Container**: Uses the generated configuration with substituted variables and deploys the AuthN server.
+3. **Persistent Storage (PV and PVC)**  
+   - User information and configuration data for AuthN are securely stored in a Persistent Volume (PV), which is connected to the AuthN deployment via a Persistent Volume Claim (PVC).
 
-4. **Deploy an External Service for AuthN**  
-   This service allows access to the AuthN server from outside the cluster. You can use a `NodePort` service as shown in the example, or a `LoadBalancer` service.
+4. **AuthN Deployment**  
+   - This runs the AuthN container that provides the Authentication Server for AIStore.
 
-5. **Deploy an Internal Service for AuthN**  
-   This service allows other pods and the AIS-Operator to communicate with the AuthN server internally.
+5. **External Service for AuthN**  
+   - This service exposes the AuthN server to external clients. You can choose to use either a `NodePort` or `LoadBalancer` service, depending on your access requirements.
+
+6. **Internal Service for AuthN**  
+   - This service facilitates internal communication between the AuthN server and other pods, including the AIS-Operator, within the cluster.
 
 ## How Components Interact with AuthN
 
@@ -70,6 +99,8 @@ If AuthN is enabled for your AIStore cluster, AIS-Operator requires a token sinc
   value: "ais-authn.ais" # Replace with the actual AIS AuthN service host
 - name: AIS_AUTHN_SERVICE_PORT
   value: "52001" # Replace with the actual AIS AuthN service port
+- name: AIS_AUTHN_USE_HTTPS
+  value: "true" # Set to "true" if AuthN is running with HTTPS
 ```
 
 To apply these changes, edit the environment variables in the [spec file](../operator/config/manager/manager.yaml) and reapply it.
@@ -96,4 +127,44 @@ export AIS_AUTHN_URL=http://<pods-ip>:30001
 
 # For internal clients
 export AIS_AUTHN_URL=http://ais-authn.ais:52001
+```
+
+## Switching Between HTTP and HTTPS (TLS) for the AuthN Server
+
+To switch the protocol of an existing AuthN server from HTTP to HTTPS (or vice versa), you can apply the new configuration specification over the current deployment. This will automatically redeploy the AuthN server with the updated settings.
+
+We strongly recommend using [Ansible Playbooks](#using-ansible) for this process. Ansible ensures all steps are handled consistently, including the additional configuration update required for the [AIS Operator Manager](#ais-operator). If you choose to apply the [specification](#using-kubectl) manually using `kubectl`, you’ll need to manually update the operator’s environment variables to ensure it communicates correctly with the reconfigured AuthN server.
+
+To manually update the AIS Operator’s configuration, run:
+
+```bash
+kubectl edit deployment -n ais-operator-system ais-operator-controller-manager -o yaml
+# Update the environment variables: admin username/password, use-https, port, and host as needed.
+```
+
+## Disabling AuthN in an Existing AIStore Deployment
+
+If you have AuthN enabled but no longer wish to require authentication tokens for your requests or use AuthN features, you can easily disable it via the CLI or APIs/SDK with a simple configuration update:
+
+```bash
+ais config cluster set auth.enabled=false
+```
+
+In most cases, a restart of AIStore is not necessary for this change to take effect. However, if AIStore continues to request tokens with each API call, you may need to restart the servers for the configuration to apply properly.
+
+## Enabling AuthN on a Running AIStore Server
+
+> **Note:** Enabling AuthN on an already running AIStore server requires a cluster restart.
+
+To enable AuthN, ensure that the JWT Signing Key Secret is created. Once the secret is set up, you’ll need to restart the cluster and clear the existing configurations on all nodes. This can be done using the [`ais_restart_cluster`](../playbooks/ais-deployment/ais_restart_cluster.yml) playbook with the `delete_conf=true` environment variable. This playbook will:
+
+- Delete the AIStore CRD
+- Shutdown the cluster
+- Remove configuration mounts on the target nodes, allowing them to load new configs
+- Redeploy AIStore using the [`ais_deploy_cluster`](../playbooks/ais-deployment/ais_deploy_cluster.yml) playbook
+
+Be sure to specify the JWT signing key secret in the [defaults](../playbooks/ais-deployment/roles/ais_deploy_cluster/defaults/main.yml) file.
+
+```bash
+ansible-playbook -i hosts.ini ais_restart_cluster.yml -e cluster=ais -e delete_conf=true
 ```
