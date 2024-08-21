@@ -1,20 +1,85 @@
 ---
 # Playbook for switching the deployment protocol for AIS (HTTP ⇌ HTTPS)
 
+- name: Set cleanupMetadata to false in the AIStore CRD
+  hosts: controller
+  gather_facts: false
+  tasks:
+    - name: Patch AIStore CRD to set cleanupMetadata to false
+      command: >
+        kubectl patch aistores.ais.nvidia.com ais -n {{ cluster }} --type=merge -p '{"spec":{"cleanupMetadata":false}}'
+
+    - name: Check for stateStorageClass in AIS store specification
+      shell: kubectl get aistores -n {{ cluster }} ais -o jsonpath='{.spec.stateStorageClass}'
+      register: state_storage_class
+      changed_when: false
+      when: delete_conf | default(false) | bool
+
+    - name: Check for hostPathPrefix in AIS store specification
+      shell: kubectl get aistores -n {{ cluster }} ais -o jsonpath='{.spec.hostPathPrefix}'
+      register: host_path_prefix
+      changed_when: false
+      when: delete_conf | default(false) | bool
+
+
+    - name: Set fact for state_storage_class
+      set_fact:
+        state_storage_class_fact: "{{ state_storage_class.stdout | default('') }}"
+      when: delete_conf | default(false) | bool
+
+    
+    - name: Set fact for host_path_prefix
+      set_fact:
+        host_path_prefix_fact: "{{ host_path_prefix.stdout | default('') }}"
+      when: delete_conf | default(false) | bool
+
 - name: Delete all AIS pods from the cluster
   hosts: controller
   gather_facts: false
   roles:
     - ais_delete_cluster
 
-- name: Reset AIS configuration
+- name: Delete AIS configuration if stateStorageClass is present
+  hosts: controller
+  gather_facts: false
+  tasks:
+    - name: Deleting all PVCs with the stateStorageClass
+      debug:
+        msg: >
+          "Deleting all PVCs with the storage class: {{ state_storage_class_fact }}"
+      when: 
+        - delete_conf | default(false) | bool
+        - state_storage_class_fact | length > 0
+
+    - name: Include role to delete AIS configuration
+      include_role:
+        name: ais_delete_conf_state_storage
+      when: 
+        - delete_conf | default(false) | bool
+        - state_storage_class_fact | length > 0
+      vars:
+        state_storage_class: "{{ state_storage_class_fact }}"
+
+- name: Delete AIS configuration if hostPathPrefix is present
   hosts: "{{ cluster }}"
   gather_facts: false
-  become: true
-  vars_files:
-    - "vars/ais_mpaths.yml"
-  roles:
-    - ais_reset_config
+  tasks:
+    - name: Deleting AIS configuration with the hostPathPrefix
+      debug:
+        msg: >
+          "Deleting AIS configuration with the hostPathPrefix: {{ host_path_prefix_fact }}"
+      when:
+        - delete_conf | default(false) | bool
+        - host_path_prefix_fact | length > 0
+
+    - name: Include role to delete AIS configuration based on hostPathPrefix
+      include_role:
+        name: ais_delete_conf_host_path
+      when: 
+        - delete_conf | default(false) | bool
+        - host_path_prefix_fact | length > 0
+      vars:
+        host_path_prefix: "{{ host_path_prefix_fact }}"
 
 - name: Redeploy AIS cluster
   hosts: controller

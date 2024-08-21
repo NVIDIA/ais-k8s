@@ -8,53 +8,57 @@ The `ais_switch_protocol` playbook serves the purpose of streamlining the transi
 
 ### Prerequisites
 
-Before using this playbook, ensure you meet the following prerequisites:
+Before running this playbook, ensure the following prerequisites are met:
 
-1. **AIStore Cluster Configuration:** Make sure that your AIStore cluster is properly configured and accessible via the command line interface (CLI).
+1. **AIStore Cluster Configuration:** Verify that your AIStore cluster is properly configured and accessible via the command line interface (CLI).
 
 2. **CLI Configuration:** Using the CLI, perform the following steps with the correct cluster endpoint set to `AIS_ENDPOINT`:
 
    - To disable HTTPS:
      ```bash
-     $ ais config cluster net.http.use_https false
+     ais config cluster net.http.use_https false
      ```
 
    - To enable HTTPS:
      ```bash
-     $ ais config cluster net.http.use_https true
-     $ ais config cluster net.http.skip_verify true
-     $ ais config cluster net.http.server_key /var/certs/tls.key
-     $ ais config cluster net.http.server_crt /var/certs/tls.crt
+     ais config cluster net.http.use_https true
+     ais config cluster net.http.skip_verify true
+     ais config cluster net.http.server_key /var/certs/tls.key
+     ais config cluster net.http.server_crt /var/certs/tls.crt
      ```
 
-3. **Cluster Shutdown:** Safely shut down the cluster by running the following command:
+3. **Cluster Shutdown:** Gracefully shut down the cluster to ensure configurations are saved properly:
    ```bash
-   $ ais cluster shutdown -y
+   ais cluster shutdown -y
    ```
+
+   > **Note:** Shutting down the cluster ensures that the configuration changes are correctly saved and will be applied in subsequent runs. After shutting down, the cluster will be inaccessible until it is redeployed through the playbook.
 
 4. **Certificate Creation and Mounting:** Follow [generate_https_cert](generate_https_cert.md) to create your TLS certificates.
 
-> Note: If you are using AIS CLI and do not want to verify the certificate, use `$ ais config cli set cluster.skip_verify_crt true`.
+   > **Note:** If you are using the AIS CLI and prefer not to verify the certificate, you can set `cluster.skip_verify_crt` to `true` with the command:  
+   > ```bash
+   > ais config cli set cluster.skip_verify_crt true
+   > ```
 
 ### Playbook Execution
 
-Follow these steps to use the `ais_switch_protocol` playbook:
+To execute the `ais_switch_protocol` playbook, follow these steps:
 
-1. **Ansible Installation:** Ensure that Ansible is installed on your system.
+1. **Install Ansible:** Ensure Ansible is installed on your system.
 
-2. **Host Configuration:** Create or edit your `hosts.ini` file to specify the `controller` host where you want to apply this playbook, as well as the `ais` hosts, which are the nodes of your AIStore cluster.
+2. **Configure Hosts:** Create or update your `hosts.ini` file to specify the `controller` host and the `ais` hosts, which represent the nodes of your AIStore cluster.
 
-3. **Update TLS Variables:** Update the variables in `vars/https_config.yml`
+3. **Update TLS Variables:** Modify the variables in `vars/https_config.yml` to reflect your TLS settings.
 
-4. **Verify AIS mountpaths:** Verify the mountpaths in `vars/ais_mpaths.yml` are still correct for your cluster
+4. **Verify AIS Mountpaths:** Ensure that the mountpaths in `vars/ais_mpaths.yml` are accurate for your cluster.
 
-5. **Run the Playbook:** Execute the playbook using the following command:
-   ```console
-   $ ansible-playbook -i hosts.ini ais_switch_protocol.yml -e cluster=ais
+5. **Run the Playbook:** Execute the playbook with the following command:
+   ```bash
+   ansible-playbook -i hosts.ini ais_switch_protocol.yml -e cluster=ais
    ```
 
-   To remove AIStore configuration files after performing significant upgrades to your cluster, execute the following command:
-   
-   ```console
-   $ ansible-playbook -i hosts.ini ais_switch_protocol.yml -e cluster=ais -e delete_conf=true
+   If you need to remove AIStore configuration files after significant upgrades, you can run:
+   ```bash
+   ansible-playbook -i hosts.ini ais_switch_protocol.yml -e cluster=ais -e delete_conf=true
    ```

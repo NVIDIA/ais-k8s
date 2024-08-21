@@ -1,0 +1,7 @@
+---
+- name: Delete PVCs with stateStorageClass
+  shell: >
+    kubectl get pvc -n {{ cluster }} -o jsonpath='{.items[?(@.spec.storageClassName=="{{ state_storage_class }}")].metadata.name}' | xargs -r kubectl delete pvc -n {{ cluster }}
+  register: delete_pvc_output
+  changed_when: delete_pvc_output.stdout != ""
+  when: state_storage_class is defined and state_storage_class != ""
