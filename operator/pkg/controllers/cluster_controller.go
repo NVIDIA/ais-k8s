@@ -28,8 +28,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
+	k8sclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -121,7 +123,7 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	if ais.ShouldDecommission() {
-		err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ClusterDecommissioning})
+		err = r.updateStatus(ctx, ais, aisv1.ClusterDecommissioning)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -133,7 +135,7 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			logger.Error(err, "Graceful shutdown failed")
 			return reconcile.Result{}, err
 		}
-		err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ClusterShuttingDown})
+		err = r.updateStatus(ctx, ais, aisv1.ClusterShuttingDown)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -178,7 +180,7 @@ func (r *AIStoreReconciler) initializeCR(ctx context.Context, ais *aisv1.AIStore
 
 	logger.Info("Updating state and setting condition", "state", aisv1.ConditionInitialized)
 	ais.SetCondition(aisv1.ConditionInitialized)
-	err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ClusterInitialized})
+	err = r.updateStatus(ctx, ais, aisv1.ClusterInitialized)
 	if err != nil {
 		logger.Error(err, "Failed to update state", "state", aisv1.ConditionInitialized)
 		return err
@@ -212,7 +214,7 @@ func (r *AIStoreReconciler) shutdownCluster(ctx context.Context, ais *aisv1.AISt
 	if _, err = r.client.UpdateStatefulSetReplicas(ctx, target.StatefulSetNSName(ais), 0); err != nil {
 		return reconcile.Result{}, err
 	}
-	err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ClusterShutdown})
+	err = r.updateStatus(ctx, ais, aisv1.ClusterShutdown)
 	if err != nil {
 		logger.Error(err, "Failed to update state", "state", aisv1.ClusterShutdown)
 		return reconcile.Result{}, err
@@ -231,7 +233,7 @@ func (r *AIStoreReconciler) decommissionCluster(ctx context.Context, ais *aisv1.
 		}
 		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 	}
-	err := r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ClusterCleanup})
+	err := r.updateStatus(ctx, ais, aisv1.ClusterCleanup)
 	if err != nil {
 		logger.Error(err, "Failed to update state", "state", aisv1.ClusterCleanup)
 		return reconcile.Result{}, err
@@ -418,12 +420,12 @@ func (r *AIStoreReconciler) ensurePrereqs(ctx context.Context, ais *aisv1.AIStor
 		// To ensure correct behavior of cluster, we requeue the reconciler till we have all the external IPs.
 		if !proxyReady {
 			if !ais.HasState(aisv1.ClusterInitializingLBService) && !ais.HasState(aisv1.ClusterPendingLBService) {
-				err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ClusterInitializingLBService})
+				err = r.updateStatus(ctx, ais, aisv1.ClusterInitializingLBService)
 				if err == nil {
 					r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonInitialized, "Successfully initialized LoadBalancer service")
 				}
 			} else {
-				err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ClusterPendingLBService})
+				err = r.updateStatus(ctx, ais, aisv1.ClusterPendingLBService)
 				if err == nil {
 					r.recorder.Eventf(
 						ais, corev1.EventTypeNormal, EventReasonWaiting,
@@ -462,7 +464,7 @@ func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore
 	}
 
 	ais.SetCondition(aisv1.ConditionCreated)
-	err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ClusterCreated})
+	err = r.updateStatus(ctx, ais, aisv1.ClusterCreated)
 	if err != nil {
 		return
 	}
@@ -505,7 +507,7 @@ requeue:
 	// We requeue till the AIStore cluster becomes ready.
 	if ais.IsConditionTrue(aisv1.ConditionReady) {
 		ais.UnsetConditionReady(aisv1.ReasonUpgrading, "Waiting for cluster to upgrade")
-		err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ClusterUpgrading})
+		err = r.updateStatus(ctx, ais, aisv1.ClusterUpgrading)
 	}
 	return
 }
@@ -585,19 +587,25 @@ func (r *AIStoreReconciler) createOrUpdateRBACResources(ctx context.Context, ais
 	return
 }
 
-func (r *AIStoreReconciler) setStatus(ctx context.Context, ais *aisv1.AIStore, status aisv1.AIStoreStatus) error {
+func (r *AIStoreReconciler) updateStatus(ctx context.Context, ais *aisv1.AIStore, state aisv1.ClusterState) error {
 	logger := logf.FromContext(ctx)
-	if status.State != "" {
-		logger.Info("Updating AIS state", "state", status.State)
-		ais.SetState(status.State)
-	}
+	logger.Info("Updating AIS state", "state", state)
+	ais.SetState(state)
 
-	if err := r.client.Status().Update(ctx, ais); err != nil {
-		r.recordError(ctx, ais, err, "Failed to update CR status")
+	patchBytes, err := json.Marshal(map[string]interface{}{
+		"status": ais.Status,
+	})
+	if err != nil {
+		logger.Error(err, "Failed to marshal AIS status")
 		return err
 	}
+	patch := k8sclient.RawPatch(types.MergePatchType, patchBytes)
 
-	return nil
+	err = r.client.Status().Patch(ctx, ais, patch)
+	if err != nil {
+		r.recordError(ctx, ais, err, "Failed to patch CR status")
+	}
+	return err
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -661,11 +669,10 @@ func (r *AIStoreReconciler) handleSuccessfulReconcile(ctx context.Context, ais *
 		needsUpdate = true
 	}
 	if !ais.HasState(aisv1.ClusterReady) {
-		ais.SetState(aisv1.ClusterReady)
 		needsUpdate = true
 	}
 	if needsUpdate {
-		err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{})
+		err = r.updateStatus(ctx, ais, aisv1.ClusterReady)
 	}
 	return
 }

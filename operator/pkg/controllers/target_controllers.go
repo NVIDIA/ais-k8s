@@ -114,7 +114,7 @@ func (r *AIStoreReconciler) handleTargetState(ctx context.Context, ais *aisv1.AI
 			return false, err
 		}
 		// If successful, mark as scaling so future reconciliations will update the SS
-		err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{State: aisv1.ClusterScaling})
+		err = r.updateStatus(ctx, ais, aisv1.ClusterScaling)
 		return false, err
 	}
 	// For now, state of target is considered ready if the number of target pods ready matches the size provided in AIS cluster spec.
