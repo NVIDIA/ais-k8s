@@ -20,12 +20,12 @@ var defaultAISConf = aiscmn.ClusterConfig{
 	},
 	Cksum: aiscmn.CksumConf{
 		Type:            cos.ChecksumXXHash,
-		ValidateColdGet: true,
+		ValidateColdGet: false,
 	},
 	Client: aiscmn.ClientConf{
-		Timeout:        cos.Duration(time.Minute),
-		TimeoutLong:    cos.Duration(30 * time.Minute),
-		ListObjTimeout: cos.Duration(10 * time.Minute),
+		Timeout:        cos.Duration(10 * time.Second),
+		TimeoutLong:    cos.Duration(5 * time.Minute),
+		ListObjTimeout: cos.Duration(5 * time.Minute),
 	},
 	Transport: aiscmn.TransportConf{
 		MaxHeaderSize:   4096,
@@ -64,6 +64,7 @@ var defaultAISConf = aiscmn.ClusterConfig{
 		DefaultMaxMemUsage:  "80%",
 		DsorterMemThreshold: "100GB",
 		CallTimeout:         cos.Duration(10 * time.Minute),
+		SbundleMult:         2,
 	},
 	Downloader: aiscmn.DownloaderConf{
 		Timeout: cos.Duration(time.Hour),
@@ -73,12 +74,15 @@ var defaultAISConf = aiscmn.ClusterConfig{
 		ObjSizeLimit: 262144,
 		DataSlices:   2,
 		ParitySlices: 2,
+		SbundleMult:  2,
 		Compression:  aisapc.CompressNever,
 	},
 	FSHC: aiscmn.FSHCConf{
 		Enabled:       true,
 		TestFileCount: 4,
 		HardErrs:      2, // `error_limit`
+		IOErrs:        10,
+		IOErrTime:     cos.Duration(10 * time.Second),
 	},
 	Keepalive: aiscmn.KeepaliveConf{
 		Proxy: aiscmn.KeepaliveTrackerConf{
@@ -91,12 +95,14 @@ var defaultAISConf = aiscmn.ClusterConfig{
 			Name:     "heartbeat",
 			Factor:   3,
 		},
-		RetryFactor: 5,
+		RetryFactor: 4,
 	},
 	Log: aiscmn.LogConf{
-		Level:    "3",
-		MaxSize:  cos.SizeIEC(4 * cos.MiB),
-		MaxTotal: cos.SizeIEC(64 * cos.MiB),
+		Level:     "3",
+		MaxSize:   cos.SizeIEC(4 * cos.MiB),
+		MaxTotal:  cos.SizeIEC(128 * cos.MiB),
+		FlushTime: cos.Duration(time.Minute),
+		StatsTime: cos.Duration(3 * time.Minute),
 	},
 	Space: aiscmn.SpaceConf{
 		CleanupWM: 65,
