@@ -137,6 +137,14 @@ spec:
         annotations:
           summary: AIS Resilver Interrupted
           description: "AIS Resilvering has been interrupted on node '{{ $labels.node_id }}' (instance {{ $labels.instance }})."
+      - alert: AISRestarted
+        expr: (floor(ais_target_state_flags / 128)) % 2 == 1
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: AIS Node Restarted
+          description: "AIS Node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) has been restarted."
       - alert: AISOutOfSpace
         expr: (floor(ais_target_state_flags / 512)) % 2 == 1
         for: 1m
@@ -161,3 +169,35 @@ spec:
         annotations:
           summary: AIS Low Capacity
           description: "AIS Node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) reports low remaining storage capacity and is at risk of running out of space soon."
+      - alert: AISLowMemory
+        expr: (floor(ais_target_state_flags / 8192)) % 2 == 1
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: AIS Low Memory
+          description: "AIS Node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) reports low memory and is at risk of running out of memory soon."
+      - alert: AISDiskFault
+        expr: (floor(ais_target_state_flags / 16384)) % 2 == 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: AIS Disk Fault
+          description: "AIS Node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) has encountered a disk fault."
+      - alert: AISNoMountpaths
+        expr: (floor(ais_target_state_flags / 32768)) % 2 == 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: AIS No Available Mountpaths
+          description: "AIS Node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) has no available mountpaths."
+      - alert: AISNumGoroutinesHigh
+        expr: (floor(ais_target_state_flags / 65536)) % 2 == 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: AIS High Number of Goroutines
+          description: "AIS Node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) has a high number of goroutines, indicating potential performance issues."
