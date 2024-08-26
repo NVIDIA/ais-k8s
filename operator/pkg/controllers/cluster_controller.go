@@ -647,6 +647,10 @@ func (r *AIStoreReconciler) getAPIParams(ctx context.Context,
 
 func (r *AIStoreReconciler) handleSuccessfulReconcile(ctx context.Context, ais *aisv1.AIStore) (result ctrl.Result, err error) {
 	var needsUpdate bool
+	err = r.checkAISClusterReady(ctx, ais)
+	if err != nil {
+		return
+	}
 	if !ais.IsConditionTrue(aisv1.ConditionReady) {
 		r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonReady, "Successfully reconciled AIStore cluster")
 		ais.SetCondition(aisv1.ConditionReady)
@@ -660,6 +664,21 @@ func (r *AIStoreReconciler) handleSuccessfulReconcile(ctx context.Context, ais *
 		err = r.setStatus(ctx, ais, aisv1.AIStoreStatus{})
 	}
 	return
+}
+
+func (r *AIStoreReconciler) checkAISClusterReady(ctx context.Context, ais *aisv1.AIStore) error {
+	logger := logf.FromContext(ctx)
+
+	params, err := r.primaryBaseParams(ctx, ais)
+	if err != nil {
+		logger.Info("Waiting for AIS API to be listening...")
+		return err
+	}
+	err = aisapi.Health(*params, true /* ready to rebalance */)
+	if err != nil {
+		logger.Info("Waiting for AIS to be healthy...")
+	}
+	return err
 }
 
 func (r *AIStoreReconciler) recordError(ctx context.Context, ais *aisv1.AIStore, err error, msg string) {

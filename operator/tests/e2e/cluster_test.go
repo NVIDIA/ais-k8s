@@ -125,7 +125,7 @@ var _ = Describe("Run Controller", func() {
 				cluArgs.ProxySize = 1
 				cluArgs.TargetSharedNode = true
 				cluster, pvs := tutils.NewAISCluster(cluArgs, k8sClient)
-				createAndDestroyCluster(cluster, pvs, nil, nil, false)
+				createAndDestroyCluster(cluster, pvs, nil, nil, true)
 			})
 		})
 
@@ -210,7 +210,7 @@ var _ = Describe("Run Controller", func() {
 				scaleUpCluster := func(ctx context.Context, cluster *aisv1.AIStore) {
 					scaleCluster(ctx, cluster, true, 1)
 				}
-				createAndDestroyCluster(cluster, pvs, scaleUpCluster, nil, false)
+				createAndDestroyCluster(cluster, pvs, scaleUpCluster, nil, true)
 			})
 
 			It("Should be able to scale-down existing cluster", func() {
@@ -221,7 +221,7 @@ var _ = Describe("Run Controller", func() {
 				scaleDownCluster := func(ctx context.Context, cluster *aisv1.AIStore) {
 					scaleCluster(ctx, cluster, false, -1)
 				}
-				createAndDestroyCluster(cluster, pvs, scaleDownCluster, nil, false)
+				createAndDestroyCluster(cluster, pvs, scaleDownCluster, nil, true)
 			})
 		})
 
