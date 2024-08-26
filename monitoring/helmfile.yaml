@@ -41,14 +41,25 @@ releases:
       - kube-prom/values.yaml.gotmpl
       - kube-prom/alertmanager_config.yaml.gotmpl
     hooks:
-      - events: ["postsync"]
+      - events: ["postsync"] # Hook to run after `helmfile sync` or `helmfile apply`
         showlogs: true
-        command: "kubectl"
+        command: "sh"
         args:
-          - "apply"
-          - "-f"
-          - "manifests/ais_podmonitors.yaml"
-          - "-f"
-          - "manifests/ais_dashboard.yaml"
-          - "-f"
-          - "manifests/ais_prometheus_rules.yaml"
+          - "-c"
+          - |
+            kubectl apply -f manifests/ais_podmonitors.yaml
+            kubectl apply -f manifests/ais_prometheus_rules.yaml
+            jq 'walk(if type == "object" and has("datasource") then .datasource |= del(.uid) else . end)' manifests/ais_dashboard.json | \
+            kubectl create configmap aistore-dashboard --from-file=aistore.json=/dev/stdin -n monitoring --dry-run=client -o yaml | \
+            kubectl label --local -f - grafana_dashboard="1" --dry-run=client -o yaml | \
+            kubectl apply -f -
+      - events: ["postdestroy"]  # Hook to run after `helmfile destroy`
+        showlogs: true
+        command: "sh"
+        args:
+          - "-c"
+          - |
+            kubectl delete configmap aistore-dashboard -n monitoring
+            kubectl delete -f manifests/ais_podmonitors.yaml
+            kubectl delete -f manifests/ais_prometheus_rules.yaml
+ 
