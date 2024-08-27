@@ -252,7 +252,7 @@ var _ = Describe("Run Controller", func() {
 		})
 	})
 
-	Describe("Data-safety tests", func() {
+	Describe("Data-safety tests", Label("long"), func() {
 		It("Restarting cluster must retain data", func() {
 			cluArgs := defaultCluArgs()
 			cluArgs.EnableExternalLB = testAsExternalClient
@@ -285,7 +285,7 @@ var _ = Describe("Run Controller", func() {
 			cc.cleanup(pvs)
 		})
 
-		It("Cluster scale down should ensure data safety", Label("override"), func() {
+		It("Cluster scale down should ensure data safety", func() {
 			cluArgs := defaultCluArgs()
 			cluArgs.Size = 2
 			cluArgs.EnableExternalLB = testAsExternalClient
