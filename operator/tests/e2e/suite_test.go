@@ -55,6 +55,7 @@ const (
 	//
 	EnvTestStorageHostPath = "TEST_STORAGE_HOSTPATH"
 	BeforeSuiteTimeout     = 60
+	AfterSuiteTimeout      = 60
 )
 
 func TestAPIs(t *testing.T) {
@@ -226,6 +227,15 @@ var _ = AfterSuite(func() {
 	if !nsExists && testNS != nil {
 		_, err := k8sClient.DeleteResourceIfExists(context.Background(), testNS)
 		Expect(err).NotTo(HaveOccurred())
+		// Wait for namespace to be deleted
+		Eventually(func() bool {
+			exists, err := k8sClient.CheckIfNamespaceExists(context.Background(), testNS.Name)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Failed to check namespace %s existence; err %v\n", testNS.Name, err)
+				return false
+			}
+			return exists
+		}, AfterSuiteTimeout).Should(BeFalse())
 	}
 	err := testEnv.Stop()
 	Expect(err).NotTo(HaveOccurred())

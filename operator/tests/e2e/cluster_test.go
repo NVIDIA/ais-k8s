@@ -34,16 +34,13 @@ const (
 	clusterDestroyTimeout     = 2 * time.Minute
 )
 
-var (
-	proxyURL string
-)
-
-// clientCluster - used for managing cluster used AIS API tests
+// clientCluster - used for managing cluster used by AIS API tests
 type clientCluster struct {
 	cluster          *aisv1.AIStore
 	tout             time.Duration
 	ctx              context.Context
 	cancelLogsStream context.CancelFunc
+	proxyURL         string
 }
 
 func newClientCluster(cluArgs *tutils.ClusterSpecArgs) (*clientCluster, []*corev1.PersistentVolume) {
@@ -56,7 +53,7 @@ func newClientCluster(cluArgs *tutils.ClusterSpecArgs) (*clientCluster, []*corev
 	if cluArgs.EnableExternalLB {
 		tutils.InitK8sClusterProvider(context.Background(), k8sClient)
 		tutils.SkipIfLoadBalancerNotSupported()
-		// For a cluster with external LB, allocating external-IP could be time consuming.
+		// For a cluster with external LB, allocating external-IP could be time-consuming.
 		// Allow longer timeout for cluster creation.
 		cc.tout = tutils.GetClusterCreateLongTimeout()
 	}
@@ -69,6 +66,11 @@ func (cc *clientCluster) create() {
 	tutils.WaitForClusterToBeReady(context.Background(), k8sClient, cc.cluster, clusterReadyTimeout, clusterReadyRetryInterval)
 	initAISCluster(context.Background(), cc.cluster)
 	Expect(tutils.StreamLogs(cc.ctx, testNSName)).To(BeNil())
+}
+
+func (cc *clientCluster) getBaseParams() aisapi.BaseParams {
+	proxyURL := tutils.GetProxyURL(cc.ctx, k8sClient, cc.cluster)
+	return aistutils.BaseAPIParams(proxyURL)
 }
 
 // Initialize AIS tutils to use the deployed cluster
@@ -262,12 +264,12 @@ var _ = Describe("Run Controller", func() {
 			var (
 				bck       = aiscmn.Bck{Name: "TEST_BCK_DATA_SAFETY", Provider: aisapc.AIS}
 				objPrefix = "test-opr/"
-				baseParam = aistutils.BaseAPIParams(proxyURL)
+				baseParam = cc.getBaseParams()
 			)
 			err := aisapi.CreateBucket(baseParam, bck, nil)
 			Expect(err).ShouldNot(HaveOccurred())
 			names, failCnt, err := aistutils.PutRandObjs(aistutils.PutObjectsArgs{
-				ProxyURL:  proxyURL,
+				ProxyURL:  cc.proxyURL,
 				Bck:       bck,
 				ObjPath:   objPrefix,
 				ObjCnt:    10,
@@ -278,10 +280,10 @@ var _ = Describe("Run Controller", func() {
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(failCnt).To(Equal(0))
-			tutils.ObjectsShouldExist(baseParam, bck, names...)
+			tutils.ObjectsShouldExist(cc.getBaseParams(), bck, names...)
 			// Restart cluster
 			cc.restart()
-			tutils.ObjectsShouldExist(aistutils.BaseAPIParams(proxyURL), bck, names...)
+			tutils.ObjectsShouldExist(cc.getBaseParams(), bck, names...)
 			cc.cleanup(pvs)
 		})
 
@@ -295,12 +297,12 @@ var _ = Describe("Run Controller", func() {
 			var (
 				bck        = aiscmn.Bck{Name: "TEST_BCK_SCALE_DOWN", Provider: aisapc.AIS}
 				objPrefix  = "test-opr/"
-				baseParams = aistutils.BaseAPIParams(proxyURL)
+				baseParams = cc.getBaseParams()
 			)
 			err := aisapi.CreateBucket(baseParams, bck, nil)
 			Expect(err).ShouldNot(HaveOccurred())
 			names, failCnt, err := aistutils.PutRandObjs(aistutils.PutObjectsArgs{
-				ProxyURL:  proxyURL,
+				ProxyURL:  cc.proxyURL,
 				Bck:       bck,
 				ObjPath:   objPrefix,
 				ObjCnt:    10,
@@ -316,7 +318,7 @@ var _ = Describe("Run Controller", func() {
 			// Scale down cluster
 			scaleCluster(context.TODO(), cc.cluster, false, -1)
 
-			tutils.ObjectsShouldExist(baseParams, bck, names...)
+			tutils.ObjectsShouldExist(cc.getBaseParams(), bck, names...)
 			cc.cleanup(pvs)
 		})
 
@@ -328,11 +330,10 @@ var _ = Describe("Run Controller", func() {
 			cc.create()
 			// Create bucket
 			bck := aiscmn.Bck{Name: "TEST_BCK_CLEANUP", Provider: aisapc.AIS}
-			baseParams := aistutils.BaseAPIParams(proxyURL)
-			err := aisapi.CreateBucket(baseParams, bck, nil)
+			err := aisapi.CreateBucket(cc.getBaseParams(), bck, nil)
 			Expect(err).ShouldNot(HaveOccurred())
 			_, failCnt, err := aistutils.PutRandObjs(aistutils.PutObjectsArgs{
-				ProxyURL:  proxyURL,
+				ProxyURL:  cc.proxyURL,
 				Bck:       bck,
 				ObjPath:   "test-opr/",
 				ObjCnt:    10,
@@ -351,9 +352,8 @@ var _ = Describe("Run Controller", func() {
 			// Re-deployed cluster will use the same mounts, but all data should be removed
 			cc, pvs = newClientCluster(cluArgs)
 			cc.create()
-			baseParams = aistutils.BaseAPIParams(proxyURL)
 			// All data including metadata should be deleted -- bucket should not exist in new cluster
-			_, err = aisapi.HeadBucket(baseParams, bck, true)
+			_, err = aisapi.HeadBucket(cc.getBaseParams(), bck, true)
 			Expect(aiscmn.IsStatusNotFound(err)).To(BeTrue())
 			cc.cleanup(pvs)
 		})
@@ -366,10 +366,10 @@ var _ = Describe("Run Controller", func() {
 			cc.create()
 			// Create bucket
 			bck := aiscmn.Bck{Name: "TEST_BCK_DECOMM", Provider: aisapc.AIS}
-			err := aisapi.CreateBucket(aistutils.BaseAPIParams(proxyURL), bck, nil)
+			err := aisapi.CreateBucket(cc.getBaseParams(), bck, nil)
 			Expect(err).ShouldNot(HaveOccurred())
 			names, failCnt, err := aistutils.PutRandObjs(aistutils.PutObjectsArgs{
-				ProxyURL:  proxyURL,
+				ProxyURL:  cc.proxyURL,
 				Bck:       bck,
 				ObjPath:   "test-opr/",
 				ObjCnt:    10,
@@ -388,7 +388,7 @@ var _ = Describe("Run Controller", func() {
 			// Re-deployed cluster should recover all the same data and metadata
 			cc, _ = newClientCluster(cluArgs)
 			cc.create()
-			tutils.ObjectsShouldExist(aistutils.BaseAPIParams(proxyURL), bck, names...)
+			tutils.ObjectsShouldExist(cc.getBaseParams(), bck, names...)
 			cc.cleanup(pvs)
 		})
 	})
