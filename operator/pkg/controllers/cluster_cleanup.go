@@ -6,7 +6,7 @@ package controllers
 
 import (
 	"context"
-	"fmt"
+	"strings"
 	"time"
 
 	aisv1 "github.com/ais-operator/api/v1beta1"
@@ -15,12 +15,11 @@ import (
 	"github.com/ais-operator/pkg/resources/statsd"
 	"github.com/ais-operator/pkg/resources/target"
 	batchv1 "k8s.io/api/batch/v1"
-	"k8s.io/apimachinery/pkg/types"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func (r *AIStoreReconciler) cleanup(ctx context.Context, ais *aisv1.AIStore) (updated bool, err error) {
-	var nodeNames map[string]bool
-	nodeNames, err = r.client.ListNodesRunningAIS(ctx, ais)
+	nodeNames, err := r.client.ListNodesRunningAIS(ctx, ais)
 	if err != nil {
 		r.log.Error(err, "Failed to list nodes running AIS")
 	}
@@ -32,65 +31,76 @@ func (r *AIStoreReconciler) cleanup(ctx context.Context, ais *aisv1.AIStore) (up
 		func() (bool, error) { return r.cleanupPVC(ctx, ais) },
 	)
 	if updated && ais.ShouldCleanupMetadata() {
-		jobs, err := r.createCleanupJobs(ctx, ais, nodeNames)
+		err = r.createCleanupJobs(ctx, ais, nodeNames)
 		if err != nil {
-			r.log.Error(err, "Failed to run manual cleanup job")
+			return
 		}
-		timeoutCtx, cancel := context.WithTimeout(ctx, 1*time.Minute)
-		defer cancel()
-		if err := r.waitForJobs(timeoutCtx, jobs); err != nil {
-			r.log.Error(err, "Error while waiting for cleanup jobs to complete")
+		err = r.updateStatus(ctx, ais, aisv1.HostCleanup)
+		if err != nil {
+			return
 		}
 	}
-	return updated, err
+	return
 }
 
-func (r *AIStoreReconciler) createCleanupJobs(ctx context.Context, ais *aisv1.AIStore, uniqueNodeNames map[string]bool) ([]*batchv1.Job, error) {
+func (r *AIStoreReconciler) createCleanupJobs(ctx context.Context, ais *aisv1.AIStore, nodes []string) error {
 	if ais.Spec.StateStorageClass != nil {
-		return nil, nil
+		return nil
 	}
-
-	r.log.Info("Running manual cleanup job")
-	jobs := make([]*batchv1.Job, 0, len(uniqueNodeNames))
-
-	for nodeName := range uniqueNodeNames {
-		r.log.Info("Creating cleanup job for node", "node", nodeName)
+	logger := logf.FromContext(ctx)
+	logger.Info("Creating manual cleanup jobs", "nodes", nodes)
+	for _, nodeName := range nodes {
 		jobDef := cmn.NewCleanupJob(ais, nodeName)
 		if err := r.client.Create(ctx, jobDef); err != nil {
-			return jobs, err
-		}
-		jobs = append(jobs, jobDef)
-	}
-	return jobs, nil
-}
-
-func (r *AIStoreReconciler) waitForJobs(ctx context.Context, jobs []*batchv1.Job) error {
-	for _, job := range jobs {
-		r.log.Info("Waiting for job to complete", "jobName", job.Name)
-		for {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			default:
-				jobStatus := &batchv1.Job{}
-				if err := r.client.Get(ctx, types.NamespacedName{Name: job.Name, Namespace: job.Namespace}, jobStatus); err != nil {
-					r.log.Error(err, "Failed to get job status", "jobName", job.Name)
-					return err
-				}
-				if jobStatus.Status.Succeeded > 0 {
-					r.log.Info("Job completed successfully", "jobName", job.Name)
-					break
-				}
-				if jobStatus.Status.Failed > 0 {
-					err := fmt.Errorf("job %s failed", job.Name)
-					r.log.Error(err, "Job failed", "jobName", job.Name)
-					return err
-				}
-				time.Sleep(2 * time.Second)
-			}
+			logger.Error(err, "Failed to create cleanup job", "name", jobDef.Name, "node", nodeName)
+			return err
 		}
 	}
 	return nil
+}
+
+func (r *AIStoreReconciler) listCleanupJobs(ctx context.Context, namespace string) (*batchv1.JobList, error) {
+	var cleanupJobs batchv1.JobList
+	jobs, err := r.client.ListJobsInNamespace(ctx, namespace)
+	if err != nil {
+		return nil, err
+	}
+	for i := range jobs.Items {
+		job := &jobs.Items[i]
+		if strings.HasPrefix(job.Name, cmn.CleanupPrefix) {
+			cleanupJobs.Items = append(cleanupJobs.Items, *job)
+		}
+	}
+	return &cleanupJobs, nil
+}
+
+func (r *AIStoreReconciler) deleteFinishedJobs(ctx context.Context, jobs *batchv1.JobList) (*batchv1.JobList, error) {
+	remainingJobs := &batchv1.JobList{}
+	logger := logf.FromContext(ctx)
+
+	for i := range jobs.Items {
+		job := &jobs.Items[i]
+		// Job succeeded, delete it
+		if job.Status.Succeeded > 0 {
+			_, err := r.client.DeleteResourceIfExists(ctx, job)
+			if err != nil {
+				logger.Error(err, "Failed to delete successful job", "name", job.Name)
+				return nil, err
+			}
+			logger.Info("Deleted successful cleanup job", "name", job.Name)
+		}
+		// Job has been stuck too long, delete it
+		if time.Since(job.CreationTimestamp.Time) > 2*time.Minute {
+			_, err := r.client.DeleteResourceIfExists(ctx, job)
+			if err != nil {
+				logger.Error(err, "Failed to delete expired job", "name", job.Name)
+				return nil, err
+			}
+			logger.Info("Aborted expired job", "job", job.Name)
+		}
+		remainingJobs.Items = append(remainingJobs.Items, *job)
+	}
+	return remainingJobs, nil
 }
 
 func (r *AIStoreReconciler) cleanupPVC(ctx context.Context, ais *aisv1.AIStore) (bool, error) {

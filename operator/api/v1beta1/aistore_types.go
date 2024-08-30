@@ -48,7 +48,10 @@ const (
 	ClusterDecommissioning ClusterState = "Decommissioning"
 	// ClusterCleanup indicates the cluster is cleaning up residual resources.
 	ClusterCleanup ClusterState = "CleaningResources"
-	// TODO: Add more states, e.g., Terminating, etc.
+	// HostCleanup indicates jobs are running to clean up the hosts, e.g. hostpath state mounts.
+	HostCleanup ClusterState = "HostCleanup"
+	// ClusterFinalized indicates the cluster is fully decommissioned and cleaned up
+	ClusterFinalized ClusterState = "Finalized"
 )
 
 // These are built-in cluster conditions.
@@ -361,8 +364,19 @@ func (ais *AIStore) ShouldShutdown() bool {
 func (ais *AIStore) ShouldDecommission() bool {
 	// We should only begin decommissioning if
 	// 1. CR is marked for deletion
-	// 2. We are not currently decommissioning or cleaning up resources
-	return !ais.HasState(ClusterDecommissioning) && !ais.HasState(ClusterCleanup) && !ais.GetDeletionTimestamp().IsZero()
+	// 2. We aren't already in the decommission or final cleanup stages
+	return !ais.IsDecommissioningOrCleaning() && ais.IsMarkedForDeletion()
+}
+
+func (ais *AIStore) IsDecommissioningOrCleaning() bool {
+	return ais.HasState(ClusterDecommissioning) ||
+		ais.HasState(ClusterCleanup) ||
+		ais.HasState(HostCleanup) ||
+		ais.HasState(ClusterFinalized)
+}
+
+func (ais *AIStore) IsMarkedForDeletion() bool {
+	return !ais.GetDeletionTimestamp().IsZero()
 }
 
 // ShouldCleanupMetadata Determines if we are doing a full decommission -- unrecoverable, including metadata

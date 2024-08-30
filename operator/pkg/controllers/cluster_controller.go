@@ -154,6 +154,10 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return r.decommissionCluster(ctx, ais)
 	case ais.HasState(aisv1.ClusterCleanup):
 		return r.cleanupClusterRes(ctx, ais)
+	case ais.HasState(aisv1.HostCleanup):
+		return r.cleanupHost(ctx, ais)
+	case ais.HasState(aisv1.ClusterFinalized):
+		return r.finalize(ctx, ais)
 	}
 
 	if result, err := r.ensurePrereqs(ctx, ais); err != nil || !result.IsZero() {
@@ -259,14 +263,47 @@ func (r *AIStoreReconciler) cleanupClusterRes(ctx context.Context, ais *aisv1.AI
 		// It is better to delay the requeue little bit since cleanup can take some time.
 		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 	}
+	err = r.updateStatus(ctx, ais, aisv1.HostCleanup)
+	return reconcile.Result{}, err
+}
+
+func (r *AIStoreReconciler) cleanupHost(ctx context.Context, ais *aisv1.AIStore) (reconcile.Result, error) {
+	// Get cleanup jobs
+	jobs, err := r.listCleanupJobs(ctx, ais.Namespace)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	// Delete all finished or expired jobs
+	remainingJobs, err := r.deleteFinishedJobs(ctx, jobs)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	// If some still running, requeue
+	if len(remainingJobs.Items) > 0 {
+		return reconcile.Result{Requeue: true}, nil
+	}
+	// If all are gone, move to finalized stage
+	err = r.updateStatus(ctx, ais, aisv1.ClusterFinalized)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	return reconcile.Result{}, err
+}
+
+func (r *AIStoreReconciler) finalize(ctx context.Context, ais *aisv1.AIStore) (result reconcile.Result, err error) {
+	logger := logf.FromContext(ctx)
 	logger.Info("Removing AIS finalizer")
-	controllerutil.RemoveFinalizer(ais, aisFinalizer)
+	updated := controllerutil.RemoveFinalizer(ais, aisFinalizer)
+	if !updated {
+		return
+	}
 	err = r.client.UpdateIfExists(ctx, ais)
 	if err != nil {
 		r.recordError(ctx, ais, err, "Failed to update instance")
-		return reconcile.Result{}, err
+		return
 	}
-	return reconcile.Result{}, nil
+	// Do not requeue if we've removed the finalizer -- CR should be removed
+	return reconcile.Result{Requeue: false}, err
 }
 
 func (r *AIStoreReconciler) isClusterRunning(ctx context.Context, ais *aisv1.AIStore) bool {

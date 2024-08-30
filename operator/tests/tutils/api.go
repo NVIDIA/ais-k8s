@@ -84,10 +84,12 @@ func EventuallyCRNotExists(ctx context.Context, client *aisclient.K8sClient,
 }
 
 func DestroyPV(ctx context.Context, client *aisclient.K8sClient, pvs []*corev1.PersistentVolume) {
-	const pvExistenceInterval = 30 * time.Second
+	const pvDeletionGracePeriodSeconds = int64(20)
+	const pvExistenceInterval = 40 * time.Second
 	for _, pv := range pvs {
-		deleteAssociatedPVCs(ctx, pv, client)
-		existed, err := client.DeleteResourceIfExists(ctx, pv)
+		err := deleteAssociatedPVCs(ctx, pv, client)
+		Expect(err).Should(Succeed())
+		existed, err := client.DeleteResIfExistsWithGracePeriod(ctx, pv, pvDeletionGracePeriodSeconds)
 		if existed {
 			fmt.Fprintf(os.Stdout, "Deleted PV : %s \n", pv.Name)
 		} else {
@@ -120,9 +122,9 @@ func checkPVsExist(ctx context.Context, c *aisclient.K8sClient, pvs []*corev1.Pe
 	return false
 }
 
-func deleteAssociatedPVCs(ctx context.Context, pv *corev1.PersistentVolume, client *aisclient.K8sClient) {
+func deleteAssociatedPVCs(ctx context.Context, pv *corev1.PersistentVolume, client *aisclient.K8sClient) error {
 	if pv.Spec.ClaimRef == nil {
-		return
+		return nil
 	}
 	// Create a PVC reference from the PV's ClaimRef
 	pvc := &corev1.PersistentVolumeClaim{
@@ -133,10 +135,12 @@ func deleteAssociatedPVCs(ctx context.Context, pv *corev1.PersistentVolume, clie
 		},
 	}
 	_, err := client.DeleteResourceIfExists(ctx, pvc)
-	if err != nil {
+	if err == nil {
+		fmt.Printf("Deleted PVC %s in namespace %s\n", pvc.Name, pvc.Namespace)
+	} else {
 		fmt.Fprintf(os.Stderr, "Error deleting PVC %s: %v", pvc.Name, err)
 	}
-	fmt.Printf("Deleted PVC %s in namespace %s\n", pvc.Name, pvc.Namespace)
+	return err
 }
 
 func checkCMExists(ctx context.Context, client *aisclient.K8sClient, name types.NamespacedName) bool {

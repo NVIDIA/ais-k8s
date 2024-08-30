@@ -142,7 +142,7 @@ func (c *K8sClient) ListNodesMatchingSelector(ctx context.Context, nodeSelector 
 }
 
 // ListNodesRunningAIS returns a map of unique node names where AIS pods are running
-func (c *K8sClient) ListNodesRunningAIS(ctx context.Context, ais *aisv1.AIStore) (map[string]bool, error) {
+func (c *K8sClient) ListNodesRunningAIS(ctx context.Context, ais *aisv1.AIStore) ([]string, error) {
 	uniqueNodeNames := make(map[string]bool)
 	if err := c.listPodsAndUpdateNodeNames(ctx, ais, proxy.PodLabels(ais), uniqueNodeNames); err != nil {
 		return nil, err
@@ -150,7 +150,14 @@ func (c *K8sClient) ListNodesRunningAIS(ctx context.Context, ais *aisv1.AIStore)
 	if err := c.listPodsAndUpdateNodeNames(ctx, ais, target.PodLabels(ais), uniqueNodeNames); err != nil {
 		return nil, err
 	}
-	return uniqueNodeNames, nil
+	// TODO Use Go 1.23 slices.Collect https://pkg.go.dev/slices@master#Collect
+	nodeNames := make([]string, 0, len(uniqueNodeNames))
+
+	for name := range uniqueNodeNames {
+		nodeNames = append(nodeNames, name)
+	}
+
+	return nodeNames, nil
 }
 
 //////////////////////////////////////
@@ -269,6 +276,16 @@ func (c *K8sClient) CheckIfNamespaceExists(ctx context.Context, name string) (ex
 // DeleteResourceIfExists deletes an existing resource. It doesn't fail if the resource does not exist
 func (c *K8sClient) DeleteResourceIfExists(ctx context.Context, obj client.Object) (existed bool, err error) {
 	err = c.client.Delete(ctx, obj)
+	return allowObjNotFound(obj, err)
+}
+
+// DeleteResIfExistsWithGracePeriod deletes an existing resource with a specific grace period. It doesn't fail if the resource does not exist
+func (c *K8sClient) DeleteResIfExistsWithGracePeriod(ctx context.Context, obj client.Object, gracePeriod int64) (existed bool, err error) {
+	err = c.client.Delete(ctx, obj, client.GracePeriodSeconds(gracePeriod))
+	return allowObjNotFound(obj, err)
+}
+
+func allowObjNotFound(obj client.Object, err error) (bool, error) {
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return false, nil
