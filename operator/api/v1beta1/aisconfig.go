@@ -123,7 +123,7 @@ type (
 		Enabled       *bool     `json:"enabled,omitempty"`
 		DestRetryTime *Duration `json:"dest_retry_time,omitempty"`
 		Compression   *string   `json:"compression,omitempty"`
-		SbundleMult   *int      `json:"bundle_multiplier"`
+		SbundleMult   *int      `json:"bundle_multiplier,omitempty"`
 	}
 	ResilverConfToUpdate struct {
 		Enabled *bool `json:"enabled,omitempty"` // true=auto-resilver | manual resilvering
@@ -212,6 +212,17 @@ type (
 		MD   *string `json:"md,omitempty"`
 	}
 )
+
+// UpdateRebalanceEnabled Sets the rebalance config to include the default value for `Rebalance.Enabled`
+func (c *ConfigToUpdate) UpdateRebalanceEnabled(rebEnabled *bool) {
+	if c.Rebalance == nil {
+		c.Rebalance = &RebalanceConfToUpdate{}
+	}
+	// Allows for other rebalance config settings to be set, but ensures enabled is always included
+	if c.Rebalance.Enabled == nil {
+		c.Rebalance.Enabled = rebEnabled
+	}
+}
 
 func (c *ConfigToUpdate) Hash() string {
 	data, _ := jsoniter.Marshal(c)

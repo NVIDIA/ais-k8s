@@ -370,6 +370,25 @@ func (ais *AIStore) ShouldCleanupMetadata() bool {
 	return ais.Spec.CleanupMetadata != nil && *ais.Spec.CleanupMetadata
 }
 
+// UpdateDefaultRebalance Ensures the defined config from the spec includes the default value for rebalance enabled if
+// one is not already set
+func (ais *AIStore) UpdateDefaultRebalance(rebEnabled bool) {
+	if ais.Spec.ConfigToUpdate == nil {
+		ais.Spec.ConfigToUpdate = &ConfigToUpdate{}
+	}
+	ais.Spec.ConfigToUpdate.UpdateRebalanceEnabled(aisapc.Ptr(rebEnabled))
+}
+
+func (ais *AIStore) DisableRebalance() {
+	if ais.Spec.ConfigToUpdate == nil {
+		ais.Spec.ConfigToUpdate = &ConfigToUpdate{}
+	}
+	if ais.Spec.ConfigToUpdate.Rebalance == nil {
+		ais.Spec.ConfigToUpdate.Rebalance = &RebalanceConfToUpdate{}
+	}
+	ais.Spec.ConfigToUpdate.Rebalance.Enabled = aisapc.Ptr(false)
+}
+
 func (ais *AIStore) AllowTargetSharedNodes() bool {
 	allowSharedNodes := ais.Spec.TargetSpec.DisablePodAntiAffinity != nil && *ais.Spec.TargetSpec.DisablePodAntiAffinity
 	//nolint:all

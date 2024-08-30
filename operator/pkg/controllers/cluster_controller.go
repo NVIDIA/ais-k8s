@@ -293,9 +293,6 @@ func (r *AIStoreReconciler) decommissionAIS(ctx context.Context, ais *aisv1.AISt
 
 	if ais.ShouldCleanupMetadata() {
 		err = r.attemptGracefulDecommission(ctx, ais)
-		if err != nil {
-			logger.Info("Failed to decommission cluster")
-		}
 	} else {
 		// We are "decommissioning" on the operator side and will still delete the statefulsets
 		// This call to the AIS API preserves metadata for a future cluster, where decommission call would delete it all
@@ -344,6 +341,13 @@ func (r *AIStoreReconciler) attemptGracefulShutdown(ctx context.Context, ais *ai
 	if err != nil {
 		return err
 	}
+	// TODO AIS should handle this
+	logger.Info("Disabling rebalance before shutting down cluster")
+	err = r.disableRebalance(ctx, ais)
+	if err != nil {
+		logger.Error(err, "Failed to disable rebalance before shutdown")
+		return err
+	}
 	logger.Info("Attempting graceful shutdown of cluster")
 	err = aisapi.ShutdownCluster(*params)
 	if err != nil {
@@ -361,7 +365,7 @@ func (r *AIStoreReconciler) reconcileResources(ctx context.Context, ais *aisv1.A
 		return err
 	}
 
-	globalCM, err := cmn.NewGlobalCM(ais, ais.Spec.ConfigToUpdate)
+	globalCM, err := cmn.NewGlobalCM(ais)
 	if err != nil {
 		r.recordError(ctx, ais, err, "Failed to construct global config")
 		return err
@@ -482,7 +486,7 @@ func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore
 //  3. Check if config is properly updated in the cluster.
 //  4. If expected state is not yet met we should reconcile until everything is ready.
 func (r *AIStoreReconciler) handleCREvents(ctx context.Context, ais *aisv1.AIStore) (result ctrl.Result, err error) {
-	var proxyReady, targetReady, configReady bool
+	var proxyReady, targetReady bool
 	if proxyReady, err = r.handleProxyState(ctx, ais); err != nil {
 		return
 	} else if !proxyReady {
@@ -495,9 +499,11 @@ func (r *AIStoreReconciler) handleCREvents(ctx context.Context, ais *aisv1.AISto
 		goto requeue
 	}
 
-	if configReady, err = r.handleConfigState(ctx, ais); err != nil {
+	err = r.checkAISClusterReady(ctx, ais)
+	if err != nil {
 		return
-	} else if !configReady {
+	}
+	if err = r.handleConfigState(ctx, ais); err != nil {
 		goto requeue
 	}
 
@@ -514,26 +520,32 @@ requeue:
 
 // handleConfigState properly reconciles any changes in `.spec.configToUpdate` field.
 //
-// ConfigMap that also contain the value of this field is updated earlier, but
-// we have to make sure that the cluster also has expected config.
-func (r *AIStoreReconciler) handleConfigState(ctx context.Context, ais *aisv1.AIStore) (ready bool, err error) {
+// The ConfigMap that also contains the value of this field is updated earlier, but
+// this synchronizes any changes to the active loaded config in the cluster.
+func (r *AIStoreReconciler) handleConfigState(ctx context.Context, ais *aisv1.AIStore) error {
+	// Special case for rebalance since we may disable it -- always include `Rebalance.Enabled` in the sync
+	ais.UpdateDefaultRebalance(cmn.DefaultAISConf(ais).Rebalance.Enabled)
+	return r.syncConfig(ctx, ais)
+}
+
+// syncConfig synchronizes the active cluster config with the desired config in `ais.Spec.ConfigToUpdate`
+func (r *AIStoreReconciler) syncConfig(ctx context.Context, ais *aisv1.AIStore) error {
 	currentHash := ais.Spec.ConfigToUpdate.Hash()
 	if ais.Annotations[configHashAnnotation] == currentHash {
-		return true, nil
+		return nil
 	}
-
 	// Update cluster config based on what we have in the CRD spec.
 	baseParams, err := r.getAPIParams(ctx, ais)
 	if err != nil {
-		return false, err
+		return err
 	}
 	configToSet, err := ais.Spec.ConfigToUpdate.Convert()
 	if err != nil {
-		return false, err
+		return err
 	}
 	err = aisapi.SetClusterConfigUsingMsg(*baseParams, configToSet, false /*transient*/)
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	// Finally update CRD with proper annotation.
@@ -541,11 +553,7 @@ func (r *AIStoreReconciler) handleConfigState(ctx context.Context, ais *aisv1.AI
 		ais.Annotations = map[string]string{}
 	}
 	ais.Annotations[configHashAnnotation] = currentHash
-	if err := r.client.Update(ctx, ais); err != nil {
-		return false, err
-	}
-
-	return true, nil
+	return r.client.Update(ctx, ais)
 }
 
 func (r *AIStoreReconciler) createOrUpdateRBACResources(ctx context.Context, ais *aisv1.AIStore) (err error) {
@@ -585,6 +593,12 @@ func (r *AIStoreReconciler) createOrUpdateRBACResources(ctx context.Context, ais
 	}
 
 	return
+}
+
+func (r *AIStoreReconciler) disableRebalance(ctx context.Context, ais *aisv1.AIStore) error {
+	// Disable in spec and synchronize with cluster
+	ais.DisableRebalance()
+	return r.syncConfig(ctx, ais)
 }
 
 func (r *AIStoreReconciler) updateStatus(ctx context.Context, ais *aisv1.AIStore, state aisv1.ClusterState) error {
@@ -659,10 +673,6 @@ func (r *AIStoreReconciler) getAPIParams(ctx context.Context,
 
 func (r *AIStoreReconciler) handleSuccessfulReconcile(ctx context.Context, ais *aisv1.AIStore) (result ctrl.Result, err error) {
 	var needsUpdate bool
-	err = r.checkAISClusterReady(ctx, ais)
-	if err != nil {
-		return
-	}
 	if !ais.IsConditionTrue(aisv1.ConditionReady) {
 		r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonReady, "Successfully reconciled AIStore cluster")
 		ais.SetCondition(aisv1.ConditionReady)

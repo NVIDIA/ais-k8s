@@ -306,8 +306,6 @@ spec:
                         type: string
                       enabled:
                         type: boolean
-                    required:
-                    - bundle_multiplier
                     type: object
                   resilver:
                     properties:

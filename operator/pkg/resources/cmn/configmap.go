@@ -16,10 +16,11 @@ func globalConfigMapName(ais *aisv1.AIStore) string {
 	return ais.Name + "-global-cm"
 }
 
-func NewGlobalCM(ais *aisv1.AIStore, toUpdate *aisv1.ConfigToUpdate) (*corev1.ConfigMap, error) {
+func NewGlobalCM(ais *aisv1.AIStore) (*corev1.ConfigMap, error) {
+	specConfig := ais.Spec.ConfigToUpdate
 	globalConf := DefaultAISConf(ais)
-	if toUpdate != nil {
-		toSet, err := toUpdate.Convert()
+	if specConfig != nil {
+		toSet, err := specConfig.Convert()
 		if err != nil {
 			return nil, err
 		}
@@ -27,6 +28,11 @@ func NewGlobalCM(ais *aisv1.AIStore, toUpdate *aisv1.ConfigToUpdate) (*corev1.Co
 			return nil, err
 		}
 	}
+	// Rebalance in config should be initially false in the config file (updated to spec value later)
+	if !ais.HasState(aisv1.ClusterReady) {
+		globalConf.Rebalance.Enabled = false
+	}
+
 	if ais.Spec.AWSSecretName != nil || ais.Spec.GCPSecretName != nil {
 		if globalConf.Backend.Conf == nil {
 			globalConf.Backend.Conf = make(map[string]interface{}, 8)
