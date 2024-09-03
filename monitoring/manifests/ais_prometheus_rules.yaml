@@ -201,3 +201,27 @@ spec:
         annotations:
           summary: AIS High Number of Goroutines
           description: "AIS Node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) has a high number of goroutines, indicating potential performance issues."
+      - alert: AISCertWillSoonExpire
+        expr: (floor(ais_target_state_flags / 131072)) % 2 == 1
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: AIS Node Certificate Expiring Soon
+          description: "The certificate on AIS Node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) will expire soon."
+      - alert: AISCertificateExpired
+        expr: (floor(ais_target_state_flags / 262144)) % 2 == 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: AIS Node Certificate Expired
+          description: "The certificate on AIS Node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) has expired."
+      - alert: AISCertificateInvalid
+        expr: (floor(ais_target_state_flags / 524288)) % 2 == 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: AIS Node Certificate Invalid
+          description: "The certificate on AIS Node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) is invalid."
