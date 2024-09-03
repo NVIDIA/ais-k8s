@@ -223,6 +223,7 @@ func CleanPVHostPath() {
 
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")
+	cleanupOldTestClusters(k8sClient)
 	CleanPVHostPath()
 	if !nsExists && testNS != nil {
 		_, err := k8sClient.DeleteResourceIfExists(context.Background(), testNS)

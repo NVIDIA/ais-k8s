@@ -316,7 +316,7 @@ var _ = Describe("Run Controller", func() {
 			tutils.ObjectsShouldExist(baseParams, bck, names...)
 
 			// Scale down cluster
-			scaleCluster(context.TODO(), cc.cluster, false, -1)
+			scaleCluster(cc.ctx, cc.cluster, false, -1)
 
 			tutils.ObjectsShouldExist(cc.getBaseParams(), bck, names...)
 			cc.cleanup(pvs)
@@ -559,12 +559,10 @@ func setClusterShutdown(ctx context.Context, cluster *aisv1.AIStore, shutdown bo
 func scaleCluster(ctx context.Context, cluster *aisv1.AIStore, targetOnly bool, factor int32) {
 	cr, err := k8sClient.GetAIStoreCR(ctx, cluster.NamespacedName())
 	Expect(err).ShouldNot(HaveOccurred())
-	initialTargetSize := cluster.GetTargetSize()
-	newSize := initialTargetSize + factor
 	if targetOnly {
-		cr.Spec.TargetSpec.Size = &newSize
+		cr.Spec.TargetSpec.Size = aisapc.Ptr(cr.GetTargetSize() + factor)
 	} else {
-		cr.Spec.Size = &newSize
+		cr.Spec.Size = aisapc.Ptr(*cr.Spec.Size + factor)
 	}
 	Expect(err).ShouldNot(HaveOccurred())
 	err = k8sClient.Update(ctx, cr)

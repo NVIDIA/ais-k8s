@@ -15,11 +15,9 @@ import (
 
 	aisapi "github.com/NVIDIA/aistore/api"
 	aiscmn "github.com/NVIDIA/aistore/cmn"
-	aistutils "github.com/NVIDIA/aistore/tools"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	aisclient "github.com/ais-operator/pkg/client"
 	"github.com/ais-operator/pkg/resources/proxy"
-	"github.com/ais-operator/pkg/resources/target"
 	. "github.com/onsi/gomega"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -348,26 +346,11 @@ func createVolumeNodeAffinity(key, value string) *corev1.VolumeNodeAffinity {
 
 func WaitForClusterToBeReady(ctx context.Context, client *aisclient.K8sClient, cluster *aisv1.AIStore, intervals ...interface{}) {
 	Eventually(func() bool {
-		proxySS, err := client.GetStatefulSet(ctx, proxy.StatefulSetNSName(cluster))
-		replicasReady := cluster.GetProxySize() == *proxySS.Spec.Replicas && proxySS.Status.ReadyReplicas == *proxySS.Spec.Replicas
-		if err != nil || !replicasReady {
-			return false
-		}
-
-		targetSS, err := client.GetStatefulSet(ctx, target.StatefulSetNSName(cluster))
-		replicasReady = cluster.GetTargetSize() == *targetSS.Spec.Replicas && targetSS.Status.ReadyReplicas == *targetSS.Spec.Replicas
-		if err != nil || !replicasReady {
-			return false
-		}
-
-		// Ensure primary is ready (including rebalance)
-		proxyURL := GetProxyURL(ctx, client, cluster)
-		smap, err := aisapi.GetClusterMap(aistutils.BaseAPIParams(proxyURL))
+		ais, err := client.GetAIStoreCR(ctx, cluster.NamespacedName())
 		if err != nil {
 			return false
 		}
-		err = aisapi.Health(aistutils.BaseAPIParams(smap.Primary.PubNet.URL), true)
-		return err == nil
+		return ais.Status.State == aisv1.ClusterReady
 	}, intervals...).Should(BeTrue())
 }
 
