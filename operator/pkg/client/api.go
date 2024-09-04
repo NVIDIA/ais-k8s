@@ -198,20 +198,6 @@ func (c *K8sClient) UpdateStatefulSetReplicas(ctx context.Context, name types.Na
 	return
 }
 
-func (c *K8sClient) UpdateStatefulSetImage(ctx context.Context, name types.NamespacedName, idx int, newImage string) (updated bool, err error) {
-	ss, err := c.GetStatefulSet(ctx, name)
-	if err != nil {
-		return
-	}
-	updated = ss.Spec.Template.Spec.Containers[idx].Image != newImage
-	if !updated {
-		return
-	}
-	ss.Spec.Template.Spec.Containers[idx].Image = newImage
-	err = c.client.Update(ctx, ss)
-	return
-}
-
 func (c *K8sClient) Patch(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
 	return c.client.Patch(ctx, obj, patch, opts...)
 }

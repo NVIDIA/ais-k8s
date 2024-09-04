@@ -417,6 +417,22 @@ func GetRandomProxyIP(ctx context.Context, client *aisclient.K8sClient, cluster 
 	return pod.Status.PodIP
 }
 
+func GetAllProxyIPs(ctx context.Context, client *aisclient.K8sClient, cluster *aisv1.AIStore) []string {
+	proxySize := int(cluster.GetProxySize())
+	proxyIPs := make([]string, proxySize)
+	proxySSName := proxy.StatefulSetNSName(cluster)
+
+	for i := range proxySize {
+		podName := types.NamespacedName{Name: fmt.Sprintf("%s-%d", proxySSName.Name, i), Namespace: proxySSName.Namespace}
+		pod, err := client.GetPod(ctx, podName)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(pod.Status.PodIP).NotTo(Equal(""))
+		proxyIPs[i] = pod.Status.PodIP
+	}
+
+	return proxyIPs
+}
+
 func CreateCleanupJob(nodeName, namespace, hostPath string) *batchv1.Job {
 	hostVolumeName := "host-volume"
 	ttl := int32(0)

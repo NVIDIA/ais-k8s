@@ -15,6 +15,7 @@ import (
 	aiscmn "github.com/NVIDIA/aistore/cmn"
 	"github.com/NVIDIA/aistore/cmn/cos"
 	aistutils "github.com/NVIDIA/aistore/tools"
+	aisxact "github.com/NVIDIA/aistore/xact"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	"github.com/ais-operator/pkg/resources/cmn"
 	"github.com/ais-operator/pkg/resources/proxy"
@@ -64,8 +65,18 @@ func (cc *clientCluster) create() {
 	cc.ctx, cc.cancelLogsStream = context.WithCancel(context.Background())
 	createCluster(cc.ctx, cc.cluster, cc.tout, tutils.ClusterCreateInterval)
 	tutils.WaitForClusterToBeReady(context.Background(), k8sClient, cc.cluster, clusterReadyTimeout, clusterReadyRetryInterval)
-	initAISCluster(context.Background(), cc.cluster)
+	initAISCluster(cc.ctx, cc.cluster)
 	Expect(tutils.StreamLogs(cc.ctx, testNSName)).To(BeNil())
+}
+
+func (cc *clientCluster) updateImage(img string) {
+	ais, err := k8sClient.GetAIStoreCR(cc.ctx, cc.cluster.NamespacedName())
+	Expect(err).To(BeNil())
+	cc.cluster = ais
+	cc.cluster.Spec.NodeImage = img
+	Expect(k8sClient.Update(cc.ctx, cc.cluster)).Should(Succeed())
+	By("Update cluster spec and wait for it to be 'Ready'")
+	tutils.WaitForClusterToBeReady(context.Background(), k8sClient, cc.cluster, clusterReadyTimeout, clusterReadyRetryInterval)
 }
 
 func (cc *clientCluster) getBaseParams() aisapi.BaseParams {
@@ -75,22 +86,25 @@ func (cc *clientCluster) getBaseParams() aisapi.BaseParams {
 
 // Initialize AIS tutils to use the deployed cluster
 func initAISCluster(ctx context.Context, cluster *aisv1.AIStore) {
-	proxyURL := tutils.GetProxyURL(ctx, k8sClient, cluster)
-	retries := 2
-	for retries > 0 {
-		err := aistutils.WaitNodeReady(proxyURL, &aistutils.WaitRetryOpts{
-			MaxRetries: 12,
-			Interval:   10 * time.Second,
-		})
-		if err == nil {
-			break
+	// Wait for all proxies
+	proxyURLs := tutils.GetAllProxyURLs(ctx, k8sClient, cluster)
+	for i := range proxyURLs {
+		proxyURL := *proxyURLs[i]
+		retries := 2
+		for retries > 0 {
+			err := aistutils.WaitNodeReady(proxyURL, &aistutils.WaitRetryOpts{
+				MaxRetries: 12,
+				Interval:   10 * time.Second,
+			})
+			if err == nil {
+				break
+			}
+			retries--
+			time.Sleep(5 * time.Second)
 		}
-		retries--
-		time.Sleep(5 * time.Second)
+		// Wait until the cluster has actually started (targets have registered).
+		Expect(aistutils.InitCluster(proxyURL, aistutils.ClusterTypeK8s)).NotTo(HaveOccurred())
 	}
-
-	// Wait until the cluster has actually started (targets have registered).
-	Expect(aistutils.InitCluster(proxyURL, aistutils.ClusterTypeK8s)).NotTo(HaveOccurred())
 }
 
 func (cc *clientCluster) cleanup(pvs []*corev1.PersistentVolume) {
@@ -114,13 +128,6 @@ var _ = Describe("Run Controller", func() {
 				createAndDestroyCluster(cluster, pvs, checkResExists, checkResShouldNotExist, false)
 			})
 
-			It("Should successfully create an AIS Cluster with AllowSharedOrNoDisks on > v3.23 image", func() {
-				args := defaultCluArgs()
-				args.AllowSharedOrNoDisks = true
-				cluster, pvs := tutils.NewAISCluster(args, k8sClient)
-				createAndDestroyCluster(cluster, pvs, nil, nil, false)
-			})
-
 			It("Should successfully create an hetero-sized AIS Cluster", func() {
 				cluArgs := defaultCluArgs()
 				cluArgs.TargetSize = 2
@@ -139,6 +146,15 @@ var _ = Describe("Run Controller", func() {
 				cluster, pvs := tutils.NewAISCluster(cluArgs, k8sClient)
 				createAndDestroyCluster(cluster, pvs, checkResExists, checkResShouldNotExist, true)
 			})
+		})
+	})
+
+	Context("Backwards Compatibility", Label("long"), func() {
+		It("Should successfully create an AIS Cluster with AllowSharedOrNoDisks on > v3.23 image", func() {
+			args := defaultCluArgs()
+			args.AllowSharedOrNoDisks = true
+			cluster, pvs := tutils.NewAISCluster(args, k8sClient)
+			createAndDestroyCluster(cluster, pvs, nil, nil, false)
 		})
 	})
 
@@ -191,8 +207,28 @@ var _ = Describe("Run Controller", func() {
 		})
 	})
 
-	Context("Scale existing cluster", func() {
-		Context("without externalLB", Label("long"), func() {
+	Context("Upgrade existing cluster", Label("long"), func() {
+		It("Should upgrade cluster (without rebalance) if aisnode image changes", func() {
+			cluArgs := defaultCluArgs()
+			cluArgs.NodeImage = tutils.PreviousNodeImage
+			cluArgs.EnableExternalLB = testAsExternalClient
+			cc, pvs := newClientCluster(cluArgs)
+			cc.create()
+			cc.updateImage(tutils.DefaultNodeImage)
+			// Check we didn't rebalance at all (nothing else should trigger it on this test)
+			args := aisxact.ArgsMsg{Kind: aisapc.ActRebalance}
+			jobs, err := aisapi.GetAllXactionStatus(cc.getBaseParams(), &args)
+			Expect(err).To(BeNil())
+			Expect(len(jobs)).To(BeZero())
+			ais, err := k8sClient.GetAIStoreCR(cc.ctx, cc.cluster.NamespacedName())
+			Expect(err).To(BeNil())
+			Expect(ais.Spec.NodeImage).To(Equal(tutils.DefaultNodeImage))
+			cc.cleanup(pvs)
+		})
+	})
+
+	Context("Scale existing cluster", Label("long"), func() {
+		Context("without externalLB", func() {
 			It("Should be able to scale-up existing cluster", func() {
 				tutils.CheckSkip(&tutils.SkipArgs{SkipInternal: testAsExternalClient})
 				cluArgs := defaultCluArgs()
@@ -227,7 +263,7 @@ var _ = Describe("Run Controller", func() {
 			})
 		})
 
-		Context("with externalLB", Label("long"), func() {
+		Context("with externalLB", func() {
 			It("Should be able to scale-up existing cluster", func() {
 				tutils.CheckSkip(&tutils.SkipArgs{RequiresLB: true})
 				cluArgs := defaultCluArgs()
@@ -405,6 +441,8 @@ func defaultCluArgs() *tutils.ClusterSpecArgs {
 		StorageClass:     storageClass,
 		StorageHostPath:  storageHostPath,
 		Size:             1,
+		NodeImage:        tutils.DefaultNodeImage,
+		InitImage:        tutils.DefaultInitImage,
 		CleanupMetadata:  true,
 		CleanupData:      true,
 		TargetSharedNode: false,

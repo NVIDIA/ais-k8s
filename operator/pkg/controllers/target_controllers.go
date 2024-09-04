@@ -132,6 +132,13 @@ func (r *AIStoreReconciler) resolveStatefulSetScaling(ctx context.Context, ais *
 	currentSize := *current.Spec.Replicas
 	// Scaling up
 	if desiredSize > currentSize {
+		if desiredSize > currentSize+1 {
+			logger.Info("Disabling rebalance before target scale-up of > 1 new nodes")
+			err = r.disableRebalance(ctx, ais)
+			if err != nil {
+				return err
+			}
+		}
 		logger.Info("Scaling up target statefulset to match AIS cluster spec size", "desiredSize", desiredSize)
 	} else if desiredSize < currentSize {
 		// Don't proceed to update state to ready until we can proceed to statefulset scale-down
@@ -223,9 +230,8 @@ func (r *AIStoreReconciler) decommissionTargets(ctx context.Context, ais *aisv1.
 }
 
 func (r *AIStoreReconciler) handleTargetImage(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) (ready bool, err error) {
-	updated, err := r.client.UpdateStatefulSetImage(ctx, target.StatefulSetNSName(ais), 0 /*idx*/, ais.Spec.NodeImage)
+	updated, err := r.syncTargetImage(ctx, ais)
 	if err != nil || updated {
-		logf.FromContext(ctx).Info("target image updated")
 		return false, err
 	}
 
@@ -240,6 +246,31 @@ func (r *AIStoreReconciler) handleTargetImage(ctx context.Context, ais *aisv1.AI
 		}
 	}
 	return true, nil
+}
+
+func (r *AIStoreReconciler) syncTargetImage(ctx context.Context, ais *aisv1.AIStore) (updated bool, err error) {
+	ss, err := r.client.GetStatefulSet(ctx, target.StatefulSetNSName(ais))
+	if err != nil {
+		return
+	}
+	// `aisnode` should be the first container defined in the pod spec
+	aisnodeIndex := 0
+	currentImage := ss.Spec.Template.Spec.Containers[aisnodeIndex].Image
+	if currentImage == ais.Spec.NodeImage {
+		return
+	}
+	// Disable rebalance before starting a rolling upgrade
+	err = r.disableRebalance(ctx, ais)
+	if err != nil {
+		return
+	}
+	// Update the statefulset with a new image
+	ss.Spec.Template.Spec.Containers[aisnodeIndex].Image = ais.Spec.NodeImage
+	err = r.client.Update(ctx, ss)
+	if err == nil {
+		logf.FromContext(ctx).Info("Target image updated")
+	}
+	return true, err
 }
 
 func (r *AIStoreReconciler) scaleUpLB(ctx context.Context, ais *aisv1.AIStore) error {

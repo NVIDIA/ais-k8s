@@ -76,8 +76,8 @@ var _ = Describe("AIStoreController", func() {
 						Namespace: namespace,
 					},
 					Spec: aisv1.AIStoreSpec{
-						InitImage: tutils.InitImage,
-						NodeImage: tutils.NodeImage,
+						InitImage: tutils.DefaultInitImage,
+						NodeImage: tutils.DefaultNodeImage,
 						ProxySpec: aisv1.DaemonSpec{
 							Size: apc.Ptr[int32](1),
 							ServiceSpec: aisv1.ServiceSpec{

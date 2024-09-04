@@ -567,6 +567,7 @@ func (r *AIStoreReconciler) handleConfigState(ctx context.Context, ais *aisv1.AI
 
 // syncConfig synchronizes the active cluster config with the desired config in `ais.Spec.ConfigToUpdate`
 func (r *AIStoreReconciler) syncConfig(ctx context.Context, ais *aisv1.AIStore) error {
+	logger := logf.FromContext(ctx)
 	currentHash := ais.Spec.ConfigToUpdate.Hash()
 	if ais.Annotations[configHashAnnotation] == currentHash {
 		return nil
@@ -580,8 +581,10 @@ func (r *AIStoreReconciler) syncConfig(ctx context.Context, ais *aisv1.AIStore) 
 	if err != nil {
 		return err
 	}
+	logger.Info("Updating cluster config to match spec via API")
 	err = aisapi.SetClusterConfigUsingMsg(*baseParams, configToSet, false /*transient*/)
 	if err != nil {
+		logger.Error(err, "Failed to update cluster config")
 		return err
 	}
 
