@@ -162,9 +162,9 @@ var _ = Describe("AIStoreController", func() {
 					Expect(err).To(HaveOccurred())
 
 					By("Reconcile to create proxy StatefulSet")
-					ready, err := r.handleProxyState(ctx, ais)
+					result, err := r.handleProxyState(ctx, ais)
 					Expect(err).ToNot(HaveOccurred())
-					Expect(ready).To(BeFalse())
+					Expect(result.Requeue).To(BeTrue())
 
 					By("Ensure that proxy StatefulSet has been created")
 					err = c.Get(ctx, types.NamespacedName{Name: "ais-proxy", Namespace: namespace}, &ss)
@@ -179,9 +179,9 @@ var _ = Describe("AIStoreController", func() {
 					Expect(err).To(HaveOccurred())
 
 					By("Reconcile to create target StatefulSet")
-					ready, err := r.handleTargetState(ctx, ais)
+					result, err := r.handleTargetState(ctx, ais)
 					Expect(err).ToNot(HaveOccurred())
-					Expect(ready).To(BeFalse())
+					Expect(result.Requeue).To(BeTrue())
 
 					By("Ensure that target StatefulSet has been created")
 					err = c.Get(ctx, types.NamespacedName{Name: "ais-target", Namespace: namespace}, &ss)

@@ -48,7 +48,7 @@ func newClientCluster(cluArgs *tutils.ClusterSpecArgs) (*clientCluster, []*corev
 	cluster, pvs := tutils.NewAISCluster(cluArgs, k8sClient)
 	cc := &clientCluster{
 		cluster: cluster,
-		tout:    tutils.GetClusterCreateTimeout(),
+		tout:    tutils.GetClusterCreateLongTimeout(),
 	}
 
 	if cluArgs.EnableExternalLB {

@@ -16,7 +16,6 @@ import (
 	"github.com/NVIDIA/aistore/cmn/cos"
 	"github.com/NVIDIA/aistore/core/meta"
 	aisv1 "github.com/ais-operator/api/v1beta1"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 //go:generate mockgen -source $GOFILE -destination mocks/client.go . AIStoreClientInterface
@@ -102,7 +101,6 @@ func (c *AIStoreClient) ShutdownCluster() error {
 func (c *AIStoreClient) getPrimaryParams() (*api.BaseParams, error) {
 	smap, err := c.GetClusterMap()
 	if err != nil || smap == nil {
-		logf.FromContext(c.ctx).Error(err, "Failed to get cluster map")
 		return nil, err
 	}
 	return buildBaseParams(smap.Primary.URL(cmn.NetPublic), c.getAuthToken()), nil

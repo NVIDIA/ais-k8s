@@ -6,6 +6,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	aisv1 "github.com/ais-operator/api/v1beta1"
@@ -447,18 +448,18 @@ func (r *AIStoreReconciler) ensurePrereqs(ctx context.Context, ais *aisv1.AIStor
 
 func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore) (result ctrl.Result, err error) {
 	// 1. Bootstrap proxies
-	if result.Requeue, err = r.initProxies(ctx, ais); err != nil {
+	if result, err = r.initProxies(ctx, ais); err != nil {
 		r.recordError(ctx, ais, err, "Failed to create Proxy resources")
-		return result, err
-	} else if result.Requeue {
+		return
+	} else if !result.IsZero() {
 		return
 	}
 
 	// 2. Bootstrap targets
-	if result.Requeue, err = r.initTargets(ctx, ais); err != nil {
+	if result, err = r.initTargets(ctx, ais); err != nil {
 		r.recordError(ctx, ais, err, "Failed to create Target resources")
-		return result, err
-	} else if result.Requeue {
+		return
+	} else if !result.IsZero() {
 		return
 	}
 
@@ -481,27 +482,27 @@ func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore
 //  3. Check if config is properly updated in the cluster.
 //  4. If expected state is not yet met we should reconcile until everything is ready.
 func (r *AIStoreReconciler) handleCREvents(ctx context.Context, ais *aisv1.AIStore) (result ctrl.Result, err error) {
-	var proxyReady, targetReady bool
-	if proxyReady, err = r.handleProxyState(ctx, ais); err != nil {
+	logger := logf.FromContext(ctx)
+	if result, err = r.handleProxyState(ctx, ais); err != nil {
 		return
-	} else if !proxyReady {
+	} else if !result.IsZero() {
 		goto requeue
 	}
 
-	if targetReady, err = r.handleTargetState(ctx, ais); err != nil {
+	if result, err = r.handleTargetState(ctx, ais); err != nil {
 		return
-	} else if !targetReady {
+	} else if !result.IsZero() {
 		goto requeue
 	}
 
-	err = r.checkAISClusterReady(ctx, ais)
-	if err != nil {
+	result, err = r.checkAISClusterReady(ctx, ais)
+	if err != nil || !result.IsZero() {
 		return
 	}
 	// Enables the rebalance condition (still respects the spec desired rebalance.Enabled property)
 	err = r.enableRebalanceCondition(ctx, ais)
 	if err != nil {
-		logf.FromContext(ctx).Error(err, "Failed to enable rebalance condition")
+		logger.Error(err, "Failed to enable rebalance condition")
 		return
 	}
 
@@ -509,7 +510,7 @@ func (r *AIStoreReconciler) handleCREvents(ctx context.Context, ais *aisv1.AISto
 		goto requeue
 	}
 
-	return r.handleSuccessfulReconcile(ctx, ais)
+	return result, r.handleSuccessfulReconcile(ctx, ais)
 
 requeue:
 	// We requeue till the AIStore cluster becomes ready.
@@ -548,8 +549,7 @@ func (r *AIStoreReconciler) handleConfigState(ctx context.Context, ais *aisv1.AI
 	logger.Info("Updating cluster config to match spec via API")
 	err = apiClient.SetClusterConfigUsingMsg(desiredConf, false /*transient*/)
 	if err != nil {
-		logger.Error(err, "Failed to update cluster config")
-		return err
+		return fmt.Errorf("failed to update cluster config: %w", err)
 	}
 
 	// Finally update CRD with proper annotation.
@@ -653,7 +653,7 @@ func (r *AIStoreReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *AIStoreReconciler) handleSuccessfulReconcile(ctx context.Context, ais *aisv1.AIStore) (result ctrl.Result, err error) {
+func (r *AIStoreReconciler) handleSuccessfulReconcile(ctx context.Context, ais *aisv1.AIStore) (err error) {
 	var needsUpdate bool
 	if !ais.IsConditionTrue(aisv1.ConditionReady) {
 		r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonReady, "Successfully reconciled AIStore cluster")
@@ -669,16 +669,17 @@ func (r *AIStoreReconciler) handleSuccessfulReconcile(ctx context.Context, ais *
 	return
 }
 
-func (r *AIStoreReconciler) checkAISClusterReady(ctx context.Context, ais *aisv1.AIStore) error {
+func (r *AIStoreReconciler) checkAISClusterReady(ctx context.Context, ais *aisv1.AIStore) (result ctrl.Result, err error) {
 	apiClient, err := r.clientManager.GetClient(ctx, ais)
 	if err != nil {
-		return err
+		return
 	}
 	err = apiClient.Health(true /*readyToRebalance*/)
 	if err != nil {
-		logf.FromContext(ctx).Info("Waiting for AIS to be healthy...")
+		logf.FromContext(ctx).Info("AIS cluster is not ready", "health_error", err.Error())
+		return ctrl.Result{Requeue: true}, nil
 	}
-	return err
+	return
 }
 
 func (r *AIStoreReconciler) recordError(ctx context.Context, ais *aisv1.AIStore, err error, msg string) {

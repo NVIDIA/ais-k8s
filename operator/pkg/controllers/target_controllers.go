@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
 	aisv1 "github.com/ais-operator/api/v1beta1"
@@ -16,9 +17,12 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
+
+const targetRequeueDelay = 10 * time.Second
 
 func (r *AIStoreReconciler) ensureTargetPrereqs(ctx context.Context, ais *aisv1.AIStore) (err error) {
 	// 1. Deploy required ConfigMap
@@ -42,17 +46,19 @@ func (r *AIStoreReconciler) ensureTargetPrereqs(ctx context.Context, ais *aisv1.
 	return
 }
 
-func (r *AIStoreReconciler) initTargets(ctx context.Context, ais *aisv1.AIStore) (changed bool, err error) {
+func (r *AIStoreReconciler) initTargets(ctx context.Context, ais *aisv1.AIStore) (result ctrl.Result, err error) {
 	// Deploy statefulset
 	ss := target.NewTargetSS(ais)
-	if exists, err := r.k8sClient.CreateResourceIfNotExists(ctx, ais, ss); err != nil {
+	exists, err := r.k8sClient.CreateResourceIfNotExists(ctx, ais, ss)
+	if err != nil {
 		r.recordError(ctx, ais, err, "Failed to deploy target statefulset")
-		return true, err
-	} else if !exists {
+		return
+	}
+	if !exists {
 		msg := "Successfully initialized target nodes"
 		logf.FromContext(ctx).Info(msg)
 		r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonInitialized, msg)
-		changed = true
+		result.Requeue = true
 	}
 	return
 }
@@ -74,24 +80,21 @@ func (r *AIStoreReconciler) cleanupTargetSS(ctx context.Context, ais *aisv1.AISt
 	return r.k8sClient.DeleteStatefulSetIfExists(ctx, targetSS)
 }
 
-func (r *AIStoreReconciler) handleTargetState(ctx context.Context, ais *aisv1.AIStore) (ready bool, err error) {
+func (r *AIStoreReconciler) handleTargetState(ctx context.Context, ais *aisv1.AIStore) (result ctrl.Result, err error) {
 	logger := logf.FromContext(ctx)
 
 	// Fetch the latest target StatefulSet.
 	ss, err := r.k8sClient.GetStatefulSet(ctx, target.StatefulSetNSName(ais))
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			// FIXME: We should likely set condition that `ais-target` StatefulSet
-			// needs to reconciled and we should invoke this function over and over
-			// until done.
-			requeue, err := r.initTargets(ctx, ais)
-			return !requeue, err
+			result, err = r.initTargets(ctx, ais)
 		}
-		return ready, err
+		return
 	}
 
-	if hasLatest, err := r.handleTargetImage(ctx, ais, ss); !hasLatest || err != nil {
-		return false, err
+	result, err = r.handleTargetImage(ctx, ais, ss)
+	if err != nil || !result.IsZero() {
+		return
 	}
 
 	if ais.HasState(aisv1.ClusterScaling) {
@@ -99,25 +102,28 @@ func (r *AIStoreReconciler) handleTargetState(ctx context.Context, ais *aisv1.AI
 		if *ss.Spec.Replicas != ais.GetTargetSize() {
 			err = r.resolveStatefulSetScaling(ctx, ais)
 			if err != nil {
-				return false, err
+				return
 			}
 		} else if *ss.Spec.Replicas != ss.Status.ReadyReplicas {
 			logger.Info("Waiting for statefulset replicas to match desired count")
-			return false, nil
+			return ctrl.Result{RequeueAfter: targetRequeueDelay}, nil
 		}
 	}
 	// Start the target scaling process by updating services and contacting the AIS API
 	if *ss.Spec.Replicas != ais.GetTargetSize() {
 		err = r.startTargetScaling(ctx, ais, ss)
 		if err != nil {
-			return false, err
+			return
 		}
 		// If successful, mark as scaling so future reconciliations will update the SS
 		err = r.updateStatusWithState(ctx, ais, aisv1.ClusterScaling)
-		return false, err
+		return
 	}
-	// For now, state of target is considered ready if the number of target pods ready matches the size provided in AIS cluster spec.
-	ready = ss.Status.ReadyReplicas == ais.GetTargetSize()
+	// Requeue if the number of target pods ready does not match the size provided in AIS cluster spec.
+	if ss.Status.ReadyReplicas != ais.GetTargetSize() {
+		logger.Info("Waiting for target statefulset to reach desired replicas")
+		return ctrl.Result{RequeueAfter: targetRequeueDelay}, nil
+	}
 	return
 }
 
@@ -227,10 +233,14 @@ func (r *AIStoreReconciler) decommissionTargets(ctx context.Context, ais *aisv1.
 	return nil
 }
 
-func (r *AIStoreReconciler) handleTargetImage(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) (ready bool, err error) {
+func (r *AIStoreReconciler) handleTargetImage(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) (result ctrl.Result, err error) {
 	updated, err := r.syncTargetImage(ctx, ais)
-	if err != nil || updated {
-		return false, err
+	if err != nil {
+		return
+	}
+	if updated {
+		result.Requeue = true
+		return
 	}
 
 	podList, err := r.k8sClient.ListPods(ctx, ss)
@@ -240,10 +250,11 @@ func (r *AIStoreReconciler) handleTargetImage(ctx context.Context, ais *aisv1.AI
 	for idx := range podList.Items {
 		pod := podList.Items[idx]
 		if pod.Spec.Containers[0].Image != ais.Spec.NodeImage {
+			result.Requeue = true
 			return
 		}
 	}
-	return true, nil
+	return
 }
 
 func (r *AIStoreReconciler) syncTargetImage(ctx context.Context, ais *aisv1.AIStore) (updated bool, err error) {
@@ -260,8 +271,7 @@ func (r *AIStoreReconciler) syncTargetImage(ctx context.Context, ais *aisv1.AISt
 	// Disable rebalance condition before starting a rolling upgrade
 	err = r.disableRebalance(ctx, ais, aisv1.ReasonUpgrading, "Disabled due to image update")
 	if err != nil {
-		logf.FromContext(ctx).Error(err, "Failed to disable rebalance before updating image")
-		return
+		return false, fmt.Errorf("failed to disable rebalance before updating image: %w", err)
 	}
 	// Update the statefulset with a new image
 	ss.Spec.Template.Spec.Containers[aisnodeIndex].Image = ais.Spec.NodeImage
