@@ -160,6 +160,10 @@ type AIStoreSpec struct {
 	// +optional
 	TLSSecretName *string `json:"tlsSecretName,omitempty"`
 
+	// Name of Cert Manager CSI Issuer used for getting the cert/key
+	// +optional
+	TLSCertManagerIssuerName *string `json:"tlsCertManagerIssuerName,omitempty"`
+
 	// Secret name containing AuthN's JWT signing key
 	// +optional
 	AuthNSecretName *string `json:"authNSecretName,omitempty"`
@@ -361,10 +365,8 @@ func (ais *AIStore) GetTargetSize() int32 {
 }
 
 func (ais *AIStore) GetDefaultProxyURL() string {
-	var scheme string
-	if ais.Spec.TLSSecretName == nil {
-		scheme = "http"
-	} else {
+	scheme := "http"
+	if ais.UseHTTPS() {
 		scheme = "https"
 	}
 	primaryProxy := ais.DefaultPrimaryName()
@@ -448,6 +450,18 @@ func (ais *AIStore) CompareVersion(version string) (bool, error) {
 	}
 	// Check version is at least the provided version
 	return semver.Compare(tag, version) >= 0, nil
+}
+
+func (ais *AIStore) UseHTTPS() bool {
+	return ais.UseHTTPSSecret() || ais.UseHTTPSCertManager()
+}
+
+func (ais *AIStore) UseHTTPSSecret() bool {
+	return ais.Spec.TLSSecretName != nil
+}
+
+func (ais *AIStore) UseHTTPSCertManager() bool {
+	return ais.Spec.TLSCertManagerIssuerName != nil
 }
 
 // +kubebuilder:object:root=true

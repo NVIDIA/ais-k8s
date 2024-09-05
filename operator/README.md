@@ -160,10 +160,16 @@ While the examples above demonstrate running web servers that accept plain HTTP 
 
 **Important:** Before proceeding, please ensure that you have `cert-manager` installed.
 
-This specification defines a ClusterIssuer responsible for certificate issuance. It creates a Certificate, which is securely stored as a secret within the same namespace as the operator.
+This specification defines a ClusterIssuer responsible for certificate issuance. It creates a Certificate, which is securely stored as a Secret within the same namespace as the operator.
 
 ```bash
-kubectl apply -f config/samples/ais_v1beta1_aistore_tls.yaml
+kubectl apply -f config/samples/ais_v1beta1_aistore_tls_selfsigned.yaml
+```
+
+With `cert-manager csi-driver` installed, you can get signed certificates directly from your Issuer. The attached sample configuration contains RBAC and Issuer definition for use with Vault.
+
+```bash
+kubectl apply -f  config/samples/ais_v1beta1_aistore_tls_certmanager_csi.yaml
 ```
 
 **Testing Considerations:**

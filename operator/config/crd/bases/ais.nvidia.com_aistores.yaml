@@ -3392,6 +3392,10 @@ spec:
                 - portPublic
                 - servicePort
                 type: object
+              tlsCertManagerIssuerName:
+                description: Name of Cert Manager CSI Issuer used for getting the
+                  cert/key
+                type: string
               tlsSecretName:
                 description: Secret name containing TLS cert/key
                 type: string

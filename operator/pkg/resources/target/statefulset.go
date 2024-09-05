@@ -54,7 +54,7 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 			cmn.EnvFromFieldPath(cmn.EnvPublicHostname, "status.hostIP"),
 		}
 	}
-	if ais.Spec.TLSSecretName != nil {
+	if ais.UseHTTPS() {
 		optionals = append(optionals, cmn.EnvFromValue(cmn.EnvUseHTTPS, "true"))
 	}
 

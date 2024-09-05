@@ -674,11 +674,9 @@ func (r *AIStoreReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 // hasValidBaseParams checks if the BaseParams are valid for the given AIS cluster configuration
 func hasValidBaseParams(baseParams *aisapi.BaseParams, ais *aisv1.AIStore) bool {
-	// Determine whether HTTPS should be used based on the presence of a TLS secret
-	shouldUseHTTPS := ais.Spec.TLSSecretName != nil
-
-	// Verify if the URL's protocol matches the expected protocol (HTTPS or HTTP)
-	httpsCheck := cos.IsHTTPS(baseParams.URL) == shouldUseHTTPS
+	// Determine whether HTTPS should be used based on the presence of a TLS secret / TLS issuer and
+	// verify if the URL's protocol matches the expected protocol (HTTPS or HTTP)
+	httpsCheck := cos.IsHTTPS(baseParams.URL) == ais.UseHTTPS()
 
 	// Check if the token and AuthN secret are correctly aligned:
 	// - Valid if both are either set or both are unset
@@ -799,9 +797,8 @@ func (r *AIStoreReconciler) newAISBaseParams(ctx context.Context,
 	serviceHostname = proxy.HeadlessSVCNSName(ais).Name + "." + ais.Namespace
 createParams:
 	var scheme string
-	if ais.Spec.TLSSecretName == nil {
-		scheme = "http"
-	} else {
+	scheme = "http"
+	if ais.UseHTTPS() {
 		scheme = "https"
 	}
 	url := fmt.Sprintf("%s://%s:%s", scheme, serviceHostname, ais.Spec.ProxySpec.ServicePort.String())

@@ -6,10 +6,13 @@ package cmn
 
 import (
 	"path"
+	"strings"
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
 	"github.com/ais-operator/api/v1beta1"
 	"github.com/ais-operator/pkg/resources/statsd"
+	csiapis "github.com/cert-manager/csi-driver/pkg/apis"
+	csiapisv1 "github.com/cert-manager/csi-driver/pkg/apis/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -118,7 +121,30 @@ func NewAISVolumes(ais *v1beta1.AIStore, daeType string) []v1.Volume {
 		})
 	}
 
-	if ais.Spec.TLSSecretName != nil {
+	if ais.UseHTTPSCertManager() {
+		name := ais.Name + "-" + daeType
+		volumes = append(volumes, v1.Volume{
+			Name: tlsSecretVolume,
+			VolumeSource: v1.VolumeSource{
+				CSI: &v1.CSIVolumeSource{
+					Driver: csiapis.GroupName,
+					VolumeAttributes: map[string]string{
+						csiapisv1.IssuerNameKey: *ais.Spec.TLSCertManagerIssuerName,
+						csiapisv1.CommonNameKey: name + ".${POD_NAMESPACE}",
+						csiapisv1.DNSNamesKey: strings.Join(
+							[]string{
+								"${POD_NAME}.${POD_NAMESPACE}.svc" + ais.GetClusterDomain(),
+								name + ".${POD_NAMESPACE}.svc." + ais.GetClusterDomain(),
+								name + ".${POD_NAMESPACE}.svc",
+								name,
+							},
+							","),
+					},
+					ReadOnly: aisapc.Ptr(true),
+				},
+			},
+		})
+	} else if ais.UseHTTPSSecret() {
 		volumes = append(volumes, v1.Volume{
 			Name: tlsSecretVolume,
 			VolumeSource: v1.VolumeSource{
@@ -205,7 +231,7 @@ func NewAISVolumeMounts(ais *v1beta1.AIStore, daeType string) []v1.VolumeMount {
 			MountPath: "/var/gcp",
 		})
 	}
-	if spec.TLSSecretName != nil {
+	if ais.UseHTTPS() {
 		volumeMounts = append(volumeMounts, v1.VolumeMount{
 			Name:      tlsSecretVolume,
 			ReadOnly:  true,

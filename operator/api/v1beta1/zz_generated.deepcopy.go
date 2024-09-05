@@ -151,6 +151,11 @@ func (in *AIStoreSpec) DeepCopyInto(out *AIStoreSpec) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.TLSCertManagerIssuerName != nil {
+		in, out := &in.TLSCertManagerIssuerName, &out.TLSCertManagerIssuerName
+		*out = new(string)
+		**out = **in
+	}
 	if in.AuthNSecretName != nil {
 		in, out := &in.AuthNSecretName, &out.AuthNSecretName
 		*out = new(string)

@@ -38,7 +38,7 @@ func newHTTPProbeHandle(ais *aisv1.AIStore, daemonRole, probeEndpoint string) co
 		uriScheme = corev1.URISchemeHTTP
 	)
 
-	if ais.Spec.TLSSecretName != nil {
+	if ais.UseHTTPS() {
 		uriScheme = corev1.URISchemeHTTPS
 	}
 

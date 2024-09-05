@@ -1,0 +1,88 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: vault-issuer
+  namespace: ais-operator-system
+rules:
+  - apiGroups: ['']
+    resources: ['serviceaccounts/token']
+    resourceNames: ['ais-sa']
+    verbs: ['create']
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: vault-issuer-rb
+  namespace: ais-operator-system
+subjects:
+  - kind: ServiceAccount
+    name: cert-manager
+    namespace: cert-manager
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: vault-issuer
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: ais
+  namespace: ais-operator-system
+spec:
+  vault:
+    path: signing/path/ais
+    server: https://vaultaddress
+    namespace: vault-namespace
+    auth:
+      kubernetes:
+        role: ais
+        mountPath: /v1/auth/path
+        serviceAccountRef:
+          name: ais-sa
+---
+apiVersion: ais.nvidia.com/v1beta1
+kind: AIStore
+metadata:
+  name: aistore-sample
+  namespace: ais-operator-system
+spec:
+  # Add fields here
+  size: 1
+  proxySpec:
+    servicePort: 51080
+    portPublic: 51080
+    portIntraControl: 51082
+    portIntraData: 51083
+
+  targetSpec:
+    servicePort: 51081
+    portPublic: 51081
+    portIntraControl: 51082
+    portIntraData: 51083
+
+    mounts:
+      - path: "/ais1"
+        size: 10Gi
+
+  configToUpdate:
+    net:
+      http:
+        server_crt: "/var/certs/tls.crt"
+        server_key: "/var/certs/tls.key"
+        use_https: true
+        skip_verify: true # if you are using self signed certs
+        client_ca_tls: "/var/certs/ca.crt"
+        client_auth_tls: 0
+
+  nodeImage: "aistorage/aisnode:v3.23"
+  initImage: "aistorage/ais-init:v3.23"
+  hostpathPrefix: "/etc/ais"
+  logsDir:
+  tlsCertManagerIssuerName: "ais"
+
+  # To be able to access the AIS deployment outside kubernetes cluster, set:
+  # enableExternalLB: true
+  # NOTE: For external access to work, the kubernetes cluster should have the capabilitly to create LoadBalancer services with valid external IP.
+  # For local testing with `minikube` run `minikube tunnel` in background for emulation. ref: https://minikube.sigs.k8s.io/docs/commands/tunnel/
+  enableExternalLB: false
