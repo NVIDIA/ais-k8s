@@ -130,7 +130,7 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonDeleted, "Decommissioning...")
 	}
 
-	if ais.ShouldShutdown() {
+	if ais.ShouldStartShutdown() {
 		if err = r.attemptGracefulShutdown(ctx, ais); err != nil {
 			logger.Error(err, "Graceful shutdown failed")
 			return reconcile.Result{}, err
@@ -147,7 +147,7 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return r.shutdownCluster(ctx, ais)
 	case ais.HasState(aisv1.ClusterShutdown):
 		// Remain in shutdown state unless the spec field changes
-		if ais.Spec.ShutdownCluster != nil && !*ais.Spec.ShutdownCluster {
+		if ais.ShouldBeShutdown() {
 			return reconcile.Result{}, nil
 		}
 	case ais.HasState(aisv1.ClusterDecommissioning):

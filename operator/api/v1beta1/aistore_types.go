@@ -356,8 +356,12 @@ func (ais *AIStore) GetTargetSize() int32 {
 	return *ais.Spec.Size
 }
 
-func (ais *AIStore) ShouldShutdown() bool {
+func (ais *AIStore) ShouldStartShutdown() bool {
 	return ais.Spec.ShutdownCluster != nil && *ais.Spec.ShutdownCluster && ais.HasState(ClusterReady)
+}
+
+func (ais *AIStore) ShouldBeShutdown() bool {
+	return ais.Spec.ShutdownCluster != nil && *ais.Spec.ShutdownCluster
 }
 
 // ShouldDecommission Determines if we should begin decommissioning the cluster
