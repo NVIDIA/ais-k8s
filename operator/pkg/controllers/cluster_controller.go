@@ -402,7 +402,7 @@ func (r *AIStoreReconciler) reconcileResources(ctx context.Context, ais *aisv1.A
 		return err
 	}
 
-	globalCM, err := cmn.NewGlobalCM(ais)
+	globalCM, err := cmn.NewGlobalCM(ctx, ais)
 	if err != nil {
 		r.recordError(ctx, ais, err, "Failed to construct global config")
 		return err
@@ -561,7 +561,7 @@ requeue:
 // this synchronizes any changes to the active loaded config in the cluster.
 func (r *AIStoreReconciler) handleConfigState(ctx context.Context, ais *aisv1.AIStore) error {
 	// Special case for rebalance since we may disable it -- always include `Rebalance.Enabled` in the sync
-	ais.UpdateDefaultRebalance(cmn.DefaultAISConf(ais).Rebalance.Enabled)
+	ais.UpdateDefaultRebalance(cmn.DefaultAISConf(ctx, ais).GetRebalanceEnabled())
 	return r.syncConfig(ctx, ais)
 }
 

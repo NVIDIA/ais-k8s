@@ -5,6 +5,8 @@
 package cmn
 
 import (
+	"context"
+
 	aisapc "github.com/NVIDIA/aistore/api/apc"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	jsoniter "github.com/json-iterator/go"
@@ -16,9 +18,9 @@ func globalConfigMapName(ais *aisv1.AIStore) string {
 	return ais.Name + "-global-cm"
 }
 
-func NewGlobalCM(ais *aisv1.AIStore) (*corev1.ConfigMap, error) {
+func NewGlobalCM(ctx context.Context, ais *aisv1.AIStore) (*corev1.ConfigMap, error) {
 	specConfig := ais.Spec.ConfigToUpdate
-	globalConf := DefaultAISConf(ais)
+	globalConf := DefaultAISConf(ctx, ais)
 	if specConfig != nil {
 		toSet, err := specConfig.Convert()
 		if err != nil {
@@ -30,24 +32,24 @@ func NewGlobalCM(ais *aisv1.AIStore) (*corev1.ConfigMap, error) {
 	}
 	// Rebalance in config should be initially false in the config file (updated to spec value later)
 	if !ais.HasState(aisv1.ClusterReady) {
-		globalConf.Rebalance.Enabled = false
+		globalConf.SetRebalanceEnabled(false)
 	}
 
 	if ais.Spec.AWSSecretName != nil || ais.Spec.GCPSecretName != nil {
-		if globalConf.Backend.Conf == nil {
-			globalConf.Backend.Conf = make(map[string]interface{}, 8)
+		if globalConf.GetBackend().Conf == nil {
+			globalConf.GetBackend().Conf = make(map[string]interface{}, 8)
 		}
 		if ais.Spec.AWSSecretName != nil {
-			globalConf.Backend.Conf["aws"] = aisv1.Empty{}
+			globalConf.GetBackend().Conf["aws"] = aisv1.Empty{}
 		}
 		if ais.Spec.GCPSecretName != nil {
-			globalConf.Backend.Conf["gcp"] = aisv1.Empty{}
+			globalConf.GetBackend().Conf["gcp"] = aisv1.Empty{}
 		}
 	}
 
 	// AuthN
 	if ais.Spec.AuthNSecretName != nil {
-		globalConf.Auth.Enabled = true
+		globalConf.SetAuthEnabled(true)
 		// secret will be set through env var `AIS_AUTHN_SECRET_KEY`
 	}
 

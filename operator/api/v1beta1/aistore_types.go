@@ -5,7 +5,11 @@
 package v1beta1
 
 import (
+	"fmt"
+	"strings"
+
 	aisapc "github.com/NVIDIA/aistore/api/apc"
+	"golang.org/x/mod/semver"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -356,6 +360,21 @@ func (ais *AIStore) GetTargetSize() int32 {
 	return *ais.Spec.Size
 }
 
+func (ais *AIStore) GetDefaultProxyURL() string {
+	var scheme string
+	if ais.Spec.TLSSecretName == nil {
+		scheme = "http"
+	} else {
+		scheme = "https"
+	}
+	primaryProxy := ais.DefaultPrimaryName()
+	domain := ais.GetClusterDomain()
+	svcName := ais.ProxyStatefulSetName()
+	intraCtrlPort := ais.Spec.ProxySpec.IntraControlPort.String()
+	// Example: http://ais-proxy-0.ais-proxy.ais.svc.cluster.local:51080
+	return fmt.Sprintf("%s://%s.%s.%s.svc.%s:%s", scheme, primaryProxy, svcName, ais.Namespace, domain, intraCtrlPort)
+}
+
 func (ais *AIStore) ShouldStartShutdown() bool {
 	return ais.Spec.ShutdownCluster != nil && *ais.Spec.ShutdownCluster && ais.HasState(ClusterReady)
 }
@@ -413,6 +432,22 @@ func (ais *AIStore) AllowTargetSharedNodes() bool {
 	deprecatedAllow := ais.Spec.DisablePodAntiAffinity != nil && *ais.Spec.DisablePodAntiAffinity
 	// Backwards compatible check -- allow if either is true
 	return allowSharedNodes || deprecatedAllow
+}
+
+// CompareVersion returns true if the spec `aisnode` version is the same or newer than the one provided
+func (ais *AIStore) CompareVersion(version string) (bool, error) {
+	img := ais.Spec.NodeImage
+	parts := strings.Split(img, ":")
+	if len(parts) != 2 {
+		return false, fmt.Errorf("image does not have a proper tag: %q", img)
+	}
+	// Allow for hyphen-separated tags, e.g. aisnode:v3.24-rc3
+	tag := strings.Split(parts[1], "-")[0]
+	if !semver.IsValid(tag) {
+		return false, fmt.Errorf("image tag does not use semantic versioning, image: %q", img)
+	}
+	// Check version is at least the provided version
+	return semver.Compare(tag, version) >= 0, nil
 }
 
 // +kubebuilder:object:root=true

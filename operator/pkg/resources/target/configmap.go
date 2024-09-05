@@ -6,7 +6,6 @@ package target
 
 import (
 	"context"
-	"strings"
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
 	aiscmn "github.com/NVIDIA/aistore/cmn"
@@ -14,7 +13,6 @@ import (
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	"github.com/ais-operator/pkg/resources/cmn"
 	jsoniter "github.com/json-iterator/go"
-	"golang.org/x/mod/semver"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -40,7 +38,7 @@ func ConfigMapNSName(ais *aisv1.AIStore) types.NamespacedName {
 }
 
 func NewTargetCM(ctx context.Context, ais *aisv1.AIStore) (*corev1.ConfigMap, error) {
-	localConfStr, err := buildLocalConf(ctx, &ais.Spec)
+	localConfStr, err := buildLocalConf(ctx, ais)
 	if err != nil {
 		return nil, err
 	}
@@ -55,8 +53,8 @@ func NewTargetCM(ctx context.Context, ais *aisv1.AIStore) (*corev1.ConfigMap, er
 	}, nil
 }
 
-func buildLocalConf(ctx context.Context, spec *aisv1.AIStoreSpec) (string, error) {
-	serviceSpec := spec.TargetSpec.ServiceSpec
+func buildLocalConf(ctx context.Context, ais *aisv1.AIStore) (string, error) {
+	serviceSpec := ais.Spec.TargetSpec.ServiceSpec
 	netConfig := aiscmn.LocalNetConfig{
 		Hostname:             "${AIS_PUBLIC_HOSTNAME}",
 		HostnameIntraControl: "${AIS_INTRA_HOSTNAME}",
@@ -66,10 +64,10 @@ func buildLocalConf(ctx context.Context, spec *aisv1.AIStoreSpec) (string, error
 		PortIntraData:        serviceSpec.IntraDataPort.IntValue(),
 	}
 	// Check if we support the new format for mpath labels to determine which conf version to use
-	if checkLabelSupport(ctx, spec) {
-		return jsoniter.MarshalToString(templateLocalConf(ctx, spec, &netConfig))
+	if checkLabelSupport(ctx, ais) {
+		return jsoniter.MarshalToString(templateLocalConf(ctx, &ais.Spec, &netConfig))
 	}
-	return jsoniter.MarshalToString(templateOldLocalConf(spec, &netConfig))
+	return jsoniter.MarshalToString(templateOldLocalConf(&ais.Spec, &netConfig))
 }
 
 func templateLocalConf(ctx context.Context, spec *aisv1.AIStoreSpec, netConfig *aiscmn.LocalNetConfig) aiscmn.LocalConfig {
@@ -126,24 +124,12 @@ func definePathsNoLabels(spec *aisv1.TargetSpec, conf *v322LocalConfig) {
 	}
 }
 
-func checkLabelSupport(ctx context.Context, spec *aisv1.AIStoreSpec) bool {
+func checkLabelSupport(ctx context.Context, ais *aisv1.AIStore) bool {
 	logger := logf.FromContext(ctx)
-
-	parts := strings.Split(spec.NodeImage, ":")
-	if len(parts) != 2 {
-		logger.Info("Image does not have a proper tag", "node_image", spec.NodeImage)
+	useLabels, err := ais.CompareVersion("v3.23")
+	if err != nil {
+		logger.Error(err, "Error parsing aisnode image. Assuming it supports mount-path labels!")
 		return true
 	}
-	// Allow for hyphen-separated tags, e.g. aisnode:v3.24-rc3
-	tag := strings.Split(parts[1], "-")[0]
-	if !semver.IsValid(tag) {
-		logger.Info("Image does not use semantic versioning, assuming it supports labels", "node_image", spec.NodeImage)
-		return true
-	}
-	// Check version is at least v3.23
-	if semver.Compare(tag, "v3.23") >= 0 {
-		return true
-	}
-	logger.Info("Image tag < v3.23, hence proceeding without labels", "node_image", spec.NodeImage)
-	return false
+	return useLabels
 }

@@ -155,9 +155,11 @@ type (
 		Chunked         *bool   `json:"chunked_transfer,omitempty"`
 	}
 	FSHCConfToUpdate struct {
-		Enabled       *bool `json:"enabled,omitempty"`
-		TestFileCount *int  `json:"test_files,omitempty"`
-		ErrorLimit    *int  `json:"error_limit,omitempty"`
+		TestFileCount *int          `json:"test_files,omitempty"`
+		HardErrs      *int          `json:"error_limit,omitempty"`
+		IOErrs        *int          `json:"io_err_limit,omitempty"`
+		IOErrTime     *cos.Duration `json:"io_err_time,omitempty"`
+		Enabled       *bool         `json:"enabled,omitempty"`
 	}
 	AuthConfToUpdate struct {
 		Enabled *bool   `json:"enabled,omitempty"`
