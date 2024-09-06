@@ -31,7 +31,7 @@ https:
   tlsSecret: "tls-certs"
 nodeImage:
   name: aistorage/aisnode
-  tag: v3.24-rc2
+  tag: v3.24-f8fd327
 initImage:
   name: aistorage/ais-init
   tag: v1.2.0
@@ -42,6 +42,10 @@ multihome:
   enabled: false
   hostnameMap: 
   networkAttachment:
+hostNetwork: false
+shutdownCluster: false
 cleanupData: false
 cleanupMetadata: false
 stateStorageClass: "local-path"
+authNSecretName:
+logsDir:

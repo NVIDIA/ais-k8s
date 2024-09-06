@@ -42,6 +42,7 @@ spec:
     portPublic: 51081
     portIntraControl: 51082
     portIntraData: 51083
+    hostNetwork: {{ .Values.hostNetwork }}
     capabilities:
       privileged: true
     # nodeSelector:
@@ -63,17 +64,13 @@ spec:
   initImage: "{{ .Values.initImage.name }}:{{ .Values.initImage.tag }}"
   hostpathPrefix: {{ .Values.hostpathPrefix }}
   stateStorageClass: {{ .Values.stateStorageClass }}
+  shutdownCluster: {{ .Values.shutdownCluster }}
   cleanupMetadata: {{ .Values.cleanupMetadata }}
   cleanupData: {{ .Values.cleanupData }}
-  {{- if eq .Values.protocol "https" }}
   tlsSecretName: {{ .Values.https.tlsSecret }}
-  {{- end }}
-  {{- if .Values.cloud.awsSecretName }}
-  awsSecretName: "{{ .Values.cloud.awsSecretName }}"
-  {{- end }}
-  {{- if .Values.cloud.gcpSecretName }}
-  gcpSecretName: "{{ .Values.cloud.gcpSecretName }}"
-  {{- end }}
+  awsSecretName: {{ .Values.cloud.awsSecretName }}
+  gcpSecretName: {{ .Values.cloud.gcpSecretName }}
+  authNSecretName: {{ .Values.authNSecretName }}
   enableExternalLB: false
   {{- with .Values.multihome.hostnameMap }}
   hostnameMap: {{ toJson . }}
@@ -81,4 +78,5 @@ spec:
   {{- if .Values.multihome.networkAttachment }}
   networkAttachment: "{{ .Values.multihome.networkAttachment }}"
   {{- end }}
-  clusterDomain: "cluster.local"
+  logsDir: {{ .Values.logsDir }}
+  clusterDomain: cluster.local

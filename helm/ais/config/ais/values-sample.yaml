@@ -12,28 +12,31 @@ global:
     - /ais/nvme1n1
     - /ais/nvme3n1
 
-ais-cluster:
-  size: 3
-  protocol: http
-  https:
-    skipVerifyCert: true
-    tlsSecret: "tls-certs"
-  nodeImage:
-    name: aistorage/aisnode
-    tag: v3.23
-  initImage:
-    name: aistorage/ais-init
-    tag: v3.23
-  cloud:
-    awsSecretName: "aws-creds"
-    gcpSecretName: "gcp-creds"
-  multihome:
-    enabled: false
-    hostnameMap: 
-    networkAttachment:
-  # Set one and only one of the below options for config and state storage. See docs/state_storage.md
-  # DEPRECATED: hostpathPrefix defines a location on the physical k8s node. Use stateStorageClass
-  hostpathPrefix: "/etc/ais"
-  # stateStorageClass defines an existing storage class for dynamic creation of k8s volumes
-  stateStorageClass: "local-path"
-  cleanupData: false
+size: 3
+protocol: http
+https:
+  skipVerifyCert: true
+  tlsSecret: "tls-certs"
+nodeImage:
+  name: aistorage/aisnode
+  tag: v3.24-f8fd327
+initImage:
+  name: aistorage/ais-init
+  tag: v1.2.0
+cloud:
+  awsSecretName: "aws-creds"
+  gcpSecretName: "gcp-creds"
+multihome:
+  enabled: false
+  hostnameMap: 
+  networkAttachment:
+hostNetwork: false
+shutdownCluster: false
+# Set one and only one of the below options for config and state storage. See docs/state_storage.md
+# DEPRECATED: hostpathPrefix defines a location on the physical k8s node. Use stateStorageClass
+hostpathPrefix: "/etc/ais"
+# stateStorageClass defines an existing storage class for dynamic creation of k8s volumes
+stateStorageClass: "local-path"
+cleanupData: false
+authNSecretName:
+logsDir:
