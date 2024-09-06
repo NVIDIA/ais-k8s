@@ -10,7 +10,7 @@ Playbook(s) | Description
 [ais_deploy_operator](ais_deploy_operator.yml)| Deploy the operator which enables cluster dpeloyment. See [ais_cluster_management docs](docs/ais_cluster_management.md).
 [ais_shutdown_cluster](ais_shutdown_cluster.yml) | Gracefully shuts down an AIS cluster, preserving metadata and configuration for future restarts.
 [ais_decommission_cluster](ais_decommission_cluster.yml) | Cleans up the AIS cluster's resources, including cluster maps, configuration files, PVCs, PVs, and node labels. Ensures a complete removal of the AIS cluster from the K8s env.
-[ais_switch_protocol](ais_switch_protocol.yml) | Switch between http/https clusters. See [switch_protocol docs](docs/switch_protocol.md).
+[ais_restart_cluster](ais_restart_cluster.yml) | Decommissions the AIStore cluster by deleting the CRD. If `delete_conf` is set to true, it also cleans up the configuration from all nodes. Afterward, the AIStore cluster is redeployed with the new configuration, while ensuring that user data is preserved. Used for switching between http/https clusters or adding AuthN config after initial deployment. See [switch_protocol docs](docs/switch_protocol.md).
 [ais_undeploy_operator](ais_undeploy_operator.yml) | Remove the operator from the K8s cluster.
 [create_network_definition](create_network_definition.yml) | Create network definitions for multihome deployments. See [multihome docs](docs/deploy_with_multihome.md).
 [fetch_ca_cert](fetch_ca_cert.yml) | Fetch the CA cert secret for a client to use self-signed certificate verification. See [ais_https_configuration docs](docs/ais_https_configuration.md)

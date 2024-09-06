@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `ais_switch_protocol` playbook serves the purpose of streamlining the transition between HTTP and HTTPS-based deployments for AIStore while preserving all data, including buckets and objects.
+The [`ais_restart_cluster.yml`](../ais_restart_cluster.yml) playbook serves the purpose of streamlining the transition between HTTP and HTTPS-based deployments for AIStore while preserving all data, including buckets and objects.
 
 ## Usage
 
@@ -43,7 +43,7 @@ Before running this playbook, ensure the following prerequisites are met:
 
 ### Playbook Execution
 
-To execute the `ais_switch_protocol` playbook, follow these steps:
+To execute the [`ais_restart_cluster.yml`](../ais_restart_cluster.yml) playbook, follow these steps:
 
 1. **Install Ansible:** Ensure Ansible is installed on your system.
 
@@ -55,10 +55,10 @@ To execute the `ais_switch_protocol` playbook, follow these steps:
 
 5. **Run the Playbook:** Execute the playbook with the following command:
    ```bash
-   ansible-playbook -i hosts.ini ais_switch_protocol.yml -e cluster=ais
+   ansible-playbook -i hosts.ini ais_restart_cluster.yml -e cluster=ais
    ```
 
    If you need to remove AIStore configuration files after significant upgrades, you can run:
    ```bash
-   ansible-playbook -i hosts.ini ais_switch_protocol.yml -e cluster=ais -e delete_conf=true
+   ansible-playbook -i hosts.ini ais_restart_cluster.yml -e cluster=ais -e delete_conf=true
    ```

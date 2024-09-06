@@ -1,5 +1,8 @@
 ---
-# Playbook for switching the deployment protocol for AIS (HTTP ⇌ HTTPS)
+# The `ais_restart_cluster` playbook decommissions the AIStore cluster by 
+# deleting the CRD. If `delete_conf` is set to true, it also cleans up the
+# configuration from all nodes. Afterward, the AIStore cluster is redeployed
+# with the new configuration, while ensuring that user data is preserved.
 
 - name: Set cleanupMetadata to false in the AIStore CRD
   hosts: controller
