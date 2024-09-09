@@ -1,4 +1,4 @@
-VERSION ?= 1.3.0
+VERSION ?= 1.4.0
 BUILD_VERSION = $(VERSION)+$(shell git rev-parse --short HEAD)
 BUILD_TIME = $(shell date +%FT%T%z)
 
@@ -163,12 +163,12 @@ docker-buildx: ## Build and push docker image for the manager for cross-platform
 build-installer: require-img manifests generate kustomize ## Generate a consolidated YAML with CRDs and deployment.
 	mkdir -p dist
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
-	$(KUSTOMIZE) build config/default > dist/install.yaml
+	$(KUSTOMIZE) build config/default > dist/ais-operator.yaml
 
 .PHONY: build-installer-helm
 build-installer-helm: require-img helm helmify build-installer
 	mkdir -p dist/charts/
-	cat dist/install.yaml | $(HELMIFY) dist/charts/ais-operator
+	cat dist/ais-operator.yaml | $(HELMIFY) dist/charts/ais-operator
 	$(HELM) package dist/charts/ais-operator -d dist/
 	$(HELM) repo index --url $(REPO)/releases/download/$(VERSION) dist
 
