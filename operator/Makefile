@@ -267,9 +267,13 @@ define go-install-tool
 @[ -f $(1) ] || { \
 set -e; \
 package=$(2)@$(3) ;\
+SRC="$$(echo "$(1)" | sed "s/-$(3)$$//")" ;\
+DEST=$(1) ;\
 echo "Downloading $${package}" ;\
 GOBIN=$(LOCALBIN) go install $${package} ;\
-mv "$$(echo "$(1)" | sed "s/-$(3)$$//")" $(1) ;\
+if [ "$$SRC" != "$$DEST" ]; then \
+  mv -f $$SRC $$DEST ;\
+fi ;\
 }
 endef
 
@@ -279,6 +283,7 @@ define helm-get-tool
 @[ -f $(HELM) ] || { \
 set -e ;\
 TMP_DIR=$$(mktemp -d) ;\
+[ -d $(LOCALBIN) ] || mkdir -p $(LOCALBIN) ;\
 cd $$TMP_DIR ;\
 echo "Downloading Helm $(HELM_VERSION)" ;\
 curl -sSL https://get.helm.sh/helm-$(HELM_VERSION)-linux-amd64.tar.gz -o helm.tar.gz ;\
