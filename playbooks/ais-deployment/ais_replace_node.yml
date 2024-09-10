@@ -1,0 +1,81 @@
+# This playbook automates replacing a Kubernetes node hosting ais-target and ais-proxy pods in the AIS (AIStore) cluster. 
+# It is used to move these workloads to another node, typically for maintenance or decommissioning.
+---
+- name: Unlabel the old node and delete target/proxy pods, PVCs, and PVs
+  hosts: controller
+  gather_facts: no
+  vars_prompt:
+    - name: "prev_node"
+      prompt: "Enter the previous k8s node name"
+      private: no
+    - name: "new_node"
+      prompt: "Enter the new k8s node name"
+      private: no
+  tasks:
+    - name: Get ais-target-* and ais-proxy-* pods on the previous node
+      shell: >
+        kubectl get pods -n ais --field-selector spec.nodeName={{ prev_node }} 
+        | grep -E 'ais-target-|ais-proxy-' 
+        | awk '{print $1}'
+      register: pods_on_prev_node
+      changed_when: false
+
+    - name: Set the pod name for deletion based on previous pod
+      set_fact:
+        target_pod: "{{ pods_on_prev_node.stdout_lines | select('search', 'ais-target-') | list | first }}"
+        proxy_pod: "{{ pods_on_prev_node.stdout_lines | select('search', 'ais-proxy-') | list | first }}"
+      when: pods_on_prev_node.stdout_lines | length > 0
+
+    - name: Extract target index from target pod name
+      set_fact:
+        target_index: "{{ target_pod.split('-')[-1] }}"
+      when: target_pod is defined
+  
+    - name: Set new_node as fact
+      set_fact:
+        new_node_fact: "{{ new_node }}"
+    - name: Verify the pod names were set
+      debug:
+        msg:
+          - "Target pod for deletion: {{ target_pod }}"
+          - "Proxy pod for deletion: {{ proxy_pod }}"
+          - "Target index: {{ target_index }}"
+
+    - name: Unlabel the previous node
+      command: >
+        kubectl label nodes {{ prev_node }} 
+        nvidia.com/ais-target- 
+        nvidia.com/ais-proxy-
+
+    - name: Delete the ais-target-* and ais-proxy-* pods on the previous node
+      shell: >
+        kubectl delete pod -n ais {{ target_pod }} {{ proxy_pod }}
+      when: target_pod is defined and proxy_pod is defined
+
+    - name: Delete the PVCs for the target and proxy
+      shell: kubectl get pvc -n ais --no-headers | awk '/{{ target_pod }}|{{ proxy_pod }}/ {print $1}' | xargs kubectl delete pvc -n ais
+      args:
+        executable: /bin/bash
+      register: delete_pvc_out
+      changed_when: "'deleted' in delete_pvc_out.stdout"
+
+    - name: Delete the PVs for the target and proxy
+      shell: kubectl get pv --no-headers | awk '/{{ target_pod }}|{{ proxy_pod }}/ {print $1}' | xargs kubectl delete pv
+      args:
+        executable: /bin/bash
+      register: delete_pv_out
+      changed_when: "'deleted' in delete_pv_out.stdout"
+      ignore_errors: yes
+
+- name: Label the new node and create new PV/PVCs
+  hosts: controller
+  gather_facts: no
+  vars_files:
+    - "vars/ais_mpaths.yml"
+  tasks:
+    - name: Run create_pv role to create new PVs and PVCs
+      import_role:
+        name: create_pv
+      vars:
+        target_index: "{{ target_index | default(0) }}"
+        new_node: "{{ new_node_fact }}"

@@ -5,7 +5,6 @@
 # Run on any node that can run `kubectl` commands and has permissions to create volumes.
 #
 
-
 if [ -z "$MPATHS" ]; then
     echo "Error: Set ais_mpaths in vars/ais_mpaths.yml to define PV mountpaths"
     exit 1
@@ -33,8 +32,10 @@ if [[ -z ${nodes} ]]; then
     exit 1
 fi
 
-target_num=0
-for n in ${nodes} ; do
+# Get TARGET_INDEX from environment variable or default to 0 if not set
+target_index=${TARGET_INDEX:-0}
+
+for n in ${nodes}; do
     for m in ${mpaths}; do
         name="$n-pv${m//\//\-}"
         export NAME=$name
@@ -43,10 +44,10 @@ for n in ${nodes} ; do
         export MPATH_LABEL=pv${m//\//\-}
         export MPATH_SIZE=$mpath_size
         export NAMESPACE=$namespace
-        export CLAIM_NAME=ais${m//\//\-}-ais-target-$target_num
+        export CLAIM_NAME=ais${m//\//\-}-ais-target-$target_index
         envsubst < "${source_dir}"/pv.template.yaml > /tmp/pv.yaml
         kubectl apply -f /tmp/pv.yaml
         rm /tmp/pv.yaml
     done
-    target_num=$((target_num+1))
+    target_index=$((target_index+1))
 done

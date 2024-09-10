@@ -19,3 +19,4 @@ Playbook(s) | Description
 [ais_downscale_cluster](ais_downscale_cluster.yml) | Decrease the number of nodes (proxy and target) in your current AIS Cluster. See [scaling docs](../README.md#downscaling-the-ais-cluster).
 [ais_deploy_authn](ais_deploy_authn.yml) | Deploy the AIStore Authentication (AuthN) server.
 [ais_undeploy_authn](ais_undeploy_authn.yml) | Undeploy the AIStore Authentication (AuthN) server.
+[ais_replace_node](ais_replace_node.yml) | Automates replacing a K8s node hosting ais-target and ais-proxy pods in the AIS (AIStore) cluster. It is used to move these workloads to another node, typically for maintenance or decommissioning. WARNING: Destructive, if not properly managed.
