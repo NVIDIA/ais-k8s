@@ -1,6 +1,7 @@
 VERSION ?= 1.4.0
 BUILD_VERSION = $(VERSION)+$(shell git rev-parse --short HEAD)
 BUILD_TIME = $(shell date +%FT%T%z)
+REPO = https://github.com/NVIDIA/ais-k8s
 
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.25.0
