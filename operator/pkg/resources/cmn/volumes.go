@@ -133,7 +133,7 @@ func NewAISVolumes(ais *v1beta1.AIStore, daeType string) []v1.Volume {
 						csiapisv1.CommonNameKey: name + ".${POD_NAMESPACE}",
 						csiapisv1.DNSNamesKey: strings.Join(
 							[]string{
-								"${POD_NAME}.${POD_NAMESPACE}.svc" + ais.GetClusterDomain(),
+								"${POD_NAME}.${POD_NAMESPACE}.svc." + ais.GetClusterDomain(),
 								name + ".${POD_NAMESPACE}.svc." + ais.GetClusterDomain(),
 								name + ".${POD_NAMESPACE}.svc",
 								name,
