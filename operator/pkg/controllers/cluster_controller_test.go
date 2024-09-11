@@ -36,11 +36,11 @@ import (
 var _ = Describe("AIStoreController", func() {
 	Describe("Reconcile", func() {
 		var (
-			r   *AIStoreReconciler
-			c   client.Client
-			ctx context.Context
-
+			r         *AIStoreReconciler
+			c         client.Client
 			namespace string
+
+			ctx = context.TODO()
 		)
 
 		BeforeEach(func() {
@@ -49,7 +49,6 @@ var _ = Describe("AIStoreController", func() {
 				return nil
 			}
 
-			ctx = context.TODO()
 			namespace = "ais-test-" + rand.String(10)
 			By(fmt.Sprintf("Using %q namespace", namespace))
 			c = k8sClient

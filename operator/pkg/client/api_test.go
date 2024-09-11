@@ -20,10 +20,11 @@ var _ = Describe("K8sClient", func() {
 	Describe("CreateOrUpdateResource", func() {
 		var (
 			c         client.Client
-			ctx       context.Context
 			k8sClient *K8sClient
 			ais       *aisv1.AIStore
 			ns        *corev1.Namespace
+
+			ctx = context.TODO()
 		)
 
 		BeforeEach(func() {
@@ -31,7 +32,6 @@ var _ = Describe("K8sClient", func() {
 			k8sClient = NewClient(c, c.Scheme())
 			Expect(k8sClient).NotTo(BeNil())
 
-			ctx = context.TODO()
 			ns = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "somenamespace"}}
 			err := c.Create(ctx, ns)
 			Expect(err).NotTo(HaveOccurred())

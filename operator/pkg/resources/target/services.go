@@ -62,6 +62,9 @@ func NewTargetHeadlessSvc(ais *aisv1.AIStore) *corev1.Service {
 				"app": ais.Name,
 			},
 		},
+		// TODO: in re G115 "integer overflow conversion int", see:
+		// https://github.com/kubernetes/apimachinery/blob/master/pkg/util/intstr/intstr.go#L32-L36
+		// once resolved in apimachinery, remove G115 exclusion from golangci yaml
 		Spec: corev1.ServiceSpec{
 			ClusterIP: "None", // headless
 			Ports: []corev1.ServicePort{

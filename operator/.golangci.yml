@@ -4,12 +4,12 @@ linters:
     - asciicheck
     - bodyclose
     - canonicalheader
+    - copyloopvar
     - depguard
     - dogsled
     - dupl
     - durationcheck
     - errcheck
-    - exportloopref
     - fatcontext
     - gci
     - gochecksumtype
@@ -98,6 +98,7 @@ linters-settings:
       - unnamedResult
   gosec:
     excludes:
+      - G115  ## dependency: https://github.com/kubernetes/apimachinery/blob/master/pkg/util/intstr/intstr.go#L32-L36
       - G401
       - G402
       - G404
