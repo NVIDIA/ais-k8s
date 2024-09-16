@@ -51,12 +51,14 @@ spec:
   size: 1
   proxySpec:
     servicePort: 51080
+    hostPort: 51080
     portPublic: 51080
     portIntraControl: 51082
     portIntraData: 51083
 
   targetSpec:
     servicePort: 51081
+    hostPort: 51081
     portPublic: 51081
     portIntraControl: 51082
     portIntraData: 51083
@@ -76,7 +78,7 @@ spec:
         client_auth_tls: 0
 
   nodeImage: "aistorage/aisnode:v3.23"
-  initImage: "aistorage/ais-init:v3.23"
+  initImage: "aistorage/ais-init:v1.2.0"
   hostpathPrefix: "/etc/ais"
   logsDir:
   tlsCertManagerIssuerName: "ais"

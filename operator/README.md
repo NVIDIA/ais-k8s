@@ -38,10 +38,10 @@ ais-operator-controller-manager-64c8c86f7b-8g8pj   2/2     Running   0          
 ### Deploy sample AIS Cluster
 **Note: If you are testing on minikube with multiple mounts, each mount defined in the AIS spec must have the same label**
 ```console
-$ kubectl apply -f config/samples/ais_v1beta1_aistore.yaml -n ais-operator-system
-$ kubectl get pods -n ais-operator-system
+$ kubectl create namespace ais
+$ kubectl apply -f config/samples/ais_v1beta1_aistore.yaml -n ais
+$ kubectl get pods -n ais
 NAME                                                  READY   STATUS    RESTARTS   AGE
-ais-operator-v2-controller-manager-64c8c86f7b-2t6jg   2/2     Running   0          5m23s
 aistore-sample-proxy-0                                1/1     Running   0          2m8s
 aistore-sample-target-0                               1/1     Running   0          2m21s
 ```
