@@ -4,7 +4,10 @@
  */
 package configs
 
-import aiscmn "github.com/NVIDIA/aistore/cmn"
+import (
+	aisapc "github.com/NVIDIA/aistore/api/apc"
+	aiscmn "github.com/NVIDIA/aistore/cmn"
+)
 
 type BaseClusterConfig struct {
 	aiscmn.ClusterConfig
@@ -18,20 +21,12 @@ func (c *BaseClusterConfig) SetProxy(proxyURL string) {
 	}
 }
 
-func (c *BaseClusterConfig) GetRebalanceEnabled() bool {
-	return c.Rebalance.Enabled
-}
-
-func (c *BaseClusterConfig) SetRebalanceEnabled(enabled bool) {
-	c.Rebalance.Enabled = enabled
-}
-
-func (c *BaseClusterConfig) SetAuthEnabled(enabled bool) {
-	c.Auth.Enabled = enabled
-}
-
 func (c *BaseClusterConfig) GetBackend() *aiscmn.BackendConf {
 	return &c.Backend
+}
+
+func (c *BaseClusterConfig) IsRebalanceEnabled() *bool {
+	return aisapc.Ptr(c.Rebalance.Enabled)
 }
 
 func (c *BaseClusterConfig) Apply(newConf *aiscmn.ConfigToSet, cluster string) error {

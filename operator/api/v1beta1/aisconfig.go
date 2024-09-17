@@ -5,12 +5,9 @@
 package v1beta1
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
-
+	aisapc "github.com/NVIDIA/aistore/api/apc"
 	aiscmn "github.com/NVIDIA/aistore/cmn"
 	"github.com/NVIDIA/aistore/cmn/cos"
-	jsoniter "github.com/json-iterator/go"
 )
 
 // NOTE: `*ToUpdate` structures are duplicates of `*ToUpdate` structs from AIStore main repository.
@@ -215,21 +212,25 @@ type (
 	}
 )
 
-// UpdateRebalanceEnabled Sets the rebalance config to include the default value for `Rebalance.Enabled`
-func (c *ConfigToUpdate) UpdateRebalanceEnabled(rebEnabled *bool) {
+func (c *ConfigToUpdate) IsRebalanceEnabledSet() bool {
+	if c.Rebalance == nil {
+		return false
+	}
+	return c.Rebalance.Enabled != nil
+}
+
+func (c *ConfigToUpdate) UpdateRebalanceEnabled(enabled *bool) {
 	if c.Rebalance == nil {
 		c.Rebalance = &RebalanceConfToUpdate{}
 	}
-	// Allows for other rebalance config settings to be set, but ensures enabled is always included
-	if c.Rebalance.Enabled == nil {
-		c.Rebalance.Enabled = rebEnabled
-	}
+	c.Rebalance.Enabled = enabled
 }
 
-func (c *ConfigToUpdate) Hash() string {
-	data, _ := jsoniter.Marshal(c)
-	hash := sha256.Sum256(data)
-	return hex.EncodeToString(hash[:])
+func (c *ConfigToUpdate) EnableAuth() {
+	if c.Auth == nil {
+		c.Auth = &AuthConfToUpdate{}
+	}
+	c.Auth.Enabled = aisapc.Ptr(true)
 }
 
 func (c *ConfigToUpdate) Convert() (toUpdate *aiscmn.ConfigToSet, err error) {

@@ -67,11 +67,15 @@ const (
 	ConditionCreated ClusterConditionType = "Created"
 	// ConditionReady indicates the cluster is fully operational and ready for use.
 	ConditionReady ClusterConditionType = "Ready"
+	// ConditionReadyRebalance indicates whether the cluster should allow rebalance as determined by spec or default config.
+	ConditionReadyRebalance ClusterConditionType = "ReadyRebalance"
 )
 
 // These are reasons for a AIStore's transition to a condition.
 const (
 	ReasonUpgrading ClusterConditionReason = "Upgrading"
+	ReasonScaling   ClusterConditionReason = "Scaling"
+	ReasonShutdown  ClusterConditionReason = "Shutdown"
 )
 
 // Helper constants.
@@ -299,6 +303,8 @@ func (ais *AIStore) SetCondition(conditionType ClusterConditionType) {
 		msg = "Success creating AIS cluster"
 	case ConditionReady:
 		msg = "Cluster is ready"
+	case ConditionReadyRebalance:
+		msg = "Cluster is ready to rebalance"
 	}
 	ais.AddOrUpdateCondition(&metav1.Condition{
 		Type:    string(conditionType),
@@ -308,15 +314,15 @@ func (ais *AIStore) SetCondition(conditionType ClusterConditionType) {
 	})
 }
 
-// UnsetConditionReady add/updates condition setting type `Ready` to `False`.
+// SetConditionFalse updates the given condition's status to `False`
 //   - `reason` - tag why the condition is being set to `False`.
-//   - `message` - a human-readable message indicating details about state change.
-func (ais *AIStore) UnsetConditionReady(reason ClusterConditionReason, message string) {
+//   - `msg` - a human-readable message indicating details about state change.
+func (ais *AIStore) SetConditionFalse(conditionType ClusterConditionType, reason ClusterConditionReason, msg string) {
 	ais.AddOrUpdateCondition(&metav1.Condition{
-		Type:    string(ConditionReady),
+		Type:    string(conditionType),
 		Status:  metav1.ConditionFalse,
 		Reason:  string(reason),
-		Message: message,
+		Message: msg,
 	})
 }
 
@@ -407,25 +413,6 @@ func (ais *AIStore) IsMarkedForDeletion() bool {
 // ShouldCleanupMetadata Determines if we are doing a full decommission -- unrecoverable, including metadata
 func (ais *AIStore) ShouldCleanupMetadata() bool {
 	return ais.Spec.CleanupMetadata != nil && *ais.Spec.CleanupMetadata
-}
-
-// UpdateDefaultRebalance Ensures the defined config from the spec includes the default value for rebalance enabled if
-// one is not already set
-func (ais *AIStore) UpdateDefaultRebalance(rebEnabled bool) {
-	if ais.Spec.ConfigToUpdate == nil {
-		ais.Spec.ConfigToUpdate = &ConfigToUpdate{}
-	}
-	ais.Spec.ConfigToUpdate.UpdateRebalanceEnabled(aisapc.Ptr(rebEnabled))
-}
-
-func (ais *AIStore) DisableRebalance() {
-	if ais.Spec.ConfigToUpdate == nil {
-		ais.Spec.ConfigToUpdate = &ConfigToUpdate{}
-	}
-	if ais.Spec.ConfigToUpdate.Rebalance == nil {
-		ais.Spec.ConfigToUpdate.Rebalance = &RebalanceConfToUpdate{}
-	}
-	ais.Spec.ConfigToUpdate.Rebalance.Enabled = aisapc.Ptr(false)
 }
 
 func (ais *AIStore) AllowTargetSharedNodes() bool {

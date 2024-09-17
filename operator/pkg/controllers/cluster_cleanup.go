@@ -35,7 +35,7 @@ func (r *AIStoreReconciler) cleanup(ctx context.Context, ais *aisv1.AIStore) (up
 		if err != nil {
 			return
 		}
-		err = r.updateStatus(ctx, ais, aisv1.HostCleanup)
+		err = r.updateStatusWithState(ctx, ais, aisv1.HostCleanup)
 		if err != nil {
 			return
 		}

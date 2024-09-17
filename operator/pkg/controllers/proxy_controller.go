@@ -156,7 +156,7 @@ func (r *AIStoreReconciler) handleProxyImage(ctx context.Context, ais *aisv1.AIS
 				logger.Error(err, "failed to set primary proxy")
 				return false, err
 			}
-			logger.Info("updated primary to pod " + firstPodName)
+			logger.Info("Updated primary to pod " + firstPodName)
 			ss.Spec.UpdateStrategy = appsv1.StatefulSetUpdateStrategy{
 				Type: appsv1.RollingUpdateStatefulSetStrategyType,
 				RollingUpdate: &appsv1.RollingUpdateStatefulSetStrategy{

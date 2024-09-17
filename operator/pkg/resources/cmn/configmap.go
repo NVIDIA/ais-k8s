@@ -7,7 +7,6 @@ package cmn
 import (
 	"context"
 
-	aisapc "github.com/NVIDIA/aistore/api/apc"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	jsoniter "github.com/json-iterator/go"
 	corev1 "k8s.io/api/core/v1"
@@ -18,41 +17,12 @@ func globalConfigMapName(ais *aisv1.AIStore) string {
 	return ais.Name + "-global-cm"
 }
 
+// NewGlobalCM creates the content for the configmap mounted by AIS pods based on provided spec and cluster state.
 func NewGlobalCM(ctx context.Context, ais *aisv1.AIStore) (*corev1.ConfigMap, error) {
-	specConfig := ais.Spec.ConfigToUpdate
-	globalConf := DefaultAISConf(ctx, ais)
-	if specConfig != nil {
-		toSet, err := specConfig.Convert()
-		if err != nil {
-			return nil, err
-		}
-		if err := globalConf.Apply(toSet, aisapc.Cluster); err != nil {
-			return nil, err
-		}
+	globalConf, err := GenerateGlobalConfig(ctx, ais)
+	if err != nil {
+		return nil, err
 	}
-	// Rebalance in config should be initially false in the config file (updated to spec value later)
-	if !ais.HasState(aisv1.ClusterReady) {
-		globalConf.SetRebalanceEnabled(false)
-	}
-
-	if ais.Spec.AWSSecretName != nil || ais.Spec.GCPSecretName != nil {
-		if globalConf.GetBackend().Conf == nil {
-			globalConf.GetBackend().Conf = make(map[string]interface{}, 8)
-		}
-		if ais.Spec.AWSSecretName != nil {
-			globalConf.GetBackend().Conf["aws"] = aisv1.Empty{}
-		}
-		if ais.Spec.GCPSecretName != nil {
-			globalConf.GetBackend().Conf["gcp"] = aisv1.Empty{}
-		}
-	}
-
-	// AuthN
-	if ais.Spec.AuthNSecretName != nil {
-		globalConf.SetAuthEnabled(true)
-		// secret will be set through env var `AIS_AUTHN_SECRET_KEY`
-	}
-
 	conf, err := jsoniter.MarshalToString(globalConf)
 	if err != nil {
 		return nil, err

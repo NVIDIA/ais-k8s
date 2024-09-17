@@ -26,30 +26,32 @@ type V323ClusterConfig struct {
 	FSHC v323FSHCConf `json:"fshc"`
 }
 
-var V323AISConf = V323ClusterConfig{
-	BaseClusterConfig: BaseClusterConfig{
-		ClusterConfig: aiscmn.ClusterConfig{
-			Auth:       DefaultAuth,
-			Cksum:      DefaultCksum,
-			Client:     DefaultClientConf,
-			Transport:  DefaultTransport,
-			TCB:        DefaultTCB,
-			Disk:       DefaultDisk,
-			Net:        DefaultNet,
-			Dsort:      DefaultDsort,
-			Downloader: DefaultDownloader,
-			EC:         DefaultEC,
-			Keepalive:  DefaultKeepalive,
-			Log:        DefaultLog,
-			Space:      DefaultSpace,
-			Memsys:     DefaultMemsys,
-			LRU:        DefaultLRU,
-			Mirror:     DefaultMirror,
-			Periodic:   DefaultPeriodic,
-			Rebalance:  DefaultRebalance,
-			Timeout:    DefaultTimeout,
-			Versioning: DefaultVersioning,
+func NewV323ClusterConfig() *V323ClusterConfig {
+	return &V323ClusterConfig{
+		BaseClusterConfig: BaseClusterConfig{
+			ClusterConfig: aiscmn.ClusterConfig{
+				Auth:       DefaultAuth,
+				Cksum:      DefaultCksum,
+				Client:     DefaultClientConf,
+				Transport:  DefaultTransport,
+				TCB:        DefaultTCB,
+				Disk:       DefaultDisk,
+				Net:        DefaultNet,
+				Dsort:      DefaultDsort,
+				Downloader: DefaultDownloader,
+				EC:         DefaultEC,
+				Keepalive:  DefaultKeepalive,
+				Log:        DefaultLog,
+				Space:      DefaultSpace,
+				Memsys:     DefaultMemsys,
+				LRU:        DefaultLRU,
+				Mirror:     DefaultMirror,
+				Periodic:   DefaultPeriodic,
+				Rebalance:  DefaultRebalance,
+				Timeout:    DefaultTimeout,
+				Versioning: DefaultVersioning,
+			},
 		},
-	},
-	FSHC: v323FSHC,
+		FSHC: v323FSHC,
+	}
 }

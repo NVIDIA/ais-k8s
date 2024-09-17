@@ -114,7 +114,7 @@ func (r *AIStoreReconciler) handleTargetState(ctx context.Context, ais *aisv1.AI
 			return false, err
 		}
 		// If successful, mark as scaling so future reconciliations will update the SS
-		err = r.updateStatus(ctx, ais, aisv1.ClusterScaling)
+		err = r.updateStatusWithState(ctx, ais, aisv1.ClusterScaling)
 		return false, err
 	}
 	// For now, state of target is considered ready if the number of target pods ready matches the size provided in AIS cluster spec.
@@ -134,8 +134,9 @@ func (r *AIStoreReconciler) resolveStatefulSetScaling(ctx context.Context, ais *
 	if desiredSize > currentSize {
 		if desiredSize > currentSize+1 {
 			logger.Info("Disabling rebalance before target scale-up of > 1 new nodes")
-			err = r.disableRebalance(ctx, ais)
+			err = r.disableRebalance(ctx, ais, aisv1.ReasonScaling, "Disabled due to target scale-up")
 			if err != nil {
+				logger.Error(err, "Failed to disable rebalance before scaling")
 				return err
 			}
 		}
@@ -259,9 +260,10 @@ func (r *AIStoreReconciler) syncTargetImage(ctx context.Context, ais *aisv1.AISt
 	if currentImage == ais.Spec.NodeImage {
 		return
 	}
-	// Disable rebalance before starting a rolling upgrade
-	err = r.disableRebalance(ctx, ais)
+	// Disable rebalance condition before starting a rolling upgrade
+	err = r.disableRebalance(ctx, ais, aisv1.ReasonUpgrading, "Disabled due to image update")
 	if err != nil {
+		logf.FromContext(ctx).Error(err, "Failed to disable rebalance before updating image")
 		return
 	}
 	// Update the statefulset with a new image

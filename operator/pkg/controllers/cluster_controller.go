@@ -101,8 +101,6 @@ func NewAISReconcilerFromMgr(mgr manager.Manager, logger logr.Logger, isExternal
 func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := r.log.WithValues("namespace", req.Namespace, "name", req.Name)
 	ctx = logf.IntoContext(ctx, logger)
-	logger.Info("Reconciling AIStore")
-
 	ais, err := r.client.GetAIStoreCR(ctx, req.NamespacedName)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -115,6 +113,7 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		logger.Error(err, "Unable to fetch AIStore")
 		return reconcile.Result{}, err
 	}
+	logger.Info("Reconciling AIStore", "state", ais.Status.State)
 
 	if ais.HasState("") {
 		if err := r.initializeCR(ctx, ais); err != nil {
@@ -123,7 +122,7 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	if ais.ShouldDecommission() {
-		err = r.updateStatus(ctx, ais, aisv1.ClusterDecommissioning)
+		err = r.updateStatusWithState(ctx, ais, aisv1.ClusterDecommissioning)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -131,11 +130,18 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	if ais.ShouldStartShutdown() {
+		// TODO: AIS should handle this
+		logger.Info("Disabling rebalance before shutting down cluster")
+		err = r.disableRebalance(ctx, ais, aisv1.ReasonShutdown, "Disabling rebalance before shutdown")
+		if err != nil {
+			logger.Error(err, "Failed to disable rebalance before shutdown")
+			return reconcile.Result{}, err
+		}
 		if err = r.attemptGracefulShutdown(ctx, ais); err != nil {
 			logger.Error(err, "Graceful shutdown failed")
 			return reconcile.Result{}, err
 		}
-		err = r.updateStatus(ctx, ais, aisv1.ClusterShuttingDown)
+		err = r.updateStatusWithState(ctx, ais, aisv1.ClusterShuttingDown)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -184,7 +190,7 @@ func (r *AIStoreReconciler) initializeCR(ctx context.Context, ais *aisv1.AIStore
 
 	logger.Info("Updating state and setting condition", "state", aisv1.ConditionInitialized)
 	ais.SetCondition(aisv1.ConditionInitialized)
-	err = r.updateStatus(ctx, ais, aisv1.ClusterInitialized)
+	err = r.updateStatusWithState(ctx, ais, aisv1.ClusterInitialized)
 	if err != nil {
 		logger.Error(err, "Failed to update state", "state", aisv1.ConditionInitialized)
 		return err
@@ -218,7 +224,7 @@ func (r *AIStoreReconciler) shutdownCluster(ctx context.Context, ais *aisv1.AISt
 	if _, err = r.client.UpdateStatefulSetReplicas(ctx, target.StatefulSetNSName(ais), 0); err != nil {
 		return reconcile.Result{}, err
 	}
-	err = r.updateStatus(ctx, ais, aisv1.ClusterShutdown)
+	err = r.updateStatusWithState(ctx, ais, aisv1.ClusterShutdown)
 	if err != nil {
 		logger.Error(err, "Failed to update state", "state", aisv1.ClusterShutdown)
 		return reconcile.Result{}, err
@@ -237,7 +243,7 @@ func (r *AIStoreReconciler) decommissionCluster(ctx context.Context, ais *aisv1.
 		}
 		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 	}
-	err := r.updateStatus(ctx, ais, aisv1.ClusterCleanup)
+	err := r.updateStatusWithState(ctx, ais, aisv1.ClusterCleanup)
 	if err != nil {
 		logger.Error(err, "Failed to update state", "state", aisv1.ClusterCleanup)
 		return reconcile.Result{}, err
@@ -263,7 +269,7 @@ func (r *AIStoreReconciler) cleanupClusterRes(ctx context.Context, ais *aisv1.AI
 		// It is better to delay the requeue little bit since cleanup can take some time.
 		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 	}
-	err = r.updateStatus(ctx, ais, aisv1.HostCleanup)
+	err = r.updateStatusWithState(ctx, ais, aisv1.HostCleanup)
 	return reconcile.Result{}, err
 }
 
@@ -283,7 +289,7 @@ func (r *AIStoreReconciler) cleanupHost(ctx context.Context, ais *aisv1.AIStore)
 		return reconcile.Result{Requeue: true}, nil
 	}
 	// If all are gone, move to finalized stage
-	err = r.updateStatus(ctx, ais, aisv1.ClusterFinalized)
+	err = r.updateStatusWithState(ctx, ais, aisv1.ClusterFinalized)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -378,13 +384,6 @@ func (r *AIStoreReconciler) attemptGracefulShutdown(ctx context.Context, ais *ai
 	if err != nil {
 		return err
 	}
-	// TODO AIS should handle this
-	logger.Info("Disabling rebalance before shutting down cluster")
-	err = r.disableRebalance(ctx, ais)
-	if err != nil {
-		logger.Error(err, "Failed to disable rebalance before shutdown")
-		return err
-	}
 	logger.Info("Attempting graceful shutdown of cluster")
 	err = aisapi.ShutdownCluster(*params)
 	if err != nil {
@@ -461,12 +460,12 @@ func (r *AIStoreReconciler) ensurePrereqs(ctx context.Context, ais *aisv1.AIStor
 		// To ensure correct behavior of cluster, we requeue the reconciler till we have all the external IPs.
 		if !proxyReady {
 			if !ais.HasState(aisv1.ClusterInitializingLBService) && !ais.HasState(aisv1.ClusterPendingLBService) {
-				err = r.updateStatus(ctx, ais, aisv1.ClusterInitializingLBService)
+				err = r.updateStatusWithState(ctx, ais, aisv1.ClusterInitializingLBService)
 				if err == nil {
 					r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonInitialized, "Successfully initialized LoadBalancer service")
 				}
 			} else {
-				err = r.updateStatus(ctx, ais, aisv1.ClusterPendingLBService)
+				err = r.updateStatusWithState(ctx, ais, aisv1.ClusterPendingLBService)
 				if err == nil {
 					r.recorder.Eventf(
 						ais, corev1.EventTypeNormal, EventReasonWaiting,
@@ -505,7 +504,7 @@ func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore
 	}
 
 	ais.SetCondition(aisv1.ConditionCreated)
-	err = r.updateStatus(ctx, ais, aisv1.ClusterCreated)
+	err = r.updateStatusWithState(ctx, ais, aisv1.ClusterCreated)
 	if err != nil {
 		return
 	}
@@ -540,6 +539,13 @@ func (r *AIStoreReconciler) handleCREvents(ctx context.Context, ais *aisv1.AISto
 	if err != nil {
 		return
 	}
+	// Enables the rebalance condition (still respects the spec desired rebalance.Enabled property)
+	err = r.enableRebalanceCondition(ctx, ais)
+	if err != nil {
+		logf.FromContext(ctx).Error(err, "Failed to enable rebalance condition")
+		return
+	}
+
 	if err = r.handleConfigState(ctx, ais); err != nil {
 		goto requeue
 	}
@@ -549,27 +555,30 @@ func (r *AIStoreReconciler) handleCREvents(ctx context.Context, ais *aisv1.AISto
 requeue:
 	// We requeue till the AIStore cluster becomes ready.
 	if ais.IsConditionTrue(aisv1.ConditionReady) {
-		ais.UnsetConditionReady(aisv1.ReasonUpgrading, "Waiting for cluster to upgrade")
-		err = r.updateStatus(ctx, ais, aisv1.ClusterUpgrading)
+		ais.SetConditionFalse(aisv1.ConditionReady, aisv1.ReasonUpgrading, "Waiting for cluster to upgrade")
+		err = r.updateStatusWithState(ctx, ais, aisv1.ClusterUpgrading)
 	}
 	return
 }
 
-// handleConfigState properly reconciles any changes in `.spec.configToUpdate` field.
+// handleConfigState properly reconciles the AIS cluster config with the `.spec.configToUpdate` field and any other custom config changes
 //
 // The ConfigMap that also contains the value of this field is updated earlier, but
 // this synchronizes any changes to the active loaded config in the cluster.
 func (r *AIStoreReconciler) handleConfigState(ctx context.Context, ais *aisv1.AIStore) error {
-	// Special case for rebalance since we may disable it -- always include `Rebalance.Enabled` in the sync
-	ais.UpdateDefaultRebalance(cmn.DefaultAISConf(ctx, ais).GetRebalanceEnabled())
-	return r.syncConfig(ctx, ais)
-}
-
-// syncConfig synchronizes the active cluster config with the desired config in `ais.Spec.ConfigToUpdate`
-func (r *AIStoreReconciler) syncConfig(ctx context.Context, ais *aisv1.AIStore) error {
 	logger := logf.FromContext(ctx)
-	currentHash := ais.Spec.ConfigToUpdate.Hash()
+	// Get the config provided in spec plus any additional ones we want to set
+	desiredConf, err := cmn.GenerateConfigToSet(ctx, ais)
+	if err != nil {
+		return err
+	}
+	currentHash, err := cmn.HashConfigToSet(desiredConf)
+	if err != nil {
+		logger.Error(err, "Error generating hash for desired config")
+		return err
+	}
 	if ais.Annotations[configHashAnnotation] == currentHash {
+		logger.Info("Global config hash matches last applied config")
 		return nil
 	}
 	// Update cluster config based on what we have in the CRD spec.
@@ -577,12 +586,8 @@ func (r *AIStoreReconciler) syncConfig(ctx context.Context, ais *aisv1.AIStore) 
 	if err != nil {
 		return err
 	}
-	configToSet, err := ais.Spec.ConfigToUpdate.Convert()
-	if err != nil {
-		return err
-	}
 	logger.Info("Updating cluster config to match spec via API")
-	err = aisapi.SetClusterConfigUsingMsg(*baseParams, configToSet, false /*transient*/)
+	err = aisapi.SetClusterConfigUsingMsg(*baseParams, desiredConf, false /*transient*/)
 	if err != nil {
 		logger.Error(err, "Failed to update cluster config")
 		return err
@@ -635,22 +640,37 @@ func (r *AIStoreReconciler) createOrUpdateRBACResources(ctx context.Context, ais
 	return
 }
 
-func (r *AIStoreReconciler) disableRebalance(ctx context.Context, ais *aisv1.AIStore) error {
-	// Disable in spec and synchronize with cluster
-	ais.DisableRebalance()
-	return r.syncConfig(ctx, ais)
+func (r *AIStoreReconciler) disableRebalance(ctx context.Context, ais *aisv1.AIStore, reason aisv1.ClusterConditionReason, msg string) error {
+	logf.FromContext(ctx).Info("Disabling rebalance condition")
+	ais.SetConditionFalse(aisv1.ConditionReadyRebalance, reason, msg)
+	err := r.patchStatus(ctx, ais)
+	if err != nil {
+		return err
+	}
+	// Also disable in the live cluster (don't wait for config sync)
+	// This function will update the annotation so future reconciliations can tell the config has been updated
+	return r.handleConfigState(ctx, ais)
 }
 
-func (r *AIStoreReconciler) updateStatus(ctx context.Context, ais *aisv1.AIStore, state aisv1.ClusterState) error {
-	logger := logf.FromContext(ctx)
-	logger.Info("Updating AIS state", "state", state)
-	ais.SetState(state)
+func (r *AIStoreReconciler) enableRebalanceCondition(ctx context.Context, ais *aisv1.AIStore) error {
+	logf.FromContext(ctx).Info("Enabling rebalance condition")
+	// Note this does not force-enable rebalance, only allows the value from spec to be used again
+	ais.SetCondition(aisv1.ConditionReadyRebalance)
+	return r.patchStatus(ctx, ais)
+}
 
+func (r *AIStoreReconciler) updateStatusWithState(ctx context.Context, ais *aisv1.AIStore, state aisv1.ClusterState) error {
+	logf.FromContext(ctx).Info("Updating AIS state", "state", state)
+	ais.SetState(state)
+	return r.patchStatus(ctx, ais)
+}
+
+func (r *AIStoreReconciler) patchStatus(ctx context.Context, ais *aisv1.AIStore) error {
 	patchBytes, err := json.Marshal(map[string]interface{}{
 		"status": ais.Status,
 	})
 	if err != nil {
-		logger.Error(err, "Failed to marshal AIS status")
+		logf.FromContext(ctx).Error(err, "Failed to marshal AIS status")
 		return err
 	}
 	patch := k8sclient.RawPatch(types.MergePatchType, patchBytes)
@@ -720,7 +740,7 @@ func (r *AIStoreReconciler) handleSuccessfulReconcile(ctx context.Context, ais *
 		needsUpdate = true
 	}
 	if needsUpdate {
-		err = r.updateStatus(ctx, ais, aisv1.ClusterReady)
+		err = r.updateStatusWithState(ctx, ais, aisv1.ClusterReady)
 	}
 	return
 }
