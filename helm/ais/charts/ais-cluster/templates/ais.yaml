@@ -67,7 +67,9 @@ spec:
   shutdownCluster: {{ .Values.shutdownCluster }}
   cleanupMetadata: {{ .Values.cleanupMetadata }}
   cleanupData: {{ .Values.cleanupData }}
+  {{- if eq .Values.protocol "https" }}
   tlsSecretName: {{ .Values.https.tlsSecret }}
+  {{- end }}
   awsSecretName: {{ .Values.cloud.awsSecretName }}
   gcpSecretName: {{ .Values.cloud.gcpSecretName }}
   authNSecretName: {{ .Values.authNSecretName }}
