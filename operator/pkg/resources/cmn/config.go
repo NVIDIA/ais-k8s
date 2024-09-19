@@ -81,7 +81,6 @@ func GenerateConfigToSet(ctx context.Context, ais *aisv1.AIStore) (*aiscmn.Confi
 		// Deep copy to avoid modifying the spec itself
 		specConfig = ais.Spec.ConfigToUpdate.DeepCopy()
 	}
-	logger := logf.FromContext(ctx)
 	// Override rebalance if the cluster is not ready for it (starting up, scaling, upgrading)
 	if ais.IsConditionTrue(aisv1.ConditionReadyRebalance) {
 		// If not provided, reset to default
@@ -89,7 +88,6 @@ func GenerateConfigToSet(ctx context.Context, ais *aisv1.AIStore) (*aiscmn.Confi
 			specConfig.UpdateRebalanceEnabled(DefaultAISConf(ctx, ais).IsRebalanceEnabled())
 		}
 	} else {
-		logger.Info("Setting rebalance disabled in spec config because of condition")
 		specConfig.UpdateRebalanceEnabled(aisapc.Ptr(false))
 	}
 

@@ -6,9 +6,11 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"strings"
+	"time"
 
 	aisapi "github.com/NVIDIA/aistore/api"
 	aisapc "github.com/NVIDIA/aistore/api/apc"
@@ -21,6 +23,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
+
+const dnsLookupTimeout = 10 * time.Second
 
 func (r *AIStoreReconciler) ensureProxyPrereqs(ctx context.Context, ais *aisv1.AIStore) (err error) {
 	var cm *corev1.ConfigMap
@@ -84,7 +88,7 @@ func (r *AIStoreReconciler) initProxies(ctx context.Context, ais *aisv1.AIStore)
 
 	// Check whether proxy service to have a registered DNS entry.
 	if err = checkDNSEntry(ctx, ais); err != nil {
-		logger.Error(err, "Failed to lookup DNS entries for primary proxy service")
+		logger.Info("Failed to find any DNS entries for proxy service", "error", err)
 		r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonWaiting, "Waiting for proxy service to have registered DNS entries")
 		return true /*requeue*/, nil
 	}
@@ -97,7 +101,17 @@ func checkDNSEntryDefault(ctx context.Context, ais *aisv1.AIStore) error {
 	nsName := proxy.HeadlessSVCNSName(ais)
 	clusterDomain := ais.GetClusterDomain()
 	hostname := fmt.Sprintf("%s.%s.svc.%s", nsName.Name, nsName.Namespace, clusterDomain)
+
+	ctx, cancel := context.WithTimeout(ctx, dnsLookupTimeout)
+	defer cancel()
 	_, err := net.DefaultResolver.LookupIPAddr(ctx, hostname)
+	// Log an error if we have an actual error, not just no host found
+	if err != nil {
+		var dnsErr *net.DNSError
+		if errors.As(err, &dnsErr) && !dnsErr.IsNotFound {
+			logf.FromContext(ctx).Error(dnsErr, "Error looking up DNS entry")
+		}
+	}
 	return err
 }
 
