@@ -225,3 +225,11 @@ spec:
         annotations:
           summary: AIS Node Certificate Invalid
           description: "The certificate on AIS Node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) is invalid."
+      - alert: AISKeepAliveErrors
+        expr: (floor(ais_target_state_flags / 1048576)) % 2 == 1
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: AIS KeepAlive Errors Detected
+          description: "AIS Node '{{ $labels.node_id }}' (instance '{{ $labels.instance }}') has encountered keep-alive errors within the last 5 minute."
