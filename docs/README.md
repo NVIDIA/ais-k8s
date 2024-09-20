@@ -231,7 +231,7 @@ kubectl -n ais exec -it pods/aisnode-debug -- bash
 Inside the debug pod, set up the environment to connect to the AIStore cluster. You can do this by setting the `AIS_ENDPOINT` environment variable to the proxy's service address:
 
 ```bash
-export AIS_ENDPOINT=http://aistore-proxy:51080
+export AIS_ENDPOINT=http://ais-proxy:51080
 ```
 
 The pod comes with the `ais` [CLI (command-line interface)](https://github.com/NVIDIA/aistore/blob/main/docs/cli.md) preinstalled. You can utilize the `ais` CLI to interact with your cluster. For example, to view the cluster's status, you can run:
