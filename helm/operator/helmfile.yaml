@@ -1,6 +1,6 @@
 repositories:
   - name: ais-operator
-    url: https://github.com/NVIDIA/ais-k8s/releases/download/v1.4.0/
+    url: https://github.com/NVIDIA/ais-k8s/releases/download/v1.4.1/
     
 ---
 
