@@ -81,14 +81,6 @@ spec:
         annotations:
           summary: AIS Node Restart Detected
           description: "AIS Node '{{ $labels.pod }}' on node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) has restarted."
-      - alert: AISMaintenanceMode
-        expr: (floor(ais_target_state_flags / 1024)) % 2 == 1
-        for: 1m
-        labels:
-          severity: warning
-        annotations:
-          summary: AIS Node in Maintenance Mode
-          description: "AIS Node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) is in maintenance mode."
       - alert: AISChecksumError
         expr: increase(ais_target_err_cksum_n[5m]) > 0
         for: 1m
@@ -146,7 +138,7 @@ spec:
           summary: AIS Node Restarted
           description: "AIS Node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) has been restarted."
       - alert: AISOutOfSpace
-        expr: (floor(ais_target_state_flags / 512)) % 2 == 1
+        expr: (floor(ais_target_state_flags / 256)) % 2 == 1
         for: 1m
         labels:
           severity: critical
@@ -154,80 +146,88 @@ spec:
           summary: AIS Node Out Of Space
           description: "AIS Node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) is out of space."
       - alert: AISOutOfMemory
-        expr: (floor(ais_target_state_flags / 2048)) % 2 == 1
+        expr: (floor(ais_target_state_flags / 512)) % 2 == 1
         for: 1m
         labels:
           severity: critical
         annotations:
           summary: AIS Node Out Of Memory
           description: "AIS Node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) is out of memory."
-      - alert: AISLowCapacity
-        expr: (floor(ais_target_state_flags / 4096)) % 2 == 1
+      - alert: AISMaintenanceMode
+        expr: (floor(ais_target_state_flags / 1024)) % 2 == 1
         for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: AIS Node in Maintenance Mode
+          description: "AIS Node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) is in maintenance mode."
+      - alert: AISLowCapacity
+        expr: (floor(ais_target_state_flags / 2048)) % 2 == 1
+        for: 3m
         labels:
           severity: warning
         annotations:
           summary: AIS Low Capacity
           description: "AIS Node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) reports low remaining storage capacity and is at risk of running out of space soon."
       - alert: AISLowMemory
-        expr: (floor(ais_target_state_flags / 8192)) % 2 == 1
-        for: 1m
+        expr: (floor(ais_target_state_flags / 4096)) % 2 == 1
+        for: 3m
         labels:
           severity: warning
         annotations:
           summary: AIS Low Memory
           description: "AIS Node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) reports low memory and is at risk of running out of memory soon."
       - alert: AISDiskFault
-        expr: (floor(ais_target_state_flags / 16384)) % 2 == 1
-        for: 1m
+        expr: (floor(ais_target_state_flags / 8192)) % 2 == 1
+        for: 3m
         labels:
           severity: critical
         annotations:
           summary: AIS Disk Fault
           description: "AIS Node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) has encountered a disk fault."
       - alert: AISNoMountpaths
-        expr: (floor(ais_target_state_flags / 32768)) % 2 == 1
-        for: 1m
+        expr: (floor(ais_target_state_flags / 16384)) % 2 == 1
+        for: 3m
         labels:
           severity: critical
         annotations:
           summary: AIS No Available Mountpaths
           description: "AIS Node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) has no available mountpaths."
       - alert: AISNumGoroutinesHigh
-        expr: (floor(ais_target_state_flags / 65536)) % 2 == 1
-        for: 1m
+        expr: (floor(ais_target_state_flags / 32768)) % 2 == 1
+        for: 3m
         labels:
           severity: critical
         annotations:
           summary: AIS High Number of Goroutines
           description: "AIS Node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) has a high number of goroutines, indicating potential performance issues."
       - alert: AISCertWillSoonExpire
-        expr: (floor(ais_target_state_flags / 131072)) % 2 == 1
-        for: 1m
+        expr: (floor(ais_target_state_flags / 65536)) % 2 == 1
+        for: 5m
         labels:
           severity: warning
         annotations:
           summary: AIS Node Certificate Expiring Soon
           description: "The certificate on AIS Node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) will expire soon."
       - alert: AISCertificateExpired
-        expr: (floor(ais_target_state_flags / 262144)) % 2 == 1
-        for: 1m
+        expr: (floor(ais_target_state_flags / 131072)) % 2 == 1
+        for: 5m
         labels:
           severity: critical
         annotations:
           summary: AIS Node Certificate Expired
           description: "The certificate on AIS Node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) has expired."
       - alert: AISCertificateInvalid
-        expr: (floor(ais_target_state_flags / 524288)) % 2 == 1
-        for: 1m
+        expr: (floor(ais_target_state_flags / 262144)) % 2 == 1
+        for: 5m
         labels:
           severity: critical
         annotations:
           summary: AIS Node Certificate Invalid
           description: "The certificate on AIS Node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) is invalid."
       - alert: AISKeepAliveErrors
-        expr: (floor(ais_target_state_flags / 1048576)) % 2 == 1
-        for: 1m
+        expr: (floor(ais_target_state_flags / 524288)) % 2 == 1
+        for: 5m
         labels:
           severity: warning
         annotations:
