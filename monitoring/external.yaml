@@ -15,6 +15,9 @@ affinity:
 prometheus:
   remoteUrl: http://mimir-endpoint/api/v1/push
   clusterLabel: aistore
+  remoteMaxShards: 50
+  remoteCapacity: 10000
+  remoteMaxSamplesPerSend: 2000
 
 grafana:
   enabled: false

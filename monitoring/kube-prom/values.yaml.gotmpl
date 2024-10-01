@@ -37,6 +37,10 @@ prometheus:
     {{- if hasKey .Values.prometheus "remoteUrl" }}
     remoteWrite:
       - url: {{ .Values.prometheus.remoteUrl }}
+        queueConfig:
+          maxShards: {{ .Values.prometheus.remoteMaxShards }}
+          capacity: {{ .Values.prometheus.remoteCapacity }}
+          maxSamplesPerSend: {{ .Values.prometheus.remoteMaxSamplesPerSend }}
     {{- end }}
     {{- if hasKey .Values.prometheus "clusterLabel" }}
     externalLabels:
