@@ -195,7 +195,7 @@ var _ = Describe("AIStoreController", func() {
 					r.clientParams = map[string]*aisapi.BaseParams{ais.NamespacedName().String(): _baseParams(server.URL, "")}
 
 					By("Reconcile to propagate config")
-					err = r.handleConfigState(ctx, ais)
+					err = r.handleConfigState(ctx, ais, false /*force*/)
 					Expect(err).ToNot(HaveOccurred())
 
 					By("Ensure that config update is propagated to proxies/targets")

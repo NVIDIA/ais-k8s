@@ -546,7 +546,7 @@ func (r *AIStoreReconciler) handleCREvents(ctx context.Context, ais *aisv1.AISto
 		return
 	}
 
-	if err = r.handleConfigState(ctx, ais); err != nil {
+	if err = r.handleConfigState(ctx, ais, false /*force*/); err != nil {
 		goto requeue
 	}
 
@@ -565,7 +565,7 @@ requeue:
 //
 // The ConfigMap that also contains the value of this field is updated earlier, but
 // this synchronizes any changes to the active loaded config in the cluster.
-func (r *AIStoreReconciler) handleConfigState(ctx context.Context, ais *aisv1.AIStore) error {
+func (r *AIStoreReconciler) handleConfigState(ctx context.Context, ais *aisv1.AIStore, forceSync bool) error {
 	logger := logf.FromContext(ctx)
 	// Get the config provided in spec plus any additional ones we want to set
 	desiredConf, err := cmn.GenerateConfigToSet(ctx, ais)
@@ -577,7 +577,7 @@ func (r *AIStoreReconciler) handleConfigState(ctx context.Context, ais *aisv1.AI
 		logger.Error(err, "Error generating hash for desired config")
 		return err
 	}
-	if ais.Annotations[configHashAnnotation] == currentHash {
+	if !forceSync && ais.Annotations[configHashAnnotation] == currentHash {
 		logger.Info("Global config hash matches last applied config")
 		return nil
 	}
@@ -649,7 +649,8 @@ func (r *AIStoreReconciler) disableRebalance(ctx context.Context, ais *aisv1.AIS
 	}
 	// Also disable in the live cluster (don't wait for config sync)
 	// This function will update the annotation so future reconciliations can tell the config has been updated
-	return r.handleConfigState(ctx, ais)
+	// Force to ensure we still disable rebalance when set disabled in spec (in case it was enabled manually)
+	return r.handleConfigState(ctx, ais, true /*force*/)
 }
 
 func (r *AIStoreReconciler) enableRebalanceCondition(ctx context.Context, ais *aisv1.AIStore) error {
