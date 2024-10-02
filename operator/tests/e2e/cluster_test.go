@@ -76,7 +76,7 @@ func (cc *clientCluster) updateImage(img string) {
 	cc.cluster.Spec.NodeImage = img
 	Expect(k8sClient.Update(cc.ctx, cc.cluster)).Should(Succeed())
 	By("Update cluster spec and wait for it to be 'Ready'")
-	tutils.WaitForClusterToBeReady(context.Background(), k8sClient, cc.cluster, clusterReadyTimeout, clusterReadyRetryInterval)
+	tutils.WaitForClusterToBeReady(cc.ctx, k8sClient, cc.cluster, clusterReadyTimeout, clusterReadyRetryInterval)
 }
 
 func (cc *clientCluster) getBaseParams() aisapi.BaseParams {
@@ -215,14 +215,12 @@ var _ = Describe("Run Controller", func() {
 			cc, pvs := newClientCluster(cluArgs)
 			cc.create()
 			cc.updateImage(tutils.DefaultNodeImage)
+
 			// Check we didn't rebalance at all (nothing else should trigger it on this test)
 			args := aisxact.ArgsMsg{Kind: aisapc.ActRebalance}
 			jobs, err := aisapi.GetAllXactionStatus(cc.getBaseParams(), &args)
 			Expect(err).To(BeNil())
 			Expect(len(jobs)).To(BeZero())
-			ais, err := k8sClient.GetAIStoreCR(cc.ctx, cc.cluster.NamespacedName())
-			Expect(err).To(BeNil())
-			Expect(ais.Spec.NodeImage).To(Equal(tutils.DefaultNodeImage))
 			cc.cleanup(pvs)
 		})
 	})

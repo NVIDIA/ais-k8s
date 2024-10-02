@@ -354,7 +354,7 @@ func WaitForClusterToBeReady(ctx context.Context, client *aisclient.K8sClient, c
 		if err != nil {
 			return false
 		}
-		return ais.Status.State == aisv1.ClusterReady
+		return ais.Status.State == aisv1.ClusterReady && ais.Spec.NodeImage == cluster.Spec.NodeImage
 	}, intervals...).Should(BeTrue())
 }
 

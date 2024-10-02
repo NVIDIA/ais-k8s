@@ -7,17 +7,17 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"time"
 
-	aisapi "github.com/NVIDIA/aistore/api"
 	"github.com/NVIDIA/aistore/api/apc"
 	"github.com/NVIDIA/aistore/cmn/cos"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	aisclient "github.com/ais-operator/pkg/client"
+	"github.com/ais-operator/pkg/resources/cmn"
+	mocks "github.com/ais-operator/pkg/services/mocks"
 	"github.com/ais-operator/tests/tutils"
+	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
@@ -38,9 +38,9 @@ var _ = Describe("AIStoreController", func() {
 		var (
 			r         *AIStoreReconciler
 			c         client.Client
+			apiClient *mocks.MockAIStoreClientInterface
 			namespace string
-
-			ctx = context.TODO()
+			ctx       = context.TODO()
 		)
 
 		BeforeEach(func() {
@@ -60,7 +60,15 @@ var _ = Describe("AIStoreController", func() {
 			tmpClient := aisclient.NewClient(c, c.Scheme())
 			Expect(tmpClient).NotTo(BeNil())
 
-			r = NewAISReconciler(tmpClient, &record.FakeRecorder{}, ctrl.Log, false)
+			// Mock the client for AIS API calls
+			mockCtrl := gomock.NewController(GinkgoT())
+			apiClient = mocks.NewMockAIStoreClientInterface(mockCtrl)
+			// Mock the client manager to return the mock client
+			clientManager := mocks.NewMockAISClientManagerInterface(mockCtrl)
+			clientManager.EXPECT().GetClient(gomock.Any(), gomock.Any()).Return(apiClient, nil).AnyTimes()
+			clientManager.EXPECT().GetPrimaryClient(gomock.Any(), gomock.Any()).Return(apiClient, false, nil).AnyTimes()
+
+			r = NewAISReconciler(tmpClient, &record.FakeRecorder{}, ctrl.Log, clientManager)
 		})
 
 		Describe("Reconcile", func() {
@@ -183,25 +191,38 @@ var _ = Describe("AIStoreController", func() {
 				It("should properly handle config update", func() {
 					By("Update CRD")
 					ais.Spec.ConfigToUpdate.Features = apc.Ptr("2568")
-					err := c.Update(ctx, ais)
+					expectedConfig, err := cmn.GenerateConfigToSet(ctx, ais)
+					Expect(err).ToNot(HaveOccurred())
+					expectedHash, err := cmn.HashConfigToSet(expectedConfig)
 					Expect(err).ToNot(HaveOccurred())
 
-					// FIXME: We should be able to mock the AIStore client without the need to create a fake server.
-					By("Mock AIStore server")
-					server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
-					DeferCleanup(func() {
-						server.Close()
-					})
-					r.clientParams = map[string]*aisapi.BaseParams{ais.NamespacedName().String(): _baseParams(server.URL, "")}
+					// Set up mock expectation
+					apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any(), false)
 
 					By("Reconcile to propagate config")
-					err = r.handleConfigState(ctx, ais, false /*force*/)
+					err = r.handleConfigState(ctx, ais, true /*force*/)
 					Expect(err).ToNot(HaveOccurred())
 
 					By("Ensure that config update is propagated to proxies/targets")
 					err = c.Get(ctx, types.NamespacedName{Name: ais.Name, Namespace: namespace}, ais)
 					Expect(err).ToNot(HaveOccurred())
-					Expect(ais.Annotations[configHashAnnotation]).ToNot(BeEmpty())
+					Expect(ais.Annotations[configHashAnnotation]).To(Equal(expectedHash))
+
+					By("Ensure that a repeat with the same config does not result in an API call")
+					apiClient.EXPECT().SetClusterConfigUsingMsg(
+						gomock.Any(),
+						gomock.Any(),
+					).Times(0)
+					err = r.handleConfigState(ctx, ais, false /*force*/)
+					Expect(err).ToNot(HaveOccurred())
+
+					By("Ensure that a repeat with the same config and force DOES result in an API call")
+					apiClient.EXPECT().SetClusterConfigUsingMsg(
+						gomock.Any(),
+						gomock.Any(),
+					).Times(1)
+					err = r.handleConfigState(ctx, ais, true /*force*/)
+					Expect(err).ToNot(HaveOccurred())
 				})
 			})
 

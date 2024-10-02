@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"strings"
 
-	aisapi "github.com/NVIDIA/aistore/api"
 	aisapc "github.com/NVIDIA/aistore/api/apc"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	"github.com/ais-operator/pkg/resources/cmn"
@@ -29,14 +28,14 @@ func (r *AIStoreReconciler) ensureTargetPrereqs(ctx context.Context, ais *aisv1.
 		return
 	}
 
-	if err = r.client.CreateOrUpdateResource(context.TODO(), ais, cm); err != nil {
+	if err = r.k8sClient.CreateOrUpdateResource(context.TODO(), ais, cm); err != nil {
 		r.recordError(ctx, ais, err, "Failed to deploy target ConfigMap")
 		return
 	}
 
 	// 2. Deploy services
 	svc := target.NewTargetHeadlessSvc(ais)
-	if err = r.client.CreateOrUpdateResource(ctx, ais, svc); err != nil {
+	if err = r.k8sClient.CreateOrUpdateResource(ctx, ais, svc); err != nil {
 		r.recordError(ctx, ais, err, "Failed to deploy target SVC")
 		return
 	}
@@ -46,7 +45,7 @@ func (r *AIStoreReconciler) ensureTargetPrereqs(ctx context.Context, ais *aisv1.
 func (r *AIStoreReconciler) initTargets(ctx context.Context, ais *aisv1.AIStore) (changed bool, err error) {
 	// Deploy statefulset
 	ss := target.NewTargetSS(ais)
-	if exists, err := r.client.CreateResourceIfNotExists(ctx, ais, ss); err != nil {
+	if exists, err := r.k8sClient.CreateResourceIfNotExists(ctx, ais, ss); err != nil {
 		r.recordError(ctx, ais, err, "Failed to deploy target statefulset")
 		return true, err
 	} else if !exists {
@@ -61,25 +60,25 @@ func (r *AIStoreReconciler) initTargets(ctx context.Context, ais *aisv1.AIStore)
 func (r *AIStoreReconciler) cleanupTarget(ctx context.Context, ais *aisv1.AIStore) (updated bool, err error) {
 	return cmn.AnyFunc(
 		func() (bool, error) { return r.cleanupTargetSS(ctx, ais) },
-		func() (bool, error) { return r.client.DeleteServiceIfExists(ctx, target.HeadlessSVCNSName(ais)) },
+		func() (bool, error) { return r.k8sClient.DeleteServiceIfExists(ctx, target.HeadlessSVCNSName(ais)) },
 		func() (bool, error) {
-			return r.client.DeleteAllServicesIfExist(ctx, ais.Namespace, target.ExternalServiceLabels(ais))
+			return r.k8sClient.DeleteAllServicesIfExist(ctx, ais.Namespace, target.ExternalServiceLabels(ais))
 		},
-		func() (bool, error) { return r.client.DeleteConfigMapIfExists(ctx, target.ConfigMapNSName(ais)) },
+		func() (bool, error) { return r.k8sClient.DeleteConfigMapIfExists(ctx, target.ConfigMapNSName(ais)) },
 	)
 }
 
 func (r *AIStoreReconciler) cleanupTargetSS(ctx context.Context, ais *aisv1.AIStore) (anyUpdated bool, err error) {
 	logf.FromContext(ctx).Info("Cleaning up target statefulset")
 	targetSS := target.StatefulSetNSName(ais)
-	return r.client.DeleteStatefulSetIfExists(ctx, targetSS)
+	return r.k8sClient.DeleteStatefulSetIfExists(ctx, targetSS)
 }
 
 func (r *AIStoreReconciler) handleTargetState(ctx context.Context, ais *aisv1.AIStore) (ready bool, err error) {
 	logger := logf.FromContext(ctx)
 
 	// Fetch the latest target StatefulSet.
-	ss, err := r.client.GetStatefulSet(ctx, target.StatefulSetNSName(ais))
+	ss, err := r.k8sClient.GetStatefulSet(ctx, target.StatefulSetNSName(ais))
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			// FIXME: We should likely set condition that `ais-target` StatefulSet
@@ -125,7 +124,7 @@ func (r *AIStoreReconciler) handleTargetState(ctx context.Context, ais *aisv1.AI
 func (r *AIStoreReconciler) resolveStatefulSetScaling(ctx context.Context, ais *aisv1.AIStore) error {
 	logger := logf.FromContext(ctx)
 	desiredSize := ais.GetTargetSize()
-	current, err := r.client.GetStatefulSet(ctx, target.StatefulSetNSName(ais))
+	current, err := r.k8sClient.GetStatefulSet(ctx, target.StatefulSetNSName(ais))
 	if err != nil {
 		return err
 	}
@@ -148,7 +147,7 @@ func (r *AIStoreReconciler) resolveStatefulSetScaling(ctx context.Context, ais *
 		}
 		logger.Info("Scaling down target statefulset to match AIS cluster spec size", "desiredSize", desiredSize)
 	}
-	_, err = r.client.UpdateStatefulSetReplicas(ctx, target.StatefulSetNSName(ais), desiredSize)
+	_, err = r.k8sClient.UpdateStatefulSetReplicas(ctx, target.StatefulSetNSName(ais), desiredSize)
 	if err != nil {
 		return err
 	}
@@ -156,28 +155,27 @@ func (r *AIStoreReconciler) resolveStatefulSetScaling(ctx context.Context, ais *
 	return nil
 }
 
-func (r *AIStoreReconciler) isReadyToScaleDown(ctx context.Context, ais *aisv1.AIStore, currentSize int32) (bool, error) {
+func (r *AIStoreReconciler) isReadyToScaleDown(ctx context.Context, ais *aisv1.AIStore, currentSize int32) (ready bool, err error) {
 	logger := logf.FromContext(ctx)
-	params, err := r.getAPIParams(ctx, ais)
+	apiClient, err := r.clientManager.GetClient(ctx, ais)
 	if err != nil {
-		return false, err
+		return
 	}
-
-	smap, err := r.GetSmap(ctx, params)
+	smap, err := apiClient.GetClusterMap()
 	if err != nil {
-		return false, err
+		return
 	}
 	// If any targets are still in the smap as decommissioning, delay scaling
 	for _, targetNode := range smap.Tmap {
 		if smap.InMaintOrDecomm(targetNode) && !smap.InMaint(targetNode) {
 			logger.Info("Delaying scaling. Target still in decommissioning state", "target", targetNode.ID())
-			return false, nil
+			return
 		}
 	}
 	// If we have the same number of target nodes as current replicas and none showed as decommissioned, don't scale
 	if int32(len(smap.Tmap)) == currentSize {
 		logger.Info("Delaying scaling. All target nodes are still listed as active")
-		return false, nil
+		return
 	}
 	return true, nil
 }
@@ -198,12 +196,11 @@ func (r *AIStoreReconciler) startTargetScaling(ctx context.Context, ais *aisv1.A
 
 func (r *AIStoreReconciler) decommissionTargets(ctx context.Context, ais *aisv1.AIStore, actualSize int32) error {
 	logger := logf.FromContext(ctx)
-	params, err := r.getAPIParams(ctx, ais)
+	apiClient, err := r.clientManager.GetClient(ctx, ais)
 	if err != nil {
 		return err
 	}
-
-	smap, err := r.GetSmap(ctx, params)
+	smap, err := apiClient.GetClusterMap()
 	if err != nil {
 		return err
 	}
@@ -217,7 +214,7 @@ func (r *AIStoreReconciler) decommissionTargets(ctx context.Context, ais *aisv1.
 			}
 			if !smap.InMaintOrDecomm(node) {
 				logger.Info("Decommissioning target", "nodeID", node.ID())
-				_, err = aisapi.DecommissionNode(*params, &aisapc.ActValRmNode{DaemonID: node.ID(), RmUserData: true})
+				_, err = apiClient.DecommissionNode(&aisapc.ActValRmNode{DaemonID: node.ID(), RmUserData: true})
 				if err != nil {
 					logger.Error(err, "Failed to decommission node", "nodeID", node.ID())
 					return err
@@ -236,7 +233,7 @@ func (r *AIStoreReconciler) handleTargetImage(ctx context.Context, ais *aisv1.AI
 		return false, err
 	}
 
-	podList, err := r.client.ListPods(ctx, ss)
+	podList, err := r.k8sClient.ListPods(ctx, ss)
 	if err != nil {
 		return
 	}
@@ -250,7 +247,7 @@ func (r *AIStoreReconciler) handleTargetImage(ctx context.Context, ais *aisv1.AI
 }
 
 func (r *AIStoreReconciler) syncTargetImage(ctx context.Context, ais *aisv1.AIStore) (updated bool, err error) {
-	ss, err := r.client.GetStatefulSet(ctx, target.StatefulSetNSName(ais))
+	ss, err := r.k8sClient.GetStatefulSet(ctx, target.StatefulSetNSName(ais))
 	if err != nil {
 		return
 	}
@@ -268,7 +265,7 @@ func (r *AIStoreReconciler) syncTargetImage(ctx context.Context, ais *aisv1.AISt
 	}
 	// Update the statefulset with a new image
 	ss.Spec.Template.Spec.Containers[aisnodeIndex].Image = ais.Spec.NodeImage
-	err = r.client.Update(ctx, ss)
+	err = r.k8sClient.Update(ctx, ss)
 	if err == nil {
 		logf.FromContext(ctx).Info("Target image updated")
 	}
@@ -288,7 +285,7 @@ func (r *AIStoreReconciler) scaleDownLB(ctx context.Context, ais *aisv1.AIStore,
 	}
 	for idx := *ss.Spec.Replicas; idx > ais.GetTargetSize(); idx-- {
 		svcName := target.LoadBalancerSVCNSName(ais, idx-1)
-		_, err := r.client.DeleteServiceIfExists(ctx, svcName)
+		_, err := r.k8sClient.DeleteServiceIfExists(ctx, svcName)
 		if err != nil {
 			return err
 		}
@@ -303,7 +300,7 @@ func (r *AIStoreReconciler) enableTargetExternalService(ctx context.Context,
 	targetSVCList := target.NewLoadBalancerSVCList(ais)
 	// 1. Try creating a LoadBalancer service for each target pod
 	for _, svc := range targetSVCList {
-		err := r.client.CreateOrUpdateResource(ctx, ais, svc)
+		err := r.k8sClient.CreateOrUpdateResource(ctx, ais, svc)
 		if err != nil {
 			return err
 		}
@@ -311,7 +308,7 @@ func (r *AIStoreReconciler) enableTargetExternalService(ctx context.Context,
 
 	// 2. Ensure every service has an ingress IP assigned to it.
 	svcList := &corev1.ServiceList{}
-	err := r.client.List(ctx, svcList, client.MatchingLabels(target.ExternalServiceLabels(ais)))
+	err := r.k8sClient.List(ctx, svcList, client.MatchingLabels(target.ExternalServiceLabels(ais)))
 	if err != nil {
 		return err
 	}
