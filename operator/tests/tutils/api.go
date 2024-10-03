@@ -354,8 +354,28 @@ func WaitForClusterToBeReady(ctx context.Context, client *aisclient.K8sClient, c
 		if err != nil {
 			return false
 		}
-		return ais.Status.State == aisv1.ClusterReady && ais.Spec.NodeImage == cluster.Spec.NodeImage
+		if ais.Status.State != aisv1.ClusterReady {
+			return false
+		}
+		proxies, err := client.ListProxyPods(ctx, cluster)
+		Expect(err).To(BeNil())
+		targets, err := client.ListTargetPods(ctx, cluster)
+		Expect(err).To(BeNil())
+		if !checkPodsAISImage(proxies, cluster.Spec.NodeImage) {
+			return false
+		}
+		return checkPodsAISImage(targets, cluster.Spec.NodeImage)
 	}, intervals...).Should(BeTrue())
+}
+
+func checkPodsAISImage(pods *corev1.PodList, img string) bool {
+	for i := range pods.Items {
+		aisnodeContainer := pods.Items[i].Spec.Containers[0]
+		if aisnodeContainer.Image != img {
+			return false
+		}
+	}
+	return true
 }
 
 func InitK8sClusterProvider(ctx context.Context, client *aisclient.K8sClient) {
