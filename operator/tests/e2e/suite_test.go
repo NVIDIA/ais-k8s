@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/NVIDIA/aistore/cmn/cos"
-	aisk8s "github.com/NVIDIA/aistore/cmn/k8s"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	aisclient "github.com/ais-operator/pkg/client"
 	"github.com/ais-operator/pkg/controllers"
@@ -39,11 +38,10 @@ var (
 	testEnv   *envtest.Environment
 	testCtx   *testing.T
 
-	storageClass         string // storage-class to use in tests
-	storageHostPath      string // where to mount hostpath test storage
-	testNS               *corev1.Namespace
-	nsExists             bool
-	testAsExternalClient bool
+	storageClass    string // storage-class to use in tests
+	storageHostPath string // where to mount hostpath test storage
+	testNS          *corev1.Namespace
+	nsExists        bool
 )
 
 const (
@@ -168,7 +166,6 @@ var _ = BeforeSuite(func() {
 		err = controllers.NewAISReconcilerFromMgr(
 			mgr,
 			ctrl.Log.WithName("controllers").WithName("AIStore"),
-			testAsExternalClient,
 		).SetupWithManager(mgr)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -182,8 +179,6 @@ var _ = BeforeSuite(func() {
 		// Create Namespace if not exists
 		testNS, nsExists = tutils.CreateNSIfNotExists(context.Background(), k8sClient, testNSName)
 
-		// NOTE: On gitlab, tests run in a pod inside minikube cluster. In that case we can run the tests as an internal client, unless enforced to test as external client.
-		testAsExternalClient = cos.IsParseBool(os.Getenv(EnvTestEnforceExternal)) || aisk8s.IsK8s()
 		setStorageClass()
 		setStorageHostPath()
 

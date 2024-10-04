@@ -56,10 +56,10 @@ func NewAISReconciler(c *aisclient.K8sClient, recorder record.EventRecorder, log
 	}
 }
 
-func NewAISReconcilerFromMgr(mgr manager.Manager, logger logr.Logger, isExternal bool) *AIStoreReconciler {
+func NewAISReconcilerFromMgr(mgr manager.Manager, logger logr.Logger) *AIStoreReconciler {
 	c := aisclient.NewClientFromMgr(mgr)
 	recorder := mgr.GetEventRecorderFor("ais-controller")
-	clientManager := services.NewAISClientManager(c, isExternal)
+	clientManager := services.NewAISClientManager(c)
 	return NewAISReconciler(c, recorder, logger, clientManager)
 }
 
@@ -323,7 +323,7 @@ func (r *AIStoreReconciler) attemptGracefulDecommission(ctx context.Context, ais
 	logger := logf.FromContext(ctx)
 	logger.Info("Attempting graceful decommission of cluster")
 	cleanupData := ais.Spec.CleanupData != nil && *ais.Spec.CleanupData
-	apiClient, _, err := r.clientManager.GetPrimaryClient(ctx, ais)
+	apiClient, err := r.clientManager.GetClient(ctx, ais)
 	if err != nil {
 		return err
 	}
@@ -336,7 +336,7 @@ func (r *AIStoreReconciler) attemptGracefulDecommission(ctx context.Context, ais
 
 func (r *AIStoreReconciler) attemptGracefulShutdown(ctx context.Context, ais *aisv1.AIStore) error {
 	logger := logf.FromContext(ctx)
-	apiClient, _, err := r.clientManager.GetPrimaryClient(ctx, ais)
+	apiClient, err := r.clientManager.GetClient(ctx, ais)
 	if err != nil {
 		return err
 	}
@@ -666,11 +666,11 @@ func (r *AIStoreReconciler) handleSuccessfulReconcile(ctx context.Context, ais *
 }
 
 func (r *AIStoreReconciler) checkAISClusterReady(ctx context.Context, ais *aisv1.AIStore) error {
-	apiClient, isPrimary, err := r.clientManager.GetPrimaryClient(ctx, ais)
+	apiClient, err := r.clientManager.GetClient(ctx, ais)
 	if err != nil {
 		return err
 	}
-	err = apiClient.Health(isPrimary)
+	err = apiClient.Health(true /*readyToRebalance*/)
 	if err != nil {
 		logf.FromContext(ctx).Info("Waiting for AIS to be healthy...")
 	}

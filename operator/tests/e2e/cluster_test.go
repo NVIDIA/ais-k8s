@@ -211,7 +211,6 @@ var _ = Describe("Run Controller", func() {
 		It("Should upgrade cluster (without rebalance) if aisnode image changes", func() {
 			cluArgs := defaultCluArgs()
 			cluArgs.NodeImage = tutils.PreviousNodeImage
-			cluArgs.EnableExternalLB = testAsExternalClient
 			cc, pvs := newClientCluster(cluArgs)
 			cc.create()
 			cc.updateImage(tutils.DefaultNodeImage)
@@ -228,7 +227,6 @@ var _ = Describe("Run Controller", func() {
 	Context("Scale existing cluster", Label("long"), func() {
 		Context("without externalLB", func() {
 			It("Should be able to scale-up existing cluster", func() {
-				tutils.CheckSkip(&tutils.SkipArgs{SkipInternal: testAsExternalClient})
 				cluArgs := defaultCluArgs()
 				cluArgs.MaxTargets = 2
 				cluster, pvs := tutils.NewAISCluster(cluArgs, k8sClient)
@@ -239,7 +237,6 @@ var _ = Describe("Run Controller", func() {
 			})
 
 			It("Should be able to scale-up targets of existing cluster", func() {
-				tutils.CheckSkip(&tutils.SkipArgs{SkipInternal: testAsExternalClient})
 				cluArgs := defaultCluArgs()
 				cluArgs.MaxTargets = 2
 				cluster, pvs := tutils.NewAISCluster(cluArgs, k8sClient)
@@ -250,7 +247,6 @@ var _ = Describe("Run Controller", func() {
 			})
 
 			It("Should be able to scale-down existing cluster", func() {
-				tutils.CheckSkip(&tutils.SkipArgs{SkipInternal: testAsExternalClient})
 				cluArgs := defaultCluArgs()
 				cluArgs.Size = 2
 				cluster, pvs := tutils.NewAISCluster(cluArgs, k8sClient)
@@ -291,7 +287,6 @@ var _ = Describe("Run Controller", func() {
 	Describe("Data-safety tests", Label("long"), func() {
 		It("Restarting cluster must retain data", func() {
 			cluArgs := defaultCluArgs()
-			cluArgs.EnableExternalLB = testAsExternalClient
 			cc, pvs := newClientCluster(cluArgs)
 			cc.create()
 			// put objects
@@ -324,7 +319,6 @@ var _ = Describe("Run Controller", func() {
 		It("Cluster scale down should ensure data safety", func() {
 			cluArgs := defaultCluArgs()
 			cluArgs.Size = 2
-			cluArgs.EnableExternalLB = testAsExternalClient
 			cc, pvs := newClientCluster(cluArgs)
 			cc.create()
 			// put objects
@@ -359,7 +353,6 @@ var _ = Describe("Run Controller", func() {
 		It("Re-deploying with CleanupData should wipe out all data", func() {
 			// Default sets CleanupData to true -- wipe when we destroy the cluster
 			cluArgs := defaultCluArgs()
-			cluArgs.EnableExternalLB = testAsExternalClient
 			cc, pvs := newClientCluster(cluArgs)
 			cc.create()
 			// Create bucket
@@ -395,7 +388,6 @@ var _ = Describe("Run Controller", func() {
 		It("Re-deploying with CleanupMetadata disabled should recover cluster", func() {
 			cluArgs := defaultCluArgs()
 			cluArgs.CleanupMetadata = false
-			cluArgs.EnableExternalLB = testAsExternalClient
 			cc, pvs := newClientCluster(cluArgs)
 			cc.create()
 			// Create bucket

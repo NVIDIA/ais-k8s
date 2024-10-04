@@ -1,38 +1,43 @@
+// Package services contains services for the operator to use when reconciling AIS
+/*
+* Copyright (c) 2024, NVIDIA CORPORATION. All rights reserved.
+ */
 package services
 
 import (
+	"context"
+	"crypto/tls"
+	"net/http"
+	"time"
+
 	"github.com/NVIDIA/aistore/api"
 	"github.com/NVIDIA/aistore/api/apc"
 	"github.com/NVIDIA/aistore/cmn"
 	"github.com/NVIDIA/aistore/cmn/cos"
 	"github.com/NVIDIA/aistore/core/meta"
 	aisv1 "github.com/ais-operator/api/v1beta1"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
+
+const userAgent = "ais-operator"
 
 type (
 	AIStoreClientInterface interface {
 		DecommissionCluster(rmUserData bool) error
 		DecommissionNode(actValue *apc.ActValRmNode) (xid string, err error)
 		GetClusterMap() (smap *meta.Smap, err error)
-		Health(isPrimary bool) error
+		Health(readyToRebalance bool) error
 		SetClusterConfigUsingMsg(configToUpdate *cmn.ConfigToSet, transient bool) error
 		SetPrimaryProxy(newPrimaryID string, force bool) error
 		ShutdownCluster() error
-		GetAuthToken() string
 		HasValidBaseParams(ais *aisv1.AIStore) bool
 	}
 
 	AIStoreClient struct {
+		ctx    context.Context
 		params *api.BaseParams
 	}
 )
-
-func (c *AIStoreClient) GetAuthToken() string {
-	if c.params == nil {
-		return ""
-	}
-	return c.params.Token
-}
 
 // HasValidBaseParams checks if the client has valid params for the given AIS cluster configuration
 func (c *AIStoreClient) HasValidBaseParams(ais *aisv1.AIStore) bool {
@@ -52,7 +57,11 @@ func (c *AIStoreClient) HasValidBaseParams(ais *aisv1.AIStore) bool {
 }
 
 func (c *AIStoreClient) DecommissionCluster(rmUserData bool) error {
-	return api.DecommissionCluster(*c.params, rmUserData)
+	params, err := c.getPrimaryParams()
+	if err != nil {
+		return err
+	}
+	return api.DecommissionCluster(*params, rmUserData)
 }
 
 func (c *AIStoreClient) DecommissionNode(actValue *apc.ActValRmNode) (string, error) {
@@ -63,8 +72,13 @@ func (c *AIStoreClient) GetClusterMap() (smap *meta.Smap, err error) {
 	return api.GetClusterMap(*c.params)
 }
 
-func (c *AIStoreClient) Health(isPrimary bool) error {
-	return api.Health(*c.params, isPrimary /*readyToRebalance*/)
+func (c *AIStoreClient) Health(readyToRebalance bool) error {
+	//TODO: Drop requirement for primary for AIS >= v3.25 (keep now for backwards compat)
+	primaryParams, err := c.getPrimaryParams()
+	if err != nil {
+		return err
+	}
+	return api.Health(*primaryParams, readyToRebalance)
 }
 
 func (c *AIStoreClient) SetClusterConfigUsingMsg(config *cmn.ConfigToSet, transient bool) error {
@@ -76,11 +90,52 @@ func (c *AIStoreClient) SetPrimaryProxy(newPrimaryID string, force bool) error {
 }
 
 func (c *AIStoreClient) ShutdownCluster() error {
-	return api.ShutdownCluster(*c.params)
+	primaryParams, err := c.getPrimaryParams()
+	if err != nil {
+		return err
+	}
+	return api.ShutdownCluster(*primaryParams)
 }
 
-func NewAIStoreClient(params *api.BaseParams) *AIStoreClient {
+func (c *AIStoreClient) getPrimaryParams() (*api.BaseParams, error) {
+	smap, err := c.GetClusterMap()
+	if err != nil || smap == nil {
+		logf.FromContext(c.ctx).Error(err, "Failed to get cluster map")
+		return nil, err
+	}
+	return buildBaseParams(smap.Primary.URL(cmn.NetPublic), c.getAuthToken()), nil
+}
+
+func NewAIStoreClient(ctx context.Context, url, token string) *AIStoreClient {
 	return &AIStoreClient{
-		params: params,
+		ctx:    ctx,
+		params: buildBaseParams(url, token),
+	}
+}
+
+func (c *AIStoreClient) getAuthToken() string {
+	if c.params == nil {
+		return ""
+	}
+	return c.params.Token
+}
+
+func buildBaseParams(url, token string) *api.BaseParams {
+	transportArgs := cmn.TransportArgs{
+		Timeout:         10 * time.Second,
+		UseHTTPProxyEnv: true,
+	}
+	transport := cmn.NewTransport(transportArgs)
+
+	transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+
+	return &api.BaseParams{
+		Client: &http.Client{
+			Transport: transport,
+			Timeout:   transportArgs.Timeout,
+		},
+		URL:   url,
+		Token: token,
+		UA:    userAgent,
 	}
 }
