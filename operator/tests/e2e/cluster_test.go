@@ -587,13 +587,12 @@ func setClusterShutdown(ctx context.Context, cluster *aisv1.AIStore, shutdown bo
 func scaleCluster(ctx context.Context, cluster *aisv1.AIStore, targetOnly bool, factor int32) {
 	cr, err := k8sClient.GetAIStoreCR(ctx, cluster.NamespacedName())
 	Expect(err).ShouldNot(HaveOccurred())
+	patch := client.MergeFrom(cr.DeepCopy())
 	if targetOnly {
 		cr.Spec.TargetSpec.Size = aisapc.Ptr(cr.GetTargetSize() + factor)
 	} else {
 		cr.Spec.Size = aisapc.Ptr(*cr.Spec.Size + factor)
 	}
-	Expect(err).ShouldNot(HaveOccurred())
-	err = k8sClient.Update(ctx, cr)
-	Expect(err).ShouldNot(HaveOccurred())
+	Expect(k8sClient.Patch(ctx, cr, patch)).Should(Succeed())
 	tutils.WaitForClusterToBeReady(ctx, k8sClient, cr, clusterReadyTimeout, clusterReadyRetryInterval)
 }
