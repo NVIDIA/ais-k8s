@@ -525,6 +525,13 @@ func (in *DaemonSpec) DeepCopyInto(out *DaemonSpec) {
 		*out = new(int32)
 		**out = **in
 	}
+	if in.Annotations != nil {
+		in, out := &in.Annotations, &out.Annotations
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	if in.ContainerSecurity != nil {
 		in, out := &in.ContainerSecurity, &out.ContainerSecurity
 		*out = new(v1.SecurityContext)

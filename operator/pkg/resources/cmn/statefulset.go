@@ -15,13 +15,15 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-func ParseAnnotations(ais *aisv1.AIStore) map[string]string {
-	if ais.Spec.NetAttachment != nil {
-		return map[string]string{
-			nadv1.NetworkAttachmentAnnot: *ais.Spec.NetAttachment,
-		}
+func PrepareAnnotations(annotations map[string]string, netAttachment *string) map[string]string {
+	newAnnotations := map[string]string{}
+	if netAttachment != nil {
+		newAnnotations[nadv1.NetworkAttachmentAnnot] = *netAttachment
 	}
-	return nil
+	for k, v := range annotations {
+		newAnnotations[k] = v
+	}
+	return newAnnotations
 }
 
 // NewLogSidecar Defines a container that mounts the location of logs and redirects output to the pod's stdout

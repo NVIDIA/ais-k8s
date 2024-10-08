@@ -86,7 +86,7 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels:      ls,
-					Annotations: cmn.ParseAnnotations(ais),
+					Annotations: cmn.PrepareAnnotations(ais.Spec.TargetSpec.Annotations, ais.Spec.NetAttachment),
 				},
 				Spec: corev1.PodSpec{
 					InitContainers: []corev1.Container{

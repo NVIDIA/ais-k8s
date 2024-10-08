@@ -1389,6 +1389,12 @@ spec:
                             x-kubernetes-list-type: atomic
                         type: object
                     type: object
+                  annotations:
+                    additionalProperties:
+                      type: string
+                    description: Annotations holds pod annotations for AIStore daemon
+                      pods.
+                    type: object
                   capabilities:
                     description: ContainerSecurity holds the secrity context for AIS
                       Daemon containers.
@@ -2947,6 +2953,12 @@ spec:
                       NOT recommended for production deployments
                       Use Mount.Label instead
                     type: boolean
+                  annotations:
+                    additionalProperties:
+                      type: string
+                    description: Annotations holds pod annotations for AIStore daemon
+                      pods.
+                    type: object
                   capabilities:
                     description: ContainerSecurity holds the secrity context for AIS
                       Daemon containers.

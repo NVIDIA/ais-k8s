@@ -225,6 +225,10 @@ type DaemonSpec struct {
 	// +optional
 	Size *int32 `json:"size,omitempty"`
 
+	// Annotations holds pod annotations for AIStore daemon pods.
+	// +optional
+	Annotations map[string]string `json:"annotations,omitempty"`
+
 	// ContainerSecurity holds the secrity context for AIS Daemon containers.
 	// +optional
 	ContainerSecurity *corev1.SecurityContext `json:"capabilities,omitempty"`
