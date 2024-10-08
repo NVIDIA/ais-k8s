@@ -116,7 +116,7 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 							ImagePullPolicy: corev1.PullAlways,
 							Command:         []string{"aisnode"},
 							Args:            cmn.NewAISContainerArgs(ais, aisapc.Target),
-							Env: append([]corev1.EnvVar{
+							Env: cmn.MergeEnvVars(append([]corev1.EnvVar{
 								cmn.EnvFromFieldPath(cmn.EnvPodName, "metadata.name"),
 								cmn.EnvFromValue(cmn.EnvNS, ais.Namespace),
 								cmn.EnvFromValue(cmn.EnvClusterDomain, ais.GetClusterDomain()),
@@ -129,7 +129,7 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 									cmn.EnvEnablePrometheus,
 									strconv.FormatBool(ais.Spec.EnablePromExporter != nil && *ais.Spec.EnablePromExporter),
 								),
-							}, optionals...),
+							}, optionals...), ais.Spec.TargetSpec.Env),
 							Ports:           cmn.NewDaemonPorts(&ais.Spec.TargetSpec.DaemonSpec),
 							SecurityContext: ais.Spec.TargetSpec.ContainerSecurity,
 							VolumeMounts:    volumeMounts(ais),

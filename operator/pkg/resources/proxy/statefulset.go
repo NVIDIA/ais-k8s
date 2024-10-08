@@ -113,7 +113,7 @@ func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
 				ImagePullPolicy: corev1.PullAlways,
 				Command:         []string{"aisnode"},
 				Args:            cmn.NewAISContainerArgs(ais, aisapc.Proxy),
-				Env: append([]corev1.EnvVar{
+				Env: cmn.MergeEnvVars(append([]corev1.EnvVar{
 					cmn.EnvFromFieldPath(cmn.EnvPodName, "metadata.name"),
 					cmn.EnvFromValue(cmn.EnvNS, ais.Namespace),
 					cmn.EnvFromValue(cmn.EnvClusterDomain, ais.GetClusterDomain()),
@@ -125,7 +125,7 @@ func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
 					cmn.EnvFromValue(cmn.EnvEnablePrometheus,
 						strconv.FormatBool(ais.Spec.EnablePromExporter != nil && *ais.Spec.EnablePromExporter)),
 					cmn.EnvFromValue(cmn.EnvNumTargets, strconv.Itoa(int(ais.GetTargetSize()))),
-				}, optionals...),
+				}, optionals...), ais.Spec.ProxySpec.Env),
 				Ports:           cmn.NewDaemonPorts(&ais.Spec.ProxySpec),
 				SecurityContext: ais.Spec.ProxySpec.ContainerSecurity,
 				VolumeMounts:    cmn.NewAISVolumeMounts(ais, aisapc.Proxy),

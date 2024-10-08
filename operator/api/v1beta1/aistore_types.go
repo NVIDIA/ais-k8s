@@ -228,6 +228,12 @@ type DaemonSpec struct {
 	// ContainerSecurity holds the secrity context for AIS Daemon containers.
 	// +optional
 	ContainerSecurity *corev1.SecurityContext `json:"capabilities,omitempty"`
+
+	// List of additional environment variables to set in the AIS Daemon container.
+	// Overrides any default envs set by operator.
+	// +optional
+	Env []corev1.EnvVar `json:"env,omitempty"`
+
 	// Affinity  - AIS Daemon pod's scheduling constraints
 	// +optional
 	Affinity *corev1.Affinity `json:"affinity,omitempty"`

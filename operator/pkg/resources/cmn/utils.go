@@ -5,6 +5,7 @@
 package cmn
 
 import (
+	"github.com/NVIDIA/aistore/cmn/cos"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -38,6 +39,25 @@ func EnvFromSecret(envName, secret, key string) corev1.EnvVar {
 			},
 		},
 	}
+}
+
+// MergeEnvVars merges defaults and overrides envvars.
+// For duplicate `Name` entries, overrides will take precedence.
+func MergeEnvVars(defaults, overrides []corev1.EnvVar) []corev1.EnvVar {
+	envVars := []corev1.EnvVar{}
+	exists := cos.StrSet{}
+	for _, v := range overrides {
+		exists.Add(v.Name)
+		envVars = append(envVars, v)
+	}
+
+	for _, v := range defaults {
+		if exists.Contains(v.Name) {
+			continue
+		}
+		envVars = append(envVars, v)
+	}
+	return envVars
 }
 
 // IsBoolSet checks if a boolean pointer is set to true.

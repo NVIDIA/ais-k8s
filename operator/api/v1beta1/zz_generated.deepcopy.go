@@ -530,6 +530,13 @@ func (in *DaemonSpec) DeepCopyInto(out *DaemonSpec) {
 		*out = new(v1.SecurityContext)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.Env != nil {
+		in, out := &in.Env, &out.Env
+		*out = make([]v1.EnvVar, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	if in.Affinity != nil {
 		in, out := &in.Affinity, &out.Affinity
 		*out = new(v1.Affinity)
