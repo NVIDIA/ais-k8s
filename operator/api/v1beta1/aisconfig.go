@@ -135,6 +135,7 @@ type (
 	VersionConfToUpdate struct {
 		Enabled         *bool `json:"enabled,omitempty"`
 		ValidateWarmGet *bool `json:"validate_warm_get,omitempty"`
+		Sync            *bool `json:"synchronize,omitempty"`
 	}
 	NetConfToUpdate struct {
 		HTTP *HTTPConfToUpdate `json:"http,omitempty"`
