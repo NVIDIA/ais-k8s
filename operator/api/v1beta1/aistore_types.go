@@ -453,15 +453,7 @@ func (ais *AIStore) CompareVersion(version string) (bool, error) {
 }
 
 func (ais *AIStore) UseHTTPS() bool {
-	return ais.UseHTTPSSecret() || ais.UseHTTPSCertManager()
-}
-
-func (ais *AIStore) UseHTTPSSecret() bool {
-	return ais.Spec.TLSSecretName != nil
-}
-
-func (ais *AIStore) UseHTTPSCertManager() bool {
-	return ais.Spec.TLSCertManagerIssuerName != nil
+	return ais.Spec.ConfigToUpdate != nil && ais.Spec.ConfigToUpdate.Net != nil && ais.Spec.ConfigToUpdate.Net.HTTP != nil && ais.Spec.ConfigToUpdate.Net.HTTP.UseHTTPS != nil && *ais.Spec.ConfigToUpdate.Net.HTTP.UseHTTPS
 }
 
 // +kubebuilder:object:root=true

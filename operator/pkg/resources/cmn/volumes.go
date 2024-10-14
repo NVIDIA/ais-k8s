@@ -121,7 +121,7 @@ func NewAISVolumes(ais *v1beta1.AIStore, daeType string) []v1.Volume {
 		})
 	}
 
-	if ais.UseHTTPSCertManager() {
+	if ais.Spec.TLSCertManagerIssuerName != nil {
 		name := ais.Name + "-" + daeType
 		volumes = append(volumes, v1.Volume{
 			Name: tlsSecretVolume,
@@ -144,7 +144,7 @@ func NewAISVolumes(ais *v1beta1.AIStore, daeType string) []v1.Volume {
 				},
 			},
 		})
-	} else if ais.UseHTTPSSecret() {
+	} else if ais.Spec.TLSSecretName != nil {
 		volumes = append(volumes, v1.Volume{
 			Name: tlsSecretVolume,
 			VolumeSource: v1.VolumeSource{
@@ -231,7 +231,7 @@ func NewAISVolumeMounts(ais *v1beta1.AIStore, daeType string) []v1.VolumeMount {
 			MountPath: "/var/gcp",
 		})
 	}
-	if ais.UseHTTPS() {
+	if ais.Spec.TLSCertManagerIssuerName != nil || ais.Spec.TLSSecretName != nil {
 		volumeMounts = append(volumeMounts, v1.VolumeMount{
 			Name:      tlsSecretVolume,
 			ReadOnly:  true,
