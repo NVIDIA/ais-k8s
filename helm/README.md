@@ -1,8 +1,13 @@
-# This directory is still under development -- [Ansible playbooks](../../playbooks/README.md) are the ONLY currently supported deployment mechanism
+# Helm AIS Deployment
 
-## Deploying AIS with Helm (includes operator)
+Helm provides a simple way of deploying AIStore (AIS) managed by the [AIS operator](../operator/README.md).
+This directory contains Helm charts for deploying AIS, the AIS operator, and AIS dependencies.
 
-This directory contains Helm charts for deploying AIS along with its dependencies. It assumes a properly configured K8s cluster with drives already formatted and mounted for use (see the [host-config ansible playbooks](../../playbooks/host-config/README.md)).
+Before deploying, ensure that your Kubernetes nodes are properly configured and ready for AIS deployment. 
+The [host-config playbooks](../playbooks/host-config/README.md) provide a good starting point for properly configuring your hosts and formatting drives.
+
+For deploying AIS without Helm, see the [Ansible playbooks](../../playbooks/README.md). 
+Both approaches deploy the AIS operator, then create an AIS custom resource to specify cluster settings. 
 
 ## Prerequisites
 
@@ -21,13 +26,13 @@ This directory contains Helm charts for deploying AIS along with its dependencie
 
 To create a new release, add it to the environments section at the top of `ais/helmfile.yaml`. 
 
-Next, copy each `values-sample.yaml` file for each chart in [./ais/config/](./charts/ais-cluster/) to a new values file with the same name as the new environment. 
+Next, copy the `values-sample.yaml` file for each chart in [./ais/config/](./charts/ais-cluster/) to a new values file with the same name as the new environment. 
 
 Then modify the values in each new file for your desired cluster. 
 
 ### Install Charts
 
-To install the charts provided, we use [helmfile](https://github.com/helmfile/helmfile?tab=readme-ov-file). Update the `helmfile.yaml` to configure the destination namespaces and set and environment for your deployment. 
+To install the charts provided, we use [helmfile](https://github.com/helmfile/helmfile?tab=readme-ov-file). Update the `helmfile.yaml` to configure the destination namespaces and set the environment for your deployment. 
 
 First, install the operator from the `operator` directory:
 

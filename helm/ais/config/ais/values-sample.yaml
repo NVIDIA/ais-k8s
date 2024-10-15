@@ -1,3 +1,4 @@
+# Global section contains values used by both AIS and AIS `create-pv` sub-chart
 global:
   nodes: 
     - aistorecpu1004.nsv.sjc11.nvmetal.net
@@ -19,7 +20,7 @@ https:
   tlsSecret: "tls-certs"
 nodeImage:
   name: aistorage/aisnode
-  tag: v3.24-f8fd327
+  tag: v3.25
 initImage:
   name: aistorage/ais-init
   tag: v1.2.0
@@ -38,5 +39,6 @@ hostpathPrefix: "/etc/ais"
 # stateStorageClass defines an existing storage class for dynamic creation of k8s volumes
 stateStorageClass: "local-path"
 cleanupData: false
+cleanupMetadata: false
 authNSecretName:
 logsDir:

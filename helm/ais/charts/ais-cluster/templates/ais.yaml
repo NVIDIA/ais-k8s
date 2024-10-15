@@ -6,13 +6,6 @@ metadata:
 spec:
   size: {{ .Values.size }}
   configToUpdate:
-    mirror:
-      enabled: false
-    rebalance:
-      enabled: true
-      bundle_multiplier: 2
-    resilver:
-      enabled: true
     {{- if eq .Values.protocol "https" }}
     net:
       http:

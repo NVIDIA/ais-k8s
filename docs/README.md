@@ -30,7 +30,7 @@ This document provides comprehensive, step-by-step guidance for deploying [AISto
 Before starting the deployment, ensure the following prerequisites are met:
 
 For bare-metal deployments:
-- **Kubespray Installation**: Follow the instructions provided in this [Kubespray document]](kubespray)
+- **Kubespray Installation**: Follow the instructions provided in the [Kubespray repo](https://github.com/kubernetes-sigs/kubespray)
 
 For both bare-metal and managed K8s deployments:
 - **Kubernetes**: v1.27.x or later.
@@ -70,7 +70,7 @@ The network setup plays a pivotal role in AIStore's performance. Here's a detail
 - **AIS Nodes**:
   - While AIStore is resource-efficient, some extensions like ETL and Resharding demand more CPU and Memory. We recommend nodes with 32 CPUs and 64 GB of Memory.
 - **Host Configuration**:
-  - Prepare an Ansible host file akin to [`hosts.ini`](kubespray/hosts.ini) for various playbook deployments.
+  - Prepare an Ansible host file for executing playbooks. We provide an [example](../playbooks/hosts-example.ini) in our playbooks directory.
 
 
 ## Deployment Steps
@@ -78,7 +78,7 @@ The network setup plays a pivotal role in AIStore's performance. Here's a detail
 ### Kubernetes Installation
 
 - **Managed K8s**: Strongly recommended for production deployments to avoid potential troubleshooting complexities.
-- **Bare-Metal K8s**: For those preferring manual setup, refer to the [`kubespray`](kubespray) documentation. Remember to specify the controller node in the `hosts.ini` file.
+- **Bare-Metal K8s**: For those preferring manual setup, refer to the [`kubespray`](https://github.com/kubernetes-sigs/kubespray) documentation.
 
 Make sure to specify the `controller` node in the `hosts.ini` file that will have the `kubectl` access to the whole cluster.
 
@@ -192,7 +192,7 @@ Before initiating the playbook, it's crucial to perform some preparatory configu
     ```
 
 - **Multihome Deployment**:
-   - For a multihome deployment using multiple network interfaces, some extra configuration is required before deploying the cluster. Refer to the [multihome deployment doc](../playbooks/ais-deployment/docs/deploy_with_multihome) for details. 
+   - For a multihome deployment using multiple network interfaces, some extra configuration is required before deploying the cluster. Refer to the [multihome deployment doc](../playbooks/ais-deployment/docs/deploy_with_multihome.md) for details. 
 
 - **Playbook Defaults**:
   - In the [defaults file](../playbooks/ais-deployment/roles/ais_deploy_cluster/defaults/main.yml) for the deploy cluster playbook, update values such as:
