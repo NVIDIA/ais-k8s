@@ -284,7 +284,10 @@ type Mount struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 
-// AIStore is the Schema for the aistores API
+// AIStore is the Schema for the aistores API.
+//
+// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The current state of the resource"
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 type AIStore struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

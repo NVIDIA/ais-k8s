@@ -14,10 +14,18 @@ spec:
     singular: aistore
   scope: Namespaced
   versions:
-  - name: v1beta1
+  - additionalPrinterColumns:
+    - description: The current state of the resource
+      jsonPath: .status.state
+      name: State
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1beta1
     schema:
       openAPIV3Schema:
-        description: AIStore is the Schema for the aistores API
+        description: AIStore is the Schema for the aistores API.
         properties:
           apiVersion:
             description: |-
