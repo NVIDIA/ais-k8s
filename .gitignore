@@ -15,5 +15,5 @@ bundle.Dockerfile
 bundle/
 dist/
 
-# Allow all files in helm charts directory
-!/charts/**
+# Allow all files in github pages directory
+!/pages/**
