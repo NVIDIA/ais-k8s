@@ -241,12 +241,17 @@ HELMIFY = $(LOCALBIN)/helmify
 HELM = $(LOCALBIN)/helm
 
 ## Tool Versions
-HELM_VERSION ?= v3.15.3
+HELM_VERSION ?= v3.16.2
 KUSTOMIZE_VERSION ?= v5.4.1
 CONTROLLER_TOOLS_VERSION ?= v0.16.1
 ENVTEST_VERSION ?= release-0.18
 GOLANGCI_LINT_VERSION ?= v1.61.0
 MOCKGEN_VERSION ?= v0.4.0
+
+
+OS := $(shell uname -s | tr '[:upper:]' '[:lower:]')
+ARCH := $(shell uname -m)
+SYSTEM := $(OS)-$(ARCH)
 
 .PHONY: kustomize
 kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary.
@@ -308,10 +313,10 @@ set -e ;\
 TMP_DIR=$$(mktemp -d) ;\
 [ -d $(LOCALBIN) ] || mkdir -p $(LOCALBIN) ;\
 cd $$TMP_DIR ;\
-echo "Downloading Helm $(HELM_VERSION)" ;\
-curl -sSL https://get.helm.sh/helm-$(HELM_VERSION)-linux-amd64.tar.gz -o helm.tar.gz ;\
+echo "Downloading Helm $(HELM_VERSION) for $(SYSTEM)" ;\
+curl -sSL https://get.helm.sh/helm-$(HELM_VERSION)-$(SYSTEM).tar.gz -o helm.tar.gz ;\
 tar -zxf helm.tar.gz ;\
-mv linux-amd64/helm $(LOCALBIN) ;\
+mv $(SYSTEM)/helm $(LOCALBIN) ;\
 rm -rf $$TMP_DIR ;\
 echo "Helm $(HELM_VERSION) has been installed to $(LOCALBIN)" ;\
 }
