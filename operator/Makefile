@@ -1,7 +1,13 @@
-VERSION ?= 1.4.0
-BUILD_VERSION = $(VERSION)+$(shell git rev-parse --short HEAD)
+DEFAULT_VERSION = 1.4.1
+# Strip off any preceding `v` from version string
+HELM_CHART_VERSION := $(shell echo $(VERSION) | sed 's/^v//')
+# Use VERSION if provided
+BUILD_VERSION_BASE = $(if $(VERSION),$(VERSION),$(DEFAULT_VERSION))
+BUILD_VERSION = $(BUILD_VERSION_BASE)+$(shell git rev-parse --short HEAD)
 BUILD_TIME = $(shell date +%FT%T%z)
+
 REPO = https://github.com/NVIDIA/ais-k8s
+PAGES = https://NVIDIA.github.io/ais-k8s/charts
 
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.25.0
@@ -47,6 +53,9 @@ all: build
 
 require-img:
 	@[ "${IMG}" ] || ( echo "IMG must be set for this make target"; exit 1 )
+
+require-version:
+	@[ "${VERSION}" ] || ( echo "VERSION must be set for this make target"; exit 1 )
 
 .PHONY: help
 help: ## Display this help.
@@ -168,11 +177,17 @@ build-installer: require-img manifests generate kustomize ## Generate a consolid
 	$(KUSTOMIZE) build config/default > dist/ais-operator.yaml
 
 .PHONY: build-installer-helm
-build-installer-helm: require-img helm helmify build-installer
-	mkdir -p dist/charts/
-	cat dist/ais-operator.yaml | $(HELMIFY) dist/charts/ais-operator
-	$(HELM) package dist/charts/ais-operator -d dist/
-	$(HELM) repo index --url $(REPO)/releases/download/$(VERSION) dist
+build-installer-helm: require-img require-version helm helmify build-installer
+	mkdir -p dist/ais-operator
+	$(HELMIFY) -f dist/ais-operator.yaml dist/ais-operator
+	$(HELM) package dist/ais-operator -d ../charts/ --version $(HELM_CHART_VERSION) --app-version $(HELM_CHART_VERSION)
+	$(HELM) repo index --url $(PAGES) ../charts --merge charts/index.yaml
+
+.PHONY: release
+release: build-installer-helm
+	git add ../charts config/manager/kustomization.yaml
+	git commit -s -m "Release operator version $(VERSION)"
+	git tag $(VERSION)
 
 require-init-img:
 	@[ "${INIT_IMG}" ] || ( echo "INIT_IMG must be set for this make target"; exit 1 )

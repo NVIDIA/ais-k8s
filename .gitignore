@@ -14,4 +14,6 @@
 bundle.Dockerfile
 bundle/
 dist/
-index.yaml
+
+# Allow all files in helm charts directory
+!/charts/**
