@@ -202,6 +202,14 @@ func (c *K8sClient) Patch(ctx context.Context, obj client.Object, patch client.P
 	return c.client.Patch(ctx, obj, patch, opts...)
 }
 
+func (c *K8sClient) PatchIfExists(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
+	err := c.client.Patch(ctx, obj, patch, opts...)
+	if apierrors.IsNotFound(err) {
+		return nil
+	}
+	return err
+}
+
 func (c *K8sClient) Create(ctx context.Context, obj client.Object, opts ...client.CreateOption) error {
 	return c.client.Create(ctx, obj, opts...)
 }

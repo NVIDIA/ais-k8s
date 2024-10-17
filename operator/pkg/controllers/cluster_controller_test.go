@@ -39,6 +39,7 @@ var _ = Describe("AIStoreController", func() {
 			r         *AIStoreReconciler
 			c         client.Client
 			apiClient *mocks.MockAIStoreClientInterface
+
 			namespace string
 			ctx       = context.TODO()
 		)
@@ -195,11 +196,11 @@ var _ = Describe("AIStoreController", func() {
 					Expect(err).ToNot(HaveOccurred())
 					expectedHash, err := cmn.HashConfigToSet(expectedConfig)
 					Expect(err).ToNot(HaveOccurred())
-
-					// Set up mock expectation
-					apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any(), false)
+					err = c.Update(ctx, ais)
+					Expect(err).ToNot(HaveOccurred())
 
 					By("Reconcile to propagate config")
+					apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any(), false).Times(1)
 					err = r.handleConfigState(ctx, ais, true /*force*/)
 					Expect(err).ToNot(HaveOccurred())
 
@@ -209,18 +210,12 @@ var _ = Describe("AIStoreController", func() {
 					Expect(ais.Annotations[configHashAnnotation]).To(Equal(expectedHash))
 
 					By("Ensure that a repeat with the same config does not result in an API call")
-					apiClient.EXPECT().SetClusterConfigUsingMsg(
-						gomock.Any(),
-						gomock.Any(),
-					).Times(0)
+					apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any(), false).Times(0)
 					err = r.handleConfigState(ctx, ais, false /*force*/)
 					Expect(err).ToNot(HaveOccurred())
 
 					By("Ensure that a repeat with the same config and force DOES result in an API call")
-					apiClient.EXPECT().SetClusterConfigUsingMsg(
-						gomock.Any(),
-						gomock.Any(),
-					).Times(1)
+					apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any(), false).Times(1)
 					err = r.handleConfigState(ctx, ais, true /*force*/)
 					Expect(err).ToNot(HaveOccurred())
 				})

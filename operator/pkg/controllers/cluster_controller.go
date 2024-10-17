@@ -152,8 +152,9 @@ func (r *AIStoreReconciler) initializeCR(ctx context.Context, ais *aisv1.AIStore
 	logger := logf.FromContext(ctx)
 	if !controllerutil.ContainsFinalizer(ais, aisFinalizer) {
 		logger.Info("Updating finalizer")
+		original := ais.DeepCopy()
 		controllerutil.AddFinalizer(ais, aisFinalizer)
-		if err = r.k8sClient.Update(ctx, ais); err != nil {
+		if err = r.k8sClient.Patch(ctx, ais, k8sclient.MergeFrom(original)); err != nil {
 			logger.Error(err, "Failed to update finalizer")
 			return err
 		}
@@ -271,17 +272,19 @@ func (r *AIStoreReconciler) cleanupHost(ctx context.Context, ais *aisv1.AIStore)
 func (r *AIStoreReconciler) finalize(ctx context.Context, ais *aisv1.AIStore) (result reconcile.Result, err error) {
 	logger := logf.FromContext(ctx)
 	logger.Info("Removing AIS finalizer")
+
+	original := ais.DeepCopy()
 	updated := controllerutil.RemoveFinalizer(ais, aisFinalizer)
 	if !updated {
 		return
 	}
-	err = r.k8sClient.UpdateIfExists(ctx, ais)
-	if err != nil {
+	if err = r.k8sClient.PatchIfExists(ctx, ais, k8sclient.MergeFrom(original)); err != nil {
 		r.recordError(ctx, ais, err, "Failed to update instance")
 		return
 	}
+
 	// Do not requeue if we've removed the finalizer -- CR should be removed
-	return reconcile.Result{Requeue: false}, err
+	return reconcile.Result{Requeue: false}, nil
 }
 
 func (r *AIStoreReconciler) isClusterRunning(ctx context.Context, ais *aisv1.AIStore) bool {
@@ -550,11 +553,12 @@ func (r *AIStoreReconciler) handleConfigState(ctx context.Context, ais *aisv1.AI
 	}
 
 	// Finally update CRD with proper annotation.
+	original := ais.DeepCopy()
 	if ais.Annotations == nil {
 		ais.Annotations = map[string]string{}
 	}
 	ais.Annotations[configHashAnnotation] = currentHash
-	return r.k8sClient.Update(ctx, ais)
+	return r.k8sClient.Patch(ctx, ais, k8sclient.MergeFrom(original))
 }
 
 func (r *AIStoreReconciler) createOrUpdateRBACResources(ctx context.Context, ais *aisv1.AIStore) (err error) {
