@@ -17,9 +17,9 @@ import (
 	"github.com/ais-operator/pkg/resources/cmn"
 	mocks "github.com/ais-operator/pkg/services/mocks"
 	"github.com/ais-operator/tests/tutils"
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"go.uber.org/mock/gomock"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -67,7 +67,6 @@ var _ = Describe("AIStoreController", func() {
 			// Mock the client manager to return the mock client
 			clientManager := mocks.NewMockAISClientManagerInterface(mockCtrl)
 			clientManager.EXPECT().GetClient(gomock.Any(), gomock.Any()).Return(apiClient, nil).AnyTimes()
-			clientManager.EXPECT().GetPrimaryClient(gomock.Any(), gomock.Any()).Return(apiClient, false, nil).AnyTimes()
 
 			r = NewAISReconciler(tmpClient, &record.FakeRecorder{}, ctrl.Log, clientManager)
 		})

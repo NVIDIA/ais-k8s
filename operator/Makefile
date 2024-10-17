@@ -59,12 +59,9 @@ manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and Cust
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
 .PHONY: generate
-generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
+generate: controller-gen mockgen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
-
-.PHONY: mocks
-mocks:
-	$(SHELL) "$(SCRIPTS_DIR)/generate_mocks.sh"
+	go generate ./...
 
 .PHONY: fmt
 fmt: ## Run go fmt against code.
@@ -234,6 +231,7 @@ KUSTOMIZE_VERSION ?= v5.4.1
 CONTROLLER_TOOLS_VERSION ?= v0.16.1
 ENVTEST_VERSION ?= release-0.18
 GOLANGCI_LINT_VERSION ?= v1.61.0
+MOCKGEN_VERSION ?= v0.4.0
 
 .PHONY: kustomize
 kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary.
@@ -263,6 +261,11 @@ helm:
 helmify: $(HELMIFY)
 $(HELMIFY): $(LOCALBIN)
 	$(call go-install-tool,$(HELMIFY),github.com/arttor/helmify/cmd/helmify,latest)
+
+.PHONY: mockgen
+mockgen: ## Download mockgen locally if necessary.
+	@echo "Downloading mockgen"
+	@go install go.uber.org/mock/mockgen@$(MOCKGEN_VERSION)
 
 # go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist
 # $1 - target path with name of binary (ideally with version)

@@ -16,6 +16,8 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+//go:generate mockgen -source $GOFILE -destination mocks/client_manager.go . AISClientManagerInterface
+
 type (
 	AISClientManagerInterface interface {
 		GetClient(ctx context.Context, ais *aisv1.AIStore) (AIStoreClientInterface, error)

@@ -19,6 +19,8 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+//go:generate mockgen -source $GOFILE -destination mocks/client.go . AIStoreClientInterface
+
 const userAgent = "ais-operator"
 
 type (
