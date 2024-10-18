@@ -7,8 +7,8 @@ environments:
 ---
 
 repositories:
-  - name: ais-operator
-    url: https://github.com/NVIDIA/ais-k8s/releases/download/v1.4.1/
+  - name: aistore
+    url: https://nvidia.github.io/ais-k8s/charts/
   - name: jetstack
     url: https://charts.jetstack.io
 
@@ -26,8 +26,8 @@ releases:
   - name: ais-operator
     namespace: ais-operator-system
     createNamespace: true
-    chart: ais-operator/ais-operator
-    version: 0.1.0
+    chart: aistore/ais-operator
+    version: 1.4.1
     wait: true
     needs:
       - cert-manager/cert-manager

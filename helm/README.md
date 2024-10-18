@@ -34,18 +34,21 @@ Then modify the values in each new file for your desired cluster.
 
 To install the charts provided, we use [helmfile](https://github.com/helmfile/helmfile?tab=readme-ov-file). Update the `helmfile.yaml` to configure the destination namespaces and set the environment for your deployment. 
 
-First, install the operator from the `operator` directory:
+1. In the [operator](./operator/) directory, update [helmfile.yaml](./operator/helmfile.yaml) with the desired ais-operator chart version. Install the chart with helmfile:
 
 ```bash 
 helmfile sync
 ```
 
-Verify the operator installation by checking that the pod is in 'Ready' state:
+> **Note**: Only operator versions >= 1.4.1 are supported via Helm Chart. See the [playbook docs](../playbooks/ais-deployment/docs/ais_cluster_management.md#1-deploying-ais-kubernetes-operator) for deploying older versions via Ansible Playbooks. 
+
+
+2. Verify the operator installation by checking that the pod is in 'Ready' state:
 ```bash 
 kubectl get pods -n ais-operator-system
 ```
 
-Then from the `ais` directory run: 
+3. From the `ais` directory, run: 
 
 ```bash 
 helmfile sync --environment <your-env>
