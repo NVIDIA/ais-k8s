@@ -3,7 +3,6 @@
 *.state
 *.swp
 *.vscode
-.DS_Store
 .idea
 
 *ansible.cfg
@@ -17,3 +16,6 @@ dist/
 
 # Allow all files in github pages directory
 !/pages/**
+
+# Exceptions to still ignore in pages/ 
+**/.DS_Store
