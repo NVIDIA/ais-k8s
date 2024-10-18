@@ -1,0 +1,5 @@
+# Artifact Hub repository metadata file
+repositoryID: d73e6789-2ae3-49ef-b431-4882b7729bcf
+owners:
+  - name: AIStore Team
+    email: aistore@nvidia.com
