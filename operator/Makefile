@@ -236,7 +236,6 @@ KUBECTL ?= kubectl
 KUSTOMIZE ?= $(LOCALBIN)/kustomize-$(KUSTOMIZE_VERSION)
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen-$(CONTROLLER_TOOLS_VERSION)
 ENVTEST ?= $(LOCALBIN)/setup-envtest-$(ENVTEST_VERSION)
-GOLANGCI_LINT = $(LOCALBIN)/golangci-lint-$(GOLANGCI_LINT_VERSION)
 HELMIFY = $(LOCALBIN)/helmify
 HELM = $(LOCALBIN)/helm
 
@@ -245,8 +244,12 @@ HELM_VERSION ?= v3.16.2
 KUSTOMIZE_VERSION ?= v5.4.1
 CONTROLLER_TOOLS_VERSION ?= v0.16.1
 ENVTEST_VERSION ?= release-0.18
-GOLANGCI_LINT_VERSION ?= v1.61.0
 MOCKGEN_VERSION ?= v0.4.0
+
+# Lint
+GOLANGCI_LINT = $(shell which golangci-lint)
+GOLANGCI_LINT_LIB = github.com/golangci/golangci-lint/cmd/golangci-lint
+GOLANGCI_LINT_VERSION ?= v1.61.0
 
 
 OS := $(shell uname -s | tr '[:upper:]' '[:lower:]')
@@ -269,9 +272,13 @@ $(ENVTEST): $(LOCALBIN)
 	$(call go-install-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest,$(ENVTEST_VERSION))
 
 .PHONY: golangci-lint
-golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
-$(GOLANGCI_LINT): $(LOCALBIN)
-	$(call go-install-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint,${GOLANGCI_LINT_VERSION})
+golangci-lint:
+# If we don't have it in path, install locally if necessary
+ifeq ($(GOLANGCI_LINT),)
+	$(call go-install-tool,$(LOCALBIN)/golangci-lint-$(GOLANGCI_LINT_VERSION),$(GOLANGCI_LINT_LIB),$(GOLANGCI_LINT_VERSION))
+	$(eval GOLANGCI_LINT := $(GOPATH)/bin/golangci-lint)
+endif
+	@echo "Using golangci-lint: $(GOLANGCI_LINT)"
 
 .PHONY: helm
 helm:
