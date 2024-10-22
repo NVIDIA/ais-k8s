@@ -185,7 +185,7 @@ build-installer-helm: require-img require-version helm helmify build-installer
 
 .PHONY: release
 release: build-installer-helm
-	git add ../charts config/manager/kustomization.yaml
+	git add ../pages/charts config/manager/kustomization.yaml
 	git commit -s -m "Release operator version $(VERSION)"
 	git tag $(VERSION)
 
