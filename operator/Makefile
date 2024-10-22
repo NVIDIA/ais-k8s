@@ -320,11 +320,10 @@ set -e ;\
 TMP_DIR=$$(mktemp -d) ;\
 [ -d $(LOCALBIN) ] || mkdir -p $(LOCALBIN) ;\
 cd $$TMP_DIR ;\
-echo "Downloading Helm $(HELM_VERSION) for $(SYSTEM)" ;\
-curl -sSL https://get.helm.sh/helm-$(HELM_VERSION)-$(SYSTEM).tar.gz -o helm.tar.gz ;\
-tar -zxf helm.tar.gz ;\
-mv $(SYSTEM)/helm $(LOCALBIN) ;\
+echo "Downloading 'get-helm' script" ;\
+curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 ;\
+chmod 700 get_helm.sh ;\
+HELM_INSTALL_DIR=$(LOCALBIN) ./get_helm.sh --version $(HELM_VERSION) --no-sudo ;\
 rm -rf $$TMP_DIR ;\
-echo "Helm $(HELM_VERSION) has been installed to $(LOCALBIN)" ;\
 }
 endef
