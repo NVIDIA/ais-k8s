@@ -287,7 +287,7 @@ $ export IMG=ais-operator:testing
 $ make docker-build
 $ kind load docker-image --name ais-operator-test "${IMG}"
 $
-$ kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.10.0/cert-manager.yaml
+$ kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.16.1/cert-manager.yaml
 $ wait 20
 $
 $ # Make sure that in `config/manager/manager.yaml` you set `imagePullPolicy: Never`.
