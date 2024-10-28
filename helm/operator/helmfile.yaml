@@ -2,7 +2,7 @@ environments:
   default:
     values:
       - certManager:
-          enabled: false
+          enabled: true
 
 ---
 
@@ -20,7 +20,7 @@ releases:
     condition: certManager.enabled
     wait: true
     set:
-      - name: installCRDs
+      - name: crds.enabled
         value: true
     
   - name: ais-operator
