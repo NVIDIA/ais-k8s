@@ -39,6 +39,7 @@ type (
 		ctx    context.Context
 		params *api.BaseParams
 		mode   string
+		tlsCfg *tls.Config
 	}
 )
 
@@ -100,22 +101,22 @@ func (c *AIStoreClient) ShutdownCluster() error {
 	return api.ShutdownCluster(*c.params)
 }
 
-func NewAIStoreClient(ctx context.Context, url, token, mode string) *AIStoreClient {
+func NewAIStoreClient(ctx context.Context, url, token, mode string, tlsCfg *tls.Config) *AIStoreClient {
 	return &AIStoreClient{
 		ctx:    ctx,
-		params: buildBaseParams(url, token),
+		params: buildBaseParams(url, token, tlsCfg),
 		mode:   mode,
+		tlsCfg: tlsCfg,
 	}
 }
 
-func buildBaseParams(url, token string) *api.BaseParams {
+func buildBaseParams(url, token string, tlsCfg *tls.Config) *api.BaseParams {
 	transportArgs := cmn.TransportArgs{
 		Timeout:         10 * time.Second,
 		UseHTTPProxyEnv: true,
 	}
 	transport := cmn.NewTransport(transportArgs)
-
-	transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	transport.TLSClientConfig = tlsCfg
 
 	return &api.BaseParams{
 		Client: &http.Client{

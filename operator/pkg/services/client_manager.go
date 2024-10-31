@@ -6,9 +6,14 @@ package services
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sync"
 
+	aiscos "github.com/NVIDIA/aistore/cmn/cos"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	aisclient "github.com/ais-operator/pkg/client"
 	"github.com/ais-operator/pkg/resources/proxy"
@@ -16,7 +21,11 @@ import (
 )
 
 const (
-	APIModePublic = "public"
+	APIModePublic  = "public"
+	EnvSkipVerify  = "OPERATOR_SKIP_VERIFY_CRT"
+	ClientCertFile = "tls.crt"
+	ClientKeyFile  = "tls.key"
+	ClientCAFile   = "ca.crt"
 )
 
 //go:generate mockgen -source $GOFILE -destination mocks/client_manager.go . AISClientManagerInterface
@@ -78,8 +87,18 @@ func (m *AISClientManager) GetClient(ctx context.Context,
 			return nil, err
 		}
 	}
-	logger.Info("Creating AIS API client", "url", url, "authN", adminToken != "")
-	client = NewAIStoreClient(ctx, url, adminToken, ais.GetAPIMode())
+
+	tlsConf, err := m.getTLSConfig(ctx, ais)
+	if err != nil {
+		return nil, err
+	}
+
+	if tlsConf == nil {
+		logger.Info("Creating AIS API client", "url", url, "authN", adminToken != "")
+	} else {
+		logger.Info("Creating HTTPS AIS API client", "url", url, "authN", adminToken != "", "tlsPath", m.getTLSPath(ais), "skipVerify", tlsConf.InsecureSkipVerify)
+	}
+	client = NewAIStoreClient(ctx, url, adminToken, ais.GetAPIMode(), tlsConf)
 	m.mu.Lock()
 	m.clientMap[ais.NamespacedName().String()] = client
 	m.mu.Unlock()
@@ -139,6 +158,83 @@ func (m *AISClientManager) getPublicAISHostname(ctx context.Context, ais *aisv1.
 		return "", fmt.Errorf("no ready pods found matching selector %q", proxy.PodLabels(ais))
 	}
 	return pods.Items[0].Status.HostIP, nil
+}
+
+func (m *AISClientManager) getTLSConfig(ctx context.Context, ais *aisv1.AIStore) (*tls.Config, error) {
+	if !ais.UseHTTPS() {
+		return nil, nil
+	}
+	tlsDir := m.getTLSPath(ais)
+	tlsConf := &tls.Config{}
+	err := configureCAVerification(ctx, tlsConf, tlsDir)
+	if err != nil {
+		return nil, err
+	}
+	addClientCertIfRequested(ais, tlsConf, tlsDir)
+	return tlsConf, err
+}
+
+func configureCAVerification(ctx context.Context, tlsConf *tls.Config, tlsDir string) error {
+	skipVerify, err := aiscos.ParseBool(os.Getenv(EnvSkipVerify))
+	if err != nil {
+		return err
+	}
+	if skipVerify {
+		tlsConf.InsecureSkipVerify = true
+		return nil
+	}
+	// Add CA from our specified TLS config dir to the system trusted CA pool
+	providedCA := filepath.Join(tlsDir, ClientCAFile)
+	caPool, err := loadOptionalProvidedCA(providedCA)
+	if err != nil {
+		logf.FromContext(ctx).Error(err, "Failed to load AIS CA", "location", providedCA)
+		return err
+	}
+	tlsConf.RootCAs = caPool
+	return nil
+}
+
+func addClientCertIfRequested(ais *aisv1.AIStore, tlsConf *tls.Config, tlsDir string) {
+	if tls.ClientAuthType(*ais.Spec.ConfigToUpdate.Net.HTTP.ClientAuthTLS) < tls.RequestClientCert {
+		return
+	}
+	certPath := filepath.Join(tlsDir, ClientCertFile)
+	keyPath := filepath.Join(tlsDir, ClientKeyFile)
+	tlsConf.GetClientCertificate = func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+		var cert tls.Certificate
+		cert, err := tls.LoadX509KeyPair(certPath, keyPath)
+		if err != nil {
+			return nil, err
+		}
+		return &cert, nil
+	}
+}
+
+func (m *AISClientManager) getTLSPath(ais *aisv1.AIStore) string {
+	if m.tlsOpts.CertPerCluster {
+		return filepath.Join(m.tlsOpts.CertPath, ais.Namespace, ais.Name)
+	}
+	return m.tlsOpts.CertPath
+}
+
+// TODO: Support additional CA trust from configMap
+func loadOptionalProvidedCA(caPath string) (*x509.CertPool, error) {
+	cert, err := os.ReadFile(caPath)
+	if err != nil {
+		// If the CA does not exist, return nil which should default to the system pool
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	pool, err := x509.SystemCertPool()
+	if err != nil {
+		return nil, err
+	}
+	if ok := pool.AppendCertsFromPEM(cert); !ok {
+		return nil, fmt.Errorf("operator tls: failed to append CA certs from PEM: %q", caPath)
+	}
+	return pool, nil
 }
 
 func createAPIURL(https bool, hostname, port string) string {

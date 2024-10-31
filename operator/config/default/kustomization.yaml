@@ -125,6 +125,7 @@ patches:
 
 - path: manager_webhook_patch.yaml
 - path: webhookcainjection_patch.yaml
+- path: manager_env_patch.yaml
 # Mount the controller config file for loading manager configurations
 # through a ComponentConfig type
 # - path: manager_config_patch.yaml

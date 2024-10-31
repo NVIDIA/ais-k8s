@@ -15,8 +15,10 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 - Add support for `AIS_TEST_API_MODE` environment variable to specify API mode for non-external LB clusters.
 - Add support for `TEST_EPHEMERAL_CLUSTER` environment variable to skip cleanup/teardown when testing on ephemeral clusters (e.g. in CI).
 - Add optional mount for `operator-tls` for supplying the operator with a certificate for client authentication.
-- Add `ais-client-cert-path` for defining specific location of operator AIS client certificates
-- Add `ais-client-cert-per-cluster` to support separate certificate locations for each AIS cluster
+- Add `ais-client-cert-path` for defining specific location of operator AIS client certificates.
+- Add `ais-client-cert-per-cluster` to support separate certificate locations for each AIS cluster.
+- Add `OPERATOR_SKIP_VERIFY_CRT` option to deployment, which will initially default to `True` to match previous deployments.
+- Add TLS configuration to AIS API client, supporting additional CA trust and client Auth. 
 
 ### Changed
 
