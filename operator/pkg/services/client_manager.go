@@ -6,7 +6,10 @@ package services
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"os"
 	"sync"
 
 	aisv1 "github.com/ais-operator/api/v1beta1"
@@ -68,7 +71,29 @@ func (m *AISClientManager) GetClient(ctx context.Context,
 		}
 	}
 
-	client = NewAIStoreClient(ctx, url, adminToken)
+	var pool *x509.CertPool
+	if ais.GetHTTPSClientCA() != "" {
+		cert, err := os.ReadFile(ais.GetHTTPSClientCA())
+		if err != nil {
+			return nil, err
+		}
+		pool = x509.NewCertPool()
+		if ok := pool.AppendCertsFromPEM(cert); !ok {
+			return nil, fmt.Errorf("operator tls: failed to append CA certs from PEM: %q", ais.GetHTTPSClientCA())
+		}
+	}
+	tlsConf := &tls.Config{RootCAs: pool, InsecureSkipVerify: ais.GetHTTPSSkipVerifyCrt()}
+	if ais.GetHTTPSCertificate() != "" && ais.GetHTTPSCertKey() != "" {
+		tlsConf.GetClientCertificate = func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+			cert, err := tls.LoadX509KeyPair(ais.GetHTTPSCertificate(), ais.GetHTTPSCertKey())
+			if err != nil {
+				return nil, err
+			}
+			return &cert, nil
+		}
+	}
+
+	client = NewAIStoreClient(ctx, url, adminToken, tlsConf)
 	m.mu.Lock()
 	m.clientMap[ais.NamespacedName().String()] = client
 	m.mu.Unlock()
