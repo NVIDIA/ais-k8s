@@ -29,7 +29,7 @@ type (
 		GetClusterMap() (smap *meta.Smap, err error)
 		Health(readyToRebalance bool) error
 		SetClusterConfigUsingMsg(configToUpdate *cmn.ConfigToSet, transient bool) error
-		SetPrimaryProxy(newPrimaryID string, force bool) error
+		SetPrimaryProxy(newPrimaryID, newPrimaryURL string, force bool) error
 		ShutdownCluster() error
 		HasValidBaseParams(ais *aisv1.AIStore) bool
 	}
@@ -86,8 +86,8 @@ func (c *AIStoreClient) SetClusterConfigUsingMsg(config *cmn.ConfigToSet, transi
 	return api.SetClusterConfigUsingMsg(*c.params, config, transient)
 }
 
-func (c *AIStoreClient) SetPrimaryProxy(newPrimaryID string, force bool) error {
-	return api.SetPrimaryProxy(*c.params, newPrimaryID, force)
+func (c *AIStoreClient) SetPrimaryProxy(newPrimaryID, newPrimaryURL string, force bool) error {
+	return api.SetPrimary(*c.params, newPrimaryID, newPrimaryURL, force)
 }
 
 func (c *AIStoreClient) ShutdownCluster() error {

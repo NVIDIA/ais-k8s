@@ -374,6 +374,31 @@ spec:
                       startup_time:
                         type: string
                     type: object
+                  tracing:
+                    description: 'NOTE: Updating TracingConfig requires daemon restart.'
+                    properties:
+                      attributes:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      enabled:
+                        type: boolean
+                      exporter_auth:
+                        properties:
+                          token_file:
+                            type: string
+                          token_header:
+                            type: string
+                        type: object
+                      exporter_endpoint:
+                        type: string
+                      sampler_probability:
+                        type: string
+                      service_name_prefix:
+                        type: string
+                      skip_verify:
+                        type: boolean
+                    type: object
                   transport:
                     properties:
                       burst_buffer:
@@ -3664,6 +3689,9 @@ spec:
                 type: string
               tlsSecretName:
                 description: Secret name containing TLS cert/key
+                type: string
+              tracingTokenSecretName:
+                description: Secret name containing OTEL trace-exporter token.
                 type: string
             required:
             - enableExternalLB

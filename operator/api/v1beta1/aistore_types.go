@@ -164,6 +164,9 @@ type AIStoreSpec struct {
 	// +optional
 	TLSSecretName *string `json:"tlsSecretName,omitempty"`
 
+	// Secret name containing OTEL trace-exporter token.
+	TracingTokenSecretName *string `json:"tracingTokenSecretName,omitempty"`
+
 	// Name of Cert Manager CSI Issuer used for getting the cert/key
 	// +optional
 	TLSCertManagerIssuerName *string `json:"tlsCertManagerIssuerName,omitempty"`

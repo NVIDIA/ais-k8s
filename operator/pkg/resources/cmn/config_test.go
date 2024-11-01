@@ -26,6 +26,13 @@ var _ = Describe("Config", Label("short"), func() {
 					Enabled:       aisapc.Ptr(true),
 					DontEvictTime: (*aisv1.Duration)(aisapc.Ptr[int64](10)),
 				},
+				Tracing: &aisv1.TracingConfToUpdate{
+					Enabled: aisapc.Ptr(true),
+					ExporterAuth: &aisv1.TraceExporterAuthConfToUpdate{
+						TokenHeader: aisapc.Ptr("token-header"),
+						TokenFile:   aisapc.Ptr("token-file"),
+					},
+				},
 				Features: aisapc.Ptr("2568"),
 			}
 
@@ -44,6 +51,10 @@ var _ = Describe("Config", Label("short"), func() {
 			Expect(cfg.LRU.DontEvictTime).To(BeEquivalentTo(10))
 
 			Expect(cfg.Features).To(BeEquivalentTo(2568))
+
+			Expect(cfg.Tracing.Enabled).To(BeTrue())
+			Expect(cfg.Tracing.ExporterAuth.TokenHeader).To(Equal("token-header"))
+			Expect(cfg.Tracing.ExporterAuth.TokenFile).To(Equal("token-file"))
 		})
 	})
 })

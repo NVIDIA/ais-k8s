@@ -3,7 +3,7 @@ module github.com/ais-operator
 go 1.23.2
 
 require (
-	github.com/NVIDIA/aistore v1.3.25
+	github.com/NVIDIA/aistore v1.3.26-0.20241101224506-8534c0aacafb
 	github.com/cert-manager/csi-driver v0.10.1
 	github.com/go-logr/logr v1.4.2
 	github.com/go-test/deep v1.1.1

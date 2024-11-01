@@ -111,6 +111,30 @@ The above spec will tell AIS to allow both mounts to share a single disk as long
 
 > **WARNING:** `allowSharedNoDisks` is deprecated. If you are using a cluster with allowSharedNoDisks, first update the operator to the latest version for compatibility with the latest AIS versions. `allowSharedNoDisks` will be removed in a future update. 
 
+### Deploying cluster with distributed tracing enabled
+
+AIS Operator supports deploying AIStore with distributed tracing enabled. To get started, below instructions demonstrate how to enable distributed tracing and export traces to [Lightstep](https://docs.lightstep.com/).
+
+### Prerequisites
+- **Create a Lightstep Freemium Account**  
+  Sign up for a Lightstep account if you haven't already: [Lightstep Sign-Up](https://info.servicenow.com/developersignup.html).
+
+- **Obtain an Access Token**
+  Follow the instructions to generate an access token: [Lightstep Access Token Guide](https://docs.lightstep.com/docs/create-and-manage-access-tokens).
+
+
+```console
+kubectl create ns ais
+kubectl create secret generic -n ais lightstep-token --from-literal=token=<YOUR-LIGHTSTEP-TOKEN>
+kubectl apply -f config/samples/ais_v1beta1_aistore_tracing.yaml
+```
+
+After a successful deployment, traces will be available in the Lightstep dashboard.
+
+While Lightstep is used in the example for simplicity, AIStore supports exporting traces to any OpenTelemetry (OTEL)-compatible tracing solution.
+
+Refer to the [AIStore distributed-tracing](https://github.com/NVIDIA/aistore/blob/main/docs/distributed-tracing.md) doc for more details.
+
 ### Locally testing multi-node AIS cluster
 
 By default, AIS operator restricts having more than one AIS target per K8s node. In other words, if AIS custom resource spec has a `size` greater than the number of K8s nodes, additional target pods will remain pending until we add a new K8s node.

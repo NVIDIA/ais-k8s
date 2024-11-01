@@ -22,7 +22,7 @@ import (
 // TODO: Should be provided from test config.
 const (
 	DefaultNodeImage  = "aistorage/aisnode:v3.25"
-	DefaultInitImage  = "aistorage/ais-init:vd-init-container"
+	DefaultInitImage  = "aistorage/ais-init:v3.25"
 	PreviousNodeImage = "aistorage/aisnode:v3.24"
 )
 

@@ -39,6 +39,7 @@ const (
 	awsSecretVolume      = "aws-creds"
 	gcpSecretVolume      = "gcp-creds" //nolint:gosec // This is not really credential.
 	tlsSecretVolume      = "tls-certs"
+	tracingSecretVolume  = "tracing-token"
 	logsVolume           = "logs-dir"
 )
 
@@ -154,6 +155,17 @@ func NewAISVolumes(ais *v1beta1.AIStore, daeType string) []v1.Volume {
 			},
 		})
 	}
+
+	if ais.Spec.TracingTokenSecretName != nil {
+		volumes = append(volumes, v1.Volume{
+			Name: tracingSecretVolume,
+			VolumeSource: v1.VolumeSource{
+				Secret: &v1.SecretVolumeSource{
+					SecretName: *ais.Spec.TracingTokenSecretName,
+				},
+			},
+		})
+	}
 	return volumes
 }
 
@@ -231,6 +243,13 @@ func NewAISVolumeMounts(ais *v1beta1.AIStore, daeType string) []v1.VolumeMount {
 			Name:      tlsSecretVolume,
 			ReadOnly:  true,
 			MountPath: "/var/certs",
+		})
+	}
+	if spec.TracingTokenSecretName != nil {
+		volumeMounts = append(volumeMounts, v1.VolumeMount{
+			Name:      tracingSecretVolume,
+			ReadOnly:  true,
+			MountPath: "/var/tracing",
 		})
 	}
 

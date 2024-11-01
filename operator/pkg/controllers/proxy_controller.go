@@ -266,7 +266,7 @@ func (r *AIStoreReconciler) setPrimaryTo(ctx context.Context, ais *aisv1.AIStore
 		if !strings.HasPrefix(node.ControlNet.Hostname, podName) {
 			continue
 		}
-		return apiClient.SetPrimaryProxy(node.ID(), true /*force*/)
+		return apiClient.SetPrimaryProxy(node.ID(), node.PubNet.URL, true /*force*/)
 	}
 	return fmt.Errorf("couldn't find a proxy node for pod %q", podName)
 }
@@ -319,7 +319,7 @@ func (r *AIStoreReconciler) handleProxyScaledown(ctx context.Context, ais *aisv1
 		if smap.InMaintOrDecomm(node) {
 			continue
 		}
-		err = apiClient.SetPrimaryProxy(node.DaeID, true /*force*/)
+		err = apiClient.SetPrimaryProxy(node.DaeID, node.PubNet.URL, true /*force*/)
 		if err != nil {
 			logger.Error(err, "failed to set primary as "+node.DaeID)
 			continue

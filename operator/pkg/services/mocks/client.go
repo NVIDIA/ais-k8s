@@ -129,17 +129,17 @@ func (mr *MockAIStoreClientInterfaceMockRecorder) SetClusterConfigUsingMsg(confi
 }
 
 // SetPrimaryProxy mocks base method.
-func (m *MockAIStoreClientInterface) SetPrimaryProxy(newPrimaryID string, force bool) error {
+func (m *MockAIStoreClientInterface) SetPrimaryProxy(newPrimaryID, newPrimaryURL string, force bool) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetPrimaryProxy", newPrimaryID, force)
+	ret := m.ctrl.Call(m, "SetPrimaryProxy", newPrimaryID, newPrimaryURL, force)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetPrimaryProxy indicates an expected call of SetPrimaryProxy.
-func (mr *MockAIStoreClientInterfaceMockRecorder) SetPrimaryProxy(newPrimaryID, force any) *gomock.Call {
+func (mr *MockAIStoreClientInterfaceMockRecorder) SetPrimaryProxy(newPrimaryID, newPrimaryURL, force any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetPrimaryProxy", reflect.TypeOf((*MockAIStoreClientInterface)(nil).SetPrimaryProxy), newPrimaryID, force)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetPrimaryProxy", reflect.TypeOf((*MockAIStoreClientInterface)(nil).SetPrimaryProxy), newPrimaryID, newPrimaryURL, force)
 }
 
 // ShutdownCluster mocks base method.

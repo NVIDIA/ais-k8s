@@ -22,6 +22,7 @@ type (
 		EC          *ECConfToUpdate          `json:"ec,omitempty"`
 		Log         *LogConfToUpdate         `json:"log,omitempty"`
 		Periodic    *PeriodConfToUpdate      `json:"periodic,omitempty"`
+		Tracing     *TracingConfToUpdate     `json:"tracing,omitempty"`
 		Timeout     *TimeoutConfToUpdate     `json:"timeout,omitempty"`
 		Client      *ClientConfToUpdate      `json:"client,omitempty"`
 		Space       *SpaceConfToUpdate       `json:"space,omitempty"`
@@ -70,6 +71,21 @@ type (
 		StatsTime     *Duration `json:"stats_time,omitempty"`
 		RetrySyncTime *Duration `json:"retry_sync_time,omitempty"`
 		NotifTime     *Duration `json:"notif_time,omitempty"`
+	}
+
+	// NOTE: Updating TracingConfig requires daemon restart.
+	TracingConfToUpdate struct {
+		ExporterEndpoint      *string                        `json:"exporter_endpoint,omitempty"`   // gRPC exporter endpoint
+		ExporterAuth          *TraceExporterAuthConfToUpdate `json:"exporter_auth,omitempty"`       // exporter auth config
+		ServiceNamePrefix     *string                        `json:"service_name_prefix,omitempty"` // service name used by trace exporter
+		ExtraAttributes       map[string]string              `json:"attributes,omitempty"`          // any extra-attributes to be added to traces
+		SamplerProbabilityStr *string                        `json:"sampler_probability,omitempty"` // percentage of traces to be sampled
+		Enabled               *bool                          `json:"enabled,omitempty"`
+		SkipVerify            *bool                          `json:"skip_verify,omitempty"` // allow insecure exporter gRPC connection
+	}
+	TraceExporterAuthConfToUpdate struct {
+		TokenHeader *string `json:"token_header,omitempty"` // header used to pass exporter auth token
+		TokenFile   *string `json:"token_file,omitempty"`   // filepath from where auth token can be obtained
 	}
 	TimeoutConfToUpdate struct {
 		CplaneOperation *Duration `json:"cplane_operation,omitempty" list:"readonly"`

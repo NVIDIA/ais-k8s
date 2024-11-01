@@ -1,0 +1,48 @@
+apiVersion: ais.nvidia.com/v1beta1
+kind: AIStore
+metadata:
+  name: aistore-sample
+spec:
+  # Add fields here
+  size: 1
+  proxySpec:
+    servicePort: 51080
+    hostPort: 51080
+    portPublic: 51080
+    portIntraControl: 51082
+    portIntraData: 51083
+
+  targetSpec:
+    servicePort: 51081
+    hostPort: 51081
+    portPublic: 51081
+    portIntraControl: 51082
+    portIntraData: 51083
+
+    mounts:
+      - path: "/ais1"
+        size: 10Gi
+        # Optional: Use label to specify a disk to use for mounting or to specify a shared or "disk-less" mount such as NFS storage
+        label: "disk1"
+
+  configToUpdate:
+    tracing:
+      enabled: true
+      exporter_auth:
+        token_file: /var/tracing/token
+        token_header: lightstep-access-token
+      exporter_endpoint: ingest.lightstep.com:443
+      service_name_prefix: aistore-tracing-demo
+
+
+  nodeImage: "aistorage/aisnode:v3.26-aeed9cb0"
+  initImage: "aistorage/ais-init:v1.2.0"
+  hostpathPrefix: "/etc/ais"
+  logsDir: "/var/log/ais"
+  tracingTokenSecretName: "lightstep-token"
+
+  # To be able to access the AIS deployment outside kubernetes cluster, set:
+  # enableExternalLB: true
+  # NOTE: For external access to work, the kubernetes cluster should have the capabilitly to create LoadBalancer services with valid external IP.
+  # For local testing with `minikube` run `minikube tunnel` in background for emulation. ref: https://minikube.sigs.k8s.io/docs/commands/tunnel/
+  enableExternalLB: false
