@@ -19,6 +19,7 @@ This document provides comprehensive, step-by-step guidance for deploying [AISto
 5. [**Post-Deployment Steps**](#post-deployment-steps)
    - [Monitoring](#monitoring)
    - [Performance Testing with aisloader](#performance-testing-with-aisloader)
+6. [**Troubleshooting Help**](#troubleshooting)
 
 ## Key Points to Remember:
 - While AIStore doesn't necessarily require K8s for deployment, using K8s significantly simplifies large, multinode deployments. We employ Ansible for this process.
@@ -254,6 +255,10 @@ For guidance on monitoring your AIStore deployment, please refer to this [monito
 
 For evaluating the efficiency of your storage cluster, the load generator `aisloader` is a useful tool. Detailed information about `aisloader` is available in its [documentation](https://github.com/NVIDIA/aistore/blob/main/docs/aisloader.md). Additionally, a specialized toolkit, known as [`aisloader-composer`](https://github.com/NVIDIA/aistore/tree/main/bench/tools/aisloader-composer), has been developed which includes a variety of scripts and Ansible playbooks, enabling comprehensive benchmarking of an AIStore (AIS) cluster across multiple hosts. These hosts are equipped with `aisloader` and are collectively managed through Ansible. You can find the setup instructions for `aisloader-composer` and examples of benchmark scripts [here](https://github.com/NVIDIA/aistore/tree/main/bench/tools/aisloader-composer).
 
-Happy deploying! 🎉🚀🖥️
+## Troubleshooting
 
-If you encounter any problems during the deployment process, feel free to report them on the [AIStore repository's issues page](https://github.com/NVIDIA/aistore/issues). We welcome your feedback and queries to enhance the deployment experience.
+If you encounter any problems during the deployment process, feel free to report them on the [AIStore repository's issues page](https://github.com/NVIDIA/aistore/issues). We welcome your feedback and queries to enhance the deployment experience. 
+
+We also provide a [troubleshooting doc](troubleshooting.md) for steps to resolve some of the issues you might come across. 
+
+Happy deploying! 🎉🚀🖥️
