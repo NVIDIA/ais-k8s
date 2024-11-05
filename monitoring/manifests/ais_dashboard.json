@@ -269,7 +269,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum(rate(ais_target_err_get_count{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval])) or on() vector(0)",
+          "expr": "sum(increase(ais_target_err_get_count{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval])) \n+ \nsum(increase(ais_target_err_put_count{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval])) or on() vector(0)\n",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
@@ -1681,7 +1681,7 @@
               "mode": "off"
             }
           },
-          "displayName": "GET Throughput",
+          "displayName": "PUT Throughput",
           "links": [],
           "mappings": [],
           "min": 0,
@@ -1803,7 +1803,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -1916,7 +1917,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -2293,7 +2295,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "avg(rate(ais_target_disk_read_mbps{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval])/1.048576) by (node_id)",
+          "expr": "avg by (node_id) (sum by (node_id) (ais_target_disk_read_mbps{node_id=~\"$target\", cluster=~\"$cluster\"}))",
           "format": "time_series",
           "hide": false,
           "interval": "",
@@ -2364,7 +2366,7 @@
               }
             ]
           },
-          "unit": "MiBs"
+          "unit": "binBps"
         },
         "overrides": []
       },
@@ -2400,7 +2402,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "avg(rate(ais_target_disk_write_mbps{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval])/1.048576) by (node_id)",
+          "expr": "avg by (node_id) (sum by (node_id) (ais_target_disk_write_mbps{node_id=~\"$target\", cluster=~\"$cluster\"}))",
           "format": "time_series",
           "hide": false,
           "interval": "",
@@ -2507,7 +2509,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "avg(rate(ais_target_disk_util{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval])) by (node_id) or vector(0)",
+          "expr": "avg(ais_target_disk_util{node_id=~\"$target\", cluster=~\"${cluster}\"}) by (node_id) or vector(0)",
           "format": "time_series",
           "hide": false,
           "interval": "",
@@ -2613,7 +2615,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum(ais_target_disk_read_mbps{cluster=~\"${cluster}\"})/1.048576",
+          "expr": "sum(ais_target_disk_read_mbps{cluster=~\"${cluster}\"})",
           "hide": false,
           "legendFormat": "Read",
           "range": true,
@@ -2625,7 +2627,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum({__name__=~\"ais_target_disk_write_mbps\", cluster=~\"${cluster}\"})/1.048576",
+          "expr": "sum(ais_target_disk_write_mbps{cluster=~\"${cluster}\"})",
           "hide": false,
           "legendFormat": "Write",
           "range": true,
@@ -2728,7 +2730,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum by (node_id) (rate(ais_target_get_ms{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval])) or vector(0)\n",
+          "expr": "sum by (node_id) (ais_target_get_ms{node_id=~\"$target\", cluster=~\"${cluster}\"}) or vector(0)",
           "format": "time_series",
           "hide": false,
           "interval": "",
@@ -2835,7 +2837,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum by (node_id) (rate(ais_target_put_ms{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval])) or vector(0)\n",
+          "expr": "sum by (node_id) (ais_target_put_ms{node_id=~\"$target\", cluster=~\"${cluster}\"}) or vector(0)",
           "format": "time_series",
           "hide": false,
           "interval": "",
@@ -3366,7 +3368,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum by (node_id) (rate(ais_proxy_get_count{node_id=~\"$proxy\", cluster=~\"${cluster}\"}[$interval]))\n",
+          "expr": "sum by (node_id) (rate(ais_proxy_get_count{node_id=~\"$proxy\", cluster=~\"${cluster}\"}[$interval]))",
           "format": "time_series",
           "hide": false,
           "interval": "",
@@ -3618,7 +3620,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum by (instance) (\n    node_filesystem_size_bytes{instance=~\"$node\", job=\"node-exporter\", device!~\"rootfs\"} - \n    node_filesystem_avail_bytes{instance=~\"$node\", job=\"node-exporter\", device!~\"rootfs\"}\n)\n",
+          "expr": "sum by (instance) (\n    node_filesystem_size_bytes{instance=~\"$node\", job=\"node-exporter\", device!~\"rootfs\"} - \n    node_filesystem_avail_bytes{instance=~\"$node\", job=\"node-exporter\", device!~\"rootfs\"}\n)",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "{{mountpoint}}",
@@ -3866,7 +3868,10 @@
       "type": "row"
     },
     {
-      "datasource": {},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
       "description": "AIStore error rates, broken down by operation",
       "fieldConfig": {
         "defaults": {
@@ -3919,7 +3924,32 @@
             ]
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "__systemRef": "hideSeriesFrom",
+            "matcher": {
+              "id": "byNames",
+              "options": {
+                "mode": "exclude",
+                "names": [
+                  "Errors"
+                ],
+                "prefix": "All except:",
+                "readOnly": true
+              }
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                }
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 8,
@@ -3944,109 +3974,28 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "sum(increase(ais_target_err_get_count[1m])) or vector(0)",
+          "expr": "sum(increase(ais_target_err_put_count{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval]))",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "{{label_name}}",
+          "range": true,
+          "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "sum(increase(ais_target_err_get_count{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval]))",
+          "hide": false,
+          "instant": false,
           "legendFormat": "__auto",
           "range": true,
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "sum(rate({__name__=~\"ais_proxy_${proxy}_err_get_n\"}[5m]))",
-          "hide": false,
-          "legendFormat": "Total errors / sec",
-          "range": true,
-          "refId": "B"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "sum(rate({__name__=~\"ais_proxy_${proxy}_err_delete_n\"}[5m]))",
-          "hide": false,
-          "legendFormat": "DELETE",
-          "range": true,
-          "refId": "C"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "sum(rate({__name__=~\"ais_proxy_${proxy}_err_post_n\"}[5m]))",
-          "hide": false,
-          "legendFormat": "POST",
-          "range": true,
-          "refId": "E"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "sum(rate({__name__=~\"ais_proxy_${proxy}_err_put_n\"}[5m]))",
-          "hide": false,
-          "legendFormat": "PUT",
-          "range": true,
-          "refId": "F"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "sum(rate({__name__=~\"ais_proxy_${proxy}_err_head_n\"}[5m]))",
-          "hide": false,
-          "legendFormat": "HEAD",
-          "range": true,
-          "refId": "G"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "sum(rate({__name__=~\"ais_proxy_${proxy}_err_list_n\"}[5m]))",
-          "hide": false,
-          "legendFormat": "list",
-          "range": true,
-          "refId": "H"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "sum(rate({__name__=~\"ais_proxy_${proxy}_err_range_n\"}[5m]))",
-          "hide": false,
-          "legendFormat": "range",
-          "range": true,
-          "refId": "I"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "sum(rate({__name__=~\"ais_proxy_${proxy}_err_dl_n\"}[5m]))",
-          "hide": false,
-          "legendFormat": "dl",
-          "range": true,
-          "refId": "J"
+          "refId": "K"
         }
       ],
       "title": "AIStore Error Rates by Operation",
@@ -4627,7 +4576,10 @@
       "type": "timeseries"
     },
     {
-      "datasource": {},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
       "description": "Top 10 chattering nodes.",
       "fieldConfig": {
         "defaults": {
@@ -5068,7 +5020,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "topk(10, sum by (instance) (rate(node_network_receive_bytes_total{device=~\"$NIC\"}[5m])) + sum by (instance) (irate(node_network_transmit_bytes_total{device=~\"$NIC\"}[5m])))",
+          "expr": "topk(10, sum by (instance) (rate(node_network_receive_bytes_total{device=~\"$NIC\"}[$interval])) + sum by (instance) (irate(node_network_transmit_bytes_total{device=~\"$NIC\"}[$interval])))",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "{{instance}}",
@@ -5082,7 +5034,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "topk(10, sum by (instance) (irate(node_network_transmit_bytes_total{device=~\"$NIC\"}[5m]) * 8))",
+          "expr": "topk(10, sum by (instance) (irate(node_network_transmit_bytes_total{device=~\"$NIC\"}[$interval]) * 8))",
           "format": "time_series",
           "hide": true,
           "intervalFactor": 1,
@@ -5096,7 +5048,7 @@
       "type": "timeseries"
     }
   ],
-  "refresh": "",
+  "refresh": "30s",
   "schemaVersion": 38,
   "style": "dark",
   "tags": [],
@@ -5105,8 +5057,8 @@
       {
         "current": {
           "selected": false,
-          "text": "aistore-asr-iad",
-          "value": "aistore-asr-iad"
+          "text": "aistore-asr-ord",
+          "value": "aistore-asr-ord"
         },
         "datasource": {
           "type": "prometheus",
@@ -5255,8 +5207,8 @@
       {
         "current": {
           "selected": false,
-          "text": "16",
-          "value": "16"
+          "text": "17",
+          "value": "17"
         },
         "datasource": {
           "type": "prometheus",
@@ -5383,8 +5335,8 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "AIStore Dashboard - ASR",
+  "title": "AIStore Dashboard",
   "uid": "b9a4a6f0-ed0d-4bcc-87b1-dbfa0ed6cabc",
-  "version": 6,
+  "version": 10,
   "weekStart": ""
 }
