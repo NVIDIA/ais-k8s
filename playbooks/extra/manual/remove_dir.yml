@@ -1,0 +1,43 @@
+### This playbook can remove a specified directory from all drives on all hosts in the given inventory
+### WARNING! This is destructive!!!
+### Example dry run: 
+### ansible-playbook -i inventory.ini extra/manual/remove_dir.yml -b -K -f 16 --check
+### Example run: 
+### ansible-playbook -i inventory.ini extra/manual/remove_dir.yml -b -K -f 16
+---
+- name: Remove a given directory across all drives in cluster
+  hosts: all
+  gather_facts: false
+  become: true
+  vars_files:
+    - vars/cluster_config.yaml
+  vars:
+    target_dir: "/path/on/each/drive"
+
+  vars_prompt:
+    - name: "confirmation"
+      prompt: |
+        WARNING! This playbook will remove {{ target_dir }} from all drives on all hosts!
+        Full path pattern to be removed: {{ base_path }}/{drive}/{{ target_dir }}
+        Are you sure you want to proceed? Type 'YES' to continue
+      private: no
+
+  pre_tasks:
+    - name: Verify user confirmation
+      fail:
+        msg: "Playbook execution cancelled by user"
+      when: confirmation != "YES"
+
+  tasks:
+    - name: Remove directory from each drive
+      file:
+        path: "{{ base_path }}/{{ item }}/{{ target_dir }}"
+        state: absent
+      loop: "{{ drives }}"
+      ignore_errors: true
+      register: removal_result
+
+    - name: Display removal status
+      debug:
+        msg: "Removed directory from {{ item.item }}: {{ 'Success' if item.changed else 'Directory not found or already removed' }}"
+      loop: "{{ removal_result.results }}"

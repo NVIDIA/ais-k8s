@@ -1,0 +1,41 @@
+### This playbook can help locate the physical location of an object on a cluster for use in debugging
+### Modify the vars in vars/cluster_config to fit your cluster
+### Example run: 
+### ANSIBLE_DISPLAY_SKIPPED_HOSTS=false ANSIBLE_DISPLAY_OK_HOSTS=false ansible-playbook -i inventory.ini extra/manual/find_physical_loc.yml -K -f 16
+---
+- name: Find the target and drive of a given object
+  hosts: all
+  gather_facts: false
+  become: true
+  vars_files:
+    - vars/cluster_config.yaml
+  vars:
+    provider: "aws"
+    bucket: "data"
+    prefix: "extra/virtual/folder/example"
+    object: "data-file.tar"
+
+  tasks:
+      - name: Find files in directory for each drive
+        find:
+          paths: "{{ base_path }}/{{ item }}/@{{provider}}/{{bucket}}/%ob/{{prefix}}"
+          recurse: true
+          file_type: file
+          patterns: "{{ object }}"
+        register: found_files
+        loop: "{{ drives }}"
+        ignore_errors: true
+
+      - name: Display files with drive and host information
+        debug:
+          msg: |
+            Host: {{ inventory_hostname }}
+            Drive: {{ item.item }}
+            {% for file in item.files %}
+            - {{ file.path }}
+            {% endfor %}
+        loop: "{{ found_files.results }}"
+        when: 
+          - item.files is defined 
+          - item.files | length > 0
+          - "'skipped' not in item"

@@ -1,0 +1,14 @@
+base_path: "/ais"
+drives:
+  - nvme0n1
+  - nvme1n1
+  - nvme2n1
+  - nvme3n1
+  - nvme4n1
+  - nvme5n1
+  - nvme6n1
+  - nvme7n1
+  - nvme8n1
+  - nvme9n1
+  - nvme10n1
+  - nvme11n1
