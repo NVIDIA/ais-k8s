@@ -25,7 +25,7 @@ const (
 	AisConfigDir      = "/var/ais_config"
 	LogsDir           = "/var/log/ais"
 	StatsDDir         = "/var/statsd_config"
-	initGlobalConfDir = "/var/global_config"
+	InitGlobalConfDir = "/var/global_config"
 
 	hostnameMapFileName = "hostname_map.json"
 	AISGlobalConfigName = "ais.json"
@@ -185,11 +185,6 @@ func NewAISVolumeMounts(ais *v1beta1.AIStore, daeType string) []v1.VolumeMount {
 			MountPath: AisConfigDir,
 		},
 		{
-			Name:      configGlobalVolume,
-			MountPath: path.Join(AisConfigDir, AISGlobalConfigName),
-			SubPath:   AISGlobalConfigName,
-		},
-		{
 			Name:      StatsDVolume,
 			MountPath: StatsDDir,
 		},
@@ -262,7 +257,7 @@ func NewInitVolumeMounts() []v1.VolumeMount {
 		},
 		{
 			Name:      configGlobalVolume,
-			MountPath: initGlobalConfDir,
+			MountPath: InitGlobalConfDir,
 		},
 	}
 	return volumeMounts

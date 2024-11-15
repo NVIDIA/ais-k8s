@@ -44,9 +44,11 @@ func NewInitContainerArgs(daeType string, hostnameMap map[string]string) []strin
 		"-role=" + daeType,
 		"-local_config_template=" + path.Join(InitConfTemplateDir, AISLocalConfigName),
 		"-output_local_config=" + path.Join(AisConfigDir, AISLocalConfigName),
+		"-cluster_config_override=" + path.Join(InitGlobalConfDir, AISGlobalConfigName),
+		"-output_cluster_config=" + path.Join(AisConfigDir, AISGlobalConfigName),
 	}
 	if len(hostnameMap) != 0 {
-		args = append(args, "-hostname_map_file="+path.Join(initGlobalConfDir, hostnameMapFileName))
+		args = append(args, "-hostname_map_file="+path.Join(InitGlobalConfDir, hostnameMapFileName))
 	}
 	return args
 }

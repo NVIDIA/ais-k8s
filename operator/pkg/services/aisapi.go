@@ -74,7 +74,7 @@ func (c *AIStoreClient) GetClusterMap() (smap *meta.Smap, err error) {
 }
 
 func (c *AIStoreClient) Health(readyToRebalance bool) error {
-	//TODO: Drop requirement for primary for AIS >= v3.25 (keep now for backwards compat)
+	// TODO: Drop requirement for primary for AIS >= v3.25 (keep now for backwards compat)
 	primaryParams, err := c.getPrimaryParams()
 	if err != nil {
 		return err

@@ -97,10 +97,13 @@ func getMappedHostname(original, mapPath string) string {
 // deployed pod, with optional additional flags
 func main() {
 	var (
-		role                   string
-		aisLocalConfigTemplate string
-		outputLocalConfig      string
-		hostnameMapFile        string
+		role                     string
+		aisLocalConfigTemplate   string
+		aisClusterConfigOverride string
+
+		outputClusterConfig string
+		outputLocalConfig   string
+		hostnameMapFile     string
 
 		localConf aiscmn.LocalConfig
 	)
@@ -108,6 +111,8 @@ func main() {
 	flag.StringVar(&role, "role", "", "AISNode role")
 	flag.StringVar(&aisLocalConfigTemplate, "local_config_template", "", "local template file path")
 	flag.StringVar(&outputLocalConfig, "output_local_config", "", "output local config path")
+	flag.StringVar(&aisClusterConfigOverride, "cluster_config_override", "", "cluster config override file path")
+	flag.StringVar(&outputClusterConfig, "output_cluster_config", "", "output cluster config path")
 	flag.StringVar(&hostnameMapFile, "hostname_map_file", "", "path to file containing hostname map")
 	flag.Parse()
 
@@ -151,5 +156,29 @@ func main() {
 	data, err := jsoniter.Marshal(localConf)
 	failOnError(err)
 	err = os.WriteFile(outputLocalConfig, data, 0o644) //nolint:gosec // For now we don't want to change this.
+	failOnError(err)
+
+	populateClusterConfig(aisClusterConfigOverride, outputClusterConfig)
+}
+
+func populateClusterConfig(aisClusterConfigOverride, outputClusterConfig string) {
+	if outputClusterConfig == "" || aisClusterConfigOverride == "" {
+		return
+	}
+	defaultConfig := newDefaultConfig()
+	data, err := os.ReadFile(aisClusterConfigOverride)
+	failOnError(err)
+
+	var configOverride aiscmn.ConfigToSet
+	err = json.Unmarshal(data, &configOverride)
+	failOnError(err)
+
+	err = aiscmn.CopyProps(configOverride, defaultConfig, aisapc.Cluster)
+	failOnError(err)
+
+	data, err = jsoniter.Marshal(defaultConfig)
+	failOnError(err)
+
+	err = os.WriteFile(outputClusterConfig, data, 0o644) //nolint:gosec // For now we don't want to change this.
 	failOnError(err)
 }
