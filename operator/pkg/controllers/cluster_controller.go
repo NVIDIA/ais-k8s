@@ -686,3 +686,10 @@ func (r *AIStoreReconciler) recordError(ctx context.Context, ais *aisv1.AIStore,
 	logf.FromContext(ctx).Error(err, msg)
 	r.recorder.Eventf(ais, corev1.EventTypeWarning, EventReasonFailed, "%s, err: %v", msg, err)
 }
+
+func isImageUpdated(ss *apiv1.StatefulSet, ais *aisv1.AIStore) bool {
+	if ss.Spec.Template.Spec.InitContainers[0].Image != ais.Spec.InitImage {
+		return true
+	}
+	return ss.Spec.Template.Spec.Containers[0].Image != ais.Spec.NodeImage
+}

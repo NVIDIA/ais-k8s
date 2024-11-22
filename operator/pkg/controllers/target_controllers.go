@@ -262,10 +262,7 @@ func (r *AIStoreReconciler) syncTargetImage(ctx context.Context, ais *aisv1.AISt
 	if err != nil {
 		return
 	}
-	// `aisnode` should be the first container defined in the pod spec
-	aisnodeIndex := 0
-	currentImage := ss.Spec.Template.Spec.Containers[aisnodeIndex].Image
-	if currentImage == ais.Spec.NodeImage {
+	if !isImageUpdated(ss, ais) {
 		return
 	}
 	// Disable rebalance condition before starting a rolling upgrade
@@ -273,8 +270,9 @@ func (r *AIStoreReconciler) syncTargetImage(ctx context.Context, ais *aisv1.AISt
 	if err != nil {
 		return false, fmt.Errorf("failed to disable rebalance before updating image: %w", err)
 	}
-	// Update the statefulset with a new image
-	ss.Spec.Template.Spec.Containers[aisnodeIndex].Image = ais.Spec.NodeImage
+	// Update the statefulset with new images
+	ss.Spec.Template.Spec.InitContainers[0].Image = ais.Spec.InitImage
+	ss.Spec.Template.Spec.Containers[0].Image = ais.Spec.NodeImage
 	err = r.k8sClient.Update(ctx, ss)
 	if err == nil {
 		logf.FromContext(ctx).Info("Target image updated")

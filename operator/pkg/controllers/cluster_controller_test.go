@@ -162,13 +162,10 @@ var _ = Describe("AIStoreController", func() {
 					Expect(err).To(HaveOccurred())
 
 					By("Reconcile to create proxy StatefulSet")
-					result, err := r.handleProxyState(ctx, ais)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(result.Requeue).To(BeTrue())
+					reconcileProxy(ctx, ais, r)
 
 					By("Ensure that proxy StatefulSet has been created")
-					err = c.Get(ctx, types.NamespacedName{Name: "ais-proxy", Namespace: namespace}, &ss)
-					Expect(err).ToNot(HaveOccurred())
+					getStatefulSet(ctx, ais, c, "ais-proxy")
 				})
 
 				It("should create target StatefulSet when it was removed", func() {
@@ -179,13 +176,10 @@ var _ = Describe("AIStoreController", func() {
 					Expect(err).To(HaveOccurred())
 
 					By("Reconcile to create target StatefulSet")
-					result, err := r.handleTargetState(ctx, ais)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(result.Requeue).To(BeTrue())
+					reconcileTarget(ctx, ais, r)
 
 					By("Ensure that target StatefulSet has been created")
-					err = c.Get(ctx, types.NamespacedName{Name: "ais-target", Namespace: namespace}, &ss)
-					Expect(err).ToNot(HaveOccurred())
+					getStatefulSet(ctx, ais, c, "ais-target")
 				})
 
 				It("should properly handle config update", func() {
@@ -218,6 +212,38 @@ var _ = Describe("AIStoreController", func() {
 					err = r.handleConfigState(ctx, ais, true /*force*/)
 					Expect(err).ToNot(HaveOccurred())
 				})
+
+				It("should reconcile new init image in spec", func() {
+					newImg := "testInitImage"
+					createStatefulSets(ctx, c, ais, r)
+
+					By("Update init image in spec and reconcile")
+					apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any(), false).Return(nil).Times(1)
+					ais.Spec.InitImage = newImg
+					err := c.Update(ctx, ais)
+					Expect(err).ToNot(HaveOccurred())
+					reconcileProxy(ctx, ais, r)
+					reconcileTarget(ctx, ais, r)
+
+					By("Expect statefulset spec to update")
+					Eventually(statefulSetsImagesLatest(ctx, c, ais), 30*time.Second, 2*time.Second).Should(Succeed())
+				})
+
+				It("should reconcile new aisnode image in spec", func() {
+					newImg := "testNodeImage"
+					createStatefulSets(ctx, c, ais, r)
+
+					By("Update node image in spec and reconcile")
+					apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any(), false).Return(nil).Times(1)
+					ais.Spec.NodeImage = newImg
+					err := c.Update(ctx, ais)
+					Expect(err).ToNot(HaveOccurred())
+					reconcileProxy(ctx, ais, r)
+					reconcileTarget(ctx, ais, r)
+
+					By("Expect statefulset spec to update")
+					Eventually(statefulSetsImagesLatest(ctx, c, ais), 30*time.Second, 2*time.Second).Should(Succeed())
+				})
 			})
 
 			Describe("With existing cluster", func() {
@@ -231,8 +257,8 @@ var _ = Describe("AIStoreController", func() {
 					_, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: "ais", Namespace: namespace}})
 					Expect(err).ToNot(HaveOccurred())
 
-					var ais aisv1.AIStore
-					err = c.Get(ctx, types.NamespacedName{Name: "ais", Namespace: namespace}, &ais)
+					var ais *aisv1.AIStore
+					err = c.Get(ctx, types.NamespacedName{Name: "ais", Namespace: namespace}, ais)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(ais.GetFinalizers()).To(HaveLen(1))
 					Expect(ais.Status.State).To(Equal(aisv1.ClusterInitialized))
@@ -246,19 +272,11 @@ var _ = Describe("AIStoreController", func() {
 					Expect(proxyService.Spec.Ports).To(HaveLen(3))
 
 					By("Ensure that proxy StatefulSet has been created")
-					var proxySS appsv1.StatefulSet
-					err = c.Get(ctx, types.NamespacedName{Name: "ais-proxy", Namespace: namespace}, &proxySS)
-					Expect(err).ToNot(HaveOccurred())
+					proxySS := getStatefulSet(ctx, ais, c, "ais-proxy")
 					Expect(*proxySS.Spec.Replicas).To(BeEquivalentTo(1))
 
 					By("Waiting for proxies to come up")
-					Eventually(func(g Gomega) {
-						var proxySS appsv1.StatefulSet
-						err = c.Get(ctx, types.NamespacedName{Name: "ais-proxy", Namespace: namespace}, &proxySS)
-						g.Expect(err).ToNot(HaveOccurred())
-						g.Expect(proxySS.Status.Replicas).To(BeEquivalentTo(1))
-						g.Expect(proxySS.Status.ReadyReplicas).To(BeEquivalentTo(1), "%v", proxySS.Status.Conditions)
-					}, 2*time.Minute, 5*time.Second).Should(Succeed())
+					Eventually(proxiesReady(ctx, c, ais), 2*time.Minute, 5*time.Second).Should(Succeed())
 
 					result, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: "ais", Namespace: namespace}})
 					Expect(err).ToNot(HaveOccurred())
@@ -266,26 +284,18 @@ var _ = Describe("AIStoreController", func() {
 
 					By("Ensure that target Service has been created")
 					var targetService corev1.Service
-					err = c.Get(ctx, types.NamespacedName{Name: "ais-proxy", Namespace: namespace}, &targetService)
+					err = c.Get(ctx, types.NamespacedName{Name: "ais-target", Namespace: namespace}, &targetService)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(targetService.Spec.Type).To(Equal(corev1.ServiceTypeClusterIP))
 					Expect(targetService.Spec.ClusterIP).To(Equal(corev1.ClusterIPNone))
 					Expect(targetService.Spec.Ports).To(HaveLen(3))
 
 					By("Ensure that target StatefulSet has been created")
-					var targetSS appsv1.StatefulSet
-					err = c.Get(ctx, types.NamespacedName{Name: "ais-target", Namespace: namespace}, &targetSS)
-					Expect(err).ToNot(HaveOccurred())
+					targetSS := getStatefulSet(ctx, ais, c, "ais-target")
 					Expect(*targetSS.Spec.Replicas).To(BeEquivalentTo(1))
 
 					By("Waiting for targets to come up")
-					Eventually(func(g Gomega) {
-						var targetSS appsv1.StatefulSet
-						err = c.Get(ctx, types.NamespacedName{Name: "ais-target", Namespace: namespace}, &targetSS)
-						g.Expect(err).ToNot(HaveOccurred())
-						g.Expect(targetSS.Status.Replicas).To(BeEquivalentTo(1))
-						g.Expect(targetSS.Status.ReadyReplicas).To(BeEquivalentTo(1), "%v", targetSS.Status.Conditions)
-					}, 2*time.Minute, 5*time.Second).Should(Succeed())
+					Eventually(targetsReady(ctx, c, ais), 2*time.Minute, 5*time.Second).Should(Succeed())
 
 					result, err = r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: "ais", Namespace: namespace}})
 					Expect(err).ToNot(HaveOccurred())
@@ -295,3 +305,63 @@ var _ = Describe("AIStoreController", func() {
 		})
 	})
 })
+
+func statefulSetsImagesLatest(ctx context.Context, c client.Client, ais *aisv1.AIStore) func(g Gomega) {
+	return func(g Gomega) {
+		for _, stsType := range []string{"ais-proxy", "ais-target"} {
+			ss := getStatefulSet(ctx, ais, c, stsType)
+			g.Expect(ss.Spec.Template.Spec.InitContainers[0].Image).To(BeEquivalentTo(ais.Spec.InitImage))
+			g.Expect(ss.Spec.Template.Spec.Containers[0].Image).To(BeEquivalentTo(ais.Spec.NodeImage))
+		}
+	}
+}
+
+func proxiesReady(ctx context.Context, c client.Client, ais *aisv1.AIStore) func(g Gomega) {
+	return func(g Gomega) {
+		ss := getStatefulSet(ctx, ais, c, "ais-proxy")
+		g.Expect(ss.Spec.Template.Spec.InitContainers[0].Image).To(BeEquivalentTo(ais.Spec.InitImage))
+		g.Expect(ss.Spec.Template.Spec.Containers[0].Image).To(BeEquivalentTo(ais.Spec.NodeImage))
+		g.Expect(ss.Status.Replicas).To(BeEquivalentTo(1))
+		g.Expect(ss.Status.ReadyReplicas).To(BeEquivalentTo(1), "%v", ss.Status.Conditions)
+	}
+}
+
+func targetsReady(ctx context.Context, c client.Client, ais *aisv1.AIStore) func(g Gomega) {
+	return func(g Gomega) {
+		ss := getStatefulSet(ctx, ais, c, "ais-target")
+		g.Expect(ss.Spec.Template.Spec.InitContainers[0].Image).To(BeEquivalentTo(ais.Spec.InitImage))
+		g.Expect(ss.Spec.Template.Spec.Containers[0].Image).To(BeEquivalentTo(ais.Spec.NodeImage))
+		g.Expect(ss.Status.Replicas).To(BeEquivalentTo(1))
+		g.Expect(ss.Status.ReadyReplicas).To(BeEquivalentTo(1), "%v", ss.Status.Conditions)
+	}
+}
+
+func createStatefulSets(ctx context.Context, c client.Client, ais *aisv1.AIStore, r *AIStoreReconciler) {
+	By("Reconcile to create StatefulSets")
+	reconcileProxy(ctx, ais, r)
+	reconcileTarget(ctx, ais, r)
+
+	By("Ensure that StatefulSets have been created")
+	getStatefulSet(ctx, ais, c, "ais-proxy")
+	getStatefulSet(ctx, ais, c, "ais-target")
+}
+
+func getStatefulSet(ctx context.Context, ais *aisv1.AIStore, c client.Client, ssName string) (ss appsv1.StatefulSet) {
+	err := c.Get(ctx, types.NamespacedName{Name: ssName, Namespace: ais.Namespace}, &ss)
+	Expect(err).ToNot(HaveOccurred())
+	return
+}
+
+func reconcileTarget(ctx context.Context, ais *aisv1.AIStore, r *AIStoreReconciler) {
+	By("Reconcile targets")
+	result, err := r.handleTargetState(ctx, ais)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(result.Requeue).To(BeTrue())
+}
+
+func reconcileProxy(ctx context.Context, ais *aisv1.AIStore, r *AIStoreReconciler) {
+	By("Reconcile proxies")
+	result, err := r.handleProxyState(ctx, ais)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(result.Requeue).To(BeTrue())
+}

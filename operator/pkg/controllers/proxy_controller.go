@@ -169,8 +169,7 @@ func (r *AIStoreReconciler) handleProxyImage(ctx context.Context, ais *aisv1.AIS
 	logger := logf.FromContext(ctx)
 
 	firstPodName := proxy.PodName(ais, 0)
-	updated := ss.Spec.Template.Spec.Containers[0].Image != ais.Spec.NodeImage
-	if updated {
+	if isImageUpdated(ss, ais) {
 		if ss.Status.ReadyReplicas > 0 {
 			err = r.setPrimaryTo(ctx, ais, 0)
 			if err != nil {
@@ -185,6 +184,7 @@ func (r *AIStoreReconciler) handleProxyImage(ctx context.Context, ais *aisv1.AIS
 				},
 			}
 		}
+		ss.Spec.Template.Spec.InitContainers[0].Image = ais.Spec.InitImage
 		ss.Spec.Template.Spec.Containers[0].Image = ais.Spec.NodeImage
 		result.Requeue = true
 		err = r.k8sClient.Update(ctx, ss)
@@ -201,7 +201,7 @@ func (r *AIStoreReconciler) handleProxyImage(ctx context.Context, ais *aisv1.AIS
 	)
 	for idx := range podList.Items {
 		pod := podList.Items[idx]
-		if pod.Spec.Containers[0].Image == ais.Spec.NodeImage {
+		if pod.Spec.Containers[0].Image == ais.Spec.NodeImage && pod.Spec.InitContainers[0].Image == ais.Spec.InitImage {
 			continue
 		}
 		toUpdate++
