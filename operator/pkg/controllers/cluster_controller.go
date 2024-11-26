@@ -19,6 +19,7 @@ import (
 	"github.com/go-logr/logr"
 	apiv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
@@ -687,9 +688,29 @@ func (r *AIStoreReconciler) recordError(ctx context.Context, ais *aisv1.AIStore,
 	r.recorder.Eventf(ais, corev1.EventTypeWarning, EventReasonFailed, "%s, err: %v", msg, err)
 }
 
-func isImageUpdated(ss *apiv1.StatefulSet, ais *aisv1.AIStore) bool {
-	if ss.Spec.Template.Spec.InitContainers[0].Image != ais.Spec.InitImage {
+func shouldUpdateSpec(desired, spec *corev1.PodSpec) bool {
+	if spec.InitContainers[0].Image != desired.InitContainers[0].Image {
 		return true
 	}
-	return ss.Spec.Template.Spec.Containers[0].Image != ais.Spec.NodeImage
+	return spec.Containers[0].Image != desired.Containers[0].Image
+}
+
+func syncInitContainerSpec(desired, current *corev1.PodSpec) (updated bool) {
+	currentInit := current.InitContainers[0]
+	desiredInit := desired.InitContainers[0]
+	if equality.Semantic.DeepDerivative(desiredInit, currentInit) {
+		return false
+	}
+	current.InitContainers[0] = desiredInit
+	return true
+}
+
+func syncPrimaryContainerSpec(desired, current *corev1.PodSpec) (updated bool) {
+	currentNode := current.Containers[0]
+	desiredNode := desired.Containers[0]
+	if equality.Semantic.DeepDerivative(currentNode, desiredNode) {
+		return false
+	}
+	current.Containers[0] = desiredNode
+	return true
 }

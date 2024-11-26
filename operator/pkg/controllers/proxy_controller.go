@@ -138,7 +138,7 @@ func (r *AIStoreReconciler) handleProxyState(ctx context.Context, ais *aisv1.AIS
 		return
 	}
 
-	result, err = r.handleProxyImage(ctx, ais, ss)
+	result, err = r.syncProxyPodSpec(ctx, ais, ss)
 	if err != nil || !result.IsZero() {
 		return
 	}
@@ -164,12 +164,14 @@ func (r *AIStoreReconciler) handleProxyState(ctx context.Context, ais *aisv1.AIS
 	return
 }
 
-// formerly "ready"
-func (r *AIStoreReconciler) handleProxyImage(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) (result ctrl.Result, err error) {
+func (r *AIStoreReconciler) syncProxyPodSpec(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) (result ctrl.Result, err error) {
 	logger := logf.FromContext(ctx)
-
 	firstPodName := proxy.PodName(ais, 0)
-	if isImageUpdated(ss, ais) {
+	currentPodSpec := &ss.Spec.Template.Spec
+	desiredPodSpec := &proxy.NewProxyStatefulSet(ais, ais.GetProxySize()).Spec.Template.Spec
+
+	// Any change to pod spec will trigger a new rollout, so any changes to the SS should happen here
+	if shouldUpdateSpec(desiredPodSpec, currentPodSpec) {
 		if ss.Status.ReadyReplicas > 0 {
 			err = r.setPrimaryTo(ctx, ais, 0)
 			if err != nil {
@@ -184,10 +186,18 @@ func (r *AIStoreReconciler) handleProxyImage(ctx context.Context, ais *aisv1.AIS
 				},
 			}
 		}
-		ss.Spec.Template.Spec.InitContainers[0].Image = ais.Spec.InitImage
-		ss.Spec.Template.Spec.Containers[0].Image = ais.Spec.NodeImage
+		if syncInitContainerSpec(desiredPodSpec, currentPodSpec) {
+			logger.Info("Proxy init container spec modified")
+		}
+
+		if syncPrimaryContainerSpec(desiredPodSpec, currentPodSpec) {
+			logger.Info("Proxy primary container spec modified")
+		}
 		result.Requeue = true
 		err = r.k8sClient.Update(ctx, ss)
+		if err == nil {
+			logger.Info("Proxy statefulset successfully updated")
+		}
 		return
 	}
 

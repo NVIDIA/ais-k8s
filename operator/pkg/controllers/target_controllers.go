@@ -92,7 +92,7 @@ func (r *AIStoreReconciler) handleTargetState(ctx context.Context, ais *aisv1.AI
 		return
 	}
 
-	result, err = r.handleTargetImage(ctx, ais, ss)
+	result, err = r.syncTargetPodSpec(ctx, ais, ss)
 	if err != nil || !result.IsZero() {
 		return
 	}
@@ -233,51 +233,31 @@ func (r *AIStoreReconciler) decommissionTargets(ctx context.Context, ais *aisv1.
 	return nil
 }
 
-func (r *AIStoreReconciler) handleTargetImage(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) (result ctrl.Result, err error) {
-	updated, err := r.syncTargetImage(ctx, ais)
-	if err != nil {
+func (r *AIStoreReconciler) syncTargetPodSpec(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) (result ctrl.Result, err error) {
+	logger := logf.FromContext(ctx)
+	currentSpec := &ss.Spec.Template.Spec
+	desiredSpec := &target.NewTargetSS(ais).Spec.Template.Spec
+	if !shouldUpdateSpec(desiredSpec, currentSpec) {
 		return
 	}
-	if updated {
-		result.Requeue = true
-		return
-	}
-
-	podList, err := r.k8sClient.ListPods(ctx, ss)
-	if err != nil {
-		return
-	}
-	for idx := range podList.Items {
-		pod := podList.Items[idx]
-		if pod.Spec.Containers[0].Image != ais.Spec.NodeImage {
-			result.Requeue = true
-			return
-		}
-	}
-	return
-}
-
-func (r *AIStoreReconciler) syncTargetImage(ctx context.Context, ais *aisv1.AIStore) (updated bool, err error) {
-	ss, err := r.k8sClient.GetStatefulSet(ctx, target.StatefulSetNSName(ais))
-	if err != nil {
-		return
-	}
-	if !isImageUpdated(ss, ais) {
-		return
-	}
-	// Disable rebalance condition before starting a rolling upgrade
+	// Disable rebalance condition before ANY changes that trigger a rolling upgrade
 	err = r.disableRebalance(ctx, ais, aisv1.ReasonUpgrading, "Disabled due to image update")
 	if err != nil {
-		return false, fmt.Errorf("failed to disable rebalance before updating image: %w", err)
+		return ctrl.Result{}, fmt.Errorf("failed to disable rebalance before updating image: %w", err)
 	}
-	// Update the statefulset with new images
-	ss.Spec.Template.Spec.InitContainers[0].Image = ais.Spec.InitImage
-	ss.Spec.Template.Spec.Containers[0].Image = ais.Spec.NodeImage
+
+	if syncInitContainerSpec(desiredSpec, currentSpec) {
+		logger.Info("Target init container spec modified")
+	}
+
+	if syncPrimaryContainerSpec(desiredSpec, currentSpec) {
+		logger.Info("Target primary container spec modified")
+	}
 	err = r.k8sClient.Update(ctx, ss)
 	if err == nil {
-		logf.FromContext(ctx).Info("Target image updated")
+		logger.Info("Target statefulset successfully updated")
 	}
-	return true, err
+	return ctrl.Result{Requeue: true}, err
 }
 
 func (r *AIStoreReconciler) scaleUpLB(ctx context.Context, ais *aisv1.AIStore) error {
