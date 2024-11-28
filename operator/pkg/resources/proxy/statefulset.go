@@ -114,6 +114,7 @@ func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
 				Command:         []string{"aisnode"},
 				Args:            cmn.NewAISContainerArgs(ais, aisapc.Proxy),
 				Env: cmn.MergeEnvVars(append([]corev1.EnvVar{
+					cmn.EnvFromFieldPath(cmn.EnvNodeName, "spec.nodeName"),
 					cmn.EnvFromFieldPath(cmn.EnvPodName, "metadata.name"),
 					cmn.EnvFromValue(cmn.EnvNS, ais.Namespace),
 					cmn.EnvFromValue(cmn.EnvClusterDomain, ais.GetClusterDomain()),

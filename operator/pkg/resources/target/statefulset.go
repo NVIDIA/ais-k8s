@@ -117,6 +117,7 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 							Command:         []string{"aisnode"},
 							Args:            cmn.NewAISContainerArgs(ais, aisapc.Target),
 							Env: cmn.MergeEnvVars(append([]corev1.EnvVar{
+								cmn.EnvFromFieldPath(cmn.EnvNodeName, "spec.nodeName"),
 								cmn.EnvFromFieldPath(cmn.EnvPodName, "metadata.name"),
 								cmn.EnvFromValue(cmn.EnvNS, ais.Namespace),
 								cmn.EnvFromValue(cmn.EnvClusterDomain, ais.GetClusterDomain()),
