@@ -132,6 +132,7 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 								),
 							}, optionals...), ais.Spec.TargetSpec.Env),
 							Ports:           cmn.NewDaemonPorts(&ais.Spec.TargetSpec.DaemonSpec),
+							Resources:       ais.Spec.TargetSpec.Resources,
 							SecurityContext: ais.Spec.TargetSpec.ContainerSecurity,
 							VolumeMounts:    volumeMounts(ais),
 							StartupProbe:    cmn.NewStartupProbe(ais, aisapc.Target),

@@ -232,7 +232,13 @@ type DaemonSpec struct {
 	// +optional
 	Annotations map[string]string `json:"annotations,omitempty"`
 
-	// ContainerSecurity holds the secrity context for AIS Daemon containers.
+	// Compute Resources required by AIStore daemon pod.
+	// Cannot be updated.
+	// More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+	// +optional
+	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
+
+	// ContainerSecurity holds the security context for AIS Daemon containers.
 	// +optional
 	ContainerSecurity *corev1.SecurityContext `json:"capabilities,omitempty"`
 

@@ -542,6 +542,7 @@ func (in *DaemonSpec) DeepCopyInto(out *DaemonSpec) {
 			(*out)[key] = val
 		}
 	}
+	in.Resources.DeepCopyInto(&out.Resources)
 	if in.ContainerSecurity != nil {
 		in, out := &in.ContainerSecurity, &out.ContainerSecurity
 		*out = new(v1.SecurityContext)
