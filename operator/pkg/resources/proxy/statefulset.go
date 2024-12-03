@@ -94,14 +94,11 @@ func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
 				Name:            "populate-env",
 				Image:           ais.Spec.InitImage,
 				ImagePullPolicy: corev1.PullIfNotPresent,
-				Env: append([]corev1.EnvVar{
-					cmn.EnvFromFieldPath(cmn.EnvNodeName, "spec.nodeName"),
-					cmn.EnvFromFieldPath(cmn.EnvPodName, "metadata.name"),
-					cmn.EnvFromValue(cmn.EnvNS, ais.Namespace),
+				Env: append(append([]corev1.EnvVar{
 					cmn.EnvFromValue(cmn.EnvServiceName, headlessSVCName(ais)),
 					cmn.EnvFromValue(cmn.EnvClusterDomain, ais.GetClusterDomain()),
 					cmn.EnvFromValue(cmn.EnvDefaultPrimaryPod, ais.DefaultPrimaryName()),
-				}, optionals...),
+				}, cmn.CommonEnv()...), optionals...),
 				Args:         cmn.NewInitContainerArgs(aisapc.Proxy, ais.Spec.HostnameMap),
 				VolumeMounts: cmn.NewInitVolumeMounts(),
 			},
@@ -113,10 +110,7 @@ func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
 				ImagePullPolicy: corev1.PullAlways,
 				Command:         []string{"aisnode"},
 				Args:            cmn.NewAISContainerArgs(ais, aisapc.Proxy),
-				Env: cmn.MergeEnvVars(append([]corev1.EnvVar{
-					cmn.EnvFromFieldPath(cmn.EnvNodeName, "spec.nodeName"),
-					cmn.EnvFromFieldPath(cmn.EnvPodName, "metadata.name"),
-					cmn.EnvFromValue(cmn.EnvNS, ais.Namespace),
+				Env: cmn.MergeEnvVars(append(append([]corev1.EnvVar{
 					cmn.EnvFromValue(cmn.EnvClusterDomain, ais.GetClusterDomain()),
 					cmn.EnvFromValue(cmn.EnvShutdownMarkerPath, cmn.AisConfigDir),
 					cmn.EnvFromValue(cmn.EnvCIDR, ""), // TODO: Should take from specs
@@ -126,7 +120,7 @@ func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
 					cmn.EnvFromValue(cmn.EnvEnablePrometheus,
 						strconv.FormatBool(ais.Spec.EnablePromExporter != nil && *ais.Spec.EnablePromExporter)),
 					cmn.EnvFromValue(cmn.EnvNumTargets, strconv.Itoa(int(ais.GetTargetSize()))),
-				}, optionals...), ais.Spec.ProxySpec.Env),
+				}, cmn.CommonEnv()...), optionals...), ais.Spec.ProxySpec.Env),
 				Ports:           cmn.NewDaemonPorts(&ais.Spec.ProxySpec),
 				Resources:       ais.Spec.ProxySpec.Resources,
 				SecurityContext: ais.Spec.ProxySpec.ContainerSecurity,

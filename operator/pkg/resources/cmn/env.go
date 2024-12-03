@@ -4,6 +4,8 @@
  */
 package cmn
 
+import corev1 "k8s.io/api/core/v1"
+
 // Environment variables used by AIS init&daemon containers
 const (
 	EnvNodeName    = "MY_NODE"    // Hostname of node in which pod is deployed
@@ -32,3 +34,11 @@ const (
 	// AuthN related environment variables
 	EnvAuthNSecretKey = "SIGNING-KEY" // Key for secret signing key in the K8s secret
 )
+
+func CommonEnv() []corev1.EnvVar {
+	return []corev1.EnvVar{
+		EnvFromFieldPath(EnvNodeName, "spec.nodeName"),
+		EnvFromFieldPath(EnvPodName, "metadata.name"),
+		EnvFromFieldPath(EnvNS, "metadata.namespace"),
+	}
+}

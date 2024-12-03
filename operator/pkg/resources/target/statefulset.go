@@ -94,17 +94,14 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 							Name:            "populate-env",
 							Image:           ais.Spec.InitImage,
 							ImagePullPolicy: corev1.PullIfNotPresent,
-							Env: append([]corev1.EnvVar{
-								cmn.EnvFromFieldPath(cmn.EnvNodeName, "spec.nodeName"),
-								cmn.EnvFromFieldPath(cmn.EnvPodName, "metadata.name"),
-								cmn.EnvFromValue(cmn.EnvNS, ais.Namespace),
+							Env: append(append([]corev1.EnvVar{
 								cmn.EnvFromValue(cmn.EnvServiceName, headlessSVCName(ais)),
 								cmn.EnvFromValue(cmn.EnvClusterDomain, ais.GetClusterDomain()),
 								cmn.EnvFromValue(
 									cmn.EnvEnableExternalAccess,
 									strconv.FormatBool(ais.Spec.EnableExternalLB),
 								),
-							}, optionals...),
+							}, cmn.CommonEnv()...), optionals...),
 							Args:         cmn.NewInitContainerArgs(aisapc.Target, ais.Spec.HostnameMap),
 							VolumeMounts: cmn.NewInitVolumeMounts(),
 						},
@@ -116,10 +113,7 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 							ImagePullPolicy: corev1.PullAlways,
 							Command:         []string{"aisnode"},
 							Args:            cmn.NewAISContainerArgs(ais, aisapc.Target),
-							Env: cmn.MergeEnvVars(append([]corev1.EnvVar{
-								cmn.EnvFromFieldPath(cmn.EnvNodeName, "spec.nodeName"),
-								cmn.EnvFromFieldPath(cmn.EnvPodName, "metadata.name"),
-								cmn.EnvFromValue(cmn.EnvNS, ais.Namespace),
+							Env: cmn.MergeEnvVars(append(append([]corev1.EnvVar{
 								cmn.EnvFromValue(cmn.EnvClusterDomain, ais.GetClusterDomain()),
 								cmn.EnvFromValue(cmn.EnvCIDR, ""), // TODO: add
 								cmn.EnvFromValue(cmn.EnvConfigFilePath, path.Join(cmn.AisConfigDir, cmn.AISGlobalConfigName)),
@@ -130,7 +124,7 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 									cmn.EnvEnablePrometheus,
 									strconv.FormatBool(ais.Spec.EnablePromExporter != nil && *ais.Spec.EnablePromExporter),
 								),
-							}, optionals...), ais.Spec.TargetSpec.Env),
+							}, cmn.CommonEnv()...), optionals...), ais.Spec.TargetSpec.Env),
 							Ports:           cmn.NewDaemonPorts(&ais.Spec.TargetSpec.DaemonSpec),
 							Resources:       ais.Spec.TargetSpec.Resources,
 							SecurityContext: ais.Spec.TargetSpec.ContainerSecurity,
