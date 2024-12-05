@@ -233,3 +233,19 @@ spec:
         annotations:
           summary: AIS KeepAlive Errors Detected
           description: "AIS Node '{{ $labels.node_id }}' (instance '{{ $labels.instance }}') has encountered keep-alive errors within the last 5 minute."
+      - alert: AISOutOfCPU
+        expr: (floor(ais_target_state_flags / 1048576)) % 2 == 1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: AIS Node Out of CPU
+          description: "AIS Node '{{ $labels.node_id }}' (instance '{{ $labels.instance }}') is out of CPU resources, with utilization exceeding 95%."
+      - alert: AISLowCPU
+        expr: (floor(ais_target_state_flags / 2097152)) % 2 == 1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: AIS Node Low CPU Availability
+          description: "AIS Node '{{ $labels.node_id }}' (instance '{{ $labels.instance }}') has low CPU availability, with utilization exceeding 80%."
