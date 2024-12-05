@@ -24,9 +24,8 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 2241,
+  "id": 2,
   "links": [],
-  "liveNow": false,
   "panels": [
     {
       "collapsed": false,
@@ -44,7 +43,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "Prometheus"
       },
       "description": "Percentage of AIStore storage used across the cluster",
       "fieldConfig": {
@@ -109,15 +108,15 @@
         "showThresholdMarkers": true,
         "sizing": "auto"
       },
-      "pluginVersion": "10.1.2",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "(\n    sum(node_filesystem_size_bytes{instance=~\"^${node}$\", job=\"node-exporter\", mountpoint=~\"/ais/.*\", fstype!=\"rootfs\", cluster=~\"${cluster}\"}) \n    - \n    sum(node_filesystem_avail_bytes{instance=~\"^${node}$\", job=\"node-exporter\", mountpoint=~\"/ais/.*\", fstype!=\"rootfs\", cluster=~\"${cluster}\"})\n) \n/ \nsum(node_filesystem_size_bytes{instance=~\"^${node}$\", job=\"node-exporter\", mountpoint=~\"/ais/.*\", fstype!=\"rootfs\", cluster=~\"${cluster}\"}) \n* 100\n",
+          "expr": "(1-sum(node_filesystem_avail_bytes{instance=~\"^${node}$\", job=\"node-exporter\", mountpoint=~\"/ais/.*\", fstype!=\"rootfs\", cluster=~\"${cluster}\"})/ sum(node_filesystem_size_bytes{instance=~\"^${node}$\", job=\"node-exporter\", mountpoint=~\"/ais/.*\", fstype!=\"rootfs\", cluster=~\"${cluster}\"})) \n* 100",
           "format": "time_series",
           "intervalFactor": 1,
           "range": true,
@@ -131,7 +130,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "Prometheus"
       },
       "description": "Total Raw Storage Capacity",
       "fieldConfig": {
@@ -189,12 +188,12 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "10.1.2",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "Prometheus"
           },
           "editorMode": "code",
           "expr": "sum(node_filesystem_size_bytes{instance=~\"^${node}$\",job=\"node-exporter\",mountpoint=~\"/ais/.*\",fstype!=\"rootfs\", cluster=~\"${cluster}\"})",
@@ -211,7 +210,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "Prometheus"
       },
       "description": "The per-second rate of GET errors across the selected targets within the specified time interval",
       "fieldConfig": {
@@ -261,12 +260,12 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "10.1.2",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "Prometheus"
           },
           "editorMode": "code",
           "expr": "sum(increase(ais_target_err_get_count{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval])) \n+ \nsum(increase(ais_target_err_put_count{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval])) or on() vector(0)\n",
@@ -281,7 +280,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "Prometheus"
       },
       "description": "Current AIStore GET Throughput",
       "fieldConfig": {
@@ -332,12 +331,12 @@
         "textMode": "value",
         "wideLayout": true
       },
-      "pluginVersion": "10.1.2",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "Prometheus"
           },
           "editorMode": "code",
           "expr": "sum(rate(ais_target_get_bytes{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval])) / (1024 * 1024) or vector(0)",
@@ -352,7 +351,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "Prometheus"
       },
       "description": "Unavailable cluster nodes",
       "fieldConfig": {
@@ -402,12 +401,12 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "10.1.2",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "Prometheus"
           },
           "editorMode": "code",
           "expr": "kube_daemonset_status_number_unavailable{daemonset=\"kube-prometheus-stack-prometheus-node-exporter\", cluster=~\"${cluster}\"}\n",
@@ -424,7 +423,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "Prometheus"
       },
       "description": "Count of total unavailable proxies in the cluster",
       "fieldConfig": {
@@ -474,12 +473,12 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "10.1.2",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "Prometheus"
           },
           "editorMode": "code",
           "expr": "max(kube_statefulset_status_replicas{statefulset=~\".*proxy$\", namespace=\"${namespace}\", cluster=~\"${cluster}\"}) - min(kube_statefulset_status_replicas_ready{statefulset=~\".*proxy$\", namespace=\"${namespace}\", cluster=~\"${cluster}\"})",
@@ -496,7 +495,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "Prometheus"
       },
       "description": "Total unavailable targets count",
       "fieldConfig": {
@@ -546,12 +545,12 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "10.1.2",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "Prometheus"
           },
           "editorMode": "code",
           "expr": "max(kube_statefulset_status_replicas{statefulset=~\".*target$\", namespace=\"${namespace}\", cluster=~\"${cluster}\"}) - min(kube_statefulset_status_replicas_ready{statefulset=~\".*target$\", namespace=\"${namespace}\", cluster=~\"${cluster}\"})",
@@ -568,7 +567,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "Prometheus"
       },
       "description": "Total AIStore requests per second",
       "fieldConfig": {
@@ -613,12 +612,12 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "10.1.2",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "Prometheus"
           },
           "editorMode": "code",
           "expr": "sum(rate(ais_target_get_count{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval]))",
@@ -633,7 +632,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "Prometheus"
       },
       "description": "Mean AIstore target request latency for operations.",
       "fieldConfig": {
@@ -683,12 +682,12 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "10.1.2",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "Prometheus"
           },
           "editorMode": "code",
           "expr": "avg(ais_target_get_ms{node_id=~\"$target\", cluster=~\"$cluster\"}) or vector(0)",
@@ -703,7 +702,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "Prometheus"
       },
       "description": "Current AIStore PUT Throughput",
       "fieldConfig": {
@@ -754,12 +753,12 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "10.1.2",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "Prometheus"
           },
           "editorMode": "code",
           "expr": "sum(rate(ais_target_put_bytes{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval])) / (1024 * 1024) or vector(0)",
@@ -774,7 +773,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "Prometheus"
       },
       "description": "Count of physical machines in the cluster",
       "fieldConfig": {
@@ -820,12 +819,12 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "10.1.2",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "Prometheus"
           },
           "editorMode": "code",
           "expr": "count(kube_node_info{cluster=~\"${cluster}\"})",
@@ -842,7 +841,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "Prometheus"
       },
       "description": "Count of total proxies in the cluster",
       "fieldConfig": {
@@ -888,12 +887,12 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "10.1.2",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "Prometheus"
           },
           "editorMode": "code",
           "expr": "kube_statefulset_replicas{statefulset=~\".*proxy\", namespace=\"${namespace}\", cluster=~\"${cluster}\"}",
@@ -910,7 +909,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "Prometheus"
       },
       "description": "AIStore target replica count",
       "fieldConfig": {
@@ -956,12 +955,12 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "10.1.2",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "Prometheus"
           },
           "editorMode": "code",
           "expr": "kube_statefulset_replicas{statefulset=~\".*target\", namespace=\"${namespace}\", cluster=~\"${cluster}\"}",
@@ -991,7 +990,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "Prometheus"
       },
       "description": "Mean busy state of all CPU cores together",
       "fieldConfig": {
@@ -1055,12 +1054,12 @@
         "showThresholdMarkers": true,
         "sizing": "auto"
       },
-      "pluginVersion": "10.1.2",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "Prometheus"
           },
           "editorMode": "code",
           "expr": "avg((sum by(instance) (irate(node_cpu_seconds_total{instance=~\"^$node$\",job=\"node-exporter\", mode!=\"idle\", cluster=~\"${cluster}\"}[$interval])) / on(instance) group_left sum by (instance)((irate(node_cpu_seconds_total{instance=~\"^${node}$\",job=\"node-exporter\", cluster=~\"${cluster}\"}[$interval])))) * 100)\n",
@@ -1078,7 +1077,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "Prometheus"
       },
       "description": "Mean 5m load average",
       "fieldConfig": {
@@ -1142,12 +1141,12 @@
         "showThresholdMarkers": true,
         "sizing": "auto"
       },
-      "pluginVersion": "10.1.2",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "Prometheus"
           },
           "editorMode": "code",
           "expr": "(avg(node_load5{instance=~\"^${node}$\",job=\"node-exporter\", cluster=~\"${cluster}\"}) / count(count(node_cpu_seconds_total{instance=~\"^${node}$\", job=\"node-exporter\", cluster=~\"${cluster}\"}) by (cpu, instance))) * 100",
@@ -1165,7 +1164,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "Prometheus"
       },
       "description": "Mean RAM usage",
       "fieldConfig": {
@@ -1204,7 +1203,6 @@
         "x": 6,
         "y": 8
       },
-      "hideTimeOverride": false,
       "id": 44,
       "options": {
         "minVizHeight": 75,
@@ -1221,12 +1219,12 @@
         "showThresholdMarkers": true,
         "sizing": "auto"
       },
-      "pluginVersion": "10.1.2",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "Prometheus"
           },
           "editorMode": "code",
           "expr": "((node_memory_MemTotal_bytes{instance=~\"^${node}$\",job=\"node-exporter\", cluster=~\"${cluster}\"} - node_memory_MemFree_bytes{instance=~\"^${node}$\",job=\"node-exporter\", cluster=~\"${cluster}\"}) / (node_memory_MemTotal_bytes{instance=~\"^${node}$\",job=\"node-exporter\", cluster=~\"${cluster}\"} )) * 100",
@@ -1240,7 +1238,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "Prometheus"
           },
           "editorMode": "code",
           "expr": "avg(100 - ((node_memory_MemAvailable_bytes{instance=~\"^${node}$\",job=\"node-exporter\"} * 100) / node_memory_MemTotal_bytes{instance=~\"^${node}$\",job=\"node-exporter\"}))",
@@ -1258,7 +1256,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "Prometheus"
       },
       "description": "Total number of CPU cores",
       "fieldConfig": {
@@ -1319,12 +1317,12 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "10.1.2",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "Prometheus"
           },
           "editorMode": "code",
           "expr": "count(count(node_cpu_seconds_total{instance=~\"^${node}$\",job=\"node-exporter\", cluster=~\"${cluster}\"}) by (cpu, instance))",
@@ -1342,7 +1340,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "Prometheus"
       },
       "description": "Identifies the pod within the AIS namespace that has the lowest uptime",
       "fieldConfig": {
@@ -1385,7 +1383,6 @@
         "x": 13,
         "y": 8
       },
-      "hideTimeOverride": true,
       "id": 99,
       "maxDataPoints": 100,
       "options": {
@@ -1405,7 +1402,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "10.1.2",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
@@ -1428,7 +1425,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "Prometheus"
       },
       "description": "Total RAM",
       "fieldConfig": {
@@ -1490,12 +1487,12 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "10.1.2",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "Prometheus"
           },
           "editorMode": "code",
           "expr": "sum(node_memory_MemTotal_bytes{instance=~\"^${node}\",job=\"node-exporter\", cluster=~\"${cluster}\"})",
@@ -1524,7 +1521,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "Prometheus"
       },
       "description": "",
       "fieldConfig": {
@@ -1534,11 +1531,13 @@
             "mode": "fixed"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -1612,7 +1611,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "9.2.0",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
@@ -1641,7 +1640,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "Prometheus"
       },
       "description": "",
       "fieldConfig": {
@@ -1651,11 +1650,13 @@
             "mode": "shades"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -1726,7 +1727,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "9.2.0",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
@@ -1755,7 +1756,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "Prometheus"
       },
       "description": "",
       "fieldConfig": {
@@ -1765,11 +1766,13 @@
             "mode": "shades"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -1840,7 +1843,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "9.2.0",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
@@ -1869,7 +1872,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "Prometheus"
       },
       "description": "",
       "fieldConfig": {
@@ -1879,11 +1882,13 @@
             "mode": "shades"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -1954,7 +1959,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "9.2.0",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
@@ -1983,7 +1988,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "Prometheus"
       },
       "description": "",
       "fieldConfig": {
@@ -2094,7 +2099,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "Prometheus"
       },
       "description": "",
       "fieldConfig": {
@@ -2205,7 +2210,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "Prometheus"
       },
       "description": "",
       "fieldConfig": {
@@ -2312,7 +2317,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "Prometheus"
       },
       "description": "",
       "fieldConfig": {
@@ -2419,7 +2424,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "Prometheus"
       },
       "description": "",
       "fieldConfig": {
@@ -2526,7 +2531,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "Prometheus"
       },
       "description": "",
       "fieldConfig": {
@@ -2612,7 +2617,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "Prometheus"
           },
           "editorMode": "code",
           "expr": "sum(ais_target_disk_read_mbps{cluster=~\"${cluster}\"})",
@@ -2624,7 +2629,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "Prometheus"
           },
           "editorMode": "code",
           "expr": "sum(ais_target_disk_write_mbps{cluster=~\"${cluster}\"})",
@@ -2640,7 +2645,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "Prometheus"
       },
       "description": "",
       "fieldConfig": {
@@ -2747,7 +2752,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "Prometheus"
       },
       "description": "",
       "fieldConfig": {
@@ -2854,7 +2859,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "Prometheus"
       },
       "description": "",
       "fieldConfig": {
@@ -2905,7 +2910,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "Prometheus"
           },
           "editorMode": "code",
           "expr": "sum(ais_target_get_count{node_id=~\"$target\", cluster=~\"${cluster}\"})",
@@ -2923,7 +2928,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "Prometheus"
       },
       "description": "",
       "fieldConfig": {
@@ -2974,7 +2979,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "Prometheus"
           },
           "editorMode": "code",
           "expr": "sum(ais_target_get_bytes{node_id=~\"$target\", cluster=~\"${cluster}\"})",
@@ -2992,7 +2997,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "Prometheus"
       },
       "description": "",
       "fieldConfig": {
@@ -3043,7 +3048,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "Prometheus"
           },
           "editorMode": "code",
           "expr": "sum(ais_target_remote_get_count{node_id=~\"$target\", cluster=~\"${cluster}\"}) or vector(0)",
@@ -3061,7 +3066,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "Prometheus"
       },
       "description": "",
       "fieldConfig": {
@@ -3112,7 +3117,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "Prometheus"
           },
           "editorMode": "code",
           "expr": "sum(ais_target_remote_get_bytes_total{node_id=~\"$target\", cluster=~\"${cluster}\"}) or vector(0)",
@@ -3130,7 +3135,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "Prometheus"
       },
       "description": "",
       "fieldConfig": {
@@ -3181,7 +3186,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "Prometheus"
           },
           "editorMode": "code",
           "expr": "sum(ais_target_put_count{node_id=~\"$target\", cluster=~\"${cluster}\"}) or vector(0)",
@@ -3199,7 +3204,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "Prometheus"
       },
       "description": "",
       "fieldConfig": {
@@ -3250,7 +3255,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "Prometheus"
           },
           "editorMode": "code",
           "expr": "sum(ais_target_put_bytes{node_id=~\"$target\", cluster=~\"${cluster}\"}) or vector(0)",
@@ -3281,7 +3286,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "Prometheus"
       },
       "description": "",
       "fieldConfig": {
@@ -3398,7 +3403,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "Prometheus"
       },
       "description": "",
       "fieldConfig": {
@@ -3533,7 +3538,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "Prometheus"
       },
       "description": "",
       "fieldConfig": {
@@ -3635,7 +3640,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "Prometheus"
       },
       "description": "Total cluster storage used and free",
       "fieldConfig": {
@@ -3730,7 +3735,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "Prometheus"
           },
           "editorMode": "code",
           "expr": "sum(node_filesystem_size_bytes{instance=~\"^${node}$\",job=\"node-exporter\",mountpoint=~\"^/ais/.*\",fstype!=\"rootfs\"})",
@@ -3744,7 +3749,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "Prometheus"
           },
           "editorMode": "code",
           "expr": "sum(node_filesystem_size_bytes{instance=~\"^${node}$\",job=\"node-exporter\",mountpoint=~\"/ais/.*\",fstype!=\"rootfs\"}) - sum(node_filesystem_avail_bytes{instance=~\"^${node}$\",job=\"node-exporter\",mountpoint=~\"/ais/.*\",fstype!=\"rootfs\"})",
@@ -3839,7 +3844,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "Prometheus"
           },
           "editorMode": "code",
           "expr": "topk(5, (100 - 100 * sum by (instance, device) (node_filesystem_avail_bytes{instance=~\"^${node}$\",job=\"node-exporter\",mountpoint=~\"^/ais/.*\",fstype!=\"rootfs\"}) / sum by (instance, device) (node_filesystem_size_bytes{instance=~\"^${node}$\",job=\"node-exporter\",mountpoint=~\"^/ais/.*\",fstype!=\"rootfs\"})))\n",
@@ -3870,7 +3875,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "Prometheus"
       },
       "description": "AIStore error rates, broken down by operation",
       "fieldConfig": {
@@ -3974,7 +3979,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "Prometheus"
           },
           "editorMode": "code",
           "expr": "sum(increase(ais_target_err_put_count{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval]))",
@@ -3987,7 +3992,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "Prometheus"
           },
           "editorMode": "code",
           "expr": "sum(increase(ais_target_err_get_count{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval]))",
@@ -4079,7 +4084,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "Prometheus"
           },
           "editorMode": "code",
           "expr": "sum by (instance) (rate(node_filesystem_device_error{mountpoint=~\"^/ais/.*$\"}[5m]))",
@@ -4107,7 +4112,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "Prometheus"
       },
       "description": "Total receive and transmit cluster network throughput",
       "fieldConfig": {
@@ -4546,7 +4551,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "Prometheus"
           },
           "editorMode": "code",
           "expr": "sum(rate(node_network_receive_bytes_total{device=~\"$NIC\"}[5m]))",
@@ -4560,7 +4565,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "Prometheus"
           },
           "editorMode": "code",
           "expr": "sum(rate(node_network_transmit_bytes_total{device=~\"$NIC\"}[5m]))",
@@ -4578,7 +4583,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "Prometheus"
       },
       "description": "Top 10 chattering nodes.",
       "fieldConfig": {
@@ -5017,7 +5022,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "Prometheus"
           },
           "editorMode": "code",
           "expr": "topk(10, sum by (instance) (rate(node_network_receive_bytes_total{device=~\"$NIC\"}[$interval])) + sum by (instance) (irate(node_network_transmit_bytes_total{device=~\"$NIC\"}[$interval])))",
@@ -5031,7 +5036,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "Prometheus"
           },
           "editorMode": "code",
           "expr": "topk(10, sum by (instance) (irate(node_network_transmit_bytes_total{device=~\"$NIC\"}[$interval]) * 8))",
@@ -5048,28 +5053,25 @@
       "type": "timeseries"
     }
   ],
+  "preload": false,
   "refresh": "30s",
-  "schemaVersion": 38,
-  "style": "dark",
+  "schemaVersion": 40,
   "tags": [],
   "templating": {
     "list": [
       {
         "current": {
-          "selected": false,
           "text": "aistore-asr-ord",
           "value": "aistore-asr-ord"
         },
         "datasource": {
           "type": "prometheus",
-          "uid": "prometheus"
+          "uid": "Prometheus"
         },
         "definition": "label_values(ais_proxy_uptime,cluster)",
         "description": "AIStore Cluster",
-        "hide": 0,
         "includeAll": false,
         "label": "cluster",
-        "multi": false,
         "name": "cluster",
         "options": [],
         "query": {
@@ -5078,14 +5080,11 @@
         },
         "refresh": 1,
         "regex": "",
-        "skipUrlSync": false,
-        "sort": 0,
         "type": "query"
       },
       {
         "allValue": ".*",
         "current": {
-          "selected": true,
           "text": [
             "All"
           ],
@@ -5095,11 +5094,10 @@
         },
         "datasource": {
           "type": "prometheus",
-          "uid": "prometheus"
+          "uid": "Prometheus"
         },
         "definition": "label_values(ais_proxy_get_count{cluster=\"$cluster\"},node_id)",
         "description": "Selected AIStore Proxy Instance",
-        "hide": 0,
         "includeAll": true,
         "label": "Proxy",
         "multi": true,
@@ -5111,14 +5109,12 @@
         },
         "refresh": 1,
         "regex": "",
-        "skipUrlSync": false,
         "sort": 1,
         "type": "query"
       },
       {
         "allValue": ".*",
         "current": {
-          "selected": true,
           "text": [
             "All"
           ],
@@ -5128,11 +5124,10 @@
         },
         "datasource": {
           "type": "prometheus",
-          "uid": "prometheus"
+          "uid": "Prometheus"
         },
         "definition": "label_values(ais_target_get_count{cluster=\"$cluster\"},node_id)",
         "description": "Selected AIStore Target Instance",
-        "hide": 0,
         "includeAll": true,
         "label": "Target",
         "multi": true,
@@ -5144,26 +5139,22 @@
         },
         "refresh": 2,
         "regex": "",
-        "skipUrlSync": false,
         "sort": 1,
         "type": "query"
       },
       {
         "allValue": ".*",
         "current": {
-          "selected": false,
           "text": "All",
           "value": "$__all"
         },
         "datasource": {
           "type": "prometheus",
-          "uid": "prometheus"
+          "uid": "Prometheus"
         },
         "definition": "label_values(ais_proxy_uptime{cluster=\"$cluster\"},instance)",
-        "hide": 0,
         "includeAll": true,
         "label": "Node",
-        "multi": false,
         "name": "node",
         "options": [],
         "query": {
@@ -5172,26 +5163,21 @@
         },
         "refresh": 1,
         "regex": "",
-        "skipUrlSync": false,
-        "sort": 0,
         "type": "query"
       },
       {
         "current": {
-          "selected": false,
           "text": "ais",
           "value": "ais"
         },
         "datasource": {
           "type": "prometheus",
-          "uid": "prometheus"
+          "uid": "Prometheus"
         },
         "definition": "label_values(node_namespace_pod:kube_pod_info:{cluster=\"$cluster\"},namespace)",
         "description": "AIStore proxy replica count",
-        "hide": 0,
         "includeAll": false,
         "label": "Namespace",
-        "multi": false,
         "name": "namespace",
         "options": [],
         "query": {
@@ -5200,24 +5186,20 @@
         },
         "refresh": 1,
         "regex": "",
-        "skipUrlSync": false,
-        "sort": 0,
         "type": "query"
       },
       {
         "current": {
-          "selected": false,
           "text": "17",
           "value": "17"
         },
         "datasource": {
           "type": "prometheus",
-          "uid": "prometheus"
+          "uid": "Prometheus"
         },
         "definition": "query_result(count(kube_node_info{cluster=\"$cluster\"}))",
         "hide": 2,
         "includeAll": false,
-        "multi": false,
         "name": "node_count",
         "options": [],
         "query": {
@@ -5226,13 +5208,10 @@
         },
         "refresh": 1,
         "regex": "/{} ([0-9]+)/",
-        "skipUrlSync": false,
-        "sort": 0,
         "type": "query"
       },
       {
         "current": {
-          "selected": true,
           "text": [
             "ens300np0"
           ],
@@ -5242,11 +5221,10 @@
         },
         "datasource": {
           "type": "prometheus",
-          "uid": "prometheus"
+          "uid": "Prometheus"
         },
         "definition": "label_values(device)",
         "description": "Network Interface Cards",
-        "hide": 0,
         "includeAll": false,
         "label": "NICs",
         "multi": true,
@@ -5259,21 +5237,16 @@
         },
         "refresh": 1,
         "regex": "ens.*",
-        "skipUrlSync": false,
-        "sort": 0,
         "type": "query"
       },
       {
         "current": {
-          "selected": false,
           "text": "1m",
           "value": "1m"
         },
         "description": "Rate Interval",
-        "hide": 0,
         "includeAll": false,
         "label": "interval",
-        "multi": false,
         "name": "interval",
         "options": [
           {
@@ -5323,8 +5296,6 @@
           }
         ],
         "query": "30s, 1m, 5m, 10m, 30m, 1h, 6h, 12h, 24h",
-        "queryValue": "",
-        "skipUrlSync": false,
         "type": "custom"
       }
     ]
@@ -5337,6 +5308,6 @@
   "timezone": "",
   "title": "AIStore Dashboard",
   "uid": "b9a4a6f0-ed0d-4bcc-87b1-dbfa0ed6cabc",
-  "version": 10,
+  "version": 1,
   "weekStart": ""
 }

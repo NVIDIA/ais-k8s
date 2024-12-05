@@ -1,0 +1,19 @@
+environments:
+  oci-iad:
+      # Add defaults here if they include values used in other templates
+    values: 
+      - ./environments/{{ .Environment.Name }}/values.yaml
+
+--- 
+
+repositories:
+  - name: grafana
+    url: https://grafana.github.io/helm-charts
+
+releases:
+  - name: loki
+    namespace: monitoring
+    createNamespace: true
+    chart: grafana/loki
+    values:
+      - ./environments/{{ .Environment.Name }}/loki.yaml.gotmpl

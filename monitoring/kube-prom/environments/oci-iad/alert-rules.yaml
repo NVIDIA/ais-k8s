@@ -1,0 +1,245 @@
+additionalPrometheusRulesMap:
+  ais-rules:
+    groups:
+      - name: AIStoreAlerts
+        rules:
+        - alert: AISHighDiskIOUtilization
+          expr: ais_target_disk_util > 95
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: High Disk IO Utilization on AIS Disks
+            description: "The disk IO utilization on disk '{{ $labels.disk }}' ({{ $labels.instance }}) in pod '{{ $labels.pod }}' (node {{ $labels.node_id }}, namespace '{{ $labels.namespace }}') is above 95% for a continuous period of 5 minutes."
+        - alert: AISHighDiskUtilization
+          expr: (sum by (instance, device) (node_filesystem_avail_bytes{job="node-exporter", mountpoint=~"^/ais/.*", fstype!="rootfs"}) / sum by (instance, device) (node_filesystem_size_bytes{job="node-exporter", mountpoint=~"^/ais/.*", fstype!="rootfs"})) < 0.05
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: Disk Space Critical on AIS Disks
+            description: "The disk space on device '{{ $labels.device }}' on instance '{{ $labels.instance }}' has exceeded 95% capacity."
+        - alert: AISHighDiskUtilizationInfo
+          expr: (sum by (instance, device) (node_filesystem_avail_bytes{job="node-exporter", mountpoint=~"^/ais/.*", fstype!="rootfs"}) / sum by (instance, device) (node_filesystem_size_bytes{job="node-exporter", mountpoint=~"^/ais/.*", fstype!="rootfs"})) < 0.25
+          for: 5m
+          labels:
+            severity: info
+          annotations:
+            summary: Disk Space Utilization High on AIS Disks
+            description: "The disk space utilization on device '{{ $labels.device }}' on instance '{{ $labels.instance }}' has exceeded 75% capacity."
+        - alert: K8sNodeDown
+          expr: kube_daemonset_status_number_unavailable{daemonset="kube-prometheus-stack-prometheus-node-exporter"} > 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: K8s Node is unavailable
+            description: "Node '{{ $labels.node }}' is unavailable."
+        - alert: AISProxyDown
+          expr: (max by (namespace, statefulset) (kube_statefulset_status_replicas{statefulset=~".*proxy$"}) - min by (namespace, statefulset) (kube_statefulset_status_replicas_ready{statefulset=~".*proxy$"})) > 0
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: AIS Proxy is unavailable
+            description: "Proxy '{{ $labels.statefulset }}' in namespace '{{ $labels.namespace }}' is unavailable."
+        - alert: AISTargetDown
+          expr: (max by (namespace, statefulset) (kube_statefulset_status_replicas{statefulset=~".*target$"}) - min by (namespace, statefulset) (kube_statefulset_status_replicas_ready{statefulset=~".*target$"})) > 0
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: AIS Target is unavailable
+            description: "Target '{{ $labels.statefulset }}' in namespace '{{ $labels.namespace }}' is unavailable."
+        - alert: K8sHighMemoryUtilization
+          expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100 > 80
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: High Memory Usage Detected
+            description: "Memory utilization on instance '{{ $labels.instance }}' has exceeded 80% for the last 5 minutes."
+        - alert: K8sHighCpuUtilization
+          expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: High CPU Usage Detected
+            description: "CPU utilization on instance '{{ $labels.instance }}' has exceeded 80% for the last 5 minutes."
+        - alert: AISTargetRestart
+          expr: (floor(ais_target_state_flags / 256)) % 2 == 1
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: AIS Node Restart Detected
+            description: "AIS Node '{{ $labels.pod }}' on node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) has restarted."
+        - alert: AISChecksumError
+          expr: increase(ais_target_err_cksum_n[5m]) > 0
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: Checksum Error Detected on AIS Target
+            description: "AIS Node '{{ $labels.pod }}' (instance {{ $labels.instance }}) on node '{{ $labels.node_id }}' has encountered a checksum error."
+        - alert: AISVoteInProgress
+          expr: (floor(ais_target_state_flags / 1)) % 2 == 1
+          for: 1m
+          labels:
+            severity: warning
+          annotations:
+            summary: AIS Primary Proxy Election Vote In Progress
+            description: "AIS Node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) is currently voting."
+        - alert: AISRebalancing
+          expr: (floor(ais_target_state_flags / 8)) % 2 == 1
+          for: 1m
+          labels:
+            severity: warning
+          annotations:
+            summary: AIS Rebalancing
+            description: "AIS Node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) is rebalancing."
+        - alert: AISRebalanceInterrupted
+          expr: (floor(ais_target_state_flags / 16)) % 2 == 1
+          for: 1m
+          labels:
+            severity: warning
+          annotations:
+            summary: AIS Rebalance Interrupted
+            description: "AIS Rebalance has been interrupted on node '{{ $labels.node_id }}' (instance {{ $labels.instance }})."
+        - alert: AISResilvering
+          expr: (floor(ais_target_state_flags / 32)) % 2 == 1
+          for: 1m
+          labels:
+            severity: warning
+          annotations:
+            summary: AIS Resilvering
+            description: "AIS Node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) is resilvering."
+        - alert: AISResilverInterrupted
+          expr: (floor(ais_target_state_flags / 64)) % 2 == 1
+          for: 1m
+          labels:
+            severity: warning
+          annotations:
+            summary: AIS Resilver Interrupted
+            description: "AIS Resilvering has been interrupted on node '{{ $labels.node_id }}' (instance {{ $labels.instance }})."
+        - alert: AISRestarted
+          expr: (floor(ais_target_state_flags / 128)) % 2 == 1
+          for: 1m
+          labels:
+            severity: warning
+          annotations:
+            summary: AIS Node Restarted
+            description: "AIS Node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) has been restarted."
+        - alert: AISOutOfSpace
+          expr: (floor(ais_target_state_flags / 256)) % 2 == 1
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: AIS Node Out Of Space
+            description: "AIS Node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) is out of space."
+        - alert: AISOutOfMemory
+          expr: (floor(ais_target_state_flags / 512)) % 2 == 1
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: AIS Node Out Of Memory
+            description: "AIS Node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) is out of memory."
+        - alert: AISMaintenanceMode
+          expr: (floor(ais_target_state_flags / 1024)) % 2 == 1
+          for: 1m
+          labels:
+            severity: warning
+          annotations:
+            summary: AIS Node in Maintenance Mode
+            description: "AIS Node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) is in maintenance mode."
+        - alert: AISLowCapacity
+          expr: (floor(ais_target_state_flags / 2048)) % 2 == 1
+          for: 3m
+          labels:
+            severity: warning
+          annotations:
+            summary: AIS Low Capacity
+            description: "AIS Node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) reports low remaining storage capacity and is at risk of running out of space soon."
+        - alert: AISLowMemory
+          expr: (floor(ais_target_state_flags / 4096)) % 2 == 1
+          for: 3m
+          labels:
+            severity: warning
+          annotations:
+            summary: AIS Low Memory
+            description: "AIS Node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) reports low memory and is at risk of running out of memory soon."
+        - alert: AISDiskFault
+          expr: (floor(ais_target_state_flags / 8192)) % 2 == 1
+          for: 3m
+          labels:
+            severity: critical
+          annotations:
+            summary: AIS Disk Fault
+            description: "AIS Node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) has encountered a disk fault."
+        - alert: AISNoMountpaths
+          expr: (floor(ais_target_state_flags / 16384)) % 2 == 1
+          for: 3m
+          labels:
+            severity: critical
+          annotations:
+            summary: AIS No Available Mountpaths
+            description: "AIS Node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) has no available mountpaths."
+        - alert: AISNumGoroutinesHigh
+          expr: (floor(ais_target_state_flags / 32768)) % 2 == 1
+          for: 3m
+          labels:
+            severity: critical
+          annotations:
+            summary: AIS High Number of Goroutines
+            description: "AIS Node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) has a high number of goroutines, indicating potential performance issues."
+        - alert: AISCertWillSoonExpire
+          expr: (floor(ais_target_state_flags / 65536)) % 2 == 1
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: AIS Node Certificate Expiring Soon
+            description: "The certificate on AIS Node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) will expire soon."
+        - alert: AISCertificateExpired
+          expr: (floor(ais_target_state_flags / 131072)) % 2 == 1
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: AIS Node Certificate Expired
+            description: "The certificate on AIS Node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) has expired."
+        - alert: AISCertificateInvalid
+          expr: (floor(ais_target_state_flags / 262144)) % 2 == 1
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: AIS Node Certificate Invalid
+            description: "The certificate on AIS Node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) is invalid."
+        - alert: AISKeepAliveErrors
+          expr: (floor(ais_target_state_flags / 524288)) % 2 == 1
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: AIS KeepAlive Errors Detected
+            description: "AIS Node '{{ $labels.node_id }}' (instance '{{ $labels.instance }}') has encountered keep-alive errors within the last 5 minute."
+        - alert: AISOutOfCPU
+          expr: (floor(ais_target_state_flags / 1048576)) % 2 == 1
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: AIS Node Out of CPU
+            description: "AIS Node '{{ $labels.node_id }}' (instance '{{ $labels.instance }}') is out of CPU resources, with utilization exceeding 95%."
+        - alert: AISLowCPU
+          expr: (floor(ais_target_state_flags / 2097152)) % 2 == 1
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: AIS Node Low CPU Availability
+            description: "AIS Node '{{ $labels.node_id }}' (instance '{{ $labels.instance }}') has low CPU availability, with utilization exceeding 80%."

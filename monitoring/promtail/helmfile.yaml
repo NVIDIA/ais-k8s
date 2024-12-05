@@ -1,0 +1,23 @@
+environments: 
+  default:
+    values:
+      - promtail:
+          clientUrl: {{ requiredEnv "LOKI_ENDPOINT" }}
+          tenant: "anonymous"
+          clusterLabel: {{ requiredEnv "LOKI_LABEL" }}
+
+---
+
+repositories:
+  - name: grafana
+    url: https://grafana.github.io/helm-charts
+
+---
+
+releases:
+  - name: promtail
+    namespace: monitoring
+    createNamespace: true
+    chart: grafana/promtail
+    values:
+      - values.yaml.gotmpl

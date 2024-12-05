@@ -1,0 +1,89 @@
+prometheus.remote_write "local" {
+  endpoint {
+    url = "http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090/api/v1/write"
+  }
+  external_labels = {
+    "cluster" = "local",
+  }
+}
+
+discovery.kubernetes "ais_proxy_pods" {
+  role = "pod"
+  namespaces {
+    names = ["ais"]
+  }
+  selectors {
+    role = "pod"
+    label = "app=ais,component=proxy" 
+  }
+}
+
+discovery.kubernetes "ais_target_pods" {
+  role = "pod"
+  namespaces {
+    names = ["ais"]
+  }
+  selectors {
+    role = "pod"
+    label = "app=ais,component=target" 
+  }
+}
+
+prometheus.relabel "local_metrics" {
+  forward_to = [prometheus.remote_write.local.receiver]
+  rule {
+    action = "replace"
+    target_label = "cluster"
+    replacement = "local"
+  }
+}
+
+
+prometheus.scrape "aistore" {
+  targets = concat(
+    discovery.kubernetes.ais_target_pods.targets,
+    discovery.kubernetes.ais_proxy_pods.targets,
+  )
+  forward_to = [prometheus.relabel.local_metrics.receiver]
+  job_name = "aistore"
+  scrape_interval = "30s"
+  metrics_path = "/metrics"
+}
+
+discovery.kubernetes "node_exporter" {
+  role = "service"
+  selectors {
+    role = "service"
+    label = "app.kubernetes.io/name=prometheus-node-exporter"
+  }
+}
+
+prometheus.scrape "node_metrics" {
+    targets = discovery.kubernetes.node_exporter.targets
+    forward_to = [prometheus.relabel.local_metrics.receiver]
+    job_name = "node-exporter"
+}
+
+discovery.kubernetes "kube_state_metrics" {
+  role = "pod"
+  selectors {
+    role = "pod"
+    label = "app.kubernetes.io/name=kube-state-metrics"
+  }
+}
+
+discovery.relabel "ksm" {
+  targets = discovery.kubernetes.kube_state_metrics.targets
+  
+  rule {
+    source_labels = ["__meta_kubernetes_pod_container_port_number"]
+    regex = "8080"
+    action = "keep"
+  }
+}
+
+prometheus.scrape "kube_state_metrics" {
+  targets = discovery.relabel.ksm.output
+  forward_to = [prometheus.remote_write.local.receiver]
+  scrape_interval = "10s"
+}

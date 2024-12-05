@@ -1,0 +1,40 @@
+environments:
+  default: {}
+  oci-iad:
+    values:
+      - loki:
+          label: {{ requiredEnv "LOKI_LABEL" }}
+          endpoint: {{ requiredEnv "LOKI_ENDPOINT" }}
+
+      - mimir:
+          label: {{ requiredEnv "MIMIR_LABEL" }}
+          endpoint: {{ requiredEnv "MIMIR_ENDPOINT" }}
+--- 
+
+repositories:
+  - name: grafana
+    url: https://grafana.github.io/helm-charts
+
+releases:
+  - name: alloy-config
+    namespace: monitoring
+    chart: ./config-chart  # Local chart for configmap
+    createNamespace: true
+    values:
+      - environment: {{ .Environment.Name }}
+      - loki:
+          label: {{ .Values.loki.label }}
+          endpoint: {{ .Values.loki.endpoint }}
+      - mimir:
+          label: {{ .Values.mimir.label }}
+          endpoint: {{ .Values.mimir.endpoint }}
+
+  - name: alloy
+    namespace: monitoring
+    createNamespace: true
+    chart: grafana/alloy
+    version: 0.10.1
+    values:
+      - ./environments/{{ .Environment.Name }}/values.yaml
+    needs:
+      - alloy-config

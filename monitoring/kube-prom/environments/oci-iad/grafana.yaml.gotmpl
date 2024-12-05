@@ -1,0 +1,31 @@
+grafana:
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: monitoring
+                operator: In
+                values:
+                  - "true"
+  resources:
+    requests:
+      cpu: 400m
+      memory: 2Gi
+    limits:
+      cpu: 2000m
+      memory: 8Gi
+  persistence:
+    enabled: true
+    type: pvc
+    size: 20Gi
+    storageClassName: oci-bv
+  
+  additionalDataSources:
+    - name: Loki
+      type: loki
+      url: http://loki-gateway.monitoring.svc.cluster.local
+      access: proxy
+      editable: true
+  
+  adminPassword: {{ requiredEnv "GRAFANA_PASSWORD" }}

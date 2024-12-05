@@ -1,0 +1,5 @@
+prometheus-node-exporter:
+  # Run node-exporters but don't scrape it with prom
+  prometheus:
+    monitor:
+      enabled: false

@@ -1,0 +1,26 @@
+prometheus:
+  persistentVolume:
+    size: 50Gi
+    storageClass: "oci-bv"
+  affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+              - key: {{ .Values.affinity.nodeLabel }}
+                operator: In
+                values:
+                  - "true"
+  prometheusSpec:
+    enableRemoteWriteReceiver: true
+
+prometheusOperator:
+  affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+              - key: {{ .Values.affinity.nodeLabel }}
+                operator: In
+                values:
+                  - "true"

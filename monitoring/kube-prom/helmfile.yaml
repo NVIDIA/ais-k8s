@@ -1,0 +1,32 @@
+environments:
+  oci-iad: 
+    # Add defaults here if they include values used in other templates
+    values: 
+      - ./environments/{{ .Environment.Name }}/values.yaml.gotmpl
+
+--- 
+
+repositories:
+  - name: prometheus-community
+    url: https://prometheus-community.github.io/helm-charts
+
+releases:
+  - name: dashboard-configmap
+    namespace: monitoring
+    chart: ./dashboard-configmap
+    createNamespace: true
+
+  - name: prometheus
+    namespace: monitoring
+    createNamespace: true
+    chart: prometheus-community/kube-prometheus-stack
+    disableValidation: true
+    needs:
+      - dashboard-configmap
+    values:
+      - ./environments/{{ .Environment.Name }}/prometheus.yaml.gotmpl
+      - ./environments/{{ .Environment.Name }}/alertmanager.yaml.gotmpl
+      - ./environments/{{ .Environment.Name }}/kube-state-metrics.yaml.gotmpl
+      - ./environments/{{ .Environment.Name }}/grafana.yaml.gotmpl
+      - ./environments/{{ .Environment.Name }}/node-exporter.yaml
+      - ./environments/{{ .Environment.Name }}/alert-rules.yaml

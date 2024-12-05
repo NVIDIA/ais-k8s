@@ -1,23 +1,16 @@
 alertmanager:
-  enabled: {{ .Values.alertmanager.enabled }}
-  alertmanagerSpec:
-    securityContext: 
-      runAsGroup: {{ .Values.securityContext.runAsGroup }}
-      runAsNonRoot: {{ .Values.securityContext.runAsNonRoot }}
-      runAsUser: {{ .Values.securityContext.runAsUser }}
-      fsGroup: {{ .Values.securityContext.fsGroup }}
-    {{- if .Values.affinity.enabled }}
-    affinity:
-      nodeAffinity:
-        requiredDuringSchedulingIgnoredDuringExecution:
-          nodeSelectorTerms:
-            - matchExpressions:
-              - key: {{ .Values.affinity.nodeMatchKey  }}
-                operator: In
-                values:
-                  - "true"
-    {{- end }}
-  {{- if and .Values.alertmanager.slack.webhook .Values.alertmanager.slack.channel }}
+  enabled: true
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+            - key: {{ .Values.affinity.nodeLabel }}
+              operator: In
+              values:
+                - "true"
+  {{- if hasKey .Values "slack"}}
+  {{- if and .Values.slack.webhook .Values.slack.channel }}
   config:
     route:
       receiver: 'slack-notifications'
@@ -38,8 +31,8 @@ alertmanager:
     receivers:
       - name: 'slack-notifications'
         slack_configs:
-          - api_url: {{ .Values.alertmanager.slack.webhook }}
-            channel: {{ .Values.alertmanager.slack.channel }}
+          - api_url: {{ .Values.slack.webhook }}
+            channel: {{ .Values.slack.channel }}
             send_resolved: true
             title: |
               {{`{{- if eq .Status "firing" }}
@@ -58,3 +51,16 @@ alertmanager:
               {{ .Annotations.description }}
               {{- end }}`}} 
   {{- end }}
+  {{- end }}
+
+kubeControllerManager:
+    enabled: false
+
+kubeScheduler:
+  enabled: false
+
+defaultRules:
+  rules:
+    kubeControllerManager: false
+    kubeSchedulerAlerting: false
+    kubeSchedulerRecording: false

@@ -1,0 +1,116 @@
+# Based on https://github.com/grafana/loki/blob/main/production/helm/loki/simple-scalable-values.yaml
+
+global:
+  dnsService: kube-dns
+
+loki:
+  auth_enabled: false
+  schemaConfig:
+    configs:
+      - from: 2024-04-01
+        store: tsdb
+        object_store: s3
+        schema: v13
+        index:
+          prefix: loki_index_
+          period: 24h
+  compactor:
+    retention_enabled: true
+    delete_request_store: s3
+  limits_config:
+    retention_period: 336h
+
+  ingester:
+    chunk_encoding: snappy
+  tracing:
+    enabled: true
+  querier:
+    # Default is 4, if you have enough memory and CPU you can increase, reduce if OOMing
+    max_concurrent: 4
+
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+            - key: {{ .Values.affinity.nodeLabel }}
+              operator: In
+              values:
+                - "true"
+  
+  read:
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+              - key: {{ .Values.affinity.nodeLabel }}
+                operator: In
+                values:
+                  - "true"
+  
+  write:
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+              - key: {{ .Values.affinity.nodeLabel }}
+                operator: In
+                values:
+                  - "true"
+    
+  backend:
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+              - key: {{ .Values.affinity.nodeLabel }}
+                operator: In
+                values:
+                  - "true"
+
+deploymentMode: SimpleScalable
+
+backend:
+  persistence: 
+    storageClass: local-path
+  replicas: 3
+read:
+  replicas: 3
+  persistence:
+    storageClass: local-path
+write:
+  replicas: 3
+  persistence:
+    storageClass: local-path
+
+# Enable minio for storage
+minio:
+  enabled: true
+  persistence:
+    storageClass: local-path
+
+# Zero out replica counts of other deployment modes
+singleBinary:
+  replicas: 0
+
+ingester:
+  replicas: 0
+querier:
+  replicas: 0
+queryFrontend:
+  replicas: 0
+queryScheduler:
+  replicas: 0
+distributor:
+  replicas: 0
+compactor:
+  replicas: 0
+indexGateway:
+  replicas: 0
+bloomCompactor:
+  replicas: 0
+bloomGateway:
+  replicas: 0

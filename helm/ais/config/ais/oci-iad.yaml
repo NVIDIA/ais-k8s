@@ -37,7 +37,7 @@ size: 16
 protocol: http
 nodeImage:
   name: aistorage/aisnode
-  tag: v3.26-a7ac713
+  tag: v3.26-312a648
 initImage:
   name: aistorage/ais-init
   tag: v3.26-a7ac713

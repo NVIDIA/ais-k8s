@@ -1,0 +1,4 @@
+apiVersion: v2
+name: ais-grafana-dashboard
+description: ConfigMap for AIS Grafana Dashboards
+version: 0.1.0
