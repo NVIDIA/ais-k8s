@@ -120,13 +120,11 @@
     - "ais-deployment/vars/multihome.yml"
   vars_prompt:
     - name: init_image
-      prompt: "Specify the init_image. Skip for AIStore's latest image."
-      default: "aistorage/ais-init:v1.2.0"
+      prompt: "Specify the init container image. Version should be compatible with the provided aisnode image. Example: aistorage/ais-init:v3.25."
       private: no
 
     - name: node_image
-      prompt: "Specify the node_image. Skip for AIStore's latest image."
-      default: "aistorage/aisnode:latest"
+      prompt: "Specify the aisnode container image. Example: aistorage/aisnode:v3.25"
       private: no
   roles:
     - ais-deployment/roles/create_namespace

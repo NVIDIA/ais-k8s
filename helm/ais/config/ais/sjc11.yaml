@@ -34,7 +34,7 @@ nodeImage:
   tag: v3.25
 initImage:
   name: aistorage/ais-init
-  tag: v1.2.0
+  tag: v3.25
 cloud:
   awsSecretName: ""
   gcpSecretName: ""

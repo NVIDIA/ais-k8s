@@ -101,8 +101,8 @@ spec:
         client_ca_tls: "/var/certs/ca.crt"
         client_auth_tls: 0
 
-  nodeImage: "aistorage/aisnode:v3.23"
-  initImage: "aistorage/ais-init:v1.2.0"
+  nodeImage: "aistorage/aisnode:v3.25"
+  initImage: "aistorage/ais-init:v3.25"
   hostpathPrefix: "/etc/ais"
   logsDir: "/var/log/ais"
   tlsSecretName: "tls-certs"
