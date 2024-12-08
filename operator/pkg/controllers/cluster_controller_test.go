@@ -244,6 +244,46 @@ var _ = Describe("AIStoreController", func() {
 					By("Expect statefulset spec to update")
 					Eventually(statefulSetsImagesLatest(ctx, c, ais), 30*time.Second, 2*time.Second).Should(Succeed())
 				})
+
+				It("should reconcile changed container resources", func() {
+					createStatefulSets(ctx, c, ais, r)
+
+					By("Update container resources and reconcile")
+					apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any(), false).Return(nil).Times(1)
+					ais.Spec.ProxySpec.Resources = corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("100m"),
+							corev1.ResourceMemory: resource.MustParse("100Mi"),
+						},
+						Limits: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("200m"),
+							corev1.ResourceMemory: resource.MustParse("200Mi"),
+						},
+					}
+					ais.Spec.TargetSpec.Resources = corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("100m"),
+							corev1.ResourceMemory: resource.MustParse("100Mi"),
+						},
+						Limits: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("200m"),
+							corev1.ResourceMemory: resource.MustParse("200Mi"),
+						},
+					}
+					err := c.Update(ctx, ais)
+					Expect(err).ToNot(HaveOccurred())
+					reconcileProxy(ctx, ais, r)
+					reconcileTarget(ctx, ais, r)
+
+					By("Expect statefulset spec to update")
+					Eventually(func(g Gomega) {
+						for _, stsType := range []string{"ais-proxy", "ais-target"} {
+							ss := getStatefulSet(ctx, ais, c, stsType)
+							g.Expect(ss.Spec.Template.Spec.Containers[0].Resources.Requests).To(HaveLen(2))
+							g.Expect(ss.Spec.Template.Spec.Containers[0].Resources.Limits).To(HaveLen(2))
+						}
+					}, 30*time.Second, 2*time.Second).Should(Succeed())
+				})
 			})
 
 			Describe("With existing cluster", func() {
@@ -303,6 +343,109 @@ var _ = Describe("AIStoreController", func() {
 				})
 			})
 		})
+	})
+
+	Describe("shouldUpdateSpec", func() {
+		DescribeTable("should correctly compare pod specs", func(desiredPodSpec, currentPodSpec *corev1.PodSpec, expectedResult bool) {
+			result := shouldUpdateSpec(desiredPodSpec, currentPodSpec)
+			Expect(result).To(Equal(expectedResult))
+		},
+			Entry("different init image",
+				&corev1.PodSpec{
+					InitContainers: []corev1.Container{{Image: "test:latest"}},
+					Containers:     []corev1.Container{{Image: "test:latest"}},
+				}, &corev1.PodSpec{
+					InitContainers: []corev1.Container{{Image: "test:old"}},
+					Containers:     []corev1.Container{{Image: "test:latest"}},
+				},
+				true,
+			),
+			Entry("different node image",
+				&corev1.PodSpec{
+					InitContainers: []corev1.Container{{Image: "test:latest"}},
+					Containers:     []corev1.Container{{Image: "test:latest"}},
+				}, &corev1.PodSpec{
+					InitContainers: []corev1.Container{{Image: "test:latest"}},
+					Containers:     []corev1.Container{{Image: "test:old"}},
+				},
+				true,
+			),
+			Entry("different resources (empty vs non-empty)",
+				&corev1.PodSpec{
+					InitContainers: []corev1.Container{{Image: "test:latest"}},
+					Containers: []corev1.Container{{
+						Image: "test:latest",
+						Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{
+							corev1.ResourceCPU: resource.MustParse("100m"),
+						}},
+					}},
+				}, &corev1.PodSpec{
+					InitContainers: []corev1.Container{{Image: "test:latest"}},
+					Containers:     []corev1.Container{{Image: "test:latest"}},
+				},
+				true,
+			),
+			Entry("different resources (different values)",
+				&corev1.PodSpec{
+					InitContainers: []corev1.Container{{Image: "test:latest"}},
+					Containers: []corev1.Container{{
+						Image: "test:latest",
+						Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{
+							corev1.ResourceCPU: resource.MustParse("100m"),
+						}},
+					}},
+				}, &corev1.PodSpec{
+					InitContainers: []corev1.Container{{Image: "test:latest"}},
+					Containers: []corev1.Container{{
+						Image: "test:latest",
+						Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{
+							corev1.ResourceCPU: resource.MustParse("200m"),
+						}},
+					}},
+				},
+				true,
+			),
+			Entry("different resources (different types)",
+				&corev1.PodSpec{
+					InitContainers: []corev1.Container{{Image: "test:latest"}},
+					Containers: []corev1.Container{{
+						Image: "test:latest",
+						Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{
+							corev1.ResourceMemory: resource.MustParse("100m"),
+						}},
+					}},
+				}, &corev1.PodSpec{
+					InitContainers: []corev1.Container{{Image: "test:latest"}},
+					Containers: []corev1.Container{{
+						Image: "test:latest",
+						Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{
+							corev1.ResourceCPU: resource.MustParse("200m"),
+						}},
+					}},
+				},
+				true,
+			),
+			Entry("no update needed",
+				&corev1.PodSpec{
+					InitContainers: []corev1.Container{{Image: "test:latest"}},
+					Containers: []corev1.Container{{
+						Image: "test:latest",
+						Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{
+							corev1.ResourceCPU: resource.MustParse("100m"),
+						}},
+					}},
+				}, &corev1.PodSpec{
+					InitContainers: []corev1.Container{{Image: "test:latest"}},
+					Containers: []corev1.Container{{
+						Image: "test:latest",
+						Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{
+							corev1.ResourceCPU: resource.MustParse("100m"),
+						}},
+					}},
+				},
+				false,
+			),
+		)
 	})
 })
 

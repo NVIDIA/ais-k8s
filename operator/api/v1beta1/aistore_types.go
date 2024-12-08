@@ -232,8 +232,7 @@ type DaemonSpec struct {
 	// +optional
 	Annotations map[string]string `json:"annotations,omitempty"`
 
-	// Compute Resources required by AIStore daemon pod.
-	// Cannot be updated.
+	// Compute Resources required by AIStore daemon pods.
 	// More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
 	// +optional
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`

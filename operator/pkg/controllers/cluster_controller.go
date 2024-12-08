@@ -692,7 +692,13 @@ func shouldUpdateSpec(desired, spec *corev1.PodSpec) bool {
 	if spec.InitContainers[0].Image != desired.InitContainers[0].Image {
 		return true
 	}
-	return spec.Containers[0].Image != desired.Containers[0].Image
+	if spec.Containers[0].Image != desired.Containers[0].Image {
+		return true
+	}
+	if !equality.Semantic.DeepEqual(spec.Containers[0].Resources, desired.Containers[0].Resources) {
+		return true
+	}
+	return false
 }
 
 func syncInitContainerSpec(desired, current *corev1.PodSpec) (updated bool) {

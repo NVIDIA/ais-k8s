@@ -1772,8 +1772,7 @@ spec:
                     x-kubernetes-int-or-string: true
                   resources:
                     description: |-
-                      Compute Resources required by AIStore daemon pod.
-                      Cannot be updated.
+                      Compute Resources required by AIStore daemon pods.
                       More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
                     properties:
                       claims:
@@ -3480,8 +3479,7 @@ spec:
                     x-kubernetes-int-or-string: true
                   resources:
                     description: |-
-                      Compute Resources required by AIStore daemon pod.
-                      Cannot be updated.
+                      Compute Resources required by AIStore daemon pods.
                       More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
                     properties:
                       claims:
