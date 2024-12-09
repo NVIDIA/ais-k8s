@@ -211,7 +211,7 @@ func (r *AIStoreReconciler) syncProxyPodSpec(ctx context.Context, ais *aisv1.AIS
 	)
 	for idx := range podList.Items {
 		pod := podList.Items[idx]
-		if pod.Spec.Containers[0].Image == ais.Spec.NodeImage && pod.Spec.InitContainers[0].Image == ais.Spec.InitImage {
+		if !shouldUpdateSpec(desiredPodSpec, &pod.Spec) {
 			continue
 		}
 		toUpdate++
