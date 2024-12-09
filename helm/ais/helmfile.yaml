@@ -8,6 +8,11 @@ environments:
     - https:
         enabled: true
     kubeContext: sjc11
+  oci-iad:
+    values: 
+    - https:
+        enabled: false
+    kubeContext: oci-iad
 ---
 
 releases:
