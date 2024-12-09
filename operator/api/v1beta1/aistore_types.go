@@ -464,34 +464,6 @@ func (ais *AIStore) UseHTTPS() bool {
 	return ais.Spec.ConfigToUpdate != nil && ais.Spec.ConfigToUpdate.Net != nil && ais.Spec.ConfigToUpdate.Net.HTTP != nil && ais.Spec.ConfigToUpdate.Net.HTTP.UseHTTPS != nil && *ais.Spec.ConfigToUpdate.Net.HTTP.UseHTTPS
 }
 
-func (ais *AIStore) GetHTTPSClientCA() (clientCA string) {
-	if ais.UseHTTPS() && ais.Spec.ConfigToUpdate.Net.HTTP.ClientCA != nil {
-		return *ais.Spec.ConfigToUpdate.Net.HTTP.ClientCA
-	}
-	return
-}
-
-func (ais *AIStore) GetHTTPSCertificate() (certificate string) {
-	if ais.UseHTTPS() && ais.Spec.ConfigToUpdate.Net.HTTP.Certificate != nil {
-		return *ais.Spec.ConfigToUpdate.Net.HTTP.Certificate
-	}
-	return
-}
-
-func (ais *AIStore) GetHTTPSCertKey() (certKey string) {
-	if ais.UseHTTPS() && ais.Spec.ConfigToUpdate.Net.HTTP.CertKey != nil {
-		return *ais.Spec.ConfigToUpdate.Net.HTTP.CertKey
-	}
-	return
-}
-
-func (ais *AIStore) GetHTTPSSkipVerifyCrt() (skipVerifyCrt bool) {
-	if ais.UseHTTPS() && ais.Spec.ConfigToUpdate.Net.HTTP.SkipVerifyCrt != nil {
-		return *ais.Spec.ConfigToUpdate.Net.HTTP.SkipVerifyCrt
-	}
-	return
-}
-
 // +kubebuilder:object:root=true
 
 // AIStoreList contains a list of AIStore

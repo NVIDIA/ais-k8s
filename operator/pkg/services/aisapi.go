@@ -37,7 +37,6 @@ type (
 	AIStoreClient struct {
 		ctx    context.Context
 		params *api.BaseParams
-		tlsCfg *tls.Config
 	}
 )
 
@@ -104,15 +103,13 @@ func (c *AIStoreClient) getPrimaryParams() (*api.BaseParams, error) {
 	if err != nil || smap == nil {
 		return nil, err
 	}
-	return buildBaseParams(smap.Primary.URL(cmn.NetPublic), c.getAuthToken(), c.getTLSCfg()), nil
+	return buildBaseParams(smap.Primary.URL(cmn.NetPublic), c.getAuthToken()), nil
 }
 
-func NewAIStoreClient(ctx context.Context, url, token string, tlsCfg *tls.Config) *AIStoreClient {
-	params := buildBaseParams(url, token, tlsCfg)
+func NewAIStoreClient(ctx context.Context, url, token string) *AIStoreClient {
 	return &AIStoreClient{
 		ctx:    ctx,
-		params: params,
-		tlsCfg: tlsCfg,
+		params: buildBaseParams(url, token),
 	}
 }
 
@@ -123,17 +120,14 @@ func (c *AIStoreClient) getAuthToken() string {
 	return c.params.Token
 }
 
-func (c *AIStoreClient) getTLSCfg() *tls.Config {
-	return c.tlsCfg
-}
-
-func buildBaseParams(url, token string, tlsCfg *tls.Config) *api.BaseParams {
+func buildBaseParams(url, token string) *api.BaseParams {
 	transportArgs := cmn.TransportArgs{
 		Timeout:         10 * time.Second,
 		UseHTTPProxyEnv: true,
 	}
 	transport := cmn.NewTransport(transportArgs)
-	transport.TLSClientConfig = tlsCfg
+
+	transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 
 	return &api.BaseParams{
 		Client: &http.Client{
