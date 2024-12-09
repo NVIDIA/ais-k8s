@@ -18,6 +18,9 @@ spec:
     {{- end }}
   enablePromExporter: false
   proxySpec:
+    {{- if .Values.proxySpec.size }}
+    size: {{ .Values.proxySpec.size }}
+    {{- end }}
     hostPort: 51080
     servicePort: 51080
     portPublic: 51080
@@ -29,7 +32,14 @@ spec:
     #   {{ .Values.global.nodes }}
     nodeSelector:
       nvidia.com/ais-proxy: {{ .Values.global.cluster }}
+    {{- if .Values.proxySpec.resources }}
+    resources:
+      {{- toYaml .Values.proxySpec.resources | nindent 6 }}
+    {{- end }}
   targetSpec:
+    {{- if .Values.targetSpec.size }}
+    size: {{ .Values.targetSpec.size }}
+    {{- end }}
     hostPort: 51081
     servicePort: 51081
     portPublic: 51081
@@ -51,6 +61,10 @@ spec:
         selector:
           matchLabels:
             mpath: pv-{{ . | replace "/" "-" | trimPrefix "-" }}
+    {{- end }}
+    {{- if .Values.targetSpec.resources }}
+    resources:
+      {{- toYaml .Values.targetSpec.resources | nindent 6 }}
     {{- end }}
 
   nodeImage: "{{ .Values.nodeImage.name }}:{{ .Values.nodeImage.tag }}"

@@ -31,10 +31,10 @@ https:
   tlsSecret: "tls-certs"
 nodeImage:
   name: aistorage/aisnode
-  tag: v3.25
+  tag: v3.26-a7ac713
 initImage:
   name: aistorage/ais-init
-  tag: v3.25
+  tag: v3.26-a7ac713
 cloud:
   awsSecretName: ""
   gcpSecretName: ""
@@ -49,3 +49,15 @@ cleanupMetadata: false
 stateStorageClass: "local-path"
 authNSecretName:
 logsDir:
+proxySpec:
+  resources:
+    requests:
+      cpu: "6"
+    limits:
+      cpu: "12"
+targetSpec:
+  resources:
+    requests:
+      cpu: "24"
+    limits:
+      cpu: "32"

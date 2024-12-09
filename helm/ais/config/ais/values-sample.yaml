@@ -12,7 +12,6 @@ global:
     - /ais/nvme0n1
     - /ais/nvme1n1
     - /ais/nvme3n1
-
 size: 3
 protocol: http
 https:
@@ -20,10 +19,10 @@ https:
   tlsSecret: "tls-certs"
 nodeImage:
   name: aistorage/aisnode
-  tag: v3.25
+  tag: v3.26-a7ac713
 initImage:
   name: aistorage/ais-init
-  tag: v3.25
+  tag: v3.26-a7ac713
 cloud:
   awsSecretName: "aws-creds"
   gcpSecretName: "gcp-creds"
@@ -42,3 +41,10 @@ cleanupData: false
 cleanupMetadata: false
 authNSecretName:
 logsDir:
+proxySpec:
+  # If provided, overrides cluster size
+  size: 3
+  resources:
+targetSpec:
+  size: 3
+  resources:
