@@ -189,18 +189,6 @@ release: build-installer-helm
 	git commit -s -m "Release operator version $(VERSION)"
 	git tag $(VERSION)
 
-require-init-img:
-	@[ "${INIT_IMG}" ] || ( echo "INIT_IMG must be set for this make target"; exit 1 )
-
-aisinit:
-	go build -o bin/aisinit cmd/aisinit/main.go
-
-docker-build-aisinit: require-init-img
-	docker build -f cmd/aisinit/Dockerfile -t ${INIT_IMG} .
-
-docker-push-aisinit:
-	docker push ${INIT_IMG}
-
 ##@ Deployment
 
 ifndef ignore-not-found
