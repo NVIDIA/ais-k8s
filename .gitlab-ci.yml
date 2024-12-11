@@ -56,7 +56,7 @@ operator:test:kind:unit:
   services: ["docker:24.0.5-dind"]
   tags: ["ais"]
   rules:
-    - when: manual
+    - when: always
       allow_failure: true
   variables:
     RUNNER_SCRIPT_TIMEOUT: 10m

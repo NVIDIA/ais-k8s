@@ -297,8 +297,8 @@ var _ = Describe("AIStoreController", func() {
 					_, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: "ais", Namespace: namespace}})
 					Expect(err).ToNot(HaveOccurred())
 
-					var ais *aisv1.AIStore
-					err = c.Get(ctx, types.NamespacedName{Name: "ais", Namespace: namespace}, ais)
+					var ais aisv1.AIStore
+					err = c.Get(ctx, types.NamespacedName{Name: "ais", Namespace: namespace}, &ais)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(ais.GetFinalizers()).To(HaveLen(1))
 					Expect(ais.Status.State).To(Equal(aisv1.ClusterInitialized))
@@ -312,11 +312,11 @@ var _ = Describe("AIStoreController", func() {
 					Expect(proxyService.Spec.Ports).To(HaveLen(3))
 
 					By("Ensure that proxy StatefulSet has been created")
-					proxySS := getStatefulSet(ctx, ais, c, "ais-proxy")
+					proxySS := getStatefulSet(ctx, &ais, c, "ais-proxy")
 					Expect(*proxySS.Spec.Replicas).To(BeEquivalentTo(1))
 
 					By("Waiting for proxies to come up")
-					Eventually(proxiesReady(ctx, c, ais), 2*time.Minute, 5*time.Second).Should(Succeed())
+					Eventually(proxiesReady(ctx, c, &ais), 2*time.Minute, 5*time.Second).Should(Succeed())
 
 					result, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: "ais", Namespace: namespace}})
 					Expect(err).ToNot(HaveOccurred())
@@ -331,11 +331,11 @@ var _ = Describe("AIStoreController", func() {
 					Expect(targetService.Spec.Ports).To(HaveLen(3))
 
 					By("Ensure that target StatefulSet has been created")
-					targetSS := getStatefulSet(ctx, ais, c, "ais-target")
+					targetSS := getStatefulSet(ctx, &ais, c, "ais-target")
 					Expect(*targetSS.Spec.Replicas).To(BeEquivalentTo(1))
 
 					By("Waiting for targets to come up")
-					Eventually(targetsReady(ctx, c, ais), 2*time.Minute, 5*time.Second).Should(Succeed())
+					Eventually(targetsReady(ctx, c, &ais), 2*time.Minute, 5*time.Second).Should(Succeed())
 
 					result, err = r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: "ais", Namespace: namespace}})
 					Expect(err).ToNot(HaveOccurred())
