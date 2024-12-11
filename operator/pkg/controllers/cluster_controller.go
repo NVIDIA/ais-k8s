@@ -695,35 +695,47 @@ func (r *AIStoreReconciler) recordError(ctx context.Context, ais *aisv1.AIStore,
 	r.recorder.Eventf(ais, corev1.EventTypeWarning, EventReasonFailed, "%s, err: %v", msg, err)
 }
 
-func shouldUpdateSpec(desired, spec *corev1.PodSpec) bool {
-	if spec.InitContainers[0].Image != desired.InitContainers[0].Image {
-		return true
+func shouldUpdatePodTemplate(desired, current *corev1.PodTemplateSpec) (bool, string) {
+	for _, daemon := range []struct {
+		desiredContainer *corev1.Container
+		currentContainer *corev1.Container
+	}{
+		{&desired.Spec.InitContainers[0], &current.Spec.InitContainers[0]},
+		{&desired.Spec.Containers[0], &current.Spec.Containers[0]},
+	} {
+		if daemon.desiredContainer.Image != daemon.currentContainer.Image {
+			return true, fmt.Sprintf("updating image for %q container", daemon.desiredContainer.Name)
+		}
+		if !equality.Semantic.DeepEqual(daemon.desiredContainer.Env, daemon.currentContainer.Env) {
+			return true, fmt.Sprintf("updating env variables for %q container", daemon.desiredContainer.Name)
+		}
+		if !equality.Semantic.DeepEqual(daemon.desiredContainer.Resources, daemon.currentContainer.Resources) {
+			return true, fmt.Sprintf("updating resources for %q container", daemon.desiredContainer.Name)
+		}
 	}
-	if spec.Containers[0].Image != desired.Containers[0].Image {
-		return true
+	if !equality.Semantic.DeepEqual(desired.Annotations, current.Annotations) {
+		return true, "updating annotations"
 	}
-	if !equality.Semantic.DeepEqual(spec.Containers[0].Resources, desired.Containers[0].Resources) {
-		return true
-	}
-	return false
+	return false, ""
 }
 
-func syncInitContainerSpec(desired, current *corev1.PodSpec) (updated bool) {
-	currentInit := current.InitContainers[0]
-	desiredInit := desired.InitContainers[0]
-	if equality.Semantic.DeepDerivative(desiredInit, currentInit) {
-		return false
+func syncPodTemplate(desired, current *corev1.PodTemplateSpec) (updated bool) {
+	for _, daemon := range []struct {
+		desiredContainer *corev1.Container
+		currentContainer *corev1.Container
+	}{
+		{&desired.Spec.InitContainers[0], &current.Spec.InitContainers[0]},
+		{&desired.Spec.Containers[0], &current.Spec.Containers[0]},
+	} {
+		if equality.Semantic.DeepDerivative(*daemon.desiredContainer, *daemon.currentContainer) {
+			continue
+		}
+		*daemon.currentContainer = *daemon.desiredContainer
+		updated = true
 	}
-	current.InitContainers[0] = desiredInit
-	return true
-}
-
-func syncPrimaryContainerSpec(desired, current *corev1.PodSpec) (updated bool) {
-	currentNode := current.Containers[0]
-	desiredNode := desired.Containers[0]
-	if equality.Semantic.DeepDerivative(currentNode, desiredNode) {
-		return false
+	if !equality.Semantic.DeepDerivative(desired.Annotations, current.Annotations) {
+		current.Annotations = desired.Annotations
+		updated = true
 	}
-	current.Containers[0] = desiredNode
-	return true
+	return
 }

@@ -22,6 +22,7 @@ import (
 	"go.uber.org/mock/gomock"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -284,6 +285,51 @@ var _ = Describe("AIStoreController", func() {
 						}
 					}, 30*time.Second, 2*time.Second).Should(Succeed())
 				})
+
+				It("should reconcile changed container env variables", func() {
+					createStatefulSets(ctx, c, ais, r)
+
+					By("Update container resources and reconcile")
+					apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any(), false).Return(nil).Times(1)
+					ais.Spec.ProxySpec.Env = []corev1.EnvVar{{Name: "key", Value: "value"}}
+					ais.Spec.TargetSpec.Env = []corev1.EnvVar{{Name: "key", Value: "value"}}
+					err := c.Update(ctx, ais)
+					Expect(err).ToNot(HaveOccurred())
+					reconcileProxy(ctx, ais, r)
+					reconcileTarget(ctx, ais, r)
+
+					By("Expect statefulset spec to update")
+					Eventually(func(g Gomega) {
+						for _, stsType := range []string{"ais-proxy", "ais-target"} {
+							ss := getStatefulSet(ctx, ais, c, stsType)
+							// Custom env variable should be first in the list.
+							env := ss.Spec.Template.Spec.Containers[0].Env[0]
+							g.Expect(env.Name).To(Equal("key"))
+							g.Expect(env.Value).To(Equal("value"))
+						}
+					}, 30*time.Second, 2*time.Second).Should(Succeed())
+				})
+
+				It("should reconcile changed annotations", func() {
+					createStatefulSets(ctx, c, ais, r)
+
+					By("Update container resources and reconcile")
+					apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any(), false).Return(nil).Times(1)
+					ais.Spec.ProxySpec.Annotations = map[string]string{"key": "value"}
+					ais.Spec.TargetSpec.Annotations = map[string]string{"key": "value"}
+					err := c.Update(ctx, ais)
+					Expect(err).ToNot(HaveOccurred())
+					reconcileProxy(ctx, ais, r)
+					reconcileTarget(ctx, ais, r)
+
+					By("Expect statefulset spec to update")
+					Eventually(func(g Gomega) {
+						for _, stsType := range []string{"ais-proxy", "ais-target"} {
+							ss := getStatefulSet(ctx, ais, c, stsType)
+							g.Expect(ss.Spec.Template.Annotations).To(HaveLen(1))
+						}
+					}, 30*time.Second, 2*time.Second).Should(Succeed())
+				})
 			})
 
 			Describe("With existing cluster", func() {
@@ -345,103 +391,219 @@ var _ = Describe("AIStoreController", func() {
 		})
 	})
 
-	Describe("shouldUpdateSpec", func() {
-		DescribeTable("should correctly compare pod specs", func(desiredPodSpec, currentPodSpec *corev1.PodSpec, expectedResult bool) {
-			result := shouldUpdateSpec(desiredPodSpec, currentPodSpec)
-			Expect(result).To(Equal(expectedResult))
+	Describe("shouldUpdatePodTemplate & syncPodTemplate", func() {
+		DescribeTable("should correctly compare pod templates", func(desiredPodTemplate, currentPodTemplate *corev1.PodTemplateSpec, expectedResult bool) {
+			needsUpdate, _ := shouldUpdatePodTemplate(desiredPodTemplate, currentPodTemplate)
+			Expect(needsUpdate).To(Equal(expectedResult))
+
+			// Also make sure that when syncing we will correctly update the template.
+			synced := syncPodTemplate(desiredPodTemplate, currentPodTemplate)
+			Expect(synced).To(Equal(expectedResult))
+			equal := equality.Semantic.DeepEqual(desiredPodTemplate, currentPodTemplate)
+			Expect(equal).To(BeTrue())
 		},
 			Entry("different init image",
-				&corev1.PodSpec{
-					InitContainers: []corev1.Container{{Image: "test:latest"}},
-					Containers:     []corev1.Container{{Image: "test:latest"}},
-				}, &corev1.PodSpec{
-					InitContainers: []corev1.Container{{Image: "test:old"}},
-					Containers:     []corev1.Container{{Image: "test:latest"}},
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers:     []corev1.Container{{Image: "test:latest"}},
+					},
+				},
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:old"}},
+						Containers:     []corev1.Container{{Image: "test:latest"}},
+					},
 				},
 				true,
 			),
 			Entry("different node image",
-				&corev1.PodSpec{
-					InitContainers: []corev1.Container{{Image: "test:latest"}},
-					Containers:     []corev1.Container{{Image: "test:latest"}},
-				}, &corev1.PodSpec{
-					InitContainers: []corev1.Container{{Image: "test:latest"}},
-					Containers:     []corev1.Container{{Image: "test:old"}},
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers:     []corev1.Container{{Image: "test:latest"}},
+					},
+				},
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers:     []corev1.Container{{Image: "test:old"}},
+					},
 				},
 				true,
 			),
 			Entry("different resources (empty vs non-empty)",
-				&corev1.PodSpec{
-					InitContainers: []corev1.Container{{Image: "test:latest"}},
-					Containers: []corev1.Container{{
-						Image: "test:latest",
-						Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{
-							corev1.ResourceCPU: resource.MustParse("100m"),
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers: []corev1.Container{{
+							Image: "test:latest",
+							Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{
+								corev1.ResourceCPU: resource.MustParse("100m"),
+							}},
 						}},
-					}},
-				}, &corev1.PodSpec{
-					InitContainers: []corev1.Container{{Image: "test:latest"}},
-					Containers:     []corev1.Container{{Image: "test:latest"}},
+					},
+				},
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers:     []corev1.Container{{Image: "test:latest"}},
+					},
 				},
 				true,
 			),
 			Entry("different resources (different values)",
-				&corev1.PodSpec{
-					InitContainers: []corev1.Container{{Image: "test:latest"}},
-					Containers: []corev1.Container{{
-						Image: "test:latest",
-						Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{
-							corev1.ResourceCPU: resource.MustParse("100m"),
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers: []corev1.Container{{
+							Image: "test:latest",
+							Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{
+								corev1.ResourceCPU: resource.MustParse("100m"),
+							}},
 						}},
-					}},
-				}, &corev1.PodSpec{
-					InitContainers: []corev1.Container{{Image: "test:latest"}},
-					Containers: []corev1.Container{{
-						Image: "test:latest",
-						Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{
-							corev1.ResourceCPU: resource.MustParse("200m"),
+					},
+				},
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers: []corev1.Container{{
+							Image: "test:latest",
+							Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{
+								corev1.ResourceCPU: resource.MustParse("200m"),
+							}},
 						}},
-					}},
+					},
 				},
 				true,
 			),
 			Entry("different resources (different types)",
-				&corev1.PodSpec{
-					InitContainers: []corev1.Container{{Image: "test:latest"}},
-					Containers: []corev1.Container{{
-						Image: "test:latest",
-						Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{
-							corev1.ResourceMemory: resource.MustParse("100m"),
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers: []corev1.Container{{
+							Image: "test:latest",
+							Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{
+								corev1.ResourceMemory: resource.MustParse("100m"),
+							}},
 						}},
-					}},
-				}, &corev1.PodSpec{
-					InitContainers: []corev1.Container{{Image: "test:latest"}},
-					Containers: []corev1.Container{{
-						Image: "test:latest",
-						Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{
-							corev1.ResourceCPU: resource.MustParse("200m"),
+					},
+				},
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers: []corev1.Container{{
+							Image: "test:latest",
+							Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{
+								corev1.ResourceCPU: resource.MustParse("200m"),
+							}},
 						}},
-					}},
+					},
+				},
+				true,
+			),
+			Entry("different env",
+				&corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"key": "value",
+						},
+					},
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers: []corev1.Container{{
+							Image: "test:latest",
+							Env:   []corev1.EnvVar{{Name: "key", Value: "value"}},
+							Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{
+								corev1.ResourceCPU: resource.MustParse("100m"),
+							}},
+						}},
+					},
+				},
+				&corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"key": "value",
+						},
+					},
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers: []corev1.Container{{
+							Image: "test:latest",
+							Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{
+								corev1.ResourceCPU: resource.MustParse("100m"),
+							}},
+						}},
+					},
+				},
+				true,
+			),
+			Entry("different annotations",
+				&corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"key": "value",
+						},
+					},
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers: []corev1.Container{{
+							Image: "test:latest",
+							Env:   []corev1.EnvVar{{Name: "key", Value: "value"}},
+							Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{
+								corev1.ResourceCPU: resource.MustParse("100m"),
+							}},
+						}},
+					},
+				},
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers: []corev1.Container{{
+							Image: "test:latest",
+							Env:   []corev1.EnvVar{{Name: "key", Value: "value"}},
+							Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{
+								corev1.ResourceCPU: resource.MustParse("100m"),
+							}},
+						}},
+					},
 				},
 				true,
 			),
 			Entry("no update needed",
-				&corev1.PodSpec{
-					InitContainers: []corev1.Container{{Image: "test:latest"}},
-					Containers: []corev1.Container{{
-						Image: "test:latest",
-						Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{
-							corev1.ResourceCPU: resource.MustParse("100m"),
+				&corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"key": "value",
+						},
+					},
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers: []corev1.Container{{
+							Image: "test:latest",
+							Env:   []corev1.EnvVar{{Name: "key", Value: "value"}},
+							Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{
+								corev1.ResourceCPU: resource.MustParse("100m"),
+							}},
 						}},
-					}},
-				}, &corev1.PodSpec{
-					InitContainers: []corev1.Container{{Image: "test:latest"}},
-					Containers: []corev1.Container{{
-						Image: "test:latest",
-						Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{
-							corev1.ResourceCPU: resource.MustParse("100m"),
+					},
+				},
+				&corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"key": "value",
+						},
+					},
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers: []corev1.Container{{
+							Image: "test:latest",
+							Env:   []corev1.EnvVar{{Name: "key", Value: "value"}},
+							Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{
+								corev1.ResourceCPU: resource.MustParse("100m"),
+							}},
 						}},
-					}},
+					},
 				},
 				false,
 			),

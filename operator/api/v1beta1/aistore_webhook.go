@@ -164,6 +164,8 @@ func (aisw *AIStoreWebhook) validateUpdate(ctx context.Context, prev, ais *AISto
 	// TODO: better validation, maybe using AIS IterFields?
 	// users can update size for scaling up or down
 	prev.Spec.ProxySpec.Size = ais.Spec.ProxySpec.Size
+	prev.Spec.ProxySpec.Annotations = ais.Spec.ProxySpec.Annotations
+	prev.Spec.ProxySpec.Env = ais.Spec.ProxySpec.Env
 	prev.Spec.ProxySpec.Resources = ais.Spec.ProxySpec.Resources
 	if !equality.Semantic.DeepEqual(ais.Spec.ProxySpec, prev.Spec.ProxySpec) {
 		diff := deep.Equal(ais.Spec.ProxySpec, prev.Spec.ProxySpec)
@@ -174,6 +176,8 @@ func (aisw *AIStoreWebhook) validateUpdate(ctx context.Context, prev, ais *AISto
 
 	// same
 	prev.Spec.TargetSpec.Size = ais.Spec.TargetSpec.Size
+	prev.Spec.TargetSpec.Annotations = ais.Spec.TargetSpec.Annotations
+	prev.Spec.TargetSpec.Env = ais.Spec.TargetSpec.Env
 	prev.Spec.TargetSpec.Resources = ais.Spec.TargetSpec.Resources
 	if !equality.Semantic.DeepEqual(ais.Spec.TargetSpec, prev.Spec.TargetSpec) {
 		diff := deep.Equal(ais.Spec.TargetSpec, prev.Spec.TargetSpec)

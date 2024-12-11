@@ -243,29 +243,24 @@ func (r *AIStoreReconciler) decommissionTargets(ctx context.Context, ais *aisv1.
 
 func (r *AIStoreReconciler) syncTargetPodSpec(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) (result ctrl.Result, err error) {
 	logger := logf.FromContext(ctx)
-	currentSpec := &ss.Spec.Template.Spec
-	desiredSpec := &target.NewTargetSS(ais).Spec.Template.Spec
-	if !shouldUpdateSpec(desiredSpec, currentSpec) {
-		return
-	}
-	// Disable rebalance condition before ANY changes that trigger a rolling upgrade
-	err = r.disableRebalance(ctx, ais, aisv1.ReasonUpgrading, "Disabled due to image update")
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to disable rebalance before updating image: %w", err)
-	}
+	currentTemplate := &ss.Spec.Template
+	desiredTemplate := &target.NewTargetSS(ais).Spec.Template
+	if needsUpdate, reason := shouldUpdatePodTemplate(desiredTemplate, currentTemplate); needsUpdate {
+		// Disable rebalance condition before ANY changes that trigger a rolling upgrade
+		err = r.disableRebalance(ctx, ais, aisv1.ReasonUpgrading, "Disabled due to rolling upgrade: "+reason)
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to disable rebalance before rolling upgrade: %w", err)
+		}
 
-	if syncInitContainerSpec(desiredSpec, currentSpec) {
-		logger.Info("Target init container spec modified")
+		syncPodTemplate(desiredTemplate, currentTemplate)
+		logger.Info("Target pod template spec modified", "reason", reason)
+		err = r.k8sClient.Update(ctx, ss)
+		if err == nil {
+			logger.Info("Target statefulset successfully updated", "reason", reason)
+		}
+		return ctrl.Result{Requeue: true}, err
 	}
-
-	if syncPrimaryContainerSpec(desiredSpec, currentSpec) {
-		logger.Info("Target primary container spec modified")
-	}
-	err = r.k8sClient.Update(ctx, ss)
-	if err == nil {
-		logger.Info("Target statefulset successfully updated")
-	}
-	return ctrl.Result{Requeue: true}, err
+	return
 }
 
 func (r *AIStoreReconciler) scaleUpLB(ctx context.Context, ais *aisv1.AIStore) error {

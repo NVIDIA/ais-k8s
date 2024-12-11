@@ -167,18 +167,18 @@ func (r *AIStoreReconciler) handleProxyState(ctx context.Context, ais *aisv1.AIS
 func (r *AIStoreReconciler) syncProxyPodSpec(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) (result ctrl.Result, err error) {
 	logger := logf.FromContext(ctx)
 	firstPodName := proxy.PodName(ais, 0)
-	currentPodSpec := &ss.Spec.Template.Spec
-	desiredPodSpec := &proxy.NewProxyStatefulSet(ais, ais.GetProxySize()).Spec.Template.Spec
+	currentTemplate := &ss.Spec.Template
+	desiredTemplate := &proxy.NewProxyStatefulSet(ais, ais.GetProxySize()).Spec.Template
 
-	// Any change to pod spec will trigger a new rollout, so any changes to the SS should happen here
-	if shouldUpdateSpec(desiredPodSpec, currentPodSpec) {
+	// Any change to pod template will trigger a new rollout, so any changes to the SS should happen here
+	if needsUpdate, reason := shouldUpdatePodTemplate(desiredTemplate, currentTemplate); needsUpdate {
 		if ss.Status.ReadyReplicas > 0 {
 			err = r.setPrimaryTo(ctx, ais, 0)
 			if err != nil {
 				logger.Error(err, "failed to set primary proxy")
 				return
 			}
-			logger.Info("Updated primary to pod " + firstPodName)
+			logger.Info("Updated primary to pod", "pod", firstPodName, "reason", reason)
 			ss.Spec.UpdateStrategy = appsv1.StatefulSetUpdateStrategy{
 				Type: appsv1.RollingUpdateStatefulSetStrategyType,
 				RollingUpdate: &appsv1.RollingUpdateStatefulSetStrategy{
@@ -186,19 +186,13 @@ func (r *AIStoreReconciler) syncProxyPodSpec(ctx context.Context, ais *aisv1.AIS
 				},
 			}
 		}
-		if syncInitContainerSpec(desiredPodSpec, currentPodSpec) {
-			logger.Info("Proxy init container spec modified")
-		}
-
-		if syncPrimaryContainerSpec(desiredPodSpec, currentPodSpec) {
-			logger.Info("Proxy primary container spec modified")
-		}
-		result.Requeue = true
+		syncPodTemplate(desiredTemplate, currentTemplate)
+		logger.Info("Proxy pod template spec modified", "reason", reason)
 		err = r.k8sClient.Update(ctx, ss)
 		if err == nil {
-			logger.Info("Proxy statefulset successfully updated")
+			logger.Info("Proxy statefulset successfully updated", "reason", reason)
 		}
-		return
+		return ctrl.Result{Requeue: true}, err
 	}
 
 	podList, err := r.k8sClient.ListPods(ctx, ss)

@@ -16,7 +16,8 @@ func EnvFromFieldPath(envName, path string) corev1.EnvVar {
 		Name: envName,
 		ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{
-				FieldPath: path,
+				APIVersion: "v1",
+				FieldPath:  path,
 			},
 		},
 	}
