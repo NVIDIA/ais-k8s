@@ -209,9 +209,8 @@ func (r *AIStoreReconciler) syncProxyPodSpec(ctx context.Context, ais *aisv1.AIS
 		toUpdate         int
 		firstYetToUpdate bool
 	)
-	for idx := range podList.Items {
-		pod := podList.Items[idx]
-		if !shouldUpdateSpec(desiredPodSpec, &pod.Spec) {
+	for pod := range cmn.IterPtr(podList.Items) {
+		if pod.Labels[appsv1.StatefulSetRevisionLabel] == ss.Status.UpdateRevision {
 			continue
 		}
 		toUpdate++

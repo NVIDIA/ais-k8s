@@ -5,6 +5,8 @@
 package cmn
 
 import (
+	"iter"
+
 	"github.com/NVIDIA/aistore/cmn/cos"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -79,4 +81,14 @@ func AnyFunc(funcs ...func() (bool, error)) (bool, error) {
 		atLeastOneTrue = atLeastOneTrue || val
 	}
 	return atLeastOneTrue, nil
+}
+
+func IterPtr[Slice ~[]E, E any](s Slice) iter.Seq[*E] {
+	return func(yield func(*E) bool) {
+		for _, v := range s {
+			if !yield(&v) {
+				return
+			}
+		}
+	}
 }
