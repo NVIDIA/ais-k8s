@@ -428,7 +428,7 @@ func GetLoadBalancerIP(ctx context.Context, client *aisclient.K8sClient, name ty
 }
 
 func GetRandomProxyIP(ctx context.Context, client *aisclient.K8sClient, cluster *aisv1.AIStore) string {
-	proxyIndex := rand.IntN(int(cluster.GetProxySize()))
+	proxyIndex := rand.IntN(int(cluster.GetProxySize())) //nolint:gosec // Not really an issue since this is a test.
 	proxySSName := proxy.StatefulSetNSName(cluster)
 	proxySSName.Name = fmt.Sprintf("%s-%d", proxySSName.Name, proxyIndex)
 	pod, err := client.GetPod(ctx, proxySSName)
