@@ -8,6 +8,7 @@ metadata:
   annotations:
     oci.oraclecloud.com/load-balancer-type: "nlb"
     oci-network-load-balancer.oraclecloud.com/internal: "true"
+    oci-network-load-balancer.oraclecloud.com/node-label-selector: nvidia.com/ais-proxy=ais
     prometheus.io/scrape: "true"
   labels:
     app: ais
