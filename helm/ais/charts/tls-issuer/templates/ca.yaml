@@ -15,6 +15,7 @@ spec:
   secretName: {{ .Values.ca_cert_secret }}
   isCA: true
   commonName: selfsigned-ca
+  duration: {{ .Values.caCertificate.duration }}
   privateKey:
     algorithm: {{ .Values.caCertificate.privateKey.algorithm }}
     encoding: {{ .Values.caCertificate.privateKey.encoding }}
