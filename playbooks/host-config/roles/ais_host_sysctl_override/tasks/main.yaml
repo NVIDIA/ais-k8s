@@ -1,0 +1,17 @@
+- name: Remove existing sysctl entries if present
+  ansible.builtin.lineinfile:
+    path: /etc/sysctl.conf
+    regexp: "^{{ item.name | regex_escape }}\\s*="
+    state: absent
+  loop: "{{ ais_host_sysctl_override }}"
+
+- name: Update top-level sysctl parameters in /etc/sysctl.conf
+  ansible.posix.sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    state: "{{ item.state | default('present') }}"
+    sysctl_file: /etc/sysctl.conf
+    reload: true
+    sysctl_set: true
+  ignore_errors: true
+  loop: "{{ ais_host_sysctl_override }}"

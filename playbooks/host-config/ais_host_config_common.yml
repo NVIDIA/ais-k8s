@@ -1,7 +1,5 @@
 #
-# Apply our desired config to the 'ais' host group, which spans worker
-# nodes, masters, and etcd nodes. Can override to a specific set of hosts
-# by specifying targethosts on the cmdline.
+# Apply our desired config to the 'ais' host group
 #
 # This config is intended to apply to *all* hosts; another playbook
 # addresses specific needs for GPU hosts.

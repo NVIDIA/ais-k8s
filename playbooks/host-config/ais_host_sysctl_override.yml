@@ -1,0 +1,20 @@
+# USE WITH CAUTION
+#
+# For systems with an /etc/sysctl.conf file, that will take precedence over any configuration we put in /etc/syctl.d
+# This playbook modifies an existing /etc/sysctl.conf itself to apply our config at the highest level 
+# Applies only to the ais_hosts group
+#
+---
+- hosts: '{{ ais_hosts | default("ais") }}'
+  vars_files:
+    - "vars/host_sysctl_override.yml"
+  vars_prompt:
+    - name: override_confirmation
+      prompt: "Are you sure you want to run ais_host_syctl_override on {{ ais_hosts }} cluster? Type 'yes' to confirm."
+      default: "no"
+      private: no
+  become: true
+  gather_facts: false
+  roles:
+    - role: ais_host_sysctl_override
+      when: override_confirmation | bool
