@@ -29,7 +29,10 @@ stages:
 operator:lint:
   stage: operator:build
   timeout: 10m
-  <<: *operator_rules_def
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_PIPELINE_SOURCE == "schedule"
   script:
     - cd operator
     - make lint
