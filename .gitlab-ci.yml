@@ -13,7 +13,7 @@ stages:
 
     # Skip if skip-ci label is present
     - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_LABELS =~ /.*skip-ci.*/
-      when: manual
+      when: never
 
     # Run if there are changes in operator directory
     - if: $CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "main"

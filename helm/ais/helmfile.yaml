@@ -13,6 +13,11 @@ environments:
     - https:
         enabled: false
     kubeContext: oci-iad
+  oci-iad-test:
+    values: 
+    - https:
+        enabled: false
+    kubeContext: oci-iad-test
 ---
 
 releases:
