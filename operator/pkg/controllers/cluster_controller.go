@@ -615,6 +615,9 @@ func (r *AIStoreReconciler) disableRebalance(ctx context.Context, ais *aisv1.AIS
 }
 
 func (r *AIStoreReconciler) enableRebalanceCondition(ctx context.Context, ais *aisv1.AIStore) error {
+	if ais.IsConditionTrue(aisv1.ConditionReadyRebalance) {
+		return nil
+	}
 	logf.FromContext(ctx).Info("Enabling rebalance condition")
 	// Note this does not force-enable rebalance, only allows the value from spec to be used again
 	ais.SetCondition(aisv1.ConditionReadyRebalance)
