@@ -16,7 +16,8 @@ spec:
   secretName: {{ ca_cert_secret }}
   isCA: true
   commonName: selfsigned-ca
-  duration: 8760h
+  duration: 8760h # 1 year
+  renewBefore: 720h  # 30 days
   privateKey:
     algorithm: RSA
     encoding: PKCS1

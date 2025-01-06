@@ -7,6 +7,7 @@ clusterIssuer:
 caCertificate:
   name: selfsigned-cert
   duration: 8760h
+  renewBefore: 720h
   privateKey:
     algorithm: RSA
     encoding: PKCS1

@@ -16,6 +16,7 @@ spec:
   isCA: true
   commonName: selfsigned-ca
   duration: 8760h
+  renewBefore: 720h
   privateKey:
     algorithm: RSA
     encoding: PKCS1
