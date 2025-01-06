@@ -5,30 +5,31 @@ stages:
   - operator:test:short
   - operator:test:long
 
-.operator_default_rules_template: &operator_default_rules_def
+.operator_rules_template: &operator_rules_def
   rules:
+    # Run on schedules
     - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: always
+
+    # Skip if skip-ci label is present
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_LABELS =~ /.*skip-ci.*/
+      when: manual
+
+    # Run if there are changes in operator directory
     - if: $CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "main"
       changes:
         - operator/**/*
-    # If there are no changes in `operator` dir we should still be able to run jobs manually.
+      when: always
+
+    # Manual run if no operator changes (with allow_failure)
     - if: $CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "main"
       when: manual
       allow_failure: true
 
-.operator_skipci_rules_template: &operator_skipci_rules_def
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "schedule"
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_LABELS =~ /.*skip-ci.*/
-      when: never
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "main"
-      changes:
-        - operator/**/*
-
 operator:lint:
   stage: operator:build
   timeout: 10m
-  <<: *operator_default_rules_def
+  <<: *operator_rules_def
   script:
     - cd operator
     - make lint
@@ -40,24 +41,23 @@ operator:lint:
 operator:build:
   stage: operator:build
   timeout: 10m
-  <<: *operator_default_rules_def
+  <<: *operator_rules_def
   script:
     - make -C operator build
 
 operator:test:unit:
   stage: operator:test:short
   timeout: 10m
-  <<: *operator_default_rules_def
+  <<: *operator_rules_def
   script:
     - make -C operator test
 
 operator:test:kind:unit:
   stage: operator:test:short
+  <<: *operator_rules_def
   services: ["docker:24.0.5-dind"]
   tags: ["ais"]
-  rules:
-    - when: always
-      allow_failure: true
+  allow_failure: true
   variables:
     RUNNER_SCRIPT_TIMEOUT: 10m
     RUNNER_AFTER_SCRIPT_TIMEOUT: 2m
@@ -89,7 +89,7 @@ operator:test:minikube:short:
   stage: operator:test:short
   tags: ["ais-k8s"]
   timeout: 30m
-  <<: *operator_skipci_rules_def
+  <<: *operator_rules_def
   before_script:
     - kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.30/deploy/local-path-storage.yaml
   script:
@@ -100,7 +100,7 @@ operator:test:minikube:long:
   needs: ["operator:test:minikube:short"]
   tags: ["ais-k8s-multinode"]
   timeout: 40m
-  <<: *operator_skipci_rules_def
+  <<: *operator_rules_def
   before_script:
     - kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.30/deploy/local-path-storage.yaml
   script:
