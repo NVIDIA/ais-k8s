@@ -85,7 +85,7 @@ func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
 	}
 
 	if ais.Spec.AuthNSecretName != nil {
-		optionals = append(optionals, cmn.EnvFromSecret(env.AuthN.SecretKey, *ais.Spec.AuthNSecretName, cmn.EnvAuthNSecretKey))
+		optionals = append(optionals, cmn.EnvFromSecret(env.AisAuthSecretKey, *ais.Spec.AuthNSecretName, cmn.EnvAuthNSecretKey))
 	}
 
 	return corev1.PodSpec{

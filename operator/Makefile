@@ -121,17 +121,6 @@ fmt-check: ## Check code formatting
 fmt-fix: ## Fix code formatting
 	@$(SHELL) "$(SCRIPTS_DIR)/lint.sh" fmt --fix
 
-.PHONY: spell-check
-spell-check: ## Run spell checker on the project
-	@go install github.com/client9/misspell/cmd/misspell@v0.3.4
-	@$(SHELL) "$(SCRIPTS_DIR)/lint.sh" spell
-
-.PHONY: spell-fix
-spell-fix: ## Fix spell checking issues
-	@go install github.com/client9/misspell/cmd/misspell@v0.3.4
-	@$(SHELL) "$(SCRIPTS_DIR)/lint.sh" spell --fix
-
-
 ##@ Build
 
 .PHONY: build
@@ -237,7 +226,7 @@ MOCKGEN_VERSION ?= v0.4.0
 # Lint
 GOLANGCI_LINT = $(shell which golangci-lint)
 GOLANGCI_LINT_LIB = github.com/golangci/golangci-lint/cmd/golangci-lint
-GOLANGCI_LINT_VERSION ?= v1.62.2
+GOLANGCI_LINT_VERSION ?= v1.63.4
 
 
 OS := $(shell uname -s | tr '[:upper:]' '[:lower:]')

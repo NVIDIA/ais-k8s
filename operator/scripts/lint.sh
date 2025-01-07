@@ -22,18 +22,6 @@ fmt)
   esac
   ;;
 
-spell)
-  echo "Running spell check..." >&2
-  case $2 in
-  --fix)
-    ${GOPATH}/bin/misspell -i "colour,importas" -w -locale=US ${OPERATOR_DIR}
-    ;;
-  *)
-    ${GOPATH}/bin/misspell -i "colour,importas" -error -locale=US ${OPERATOR_DIR}
-    ;;
-  esac
-  ;;
-
 *)
   echo "unsupported argument $1"
   exit 1

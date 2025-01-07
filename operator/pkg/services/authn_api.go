@@ -71,13 +71,13 @@ func (c AuthNClient) getAdminToken(ctx context.Context) (string, error) {
 
 func newAuthNConfig() *authNConfig {
 	protocol := "http"
-	if useHTTPS, err := cos.IsParseEnvBoolOrDefault(env.AuthN.UseHTTPS, false); err == nil && useHTTPS {
+	if useHTTPS, err := cos.IsParseEnvBoolOrDefault(env.AisAuthUseHTTPS, false); err == nil && useHTTPS {
 		protocol = "https"
 	}
 
 	return &authNConfig{
-		adminUser: cos.GetEnvOrDefault(env.AuthN.AdminUsername, AuthNAdminUser),
-		adminPass: cos.GetEnvOrDefault(env.AuthN.AdminPassword, AuthNAdminPass),
+		adminUser: cos.GetEnvOrDefault(env.AisAuthAdminUsername, AuthNAdminUser),
+		adminPass: cos.GetEnvOrDefault(env.AisAuthAdminPassword, AuthNAdminPass),
 		host:      cos.GetEnvOrDefault(AuthNServiceHostVar, AuthNServiceHostName),
 		port:      cos.GetEnvOrDefault(AuthNServicePortVar, AuthNServicePort),
 		protocol:  protocol,

@@ -132,11 +132,16 @@ issues:
     - linters: [gocritic, gofmt, goimports]
       source: "///" # commentFormatting
 
+    # Ignore spelling errors in auto-generated manifest
+    - path: config/crd/bases/
+      linters:
+        - misspell
+
   # Set to 0 to disable limit
   max-same-issues: 0
   max-issues-per-linter: 0
 
 run:
   tests: true # Enable linting test files.
-  concurrency: 4
+  concurrency: 0
   timeout: 6m
