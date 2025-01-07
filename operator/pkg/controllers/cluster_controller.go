@@ -36,7 +36,7 @@ const (
 	aisFinalizer = "finalize.ais"
 
 	configHashAnnotation    = "config.aistore.nvidia.com/hash"
-	aisShutdownRequeueDelay = 2 * time.Second
+	aisShutdownRequeueDelay = 5 * time.Second
 )
 
 type (
@@ -104,15 +104,10 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	if ais.ShouldStartShutdown() {
-		// TODO: AIS should handle this
 		logger.Info("Disabling rebalance before shutting down cluster")
 		err = r.disableRebalance(ctx, ais, aisv1.ReasonShutdown, "Disabling rebalance before shutdown")
 		if err != nil {
 			logger.Error(err, "Failed to disable rebalance before shutdown")
-			return reconcile.Result{}, err
-		}
-		if err = r.attemptGracefulShutdown(ctx, ais); err != nil {
-			logger.Error(err, "Graceful shutdown failed")
 			return reconcile.Result{}, err
 		}
 		err = r.updateStatusWithState(ctx, ais, aisv1.ClusterShuttingDown)
@@ -124,6 +119,11 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	switch {
 	case ais.HasState(aisv1.ClusterShuttingDown):
+		if !ais.ShouldBeShutdown() {
+			// Aborts shutdown process -- reset state and reconcile back to normal
+			err = r.updateStatusWithState(ctx, ais, aisv1.ClusterUpgrading)
+			return reconcile.Result{}, err
+		}
 		return r.shutdownCluster(ctx, ais)
 	case ais.HasState(aisv1.ClusterShutdown):
 		// Remain in shutdown state unless the spec field changes
@@ -178,27 +178,24 @@ func (r *AIStoreReconciler) initializeCR(ctx context.Context, ais *aisv1.AIStore
 func (r *AIStoreReconciler) shutdownCluster(ctx context.Context, ais *aisv1.AIStore) (result reconcile.Result, err error) {
 	logger := logf.FromContext(ctx)
 
-	// TODO: Handle potential case if AIS does not shutdown
-	// Try to contact the cluster -- if it's still up, requeue
-	apiClient, err := r.clientManager.GetClient(ctx, ais)
-	if err != nil {
-		return
-	}
-	_, err = apiClient.GetClusterMap()
-	if err == nil {
-		logger.Info("AIS cluster still running, delaying statefulset scale down")
-		// Give AIS time to shut down, but requeue often enough to scale down before pods restart
-		result.RequeueAfter = aisShutdownRequeueDelay
-		return
-	}
-
-	// Scale down both statefulsets to 0
+	// Scale proxy statefulset to 0 and wait for it to finish
 	if _, err = r.k8sClient.UpdateStatefulSetReplicas(ctx, proxy.StatefulSetNSName(ais), 0); err != nil {
 		return reconcile.Result{}, err
 	}
+	proxyFinished, err := r.k8sClient.IsStatefulSetSize(ctx, proxy.StatefulSetNSName(ais), 0)
+	if err != nil || !proxyFinished {
+		return reconcile.Result{RequeueAfter: aisShutdownRequeueDelay}, err
+	}
+
+	// Scale target statefulset to 0 and wait for it to finish
 	if _, err = r.k8sClient.UpdateStatefulSetReplicas(ctx, target.StatefulSetNSName(ais), 0); err != nil {
 		return reconcile.Result{}, err
 	}
+	targetFinished, err := r.k8sClient.IsStatefulSetSize(ctx, target.StatefulSetNSName(ais), 0)
+	if err != nil || !targetFinished {
+		return reconcile.Result{RequeueAfter: aisShutdownRequeueDelay}, err
+	}
+
 	err = r.updateStatusWithState(ctx, ais, aisv1.ClusterShutdown)
 	if err != nil {
 		logger.Error(err, "Failed to update state", "state", aisv1.ClusterShutdown)
@@ -483,6 +480,7 @@ func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore
 //  3. Check if config is properly updated in the cluster.
 //  4. If expected state is not yet met we should reconcile until everything is ready.
 func (r *AIStoreReconciler) handleCREvents(ctx context.Context, ais *aisv1.AIStore) (result ctrl.Result, err error) {
+	var ready bool
 	logger := logf.FromContext(ctx)
 	if result, err = r.handleProxyState(ctx, ais); err != nil {
 		return
@@ -496,8 +494,12 @@ func (r *AIStoreReconciler) handleCREvents(ctx context.Context, ais *aisv1.AISto
 		goto requeue
 	}
 
-	result, err = r.checkAISClusterReady(ctx, ais)
-	if err != nil || !result.IsZero() {
+	ready, err = r.checkAISClusterReady(ctx, ais)
+	if err != nil {
+		return
+	}
+	if !ready {
+		result.Requeue = true
 		return
 	}
 	// Enables the rebalance condition (still respects the spec desired rebalance.Enabled property)
@@ -673,17 +675,19 @@ func (r *AIStoreReconciler) handleSuccessfulReconcile(ctx context.Context, ais *
 	return
 }
 
-func (r *AIStoreReconciler) checkAISClusterReady(ctx context.Context, ais *aisv1.AIStore) (result ctrl.Result, err error) {
+func (r *AIStoreReconciler) checkAISClusterReady(ctx context.Context, ais *aisv1.AIStore) (ready bool, err error) {
+	logger := logf.FromContext(ctx)
 	apiClient, err := r.clientManager.GetClient(ctx, ais)
 	if err != nil {
+		logger.Error(err, "Failed to get client to check cluster readiness")
 		return
 	}
 	err = apiClient.Health(true /*readyToRebalance*/)
 	if err != nil {
-		logf.FromContext(ctx).Info("AIS cluster is not ready", "health_error", err.Error())
-		return ctrl.Result{Requeue: true}, nil
+		logger.Info("AIS cluster is not ready", "health_error", err.Error())
+		return
 	}
-	return
+	return true, nil
 }
 
 func (r *AIStoreReconciler) recordError(ctx context.Context, ais *aisv1.AIStore, err error, msg string) {

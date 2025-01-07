@@ -188,14 +188,28 @@ func (c *K8sClient) UpdateStatefulSetReplicas(ctx context.Context, name types.Na
 	}
 	logger = logger.WithValues("before", *ss.Spec.Replicas, "after", size)
 	logger.Info("Scaling statefulset")
+	patch := client.MergeFrom(ss.DeepCopy())
 	ss.Spec.Replicas = &size
-	err = c.client.Update(ctx, ss)
+	err = c.client.Patch(ctx, ss, patch)
 	if err != nil {
 		logger.Error(err, "Failed to scale statefulset")
 		return
 	}
 	logger.Info("StatefulSet size updated")
 	return
+}
+
+func (c *K8sClient) IsStatefulSetSize(ctx context.Context, name types.NamespacedName, size int32) (finished bool, err error) {
+	logger := logf.FromContext(ctx).WithValues("statefulset", name.String(), "desiredSize", size)
+	ss, err := c.GetStatefulSet(ctx, name)
+	if err != nil {
+		return
+	}
+	if ss.Status.Replicas != size {
+		logger.Info("Statefulset replica count does not match desired size")
+		return
+	}
+	return true, nil
 }
 
 func (c *K8sClient) Patch(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {

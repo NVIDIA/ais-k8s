@@ -9,7 +9,7 @@ stages:
   rules:
     # Run on schedules
     - if: $CI_PIPELINE_SOURCE == "schedule"
-      when: always
+      when: on_success
 
     # Skip if skip-ci label is present
     - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_LABELS =~ /.*skip-ci.*/
@@ -19,7 +19,7 @@ stages:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "main"
       changes:
         - operator/**/*
-      when: always
+      when: on_success
 
     # Manual run if no operator changes (with allow_failure)
     - if: $CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "main"

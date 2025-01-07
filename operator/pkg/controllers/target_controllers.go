@@ -130,14 +130,22 @@ func (r *AIStoreReconciler) handleTargetState(ctx context.Context, ais *aisv1.AI
 func (r *AIStoreReconciler) resolveStatefulSetScaling(ctx context.Context, ais *aisv1.AIStore) error {
 	logger := logf.FromContext(ctx)
 	desiredSize := ais.GetTargetSize()
-	current, err := r.k8sClient.GetStatefulSet(ctx, target.StatefulSetNSName(ais))
-	if err != nil {
-		return err
+	current, ssErr := r.k8sClient.GetStatefulSet(ctx, target.StatefulSetNSName(ais))
+	if ssErr != nil {
+		return ssErr
 	}
 	currentSize := *current.Spec.Replicas
 	// Scaling up
 	if desiredSize > currentSize {
 		if desiredSize > currentSize+1 {
+			ready, err := r.checkAISClusterReady(ctx, ais)
+			if err != nil {
+				return err
+			}
+			if !ready {
+				logger.Info("Waiting for cluster readiness before scaling")
+				return fmt.Errorf("cannot disable rebalance before target scaling, cluster not ready")
+			}
 			logger.Info("Disabling rebalance before target scale-up of > 1 new nodes")
 			err = r.disableRebalance(ctx, ais, aisv1.ReasonScaling, "Disabled due to target scale-up")
 			if err != nil {
@@ -153,9 +161,9 @@ func (r *AIStoreReconciler) resolveStatefulSetScaling(ctx context.Context, ais *
 		}
 		logger.Info("Scaling down target statefulset to match AIS cluster spec size", "desiredSize", desiredSize)
 	}
-	_, err = r.k8sClient.UpdateStatefulSetReplicas(ctx, target.StatefulSetNSName(ais), desiredSize)
-	if err != nil {
-		return err
+	_, ssErr = r.k8sClient.UpdateStatefulSetReplicas(ctx, target.StatefulSetNSName(ais), desiredSize)
+	if ssErr != nil {
+		return ssErr
 	}
 	logger.Info("Updated replica count for target statefulset")
 	return nil

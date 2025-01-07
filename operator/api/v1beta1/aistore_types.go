@@ -405,7 +405,7 @@ func (ais *AIStore) GetDefaultProxyURL() string {
 }
 
 func (ais *AIStore) ShouldStartShutdown() bool {
-	return ais.Spec.ShutdownCluster != nil && *ais.Spec.ShutdownCluster && ais.HasState(ClusterReady)
+	return ais.ShouldBeShutdown() && ais.HasState(ClusterReady)
 }
 
 func (ais *AIStore) ShouldBeShutdown() bool {
