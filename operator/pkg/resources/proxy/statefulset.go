@@ -6,14 +6,11 @@ package proxy
 
 import (
 	"fmt"
-	"path"
-	"strconv"
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
 	"github.com/NVIDIA/aistore/api/env"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	"github.com/ais-operator/pkg/resources/cmn"
-	"github.com/ais-operator/pkg/resources/statsd"
 	apiv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -70,37 +67,15 @@ func NewProxyStatefulSet(ais *aisv1.AIStore, size int32) *apiv1.StatefulSet {
 ////////////////
 
 func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
-	var optionals []corev1.EnvVar
-	if ais.Spec.ProxySpec.HostPort != nil {
-		optionals = []corev1.EnvVar{
-			cmn.EnvFromFieldPath(cmn.EnvPublicHostname, "status.hostIP"),
-		}
-	}
-	if ais.Spec.GCPSecretName != nil {
-		// TODO -- FIXME: Remove hardcoding for path
-		optionals = append(optionals, cmn.EnvFromValue(cmn.EnvGCPCredsPath, "/var/gcp/gcp.json"))
-	}
-	if ais.UseHTTPS() {
-		optionals = append(optionals, cmn.EnvFromValue(cmn.EnvUseHTTPS, "true"))
-	}
-
-	if ais.Spec.AuthNSecretName != nil {
-		optionals = append(optionals, cmn.EnvFromSecret(env.AisAuthSecretKey, *ais.Spec.AuthNSecretName, cmn.EnvAuthNSecretKey))
-	}
-
 	return corev1.PodSpec{
 		InitContainers: []corev1.Container{
 			{
 				Name:            "populate-env",
 				Image:           ais.Spec.InitImage,
 				ImagePullPolicy: corev1.PullIfNotPresent,
-				Env: append(append([]corev1.EnvVar{
-					cmn.EnvFromValue(cmn.EnvServiceName, headlessSVCName(ais)),
-					cmn.EnvFromValue(cmn.EnvClusterDomain, ais.GetClusterDomain()),
-					cmn.EnvFromValue(cmn.EnvDefaultPrimaryPod, ais.DefaultPrimaryName()),
-				}, cmn.CommonEnv()...), optionals...),
-				Args:         cmn.NewInitContainerArgs(aisapc.Proxy, ais.Spec.HostnameMap),
-				VolumeMounts: cmn.NewInitVolumeMounts(),
+				Env:             NewInitContainerEnv(ais),
+				Args:            cmn.NewInitContainerArgs(aisapc.Proxy, ais.Spec.HostnameMap),
+				VolumeMounts:    cmn.NewInitVolumeMounts(),
 			},
 		},
 		Containers: []corev1.Container{
@@ -110,17 +85,7 @@ func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
 				ImagePullPolicy: corev1.PullAlways,
 				Command:         []string{"aisnode"},
 				Args:            cmn.NewAISContainerArgs(ais, aisapc.Proxy),
-				Env: cmn.MergeEnvVars(append(append([]corev1.EnvVar{
-					cmn.EnvFromValue(cmn.EnvClusterDomain, ais.GetClusterDomain()),
-					cmn.EnvFromValue(cmn.EnvShutdownMarkerPath, cmn.AisConfigDir),
-					cmn.EnvFromValue(cmn.EnvCIDR, ""), // TODO: Should take from specs
-					cmn.EnvFromValue(cmn.EnvConfigFilePath, path.Join(cmn.AisConfigDir, cmn.AISGlobalConfigName)),
-					cmn.EnvFromValue(cmn.EnvLocalConfigFilePath, path.Join(cmn.AisConfigDir, cmn.AISLocalConfigName)),
-					cmn.EnvFromValue(cmn.EnvStatsDConfig, path.Join(cmn.StatsDDir, statsd.ConfigFile)),
-					cmn.EnvFromValue(cmn.EnvEnablePrometheus,
-						strconv.FormatBool(ais.Spec.EnablePromExporter != nil && *ais.Spec.EnablePromExporter)),
-					cmn.EnvFromValue(cmn.EnvNumTargets, strconv.Itoa(int(ais.GetTargetSize()))),
-				}, cmn.CommonEnv()...), optionals...), ais.Spec.ProxySpec.Env),
+				Env:             NewAISContainerEnv(ais),
 				Ports:           cmn.NewDaemonPorts(&ais.Spec.ProxySpec),
 				Resources:       ais.Spec.ProxySpec.Resources,
 				SecurityContext: ais.Spec.ProxySpec.ContainerSecurity,
@@ -139,6 +104,26 @@ func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
 		Tolerations:        ais.Spec.ProxySpec.Tolerations,
 		ImagePullSecrets:   ais.Spec.ImagePullSecrets,
 	}
+}
+
+func NewInitContainerEnv(ais *aisv1.AIStore) (initEnv []corev1.EnvVar) {
+	initEnv = cmn.CommonInitEnv(ais)
+	initEnv = append(initEnv, cmn.EnvFromValue(cmn.EnvServiceName, headlessSVCName(ais)))
+	if ais.Spec.ProxySpec.HostPort != nil {
+		initEnv = append(initEnv, cmn.EnvFromFieldPath(cmn.EnvPublicHostname, "status.hostIP"))
+	}
+	return
+}
+
+func NewAISContainerEnv(ais *aisv1.AIStore) []corev1.EnvVar {
+	baseEnv := cmn.CommonEnv()
+	if ais.Spec.ProxySpec.HostPort != nil {
+		baseEnv = append(baseEnv, cmn.EnvFromFieldPath(cmn.EnvPublicHostname, "status.hostIP"))
+	}
+	if ais.Spec.AuthNSecretName != nil {
+		baseEnv = append(baseEnv, cmn.EnvFromSecret(env.AisAuthSecretKey, *ais.Spec.AuthNSecretName, cmn.EnvAuthNSecretKey))
+	}
+	return cmn.MergeEnvVars(baseEnv, ais.Spec.ProxySpec.Env)
 }
 
 func PodLabels(ais *aisv1.AIStore) map[string]string {

@@ -4,7 +4,12 @@
  */
 package cmn
 
-import corev1 "k8s.io/api/core/v1"
+import (
+	"strconv"
+
+	aisv1 "github.com/ais-operator/api/v1beta1"
+	corev1 "k8s.io/api/core/v1"
+)
 
 // Environment variables used by AIS init&daemon containers
 const (
@@ -14,20 +19,8 @@ const (
 	EnvServiceName = "MY_SERVICE" // K8s service associated with Pod
 
 	EnvPublicHostname       = "AIS_PUBLIC_HOSTNAME"
-	EnvDefaultPrimaryPod    = "AIS_DEFAULT_PRIMARY"      // Default Primary pod name
-	EnvCIDR                 = "AIS_CLUSTER_CIDR"         // CIDR to use
-	EnvClusterDomain        = "AIS_K8S_CLUSTER_DOMAIN"   // K8s cluster DNS domain
-	EnvConfigFilePath       = "AIS_CONF_FILE"            // Path to AIS config file
-	EnvLocalConfigFilePath  = "AIS_LOCAL_CONF_FILE"      // Path to AIS local config file
-	EnvEnablePrometheus     = "AIS_PROMETHEUS"           // Enable prometheus exporter
-	EnvUseHTTPS             = "AIS_USE_HTTPS"            // Use HTTPS endpoints
-	EnvStatsDConfig         = "STATSD_CONF_FILE"         // Path to StatsD config json
-	EnvNumTargets           = "TARGETS"                  // Expected target count // TODO: Add AIS_ prefix
-	EnvEnableExternalAccess = "ENABLE_EXTERNAL_ACCESS"   // Bool flag to indicate AIS daemon is exposed using LoadBalancer
-	EnvShutdownMarkerPath   = "AIS_SHUTDOWN_MARKER_PATH" // Path where node shutdown marker will be located
-
-	//nolint:gosec // This is not really credential.
-	EnvGCPCredsPath = "GOOGLE_APPLICATION_CREDENTIALS" // Path to GCP credentials
+	EnvClusterDomain        = "AIS_K8S_CLUSTER_DOMAIN" // K8s cluster DNS domain
+	EnvEnableExternalAccess = "ENABLE_EXTERNAL_ACCESS" // Bool flag to indicate AIS daemon is exposed using LoadBalancer
 
 	EnvHostNetwork = "HOST_NETWORK" // Bool flag to indicate if host network is enabled for target
 
@@ -35,10 +28,23 @@ const (
 	EnvAuthNSecretKey = "SIGNING-KEY" // Key for secret signing key in the K8s secret
 )
 
+// CommonEnv provides environment variables for all containers (target/proxy, init/aisnode)
 func CommonEnv() []corev1.EnvVar {
 	return []corev1.EnvVar{
 		EnvFromFieldPath(EnvNodeName, "spec.nodeName"),
 		EnvFromFieldPath(EnvPodName, "metadata.name"),
 		EnvFromFieldPath(EnvNS, "metadata.namespace"),
 	}
+}
+
+// CommonInitEnv provides environment variables used by init containers for both proxy and target pods
+func CommonInitEnv(ais *aisv1.AIStore) []corev1.EnvVar {
+	initEnv := []corev1.EnvVar{
+		EnvFromValue(EnvClusterDomain, ais.GetClusterDomain()),
+		EnvFromValue(
+			EnvEnableExternalAccess,
+			strconv.FormatBool(ais.Spec.EnableExternalLB),
+		),
+	}
+	return append(initEnv, CommonEnv()...)
 }

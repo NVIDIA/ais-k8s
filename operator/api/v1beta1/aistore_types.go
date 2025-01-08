@@ -140,6 +140,7 @@ type AIStoreSpec struct {
 	// +optional
 	CleanupData *bool `json:"cleanupData,omitempty"`
 
+	// Deprecated: Defaults to true
 	// Defines if AIS daemons should expose prometheus metrics
 	// +optional
 	EnablePromExporter *bool `json:"enablePromExporter,omitempty"`
@@ -410,6 +411,17 @@ func (ais *AIStore) ShouldStartShutdown() bool {
 
 func (ais *AIStore) ShouldBeShutdown() bool {
 	return ais.Spec.ShutdownCluster != nil && *ais.Spec.ShutdownCluster
+}
+
+func (ais *AIStore) UseHostNetwork() bool {
+	return ais.Spec.TargetSpec.HostNetwork != nil && *ais.Spec.TargetSpec.HostNetwork
+}
+
+func (ais *AIStore) GetTargetDNSPolicy() corev1.DNSPolicy {
+	if ais.UseHostNetwork() {
+		return corev1.DNSClusterFirstWithHostNet
+	}
+	return corev1.DNSClusterFirst
 }
 
 // ShouldDecommission Determines if we should begin decommissioning the cluster

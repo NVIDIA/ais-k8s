@@ -441,7 +441,9 @@ spec:
                   AIS cluster using LoadBalancer service
                 type: boolean
               enablePromExporter:
-                description: Defines if AIS daemons should expose prometheus metrics
+                description: |-
+                  Deprecated: Defaults to true
+                  Defines if AIS daemons should expose prometheus metrics
                 type: boolean
               gcpSecretName:
                 description: Secret name containing GCP credentials
