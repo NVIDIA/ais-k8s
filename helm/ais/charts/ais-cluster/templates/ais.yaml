@@ -18,6 +18,10 @@ spec:
     {{- end }}
   enablePromExporter: false
   proxySpec:
+    env:
+      {{- with .Values.proxySpec.env }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
     {{- if .Values.proxySpec.size }}
     size: {{ .Values.proxySpec.size }}
     {{- end }}
@@ -37,6 +41,10 @@ spec:
       {{- toYaml .Values.proxySpec.resources | nindent 6 }}
     {{- end }}
   targetSpec:
+    env:
+      {{- with .Values.targetSpec.env }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
     {{- if .Values.targetSpec.size }}
     size: {{ .Values.targetSpec.size }}
     {{- end }}

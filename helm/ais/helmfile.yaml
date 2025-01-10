@@ -7,6 +7,9 @@ environments:
     values: 
     - https:
         enabled: true
+    # Only controls secret creation, update ais config "cloud" to use 
+    - cloud-secrets:
+        enabled: true
     kubeContext: sjc11
   oci-iad:
     values: 
@@ -43,7 +46,18 @@ releases:
     values:
       - "./config/tls-cert/{{ .Environment.Name }}.yaml"
       - "./config/ais/{{ .Environment.Name }}.yaml"
-    
+
+  # Sets up cloud secrets for AIS pods to mount and use for accessing remote backends
+  - name: ais-cloud-secrets
+    namespace: ais
+    createNamespace: true
+    chart: charts/cloud-secrets
+    version: 0.1.0
+    condition: cloud-secrets.enabled
+    values:
+      - "./config/cloud/{{ .Environment.Name }}.yaml.gotmpl"
+      - "./config/ais/{{ .Environment.Name }}.yaml"
+
   - name: ais-cluster
     namespace: ais
     createNamespace: true

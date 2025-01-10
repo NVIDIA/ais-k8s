@@ -63,10 +63,11 @@ helmfile delete --environment <your-env>
 
 If you only want to modify one part of the installation, it is possible to run the charts individually in `./ais/charts` with their own `values.yaml` files.
 
-| Chart             | Description                                                                                       |
-|-------------------|---------------------------------------------------------------------------------------------------|
-| [ais-operator](https://github.com/NVIDIA/ais-k8s/releases)  | Deploy the AIS operator -- our helmfile deploys the chart generated from our latest AIS operator release |
-| [ais-cluster](./ais/charts/ais-cluster/Chart.yaml)  | Create an AIS cluster resource, with the expectation the operator is already deployed           |
-| [ais-create-pv](./ais/charts/create-pv/Chart.yaml)  | Create persistent volumes to be used by AIS targets           |
-| [tls-issuer](./ais/charts/tls-issuer/Chart.yaml)  | Create a cert-manager Issuer for self-signed certs           |
-| [tls-cert](./ais/charts/tls-cert/Chart.yaml)  | Create a cert-manager certificate           |
+| Chart                                                      | Description                                                                                              |
+|------------------------------------------------------------|----------------------------------------------------------------------------------------------------------|
+| [ais-cloud-secrets](./ais/charts/cloud-secrets/Chart.yaml) | Create k8s secrets from local files for cloud backends                                                   |
+| [ais-cluster](./ais/charts/ais-cluster/Chart.yaml)         | Create an AIS cluster resource, with the expectation the operator is already deployed                    |
+| [ais-create-pv](./ais/charts/create-pv/Chart.yaml)         | Create persistent volumes to be used by AIS targets                                                      |
+| [ais-operator](https://github.com/NVIDIA/ais-k8s/releases) | Deploy the AIS operator -- our helmfile deploys the chart generated from our latest AIS operator release |
+| [tls-cert](./ais/charts/tls-cert/Chart.yaml)               | Create a cert-manager certificate                                                                        |
+| [tls-issuer](./ais/charts/tls-issuer/Chart.yaml)           | Create a cert-manager Issuer for self-signed certs                                                       |

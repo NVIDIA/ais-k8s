@@ -36,8 +36,8 @@ initImage:
   name: aistorage/ais-init
   tag: v3.26-a7ac713
 cloud:
-  awsSecretName: ""
-  gcpSecretName: ""
+  awsSecretName: "aws-creds"
+  gcpSecretName: "gcp-creds"
 multihome:
   enabled: false
   hostnameMap: 
@@ -45,7 +45,7 @@ multihome:
 hostNetwork: false
 shutdownCluster: false
 cleanupData: false
-cleanupMetadata: false
+cleanupMetadata: true
 stateStorageClass: "local-path"
 authNSecretName:
 logsDir:
@@ -56,6 +56,9 @@ proxySpec:
     limits:
       cpu: "12"
 targetSpec:
+  env: 
+    - name: GOOGLE_APPLICATION_CREDENTIALS
+      value: "/var/gcp/gcp.json"
   resources:
     requests:
       cpu: "24"

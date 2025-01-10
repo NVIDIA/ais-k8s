@@ -46,5 +46,9 @@ proxySpec:
   size: 3
   resources:
 targetSpec:
+  # currently REQUIRED to be provided IF cloud.gcpSecretName is set above
+  env: 
+    - name: GOOGLE_APPLICATION_CREDENTIALS
+      value: "/var/gcp/gcp.json"
   size: 3
   resources:

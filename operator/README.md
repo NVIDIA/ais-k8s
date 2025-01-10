@@ -155,9 +155,38 @@ spec:
 
 ### Config Backend Provider for GCP & AWS
 
-AIS operator supports GCP and AWS as the config backend provider. To enable the config backend provider, you need to create a secret with the corresponding credential file.
+AIS operator supports configuring  GCP and AWS as cloud providers for buckets. To enable the config for these providers, you need to create a secret with the corresponding credential file.
 
-```yaml
+#### Helm
+Helm deployments include a [chart](../helm/ais/charts/cloud-secrets/Chart.yaml) for generating these secrets based on local config and credentials. 
+  1. Update the environment in the provided [helmfile](../helm/ais/helmfile.yaml) with the `cloud-secrets` variable: 
+  ```yaml 
+      - cloud-secrets:
+        enabled: true
+  ```
+
+  2. Create a `<env_name>.yaml.gotmpl` file in [helm/ais/config/cloud/](../helm/ais/config/cloud/)
+
+  3. Add references to the local files you want to use. Example for sjc11 (be sure to update your paths correctly):
+  ```yaml
+  aws_config: |-
+  {{ readFile (printf "%s/.aws/sjc11/config" (env "HOME")) | indent 2 }}
+
+  aws_credentials: |-
+  {{ readFile (printf "%s/.aws/sjc11/credentials" (env "HOME")) | indent 2 }}
+
+  gcp_json: |-
+  {{ readFile (printf "%s/.gcp/sjc11/gcp.json" (env "HOME")) | indent 2 }}
+  ```
+
+#### Ansible
+For ansible deployments, see the [ais_aws_config](../playbooks/cloud/ais_aws_config.yml) and [ais_gcp_config](../playbooks/cloud/ais_gcp_config.yml) playbooks and the associated [README](../playbooks/cloud/README.md).
+
+
+#### Manual
+You can also create the secrets manually:
+
+```bash
 kubectl create secret -n ais-operator-system generic aws-creds \
   --from-file=config=$HOME/.aws/config \
   --from-file=credentials=$HOME/.aws/credentials
@@ -165,6 +194,8 @@ kubectl create secret -n ais-operator-system generic aws-creds \
 kubectl create secret -n ais-operator-system generic gcp-creds \
   --from-file=gcp.json=<path-to-gcp-credential-file>.json
 ```
+
+Once the secrets are created, update the AIS config yaml to reference the secrets:
 
 ```yaml
 # config/samples/ais_v1beta1_sample.yaml
@@ -177,6 +208,16 @@ spec:
   awsSecretName: "aws-creds" # corresponding secret name just created for AWS credential
 ...
 ```
+
+Finally, for **GCP** configs, the environment variable for the location **MUST** be provided through the `targetSpec.Env` section (For ansible, it is included in the default template). As of writing, the operator will always mount the provided secret to `/var/gcp`, so for a secret with `data.gcp.json` the resulting file location in the pod will be `var/gcp/gcp.json` :
+
+```yaml
+targetSpec:
+  env: 
+    - name: GOOGLE_APPLICATION_CREDENTIALS
+      value: "/var/gcp/gcp.json"
+```
+
 
 ### Enabling HTTPS for AIStore Deployment in Kubernetes
 

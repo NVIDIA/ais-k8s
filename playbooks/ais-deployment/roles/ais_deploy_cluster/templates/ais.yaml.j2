@@ -40,6 +40,9 @@ spec:
 {% endif %}
 
   targetSpec:
+    env: 
+    - name: GOOGLE_APPLICATION_CREDENTIALS
+      value: /var/gcp/gcp.json
     hostPort: 51081
     servicePort: 51081
     portPublic: 51081
