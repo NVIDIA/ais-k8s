@@ -3,6 +3,8 @@ environments:
     values:
     - https:
         enabled: false
+    - cloud-secrets:
+        enabled: false
   sjc11:
     values: 
     - https:
@@ -15,10 +17,14 @@ environments:
     values: 
     - https:
         enabled: false
+    - cloud-secrets:
+      enabled: false
     kubeContext: oci-iad
   oci-iad-test:
     values: 
     - https:
+        enabled: false
+    - cloud-secrets:
         enabled: false
     kubeContext: oci-iad-test
 ---
