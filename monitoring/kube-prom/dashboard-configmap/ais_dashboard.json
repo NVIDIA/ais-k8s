@@ -24,7 +24,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 2,
+  "id": 1,
   "links": [],
   "panels": [
     {
@@ -409,7 +409,7 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "kube_daemonset_status_number_unavailable{daemonset=\"kube-prometheus-stack-prometheus-node-exporter\", cluster=~\"${cluster}\"}\n",
+          "expr": "kube_daemonset_status_number_unavailable{daemonset=\"prometheus-prometheus-node-exporter\", cluster=~\"${cluster}\"}\n",
           "format": "time_series",
           "intervalFactor": 2,
           "range": true,
@@ -1411,7 +1411,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "min(ais_target_uptime{container=\"ais-node\", namespace=\"${namespace}\", cluster=~\"${cluster}\"})\n",
+          "expr": "min(ais_target_uptime{job=\"aistore\", cluster=~\"${cluster}\"})\n",
           "instant": true,
           "intervalFactor": 1,
           "range": false,
@@ -1583,7 +1583,7 @@
               }
             ]
           },
-          "unit": "MiBs"
+          "unit": "binBps"
         },
         "overrides": []
       },
@@ -1620,7 +1620,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "sum(rate(ais_target_get_bytes{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval])) / (1024 * 1024) or vector(0)",
+          "expr": "sum(rate(ais_target_get_bytes{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval]))",
           "format": "time_series",
           "fullMetaSearch": false,
           "hide": false,
@@ -1699,7 +1699,7 @@
               }
             ]
           },
-          "unit": "MiBs"
+          "unit": "binBps"
         },
         "overrides": []
       },
@@ -1736,7 +1736,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "sum(rate(ais_target_put_bytes{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval])) / (1024 * 1024) or vector(0)",
+          "expr": "sum(rate(ais_target_put_bytes{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval]))",
           "format": "time_series",
           "fullMetaSearch": false,
           "hide": false,
@@ -1762,8 +1762,237 @@
       "fieldConfig": {
         "defaults": {
           "color": {
+            "fixedColor": "green",
+            "mode": "palette-classic-by-name"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineStyle": {
+              "fill": "solid"
+            },
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "links": [],
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "binBps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 12,
+        "x": 0,
+        "y": 25
+      },
+      "id": 131,
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "lastNotNull",
+            "max",
+            "min"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.4.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "disableTextWrap": false,
+          "editorMode": "code",
+          "expr": "sum by (bucket) (rate(ais_target_get_bytes{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval]))",
+          "format": "time_series",
+          "fullMetaSearch": false,
+          "hide": false,
+          "includeNullMetadata": true,
+          "interval": "",
+          "intervalFactor": 1,
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A",
+          "step": 240,
+          "useBackend": false
+        }
+      ],
+      "title": "Total GET Throughput by Bucket",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "yellow",
+            "mode": "palette-classic-by-name"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "links": [],
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "binBps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 12,
+        "x": 12,
+        "y": 25
+      },
+      "id": 132,
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "lastNotNull",
+            "max",
+            "min"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.4.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "disableTextWrap": false,
+          "editorMode": "code",
+          "expr": "sum by (bucket) (rate(ais_target_put_bytes{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval]))\n",
+          "format": "time_series",
+          "fullMetaSearch": false,
+          "hide": false,
+          "includeNullMetadata": true,
+          "interval": "",
+          "intervalFactor": 1,
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A",
+          "step": 240,
+          "useBackend": false
+        }
+      ],
+      "title": "Total PUT Throughput by Bucket",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
             "fixedColor": "light-green",
-            "mode": "shades"
+            "mode": "palette-classic-by-name"
           },
           "custom": {
             "axisBorderShow": false,
@@ -1798,7 +2027,6 @@
               "mode": "off"
             }
           },
-          "displayName": "Object Size",
           "links": [],
           "mappings": [],
           "min": 0,
@@ -1823,7 +2051,7 @@
         "h": 12,
         "w": 12,
         "x": 0,
-        "y": 25
+        "y": 37
       },
       "id": 121,
       "options": {
@@ -1852,7 +2080,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "avg(rate(ais_target_get_bytes{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval])/rate(ais_target_get_count{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval])) or vector(0)",
+          "expr": "sum by (bucket) (\n  rate(ais_target_get_bytes{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval])\n)\n/\nsum by (bucket) (\n  rate(ais_target_get_count{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval])\n)\n",
           "format": "time_series",
           "fullMetaSearch": false,
           "hide": false,
@@ -1866,7 +2094,7 @@
           "useBackend": false
         }
       ],
-      "title": "Mean GET Size",
+      "title": "Average GET Object Size by Bucket",
       "type": "timeseries"
     },
     {
@@ -1879,7 +2107,7 @@
         "defaults": {
           "color": {
             "fixedColor": "light-yellow",
-            "mode": "shades"
+            "mode": "palette-classic-by-name"
           },
           "custom": {
             "axisBorderShow": false,
@@ -1914,7 +2142,6 @@
               "mode": "off"
             }
           },
-          "displayName": "Object Size",
           "links": [],
           "mappings": [],
           "min": 0,
@@ -1924,10 +2151,6 @@
               {
                 "color": "green",
                 "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
               }
             ]
           },
@@ -1939,7 +2162,7 @@
         "h": 12,
         "w": 12,
         "x": 12,
-        "y": 25
+        "y": 37
       },
       "id": 122,
       "options": {
@@ -1968,7 +2191,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "avg(rate(ais_target_put_bytes{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval])/rate(ais_target_put_count{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval])) or vector(0)",
+          "expr": "sum by (bucket) (\n  rate(ais_target_put_bytes{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval])\n)\n/\nsum by (bucket) (\n  rate(ais_target_put_count{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval])\n)\n",
           "format": "time_series",
           "fullMetaSearch": false,
           "hide": false,
@@ -1982,7 +2205,7 @@
           "useBackend": false
         }
       ],
-      "title": "Mean PUT Size",
+      "title": "Average GET Object Size by Bucket",
       "type": "timeseries"
     },
     {
@@ -1997,11 +2220,13 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -2034,7 +2259,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -2042,7 +2268,7 @@
               }
             ]
           },
-          "unit": "MiBs"
+          "unit": "binBps"
         },
         "overrides": []
       },
@@ -2050,7 +2276,7 @@
         "h": 12,
         "w": 12,
         "x": 0,
-        "y": 37
+        "y": 49
       },
       "id": 117,
       "options": {
@@ -2070,7 +2296,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "9.2.0",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
@@ -2079,7 +2305,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "sum by (node_id) (rate(ais_target_get_bytes{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval])) / (1024 * 1024) or vector(0)",
+          "expr": "sum by (node_id) (rate(ais_target_get_bytes{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval]))",
           "format": "time_series",
           "fullMetaSearch": false,
           "hide": false,
@@ -2108,11 +2334,13 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -2145,7 +2373,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -2153,7 +2382,7 @@
               }
             ]
           },
-          "unit": "MiBs"
+          "unit": "binBps"
         },
         "overrides": []
       },
@@ -2161,7 +2390,7 @@
         "h": 12,
         "w": 12,
         "x": 12,
-        "y": 37
+        "y": 49
       },
       "id": 118,
       "options": {
@@ -2181,7 +2410,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "9.2.0",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
@@ -2190,7 +2419,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "sum by (node_id) (ais_target_put_mbps{node_id=~\"$target\", cluster=~\"${cluster}\"})/1.048576 or vector(0)",
+          "expr": "sum by (node_id) (rate(ais_target_put_bytes{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval]))",
           "format": "time_series",
           "fullMetaSearch": false,
           "hide": false,
@@ -2219,11 +2448,13 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 40,
             "gradientMode": "none",
@@ -2256,7 +2487,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -2272,7 +2504,7 @@
         "h": 12,
         "w": 12,
         "x": 0,
-        "y": 49
+        "y": 61
       },
       "id": 106,
       "options": {
@@ -2292,7 +2524,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "9.2.0",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
@@ -2326,11 +2558,13 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 40,
             "gradientMode": "none",
@@ -2363,7 +2597,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -2379,7 +2614,7 @@
         "h": 12,
         "w": 12,
         "x": 12,
-        "y": 49
+        "y": 61
       },
       "id": 110,
       "options": {
@@ -2399,7 +2634,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "9.2.0",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
@@ -2433,11 +2668,13 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "util (%)",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 40,
             "gradientMode": "none",
@@ -2470,7 +2707,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -2486,7 +2724,7 @@
         "h": 12,
         "w": 12,
         "x": 0,
-        "y": 61
+        "y": 73
       },
       "id": 109,
       "options": {
@@ -2506,7 +2744,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "9.2.0",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
@@ -2514,7 +2752,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "avg(ais_target_disk_util{node_id=~\"$target\", cluster=~\"${cluster}\"}) by (node_id) or vector(0)",
+          "expr": "avg(ais_target_disk_util{node_id=~\"$target\", cluster=~\"${cluster}\"}) by (node_id)",
           "format": "time_series",
           "hide": false,
           "interval": "",
@@ -2541,11 +2779,13 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -2577,7 +2817,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -2593,7 +2834,7 @@
         "h": 12,
         "w": 12,
         "x": 12,
-        "y": 61
+        "y": 73
       },
       "id": 114,
       "options": {
@@ -2613,6 +2854,7 @@
           "sort": "none"
         }
       },
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
@@ -2654,13 +2896,15 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "latency (ms)",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
-            "fillOpacity": 40,
+            "fillOpacity": 0,
             "gradientMode": "none",
             "hideFrom": {
               "legend": false,
@@ -2691,7 +2935,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -2699,7 +2944,7 @@
               }
             ]
           },
-          "unit": "ms"
+          "unit": "ns"
         },
         "overrides": []
       },
@@ -2707,7 +2952,7 @@
         "h": 12,
         "w": 12,
         "x": 0,
-        "y": 73
+        "y": 85
       },
       "id": 103,
       "options": {
@@ -2727,7 +2972,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "9.2.0",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
@@ -2735,7 +2980,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum by (node_id) (ais_target_get_ms{node_id=~\"$target\", cluster=~\"${cluster}\"}) or vector(0)",
+          "expr": "sum by (bucket) (rate(ais_target_get_ns_total[$interval])) / sum by (bucket) (rate(ais_target_get_count[$interval]))\n",
           "format": "time_series",
           "hide": false,
           "interval": "",
@@ -2746,7 +2991,7 @@
           "step": 240
         }
       ],
-      "title": "GET Latency per Node",
+      "title": "GET Latency per Bucket",
       "type": "timeseries"
     },
     {
@@ -2761,13 +3006,15 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "latency (ms)",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
-            "fillOpacity": 40,
+            "fillOpacity": 0,
             "gradientMode": "none",
             "hideFrom": {
               "legend": false,
@@ -2798,7 +3045,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -2806,7 +3054,7 @@
               }
             ]
           },
-          "unit": "ms"
+          "unit": "ns"
         },
         "overrides": []
       },
@@ -2814,7 +3062,7 @@
         "h": 12,
         "w": 12,
         "x": 12,
-        "y": 73
+        "y": 85
       },
       "id": 120,
       "options": {
@@ -2834,7 +3082,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "9.2.0",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
@@ -2842,7 +3090,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum by (node_id) (ais_target_put_ms{node_id=~\"$target\", cluster=~\"${cluster}\"}) or vector(0)",
+          "expr": "sum by (bucket) (rate(ais_target_put_ns_total[$interval])) / sum by (bucket) (rate(ais_target_put_count[$interval]))\n",
           "format": "time_series",
           "hide": false,
           "interval": "",
@@ -2853,7 +3101,7 @@
           "step": 240
         }
       ],
-      "title": "PUT Latency per Node",
+      "title": "PUT Latency per Bucket",
       "type": "timeseries"
     },
     {
@@ -2872,7 +3120,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "text"
+                "color": "text",
+                "value": null
               }
             ]
           },
@@ -2884,7 +3133,7 @@
         "h": 3,
         "w": 3,
         "x": 0,
-        "y": 85
+        "y": 97
       },
       "id": 108,
       "maxDataPoints": 100,
@@ -2905,7 +3154,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "10.1.2",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
@@ -2941,7 +3190,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "text"
+                "color": "text",
+                "value": null
               }
             ]
           },
@@ -2953,7 +3203,7 @@
         "h": 3,
         "w": 3,
         "x": 3,
-        "y": 85
+        "y": 97
       },
       "id": 123,
       "maxDataPoints": 100,
@@ -2974,7 +3224,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "10.1.2",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
@@ -3010,7 +3260,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "text"
+                "color": "text",
+                "value": null
               }
             ]
           },
@@ -3022,7 +3273,7 @@
         "h": 3,
         "w": 3,
         "x": 7,
-        "y": 85
+        "y": 97
       },
       "id": 107,
       "maxDataPoints": 100,
@@ -3043,7 +3294,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "10.1.2",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
@@ -3079,7 +3330,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "text"
+                "color": "text",
+                "value": null
               }
             ]
           },
@@ -3091,7 +3343,7 @@
         "h": 3,
         "w": 3,
         "x": 10,
-        "y": 85
+        "y": 97
       },
       "id": 119,
       "maxDataPoints": 100,
@@ -3112,7 +3364,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "10.1.2",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
@@ -3148,7 +3400,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "text"
+                "color": "text",
+                "value": null
               }
             ]
           },
@@ -3160,7 +3413,7 @@
         "h": 3,
         "w": 3,
         "x": 14,
-        "y": 85
+        "y": 97
       },
       "id": 124,
       "maxDataPoints": 100,
@@ -3181,7 +3434,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "10.1.2",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
@@ -3217,7 +3470,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "text"
+                "color": "text",
+                "value": null
               }
             ]
           },
@@ -3229,7 +3483,7 @@
         "h": 3,
         "w": 3,
         "x": 17,
-        "y": 85
+        "y": 97
       },
       "id": 125,
       "maxDataPoints": 100,
@@ -3250,7 +3504,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "10.1.2",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
@@ -3276,7 +3530,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 88
+        "y": 100
       },
       "id": 102,
       "panels": [],
@@ -3295,13 +3549,15 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "requests",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
-            "fillOpacity": 40,
+            "fillOpacity": 0,
             "gradientMode": "none",
             "hideFrom": {
               "legend": false,
@@ -3332,7 +3588,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -3348,7 +3605,7 @@
         "h": 12,
         "w": 12,
         "x": 0,
-        "y": 89
+        "y": 101
       },
       "id": 104,
       "options": {
@@ -3365,7 +3622,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "9.2.0",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
@@ -3393,7 +3650,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 101
+        "y": 113
       },
       "id": 65,
       "panels": [],
@@ -3412,11 +3669,13 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "%util",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 40,
             "gradientMode": "none",
@@ -3449,7 +3708,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -3493,7 +3753,7 @@
         "h": 12,
         "w": 12,
         "x": 0,
-        "y": 102
+        "y": 114
       },
       "id": 100,
       "options": {
@@ -3513,7 +3773,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "9.2.0",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
@@ -3547,11 +3807,13 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "bytes",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -3584,7 +3846,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -3600,7 +3863,7 @@
         "h": 12,
         "w": 12,
         "x": 12,
-        "y": 102
+        "y": 114
       },
       "id": 101,
       "options": {
@@ -3617,7 +3880,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "9.2.0",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
@@ -3649,11 +3912,13 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -3695,7 +3960,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "rgba(50, 172, 45, 0.97)"
+                "color": "rgba(50, 172, 45, 0.97)",
+                "value": null
               },
               {
                 "color": "rgba(237, 129, 40, 0.89)",
@@ -3715,7 +3981,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 114
+        "y": 126
       },
       "id": 72,
       "options": {
@@ -3730,7 +3996,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "9.1.0",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
@@ -3771,11 +4037,13 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -3808,7 +4076,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -3824,7 +4093,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 114
+        "y": 126
       },
       "id": 75,
       "options": {
@@ -3839,7 +4108,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "9.1.0",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
@@ -3865,7 +4134,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 122
+        "y": 134
       },
       "id": 69,
       "panels": [],
@@ -3884,11 +4153,13 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -3920,7 +4191,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -3960,7 +4232,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 123
+        "y": 135
       },
       "id": 30,
       "options": {
@@ -3975,6 +4247,7 @@
           "sort": "none"
         }
       },
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
@@ -4015,11 +4288,13 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -4050,7 +4325,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -4065,7 +4341,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 123
+        "y": 135
       },
       "id": 77,
       "options": {
@@ -4080,6 +4356,7 @@
           "sort": "none"
         }
       },
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
@@ -4102,7 +4379,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 131
+        "y": 143
       },
       "id": 67,
       "panels": [],
@@ -4121,11 +4398,13 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -4157,7 +4436,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -4531,7 +4811,7 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 132
+        "y": 144
       },
       "id": 80,
       "options": {
@@ -4546,7 +4826,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "9.2.0",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
@@ -4592,11 +4872,13 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -4628,7 +4910,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -5002,7 +5285,7 @@
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 132
+        "y": 144
       },
       "id": 81,
       "options": {
@@ -5017,7 +5300,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "9.2.0",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
@@ -5308,6 +5591,6 @@
   "timezone": "",
   "title": "AIStore Dashboard",
   "uid": "b9a4a6f0-ed0d-4bcc-87b1-dbfa0ed6cabc",
-  "version": 1,
+  "version": 3,
   "weekStart": ""
 }
