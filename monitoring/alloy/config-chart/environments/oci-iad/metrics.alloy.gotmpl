@@ -78,7 +78,7 @@ prometheus.relabel "all_metrics" {
 
 prometheus.scrape "aistore" {
   targets = discovery.relabel.all_aisnode.output
-  forward_to = prometheus.relabel.all_metrics.receiver
+  forward_to = [prometheus.relabel.all_metrics.receiver]
   job_name = "aistore"
   scrape_interval = "30s"
   metrics_path = "/metrics"
