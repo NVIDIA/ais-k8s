@@ -81,10 +81,9 @@ func (r *AIStoreReconciler) cleanupTargetSS(ctx context.Context, ais *aisv1.AISt
 }
 
 func (r *AIStoreReconciler) handleTargetState(ctx context.Context, ais *aisv1.AIStore) (result ctrl.Result, err error) {
-	logger := logf.FromContext(ctx)
-
 	// Fetch the latest target StatefulSet.
 	ss, err := r.k8sClient.GetStatefulSet(ctx, target.StatefulSetNSName(ais))
+
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			result, err = r.initTargets(ctx, ais)
@@ -92,9 +91,11 @@ func (r *AIStoreReconciler) handleTargetState(ctx context.Context, ais *aisv1.AI
 		return
 	}
 
-	result, err = r.syncTargetPodSpec(ctx, ais, ss)
-	if err != nil || !result.IsZero() {
-		return
+	logger := logf.FromContext(ctx).WithValues("statefulset", ss.Name, "status", ss.Status)
+
+	updated, err := r.syncTargetPodSpec(ctx, ais, ss)
+	if err != nil || updated {
+		return ctrl.Result{RequeueAfter: targetRequeueDelay}, err
 	}
 
 	if ais.HasState(aisv1.ClusterScaling) {
@@ -104,9 +105,6 @@ func (r *AIStoreReconciler) handleTargetState(ctx context.Context, ais *aisv1.AI
 			if err != nil {
 				return
 			}
-		} else if *ss.Spec.Replicas != ss.Status.ReadyReplicas {
-			logger.Info("Waiting for statefulset replicas to match desired count")
-			return ctrl.Result{RequeueAfter: targetRequeueDelay}, nil
 		}
 	}
 	// Start the target scaling process by updating services and contacting the AIS API
@@ -120,11 +118,32 @@ func (r *AIStoreReconciler) handleTargetState(ctx context.Context, ais *aisv1.AI
 		return
 	}
 	// Requeue if the number of target pods ready does not match the size provided in AIS cluster spec.
-	if ss.Status.ReadyReplicas != ais.GetTargetSize() {
-		logger.Info("Waiting for target statefulset to reach desired replicas")
+	if !isStatefulSetReady(ais, ss) {
+		logger.Info("Waiting for target statefulset to reach desired replicas", "desired", ss.Spec.Replicas)
 		return ctrl.Result{RequeueAfter: targetRequeueDelay}, nil
 	}
 	return
+}
+
+func isStatefulSetReady(ais *aisv1.AIStore, ss *appsv1.StatefulSet) bool {
+	specReplicas := *ss.Spec.Replicas
+	// Must match size provided in AIS cluster spec
+	if specReplicas != ais.GetTargetSize() {
+		return false
+	}
+
+	// If update revision is set, check that it equals current revision indicating the rollout is complete
+	if ss.Status.UpdateRevision != "" && ss.Status.CurrentRevision != ss.Status.UpdateRevision {
+		return false
+	}
+	// To be ready, spec must match status.Replicas, status.CurrentReplicas, status.ReadyReplicas
+	if specReplicas != ss.Status.Replicas {
+		return false
+	}
+	if specReplicas != ss.Status.CurrentReplicas {
+		return false
+	}
+	return specReplicas == ss.Status.ReadyReplicas
 }
 
 func (r *AIStoreReconciler) resolveStatefulSetScaling(ctx context.Context, ais *aisv1.AIStore) error {
@@ -241,7 +260,7 @@ func (r *AIStoreReconciler) decommissionTargets(ctx context.Context, ais *aisv1.
 	return nil
 }
 
-func (r *AIStoreReconciler) syncTargetPodSpec(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) (result ctrl.Result, err error) {
+func (r *AIStoreReconciler) syncTargetPodSpec(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) (updated bool, err error) {
 	logger := logf.FromContext(ctx)
 	currentTemplate := &ss.Spec.Template
 	desiredTemplate := &target.NewTargetSS(ais).Spec.Template
@@ -249,7 +268,7 @@ func (r *AIStoreReconciler) syncTargetPodSpec(ctx context.Context, ais *aisv1.AI
 		// Disable rebalance condition before ANY changes that trigger a rolling upgrade
 		err = r.disableRebalance(ctx, ais, aisv1.ReasonUpgrading, "Disabled due to rolling upgrade: "+reason)
 		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to disable rebalance before rolling upgrade: %w", err)
+			return false, fmt.Errorf("failed to disable rebalance before rolling upgrade: %w", err)
 		}
 
 		syncPodTemplate(desiredTemplate, currentTemplate)
@@ -258,9 +277,9 @@ func (r *AIStoreReconciler) syncTargetPodSpec(ctx context.Context, ais *aisv1.AI
 		if err == nil {
 			logger.Info("Target statefulset successfully updated", "reason", reason)
 		}
-		return ctrl.Result{Requeue: true}, err
+		return true, err
 	}
-	return
+	return false, nil
 }
 
 func (r *AIStoreReconciler) scaleUpLB(ctx context.Context, ais *aisv1.AIStore) error {

@@ -661,7 +661,7 @@ func reconcileTarget(ctx context.Context, ais *aisv1.AIStore, r *AIStoreReconcil
 	By("Reconcile targets")
 	result, err := r.handleTargetState(ctx, ais)
 	Expect(err).ToNot(HaveOccurred())
-	Expect(result.Requeue).To(BeTrue())
+	Expect(result.RequeueAfter).To(Not(BeNil()))
 }
 
 func reconcileProxy(ctx context.Context, ais *aisv1.AIStore, r *AIStoreReconciler) {
