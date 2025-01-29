@@ -14,10 +14,16 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-func PrepareAnnotations(annotations map[string]string, netAttachment *string) map[string]string {
+func PrepareAnnotations(annotations map[string]string, netAttachment, restartHash *string) map[string]string {
 	newAnnotations := map[string]string{}
 	if netAttachment != nil {
 		newAnnotations[nadv1.NetworkAttachmentAnnot] = *netAttachment
+	}
+	if restartHash != nil {
+		newAnnotations[RestartConfigHashAnnotation] = *restartHash
+	}
+	if len(annotations) == 0 {
+		return newAnnotations
 	}
 	for k, v := range annotations {
 		newAnnotations[k] = v

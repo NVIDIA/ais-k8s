@@ -14,7 +14,12 @@ import (
 	jsoniter "github.com/json-iterator/go"
 )
 
-const defaultRebalanceState = true
+const (
+	defaultRebalanceState       = true
+	ConfigHashAnnotation        = "config.aistore.nvidia.com/hash"
+	RestartConfigHashAnnotation = "config.aistore.nvidia.com/restart-hash"
+	RestartConfigHashInitial    = ".initial"
+)
 
 // GenerateGlobalConfig creates the initial config override to supply to an AIS daemon pod
 //
@@ -86,12 +91,24 @@ func GenerateConfigToSet(ais *aisv1.AIStore) (*aiscmn.ConfigToSet, error) {
 	return specConfig.Convert()
 }
 
-// HashConfigToSet generates a hash of the given config
-func HashConfigToSet(c *aiscmn.ConfigToSet) (string, error) {
+func HashGlobalConfig(c *aiscmn.ConfigToSet) (string, error) {
 	data, err := jsoniter.Marshal(c)
 	if err != nil {
 		return "", err
 	}
 	hash := sha256.Sum256(data)
 	return hex.EncodeToString(hash[:]), nil
+}
+
+// Generates a hash of ONLY configs that should trigger cluster restart upon change
+func HashRestartConfigs(c *aiscmn.ConfigToSet) (string, error) {
+	checksum := sha256.Sum256([]byte{})
+	if c.Net != nil && c.Net.HTTP != nil {
+		confNetHTTP, err := jsoniter.Marshal(*c.Net.HTTP)
+		if err != nil {
+			return "", err
+		}
+		checksum = sha256.Sum256(confNetHTTP)
+	}
+	return hex.EncodeToString(checksum[:]), nil
 }

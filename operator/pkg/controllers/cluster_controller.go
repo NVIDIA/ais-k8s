@@ -7,8 +7,10 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
+	aiscmn "github.com/NVIDIA/aistore/cmn"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	aisclient "github.com/ais-operator/pkg/client"
 	"github.com/ais-operator/pkg/resources/cmn"
@@ -33,9 +35,7 @@ import (
 )
 
 const (
-	aisFinalizer = "finalize.ais"
-
-	configHashAnnotation    = "config.aistore.nvidia.com/hash"
+	aisFinalizer            = "finalize.ais"
 	aisShutdownRequeueDelay = 5 * time.Second
 )
 
@@ -147,6 +147,7 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if !ais.IsConditionTrue(aisv1.ConditionCreated) {
 		return r.bootstrapNew(ctx, ais)
 	}
+
 	return r.handleCREvents(ctx, ais)
 }
 
@@ -387,10 +388,6 @@ func (r *AIStoreReconciler) reconcileResources(ctx context.Context, ais *aisv1.A
 
 	// FIXME: We should also move the logic from `bootstrapNew` and `handleCREvents`.
 
-	// FIXME: To make sure that we don't forget to update StatefulSets we should
-	//  add annotations with hashes of the configmaps - thanks to this even if we
-	//  would restart on next reconcile we can compare hashes.
-
 	return nil
 }
 
@@ -480,7 +477,10 @@ func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore
 //  3. Check if config is properly updated in the cluster.
 //  4. If expected state is not yet met we should reconcile until everything is ready.
 func (r *AIStoreReconciler) handleCREvents(ctx context.Context, ais *aisv1.AIStore) (result ctrl.Result, err error) {
-	var ready bool
+	var (
+		ready         bool
+		shouldRequeue bool
+	)
 	logger := logf.FromContext(ctx)
 	if result, err = r.handleProxyState(ctx, ais); err != nil {
 		return
@@ -509,7 +509,12 @@ func (r *AIStoreReconciler) handleCREvents(ctx context.Context, ais *aisv1.AISto
 		return
 	}
 
-	if err = r.handleConfigState(ctx, ais, false /*force*/); err != nil {
+	shouldRequeue, err = r.handleConfigState(ctx, ais, false /*force*/)
+	if err != nil {
+		return
+	}
+	if shouldRequeue {
+		result.Requeue = true
 		goto requeue
 	}
 
@@ -524,44 +529,103 @@ requeue:
 	return
 }
 
-// handleConfigState properly reconciles the AIS cluster config with the `.spec.configToUpdate` field and any other custom config changes
+// handleConfigState properly reconciles the AIS cluster config with the `.spec.configToUpdate` field and any other
+// operator provided configs. It also updates the restart config annotation on the AIS resource to indicate that
+// statefulsets should begin a rollout.
 //
-// The ConfigMap that also contains the value of this field is updated earlier, but
+// The ConfigMap that also contains the global config is updated earlier, but
 // this synchronizes any changes to the active loaded config in the cluster.
-func (r *AIStoreReconciler) handleConfigState(ctx context.Context, ais *aisv1.AIStore, forceSync bool) error {
+func (r *AIStoreReconciler) handleConfigState(ctx context.Context, ais *aisv1.AIStore, forceSync bool) (requeue bool, err error) {
 	logger := logf.FromContext(ctx)
-	// Get the config provided in spec plus any additional ones we want to set
-	desiredConf, err := cmn.GenerateConfigToSet(ais)
+	// Get the config provided in spec plus any additional ones set by the operator
+	conf, err := cmn.GenerateGlobalConfig(ais)
 	if err != nil {
-		return err
-	}
-	currentHash, err := cmn.HashConfigToSet(desiredConf)
-	if err != nil {
-		logger.Error(err, "Error generating hash for desired config")
-		return err
-	}
-	if !forceSync && ais.Annotations[configHashAnnotation] == currentHash {
-		logger.Info("Global config hash matches last applied config")
-		return nil
-	}
-	// Update cluster config based on what we have in the CRD spec.
-	apiClient, err := r.clientManager.GetClient(ctx, ais)
-	if err != nil {
-		return err
-	}
-	logger.Info("Updating cluster config to match spec via API")
-	err = apiClient.SetClusterConfigUsingMsg(desiredConf, false /*transient*/)
-	if err != nil {
-		return fmt.Errorf("failed to update cluster config: %w", err)
+		logger.Error(err, "Error generating global config")
+		return
 	}
 
-	// Finally update CRD with proper annotation.
+	newConfHash, err := r.updateClusterConfig(ctx, ais, conf, forceSync)
+	if err != nil {
+		return
+	}
+	restartAnnot, err := calcRestartConfigAnnotation(ais.Annotations[cmn.RestartConfigHashAnnotation], conf)
+	if err != nil {
+		logger.Error(err, "Error hashing restart configs")
+		return
+	}
+	confChanged := newConfHash != ais.Annotations[cmn.ConfigHashAnnotation]
+	restartChanged := restartAnnot != ais.Annotations[cmn.RestartConfigHashAnnotation]
+	// We only care about re-queueing if the restart annotation changes and is not initial -- regular config is done syncing at this point
+	requeue = restartChanged && !strings.HasSuffix(restartAnnot, cmn.RestartConfigHashInitial)
+	// If nothing changed, we're done
+	if !requeue && !confChanged {
+		return
+	}
+	err = r.patchAISAnnotations(ctx, ais, newConfHash, restartAnnot)
+	if err != nil {
+		logger.Error(err, "Error patching AIS with latest annotations")
+	}
+	return
+}
+
+func (r *AIStoreReconciler) patchAISAnnotations(ctx context.Context, ais *aisv1.AIStore, confHash, restartHash string) error {
 	original := ais.DeepCopy()
 	if ais.Annotations == nil {
 		ais.Annotations = map[string]string{}
 	}
-	ais.Annotations[configHashAnnotation] = currentHash
+	if confHash != "" {
+		ais.Annotations[cmn.ConfigHashAnnotation] = confHash
+	}
+	ais.Annotations[cmn.RestartConfigHashAnnotation] = restartHash
 	return r.k8sClient.Patch(ctx, ais, k8sclient.MergeFrom(original))
+}
+
+// Given cluster config, compute the hash, update the cluster if it does not match, and return hash if changed
+func (r *AIStoreReconciler) updateClusterConfig(ctx context.Context, ais *aisv1.AIStore, conf *aiscmn.ConfigToSet, forceSync bool) (newHash string, err error) {
+	logger := logf.FromContext(ctx)
+	confHash, err := cmn.HashGlobalConfig(conf)
+	if err != nil {
+		logger.Error(err, "Error hashing global config")
+		return
+	}
+
+	// Hash is same and not forcing, do nothing
+	if !forceSync && ais.Annotations[cmn.ConfigHashAnnotation] == confHash {
+		return confHash, nil
+	}
+	// Update active cluster config to the new global config
+	apiClient, err := r.clientManager.GetClient(ctx, ais)
+	if err != nil {
+		return
+	}
+
+	logger.Info("Updating cluster config to match spec via API")
+	err = apiClient.SetClusterConfigUsingMsg(conf, false /*transient*/)
+	if err != nil {
+		return "", fmt.Errorf("failed to update cluster config: %w", err)
+	}
+	return confHash, nil
+}
+
+// Given a hash of configs that cause restart, return the annotation we should store in AIS
+func calcRestartConfigAnnotation(annot string, conf *aiscmn.ConfigToSet) (string, error) {
+	restartHash, err := cmn.HashRestartConfigs(conf)
+	if err != nil {
+		return "", err
+	}
+	switch {
+	case annot == "":
+		return restartHash + cmn.RestartConfigHashInitial, nil
+	case strings.HasSuffix(annot, cmn.RestartConfigHashInitial):
+		currentHash := strings.TrimSuffix(annot, cmn.RestartConfigHashInitial)
+		// If annotation has initial tag, only update if hash part changes (no longer initial)
+		if currentHash == restartHash {
+			return annot, nil
+		}
+		return restartHash, nil
+	default:
+		return restartHash, nil
+	}
 }
 
 func (r *AIStoreReconciler) createOrUpdateRBACResources(ctx context.Context, ais *aisv1.AIStore) (err error) {
@@ -613,7 +677,8 @@ func (r *AIStoreReconciler) disableRebalance(ctx context.Context, ais *aisv1.AIS
 	// Also disable in the live cluster (don't wait for config sync)
 	// This function will update the annotation so future reconciliations can tell the config has been updated
 	// Force to ensure we still disable rebalance when set disabled in spec (in case it was enabled manually)
-	return r.handleConfigState(ctx, ais, true /*force*/)
+	_, err = r.handleConfigState(ctx, ais, true /*force*/)
+	return err
 }
 
 func (r *AIStoreReconciler) enableRebalanceCondition(ctx context.Context, ais *aisv1.AIStore) error {
@@ -724,10 +789,34 @@ func shouldUpdatePodTemplate(desired, current *corev1.PodTemplateSpec) (bool, st
 		}
 	}
 
-	if !equality.Semantic.DeepDerivative(desired.Annotations, current.Annotations) {
+	if annotationChangeShouldTrigger(desired.Annotations, current.Annotations) {
 		return true, "updating annotations"
 	}
+
 	return false, ""
+}
+
+func annotationChangeShouldTrigger(desired, current map[string]string) bool {
+	if equality.Semantic.DeepDerivative(desired, current) {
+		return false
+	}
+	restartHash, exists := desired[cmn.RestartConfigHashAnnotation]
+	// At this point annotations are not equal -- If the restart hash does not exist trigger sync
+	if !exists {
+		return true
+	}
+	// If the hash is different and NOT initial, trigger sync
+	nonInitial := !strings.HasSuffix(restartHash, cmn.RestartConfigHashInitial)
+	if nonInitial && restartHash != current[cmn.RestartConfigHashAnnotation] {
+		return true
+	}
+	// Compare the desired to current WITHOUT the restart hash and trigger if not equivalent
+	desiredCopy := make(map[string]string)
+	for k, v := range desired {
+		desiredCopy[k] = v
+	}
+	delete(desiredCopy, cmn.RestartConfigHashAnnotation)
+	return !equality.Semantic.DeepDerivative(desiredCopy, current)
 }
 
 func syncPodTemplate(desired, current *corev1.PodTemplateSpec) (updated bool) {

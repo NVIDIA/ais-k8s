@@ -42,9 +42,10 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 	labels := PodLabels(ais)
 	return &apiv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      statefulSetName(ais),
-			Namespace: ais.Namespace,
-			Labels:    labels,
+			Name:        statefulSetName(ais),
+			Namespace:   ais.Namespace,
+			Labels:      labels,
+			Annotations: map[string]string{cmn.RestartConfigHashAnnotation: ais.Annotations[cmn.RestartConfigHashAnnotation]},
 		},
 		Spec: apiv1.StatefulSetSpec{
 			Selector: &metav1.LabelSelector{
@@ -57,7 +58,7 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels:      labels,
-					Annotations: cmn.PrepareAnnotations(ais.Spec.TargetSpec.Annotations, ais.Spec.NetAttachment),
+					Annotations: cmn.PrepareAnnotations(ais.Spec.TargetSpec.Annotations, ais.Spec.NetAttachment, aisapc.Ptr(ais.Annotations[cmn.RestartConfigHashAnnotation])),
 				},
 				Spec: *targetPodSpec(ais, labels),
 			},

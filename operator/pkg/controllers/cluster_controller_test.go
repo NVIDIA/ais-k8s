@@ -6,17 +6,21 @@ package controllers
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"time"
 
 	"github.com/NVIDIA/aistore/api/apc"
+	aiscmn "github.com/NVIDIA/aistore/cmn"
 	"github.com/NVIDIA/aistore/cmn/cos"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	aisclient "github.com/ais-operator/pkg/client"
 	"github.com/ais-operator/pkg/resources/cmn"
 	mocks "github.com/ais-operator/pkg/services/mocks"
 	"github.com/ais-operator/tests/tutils"
+	jsoniter "github.com/json-iterator/go"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
@@ -186,32 +190,35 @@ var _ = Describe("AIStoreController", func() {
 				It("should properly handle config update", func() {
 					By("Update CRD")
 					ais.Spec.ConfigToUpdate.Features = apc.Ptr("2568")
-					expectedConfig, err := cmn.GenerateConfigToSet(ais)
+					expectedConfig, err := cmn.GenerateGlobalConfig(ais)
 					Expect(err).ToNot(HaveOccurred())
-					expectedHash, err := cmn.HashConfigToSet(expectedConfig)
+					expectedHash, err := hashGlobalConfig(expectedConfig)
 					Expect(err).ToNot(HaveOccurred())
 					err = c.Update(ctx, ais)
 					Expect(err).ToNot(HaveOccurred())
 
 					By("Reconcile to propagate config")
 					apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any(), false).Times(1)
-					err = r.handleConfigState(ctx, ais, true /*force*/)
+					requeue, err := r.handleConfigState(ctx, ais, true /*force*/)
 					Expect(err).ToNot(HaveOccurred())
+					Expect(requeue).To(BeFalse())
 
 					By("Ensure that config update is propagated to proxies/targets")
 					err = c.Get(ctx, types.NamespacedName{Name: ais.Name, Namespace: namespace}, ais)
 					Expect(err).ToNot(HaveOccurred())
-					Expect(ais.Annotations[configHashAnnotation]).To(Equal(expectedHash))
+					Expect(ais.Annotations[cmn.ConfigHashAnnotation]).To(Equal(expectedHash))
 
 					By("Ensure that a repeat with the same config does not result in an API call")
 					apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any(), false).Times(0)
-					err = r.handleConfigState(ctx, ais, false /*force*/)
+					requeue, err = r.handleConfigState(ctx, ais, false /*force*/)
 					Expect(err).ToNot(HaveOccurred())
+					Expect(requeue).To(BeFalse())
 
 					By("Ensure that a repeat with the same config and force DOES result in an API call")
 					apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any(), false).Times(1)
-					err = r.handleConfigState(ctx, ais, true /*force*/)
+					requeue, err = r.handleConfigState(ctx, ais, true /*force*/)
 					Expect(err).ToNot(HaveOccurred())
+					Expect(requeue).To(BeFalse())
 				})
 
 				It("should reconcile new init image in spec", func() {
@@ -313,23 +320,27 @@ var _ = Describe("AIStoreController", func() {
 				It("should reconcile changed annotations", func() {
 					createStatefulSets(ctx, c, ais, r)
 
-					By("Update container resources and reconcile")
+					By("Update annotations in spec and reconcile")
 					apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any(), false).Return(nil).Times(1)
 					ais.Spec.ProxySpec.Annotations = map[string]string{"key": "value"}
-					ais.Spec.TargetSpec.Annotations = map[string]string{"key": "value"}
+					ais.Spec.TargetSpec.Annotations = map[string]string{"key2": "value2"}
 					err := c.Update(ctx, ais)
 					Expect(err).ToNot(HaveOccurred())
+
 					reconcileProxy(ctx, ais, r)
 					reconcileTarget(ctx, ais, r)
 
-					By("Expect statefulset spec to update")
+					By("Expect statefulset specs to update")
 					Eventually(func(g Gomega) {
-						for _, stsType := range []string{"ais-proxy", "ais-target"} {
-							ss := getStatefulSet(ctx, ais, c, stsType)
-							g.Expect(ss.Spec.Template.Annotations).To(HaveLen(1))
-						}
-					}, 30*time.Second, 2*time.Second).Should(Succeed())
+						ss := getStatefulSet(ctx, ais, c, "ais-proxy")
+						g.Expect(ss.Spec.Template.Annotations["key"]).To(Equal("value"))
+					}, 10*time.Second, 2*time.Second).Should(Succeed())
+					Eventually(func(g Gomega) {
+						ss := getStatefulSet(ctx, ais, c, "ais-target")
+						g.Expect(ss.Spec.Template.Annotations["key2"]).To(Equal("value2"))
+					}, 10*time.Second, 2*time.Second).Should(Succeed())
 				})
+
 			})
 
 			Describe("With existing cluster", func() {
@@ -669,4 +680,13 @@ func reconcileProxy(ctx context.Context, ais *aisv1.AIStore, r *AIStoreReconcile
 	result, err := r.handleProxyState(ctx, ais)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(result.Requeue).To(BeTrue())
+}
+
+func hashGlobalConfig(c *aiscmn.ConfigToSet) (string, error) {
+	data, err := jsoniter.Marshal(c)
+	if err != nil {
+		return "", err
+	}
+	hash := sha256.Sum256(data)
+	return hex.EncodeToString(hash[:]), nil
 }

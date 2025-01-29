@@ -37,7 +37,7 @@ var _ = Describe("Statefulset", Label("short"), func() {
 	Describe("PrepareAnnotations", func() {
 		It("should handle nil network attachment", func() {
 			annotations := map[string]string{"key1": "value1"}
-			result := PrepareAnnotations(annotations, nil)
+			result := PrepareAnnotations(annotations, nil, nil)
 
 			Expect(result).To(HaveLen(1))
 			Expect(result).To(HaveKeyWithValue("key1", "value1"))
@@ -46,16 +46,26 @@ var _ = Describe("Statefulset", Label("short"), func() {
 		It("should add network attachment when provided", func() {
 			annotations := map[string]string{"key1": "value1"}
 			netAttachment := "test-network"
-			result := PrepareAnnotations(annotations, &netAttachment)
+			result := PrepareAnnotations(annotations, &netAttachment, nil)
 
 			Expect(result).To(HaveLen(2))
 			Expect(result).To(HaveKeyWithValue("key1", "value1"))
 			Expect(result).To(HaveKeyWithValue(nadv1.NetworkAttachmentAnnot, "test-network"))
 		})
 
+		It("should add restart hash when provided", func() {
+			annotations := map[string]string{"key1": "value1"}
+			restartHash := "restart-hash"
+			result := PrepareAnnotations(annotations, nil, &restartHash)
+
+			Expect(result).To(HaveLen(2))
+			Expect(result).To(HaveKeyWithValue("key1", "value1"))
+			Expect(result).To(HaveKeyWithValue(RestartConfigHashAnnotation, "restart-hash"))
+		})
+
 		It("should handle empty input annotations", func() {
 			netAttachment := "test-network"
-			result := PrepareAnnotations(nil, &netAttachment)
+			result := PrepareAnnotations(nil, &netAttachment, nil)
 
 			Expect(result).To(HaveLen(1))
 			Expect(result).To(HaveKeyWithValue(nadv1.NetworkAttachmentAnnot, "test-network"))
@@ -66,7 +76,7 @@ var _ = Describe("Statefulset", Label("short"), func() {
 			originalCopy := map[string]string{"key1": "value1"}
 			netAttachment := "test-network"
 
-			result := PrepareAnnotations(original, &netAttachment)
+			result := PrepareAnnotations(original, &netAttachment, nil)
 
 			Expect(original).To(Equal(originalCopy))
 			Expect(result).NotTo(BeIdenticalTo(original))
