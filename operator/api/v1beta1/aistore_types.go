@@ -6,10 +6,8 @@ package v1beta1
 
 import (
 	"fmt"
-	"strings"
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
-	"golang.org/x/mod/semver"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -140,11 +138,6 @@ type AIStoreSpec struct {
 	// +optional
 	CleanupData *bool `json:"cleanupData,omitempty"`
 
-	// Deprecated: Defaults to true
-	// Defines if AIS daemons should expose prometheus metrics
-	// +optional
-	EnablePromExporter *bool `json:"enablePromExporter,omitempty"`
-
 	// Defines the cluster domain name for DNS. Default: cluster.local.
 	// +optional
 	ClusterDomain *string `json:"clusterDomain,omitempty"`
@@ -181,11 +174,6 @@ type AIStoreSpec struct {
 	// +optional
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 
-	// Deprecated: use TargetSpec.DisablePodAntiAffinity
-	// DisablePodAntiAffinity, if set allows more than one target/proxy daemon pods to be scheduled on same K8s node.
-	// +optional
-	DisablePodAntiAffinity *bool `json:"disablePodAntiAffinity,omitempty"`
-
 	// EnableExternalLB, if set, enables external access to AIS cluster using LoadBalancer service
 	EnableExternalLB bool `json:"enableExternalLB"`
 }
@@ -203,9 +191,6 @@ type AIStoreStatus struct {
 	// +listType=map
 	// +listMapKey=type
 	Conditions []metav1.Condition `json:"conditions"`
-	// Deprecated: this field is no longer used.
-	// +optional
-	ConsecutiveErrorCount int `json:"consecutive_error_count,omitempty"`
 }
 
 // ServiceSpec defines the specs of AIS Gateways
@@ -264,12 +249,6 @@ type DaemonSpec struct {
 type TargetSpec struct {
 	DaemonSpec `json:",inline"`
 	Mounts     []Mount `json:"mounts"`
-	// Deprecated: AllowSharedOrNoDisks - disables FsID and mountpath disks validation on target nodes
-	// NOT recommended for production deployments
-	// Use Mount.Label instead
-	// +optional
-	AllowSharedOrNoDisks *bool `json:"allowSharedNoDisks,omitempty"`
-
 	// DisablePodAntiAffinity allows more than one target pod to be scheduled on same K8s node.
 	// +optional
 	DisablePodAntiAffinity *bool `json:"disablePodAntiAffinity,omitempty"`
@@ -463,27 +442,7 @@ func (ais *AIStore) ShouldCleanupMetadata() bool {
 }
 
 func (ais *AIStore) AllowTargetSharedNodes() bool {
-	allowSharedNodes := ais.Spec.TargetSpec.DisablePodAntiAffinity != nil && *ais.Spec.TargetSpec.DisablePodAntiAffinity
-	//nolint:all
-	deprecatedAllow := ais.Spec.DisablePodAntiAffinity != nil && *ais.Spec.DisablePodAntiAffinity
-	// Backwards compatible check -- allow if either is true
-	return allowSharedNodes || deprecatedAllow
-}
-
-// CompareVersion returns true if the spec `aisnode` version is the same or newer than the one provided
-func (ais *AIStore) CompareVersion(version string) (bool, error) {
-	img := ais.Spec.NodeImage
-	parts := strings.Split(img, ":")
-	if len(parts) != 2 {
-		return false, fmt.Errorf("image does not have a proper tag: %q", img)
-	}
-	// Allow for hyphen-separated tags, e.g. aisnode:v3.24-rc3
-	tag := strings.Split(parts[1], "-")[0]
-	if !semver.IsValid(tag) {
-		return false, fmt.Errorf("image tag does not use semantic versioning, image: %q", img)
-	}
-	// Check version is at least the provided version
-	return semver.Compare(tag, version) >= 0, nil
+	return ais.Spec.TargetSpec.DisablePodAntiAffinity != nil && *ais.Spec.TargetSpec.DisablePodAntiAffinity
 }
 
 func (ais *AIStore) UseHTTPS() bool {

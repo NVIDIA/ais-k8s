@@ -12,7 +12,6 @@ require (
 	github.com/onsi/ginkgo/v2 v2.22.2
 	github.com/onsi/gomega v1.36.2
 	go.uber.org/mock v0.5.0
-	golang.org/x/mod v0.22.0
 	gopkg.in/inf.v0 v0.9.1
 	k8s.io/api v0.32.0
 	k8s.io/apimachinery v0.32.0

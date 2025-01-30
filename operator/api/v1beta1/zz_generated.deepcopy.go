@@ -126,11 +126,6 @@ func (in *AIStoreSpec) DeepCopyInto(out *AIStoreSpec) {
 		*out = new(bool)
 		**out = **in
 	}
-	if in.EnablePromExporter != nil {
-		in, out := &in.EnablePromExporter, &out.EnablePromExporter
-		*out = new(bool)
-		**out = **in
-	}
 	if in.ClusterDomain != nil {
 		in, out := &in.ClusterDomain, &out.ClusterDomain
 		*out = new(string)
@@ -170,11 +165,6 @@ func (in *AIStoreSpec) DeepCopyInto(out *AIStoreSpec) {
 		in, out := &in.ImagePullSecrets, &out.ImagePullSecrets
 		*out = make([]v1.LocalObjectReference, len(*in))
 		copy(*out, *in)
-	}
-	if in.DisablePodAntiAffinity != nil {
-		in, out := &in.DisablePodAntiAffinity, &out.DisablePodAntiAffinity
-		*out = new(bool)
-		**out = **in
 	}
 }
 
@@ -1291,11 +1281,6 @@ func (in *TargetSpec) DeepCopyInto(out *TargetSpec) {
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
-	}
-	if in.AllowSharedOrNoDisks != nil {
-		in, out := &in.AllowSharedOrNoDisks, &out.AllowSharedOrNoDisks
-		*out = new(bool)
-		**out = **in
 	}
 	if in.DisablePodAntiAffinity != nil {
 		in, out := &in.DisablePodAntiAffinity, &out.DisablePodAntiAffinity

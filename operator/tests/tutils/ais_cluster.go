@@ -45,8 +45,6 @@ type (
 		MaxTargets int32
 		// Where to mount the hostpath storage for actual storage PVs
 		StorageHostPath string
-		// For testing deprecated feature
-		AllowSharedOrNoDisks bool
 	}
 )
 
@@ -124,11 +122,8 @@ func defineMounts(args *ClusterSpecArgs) []aisv1.Mount {
 			StorageClass: &args.StorageClass,
 		},
 	}
-	mpathLabel := "disk1"
-	if !args.AllowSharedOrNoDisks {
-		for i := range mounts {
-			mounts[i].Label = &mpathLabel
-		}
+	for i := range mounts {
+		mounts[i].Label = aisapc.Ptr("shared")
 	}
 	return mounts
 }
@@ -162,7 +157,6 @@ func newAISClusterCR(args *ClusterSpecArgs, mounts []aisv1.Mount) *aisv1.AIStore
 				},
 			},
 			Mounts:                 mounts,
-			AllowSharedOrNoDisks:   &args.AllowSharedOrNoDisks,
 			DisablePodAntiAffinity: &args.TargetSharedNode,
 		},
 	}

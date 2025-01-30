@@ -5,8 +5,6 @@
 package target
 
 import (
-	"context"
-
 	aisapc "github.com/NVIDIA/aistore/api/apc"
 	aiscmn "github.com/NVIDIA/aistore/cmn"
 	"github.com/NVIDIA/aistore/cmn/cos"
@@ -16,18 +14,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-)
-
-type (
-	// Override local config struct from aiscmn if needed, to support old FSP type
-	v322LocalConfig struct {
-		ConfigDir string                `json:"confdir"`
-		LogDir    string                `json:"log_dir"`
-		HostNet   aiscmn.LocalNetConfig `json:"host_net"`
-		FSP       aiscmn.FSPConfV322    `json:"fspaths"`
-		TestFSP   aiscmn.TestFSPConf    `json:"test_fspaths"`
-	}
 )
 
 func ConfigMapNSName(ais *aisv1.AIStore) types.NamespacedName {
@@ -37,8 +23,8 @@ func ConfigMapNSName(ais *aisv1.AIStore) types.NamespacedName {
 	}
 }
 
-func NewTargetCM(ctx context.Context, ais *aisv1.AIStore) (*corev1.ConfigMap, error) {
-	localConfStr, err := buildLocalConf(ctx, ais)
+func NewTargetCM(ais *aisv1.AIStore) (*corev1.ConfigMap, error) {
+	localConfStr, err := buildLocalConf(ais)
 	if err != nil {
 		return nil, err
 	}
@@ -53,7 +39,7 @@ func NewTargetCM(ctx context.Context, ais *aisv1.AIStore) (*corev1.ConfigMap, er
 	}, nil
 }
 
-func buildLocalConf(ctx context.Context, ais *aisv1.AIStore) (string, error) {
+func buildLocalConf(ais *aisv1.AIStore) (string, error) {
 	serviceSpec := ais.Spec.TargetSpec.ServiceSpec
 	netConfig := aiscmn.LocalNetConfig{
 		Hostname:             "${AIS_PUBLIC_HOSTNAME}",
@@ -63,73 +49,32 @@ func buildLocalConf(ctx context.Context, ais *aisv1.AIStore) (string, error) {
 		PortIntraControl:     serviceSpec.IntraControlPort.IntValue(),
 		PortIntraData:        serviceSpec.IntraDataPort.IntValue(),
 	}
-	// Check if we support the new format for mpath labels to determine which conf version to use
-	if checkLabelSupport(ctx, ais) {
-		return jsoniter.MarshalToString(templateLocalConf(ctx, &ais.Spec, &netConfig))
-	}
-	return jsoniter.MarshalToString(templateOldLocalConf(&ais.Spec, &netConfig))
+	return jsoniter.MarshalToString(templateLocalConf(&ais.Spec, &netConfig))
 }
 
-func templateLocalConf(ctx context.Context, spec *aisv1.AIStoreSpec, netConfig *aiscmn.LocalNetConfig) aiscmn.LocalConfig {
+func templateLocalConf(spec *aisv1.AIStoreSpec, netConfig *aiscmn.LocalNetConfig) aiscmn.LocalConfig {
 	localConf := aiscmn.LocalConfig{
 		ConfigDir: cmn.StateDir,
 		LogDir:    cmn.LogsDir,
 		HostNet:   *netConfig,
 	}
 	if len(spec.TargetSpec.Mounts) > 0 {
-		definePathsWithLabels(ctx, &spec.TargetSpec, &localConf)
+		definePathsWithLabels(&spec.TargetSpec, &localConf)
 	}
 	return localConf
 }
 
-func templateOldLocalConf(spec *aisv1.AIStoreSpec, netConfig *aiscmn.LocalNetConfig) v322LocalConfig {
-	localConf := v322LocalConfig{
-		ConfigDir: cmn.StateDir,
-		LogDir:    cmn.LogsDir,
-		HostNet:   *netConfig,
-	}
-	if len(spec.TargetSpec.Mounts) > 0 {
-		definePathsNoLabels(&spec.TargetSpec, &localConf)
-	}
-	return localConf
-}
-
-func definePathsWithLabels(ctx context.Context, spec *aisv1.TargetSpec, conf *aiscmn.LocalConfig) {
-	logger := logf.FromContext(ctx)
-
+func definePathsWithLabels(spec *aisv1.TargetSpec, conf *aiscmn.LocalConfig) {
 	mounts := spec.Mounts
 	if len(mounts) == 0 {
 		return
 	}
 	conf.FSP.Paths = cos.NewStrKVs(len(mounts))
 	for _, m := range mounts {
-		//nolint:all // Backwards compatible with old CR option
 		if m.Label != nil {
 			conf.FSP.Paths[m.Path] = *m.Label
-		} else if spec.AllowSharedOrNoDisks != nil && *spec.AllowSharedOrNoDisks {
-			// Support allowSharedNoDisks until removed from CR
-			logger.Info("WARNING: Converting deprecated allowSharedNoDisks to mpath label")
-			conf.FSP.Paths[m.Path] = "diskless"
 		} else {
 			conf.FSP.Paths[m.Path] = ""
 		}
 	}
-}
-
-func definePathsNoLabels(spec *aisv1.TargetSpec, conf *v322LocalConfig) {
-	mounts := spec.Mounts
-	conf.FSP.Paths = make(cos.StrSet, len(mounts))
-	for _, m := range mounts {
-		conf.FSP.Paths.Add(m.Path)
-	}
-}
-
-func checkLabelSupport(ctx context.Context, ais *aisv1.AIStore) bool {
-	logger := logf.FromContext(ctx)
-	useLabels, err := ais.CompareVersion("v3.23")
-	if err != nil {
-		logger.Error(err, "Error parsing aisnode image. Assuming it supports mount-path labels!")
-		return true
-	}
-	return useLabels
 }

@@ -26,7 +26,7 @@ const targetRequeueDelay = 10 * time.Second
 
 func (r *AIStoreReconciler) ensureTargetPrereqs(ctx context.Context, ais *aisv1.AIStore) (err error) {
 	// 1. Deploy required ConfigMap
-	cm, err := target.NewTargetCM(ctx, ais)
+	cm, err := target.NewTargetCM(ais)
 	if err != nil {
 		r.recordError(ctx, ais, err, "Failed to generate valid target ConfigMap")
 		return

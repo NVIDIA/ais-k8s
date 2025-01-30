@@ -431,19 +431,9 @@ spec:
                         type: string
                     type: object
                 type: object
-              disablePodAntiAffinity:
-                description: |-
-                  Deprecated: use TargetSpec.DisablePodAntiAffinity
-                  DisablePodAntiAffinity, if set allows more than one target/proxy daemon pods to be scheduled on same K8s node.
-                type: boolean
               enableExternalLB:
                 description: EnableExternalLB, if set, enables external access to
                   AIS cluster using LoadBalancer service
-                type: boolean
-              enablePromExporter:
-                description: |-
-                  Deprecated: Defaults to true
-                  Defines if AIS daemons should expose prometheus metrics
                 type: boolean
               gcpSecretName:
                 description: Secret name containing GCP credentials
@@ -3071,12 +3061,6 @@ spec:
                             x-kubernetes-list-type: atomic
                         type: object
                     type: object
-                  allowSharedNoDisks:
-                    description: |-
-                      Deprecated: AllowSharedOrNoDisks - disables FsID and mountpath disks validation on target nodes
-                      NOT recommended for production deployments
-                      Use Mount.Label instead
-                    type: boolean
                   annotations:
                     additionalProperties:
                       type: string
@@ -3946,9 +3930,6 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
-              consecutive_error_count:
-                description: 'Deprecated: this field is no longer used.'
-                type: integer
               state:
                 description: |-
                   The state of a AIStore is a simple, high-level summary of where the cluster is in its lifecycle.

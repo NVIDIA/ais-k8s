@@ -149,15 +149,6 @@ var _ = Describe("Run Controller", func() {
 		})
 	})
 
-	Context("Backwards Compatibility", Label("long"), func() {
-		It("Should successfully create an AIS Cluster with AllowSharedOrNoDisks on > v3.23 image", func() {
-			args := defaultCluArgs()
-			args.AllowSharedOrNoDisks = true
-			cluster, pvs := tutils.NewAISCluster(args, k8sClient)
-			createAndDestroyCluster(cluster, pvs, nil, nil, false)
-		})
-	})
-
 	Context("Multiple Deployments", Label("short"), func() {
 		// Running multiple clusters in the same cluster
 		It("Should allow running two clusters in the same namespace", func() {
