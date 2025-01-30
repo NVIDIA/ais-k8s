@@ -6,10 +6,12 @@ package cmn
 
 import (
 	aisapc "github.com/NVIDIA/aistore/api/apc"
-	"github.com/NVIDIA/aistore/cmn"
+	aiscmn "github.com/NVIDIA/aistore/cmn"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 var _ = Describe("Config", Label("short"), func() {
@@ -38,7 +40,7 @@ var _ = Describe("Config", Label("short"), func() {
 
 			toSet, err := toUpdate.Convert()
 			Expect(err).ToNot(HaveOccurred())
-			cfg := &cmn.ClusterConfig{}
+			cfg := &aiscmn.ClusterConfig{}
 			err = cfg.Apply(toSet, aisapc.Cluster)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -55,6 +57,48 @@ var _ = Describe("Config", Label("short"), func() {
 			Expect(cfg.Tracing.Enabled).To(BeTrue())
 			Expect(cfg.Tracing.ExporterAuth.TokenHeader).To(Equal("token-header"))
 			Expect(cfg.Tracing.ExporterAuth.TokenFile).To(Equal("token-file"))
+		})
+	})
+	Describe("Generate config override", func() {
+		It("should generate initial config without an error", func() {
+			const (
+				clusterName = "ais-cluster"
+				clusterNS   = "ais-ns"
+			)
+			ais := &aisv1.AIStore{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      clusterName,
+					Namespace: clusterNS,
+				},
+				Spec: aisv1.AIStoreSpec{
+					ProxySpec: aisv1.DaemonSpec{
+						ServiceSpec: aisv1.ServiceSpec{
+							PublicPort:       intstr.FromString("51080"),
+							IntraControlPort: intstr.FromString("51081"),
+							IntraDataPort:    intstr.FromString("51082"),
+						},
+					},
+					AWSSecretName: aisapc.Ptr("any-secret"),
+					GCPSecretName: aisapc.Ptr("any-secret"),
+				},
+			}
+			expected := aiscmn.ConfigToSet{
+				Backend: &aiscmn.BackendConf{
+					Conf: map[string]interface{}{
+						"aws": aisv1.Empty{},
+						"gcp": aisv1.Empty{},
+					},
+				},
+				Rebalance: &aiscmn.RebalanceConfToSet{Enabled: aisapc.Ptr(false)},
+				Proxy: &aiscmn.ProxyConfToSet{
+					PrimaryURL:   aisapc.Ptr(ais.GetDefaultProxyURL()),
+					OriginalURL:  aisapc.Ptr(ais.GetDefaultProxyURL()),
+					DiscoveryURL: aisapc.Ptr(ais.GetDiscoveryProxyURL()),
+				},
+			}
+			conf, err := GenerateGlobalConfig(ais)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(*conf).To(Equal(expected))
 		})
 	})
 })

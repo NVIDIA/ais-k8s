@@ -5,78 +5,66 @@
 package cmn
 
 import (
-	"context"
 	"crypto/sha256"
 	"encoding/hex"
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
 	aiscmn "github.com/NVIDIA/aistore/cmn"
 	aisv1 "github.com/ais-operator/api/v1beta1"
-	"github.com/ais-operator/pkg/resources/cmn/configs"
 	jsoniter "github.com/json-iterator/go"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-const currentAISVersion = "v3.24"
+const defaultRebalanceState = true
 
-type ClusterConfigInterface interface {
-	SetProxy(defaultURL, discoveryURL string)
-	GetBackend() *aiscmn.BackendConf
-	IsRebalanceEnabled() *bool
-	Apply(newConf *aiscmn.ConfigToSet, cluster string) error
-}
-
-func DefaultAISConf(ctx context.Context, ais *aisv1.AIStore) ClusterConfigInterface {
-	// TODO: cache defaults unless version changes
-	use324, err := ais.CompareVersion(currentAISVersion)
-	if err != nil || use324 {
-		if err != nil {
-			logf.FromContext(ctx).Error(err, "Error parsing aisnode image. Using latest default config.")
-		}
-		return configs.NewV324ClusterConfig()
-	}
-	return configs.NewV323ClusterConfig()
-}
-
-// GenerateGlobalConfig creates a full global config file for AIS
+// GenerateGlobalConfig creates the initial config override to supply to an AIS daemon pod
 //
-//	This starts with default AIS config, applies any changes from the AIS spec,
-//	and also applies any cluster or state specific changes.
+//	This pulls configs from the AIS spec and includes cluster or state specific changes.
 //	Note that the result can be out of sync with the actual spec depending on cluster state
-func GenerateGlobalConfig(ctx context.Context, ais *aisv1.AIStore) (ClusterConfigInterface, error) {
-	// Start with default
-	globalConf := DefaultAISConf(ctx, ais)
-
-	// Apply conf changes based on other spec options
-	defaultURL := ais.GetDefaultProxyURL()
-	discoveryURL := ais.GetDiscoveryProxyURL()
-	globalConf.SetProxy(defaultURL, discoveryURL)
-	if ais.Spec.AWSSecretName != nil || ais.Spec.GCPSecretName != nil {
-		if globalConf.GetBackend().Conf == nil {
-			globalConf.GetBackend().Conf = make(map[string]interface{}, 8)
-		}
-		if ais.Spec.AWSSecretName != nil {
-			globalConf.GetBackend().Conf["aws"] = aisv1.Empty{}
-		}
-		if ais.Spec.GCPSecretName != nil {
-			globalConf.GetBackend().Conf["gcp"] = aisv1.Empty{}
-		}
-	}
-
-	// Apply changes from AIS spec.configToUpdate considering current state
-	configToSet, err := GenerateConfigToSet(ctx, ais)
+func GenerateGlobalConfig(ais *aisv1.AIStore) (*aiscmn.ConfigToSet, error) {
+	// Create initial configuration with changes that we do NOT want to update with spec, e.g. primary proxy
+	conf := newInitialConfig(ais)
+	// Apply changes from AIS spec considering current state
+	configToSet, err := GenerateConfigToSet(ais)
 	if err != nil {
 		return nil, err
 	}
-	err = globalConf.Apply(configToSet, aisapc.Cluster)
-	if err != nil {
-		return nil, err
-	}
-	return globalConf, nil
+	conf.Merge(configToSet)
+	return conf, nil
 }
 
-// GenerateConfigToSet determines the actual config we want to apply (on top of defaults), starting from the provided spec
-func GenerateConfigToSet(ctx context.Context, ais *aisv1.AIStore) (*aiscmn.ConfigToSet, error) {
+func newInitialConfig(ais *aisv1.AIStore) *aiscmn.ConfigToSet {
+	defaultURL := aisapc.Ptr(ais.GetDefaultProxyURL())
+	discoveryURL := aisapc.Ptr(ais.GetDiscoveryProxyURL())
+	conf := &aiscmn.ConfigToSet{
+		Proxy: &aiscmn.ProxyConfToSet{
+			PrimaryURL:   defaultURL,
+			OriginalURL:  defaultURL,
+			DiscoveryURL: discoveryURL,
+		},
+	}
+	configureBackend(conf, &ais.Spec)
+	return conf
+}
+
+func configureBackend(conf *aiscmn.ConfigToSet, spec *aisv1.AIStoreSpec) {
+	if spec.AWSSecretName != nil || spec.GCPSecretName != nil {
+		if conf.Backend == nil {
+			conf.Backend = &aiscmn.BackendConf{}
+		}
+		if conf.Backend.Conf == nil {
+			conf.Backend.Conf = make(map[string]interface{}, 8)
+		}
+		if spec.AWSSecretName != nil {
+			conf.Backend.Conf["aws"] = aisv1.Empty{}
+		}
+		if spec.GCPSecretName != nil {
+			conf.Backend.Conf["gcp"] = aisv1.Empty{}
+		}
+	}
+}
+
+// GenerateConfigToSet determines the actual config we want to apply based on config overrides provided in spec
+func GenerateConfigToSet(ais *aisv1.AIStore) (*aiscmn.ConfigToSet, error) {
 	specConfig := &aisv1.ConfigToUpdate{}
 	if ais.Spec.ConfigToUpdate != nil {
 		// Deep copy to avoid modifying the spec itself
@@ -86,7 +74,7 @@ func GenerateConfigToSet(ctx context.Context, ais *aisv1.AIStore) (*aiscmn.Confi
 	if ais.IsConditionTrue(aisv1.ConditionReadyRebalance) {
 		// If not provided, reset to default
 		if !specConfig.IsRebalanceEnabledSet() {
-			specConfig.UpdateRebalanceEnabled(DefaultAISConf(ctx, ais).IsRebalanceEnabled())
+			specConfig.UpdateRebalanceEnabled(aisapc.Ptr(defaultRebalanceState))
 		}
 	} else {
 		specConfig.UpdateRebalanceEnabled(aisapc.Ptr(false))

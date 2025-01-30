@@ -4,7 +4,7 @@
 AIStore is designed to run natively on Kubernetes.
 This folder contains **AIS Operator** that provides for bootstrapping, deployment, scaling up (and down), gracefully shutting down, upgrading, and managing resources of AIS clusters on Kubernetes. Technically, the project extends native Kubernetes API to automate management of all aspects of the AIStore lifecycle.
 
-> **WARNING:** AIS K8S Operator (or, simply, AIS Operator) is currently undergoing active development - non-backward compatible changes are to be expected at any moment.
+> **WARNING:** The AIS K8s Operator is currently undergoing active development. Please see the [compatibility readme](../docs/COMPATIBILITY.md) for info on upgrades and deprecations.
 
 ### Production Deployments
 If you want to deploy an AIStore Cluster in production setting we recommend deploying AIStore using our [ansible playbooks](../playbooks). We have provided detailed, step-by-step instructions for deploying AIStore on Kubernetes (K8s) in this [guide](../docs/README.md).
@@ -108,8 +108,6 @@ spec:
 ```
 
 The above spec will tell AIS to allow both mounts to share a single disk as long as the `label` is the same. If the `label` does not exist as an actual disk, the target pod will accept it and run in diskless mode without disk statistics. 
-
-> **WARNING:** `allowSharedNoDisks` is deprecated. If you are using a cluster with allowSharedNoDisks, first update the operator to the latest version for compatibility with the latest AIS versions. `allowSharedNoDisks` will be removed in a future update. 
 
 ### Deploying cluster with distributed tracing enabled
 

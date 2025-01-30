@@ -94,8 +94,11 @@ func (r *AIStoreReconciler) handleTargetState(ctx context.Context, ais *aisv1.AI
 	logger := logf.FromContext(ctx).WithValues("statefulset", ss.Name, "status", ss.Status)
 
 	updated, err := r.syncTargetPodSpec(ctx, ais, ss)
-	if err != nil || updated {
-		return ctrl.Result{RequeueAfter: targetRequeueDelay}, err
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if updated {
+		return ctrl.Result{RequeueAfter: targetRequeueDelay}, nil
 	}
 
 	if ais.HasState(aisv1.ClusterScaling) {

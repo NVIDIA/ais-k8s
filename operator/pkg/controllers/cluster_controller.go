@@ -359,7 +359,7 @@ func (r *AIStoreReconciler) reconcileResources(ctx context.Context, ais *aisv1.A
 		return err
 	}
 
-	globalCM, err := cmn.NewGlobalCM(ctx, ais)
+	globalCM, err := cmn.NewGlobalCM(ais)
 	if err != nil {
 		r.recordError(ctx, ais, err, "Failed to construct global config")
 		return err
@@ -531,7 +531,7 @@ requeue:
 func (r *AIStoreReconciler) handleConfigState(ctx context.Context, ais *aisv1.AIStore, forceSync bool) error {
 	logger := logf.FromContext(ctx)
 	// Get the config provided in spec plus any additional ones we want to set
-	desiredConf, err := cmn.GenerateConfigToSet(ctx, ais)
+	desiredConf, err := cmn.GenerateConfigToSet(ais)
 	if err != nil {
 		return err
 	}

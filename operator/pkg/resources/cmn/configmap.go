@@ -5,8 +5,6 @@
 package cmn
 
 import (
-	"context"
-
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	jsoniter "github.com/json-iterator/go"
 	corev1 "k8s.io/api/core/v1"
@@ -18,8 +16,8 @@ func globalConfigMapName(ais *aisv1.AIStore) string {
 }
 
 // NewGlobalCM creates the content for the configmap mounted by AIS pods based on provided spec and cluster state.
-func NewGlobalCM(ctx context.Context, ais *aisv1.AIStore) (*corev1.ConfigMap, error) {
-	globalConf, err := GenerateGlobalConfig(ctx, ais)
+func NewGlobalCM(ais *aisv1.AIStore) (*corev1.ConfigMap, error) {
+	globalConf, err := GenerateGlobalConfig(ais)
 	if err != nil {
 		return nil, err
 	}

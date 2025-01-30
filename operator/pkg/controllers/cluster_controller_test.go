@@ -186,7 +186,7 @@ var _ = Describe("AIStoreController", func() {
 				It("should properly handle config update", func() {
 					By("Update CRD")
 					ais.Spec.ConfigToUpdate.Features = apc.Ptr("2568")
-					expectedConfig, err := cmn.GenerateConfigToSet(ctx, ais)
+					expectedConfig, err := cmn.GenerateConfigToSet(ais)
 					Expect(err).ToNot(HaveOccurred())
 					expectedHash, err := cmn.HashConfigToSet(expectedConfig)
 					Expect(err).ToNot(HaveOccurred())
