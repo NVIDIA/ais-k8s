@@ -393,16 +393,30 @@ func (ais *AIStore) GetTargetSize() int32 {
 }
 
 func (ais *AIStore) GetDefaultProxyURL() string {
-	scheme := "http"
-	if ais.UseHTTPS() {
-		scheme = "https"
-	}
 	primaryProxy := ais.DefaultPrimaryName()
-	domain := ais.GetClusterDomain()
 	svcName := ais.ProxyStatefulSetName()
-	intraCtrlPort := ais.Spec.ProxySpec.IntraControlPort.String()
+	svcSuffix := ais.getControlSvcSuffix()
 	// Example: http://ais-proxy-0.ais-proxy.ais.svc.cluster.local:51080
-	return fmt.Sprintf("%s://%s.%s.%s.svc.%s:%s", scheme, primaryProxy, svcName, ais.Namespace, domain, intraCtrlPort)
+	return fmt.Sprintf("%s://%s.%s.%s.%s", ais.getScheme(), primaryProxy, svcName, ais.Namespace, svcSuffix)
+}
+
+func (ais *AIStore) GetDiscoveryProxyURL() string {
+	svcName := ais.ProxyStatefulSetName()
+	svcSuffix := ais.getControlSvcSuffix()
+	// Example: http://ais-proxy.ais.svc.cluster.local:51080
+	return fmt.Sprintf("%s://%s.%s.%s", ais.getScheme(), svcName, ais.Namespace, svcSuffix)
+}
+
+func (ais *AIStore) getScheme() string {
+	if ais.UseHTTPS() {
+		return "https"
+	}
+	return "http"
+}
+
+func (ais *AIStore) getControlSvcSuffix() string {
+	intraCtrlPort := ais.Spec.ProxySpec.IntraControlPort.String()
+	return fmt.Sprintf("svc.%s:%s", ais.GetClusterDomain(), intraCtrlPort)
 }
 
 func (ais *AIStore) ShouldStartShutdown() bool {

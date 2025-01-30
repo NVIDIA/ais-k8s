@@ -20,7 +20,7 @@ import (
 const currentAISVersion = "v3.24"
 
 type ClusterConfigInterface interface {
-	SetProxy(proxyURL string)
+	SetProxy(defaultURL, discoveryURL string)
 	GetBackend() *aiscmn.BackendConf
 	IsRebalanceEnabled() *bool
 	Apply(newConf *aiscmn.ConfigToSet, cluster string) error
@@ -48,8 +48,9 @@ func GenerateGlobalConfig(ctx context.Context, ais *aisv1.AIStore) (ClusterConfi
 	globalConf := DefaultAISConf(ctx, ais)
 
 	// Apply conf changes based on other spec options
-	proxyURL := ais.GetDefaultProxyURL()
-	globalConf.SetProxy(proxyURL)
+	defaultURL := ais.GetDefaultProxyURL()
+	discoveryURL := ais.GetDiscoveryProxyURL()
+	globalConf.SetProxy(defaultURL, discoveryURL)
 	if ais.Spec.AWSSecretName != nil || ais.Spec.GCPSecretName != nil {
 		if globalConf.GetBackend().Conf == nil {
 			globalConf.GetBackend().Conf = make(map[string]interface{}, 8)

@@ -13,11 +13,11 @@ type BaseClusterConfig struct {
 	aiscmn.ClusterConfig
 }
 
-func (c *BaseClusterConfig) SetProxy(proxyURL string) {
+func (c *BaseClusterConfig) SetProxy(defaultURL, discoveryURL string) {
 	c.Proxy = aiscmn.ProxyConf{
-		PrimaryURL:   proxyURL,
-		OriginalURL:  proxyURL,
-		DiscoveryURL: proxyURL,
+		PrimaryURL:   defaultURL,
+		OriginalURL:  defaultURL,
+		DiscoveryURL: discoveryURL,
 	}
 }
 
