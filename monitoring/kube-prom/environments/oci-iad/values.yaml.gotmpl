@@ -2,7 +2,8 @@
 # https://github.com/prometheus-community/helm-charts/blob/main/charts/prometheus/values.yaml
 
 affinity: 
-  nodeLabel: monitoring
+  nodeLabelKey: monitoring
+  nodeLabelValue: "true"
 
 slack:
   webhook: {{ requiredEnv "ALERTMANAGER_SLACK_WEBHOOK" }}

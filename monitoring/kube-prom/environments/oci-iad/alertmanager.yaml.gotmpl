@@ -5,10 +5,10 @@ alertmanager:
       requiredDuringSchedulingIgnoredDuringExecution:
         nodeSelectorTerms:
           - matchExpressions:
-            - key: {{ .Values.affinity.nodeLabel }}
+            - key: {{ .Values.affinity.nodeLabelKey }}
               operator: In
               values:
-                - "true"
+                - {{ .Values.affinity.nodeLabelValue }}
   {{- if hasKey .Values "slack"}}
   {{- if and .Values.slack.webhook .Values.slack.channel }}
   config:

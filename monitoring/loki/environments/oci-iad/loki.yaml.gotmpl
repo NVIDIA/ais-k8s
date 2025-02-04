@@ -33,10 +33,10 @@ loki:
       requiredDuringSchedulingIgnoredDuringExecution:
         nodeSelectorTerms:
           - matchExpressions:
-            - key: {{ .Values.affinity.nodeLabel }}
+            - key: {{ .Values.affinity.nodeLabelKey }}
               operator: In
               values:
-                - "true"
+                - {{ .Values.affinity.nodeLabelValue }}
   
   read:
     affinity:
@@ -44,10 +44,10 @@ loki:
         requiredDuringSchedulingIgnoredDuringExecution:
           nodeSelectorTerms:
             - matchExpressions:
-              - key: {{ .Values.affinity.nodeLabel }}
+              - key: {{ .Values.affinity.nodeLabelKey }}
                 operator: In
                 values:
-                  - "true"
+                  - {{ .Values.affinity.nodeLabelValue }}
   
   write:
     affinity:
@@ -55,10 +55,10 @@ loki:
         requiredDuringSchedulingIgnoredDuringExecution:
           nodeSelectorTerms:
             - matchExpressions:
-              - key: {{ .Values.affinity.nodeLabel }}
+              - key: {{ .Values.affinity.nodeLabelKey }}
                 operator: In
                 values:
-                  - "true"
+                  - {{ .Values.affinity.nodeLabelValue }}
     
   backend:
     affinity:
@@ -66,10 +66,10 @@ loki:
         requiredDuringSchedulingIgnoredDuringExecution:
           nodeSelectorTerms:
             - matchExpressions:
-              - key: {{ .Values.affinity.nodeLabel }}
+              - key: {{ .Values.affinity.nodeLabelKey }}
                 operator: In
                 values:
-                  - "true"
+                  - {{ .Values.affinity.nodeLabelValue }}
 
 deploymentMode: SimpleScalable
 

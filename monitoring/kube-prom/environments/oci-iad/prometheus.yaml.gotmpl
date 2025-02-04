@@ -7,10 +7,10 @@ prometheus:
         requiredDuringSchedulingIgnoredDuringExecution:
           nodeSelectorTerms:
             - matchExpressions:
-              - key: {{ .Values.affinity.nodeLabel }}
+              - key: {{ .Values.affinity.nodeLabelKey }}
                 operator: In
                 values:
-                  - "true"
+                  - {{ .Values.affinity.nodeLabelValue }}
   prometheusSpec:
     enableRemoteWriteReceiver: true
 
@@ -20,7 +20,7 @@ prometheusOperator:
         requiredDuringSchedulingIgnoredDuringExecution:
           nodeSelectorTerms:
             - matchExpressions:
-              - key: {{ .Values.affinity.nodeLabel }}
+              - key: {{ .Values.affinity.nodeLabelKey }}
                 operator: In
                 values:
-                  - "true"
+                  - {{ .Values.affinity.nodeLabelValue }}

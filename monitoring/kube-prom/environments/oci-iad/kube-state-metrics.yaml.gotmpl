@@ -4,10 +4,10 @@ kube-state-metrics:
       requiredDuringSchedulingIgnoredDuringExecution:
         nodeSelectorTerms:
           - matchExpressions:
-            - key: {{ .Values.affinity.nodeLabel }}
+            - key: {{ .Values.affinity.nodeLabelKey }}
               operator: In
               values:
-                - "true"
+                - {{ .Values.affinity.nodeLabelValue }}
   prometheus:
     monitor:
       enabled: false
