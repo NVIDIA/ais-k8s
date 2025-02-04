@@ -82,6 +82,12 @@ prometheus.scrape "aistore" {
   job_name = "aistore"
   scrape_interval = "30s"
   metrics_path = "/metrics"
+  {{- if .Values.https }}
+  scheme = "https"
+  tls_config {
+    insecure_skip_verify = true
+  }
+  {{- end }}
 }
 
 discovery.kubernetes "node_exporter" {

@@ -1,14 +1,6 @@
 environments:
-  default: {}
-  prod:
-    values:
-      - loki:
-          label: {{ requiredEnv "LOKI_LABEL" }}
-          endpoint: {{ requiredEnv "LOKI_ENDPOINT" }}
+  prod: {}
 
-      - mimir:
-          label: {{ requiredEnv "MIMIR_LABEL" }}
-          endpoint: {{ requiredEnv "MIMIR_ENDPOINT" }}
 --- 
 
 repositories:
@@ -22,12 +14,7 @@ releases:
     createNamespace: true
     values:
       - environment: {{ .Environment.Name }}
-      - loki:
-          label: {{ .Values.loki.label }}
-          endpoint: {{ .Values.loki.endpoint }}
-      - mimir:
-          label: {{ .Values.mimir.label }}
-          endpoint: {{ .Values.mimir.endpoint }}
+      - ./environments/{{ .Environment.Name }}/values.yaml.gotmpl
 
   - name: alloy
     namespace: monitoring
@@ -35,6 +22,6 @@ releases:
     chart: grafana/alloy
     version: 0.10.1
     values:
-      - ./environments/{{ .Environment.Name }}/values.yaml
+      - ./environments/{{ .Environment.Name }}/alloy-values.yaml
     needs:
       - alloy-config
