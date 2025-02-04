@@ -1,5 +1,5 @@
 environments:
-  oci-iad: 
+  prod: 
     # Add defaults here if they include values used in other templates
     values: 
       - ./environments/{{ .Environment.Name }}/values.yaml.gotmpl

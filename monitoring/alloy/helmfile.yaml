@@ -1,6 +1,6 @@
 environments:
   default: {}
-  oci-iad:
+  prod:
     values:
       - loki:
           label: {{ requiredEnv "LOKI_LABEL" }}
