@@ -1,12 +1,33 @@
-Run example:
+# Kube-prometheus-stack
+- [Prometheus stack](https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack)
+- Includes
+   - [Prometheus](https://prometheus.io/) and the [Prometheus Operator](https://github.com/prometheus-operator/prometheus-operator)
+   - [AlertManager](https://prometheus.io/docs/alerting/latest/alertmanager/)
+   - [Grafana](https://grafana.com/)
+   - [kube-state-metrics](https://github.com/kubernetes/kube-state-metrics)
+   - [node_exporter](https://github.com/prometheus/node_exporter)
 
-```
-# Template a new environment
+### General Config
 
-set -a; . ../oci-iad.env ; set +a; helmfile -e prod template
+All the provided values are applied to the kube-prometheus-stack chart ([default values here](https://github.com/prometheus-community/helm-charts/blob/main/charts/kube-prometheus-stack/values.yaml
+)). 
 
-# Sync a new environment
+The values in [values.yaml.gotmpl](./environments/prod/values.yaml.gotmpl) are loaded first so that they can be reused by the individual value overrides for each component. 
 
-set -a; . ../oci-iad.env ; set +a; helmfile -e prod sync
+### Alerting
 
-```
+[AlertManager](https://prometheus.io/docs/alerting/latest/alertmanager/) supports various receivers, and you can configure them as needed. 
+We include a slack alert config in the [alertmanager values file](./environments/prod/alertmanager.yaml.gotmpl). 
+Refer to the [Prometheus Alerting Configuration](https://prometheus.io/docs/alerting/latest/configuration/#general-receiver-related-settings) for details on each receiver's config.
+
+The rules themselves are provided via the `additionalPrometheusRulesMap` value option in the [alert-rules.yaml](./environments/prod/alert-rules.yaml).
+
+# Usage
+
+## Template a new environment
+
+`set -a; . ../oci-iad.env ; set +a; helmfile -e prod template`
+
+## Sync a new environment
+
+`set -a; . ../oci-iad.env ; set +a; helmfile -e prod sync`

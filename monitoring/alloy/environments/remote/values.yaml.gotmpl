@@ -1,0 +1,7 @@
+loki:
+  label: {{ requiredEnv "LOKI_LABEL" }}
+  endpoint: {{ requiredEnv "LOKI_ENDPOINT" }}
+
+mimir:
+  label: {{ requiredEnv "MIMIR_LABEL" }}
+  endpoint: {{ requiredEnv "MIMIR_ENDPOINT" }}

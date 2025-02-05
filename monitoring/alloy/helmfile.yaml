@@ -1,5 +1,7 @@
 environments:
   prod: {}
+  local: {}
+  remote: {}
 
 --- 
 
@@ -22,6 +24,6 @@ releases:
     chart: grafana/alloy
     version: 0.10.1
     values:
-      - ./environments/{{ .Environment.Name }}/alloy-values.yaml
+      - ./environments/default/alloy-values.yaml
     needs:
       - alloy-config
