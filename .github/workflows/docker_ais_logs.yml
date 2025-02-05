@@ -1,0 +1,25 @@
+name: Docker Image -- AIS Logs
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'ais-logs image tag'
+        required: true
+        default: 'latest'
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Login to DockerHub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: Build and Push 'aistorage/ais-logs'
+      run: |
+        pushd $GITHUB_WORKSPACE/log-sidecar
+        TAG="${{ inputs.image_tag }}" make all
+        popd
