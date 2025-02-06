@@ -7,7 +7,7 @@ kube-state-metrics:
             - key: {{ .Values.affinity.nodeLabelKey }}
               operator: In
               values:
-                - {{ .Values.affinity.nodeLabelValue }}
+                - "{{ .Values.affinity.nodeLabelValue }}"
   prometheus:
     monitor:
       enabled: false

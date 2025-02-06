@@ -36,7 +36,7 @@ loki:
             - key: {{ .Values.affinity.nodeLabelKey }}
               operator: In
               values:
-                - {{ .Values.affinity.nodeLabelValue }}
+                - "{{ .Values.affinity.nodeLabelValue }}"
   
   read:
     affinity:
@@ -47,7 +47,7 @@ loki:
               - key: {{ .Values.affinity.nodeLabelKey }}
                 operator: In
                 values:
-                  - {{ .Values.affinity.nodeLabelValue }}
+                  - "{{ .Values.affinity.nodeLabelValue }}"
   
   write:
     affinity:
@@ -58,7 +58,7 @@ loki:
               - key: {{ .Values.affinity.nodeLabelKey }}
                 operator: In
                 values:
-                  - {{ .Values.affinity.nodeLabelValue }}
+                  - "{{ .Values.affinity.nodeLabelValue }}"
     
   backend:
     affinity:
@@ -69,7 +69,7 @@ loki:
               - key: {{ .Values.affinity.nodeLabelKey }}
                 operator: In
                 values:
-                  - {{ .Values.affinity.nodeLabelValue }}
+                  - "{{ .Values.affinity.nodeLabelValue }}"
 
 deploymentMode: SimpleScalable
 

@@ -8,7 +8,7 @@ alertmanager:
             - key: {{ .Values.affinity.nodeLabelKey }}
               operator: In
               values:
-                - {{ .Values.affinity.nodeLabelValue }}
+                - "{{ .Values.affinity.nodeLabelValue }}"
   {{- if hasKey .Values "slack"}}
   {{- if and .Values.slack.webhook .Values.slack.channel }}
   config:
