@@ -1,6 +1,6 @@
 // Package tutils provides utilities for running AIS operator tests
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION. All rights reserved.
  */
 package tutils
 
@@ -23,6 +23,7 @@ import (
 const (
 	DefaultNodeImage  = "aistorage/aisnode:v3.25"
 	DefaultInitImage  = "aistorage/ais-init:v3.25"
+	DefaultLogsImage  = "aistorage/ais-logs:v1.0"
 	PreviousNodeImage = "aistorage/aisnode:v3.24"
 )
 
@@ -36,6 +37,7 @@ type (
 		ProxySize        int32
 		NodeImage        string
 		InitImage        string
+		LogSidecarImage  string
 		TargetSharedNode bool
 		EnableExternalLB bool
 		ShutdownCluster  bool
@@ -136,6 +138,7 @@ func newAISClusterCR(args *ClusterSpecArgs, mounts []aisv1.Mount) *aisv1.AIStore
 		CleanupData:       aisapc.Ptr(args.CleanupData),
 		NodeImage:         args.NodeImage,
 		InitImage:         args.InitImage,
+		LogSidecarImage:   aisapc.Ptr(args.LogSidecarImage),
 		StateStorageClass: aisapc.Ptr("local-path"),
 		EnableExternalLB:  args.EnableExternalLB,
 		ProxySpec: aisv1.DaemonSpec{

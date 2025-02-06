@@ -475,6 +475,10 @@ spec:
                 description: Container image used for `ais-init` container.
                 minLength: 1
                 type: string
+              logSidecarImage:
+                description: Container image used for `ais-logs` container.
+                minLength: 1
+                type: string
               logsDir:
                 description: Logs directory on host to store AIS logs
                 type: string

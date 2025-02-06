@@ -41,6 +41,9 @@ nodeImage:
 initImage:
   name: aistorage/ais-init
   tag: v3.26-a7ac713
+logSidecarImage:
+  name: aistorage/ais-logs
+  tag: v1.0
 cloud:
   awsSecretName: "aws-creds"
   gcpSecretName: ""

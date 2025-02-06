@@ -1,6 +1,6 @@
 // Package integration contains AIS operator integration tests
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION. All rights reserved.
  */
 package e2e
 
@@ -424,6 +424,7 @@ func defaultCluArgs() *tutils.ClusterSpecArgs {
 		Size:             1,
 		NodeImage:        tutils.DefaultNodeImage,
 		InitImage:        tutils.DefaultInitImage,
+		LogSidecarImage:  tutils.DefaultLogsImage,
 		CleanupMetadata:  true,
 		CleanupData:      true,
 		TargetSharedNode: false,

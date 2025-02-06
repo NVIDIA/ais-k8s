@@ -1,6 +1,6 @@
 // Package proxy contains k8s resources required for deploying AIS proxy daemons
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION. All rights reserved.
  */
 package proxy
 
@@ -56,7 +56,7 @@ func NewProxyStatefulSet(ais *aisv1.AIStore, size int32) *apiv1.StatefulSet {
 					Labels:      ls,
 					Annotations: cmn.PrepareAnnotations(ais.Spec.ProxySpec.Annotations, ais.Spec.NetAttachment),
 				},
-				Spec: proxyPodSpec(ais),
+				Spec: *proxyPodSpec(ais),
 			},
 		},
 	}
@@ -66,8 +66,8 @@ func NewProxyStatefulSet(ais *aisv1.AIStore, size int32) *apiv1.StatefulSet {
 //   helpers  //
 ////////////////
 
-func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
-	return corev1.PodSpec{
+func proxyPodSpec(ais *aisv1.AIStore) *corev1.PodSpec {
+	spec := &corev1.PodSpec{
 		InitContainers: []corev1.Container{
 			{
 				Name:            "populate-env",
@@ -84,7 +84,7 @@ func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
 				Image:           ais.Spec.NodeImage,
 				ImagePullPolicy: corev1.PullAlways,
 				Command:         []string{"aisnode"},
-				Args:            cmn.NewAISContainerArgs(ais, aisapc.Proxy),
+				Args:            cmn.NewAISContainerArgs(ais.GetTargetSize(), aisapc.Proxy),
 				Env:             NewAISContainerEnv(ais),
 				Ports:           cmn.NewDaemonPorts(&ais.Spec.ProxySpec),
 				Resources:       ais.Spec.ProxySpec.Resources,
@@ -94,7 +94,6 @@ func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
 				LivenessProbe:   cmn.NewLivenessProbe(ais, aisapc.Proxy),
 				ReadinessProbe:  cmn.NewReadinessProbe(ais, aisapc.Proxy),
 			},
-			cmn.NewLogSidecar(aisapc.Proxy),
 		},
 		Affinity:           cmn.CreateAISAffinity(ais.Spec.ProxySpec.Affinity, PodLabels(ais)),
 		NodeSelector:       ais.Spec.ProxySpec.NodeSelector,
@@ -104,6 +103,10 @@ func proxyPodSpec(ais *aisv1.AIStore) corev1.PodSpec {
 		Tolerations:        ais.Spec.ProxySpec.Tolerations,
 		ImagePullSecrets:   ais.Spec.ImagePullSecrets,
 	}
+	if ais.Spec.LogSidecarImage != nil {
+		spec.Containers = append(spec.Containers, cmn.NewLogSidecar(*ais.Spec.LogSidecarImage, aisapc.Proxy))
+	}
+	return spec
 }
 
 func NewInitContainerEnv(ais *aisv1.AIStore) (initEnv []corev1.EnvVar) {

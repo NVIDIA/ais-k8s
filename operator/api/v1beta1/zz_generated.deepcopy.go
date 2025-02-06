@@ -82,6 +82,11 @@ func (in *AIStoreSpec) DeepCopyInto(out *AIStoreSpec) {
 		*out = new(int32)
 		**out = **in
 	}
+	if in.LogSidecarImage != nil {
+		in, out := &in.LogSidecarImage, &out.LogSidecarImage
+		*out = new(string)
+		**out = **in
+	}
 	if in.HostpathPrefix != nil {
 		in, out := &in.HostpathPrefix, &out.HostpathPrefix
 		*out = new(string)

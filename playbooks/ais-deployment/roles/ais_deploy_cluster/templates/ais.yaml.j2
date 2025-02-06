@@ -74,6 +74,7 @@ spec:
 
   nodeImage: "{{ node_image }}"
   initImage: "{{ init_image }}"
+  logSidecarImage: "{{ logs_image }}"
 {% if dynamic_state_sc != "" %}
   stateStorageClass: {{ dynamic_state_sc }}
 {% else %}

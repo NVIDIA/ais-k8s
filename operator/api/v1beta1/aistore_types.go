@@ -1,6 +1,6 @@
 // Package contains declaration of AIS Kubernetes Custom Resource Definitions
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION. All rights reserved.
  */
 package v1beta1
 
@@ -98,6 +98,10 @@ type AIStoreSpec struct {
 	// Container image used for `ais-init` container.
 	// +kubebuilder:validation:MinLength=1
 	InitImage string `json:"initImage"`
+	// Container image used for `ais-logs` container.
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Optional
+	LogSidecarImage *string `json:"logSidecarImage"`
 	// Deprecated: use StateStorageClass
 	// See docs/state_storage.md
 	// Path on host used for state

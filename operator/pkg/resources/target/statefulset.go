@@ -1,6 +1,6 @@
 // Package target contains k8s resources required for deploying AIS target daemons
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION. All rights reserved.
  */
 package target
 
@@ -39,16 +39,16 @@ func PodLabels(ais *aisv1.AIStore) map[string]string {
 }
 
 func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
-	ls := PodLabels(ais)
+	labels := PodLabels(ais)
 	return &apiv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      statefulSetName(ais),
 			Namespace: ais.Namespace,
-			Labels:    ls,
+			Labels:    labels,
 		},
 		Spec: apiv1.StatefulSetSpec{
 			Selector: &metav1.LabelSelector{
-				MatchLabels: ls,
+				MatchLabels: labels,
 			},
 			ServiceName:          headlessSVCName(ais),
 			PodManagementPolicy:  apiv1.ParallelPodManagement,
@@ -56,51 +56,58 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 			VolumeClaimTemplates: targetVC(ais),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels:      ls,
+					Labels:      labels,
 					Annotations: cmn.PrepareAnnotations(ais.Spec.TargetSpec.Annotations, ais.Spec.NetAttachment),
 				},
-				Spec: corev1.PodSpec{
-					InitContainers: []corev1.Container{
-						{
-							Name:            "populate-env",
-							Image:           ais.Spec.InitImage,
-							ImagePullPolicy: corev1.PullIfNotPresent,
-							Env:             NewInitContainerEnv(ais),
-							Args:            cmn.NewInitContainerArgs(aisapc.Target, ais.Spec.HostnameMap),
-							VolumeMounts:    cmn.NewInitVolumeMounts(),
-						},
-					},
-					Containers: []corev1.Container{
-						{
-							Name:            "ais-node",
-							Image:           ais.Spec.NodeImage,
-							ImagePullPolicy: corev1.PullAlways,
-							Command:         []string{"aisnode"},
-							Args:            cmn.NewAISContainerArgs(ais, aisapc.Target),
-							Env:             NewAISContainerEnv(ais),
-							Ports:           cmn.NewDaemonPorts(&ais.Spec.TargetSpec.DaemonSpec),
-							Resources:       ais.Spec.TargetSpec.Resources,
-							SecurityContext: ais.Spec.TargetSpec.ContainerSecurity,
-							VolumeMounts:    volumeMounts(ais),
-							StartupProbe:    cmn.NewStartupProbe(ais, aisapc.Target),
-							LivenessProbe:   cmn.NewLivenessProbe(ais, aisapc.Target),
-							ReadinessProbe:  cmn.NewReadinessProbe(ais, aisapc.Target),
-						},
-						cmn.NewLogSidecar(aisapc.Target),
-					},
-					HostNetwork:        ais.UseHostNetwork(),
-					DNSPolicy:          ais.GetTargetDNSPolicy(),
-					ServiceAccountName: cmn.ServiceAccountName(ais),
-					SecurityContext:    ais.Spec.TargetSpec.SecurityContext,
-					Affinity:           createTargetAffinity(ais, ls),
-					NodeSelector:       ais.Spec.TargetSpec.NodeSelector,
-					Volumes:            cmn.NewAISVolumes(ais, aisapc.Target),
-					Tolerations:        ais.Spec.TargetSpec.Tolerations,
-					ImagePullSecrets:   ais.Spec.ImagePullSecrets,
-				},
+				Spec: *targetPodSpec(ais, labels),
 			},
 		},
 	}
+}
+
+func targetPodSpec(ais *aisv1.AIStore, labels map[string]string) *corev1.PodSpec {
+	spec := &corev1.PodSpec{
+		InitContainers: []corev1.Container{
+			{
+				Name:            "populate-env",
+				Image:           ais.Spec.InitImage,
+				ImagePullPolicy: corev1.PullIfNotPresent,
+				Env:             NewInitContainerEnv(ais),
+				Args:            cmn.NewInitContainerArgs(aisapc.Target, ais.Spec.HostnameMap),
+				VolumeMounts:    cmn.NewInitVolumeMounts(),
+			},
+		},
+		Containers: []corev1.Container{
+			{
+				Name:            "ais-node",
+				Image:           ais.Spec.NodeImage,
+				ImagePullPolicy: corev1.PullAlways,
+				Command:         []string{"aisnode"},
+				Args:            cmn.NewAISContainerArgs(ais.GetTargetSize(), aisapc.Target),
+				Env:             NewAISContainerEnv(ais),
+				Ports:           cmn.NewDaemonPorts(&ais.Spec.TargetSpec.DaemonSpec),
+				Resources:       ais.Spec.TargetSpec.Resources,
+				SecurityContext: ais.Spec.TargetSpec.ContainerSecurity,
+				VolumeMounts:    volumeMounts(ais),
+				StartupProbe:    cmn.NewStartupProbe(ais, aisapc.Target),
+				LivenessProbe:   cmn.NewLivenessProbe(ais, aisapc.Target),
+				ReadinessProbe:  cmn.NewReadinessProbe(ais, aisapc.Target),
+			},
+		},
+		HostNetwork:        ais.UseHostNetwork(),
+		DNSPolicy:          ais.GetTargetDNSPolicy(),
+		ServiceAccountName: cmn.ServiceAccountName(ais),
+		SecurityContext:    ais.Spec.TargetSpec.SecurityContext,
+		Affinity:           createTargetAffinity(ais, labels),
+		NodeSelector:       ais.Spec.TargetSpec.NodeSelector,
+		Volumes:            cmn.NewAISVolumes(ais, aisapc.Target),
+		Tolerations:        ais.Spec.TargetSpec.Tolerations,
+		ImagePullSecrets:   ais.Spec.ImagePullSecrets,
+	}
+	if ais.Spec.LogSidecarImage != nil {
+		spec.Containers = append(spec.Containers, cmn.NewLogSidecar(*ais.Spec.LogSidecarImage, aisapc.Target))
+	}
+	return spec
 }
 
 func NewInitContainerEnv(ais *aisv1.AIStore) (initEnv []corev1.EnvVar) {

@@ -1,6 +1,6 @@
 // Package cmn provides utilities for common AIS cluster resources
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION. All rights reserved.
  */
 package cmn
 
@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
-	aisv1 "github.com/ais-operator/api/v1beta1"
 	nadv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -26,14 +25,14 @@ func PrepareAnnotations(annotations map[string]string, netAttachment *string) ma
 	return newAnnotations
 }
 
-// NewLogSidecar Defines a container that mounts the location of logs and redirects output to the pod's stdout
-func NewLogSidecar(daeType string) corev1.Container {
+// NewLogSidecar Defines a container that mounts the location of AIS info logs
+func NewLogSidecar(image, daeType string) corev1.Container {
 	logFile := filepath.Join(LogsDir, fmt.Sprintf("ais%s.INFO", daeType))
 	return corev1.Container{
 		Name:            "ais-logs",
-		Image:           "docker.io/library/busybox:1.36.1",
+		Image:           image,
 		ImagePullPolicy: corev1.PullIfNotPresent,
-		Command:         []string{"/bin/sh", "-c", fmt.Sprintf("tail -n+1 -F %s", logFile)},
+		Args:            []string{logFile},
 		VolumeMounts:    []corev1.VolumeMount{newLogsVolumeMount(daeType)},
 		Env:             []corev1.EnvVar{EnvFromFieldPath(EnvPodName, "metadata.name")},
 	}
@@ -53,14 +52,14 @@ func NewInitContainerArgs(daeType string, hostnameMap map[string]string) []strin
 	return args
 }
 
-func NewAISContainerArgs(ais *aisv1.AIStore, daeType string) []string {
+func NewAISContainerArgs(targetSize int32, daeType string) []string {
 	args := []string{
 		"-config=" + path.Join(AisConfigDir, AISGlobalConfigName),
 		"-local_config=" + path.Join(AisConfigDir, AISLocalConfigName),
 		"-role=" + daeType,
 	}
 	if daeType == aisapc.Proxy {
-		args = append(args, fmt.Sprintf("-ntargets=%d", ais.GetTargetSize()))
+		args = append(args, fmt.Sprintf("-ntargets=%d", targetSize))
 	}
 	return args
 }
