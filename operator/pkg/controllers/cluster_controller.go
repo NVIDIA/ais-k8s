@@ -696,6 +696,9 @@ func (r *AIStoreReconciler) recordError(ctx context.Context, ais *aisv1.AIStore,
 }
 
 func shouldUpdatePodTemplate(desired, current *corev1.PodTemplateSpec) (bool, string) {
+	if len(desired.Spec.Containers) != len(current.Spec.Containers) {
+		return true, fmt.Sprintf("updating desired containers in %q statefulset", current.Name)
+	}
 	for _, daemon := range []struct {
 		desiredContainer *corev1.Container
 		currentContainer *corev1.Container
@@ -713,6 +716,14 @@ func shouldUpdatePodTemplate(desired, current *corev1.PodTemplateSpec) (bool, st
 			return true, fmt.Sprintf("updating resources for %q container", daemon.desiredContainer.Name)
 		}
 	}
+
+	// We already know desired number of containers matches current here, so if using sidecar compare image
+	if len(desired.Spec.Containers) > 1 {
+		if desired.Spec.Containers[1].Image != current.Spec.Containers[1].Image {
+			return true, fmt.Sprintf("updating image for %q container", desired.Spec.Containers[1].Name)
+		}
+	}
+
 	if !equality.Semantic.DeepEqual(desired.Annotations, current.Annotations) {
 		return true, "updating annotations"
 	}

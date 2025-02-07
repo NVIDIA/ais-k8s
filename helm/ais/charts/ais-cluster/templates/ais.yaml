@@ -78,7 +78,7 @@ spec:
   initImage: "{{ .Values.initImage.name }}:{{ .Values.initImage.tag }}"
   {{- if hasKey .Values "logSidecarImage" }}
   {{- if and (hasKey .Values.logSidecarImage "name") (hasKey .Values.logSidecarImage "tag") }}
-    logSidecarImage: "{{ .Values.logSidecarImage.name }}:{{ .Values.logSidecarImage.tag }}"
+  logSidecarImage: "{{ .Values.logSidecarImage.name }}:{{ .Values.logSidecarImage.tag }}"
   {{- end }}
   {{- end }}
   hostpathPrefix: {{ .Values.hostpathPrefix }}
