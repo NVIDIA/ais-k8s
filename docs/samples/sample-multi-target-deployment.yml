@@ -68,7 +68,6 @@ spec:
       bundle_multiplier: 2
     resilver:
       enabled: true
-  enablePromExporter: false
   proxySpec:
     size: 1
     servicePort: 51080

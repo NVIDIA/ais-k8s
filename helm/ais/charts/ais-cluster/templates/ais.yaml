@@ -16,7 +16,6 @@ spec:
         client_ca_tls: "/var/certs/ca.crt"
         client_auth_tls: 0
     {{- end }}
-  enablePromExporter: false
   proxySpec:
     env:
       {{- with .Values.proxySpec.env }}
