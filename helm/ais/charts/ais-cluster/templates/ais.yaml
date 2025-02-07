@@ -76,7 +76,11 @@ spec:
 
   nodeImage: "{{ .Values.nodeImage.name }}:{{ .Values.nodeImage.tag }}"
   initImage: "{{ .Values.initImage.name }}:{{ .Values.initImage.tag }}"
-  logSidecarImage: "{{ .Values.logSidecarImage.name }}:{{ .Values.logSidecarImage.tag }}"
+  {{- if hasKey .Values "logSidecarImage" }}
+  {{- if and (hasKey .Values.logSidecarImage "name") (hasKey .Values.logSidecarImage "tag") }}
+    logSidecarImage: "{{ .Values.logSidecarImage.name }}:{{ .Values.logSidecarImage.tag }}"
+  {{- end }}
+  {{- end }}
   hostpathPrefix: {{ .Values.hostpathPrefix }}
   stateStorageClass: {{ .Values.stateStorageClass }}
   shutdownCluster: {{ .Values.shutdownCluster }}
