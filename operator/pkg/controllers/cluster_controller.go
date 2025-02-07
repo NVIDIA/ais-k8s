@@ -733,9 +733,37 @@ func syncPodTemplate(desired, current *corev1.PodTemplateSpec) (updated bool) {
 		*daemon.currentContainer = *daemon.desiredContainer
 		updated = true
 	}
+
+	if syncSidecarContainer(desired, current) {
+		updated = true
+	}
+
 	if !equality.Semantic.DeepDerivative(desired.Annotations, current.Annotations) {
 		current.Annotations = desired.Annotations
 		updated = true
 	}
 	return
+}
+
+func syncSidecarContainer(desired, current *corev1.PodTemplateSpec) (updated bool) {
+	// We have no sidecar, and don't want one
+	if len(desired.Spec.Containers) < 2 && len(current.Spec.Containers) < 2 {
+		return false
+	}
+	// We want to remove the sidecar
+	if len(desired.Spec.Containers) < 2 && len(current.Spec.Containers) > 1 {
+		current.Spec.Containers = current.Spec.Containers[:1]
+		return true
+	}
+	// Add a new sidecar
+	if len(desired.Spec.Containers) > 1 && len(current.Spec.Containers) < 2 {
+		current.Spec.Containers = append(current.Spec.Containers, desired.Spec.Containers[1])
+		return true
+	}
+	// If sidecar is already updated, no change
+	if equality.Semantic.DeepDerivative(desired.Spec.Containers[1], current.Spec.Containers[1]) {
+		return false
+	}
+	current.Spec.Containers[1] = desired.Spec.Containers[1]
+	return true
 }
