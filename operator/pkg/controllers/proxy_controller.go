@@ -175,7 +175,7 @@ func (r *AIStoreReconciler) syncProxyPodSpec(ctx context.Context, ais *aisv1.AIS
 		if ss.Status.ReadyReplicas > 0 {
 			err = r.setPrimaryTo(ctx, ais, 0)
 			if err != nil {
-				logger.Error(err, "failed to set primary proxy")
+				logger.Error(err, "failed to set primary proxy", "podIndex", 0)
 				return
 			}
 			logger.Info("Updated primary to pod", "pod", firstPodName, "reason", reason)
@@ -216,10 +216,13 @@ func (r *AIStoreReconciler) syncProxyPodSpec(ctx context.Context, ais *aisv1.AIS
 	// This implies the pod with the largest index is the oldest proxy,
 	// and we set it as a primary.
 	if toUpdate == 1 && firstYetToUpdate {
-		err = r.setPrimaryTo(ctx, ais, *ss.Spec.Replicas-1)
+		podIndex := *ss.Spec.Replicas - 1
+		err = r.setPrimaryTo(ctx, ais, podIndex)
 		if err != nil {
+			logger.Error(err, "failed to set primary proxy", "podIndex", podIndex)
 			return
 		}
+		logger.Info("Removing partition from rolling update strategy")
 		// Revert statefulset partition spec
 		ss.Spec.UpdateStrategy = appsv1.StatefulSetUpdateStrategy{
 			Type: appsv1.RollingUpdateStatefulSetStrategyType,
