@@ -2,8 +2,18 @@ apiVersion: v1
 entries:
   ais-operator:
   - apiVersion: v2
+    appVersion: 2.0.1
+    created: "2025-02-10T16:15:06.110907-06:00"
+    description: A Helm chart for Kubernetes
+    digest: 7103a4c8e3e3d77cb172fef924f60623ddeecd16c63c9db6195585fbe031f6f8
+    name: ais-operator
+    type: application
+    urls:
+    - https://NVIDIA.github.io/ais-k8s/charts/ais-operator-2.0.1.tgz
+    version: 2.0.1
+  - apiVersion: v2
     appVersion: 2.0.0
-    created: "2025-02-07T16:59:52.121616-06:00"
+    created: "2025-02-10T16:15:06.109536-06:00"
     description: A Helm chart for Kubernetes
     digest: bdd95e3c383d6786c40aa293c4b3126e9d5a169138cdc878bb9fee8a754f5406
     name: ais-operator
@@ -13,7 +23,7 @@ entries:
     version: 2.0.0
   - apiVersion: v2
     appVersion: 1.7.0
-    created: "2025-02-07T16:59:52.120795-06:00"
+    created: "2025-02-10T16:15:06.108361-06:00"
     description: A Helm chart for Kubernetes
     digest: 0790b3c362a15a000d007f5aed61fcf32aba581eb278c3966552471e017911bb
     name: ais-operator
@@ -23,7 +33,7 @@ entries:
     version: 1.7.0
   - apiVersion: v2
     appVersion: 1.6.1
-    created: "2025-02-07T16:59:52.118239-06:00"
+    created: "2025-02-10T16:15:06.107354-06:00"
     description: A Helm chart for Kubernetes
     digest: d2d4d282bb5a73604801f2db6a0fdee5923972b762634bf2419198dc422087ff
     name: ais-operator
@@ -33,7 +43,7 @@ entries:
     version: 1.6.1
   - apiVersion: v2
     appVersion: 1.6.0
-    created: "2025-02-07T16:59:52.116029-06:00"
+    created: "2025-02-10T16:15:06.105423-06:00"
     description: A Helm chart for Kubernetes
     digest: bcb0d4a13f777b1ad6c26410c7e99558229e97dab6335432ec8f9da9c31f6bb6
     name: ais-operator
@@ -43,7 +53,7 @@ entries:
     version: 1.6.0
   - apiVersion: v2
     appVersion: 1.5.0
-    created: "2025-02-07T16:59:52.113645-06:00"
+    created: "2025-02-10T16:15:06.104328-06:00"
     description: A Helm chart for Kubernetes
     digest: 5e916efc97bad56df72aa35350b8bb6a90304bf060df05811572e37e731c7833
     name: ais-operator
@@ -53,7 +63,7 @@ entries:
     version: 1.5.0
   - apiVersion: v2
     appVersion: 1.4.1
-    created: "2025-02-07T16:59:52.111669-06:00"
+    created: "2025-02-10T16:15:06.103474-06:00"
     description: A Helm chart for Kubernetes
     digest: 047ee513468d4a021faae41c1308234f688b903aa2f4be69c7a68c3478513415
     name: ais-operator
@@ -61,4 +71,4 @@ entries:
     urls:
     - https://NVIDIA.github.io/ais-k8s/charts/ais-operator-1.4.1.tgz
     version: 1.4.1
-generated: "2025-02-07T16:59:52.108881-06:00"
+generated: "2025-02-10T16:15:06.101972-06:00"
