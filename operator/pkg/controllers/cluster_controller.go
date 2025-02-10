@@ -724,7 +724,7 @@ func shouldUpdatePodTemplate(desired, current *corev1.PodTemplateSpec) (bool, st
 		}
 	}
 
-	if !equality.Semantic.DeepEqual(desired.Annotations, current.Annotations) {
+	if !equality.Semantic.DeepDerivative(desired.Annotations, current.Annotations) {
 		return true, "updating annotations"
 	}
 	return false, ""
