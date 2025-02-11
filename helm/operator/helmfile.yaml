@@ -27,7 +27,7 @@ releases:
     namespace: ais-operator-system
     createNamespace: true
     chart: aistore/ais-operator
-    version: 1.6.1
+    version: 2.0.1
     wait: true
     needs:
       - cert-manager/cert-manager
