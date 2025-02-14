@@ -1,3 +1,5 @@
+# This patch inject a sidecar container which is a HTTP proxy for the
+# controller manager, it performs RBAC authorization against the Kubernetes API using SubjectAccessReviews.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -9,23 +11,18 @@ spec:
       containers:
       - name: manager
         args:
-        - "--webhook-cert-path=/tmp/k8s-webhook-server/serving-certs"
+        - "--health-probe-bind-address=:8081"
+        - "--metrics-cert-path=/tmp/k8s-metrics-server/metrics-certs"
+        - "--metrics-bind-address=:8443"
+        - "--leader-elect"
         ports:
-        - containerPort: 9443
-          name: webhook-server
-          protocol: TCP
+        - containerPort: 8443
+          name: https
         volumeMounts:
-        - mountPath: /tmp/k8s-webhook-server/serving-certs
-          name: cert
-          readOnly: true
         - mountPath: /tmp/k8s-metrics-server/metrics-certs
           name: metrics-certs
           readOnly: true
       volumes:
-      - name: cert
-        secret:
-          defaultMode: 420
-          secretName: webhook-server-cert
       - name: metrics-certs
         secret:
           defaultMode: 420
