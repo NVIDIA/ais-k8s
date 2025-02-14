@@ -21,6 +21,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -167,28 +168,29 @@ func (r *AIStoreReconciler) handleProxyState(ctx context.Context, ais *aisv1.AIS
 func (r *AIStoreReconciler) syncProxyPodSpec(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) (result ctrl.Result, err error) {
 	logger := logf.FromContext(ctx)
 	firstPodName := proxy.PodName(ais, 0)
-	currentTemplate := &ss.Spec.Template
+	updatedSS := ss.DeepCopy()
 	desiredTemplate := &proxy.NewProxyStatefulSet(ais, ais.GetProxySize()).Spec.Template
 
 	// Any change to pod template will trigger a new rollout, so any changes to the SS should happen here
-	if needsUpdate, reason := shouldUpdatePodTemplate(desiredTemplate, currentTemplate); needsUpdate {
-		if ss.Status.ReadyReplicas > 0 {
+	if needsUpdate, reason := shouldUpdatePodTemplate(desiredTemplate, &updatedSS.Spec.Template); needsUpdate {
+		if updatedSS.Status.ReadyReplicas > 0 {
 			err = r.setPrimaryTo(ctx, ais, 0)
 			if err != nil {
 				logger.Error(err, "failed to set primary proxy", "podIndex", 0)
 				return
 			}
 			logger.Info("Updated primary to pod", "pod", firstPodName, "reason", reason)
-			ss.Spec.UpdateStrategy = appsv1.StatefulSetUpdateStrategy{
+			updatedSS.Spec.UpdateStrategy = appsv1.StatefulSetUpdateStrategy{
 				Type: appsv1.RollingUpdateStatefulSetStrategyType,
 				RollingUpdate: &appsv1.RollingUpdateStatefulSetStrategy{
 					Partition: func(v int32) *int32 { return &v }(1),
 				},
 			}
 		}
-		syncPodTemplate(desiredTemplate, currentTemplate)
+		syncPodTemplate(desiredTemplate, &updatedSS.Spec.Template)
 		logger.Info("Proxy pod template spec modified", "reason", reason)
-		err = r.k8sClient.Update(ctx, ss)
+		patch := client.MergeFrom(ss)
+		err = r.k8sClient.Patch(ctx, updatedSS, patch)
 		if err == nil {
 			logger.Info("Proxy statefulset successfully updated", "reason", reason)
 		}
@@ -216,7 +218,7 @@ func (r *AIStoreReconciler) syncProxyPodSpec(ctx context.Context, ais *aisv1.AIS
 	// This implies the pod with the largest index is the oldest proxy,
 	// and we set it as a primary.
 	if toUpdate == 1 && firstYetToUpdate {
-		podIndex := *ss.Spec.Replicas - 1
+		podIndex := *updatedSS.Spec.Replicas - 1
 		err = r.setPrimaryTo(ctx, ais, podIndex)
 		if err != nil {
 			logger.Error(err, "failed to set primary proxy", "podIndex", podIndex)
@@ -224,14 +226,15 @@ func (r *AIStoreReconciler) syncProxyPodSpec(ctx context.Context, ais *aisv1.AIS
 		}
 		logger.Info("Removing partition from rolling update strategy")
 		// Revert statefulset partition spec
-		ss.Spec.UpdateStrategy = appsv1.StatefulSetUpdateStrategy{
+		updatedSS.Spec.UpdateStrategy = appsv1.StatefulSetUpdateStrategy{
 			Type: appsv1.RollingUpdateStatefulSetStrategyType,
 			RollingUpdate: &appsv1.RollingUpdateStatefulSetStrategy{
 				Partition: func(v int32) *int32 { return &v }(0),
 			},
 		}
 
-		err = r.k8sClient.Update(ctx, ss)
+		patch := client.MergeFrom(ss)
+		err = r.k8sClient.Patch(ctx, updatedSS, patch)
 		if err != nil {
 			logger.Error(err, "failed to update proxy statefulset update policy")
 			return

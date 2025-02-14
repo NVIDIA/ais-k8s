@@ -265,18 +265,19 @@ func (r *AIStoreReconciler) decommissionTargets(ctx context.Context, ais *aisv1.
 
 func (r *AIStoreReconciler) syncTargetPodSpec(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) (updated bool, err error) {
 	logger := logf.FromContext(ctx)
-	currentTemplate := &ss.Spec.Template
+	updatedSS := ss.DeepCopy()
 	desiredTemplate := &target.NewTargetSS(ais).Spec.Template
-	if needsUpdate, reason := shouldUpdatePodTemplate(desiredTemplate, currentTemplate); needsUpdate {
+	if needsUpdate, reason := shouldUpdatePodTemplate(desiredTemplate, &updatedSS.Spec.Template); needsUpdate {
 		// Disable rebalance condition before ANY changes that trigger a rolling upgrade
 		err = r.disableRebalance(ctx, ais, aisv1.ReasonUpgrading, "Disabled due to rolling upgrade: "+reason)
 		if err != nil {
 			return false, fmt.Errorf("failed to disable rebalance before rolling upgrade: %w", err)
 		}
 
-		syncPodTemplate(desiredTemplate, currentTemplate)
+		syncPodTemplate(desiredTemplate, &updatedSS.Spec.Template)
 		logger.Info("Target pod template spec modified", "reason", reason)
-		err = r.k8sClient.Update(ctx, ss)
+		patch := client.MergeFrom(ss)
+		err = r.k8sClient.Patch(ctx, updatedSS, patch)
 		if err == nil {
 			logger.Info("Target statefulset successfully updated", "reason", reason)
 		}
