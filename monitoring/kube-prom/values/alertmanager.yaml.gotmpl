@@ -1,5 +1,7 @@
 alertmanager:
   enabled: true
+  {{- if hasKey .Values "affinity"}}
+  {{- if and .Values.affinity.nodeLabelKey .Values.affinity.nodeLabelValue }}
   affinity:
     nodeAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
@@ -9,6 +11,8 @@ alertmanager:
               operator: In
               values:
                 - "{{ .Values.affinity.nodeLabelValue }}"
+  {{- end }}
+  {{- end }}
   {{- if hasKey .Values "slack"}}
   {{- if and .Values.slack.webhook .Values.slack.channel }}
   config:

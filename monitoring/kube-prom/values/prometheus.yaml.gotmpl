@@ -1,7 +1,9 @@
 prometheus:
   persistentVolume:
-    size: 50Gi
-    storageClass: "oci-bv"
+    size: {{ .Values.prometheus.pvSize }}
+    storageClass: {{ .Values.prometheus.storageClass }}
+  {{- if hasKey .Values "affinity"}}
+  {{- if and .Values.affinity.nodeLabelKey .Values.affinity.nodeLabelValue }}
   affinity:
       nodeAffinity:
         requiredDuringSchedulingIgnoredDuringExecution:
@@ -11,10 +13,14 @@ prometheus:
                 operator: In
                 values:
                   - "{{ .Values.affinity.nodeLabelValue }}"
+  {{- end }}
+  {{- end }}
   prometheusSpec:
     enableRemoteWriteReceiver: true
 
 prometheusOperator:
+  {{- if hasKey .Values "affinity"}}
+  {{- if and .Values.affinity.nodeLabelKey .Values.affinity.nodeLabelValue }}
   affinity:
       nodeAffinity:
         requiredDuringSchedulingIgnoredDuringExecution:
@@ -24,6 +30,9 @@ prometheusOperator:
                 operator: In
                 values:
                   - "{{ .Values.affinity.nodeLabelValue }}"
+  {{- end }}
+  {{- end }}
+  enabled: true
 
 kubelet:
   enabled: 

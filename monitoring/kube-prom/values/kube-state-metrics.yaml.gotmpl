@@ -1,4 +1,6 @@
 kube-state-metrics:
+  {{- if hasKey .Values "affinity"}}
+  {{- if and .Values.affinity.nodeLabelKey .Values.affinity.nodeLabelValue }}
   affinity:
     nodeAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
@@ -8,6 +10,8 @@ kube-state-metrics:
               operator: In
               values:
                 - "{{ .Values.affinity.nodeLabelValue }}"
+  {{- end }}
+  {{- end }}
   prometheus:
     monitor:
       enabled: false

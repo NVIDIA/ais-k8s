@@ -1,13 +1,17 @@
 grafana:
+  {{- if hasKey .Values "affinity"}}
+  {{- if .Values.affinity.nodeLabelKey .Values.affinity.nodeLabelValue }}
   affinity:
     nodeAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
         nodeSelectorTerms:
           - matchExpressions:
-              - key: monitoring
+              - key: {{ .Values.affinity.nodeLabelKey }}
                 operator: In
                 values:
-                  - "true"
+                  - "{{ .Values.affinity.nodeLabelValue }}"
+  {{- end }}
+  {{- end }}
   resources:
     requests:
       cpu: 400m
@@ -18,8 +22,8 @@ grafana:
   persistence:
     enabled: true
     type: pvc
-    size: 20Gi
-    storageClassName: oci-bv
+    size: {{ .Values.grafana.pvSize }}
+    storageClassName: {{ .Values.grafana.storageClass }}
   
   additionalDataSources:
     - name: Loki

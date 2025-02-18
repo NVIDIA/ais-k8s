@@ -1,0 +1,13 @@
+# See defaults: https://github.com/prometheus-community/helm-charts/blob/main/charts/kube-prometheus-stack/values.yaml
+
+slack:
+  webhook: {{ env "ALERTMANAGER_SLACK_WEBHOOK" | default "" }}
+  channel: {{ env "ALERTMANAGER_SLACK_CHANNEL" | default "" }}
+
+grafana:
+  storageClass: local-path
+  pvSize: 20Gi
+
+prometheus:
+  storageClass: local-path
+  pvSize: 20Gi

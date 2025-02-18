@@ -7,3 +7,11 @@ affinity:
 slack:
   webhook: {{ requiredEnv "ALERTMANAGER_SLACK_WEBHOOK" }}
   channel: {{ requiredEnv "ALERTMANAGER_SLACK_CHANNEL" }}
+
+grafana:
+  storageClass: oci-bv
+  pvSize: 20Gi
+
+prometheus:
+  storageClass: oci-bv
+  pvSize: 50Gi

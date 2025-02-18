@@ -3,6 +3,9 @@ environments:
     # Add defaults here if they include values used in other templates
     values: 
       - ./environments/{{ .Environment.Name }}/values.yaml.gotmpl
+  dev:
+    values: 
+      - ./environments/{{ .Environment.Name }}/values.yaml.gotmpl
 
 --- 
 
@@ -24,9 +27,9 @@ releases:
     needs:
       - dashboard-configmap
     values:
-      - ./environments/{{ .Environment.Name }}/prometheus.yaml.gotmpl
-      - ./environments/{{ .Environment.Name }}/alertmanager.yaml.gotmpl
-      - ./environments/{{ .Environment.Name }}/kube-state-metrics.yaml.gotmpl
-      - ./environments/{{ .Environment.Name }}/grafana.yaml.gotmpl
-      - ./environments/{{ .Environment.Name }}/node-exporter.yaml
-      - ./environments/{{ .Environment.Name }}/alert-rules.yaml
+      - ./values/prometheus.yaml.gotmpl
+      - ./values/alertmanager.yaml.gotmpl
+      - ./values/kube-state-metrics.yaml.gotmpl
+      - ./values/grafana.yaml.gotmpl
+      - ./values/node-exporter.yaml
+      - ./values/alert-rules.yaml
