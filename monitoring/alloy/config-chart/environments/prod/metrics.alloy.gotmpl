@@ -43,7 +43,6 @@ discovery.kubernetes "ais_target_pods" {
   }
 }
 
-
 discovery.relabel "all_aisnode" {
   targets = concat(
     discovery.kubernetes.ais_target_pods.targets,
@@ -53,6 +52,11 @@ discovery.relabel "all_aisnode" {
     source_labels = ["__meta_kubernetes_pod_container_name"]
     action = "keep"
     regex = "ais-node"
+  }
+  rule {
+    source_labels = ["__meta_kubernetes_pod_label_component"]
+    action = "replace"
+    target_label = "component"
   }
 }
 

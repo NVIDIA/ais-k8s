@@ -30,15 +30,29 @@ discovery.kubernetes "ais_target_pods" {
   }
 }
 
+discovery.relabel "all_aisnode" {
+  targets = concat(
+    discovery.kubernetes.ais_target_pods.targets,
+    discovery.kubernetes.ais_proxy_pods.targets,
+  )
+  rule {
+    source_labels = ["__meta_kubernetes_pod_container_name"]
+    action = "keep"
+    regex = "ais-node"
+  }
+  rule {
+    source_labels = ["__meta_kubernetes_pod_label_component"]
+    action = "replace"
+    target_label = "component"
+  }
+}
+
 prometheus.relabel "ngc_metrics" {
   forward_to = [prometheus.remote_write.ngc.receiver]
 }
 
 prometheus.scrape "aistore" {
-  targets = concat(
-    discovery.kubernetes.ais_target_pods.targets,
-    discovery.kubernetes.ais_proxy_pods.targets,
-  )
+  targets = discovery.relabel.all_aisnode.output
   forward_to = [
     prometheus.relabel.ngc_metrics.receiver,
   ]

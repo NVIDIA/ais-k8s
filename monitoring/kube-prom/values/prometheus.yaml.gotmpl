@@ -17,6 +17,8 @@ prometheus:
   {{- end }}
   prometheusSpec:
     enableRemoteWriteReceiver: true
+    tsdb:
+      outOfOrderTimeWindow: 30s
 
 prometheusOperator:
   {{- if hasKey .Values "affinity"}}
