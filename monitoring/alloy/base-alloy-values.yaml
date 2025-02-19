@@ -1,0 +1,73 @@
+alloy:
+  configMap:
+    # -- Create a new ConfigMap for the config file.
+    create: false
+    # -- Name of existing ConfigMap to use. Used when create is false.
+    name: alloy-config
+    # -- Key in ConfigMap to get config from.
+    key: config.alloy
+
+  # -- Minimum stability level of components and behavior to enable. Must be
+  # one of "experimental", "public-preview", or "generally-available".
+  stabilityLevel: "experimental"
+
+  # -- Address to listen for traffic on. 0.0.0.0 exposes the UI to other
+  # containers.
+  listenAddr: 0.0.0.0
+
+  # -- Port to listen for traffic on.
+  listenPort: 12345
+
+  # -- Host aliases to add to the Alloy container.
+  hostAliases: []
+  # - ip: "20.21.22.23"
+  #   hostnames:
+  #     - "company.grafana.net"
+
+  mounts:
+    # -- Mount /var/log from the host into the container for log collection.
+    varlog: false
+    # -- Mount /var/lib/docker/containers from the host into the container for log
+    # collection.
+    dockercontainers: false
+
+    # -- Extra volume mounts to add into the Grafana Alloy container. Does not
+    # affect the watch container.
+    extra:
+      - name: proc
+        mountPath: /proc
+      - name: sys
+        mountPath: /sys
+
+  # -- Resource requests and limits to apply to the Grafana Alloy container.
+  resources: {}
+
+image:
+  # -- Grafana Alloy image registry (defaults to docker.io)
+  registry: "docker.io"
+  # -- Grafana Alloy image repository.
+  repository: grafana/alloy
+  # -- (string) Grafana Alloy image tag. When empty, the Chart's appVersion is
+  # used.
+  tag: null
+  # -- Grafana Alloy image's SHA256 digest (either in format "sha256:XYZ" or "XYZ"). When set, will override `image.tag`.
+  digest: null
+  # -- Grafana Alloy image pull policy.
+  pullPolicy: IfNotPresent
+  # -- Optional set of image pull secrets.
+  pullSecrets: []
+
+controller:
+  # -- Type of controller to use for deploying Grafana Alloy in the cluster.
+  # Must be one of 'daemonset', 'deployment', or 'statefulset'.
+  type: 'daemonset'
+
+  volumes:
+    # -- Extra volumes to add to the Grafana Alloy pod.
+    extra:
+      - name: proc
+        hostPath:
+          path: /proc
+      - name: sys
+        hostPath:
+          path: /sys

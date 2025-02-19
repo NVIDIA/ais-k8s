@@ -1,5 +1,7 @@
+nodeExporter: 
+  enabled: false
 prometheus-node-exporter:
-  # Run node-exporters but don't scrape it with prom
+  # Don't scrape node-exporter with prom if it's disabled
   prometheus:
     monitor:
       enabled: false

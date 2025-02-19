@@ -47,20 +47,20 @@ prometheus.scrape "aistore" {
   metrics_path = "/metrics"
 }
 
-discovery.kubernetes "node_exporter" {
-  role = "service"
-  selectors {
-    role = "service"
-    label = "app.kubernetes.io/name=prometheus-node-exporter"
-  }
+prometheus.exporter.unix "system" { }
+
+prometheus.scrape "system" {
+    targets = prometheus.exporter.unix.system.targets
+    forward_to = [prometheus.relabel.node_exporter.receiver]
 }
 
-prometheus.scrape "node_metrics" {
-    targets = discovery.kubernetes.node_exporter.targets
-    forward_to = [
-      prometheus.relabel.ngc_metrics.receiver,
-    ]
-    job_name = "node-exporter"
+prometheus.relabel "node_exporter" {
+  forward_to = [prometheus.relabel.ngc_metrics.receiver]
+  rule {
+    action = "replace"
+    target_label = "job"
+    replacement = "node-exporter"
+  }
 }
 
 discovery.kubernetes "kube_state_metrics" {

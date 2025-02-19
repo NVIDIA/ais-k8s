@@ -12,9 +12,9 @@ We deploy two charts for alloy:
 
 Today we expect all environment specific changes to come through the environment variables. 
 
-It's unlikely we'll want to manage different deployments of alloy itself, so for now the alloy deployment will load the [values provided in the default environment](./environments/default/alloy-values.yaml). 
+The values for the alloy deployment itself are provided as a base `base-alloy-values.yaml` with overrides available for each environment in `environments/<env>/alloy-values.yaml`. The full list of available helm values can be found [here](https://github.com/grafana/alloy/blob/main/operations/helm/charts/alloy/values.yaml).
 
-However, it's possible the `config-chart` will need environment specific changes so for this we provide multiple environment options (currently prod, local, and remote). 
+The `config-chart` has its own environment specific configurations in [config-chart/environments](./config-chart/environments/) (currently prod, local, and remote). 
 This allows for deploying alloy configs with different components. 
 Currently, local only writes to the local prometheus/loki, remote only writes to an environment-configured remote write location, and prod writes to both.  
 
