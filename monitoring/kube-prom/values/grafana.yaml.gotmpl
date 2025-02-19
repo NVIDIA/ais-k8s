@@ -1,6 +1,6 @@
 grafana:
   {{- if hasKey .Values "affinity"}}
-  {{- if .Values.affinity.nodeLabelKey .Values.affinity.nodeLabelValue }}
+  {{- if and .Values.affinity.nodeLabelKey .Values.affinity.nodeLabelValue }}
   affinity:
     nodeAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
