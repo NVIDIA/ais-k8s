@@ -1,0 +1,7 @@
+# K8s cluster-scoped resources
+cluster_issuer_name: selfsigned-issuer
+selfsigned_cert: selfsigned-cert
+
+# Namespace-scoped
+issuer_name: ca-issuer
+ca_cert_secret: ca-root-secret

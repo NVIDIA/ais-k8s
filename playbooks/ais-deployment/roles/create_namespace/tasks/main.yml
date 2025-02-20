@@ -4,6 +4,7 @@
   when: k8s_namespace is undefined or k8s_namespace | length == 0
 
 - name: Create namespace if it does not exist
-  shell: "kubectl create ns {{ k8s_namespace }} || true"
+  shell: "kubectl get ns {{ k8s_namespace }} || kubectl create ns {{ k8s_namespace }}"
   register: namespaceout
   changed_when: "'created' in namespaceout.stdout"
+  timeout: 10

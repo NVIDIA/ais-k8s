@@ -1,5 +1,5 @@
 - name: Get certificate value from K8s secret
-  shell: kubectl get secret -n {{cluster}} {{ca_cert_secret}} -o jsonpath="{.data['ca\.crt']}" | base64 --decode
+  shell: kubectl get secret -n {{cluster}} {{ tls_secret }} -o jsonpath="{.data['ca\.crt']}" | base64 --decode
   register: cacert
 
 - name: Copy value of cacert to local file

@@ -1,7 +1,6 @@
 ---
 protocol: "http"
 
-ca_cert_secret: "ca-root-secret"
 tls_secret: "tls-certs"
 
 # set the following vars, only if you actually want to verify the certificates

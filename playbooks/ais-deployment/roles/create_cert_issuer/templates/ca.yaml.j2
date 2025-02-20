@@ -3,14 +3,14 @@
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
 metadata:
-  name: selfsigned-issuer
+  name: {{ cluster_issuer_name }}
 spec:
   selfSigned: {}
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: selfsigned-cert
+  name: {{ selfsigned_cert }}
   namespace: {{ cluster }}
 spec:
   secretName: {{ ca_cert_secret }}
@@ -26,14 +26,14 @@ spec:
     organizations:
       - NVIDIA
   issuerRef:
-    name: selfsigned-issuer
+    name: {{ cluster_issuer_name }}
     kind: ClusterIssuer
     group: cert-manager.io
 ---
 apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
-  name: ca-issuer
+  name: {{ issuer_name }}
   namespace: {{ cluster }}
 spec:
   ca:

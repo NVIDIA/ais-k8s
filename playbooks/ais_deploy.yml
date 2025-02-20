@@ -129,7 +129,9 @@
   roles:
     - role: ais-deployment/roles/create_namespace
       when: https_confirmation | bool
-    - role: ais-deployment/roles/generate_https_cert
+    - role: ais-deployment/roles/create_cert_issuer
+      when: https_confirmation | bool
+    - role: ais-deployment/roles/create_cert
       when: https_confirmation | bool
 
 # TODO: add multi-homing support

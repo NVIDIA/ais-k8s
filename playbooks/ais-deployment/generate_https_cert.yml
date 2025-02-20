@@ -3,21 +3,39 @@
 # based AIStore deployments
 #
 ---
+- name: "Check required variables"
+  hosts: controller
+  gather_facts: false
+  pre_tasks:
+    - name: Validate cluster is defined
+      fail:
+        msg: "Variable 'cluster' not found. Add the 'cluster' variable during execution. Example: ansible-playbook -i hosts.ini generate_https_cert.yml -e cluster=ais"
+      when: cluster is undefined
+
+- name: Prompt for CA creation
+  hosts: localhost
+  gather_facts: false
+  vars_prompt:
+    - name: create_ca
+      prompt: "Do you wish to re-create a self-signed certificate issuer?"
+      default: "no"
+      private: no
+  tasks:
+    - set_fact:
+        create_ca_choice: "{{ create_ca | bool }}"
+
 - name: Generate TLS certificates
   hosts: controller
   gather_facts: false
   vars_files:
     - vars/https_config.yml
-  pre_tasks:  
-    - name: Validate if cluster is defined
-      fail:
-        msg: "Variable 'cluster' not found. Add the 'cluster' variable during execution. e.g. ansible-playbook -i hosts.ini generate_https_cert.yml -e cluster=ais"
-      when: cluster is undefined
   vars:
     - k8s_namespace: "{{ cluster }}"
   roles:
-    - create_namespace
-    - generate_https_cert
+    - role: create_namespace
+    - role: create_cert_issuer
+      when: create_ca_choice | bool
+    - role: create_cert
 
 - name: Fetch CA certificate for client
   hosts: controller

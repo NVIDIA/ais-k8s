@@ -1,0 +1,12 @@
+- name: Delete existing cert if it exists
+  shell: |
+    kubectl delete Certificate -n {{ cluster }} {{ cert_name }} --ignore-not-found
+    kubectl delete secret {{ tls_secret }} -n {{ cluster }} --ignore-not-found
+
+- name: Create cert from template
+  ansible.builtin.shell: |
+    kubectl apply -f - << 'EOF'
+    {{ lookup('template', 'cert.yaml.j2') }}
+    EOF
+  args:
+    executable: /bin/bash

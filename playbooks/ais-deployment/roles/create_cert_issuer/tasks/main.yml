@@ -1,0 +1,14 @@
+- name: Delete existing CA if it exists
+  shell: |
+    kubectl delete Issuer {{ issuer_name }} -n {{ cluster }} --ignore-not-found
+    kubectl delete ClusterIssuer {{ cluster_issuer_name }} --ignore-not-found
+    kubectl delete Certificate -n {{ cluster }} {{ selfsigned_cert }} --ignore-not-found
+    kubectl delete secret {{ ca_cert_secret }} -n {{ cluster }} --ignore-not-found
+
+- name: Create CA from template
+  ansible.builtin.shell: |
+    kubectl apply -f - << 'EOF'
+    {{ lookup('template', 'ca.yaml.j2') }}
+    EOF
+  args:
+    executable: /bin/bash
