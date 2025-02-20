@@ -28,6 +28,15 @@ func PodName(ais *aisv1.AIStore, idx int32) string {
 	return fmt.Sprintf("%s-%d", ais.ProxyStatefulSetName(), idx)
 }
 
+func PodLabels(ais *aisv1.AIStore) map[string]string {
+	return map[string]string{
+		cmn.LabelApp:               ais.Name,
+		cmn.LabelAppPrefixed:       ais.Name,
+		cmn.LabelComponent:         aisapc.Proxy,
+		cmn.LabelComponentPrefixed: aisapc.Proxy,
+	}
+}
+
 func DefaultPrimaryNSName(ais *aisv1.AIStore) types.NamespacedName {
 	return types.NamespacedName{
 		Name:      ais.DefaultPrimaryName(),
@@ -45,9 +54,9 @@ func NewProxyStatefulSet(ais *aisv1.AIStore, size int32) *apiv1.StatefulSet {
 		},
 		Spec: apiv1.StatefulSetSpec{
 			Selector: &metav1.LabelSelector{
-				MatchLabels: ls,
+				MatchLabels: PodLabels(ais),
 			},
-			ServiceName:          headlessSVCName(ais),
+			ServiceName:          headlessSVCName(ais.Name),
 			PodManagementPolicy:  apiv1.ParallelPodManagement,
 			Replicas:             &size,
 			VolumeClaimTemplates: proxyVC(ais),
@@ -115,7 +124,7 @@ func proxyPodSpec(ais *aisv1.AIStore) *corev1.PodSpec {
 
 func NewInitContainerEnv(ais *aisv1.AIStore) (initEnv []corev1.EnvVar) {
 	initEnv = cmn.CommonInitEnv(ais)
-	initEnv = append(initEnv, cmn.EnvFromValue(cmn.EnvServiceName, headlessSVCName(ais)))
+	initEnv = append(initEnv, cmn.EnvFromValue(cmn.EnvServiceName, headlessSVCName(ais.Name)))
 	if ais.Spec.ProxySpec.HostPort != nil {
 		initEnv = append(initEnv, cmn.EnvFromFieldPath(cmn.EnvPublicHostname, "status.hostIP"))
 	}
@@ -131,14 +140,6 @@ func NewAISContainerEnv(ais *aisv1.AIStore) []corev1.EnvVar {
 		baseEnv = append(baseEnv, cmn.EnvFromSecret(env.AisAuthSecretKey, *ais.Spec.AuthNSecretName, cmn.EnvAuthNSecretKey))
 	}
 	return cmn.MergeEnvVars(baseEnv, ais.Spec.ProxySpec.Env)
-}
-
-func PodLabels(ais *aisv1.AIStore) map[string]string {
-	return map[string]string{
-		"app":       ais.Name,
-		"component": aisapc.Proxy,
-		"function":  "gateway",
-	}
 }
 
 func proxyVC(ais *aisv1.AIStore) []corev1.PersistentVolumeClaim {

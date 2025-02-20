@@ -11,7 +11,7 @@ metadata:
     oci-network-load-balancer.oraclecloud.com/node-label-selector: nvidia.com/ais-proxy=ais
     prometheus.io/scrape: "true"
   labels:
-    app: ais
+    app.kubernetes.io/name: ais
   name: ais-proxy-lb
   namespace: ais
 spec:
@@ -21,7 +21,6 @@ spec:
     protocol: TCP
     targetPort: 51080
   selector:
-    app: ais
-    component: proxy
-    function: gateway
+    app.kubernetes.io/name: ais
+    app.kubernetes.io/component: proxy
   type: LoadBalancer

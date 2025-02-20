@@ -14,7 +14,7 @@ import (
 func StreamLogs(ctx context.Context, namespace string) (err error) {
 	cmd := exec.Command("kubectl", "logs", "-f",
 		"--max-log-requests", "10",
-		"-l", "component in (proxy,target)",
+		"-l", "app.kubernetes.io/component in (proxy,target)",
 		"-n", namespace,
 	)
 	cmd.Stdout = os.Stdout

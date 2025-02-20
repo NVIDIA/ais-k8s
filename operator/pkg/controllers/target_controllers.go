@@ -68,7 +68,7 @@ func (r *AIStoreReconciler) cleanupTarget(ctx context.Context, ais *aisv1.AIStor
 		func() (bool, error) { return r.cleanupTargetSS(ctx, ais) },
 		func() (bool, error) { return r.k8sClient.DeleteServiceIfExists(ctx, target.HeadlessSVCNSName(ais)) },
 		func() (bool, error) {
-			return r.k8sClient.DeleteAllServicesIfExist(ctx, ais.Namespace, target.ExternalServiceLabels(ais))
+			return r.k8sClient.DeleteAllServicesIfExist(ctx, ais.Namespace, cmn.NewServiceLabels(ais.Name, target.ServiceLabelLB))
 		},
 		func() (bool, error) { return r.k8sClient.DeleteConfigMapIfExists(ctx, target.ConfigMapNSName(ais)) },
 	)
@@ -322,7 +322,7 @@ func (r *AIStoreReconciler) enableTargetExternalService(ctx context.Context,
 
 	// 2. Ensure every service has an ingress IP assigned to it.
 	svcList := &corev1.ServiceList{}
-	err := r.k8sClient.List(ctx, svcList, client.MatchingLabels(target.ExternalServiceLabels(ais)))
+	err := r.k8sClient.List(ctx, svcList, client.MatchingLabels(cmn.NewServiceLabels(ais.Name, target.ServiceLabelLB)))
 	if err != nil {
 		return err
 	}

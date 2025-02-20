@@ -32,9 +32,10 @@ func StatefulSetNSName(ais *aisv1.AIStore) types.NamespacedName {
 
 func PodLabels(ais *aisv1.AIStore) map[string]string {
 	return map[string]string{
-		"app":       ais.Name,
-		"component": aisapc.Target,
-		"function":  "storage",
+		cmn.LabelApp:               ais.Name,
+		cmn.LabelAppPrefixed:       ais.Name,
+		cmn.LabelComponent:         aisapc.Target,
+		cmn.LabelComponentPrefixed: aisapc.Target,
 	}
 }
 
@@ -49,9 +50,9 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 		},
 		Spec: apiv1.StatefulSetSpec{
 			Selector: &metav1.LabelSelector{
-				MatchLabels: labels,
+				MatchLabels: PodLabels(ais),
 			},
-			ServiceName:          headlessSVCName(ais),
+			ServiceName:          headlessSVCName(ais.Name),
 			PodManagementPolicy:  apiv1.ParallelPodManagement,
 			Replicas:             aisapc.Ptr(ais.GetTargetSize()),
 			VolumeClaimTemplates: targetVC(ais),
@@ -117,7 +118,7 @@ func targetPodSpec(ais *aisv1.AIStore, labels map[string]string) *corev1.PodSpec
 
 func NewInitContainerEnv(ais *aisv1.AIStore) (initEnv []corev1.EnvVar) {
 	initEnv = cmn.CommonInitEnv(ais)
-	initEnv = append(initEnv, cmn.EnvFromValue(cmn.EnvServiceName, headlessSVCName(ais)))
+	initEnv = append(initEnv, cmn.EnvFromValue(cmn.EnvServiceName, headlessSVCName(ais.Name)))
 	if ais.Spec.TargetSpec.HostPort != nil {
 		initEnv = append(initEnv, cmn.EnvFromFieldPath(cmn.EnvPublicHostname, "status.hostIP"))
 	}

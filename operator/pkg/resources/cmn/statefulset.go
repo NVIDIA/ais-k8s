@@ -14,6 +14,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
+const (
+	LabelApp               = "app"
+	LabelComponent         = "component"
+	LabelPrefix            = "app.kubernetes.io/"
+	LabelAppPrefixed       = LabelPrefix + "name"
+	LabelComponentPrefixed = LabelPrefix + "component"
+)
+
 func PrepareAnnotations(annotations map[string]string, netAttachment, restartHash *string) map[string]string {
 	newAnnotations := map[string]string{}
 	if netAttachment != nil {

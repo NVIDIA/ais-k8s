@@ -1,24 +1,30 @@
 // Package proxy contains k8s resources required for deploying AIS proxy daemons
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION. All rights reserved.
  */
 package proxy
 
 import (
 	aisapc "github.com/NVIDIA/aistore/api/apc"
 	aisv1 "github.com/ais-operator/api/v1beta1"
+	"github.com/ais-operator/pkg/resources/cmn"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func headlessSVCName(ais *aisv1.AIStore) string {
-	return ais.Name + "-" + aisapc.Proxy
+const (
+	ServiceLabelHeadless = "proxy-svc"
+	ServiceLabelLB       = "proxy-lb"
+)
+
+func headlessSVCName(aisName string) string {
+	return aisName + "-" + aisapc.Proxy
 }
 
 func HeadlessSVCNSName(ais *aisv1.AIStore) types.NamespacedName {
 	return types.NamespacedName{
-		Name:      headlessSVCName(ais),
+		Name:      headlessSVCName(ais.Name),
 		Namespace: ais.Namespace,
 	}
 }
@@ -34,6 +40,13 @@ func LoadBalancerSVCNSName(ais *aisv1.AIStore) types.NamespacedName {
 	}
 }
 
+func ServiceSelectorLabels(aisName string) map[string]string {
+	return map[string]string{
+		cmn.LabelApp:       aisName,
+		cmn.LabelComponent: aisapc.Proxy,
+	}
+}
+
 // NewProxyHeadlessSvc returns a headless k8s services associated with `proxies`
 func NewProxyHeadlessSvc(ais *aisv1.AIStore) *corev1.Service {
 	servicePort := ais.Spec.ProxySpec.ServicePort
@@ -42,14 +55,12 @@ func NewProxyHeadlessSvc(ais *aisv1.AIStore) *corev1.Service {
 
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      headlessSVCName(ais),
+			Name:      headlessSVCName(ais.Name),
 			Namespace: ais.Namespace,
 			Annotations: map[string]string{
 				"prometheus.io/scrape": "true",
 			},
-			Labels: map[string]string{
-				"app": ais.Name,
-			},
+			Labels: cmn.NewServiceLabels(ais.Name, ServiceLabelHeadless),
 		},
 		Spec: corev1.ServiceSpec{
 			ClusterIP: "None", // headless
@@ -73,7 +84,7 @@ func NewProxyHeadlessSvc(ais *aisv1.AIStore) *corev1.Service {
 					TargetPort: dataPort,
 				},
 			},
-			Selector: PodLabels(ais),
+			Selector: ServiceSelectorLabels(ais.Name),
 		},
 	}
 }
@@ -88,9 +99,7 @@ func NewProxyLoadBalancerSVC(ais *aisv1.AIStore) *corev1.Service {
 			Annotations: map[string]string{
 				"prometheus.io/scrape": "true",
 			},
-			Labels: map[string]string{
-				"app": ais.Name,
-			},
+			Labels: cmn.NewServiceLabels(ais.Name, ServiceLabelLB),
 		},
 		Spec: corev1.ServiceSpec{
 			Type: corev1.ServiceTypeLoadBalancer,
@@ -102,7 +111,7 @@ func NewProxyLoadBalancerSVC(ais *aisv1.AIStore) *corev1.Service {
 					TargetPort: publicNetPort,
 				},
 			},
-			Selector: PodLabels(ais),
+			Selector: ServiceSelectorLabels(ais.Name),
 		},
 	}
 }

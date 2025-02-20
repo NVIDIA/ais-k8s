@@ -1,6 +1,6 @@
 // Package target contains k8s resources required for deploying AIS target daemons
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION. All rights reserved.
  */
 package target
 
@@ -9,18 +9,24 @@ import (
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
 	aisv1 "github.com/ais-operator/api/v1beta1"
+	"github.com/ais-operator/pkg/resources/cmn"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func headlessSVCName(ais *aisv1.AIStore) string {
-	return ais.Name + "-" + aisapc.Target
+const (
+	ServiceLabelHeadless = "target-svc"
+	ServiceLabelLB       = "target-lb"
+)
+
+func headlessSVCName(aisName string) string {
+	return aisName + "-" + aisapc.Target
 }
 
 func HeadlessSVCNSName(ais *aisv1.AIStore) types.NamespacedName {
 	return types.NamespacedName{
-		Name:      headlessSVCName(ais),
+		Name:      headlessSVCName(ais.Name),
 		Namespace: ais.Namespace,
 	}
 }
@@ -40,10 +46,10 @@ func PodName(ais *aisv1.AIStore, index int32) string {
 	return fmt.Sprintf("%s-%d", statefulSetName(ais), index)
 }
 
-func ExternalServiceLabels(ais *aisv1.AIStore) map[string]string {
+func ServiceSelectorLabels(aisName string) map[string]string {
 	return map[string]string{
-		"app":  ais.Name,
-		"type": "target-lb",
+		cmn.LabelApp:       aisName,
+		cmn.LabelComponent: aisapc.Target,
 	}
 }
 
@@ -53,14 +59,12 @@ func NewTargetHeadlessSvc(ais *aisv1.AIStore) *corev1.Service {
 	dataPort := ais.Spec.TargetSpec.IntraDataPort
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      headlessSVCName(ais),
+			Name:      headlessSVCName(ais.Name),
 			Namespace: ais.Namespace,
 			Annotations: map[string]string{
 				"prometheus.io/scrape": "true",
 			},
-			Labels: map[string]string{
-				"app": ais.Name,
-			},
+			Labels: cmn.NewServiceLabels(ais.Name, ServiceLabelHeadless),
 		},
 		// TODO: in re G115 "integer overflow conversion int", see:
 		// https://github.com/kubernetes/apimachinery/blob/master/pkg/util/intstr/intstr.go#L32-L36
@@ -87,11 +91,7 @@ func NewTargetHeadlessSvc(ais *aisv1.AIStore) *corev1.Service {
 					TargetPort: dataPort,
 				},
 			},
-			Selector: map[string]string{
-				"app":       ais.Name,
-				"component": aisapc.Target,
-				"function":  "storage",
-			},
+			Selector: ServiceSelectorLabels(ais.Name),
 		},
 	}
 }
@@ -99,7 +99,7 @@ func NewTargetHeadlessSvc(ais *aisv1.AIStore) *corev1.Service {
 func NewTargetLoadBalancerSVC(ais *aisv1.AIStore, targetIndex int32) *corev1.Service {
 	servicePort := ais.Spec.TargetSpec.ServicePort
 	publicNetPort := ais.Spec.TargetSpec.PublicPort
-	selectors := PodLabels(ais)
+	selectors := ServiceSelectorLabels(ais.Name)
 	selectors["statefulset.kubernetes.io/pod-name"] = fmt.Sprintf("%s-%d", statefulSetName(ais), targetIndex)
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -108,7 +108,7 @@ func NewTargetLoadBalancerSVC(ais *aisv1.AIStore, targetIndex int32) *corev1.Ser
 			Annotations: map[string]string{
 				"prometheus.io/scrape": "true",
 			},
-			Labels: ExternalServiceLabels(ais),
+			Labels: cmn.NewServiceLabels(ais.Name, ServiceLabelLB),
 		},
 		Spec: corev1.ServiceSpec{
 			Type: corev1.ServiceTypeLoadBalancer,
