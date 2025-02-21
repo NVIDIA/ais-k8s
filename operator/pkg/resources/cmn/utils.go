@@ -93,3 +93,10 @@ func IterPtr[Slice ~[]E, E any](s Slice) iter.Seq[*E] {
 		}
 	}
 }
+
+func ValueOrDefault[T any](value, defaultValue *T) *T {
+	if value == nil {
+		return defaultValue
+	}
+	return value
+}

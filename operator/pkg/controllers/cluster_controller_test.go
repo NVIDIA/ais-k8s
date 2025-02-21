@@ -341,6 +341,64 @@ var _ = Describe("AIStoreController", func() {
 					}, 10*time.Second, 2*time.Second).Should(Succeed())
 				})
 
+				It("should reconcile changed security context", func() {
+					createStatefulSets(ctx, c, ais, r)
+
+					By("Update security context in spec and reconcile")
+					apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any(), false).Return(nil).Times(1)
+					ais.Spec.ProxySpec.SecurityContext = &corev1.PodSecurityContext{
+						RunAsUser: apc.Ptr(int64(1000)),
+					}
+					ais.Spec.TargetSpec.SecurityContext = &corev1.PodSecurityContext{
+						RunAsUser: apc.Ptr(int64(1000)),
+					}
+					err := c.Update(ctx, ais)
+					Expect(err).ToNot(HaveOccurred())
+
+					reconcileProxy(ctx, ais, r)
+					reconcileTarget(ctx, ais, r)
+
+					By("Expect statefulset specs to update")
+					Eventually(func(g Gomega) {
+						ss := getStatefulSet(ctx, ais, c, "ais-proxy")
+						g.Expect(ss.Spec.Template.Spec.SecurityContext.RunAsUser).To(Equal(apc.Ptr(int64(1000))))
+					}, 10*time.Second, 2*time.Second).Should(Succeed())
+					Eventually(func(g Gomega) {
+						ss := getStatefulSet(ctx, ais, c, "ais-target")
+						g.Expect(ss.Spec.Template.Spec.SecurityContext.RunAsUser).To(Equal(apc.Ptr(int64(1000))))
+					}, 10*time.Second, 2*time.Second).Should(Succeed())
+				})
+
+				It("should reconcile cleared security context", func() {
+					ais.Spec.ProxySpec.SecurityContext = &corev1.PodSecurityContext{
+						RunAsUser: apc.Ptr(int64(1000)),
+					}
+					ais.Spec.TargetSpec.SecurityContext = &corev1.PodSecurityContext{
+						RunAsUser: apc.Ptr(int64(1000)),
+					}
+					createStatefulSets(ctx, c, ais, r)
+
+					By("Update security context in spec and reconcile")
+					apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any(), false).Return(nil).Times(1)
+					ais.Spec.ProxySpec.SecurityContext = nil
+					ais.Spec.TargetSpec.SecurityContext = nil
+					err := c.Update(ctx, ais)
+					Expect(err).ToNot(HaveOccurred())
+
+					reconcileProxy(ctx, ais, r)
+					reconcileTarget(ctx, ais, r)
+
+					By("Expect statefulset specs to update")
+					Eventually(func(g Gomega) {
+						ss := getStatefulSet(ctx, ais, c, "ais-proxy")
+						g.Expect(ss.Spec.Template.Spec.SecurityContext).To(Equal(&corev1.PodSecurityContext{}))
+					}, 10*time.Second, 2*time.Second).Should(Succeed())
+					Eventually(func(g Gomega) {
+						ss := getStatefulSet(ctx, ais, c, "ais-target")
+						g.Expect(ss.Spec.Template.Spec.SecurityContext).To(Equal(&corev1.PodSecurityContext{}))
+					}, 10*time.Second, 2*time.Second).Should(Succeed())
+				})
+
 			})
 
 			Describe("With existing cluster", func() {
@@ -581,6 +639,45 @@ var _ = Describe("AIStoreController", func() {
 				},
 				true,
 			),
+			Entry("different security context (empty vs non-empty)",
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers:     []corev1.Container{{Image: "test:latest"}},
+						SecurityContext: &corev1.PodSecurityContext{
+							RunAsUser: apc.Ptr(int64(1000)),
+						},
+					},
+				},
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers:     []corev1.Container{{Image: "test:latest"}},
+					},
+				},
+				true,
+			),
+			Entry("different security context (different values)",
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers:     []corev1.Container{{Image: "test:latest"}},
+						SecurityContext: &corev1.PodSecurityContext{
+							RunAsUser: apc.Ptr(int64(1000)),
+						},
+					},
+				},
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers:     []corev1.Container{{Image: "test:latest"}},
+						SecurityContext: &corev1.PodSecurityContext{
+							RunAsUser: apc.Ptr(int64(2000)),
+						},
+					},
+				},
+				true,
+			),
 			Entry("no update needed",
 				&corev1.PodTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
@@ -597,6 +694,9 @@ var _ = Describe("AIStoreController", func() {
 								corev1.ResourceCPU: resource.MustParse("100m"),
 							}},
 						}},
+						SecurityContext: &corev1.PodSecurityContext{
+							RunAsUser: apc.Ptr(int64(0)),
+						},
 					},
 				},
 				&corev1.PodTemplateSpec{
@@ -614,6 +714,9 @@ var _ = Describe("AIStoreController", func() {
 								corev1.ResourceCPU: resource.MustParse("100m"),
 							}},
 						}},
+						SecurityContext: &corev1.PodSecurityContext{
+							RunAsUser: apc.Ptr(int64(0)),
+						},
 					},
 				},
 				false,

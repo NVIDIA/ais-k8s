@@ -98,12 +98,16 @@ func targetPodSpec(ais *aisv1.AIStore, labels map[string]string) *corev1.PodSpec
 		HostNetwork:        ais.UseHostNetwork(),
 		DNSPolicy:          ais.GetTargetDNSPolicy(),
 		ServiceAccountName: cmn.ServiceAccountName(ais),
-		SecurityContext:    ais.Spec.TargetSpec.SecurityContext,
-		Affinity:           createTargetAffinity(ais, labels),
-		NodeSelector:       ais.Spec.TargetSpec.NodeSelector,
-		Volumes:            cmn.NewAISVolumes(ais, aisapc.Target),
-		Tolerations:        ais.Spec.TargetSpec.Tolerations,
-		ImagePullSecrets:   ais.Spec.ImagePullSecrets,
+		// By default, Kubernetes sets non-nil `SecurityContext`. So we have do that too,
+		// otherwise during comparison we will always fail (nil vs non-nil).
+		//
+		// See: https://github.com/kubernetes/kubernetes/blob/fa03b93d25a5a22d4f91e4c44f66fc69a6f69a35/pkg/apis/core/v1/defaults.go#L215-L236
+		SecurityContext:  cmn.ValueOrDefault(ais.Spec.TargetSpec.SecurityContext, &corev1.PodSecurityContext{}),
+		Affinity:         createTargetAffinity(ais, labels),
+		NodeSelector:     ais.Spec.TargetSpec.NodeSelector,
+		Volumes:          cmn.NewAISVolumes(ais, aisapc.Target),
+		Tolerations:      ais.Spec.TargetSpec.Tolerations,
+		ImagePullSecrets: ais.Spec.ImagePullSecrets,
 	}
 	if ais.Spec.LogSidecarImage != nil {
 		spec.Containers = append(spec.Containers, cmn.NewLogSidecar(*ais.Spec.LogSidecarImage, aisapc.Target))

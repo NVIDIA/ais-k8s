@@ -762,8 +762,9 @@ func (r *AIStoreReconciler) recordError(ctx context.Context, ais *aisv1.AIStore,
 
 func shouldUpdatePodTemplate(desired, current *corev1.PodTemplateSpec) (bool, string) {
 	if len(desired.Spec.Containers) != len(current.Spec.Containers) {
-		return true, fmt.Sprintf("updating desired containers in %q statefulset", current.Name)
+		return true, "updating desired containers"
 	}
+
 	for _, daemon := range []struct {
 		desiredContainer *corev1.Container
 		currentContainer *corev1.Container
@@ -782,21 +783,28 @@ func shouldUpdatePodTemplate(desired, current *corev1.PodTemplateSpec) (bool, st
 		}
 	}
 
-	// We already know desired number of containers matches current here, so if using sidecar compare image
+	if shouldUpdateAnnotations(desired.Annotations, current.Annotations) {
+		return true, "updating annotations"
+	}
+
+	// Both `desired.Spec.SecurityContext` and `current.Spec.SecurityContext` are
+	// expected to be non-nil here as `SecurityContext` should be set by default.
+	if !equality.Semantic.DeepEqual(desired.Spec.SecurityContext, current.Spec.SecurityContext) {
+		return true, "updating security context"
+	}
+
+	// We already know desired number of containers matches current here,
+	// so if using sidecar, compare the images of the sidecar container.
 	if len(desired.Spec.Containers) > 1 {
 		if desired.Spec.Containers[1].Image != current.Spec.Containers[1].Image {
 			return true, fmt.Sprintf("updating image for %q container", desired.Spec.Containers[1].Name)
 		}
 	}
 
-	if annotationChangeShouldTrigger(desired.Annotations, current.Annotations) {
-		return true, "updating annotations"
-	}
-
 	return false, ""
 }
 
-func annotationChangeShouldTrigger(desired, current map[string]string) bool {
+func shouldUpdateAnnotations(desired, current map[string]string) bool {
 	if equality.Semantic.DeepDerivative(desired, current) {
 		return false
 	}
@@ -834,14 +842,20 @@ func syncPodTemplate(desired, current *corev1.PodTemplateSpec) (updated bool) {
 		updated = true
 	}
 
-	if syncSidecarContainer(desired, current) {
-		updated = true
-	}
-
 	if !equality.Semantic.DeepDerivative(desired.Annotations, current.Annotations) {
 		current.Annotations = desired.Annotations
 		updated = true
 	}
+
+	if !equality.Semantic.DeepEqual(desired.Spec.SecurityContext, current.Spec.SecurityContext) {
+		current.Spec.SecurityContext = desired.Spec.SecurityContext
+		updated = true
+	}
+
+	if syncSidecarContainer(desired, current) {
+		updated = true
+	}
+
 	return
 }
 
