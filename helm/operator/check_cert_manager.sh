@@ -1,9 +1,18 @@
 #!/bin/bash
 
-if kubectl get crd issuers.cert-manager.io &> /dev/null; then
-  echo "CRD issuers.cert-manager.io exists, proceeding..."
-  exit 0
+READY_COUNT=$(kubectl get pods -A --field-selector=status.phase=Running | grep "cert-manager" | grep -E "[0-9]/[0-9].*Running" | wc -l)
+
+if [ "$READY_COUNT" -ge 3 ]; then
+    echo "All cert-manager pods are ready"
+    echo "Continuing operator installation"
+    exit 0
 fi
-echo "CRD issuers.cert-manager.io does not exist."
-echo "Run `helmfile sync --state-values-set certManager.enabled=true` to install cert-manager before the operator."
+
+echo "Not all cert-manager pods are ready. Found $READY_COUNT ready pods"
+echo "The AIS K8s operator requires cert-manager."
+echo "Run
+• \`kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.17.1/cert-manager.yaml\`
+OR
+• Install the cert-manager helm chart https://artifacthub.io/packages/helm/cert-manager/cert-manager
+Then re-run the AIS K8s operator helm chart installation."
 exit 1
