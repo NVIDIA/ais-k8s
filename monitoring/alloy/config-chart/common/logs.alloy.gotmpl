@@ -8,6 +8,15 @@ loki.write "ngc" {
     tenant = "anonymous",
   }
 }
+
+loki.relabel "remote" {
+  forward_to = [loki.write.ngc.receiver]
+  rule {
+    action = "keep"
+    source_labels = ["app"]
+    regex = "ais"
+  }
+}
 {{- end }}
 
 
@@ -52,11 +61,19 @@ discovery.relabel "pod_logs" {
     target_label = "container"
   }
 
-  // Label creation -  "app" field from "__meta_kubernetes_pod_label_app_kubernetes_io_name"
+  // Label creation -  "app" field from "__meta_kubernetes_pod_label_app_kubernetes_io_name" -- preferred label
   rule {
     source_labels = ["__meta_kubernetes_pod_label_app_kubernetes_io_name"]
     action = "replace"
     target_label = "app"
+  }
+
+  // Label creation - As fallback set "app" field from "__meta_kubernetes_pod_label_app" if the "app" label exists
+  rule {
+    source_labels = ["__meta_kubernetes_pod_label_app"]
+    action = "replace"
+    target_label = "app"
+    regex = "(.+)"
   }
 
   // Label creation -  "job" field from "__meta_kubernetes_namespace" and "__meta_kubernetes_pod_container_name"

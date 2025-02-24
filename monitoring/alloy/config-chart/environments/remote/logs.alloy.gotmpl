@@ -1,4 +1,4 @@
 loki.source.kubernetes "pod_logs" {
   targets    = discovery.relabel.pod_logs.output
-  forward_to = [loki.write.ngc.receiver]
+  forward_to = [loki.relabel.remote.receiver]
 }
