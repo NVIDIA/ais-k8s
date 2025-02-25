@@ -1,0 +1,4 @@
+{{ tpl (.Files.Get "common/metrics.alloy.gotmpl") . }}
+{{ tpl (.Files.Get (printf "environments/%s/metrics.alloy.gotmpl" .Values.environment)) . }}
+{{ tpl (.Files.Get "common/logs.alloy.gotmpl") . }}
+{{ tpl (.Files.Get (printf "environments/%s/logs.alloy.gotmpl" .Values.environment)) . }}

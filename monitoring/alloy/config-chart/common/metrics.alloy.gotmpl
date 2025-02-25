@@ -1,0 +1,107 @@
+livedebugging {
+  enabled = true
+}
+
+{{- if .Values.mimir }}
+prometheus.remote_write "ngc" {
+  endpoint {
+    url = "{{ .Values.mimir.endpoint }}"
+  }
+  external_labels = {
+    cluster = "{{ .Values.mimir.label }}",
+    tenant = "anonymous",
+  }
+}
+prometheus.relabel "ngc_metrics" {
+  forward_to = [prometheus.remote_write.ngc.receiver]
+}
+
+prometheus.relabel "all_metrics" {
+  forward_to = [
+    prometheus.relabel.local_metrics.receiver,
+    prometheus.relabel.ngc_metrics.receiver,
+  ]
+}
+{{- end }}
+
+prometheus.remote_write "local" {
+  endpoint {
+    url = "http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090/api/v1/write"
+  }
+  external_labels = {
+    "cluster" = "local",
+  }
+}
+
+discovery.kubernetes "ais_proxy_pods" {
+  role = "pod"
+  namespaces {
+    names = ["ais"]
+  }
+  selectors {
+    role = "pod"
+    label = "app=ais,component=proxy" 
+  }
+}
+
+discovery.kubernetes "ais_target_pods" {
+  role = "pod"
+  namespaces {
+    names = ["ais"]
+  }
+  selectors {
+    role = "pod"
+    label = "app=ais,component=target" 
+  }
+}
+
+discovery.relabel "all_aisnode" {
+  targets = concat(
+    discovery.kubernetes.ais_target_pods.targets,
+    discovery.kubernetes.ais_proxy_pods.targets,
+  )
+  rule {
+    source_labels = ["__meta_kubernetes_pod_container_name"]
+    action = "keep"
+    regex = "ais-node"
+  }
+  rule {
+    source_labels = ["__meta_kubernetes_pod_label_component"]
+    action = "replace"
+    target_label = "component"
+  }
+}
+
+prometheus.relabel "local_metrics" {
+  forward_to = [prometheus.remote_write.local.receiver]
+  rule {
+    action = "replace"
+    target_label = "cluster"
+    replacement = "local"
+  }
+}
+
+prometheus.exporter.unix "system" { }
+
+prometheus.scrape "system" {
+    targets = prometheus.exporter.unix.system.targets
+    forward_to = [prometheus.relabel.node_exporter.receiver]
+}
+
+discovery.kubernetes "kube_state_metrics" {
+  role = "pod"
+  selectors {
+    role = "pod"
+    label = "app.kubernetes.io/name=kube-state-metrics"
+  }
+}
+
+discovery.relabel "ksm" {
+  targets = discovery.kubernetes.kube_state_metrics.targets
+  
+  rule {
+    source_labels = ["__meta_kubernetes_pod_container_port_number"]
+    regex = "8080"
+    action = "keep"
+  }
+}

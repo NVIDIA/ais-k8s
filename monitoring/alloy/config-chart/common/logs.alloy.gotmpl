@@ -1,0 +1,90 @@
+{{- if .Values.loki }}
+loki.write "ngc" {
+  endpoint {
+    url = "{{ .Values.loki.endpoint }}"
+  }
+  external_labels = {
+    cluster = "{{ .Values.loki.label }}",
+    tenant = "anonymous",
+  }
+}
+{{- end }}
+
+
+loki.write "local" {
+  endpoint {
+    url = "http://loki-gateway.monitoring.svc.cluster.local/loki/api/v1/push"
+  }
+  external_labels = {
+    cluster = "local",
+  }
+}
+
+discovery.kubernetes "pod" {
+  role = "pod"
+  selectors {
+    role = "pod"
+    field = "spec.nodeName=" + coalesce(sys.env("HOSTNAME"), constants.hostname)
+  }
+}
+
+discovery.relabel "pod_logs" {
+  targets = discovery.kubernetes.pod.targets
+
+  // Label creation - "namespace" field from "__meta_kubernetes_namespace"
+  rule {
+    source_labels = ["__meta_kubernetes_namespace"]
+    action = "replace"
+    target_label = "namespace"
+  }
+
+  // Label creation - "pod" field from "__meta_kubernetes_pod_name"
+  rule {
+    source_labels = ["__meta_kubernetes_pod_name"]
+    action = "replace"
+    target_label = "pod"
+  }
+
+  // Label creation - "container" field from "__meta_kubernetes_pod_container_name"
+  rule {
+    source_labels = ["__meta_kubernetes_pod_container_name"]
+    action = "replace"
+    target_label = "container"
+  }
+
+  // Label creation -  "app" field from "__meta_kubernetes_pod_label_app_kubernetes_io_name"
+  rule {
+    source_labels = ["__meta_kubernetes_pod_label_app_kubernetes_io_name"]
+    action = "replace"
+    target_label = "app"
+  }
+
+  // Label creation -  "job" field from "__meta_kubernetes_namespace" and "__meta_kubernetes_pod_container_name"
+  // Concatenate values __meta_kubernetes_namespace/__meta_kubernetes_pod_container_name
+  rule {
+    source_labels = ["__meta_kubernetes_namespace", "__meta_kubernetes_pod_container_name"]
+    action = "replace"
+    target_label = "job"
+    separator = "/"
+    replacement = "$1"
+  }
+
+  // Label creation - "container" field from "__meta_kubernetes_pod_uid" and "__meta_kubernetes_pod_container_name"
+  // Concatenate values __meta_kubernetes_pod_uid/__meta_kubernetes_pod_container_name.log
+  rule {
+    source_labels = ["__meta_kubernetes_pod_uid", "__meta_kubernetes_pod_container_name"]
+    action = "replace"
+    target_label = "__path__"
+    separator = "/"
+    replacement = "/var/log/pods/*$1/*.log"
+  }
+
+  // Label creation -  "container_runtime" field from "__meta_kubernetes_pod_container_id"
+  rule {
+    source_labels = ["__meta_kubernetes_pod_container_id"]
+    action = "replace"
+    target_label = "container_runtime"
+    regex = "^(\\S+):\\/\\/.+$"
+    replacement = "$1"
+  }
+}
