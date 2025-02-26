@@ -81,11 +81,16 @@ prometheus.relabel "local_metrics" {
   }
 }
 
-prometheus.exporter.unix "system" { }
+prometheus.exporter.unix "system" { 
+  // Include NVME and SD only by default
+  disk {
+     device_include = "^(nvme\\d+|sd[a-z]+)"
+  }
+}
 
 prometheus.scrape "system" {
-    targets = prometheus.exporter.unix.system.targets
-    forward_to = [prometheus.relabel.node_exporter.receiver]
+  targets = prometheus.exporter.unix.system.targets
+  forward_to = [prometheus.relabel.node_exporter.receiver]
 }
 
 discovery.kubernetes "kube_state_metrics" {
@@ -104,4 +109,27 @@ discovery.relabel "ksm" {
     regex = "8080"
     action = "keep"
   }
+}
+
+prometheus.scrape "aistore" {
+  targets = discovery.relabel.all_aisnode.output
+  forward_to = [prometheus.relabel.aistore.receiver]
+  job_name = "aistore"
+  scrape_interval = "30s"
+  metrics_path = "/metrics"
+  {{- if .Values.https }}
+  scheme = "https"
+  tls_config {
+    insecure_skip_verify = true
+  }
+  {{- end }}
+}
+
+prometheus.relabel "aistore" {
+  // Disable any high-cardinality labels like transaction id
+  rule {
+    action = "labeldrop"
+    regex = "xid"
+  }
+  forward_to = [prometheus.relabel.redirect.receiver]
 }
