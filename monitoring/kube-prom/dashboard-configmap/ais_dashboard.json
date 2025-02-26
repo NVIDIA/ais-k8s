@@ -26,6 +26,7 @@
   "graphTooltip": 0,
   "id": 1,
   "links": [],
+  "liveNow": false,
   "panels": [
     {
       "collapsed": false,
@@ -408,13 +409,18 @@
             "type": "prometheus",
             "uid": "Prometheus"
           },
-          "editorMode": "code",
-          "expr": "kube_daemonset_status_number_unavailable{daemonset=\"prometheus-prometheus-node-exporter\", cluster=~\"${cluster}\"}\n",
+          "disableTextWrap": false,
+          "editorMode": "builder",
+          "expr": "sum(kube_node_status_condition{cluster=\"$cluster\", condition=\"Ready\", status!=\"true\"})",
           "format": "time_series",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
           "intervalFactor": 2,
+          "legendFormat": "__auto",
           "range": true,
           "refId": "A",
-          "step": 1800
+          "step": 1800,
+          "useBackend": false
         }
       ],
       "title": "Unavailable K8s Nodes",
@@ -1531,13 +1537,11 @@
             "mode": "fixed"
           },
           "custom": {
-            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -1650,13 +1654,11 @@
             "mode": "shades"
           },
           "custom": {
-            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -1763,16 +1765,14 @@
         "defaults": {
           "color": {
             "fixedColor": "green",
-            "mode": "palette-classic-by-name"
+            "mode": "palette-classic"
           },
           "custom": {
-            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -1881,16 +1881,14 @@
         "defaults": {
           "color": {
             "fixedColor": "yellow",
-            "mode": "palette-classic-by-name"
+            "mode": "palette-classic"
           },
           "custom": {
-            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -1992,16 +1990,14 @@
         "defaults": {
           "color": {
             "fixedColor": "light-green",
-            "mode": "palette-classic-by-name"
+            "mode": "palette-classic"
           },
           "custom": {
-            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -2107,16 +2103,14 @@
         "defaults": {
           "color": {
             "fixedColor": "light-yellow",
-            "mode": "palette-classic-by-name"
+            "mode": "palette-classic"
           },
           "custom": {
-            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -2220,13 +2214,11 @@
             "mode": "palette-classic"
           },
           "custom": {
-            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -2334,13 +2326,11 @@
             "mode": "palette-classic"
           },
           "custom": {
-            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -2448,13 +2438,11 @@
             "mode": "palette-classic"
           },
           "custom": {
-            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 40,
             "gradientMode": "none",
@@ -2558,13 +2546,11 @@
             "mode": "palette-classic"
           },
           "custom": {
-            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 40,
             "gradientMode": "none",
@@ -2668,13 +2654,11 @@
             "mode": "palette-classic"
           },
           "custom": {
-            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "util (%)",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 40,
             "gradientMode": "none",
@@ -2779,13 +2763,11 @@
             "mode": "palette-classic"
           },
           "custom": {
-            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -2896,13 +2878,11 @@
             "mode": "palette-classic"
           },
           "custom": {
-            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "latency (ms)",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -3006,13 +2986,11 @@
             "mode": "palette-classic"
           },
           "custom": {
-            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "latency (ms)",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -3056,7 +3034,32 @@
           },
           "unit": "ns"
         },
-        "overrides": []
+        "overrides": [
+          {
+            "__systemRef": "hideSeriesFrom",
+            "matcher": {
+              "id": "byNames",
+              "options": {
+                "mode": "exclude",
+                "names": [
+                  "ais://ais-bench-100mb"
+                ],
+                "prefix": "All except:",
+                "readOnly": true
+              }
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": true
+                }
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 12,
@@ -3549,13 +3552,11 @@
             "mode": "palette-classic"
           },
           "custom": {
-            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "requests",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -3669,13 +3670,11 @@
             "mode": "palette-classic"
           },
           "custom": {
-            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "%util",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 40,
             "gradientMode": "none",
@@ -3746,6 +3745,30 @@
                 "value": "hidden"
               }
             ]
+          },
+          {
+            "__systemRef": "hideSeriesFrom",
+            "matcher": {
+              "id": "byNames",
+              "options": {
+                "mode": "exclude",
+                "names": [
+                  "ais_target_disk_util {__name__=\"ais_target_disk_util\", cluster=\"aistore-asr-iad\", disk=\"nvme6n1\", instance=\"10.244.0.82:51081\", job=\"aistore\", node_id=\"JpMOijtg\", tenant=\"anonymous\"}"
+                ],
+                "prefix": "All except:",
+                "readOnly": true
+              }
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": true
+                }
+              }
+            ]
           }
         ]
       },
@@ -3781,7 +3804,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "avg by (instance) (irate(node_disk_io_time_seconds_total{instance=~\"$node\", device=~\"nvme.*\", cluster=~\"${cluster}\"}[$interval]))\n",
+          "expr": "avg(ais_target_disk_util) by (node_id)",
           "format": "time_series",
           "hide": false,
           "interval": "",
@@ -3807,13 +3830,11 @@
             "mode": "palette-classic"
           },
           "custom": {
-            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "bytes",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -3912,13 +3933,11 @@
             "mode": "palette-classic"
           },
           "custom": {
-            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -4037,13 +4056,11 @@
             "mode": "palette-classic"
           },
           "custom": {
-            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -4153,13 +4170,11 @@
             "mode": "palette-classic"
           },
           "custom": {
-            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -4288,13 +4303,11 @@
             "mode": "palette-classic"
           },
           "custom": {
-            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -4398,13 +4411,11 @@
             "mode": "palette-classic"
           },
           "custom": {
-            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -4834,7 +4845,7 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "sum(rate(node_network_receive_bytes_total{device=~\"$NIC\"}[5m]))",
+          "expr": "sum(rate(node_network_receive_bytes_total{device=~\"$NIC\"}[$interval]))",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "Recieve {{device}}",
@@ -4872,13 +4883,11 @@
             "mode": "palette-classic"
           },
           "custom": {
-            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -5336,14 +5345,15 @@
       "type": "timeseries"
     }
   ],
-  "preload": false,
-  "refresh": "30s",
-  "schemaVersion": 40,
+  "refresh": "",
+  "schemaVersion": 38,
+  "style": "dark",
   "tags": [],
   "templating": {
     "list": [
       {
         "current": {
+          "selected": true,
           "text": "aistore-asr-ord",
           "value": "aistore-asr-ord"
         },
@@ -5353,8 +5363,10 @@
         },
         "definition": "label_values(ais_proxy_uptime,cluster)",
         "description": "AIStore Cluster",
+        "hide": 0,
         "includeAll": false,
         "label": "cluster",
+        "multi": false,
         "name": "cluster",
         "options": [],
         "query": {
@@ -5363,11 +5375,14 @@
         },
         "refresh": 1,
         "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
         "type": "query"
       },
       {
         "allValue": ".*",
         "current": {
+          "selected": true,
           "text": [
             "All"
           ],
@@ -5379,25 +5394,28 @@
           "type": "prometheus",
           "uid": "Prometheus"
         },
-        "definition": "label_values(ais_proxy_get_count{cluster=\"$cluster\"},node_id)",
+        "definition": "label_values(ais_proxy_uptime{cluster=\"$cluster\"},node_id)",
         "description": "Selected AIStore Proxy Instance",
+        "hide": 0,
         "includeAll": true,
         "label": "Proxy",
         "multi": true,
         "name": "proxy",
         "options": [],
         "query": {
-          "query": "label_values(ais_proxy_get_count{cluster=\"$cluster\"},node_id)",
+          "query": "label_values(ais_proxy_uptime{cluster=\"$cluster\"},node_id)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 1,
         "regex": "",
+        "skipUrlSync": false,
         "sort": 1,
         "type": "query"
       },
       {
         "allValue": ".*",
         "current": {
+          "selected": true,
           "text": [
             "All"
           ],
@@ -5409,25 +5427,28 @@
           "type": "prometheus",
           "uid": "Prometheus"
         },
-        "definition": "label_values(ais_target_get_count{cluster=\"$cluster\"},node_id)",
+        "definition": "label_values(ais_target_uptime{cluster=\"$cluster\"},node_id)",
         "description": "Selected AIStore Target Instance",
+        "hide": 0,
         "includeAll": true,
         "label": "Target",
         "multi": true,
         "name": "target",
         "options": [],
         "query": {
-          "query": "label_values(ais_target_get_count{cluster=\"$cluster\"},node_id)",
+          "query": "label_values(ais_target_uptime{cluster=\"$cluster\"},node_id)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 2,
         "regex": "",
+        "skipUrlSync": false,
         "sort": 1,
         "type": "query"
       },
       {
         "allValue": ".*",
         "current": {
+          "selected": true,
           "text": "All",
           "value": "$__all"
         },
@@ -5436,8 +5457,10 @@
           "uid": "Prometheus"
         },
         "definition": "label_values(ais_proxy_uptime{cluster=\"$cluster\"},instance)",
+        "hide": 0,
         "includeAll": true,
         "label": "Node",
+        "multi": false,
         "name": "node",
         "options": [],
         "query": {
@@ -5446,10 +5469,13 @@
         },
         "refresh": 1,
         "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
         "type": "query"
       },
       {
         "current": {
+          "selected": true,
           "text": "ais",
           "value": "ais"
         },
@@ -5457,44 +5483,27 @@
           "type": "prometheus",
           "uid": "Prometheus"
         },
-        "definition": "label_values(node_namespace_pod:kube_pod_info:{cluster=\"$cluster\"},namespace)",
-        "description": "AIStore proxy replica count",
+        "definition": "label_values(kube_statefulset_replicas{cluster=\"$cluster\"},namespace)",
+        "description": "AIS Cluster K8s Namespace",
+        "hide": 0,
         "includeAll": false,
         "label": "Namespace",
+        "multi": false,
         "name": "namespace",
         "options": [],
         "query": {
-          "query": "label_values(node_namespace_pod:kube_pod_info:{cluster=\"$cluster\"},namespace)",
+          "query": "label_values(kube_statefulset_replicas{cluster=\"$cluster\"},namespace)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 1,
         "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
         "type": "query"
       },
       {
         "current": {
-          "text": "17",
-          "value": "17"
-        },
-        "datasource": {
-          "type": "prometheus",
-          "uid": "Prometheus"
-        },
-        "definition": "query_result(count(kube_node_info{cluster=\"$cluster\"}))",
-        "hide": 2,
-        "includeAll": false,
-        "name": "node_count",
-        "options": [],
-        "query": {
-          "query": "query_result(count(kube_node_info{cluster=\"$cluster\"}))",
-          "refId": "PrometheusVariableQueryEditor-VariableQuery"
-        },
-        "refresh": 1,
-        "regex": "/{} ([0-9]+)/",
-        "type": "query"
-      },
-      {
-        "current": {
+          "selected": true,
           "text": [
             "ens300np0"
           ],
@@ -5506,44 +5515,44 @@
           "type": "prometheus",
           "uid": "Prometheus"
         },
-        "definition": "label_values(device)",
+        "definition": "label_values(node_network_info{job=\"node-exporter\", $node=\"$node\"},device)",
         "description": "Network Interface Cards",
+        "hide": 0,
         "includeAll": false,
         "label": "NICs",
         "multi": true,
         "name": "NIC",
         "options": [],
         "query": {
-          "qryType": 1,
-          "query": "label_values(device)",
+          "query": "label_values(node_network_info{job=\"node-exporter\", $node=\"$node\"},device)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 1,
         "regex": "ens.*",
+        "skipUrlSync": false,
+        "sort": 0,
         "type": "query"
       },
       {
         "current": {
-          "text": "1m",
-          "value": "1m"
+          "selected": false,
+          "text": "5m",
+          "value": "5m"
         },
         "description": "Rate Interval",
+        "hide": 0,
         "includeAll": false,
         "label": "interval",
+        "multi": false,
         "name": "interval",
         "options": [
           {
             "selected": false,
-            "text": "30s",
-            "value": "30s"
-          },
-          {
-            "selected": true,
             "text": "1m",
             "value": "1m"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "5m",
             "value": "5m"
           },
@@ -5578,7 +5587,9 @@
             "value": "24h"
           }
         ],
-        "query": "30s, 1m, 5m, 10m, 30m, 1h, 6h, 12h, 24h",
+        "query": "1m, 5m, 10m, 30m, 1h, 6h, 12h, 24h",
+        "queryValue": "",
+        "skipUrlSync": false,
         "type": "custom"
       }
     ]
@@ -5591,6 +5602,6 @@
   "timezone": "",
   "title": "AIStore Dashboard",
   "uid": "b9a4a6f0-ed0d-4bcc-87b1-dbfa0ed6cabc",
-  "version": 3,
+  "version": 20,
   "weekStart": ""
 }
