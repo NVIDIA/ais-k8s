@@ -109,7 +109,7 @@
         "showThresholdMarkers": true,
         "sizing": "auto"
       },
-      "pluginVersion": "11.4.0",
+      "pluginVersion": "10.1.2",
       "targets": [
         {
           "datasource": {
@@ -189,7 +189,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "11.4.0",
+      "pluginVersion": "10.1.2",
       "targets": [
         {
           "datasource": {
@@ -213,7 +213,7 @@
         "type": "prometheus",
         "uid": "Prometheus"
       },
-      "description": "The per-second rate of GET errors across the selected targets within the specified time interval",
+      "description": "The number of GET errors across the selected targets within the specified time interval",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -261,7 +261,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "11.4.0",
+      "pluginVersion": "10.1.2",
       "targets": [
         {
           "datasource": {
@@ -269,10 +269,34 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "sum(increase(ais_target_err_get_count{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval])) \n+ \nsum(increase(ais_target_err_put_count{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval])) or on() vector(0)\n",
+          "expr": "sum(increase(ais_target_err_get_count{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval]))",
           "legendFormat": "__auto",
           "range": true,
-          "refId": "A"
+          "refId": "target_get_err"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(increase(ais_target_err_put_count{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval]))",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "target_put_err"
+        },
+        {
+          "datasource": {
+            "name": "Expression",
+            "type": "__expr__",
+            "uid": "__expr__"
+          },
+          "expression": "$target_get_err + $target_put_err",
+          "hide": false,
+          "refId": "A",
+          "type": "math"
         }
       ],
       "title": "Error Rate",
@@ -304,7 +328,7 @@
               }
             ]
           },
-          "unit": "MiBs"
+          "unit": "binBps"
         },
         "overrides": []
       },
@@ -332,7 +356,7 @@
         "textMode": "value",
         "wideLayout": true
       },
-      "pluginVersion": "11.4.0",
+      "pluginVersion": "10.1.2",
       "targets": [
         {
           "datasource": {
@@ -340,7 +364,7 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "sum(rate(ais_target_get_bytes{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval])) / (1024 * 1024) or vector(0)",
+          "expr": "sum(rate(ais_target_get_bytes{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval]))",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
@@ -402,7 +426,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "11.4.0",
+      "pluginVersion": "10.1.2",
       "targets": [
         {
           "datasource": {
@@ -479,7 +503,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "11.4.0",
+      "pluginVersion": "10.1.2",
       "targets": [
         {
           "datasource": {
@@ -487,12 +511,37 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "max(kube_statefulset_status_replicas{statefulset=~\".*proxy$\", namespace=\"${namespace}\", cluster=~\"${cluster}\"}) - min(kube_statefulset_status_replicas_ready{statefulset=~\".*proxy$\", namespace=\"${namespace}\", cluster=~\"${cluster}\"})",
+          "expr": "kube_statefulset_status_replicas{statefulset=~\".*proxy$\", namespace=\"${namespace}\", cluster=~\"${cluster}\"}",
           "format": "time_series",
+          "hide": true,
           "intervalFactor": 2,
           "range": true,
-          "refId": "A",
+          "refId": "total_replicas",
           "step": 1800
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "kube_statefulset_status_replicas_ready{statefulset=~\".*proxy$\", namespace=\"${namespace}\", cluster=~\"${cluster}\"}",
+          "hide": true,
+          "instant": false,
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "ready_replicas"
+        },
+        {
+          "datasource": {
+            "name": "Expression",
+            "type": "__expr__",
+            "uid": "__expr__"
+          },
+          "expression": "$total_replicas-$ready_replicas",
+          "hide": false,
+          "refId": "A",
+          "type": "math"
         }
       ],
       "title": "Unavailable Gateways",
@@ -551,7 +600,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "11.4.0",
+      "pluginVersion": "10.1.2",
       "targets": [
         {
           "datasource": {
@@ -559,12 +608,37 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "max(kube_statefulset_status_replicas{statefulset=~\".*target$\", namespace=\"${namespace}\", cluster=~\"${cluster}\"}) - min(kube_statefulset_status_replicas_ready{statefulset=~\".*target$\", namespace=\"${namespace}\", cluster=~\"${cluster}\"})",
+          "expr": "kube_statefulset_status_replicas{statefulset=~\".*target$\", namespace=\"${namespace}\", cluster=~\"${cluster}\"}",
           "format": "time_series",
+          "hide": true,
           "intervalFactor": 2,
           "range": true,
-          "refId": "A",
+          "refId": "total_replicas",
           "step": 1800
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "kube_statefulset_status_replicas_ready{statefulset=~\".*target$\", namespace=\"${namespace}\", cluster=~\"${cluster}\"}",
+          "hide": true,
+          "instant": false,
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "ready_replicas"
+        },
+        {
+          "datasource": {
+            "name": "Expression",
+            "type": "__expr__",
+            "uid": "__expr__"
+          },
+          "expression": "$total_replicas - $ready_replicas",
+          "hide": false,
+          "refId": "A",
+          "type": "math"
         }
       ],
       "title": "Unavailable Targets",
@@ -618,7 +692,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "11.4.0",
+      "pluginVersion": "10.1.2",
       "targets": [
         {
           "datasource": {
@@ -627,9 +701,34 @@
           },
           "editorMode": "code",
           "expr": "sum(rate(ais_target_get_count{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval]))",
+          "hide": true,
           "legendFormat": "GET",
           "range": true,
-          "refId": "A"
+          "refId": "get_requests"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(ais_target_put_count{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval]))",
+          "hide": true,
+          "instant": false,
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "put_requests"
+        },
+        {
+          "datasource": {
+            "name": "Expression",
+            "type": "__expr__",
+            "uid": "__expr__"
+          },
+          "expression": "$put_requests + $get_requests",
+          "hide": false,
+          "refId": "B",
+          "type": "math"
         }
       ],
       "title": "Requests / Sec",
@@ -640,13 +739,14 @@
         "type": "prometheus",
         "uid": "Prometheus"
       },
-      "description": "Mean AIstore target request latency for operations.",
+      "description": "Mean target request latency for GET requests over the selected interval",
       "fieldConfig": {
         "defaults": {
           "color": {
             "mode": "thresholds"
           },
           "mappings": [],
+          "noValue": "0",
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -660,7 +760,7 @@
               }
             ]
           },
-          "unit": "ms"
+          "unit": "ns"
         },
         "overrides": []
       },
@@ -688,7 +788,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "11.4.0",
+      "pluginVersion": "10.1.2",
       "targets": [
         {
           "datasource": {
@@ -696,10 +796,35 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "avg(ais_target_get_ms{node_id=~\"$target\", cluster=~\"$cluster\"}) or vector(0)",
+          "expr": "sum(increase(ais_target_get_ns_total{cluster=\"$cluster\"}[$interval]))",
+          "hide": true,
           "legendFormat": "__auto",
           "range": true,
-          "refId": "A"
+          "refId": "ns_over_interval"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "absent(sum(increase(ais_target_get_count{cluster=\"$cluster\"}[$interval])))",
+          "hide": true,
+          "instant": false,
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "request_over_interval"
+        },
+        {
+          "datasource": {
+            "name": "Expression",
+            "type": "__expr__",
+            "uid": "__expr__"
+          },
+          "expression": "$ns_over_interval / $request_over_interval",
+          "hide": false,
+          "refId": "avg ns/rq",
+          "type": "math"
         }
       ],
       "title": "Latency",
@@ -731,7 +856,7 @@
               }
             ]
           },
-          "unit": "MiBs"
+          "unit": "binBps"
         },
         "overrides": []
       },
@@ -759,7 +884,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "11.4.0",
+      "pluginVersion": "10.1.2",
       "targets": [
         {
           "datasource": {
@@ -767,7 +892,7 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "sum(rate(ais_target_put_bytes{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval])) / (1024 * 1024) or vector(0)",
+          "expr": "sum(rate(ais_target_put_bytes{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval]))",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
@@ -825,7 +950,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "11.4.0",
+      "pluginVersion": "10.1.2",
       "targets": [
         {
           "datasource": {
@@ -893,7 +1018,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "11.4.0",
+      "pluginVersion": "10.1.2",
       "targets": [
         {
           "datasource": {
@@ -961,7 +1086,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "11.4.0",
+      "pluginVersion": "10.1.2",
       "targets": [
         {
           "datasource": {
@@ -1060,7 +1185,7 @@
         "showThresholdMarkers": true,
         "sizing": "auto"
       },
-      "pluginVersion": "11.4.0",
+      "pluginVersion": "10.1.2",
       "targets": [
         {
           "datasource": {
@@ -1147,7 +1272,7 @@
         "showThresholdMarkers": true,
         "sizing": "auto"
       },
-      "pluginVersion": "11.4.0",
+      "pluginVersion": "10.1.2",
       "targets": [
         {
           "datasource": {
@@ -1225,7 +1350,7 @@
         "showThresholdMarkers": true,
         "sizing": "auto"
       },
-      "pluginVersion": "11.4.0",
+      "pluginVersion": "10.1.2",
       "targets": [
         {
           "datasource": {
@@ -1323,7 +1448,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "11.4.0",
+      "pluginVersion": "10.1.2",
       "targets": [
         {
           "datasource": {
@@ -1408,7 +1533,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "11.4.0",
+      "pluginVersion": "10.1.2",
       "targets": [
         {
           "datasource": {
@@ -1493,7 +1618,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "11.4.0",
+      "pluginVersion": "10.1.2",
       "targets": [
         {
           "datasource": {
@@ -1808,8 +1933,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -1921,8 +2045,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               }
             ]
           },
@@ -2030,8 +2153,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -2143,8 +2265,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               }
             ]
           },
@@ -2251,8 +2372,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -2363,8 +2483,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -2475,8 +2594,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -2583,8 +2701,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -2691,8 +2808,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -2799,8 +2915,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -2915,8 +3030,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -3023,8 +3137,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -3123,8 +3236,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "text",
-                "value": null
+                "color": "text"
               }
             ]
           },
@@ -3193,8 +3305,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "text",
-                "value": null
+                "color": "text"
               }
             ]
           },
@@ -3263,8 +3374,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "text",
-                "value": null
+                "color": "text"
               }
             ]
           },
@@ -3333,8 +3443,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "text",
-                "value": null
+                "color": "text"
               }
             ]
           },
@@ -3403,8 +3512,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "text",
-                "value": null
+                "color": "text"
               }
             ]
           },
@@ -3473,8 +3581,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "text",
-                "value": null
+                "color": "text"
               }
             ]
           },
@@ -3589,8 +3696,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -3707,8 +3813,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -3867,8 +3972,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -3979,8 +4083,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "rgba(50, 172, 45, 0.97)",
-                "value": null
+                "color": "rgba(50, 172, 45, 0.97)"
               },
               {
                 "color": "rgba(237, 129, 40, 0.89)",
@@ -4093,8 +4196,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -4206,8 +4308,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -4338,8 +4439,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -4447,8 +4547,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -4919,8 +5018,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -5353,7 +5451,7 @@
     "list": [
       {
         "current": {
-          "selected": true,
+          "selected": false,
           "text": "aistore-asr-ord",
           "value": "aistore-asr-ord"
         },
@@ -5382,7 +5480,7 @@
       {
         "allValue": ".*",
         "current": {
-          "selected": true,
+          "selected": false,
           "text": [
             "All"
           ],
@@ -5415,7 +5513,7 @@
       {
         "allValue": ".*",
         "current": {
-          "selected": true,
+          "selected": false,
           "text": [
             "All"
           ],
@@ -5448,7 +5546,7 @@
       {
         "allValue": ".*",
         "current": {
-          "selected": true,
+          "selected": false,
           "text": "All",
           "value": "$__all"
         },
@@ -5475,7 +5573,7 @@
       },
       {
         "current": {
-          "selected": true,
+          "selected": false,
           "text": "ais",
           "value": "ais"
         },
@@ -5503,12 +5601,16 @@
       },
       {
         "current": {
-          "selected": true,
+          "selected": false,
           "text": [
-            "ens300np0"
+            "ens3",
+            "ens300np0",
+            "ens340np0"
           ],
           "value": [
-            "ens300np0"
+            "ens3",
+            "ens300np0",
+            "ens340np0"
           ]
         },
         "datasource": {
@@ -5602,6 +5704,6 @@
   "timezone": "",
   "title": "AIStore Dashboard",
   "uid": "b9a4a6f0-ed0d-4bcc-87b1-dbfa0ed6cabc",
-  "version": 20,
+  "version": 1,
   "weekStart": ""
 }
