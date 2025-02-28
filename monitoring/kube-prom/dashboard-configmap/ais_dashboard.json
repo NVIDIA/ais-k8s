@@ -53,18 +53,8 @@
             "mode": "thresholds"
           },
           "decimals": 2,
-          "mappings": [
-            {
-              "options": {
-                "match": "null",
-                "result": {
-                  "text": "N/A"
-                }
-              },
-              "type": "special"
-            }
-          ],
-          "max": 100,
+          "mappings": [],
+          "max": 1,
           "min": 0,
           "thresholds": {
             "mode": "absolute",
@@ -75,15 +65,15 @@
               },
               {
                 "color": "rgba(237, 129, 40, 0.89)",
-                "value": 80
+                "value": 70
               },
               {
                 "color": "rgba(245, 54, 54, 0.9)",
-                "value": 90
+                "value": 80
               }
             ]
           },
-          "unit": "percent"
+          "unit": "percentunit"
         },
         "overrides": []
       },
@@ -117,12 +107,37 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "(1-sum(node_filesystem_avail_bytes{instance=~\"^${node}$\", job=\"node-exporter\", mountpoint=~\"/ais/.*\", fstype!=\"rootfs\", cluster=~\"${cluster}\"})/ sum(node_filesystem_size_bytes{instance=~\"^${node}$\", job=\"node-exporter\", mountpoint=~\"/ais/.*\", fstype!=\"rootfs\", cluster=~\"${cluster}\"})) \n* 100",
+          "expr": "sum(node_filesystem_size_bytes{instance=~\"^${node}\",mountpoint=~\"/ais/.+\",cluster=~\"${cluster}\"})",
           "format": "time_series",
+          "hide": true,
           "intervalFactor": 1,
           "range": true,
-          "refId": "A",
+          "refId": "total",
           "step": 240
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(node_filesystem_avail_bytes{instance=~\"^${node}\",mountpoint=~\"/ais/.+\",cluster=~\"${cluster}\"})",
+          "hide": true,
+          "instant": false,
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "avail"
+        },
+        {
+          "datasource": {
+            "name": "Expression",
+            "type": "__expr__",
+            "uid": "__expr__"
+          },
+          "expression": "1 -$avail/$total",
+          "hide": false,
+          "refId": "A",
+          "type": "math"
         }
       ],
       "title": "Used Capacity",
@@ -197,7 +212,7 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "sum(node_filesystem_size_bytes{instance=~\"^${node}$\",job=\"node-exporter\",mountpoint=~\"/ais/.*\",fstype!=\"rootfs\", cluster=~\"${cluster}\"})",
+          "expr": "sum(node_filesystem_size_bytes{instance=~\"^${node}\",mountpoint=~\"/ais/.+\",cluster=~\"${cluster}\"})",
           "format": "time_series",
           "intervalFactor": 1,
           "range": true,
@@ -1933,7 +1948,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -2045,7 +2061,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               }
             ]
           },
@@ -2153,7 +2170,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -2265,7 +2283,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               }
             ]
           },
@@ -2372,7 +2391,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -2483,7 +2503,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -2594,7 +2615,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -2701,7 +2723,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -2808,7 +2831,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -2915,7 +2939,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -3030,7 +3055,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -3137,7 +3163,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -3236,7 +3263,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "text"
+                "color": "text",
+                "value": null
               }
             ]
           },
@@ -3269,7 +3297,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "11.4.0",
+      "pluginVersion": "10.1.2",
       "targets": [
         {
           "datasource": {
@@ -3305,7 +3333,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "text"
+                "color": "text",
+                "value": null
               }
             ]
           },
@@ -3338,7 +3367,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "11.4.0",
+      "pluginVersion": "10.1.2",
       "targets": [
         {
           "datasource": {
@@ -3374,7 +3403,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "text"
+                "color": "text",
+                "value": null
               }
             ]
           },
@@ -3407,7 +3437,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "11.4.0",
+      "pluginVersion": "10.1.2",
       "targets": [
         {
           "datasource": {
@@ -3443,7 +3473,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "text"
+                "color": "text",
+                "value": null
               }
             ]
           },
@@ -3476,7 +3507,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "11.4.0",
+      "pluginVersion": "10.1.2",
       "targets": [
         {
           "datasource": {
@@ -3512,7 +3543,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "text"
+                "color": "text",
+                "value": null
               }
             ]
           },
@@ -3545,7 +3577,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "11.4.0",
+      "pluginVersion": "10.1.2",
       "targets": [
         {
           "datasource": {
@@ -3581,7 +3613,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "text"
+                "color": "text",
+                "value": null
               }
             ]
           },
@@ -3614,7 +3647,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "11.4.0",
+      "pluginVersion": "10.1.2",
       "targets": [
         {
           "datasource": {
@@ -3696,7 +3729,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -3813,7 +3847,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -3909,7 +3944,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "avg(ais_target_disk_util) by (node_id)",
+          "expr": "avg(ais_target_disk_util{cluster=\"$cluster\"}) by (node_id)",
           "format": "time_series",
           "hide": false,
           "interval": "",
@@ -3972,7 +4007,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -4083,7 +4119,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "rgba(50, 172, 45, 0.97)"
+                "color": "rgba(50, 172, 45, 0.97)",
+                "value": null
               },
               {
                 "color": "rgba(237, 129, 40, 0.89)",
@@ -4095,7 +4132,7 @@
               }
             ]
           },
-          "unit": "decbytes"
+          "unit": "bytes"
         },
         "overrides": []
       },
@@ -4126,12 +4163,12 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "sum(node_filesystem_size_bytes{instance=~\"^${node}$\",job=\"node-exporter\",mountpoint=~\"^/ais/.*\",fstype!=\"rootfs\"})",
+          "expr": "sum(node_filesystem_size_bytes{cluster=\"$cluster\",mountpoint=~\"^/ais/.+\"})",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "Free Storage",
           "range": true,
-          "refId": "A",
+          "refId": "total",
           "step": 240
         },
         {
@@ -4140,11 +4177,11 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "sum(node_filesystem_size_bytes{instance=~\"^${node}$\",job=\"node-exporter\",mountpoint=~\"/ais/.*\",fstype!=\"rootfs\"}) - sum(node_filesystem_avail_bytes{instance=~\"^${node}$\",job=\"node-exporter\",mountpoint=~\"/ais/.*\",fstype!=\"rootfs\"})",
+          "expr": "sum(node_filesystem_avail_bytes{cluster=\"$cluster\",mountpoint=~\"^/ais/.+\"})",
           "hide": false,
           "legendFormat": "Used Storage",
           "range": true,
-          "refId": "B"
+          "refId": "avail"
         }
       ],
       "title": "Storage Used vs Free",
@@ -4196,7 +4233,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -4308,7 +4346,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -4439,7 +4478,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -4547,7 +4587,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -5018,7 +5059,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -5451,7 +5493,7 @@
     "list": [
       {
         "current": {
-          "selected": false,
+          "selected": true,
           "text": "aistore-asr-ord",
           "value": "aistore-asr-ord"
         },
@@ -5480,7 +5522,7 @@
       {
         "allValue": ".*",
         "current": {
-          "selected": false,
+          "selected": true,
           "text": [
             "All"
           ],
@@ -5513,7 +5555,7 @@
       {
         "allValue": ".*",
         "current": {
-          "selected": false,
+          "selected": true,
           "text": [
             "All"
           ],
@@ -5601,23 +5643,19 @@
       },
       {
         "current": {
-          "selected": false,
+          "selected": true,
           "text": [
-            "ens3",
-            "ens300np0",
-            "ens340np0"
+            "ens300np0"
           ],
           "value": [
-            "ens3",
-            "ens300np0",
-            "ens340np0"
+            "ens300np0"
           ]
         },
         "datasource": {
           "type": "prometheus",
           "uid": "Prometheus"
         },
-        "definition": "label_values(node_network_info{job=\"node-exporter\", $node=\"$node\"},device)",
+        "definition": "label_values(node_network_info{cluster=\"$cluster\"},device)",
         "description": "Network Interface Cards",
         "hide": 0,
         "includeAll": false,
@@ -5626,7 +5664,7 @@
         "name": "NIC",
         "options": [],
         "query": {
-          "query": "label_values(node_network_info{job=\"node-exporter\", $node=\"$node\"},device)",
+          "query": "label_values(node_network_info{cluster=\"$cluster\"},device)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 1,
@@ -5637,9 +5675,9 @@
       },
       {
         "current": {
-          "selected": false,
-          "text": "5m",
-          "value": "5m"
+          "selected": true,
+          "text": "30m",
+          "value": "30m"
         },
         "description": "Rate Interval",
         "hide": 0,
@@ -5654,7 +5692,7 @@
             "value": "1m"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "5m",
             "value": "5m"
           },
@@ -5664,7 +5702,7 @@
             "value": "10m"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "30m",
             "value": "30m"
           },
@@ -5704,6 +5742,6 @@
   "timezone": "",
   "title": "AIStore Dashboard",
   "uid": "b9a4a6f0-ed0d-4bcc-87b1-dbfa0ed6cabc",
-  "version": 1,
+  "version": 5,
   "weekStart": ""
 }
