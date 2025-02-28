@@ -1,9 +1,9 @@
 prometheus.relabel "redirect" {
-  forward_to = [prometheus.relabel.ngc_metrics.receiver]
+  forward_to = [prometheus.remote_write.ngc.receiver]
 }
 
 prometheus.relabel "node_exporter" {
-  forward_to = [prometheus.relabel.ngc_metrics.receiver]
+  forward_to = [prometheus.remote_write.ngc.receiver]
   rule {
     action = "replace"
     target_label = "job"
@@ -13,6 +13,6 @@ prometheus.relabel "node_exporter" {
 
 prometheus.scrape "kube_state_metrics" {
   targets = discovery.relabel.ksm.output
-  forward_to = [prometheus.relabel.ngc_metrics.receiver]
+  forward_to = [prometheus.remote_write.ngc.receiver]
   scrape_interval = "10s"
 }

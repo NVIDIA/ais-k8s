@@ -6,20 +6,18 @@ livedebugging {
 prometheus.remote_write "ngc" {
   endpoint {
     url = "{{ .Values.mimir.endpoint }}"
+    remote_timeout = "15s"
   }
   external_labels = {
     cluster = "{{ .Values.mimir.label }}",
     tenant = "anonymous",
   }
 }
-prometheus.relabel "ngc_metrics" {
-  forward_to = [prometheus.remote_write.ngc.receiver]
-}
 
 prometheus.relabel "all_metrics" {
   forward_to = [
     prometheus.relabel.local_metrics.receiver,
-    prometheus.relabel.ngc_metrics.receiver,
+    prometheus.remote_write.ngc.receiver,
   ]
 }
 {{- end }}
@@ -27,6 +25,7 @@ prometheus.relabel "all_metrics" {
 prometheus.remote_write "local" {
   endpoint {
     url = "http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090/api/v1/write"
+    remote_timeout = "15s"
   }
   external_labels = {
     "cluster" = "local",
@@ -70,6 +69,11 @@ discovery.relabel "all_aisnode" {
     action = "replace"
     target_label = "component"
   }
+  rule {
+    source_labels = ["__meta_kubernetes_pod_name"]
+    action = "replace"
+    target_label = "pod"
+  }
 }
 
 prometheus.relabel "local_metrics" {
@@ -84,7 +88,13 @@ prometheus.relabel "local_metrics" {
 prometheus.exporter.unix "system" { 
   // Include NVME and SD only by default
   disk {
-     device_include = "^(nvme\\d+|sd[a-z]+)"
+    device_include = "^(nvme\\d+|sd[a-z]+)"
+  }
+  netdev {
+    device_exclude = "^(veth|lo|flannel|cni).*"
+  }
+  filesystem {
+    mount_points_exclude = "^/(dev|var|proc|run|sys|tmp)($|/)"
   }
 }
 
