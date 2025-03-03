@@ -138,8 +138,11 @@ prometheus.scrape "aistore" {
 prometheus.relabel "aistore" {
   // Disable any high-cardinality labels like transaction id
   rule {
-    action = "labeldrop"
-    regex = "xid"
+    action = "replace"
+    source_labels = ["xid"]
+    target_label = "xid"
+    regex = "(.+)"
+    replacement = "aggregated"
   }
   forward_to = [prometheus.relabel.redirect.receiver]
 }
