@@ -24,7 +24,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 1,
+  "id": 4701,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -36,7 +36,7 @@
         "x": 0,
         "y": 0
       },
-      "id": 1,
+      "id": 87,
       "panels": [],
       "title": "AIStore Dashboard",
       "type": "row"
@@ -655,7 +655,9 @@
           "color": {
             "mode": "thresholds"
           },
+          "decimals": 1,
           "mappings": [],
+          "noValue": "0",
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -664,7 +666,8 @@
                 "value": null
               }
             ]
-          }
+          },
+          "unit": "none"
         },
         "overrides": []
       },
@@ -1123,12 +1126,13 @@
         "type": "prometheus",
         "uid": "Prometheus"
       },
-      "description": "Mean busy state of all CPU cores together",
+      "description": "Mean busy state of all CPU cores",
       "fieldConfig": {
         "defaults": {
           "color": {
             "mode": "thresholds"
           },
+          "decimals": 2,
           "mappings": [
             {
               "options": {
@@ -1193,7 +1197,7 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "avg((sum by(instance) (irate(node_cpu_seconds_total{instance=~\"^$node$\",job=\"node-exporter\", mode!=\"idle\", cluster=~\"${cluster}\"}[$interval])) / on(instance) group_left sum by (instance)((irate(node_cpu_seconds_total{instance=~\"^${node}$\",job=\"node-exporter\", cluster=~\"${cluster}\"}[$interval])))) * 100)\n",
+          "expr": "avg(\n  sum(irate(node_cpu_seconds_total{instance=~\"$node\", mode!=\"idle\", cluster=~\"${cluster}\"}[$interval]))\n  / \n  sum(irate(node_cpu_seconds_total{instance=~\"$node\", cluster=~\"${cluster}\"}[$interval]))\n  * 100\n)",
           "hide": false,
           "intervalFactor": 1,
           "legendFormat": "",
@@ -1216,6 +1220,7 @@
           "color": {
             "mode": "thresholds"
           },
+          "decimals": 2,
           "mappings": [
             {
               "options": {
@@ -1280,7 +1285,7 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "(avg(node_load5{instance=~\"^${node}$\",job=\"node-exporter\", cluster=~\"${cluster}\"}) / count(count(node_cpu_seconds_total{instance=~\"^${node}$\", job=\"node-exporter\", cluster=~\"${cluster}\"}) by (cpu, instance))) * 100",
+          "expr": "avg(node_load5{instance=~\"^${node}$\", cluster=~\"${cluster}\"})",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 1,
@@ -3985,7 +3990,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "avg(ais_target_disk_util) by (node_id)",
+          "expr": "avg(ais_target_disk_util{cluster=\"${cluster}\"}) by (node_id)",
           "format": "time_series",
           "hide": false,
           "interval": "",
@@ -4317,13 +4322,12 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "topk(5, (100 - 100 * sum by (instance, device) (node_filesystem_avail_bytes{instance=~\"^${node}$\",job=\"node-exporter\",mountpoint=~\"^/ais/.*\",fstype!=\"rootfs\"}) / sum by (instance, device) (node_filesystem_size_bytes{instance=~\"^${node}$\",job=\"node-exporter\",mountpoint=~\"^/ais/.*\",fstype!=\"rootfs\"})))\n",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "{{instance}}:{{device}}",
+          "expr": "topk(5, \n  sum by (instance, device) (node_filesystem_avail_bytes{cluster=~\"${cluster}\",instance=~\"^${node}$\",mountpoint=~\"^/ais/.*\"}) \n  / \n  sum by (instance, device) (node_filesystem_size_bytes{cluster=~\"${cluster}\",instance=~\"^${node}$\",mountpoint=~\"^/ais/.*\"})\n) * 100",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "__auto",
           "range": true,
-          "refId": "A",
-          "step": 240
+          "refId": "A"
         }
       ],
       "title": "Storage Used: Top 5 Disks",
@@ -4415,7 +4419,7 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (instance) (rate(node_filesystem_device_error{cluster=~\"${cluster}\", instance=~\"${^node}\"}[$interval]))",
+          "expr": "sum by (instance) (rate(node_filesystem_device_error{cluster=~\"${cluster}\",instance=~\"${node}\", mountpoint=~\"^/ais/.*$\"}[$interval]))",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
@@ -4530,7 +4534,9 @@
       "id": 30,
       "options": {
         "legend": {
-          "calcs": [],
+          "calcs": [
+            "sum"
+          ],
           "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
@@ -5231,7 +5237,7 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "sum(rate(node_network_receive_bytes_total{cluster=~\"${cluster}\", instance=\"$node\"}[$interval]))",
+          "expr": "sum by (device) (rate(node_network_receive_bytes_total{cluster=~\"${cluster}\"}[$interval]))",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "Recieve {{device}}",
@@ -5245,7 +5251,7 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "sum(rate(node_network_transmit_bytes_total{cluster=~\"${cluster}\", instance=\"$node\"}[$interval]))",
+          "expr": "sum by (device) (rate(node_network_transmit_bytes_total{cluster=~\"${cluster}\"}[$interval]))",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "Transmit {{device}} ",
@@ -5262,7 +5268,7 @@
         "type": "prometheus",
         "uid": "Prometheus"
       },
-      "description": "Top 10 chattering nodes.",
+      "description": "",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -5316,365 +5322,7 @@
           },
           "unit": "Bps"
         },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Recv_bytes_eth2"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "#7EB26D",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Recv_bytes_lo"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "#0A50A1",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Recv_drop_eth2"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "#6ED0E0",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Recv_drop_lo"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "#E0F9D7",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Recv_errs_eth2"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "#BF1B00",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Recv_errs_lo"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "#CCA300",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Trans_bytes_eth2"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "#7EB26D",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Trans_bytes_lo"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "#0A50A1",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Trans_drop_eth2"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "#6ED0E0",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Trans_drop_lo"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "#E0F9D7",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Trans_errs_eth2"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "#BF1B00",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Trans_errs_lo"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "#CCA300",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "recv_bytes_lo"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "#0A50A1",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "recv_drop_eth0"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "#99440A",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "recv_drop_lo"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "#967302",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "recv_errs_eth0"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "#BF1B00",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "recv_errs_lo"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "#890F02",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "trans_bytes_eth0"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "#7EB26D",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "trans_bytes_lo"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "#0A50A1",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "trans_drop_eth0"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "#99440A",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "trans_drop_lo"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "#967302",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "trans_errs_eth0"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "#BF1B00",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "trans_errs_lo"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "#890F02",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byRegexp",
-              "options": "/.*trans.*/"
-            },
-            "properties": [
-              {
-                "id": "custom.transform",
-                "value": "negative-Y"
-              }
-            ]
-          }
-        ]
+        "overrides": []
       },
       "gridPos": {
         "h": 9,
@@ -5703,10 +5351,10 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "topk(10, sum by (instance) (irate(node_network_receive_bytes_total{cluster=~\"${cluster}\", instance=\"$node\"}[$interval])))",
+          "expr": "topk(5, sum by (instance) (irate(node_network_receive_bytes_total{cluster=~\"${cluster}\",instance=~\"$node\"}[$interval])))",
           "format": "time_series",
           "intervalFactor": 1,
-          "legendFormat": "{{instance}}",
+          "legendFormat": "{{instance}}-rx",
           "range": true,
           "refId": "A",
           "step": 240
@@ -5717,17 +5365,17 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "topk(10, sum by (instance) (irate(node_network_transmit_bytes_total{cluster=~\"${cluster}\", instance=\"$node\"}[$interval])))",
+          "expr": "topk(5, sum by (instance) (irate(node_network_transmit_bytes_total{cluster=~\"${cluster}\",instance=~\"$node\"}[$interval])))",
           "format": "time_series",
-          "hide": true,
+          "hide": false,
           "intervalFactor": 1,
-          "legendFormat": "trans {{instance}} ",
+          "legendFormat": "{{instance}}-tx",
           "range": true,
           "refId": "B",
           "step": 240
         }
       ],
-      "title": "Network RX / TX: Top 10",
+      "title": "Network RX / TX: Top 5",
       "type": "timeseries"
     }
   ],
@@ -5889,7 +5537,7 @@
       },
       {
         "current": {
-          "selected": false,
+          "selected": true,
           "text": [
             "ens300np0"
           ],
@@ -5904,7 +5552,7 @@
         "definition": "label_values(node_network_info{cluster=\"$cluster\"},device)",
         "description": "Network Interface Cards",
         "hide": 0,
-        "includeAll": false,
+        "includeAll": true,
         "label": "NICs",
         "multi": true,
         "name": "NIC",
@@ -5914,14 +5562,14 @@
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 1,
-        "regex": "ens.*",
+        "regex": "^ens.*",
         "skipUrlSync": false,
         "sort": 0,
         "type": "query"
       },
       {
         "current": {
-          "selected": true,
+          "selected": false,
           "text": "5m",
           "value": "5m"
         },
@@ -5981,13 +5629,13 @@
     ]
   },
   "time": {
-    "from": "now-1h",
+    "from": "now-15m",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "",
   "title": "AIStore Dashboard",
   "uid": "b9a4a6f0-ed0d-4bcc-87b1-dbfa0ed6cabc",
-  "version": 12,
+  "version": 19,
   "weekStart": ""
 }
