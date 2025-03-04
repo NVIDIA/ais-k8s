@@ -11,16 +11,16 @@ additionalPrometheusRulesMap:
           annotations:
             summary: High Disk IO Utilization on AIS Disks
             description: "The disk IO utilization on disk '{{ $labels.disk }}' ({{ $labels.instance }}) in pod '{{ $labels.pod }}' (node {{ $labels.node_id }}, namespace '{{ $labels.namespace }}') is above 95% for a continuous period of 5 minutes."
-        - alert: AISHighDiskUtilization
-          expr: (sum by (instance, device) (node_filesystem_avail_bytes{job="node-exporter", mountpoint=~"^/ais/.*", fstype!="rootfs"}) / sum by (instance, device) (node_filesystem_size_bytes{job="node-exporter", mountpoint=~"^/ais/.*", fstype!="rootfs"})) < 0.05
+        - alert: AISLowDiskCapacity
+          expr: (sum by (instance, device) (node_filesystem_avail_bytes{mountpoint=~"^/ais/.*"}) / sum by (instance, device) (node_filesystem_size_bytes{mountpoint=~"^/ais/.*"})) < 0.10
           for: 5m
           labels:
             severity: critical
           annotations:
             summary: Disk Space Critical on AIS Disks
-            description: "The disk space on device '{{ $labels.device }}' on instance '{{ $labels.instance }}' has exceeded 95% capacity."
-        - alert: AISHighDiskUtilizationInfo
-          expr: (sum by (instance, device) (node_filesystem_avail_bytes{job="node-exporter", mountpoint=~"^/ais/.*", fstype!="rootfs"}) / sum by (instance, device) (node_filesystem_size_bytes{job="node-exporter", mountpoint=~"^/ais/.*", fstype!="rootfs"})) < 0.25
+            description: "The disk space on device '{{ $labels.device }}' on instance '{{ $labels.instance }}' has exceeded 90% capacity."
+        - alert: AISLowDiskCapacityInfo
+          expr: (sum by (instance, device) (node_filesystem_avail_bytes{mountpoint=~"^/ais/.*"}) / sum by (instance, device) (node_filesystem_size_bytes{mountpoint=~"^/ais/.*"})) < 0.25
           for: 5m
           labels:
             severity: info
@@ -28,8 +28,8 @@ additionalPrometheusRulesMap:
             summary: Disk Space Utilization High on AIS Disks
             description: "The disk space utilization on device '{{ $labels.device }}' on instance '{{ $labels.instance }}' has exceeded 75% capacity."
         - alert: K8sNodeDown
-          expr: kube_daemonset_status_number_unavailable{daemonset="kube-prometheus-stack-prometheus-node-exporter"} > 0
-          for: 5m
+          expr: sum by(node) (kube_node_status_condition{condition="Ready", status!="true"}) > 0
+          for: 2m
           labels:
             severity: critical
           annotations:
@@ -73,8 +73,8 @@ additionalPrometheusRulesMap:
           labels:
             severity: critical
           annotations:
-            summary: AIS Node Restart Detected
-            description: "AIS Node '{{ $labels.pod }}' on node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) has restarted."
+            summary: AIS Target Restart Detected
+            description: "AIS target pod '{{ $labels.pod }}' on node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) has restarted."
         - alert: AISChecksumError
           expr: increase(ais_target_err_cksum_n[5m]) > 0
           for: 1m
@@ -82,7 +82,7 @@ additionalPrometheusRulesMap:
             severity: critical
           annotations:
             summary: Checksum Error Detected on AIS Target
-            description: "AIS Node '{{ $labels.pod }}' (instance {{ $labels.instance }}) on node '{{ $labels.node_id }}' has encountered a checksum error."
+            description: "AIS target pod '{{ $labels.pod }}' (instance {{ $labels.instance }}) on node '{{ $labels.node_id }}' has encountered a checksum error."
         - alert: AISVoteInProgress
           expr: (floor(ais_target_state_flags / 1)) % 2 == 1
           for: 1m
