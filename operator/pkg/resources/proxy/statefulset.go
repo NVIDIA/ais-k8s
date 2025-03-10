@@ -8,7 +8,7 @@ import (
 	"fmt"
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
-	"github.com/NVIDIA/aistore/api/env"
+	aisenv "github.com/NVIDIA/aistore/api/env"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	"github.com/ais-operator/pkg/resources/cmn"
 	apiv1 "k8s.io/api/apps/v1"
@@ -83,6 +83,7 @@ func proxyPodSpec(ais *aisv1.AIStore) *corev1.PodSpec {
 				Image:           ais.Spec.InitImage,
 				ImagePullPolicy: corev1.PullIfNotPresent,
 				Env:             NewInitContainerEnv(ais),
+				Resources:       *cmn.NewInitResourceReq(),
 				Args:            cmn.NewInitContainerArgs(aisapc.Proxy, ais.Spec.HostnameMap),
 				VolumeMounts:    cmn.NewInitVolumeMounts(),
 			},
@@ -96,7 +97,7 @@ func proxyPodSpec(ais *aisv1.AIStore) *corev1.PodSpec {
 				Args:            cmn.NewAISContainerArgs(ais.GetTargetSize(), aisapc.Proxy),
 				Env:             NewAISContainerEnv(ais),
 				Ports:           cmn.NewDaemonPorts(&ais.Spec.ProxySpec),
-				Resources:       ais.Spec.ProxySpec.Resources,
+				Resources:       *cmn.NewResourceReq(ais, &ais.Spec.ProxySpec.Resources),
 				SecurityContext: ais.Spec.ProxySpec.ContainerSecurity,
 				VolumeMounts:    cmn.NewAISVolumeMounts(ais, aisapc.Proxy),
 				StartupProbe:    cmn.NewStartupProbe(ais, aisapc.Proxy),
@@ -137,7 +138,7 @@ func NewAISContainerEnv(ais *aisv1.AIStore) []corev1.EnvVar {
 		baseEnv = append(baseEnv, cmn.EnvFromFieldPath(cmn.EnvPublicHostname, "status.hostIP"))
 	}
 	if ais.Spec.AuthNSecretName != nil {
-		baseEnv = append(baseEnv, cmn.EnvFromSecret(env.AisAuthSecretKey, *ais.Spec.AuthNSecretName, cmn.EnvAuthNSecretKey))
+		baseEnv = append(baseEnv, cmn.EnvFromSecret(aisenv.AisAuthSecretKey, *ais.Spec.AuthNSecretName, cmn.EnvAuthNSecretKey))
 	}
 	return cmn.MergeEnvVars(baseEnv, ais.Spec.ProxySpec.Env)
 }

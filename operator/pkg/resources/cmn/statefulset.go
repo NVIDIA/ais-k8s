@@ -10,16 +10,22 @@ import (
 	"path/filepath"
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
+	aiscos "github.com/NVIDIA/aistore/cmn/cos"
+	aisv1 "github.com/ais-operator/api/v1beta1"
 	nadv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 const (
-	LabelApp               = "app"
-	LabelComponent         = "component"
-	LabelPrefix            = "app.kubernetes.io/"
-	LabelAppPrefixed       = LabelPrefix + "name"
-	LabelComponentPrefixed = LabelPrefix + "component"
+	LabelApp                = "app"
+	LabelComponent          = "component"
+	LabelPrefix             = "app.kubernetes.io/"
+	LabelAppPrefixed        = LabelPrefix + "name"
+	LabelComponentPrefixed  = LabelPrefix + "component"
+	DefaultConfigStorageReq = int64(16 * aiscos.MiB)
+	DefaultLogsStorageReq   = int64(512 * aiscos.MiB)
+	DefaultMiscStorageReq   = int64(128 * aiscos.MiB)
 )
 
 func PrepareAnnotations(annotations map[string]string, netAttachment, restartHash *string) map[string]string {
@@ -76,4 +82,30 @@ func NewAISContainerArgs(targetSize int32, daeType string) []string {
 		args = append(args, fmt.Sprintf("-ntargets=%d", targetSize))
 	}
 	return args
+}
+
+func NewInitResourceReq() *corev1.ResourceRequirements {
+	return &corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			// Init uses 3 mounts for templates and the final output -- to be safe, request space for all 3
+			corev1.ResourceEphemeralStorage: *resource.NewQuantity(DefaultConfigStorageReq*3, resource.BinarySI),
+		},
+	}
+}
+
+func NewResourceReq(ais *aisv1.AIStore, reqs *corev1.ResourceRequirements) *corev1.ResourceRequirements {
+	if reqs.Requests.StorageEphemeral() != nil && !reqs.Requests.StorageEphemeral().IsZero() {
+		return reqs
+	}
+	if reqs.Requests == nil {
+		reqs.Requests = corev1.ResourceList{}
+	}
+	// Reserve at least enough for max total logs + generated config from init + container images etc.
+	storageBytes := DefaultLogsStorageReq
+	if ais.MaxLogTotal() != nil {
+		storageBytes = int64(*ais.MaxLogTotal())
+	}
+	storageBytes = storageBytes + DefaultConfigStorageReq + DefaultMiscStorageReq
+	reqs.Requests[corev1.ResourceEphemeralStorage] = *resource.NewQuantity(storageBytes, resource.BinarySI)
+	return reqs
 }

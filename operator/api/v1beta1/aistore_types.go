@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
+	aiscos "github.com/NVIDIA/aistore/cmn/cos"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -451,6 +452,13 @@ func (ais *AIStore) AllowTargetSharedNodes() bool {
 
 func (ais *AIStore) UseHTTPS() bool {
 	return ais.Spec.ConfigToUpdate != nil && ais.Spec.ConfigToUpdate.Net != nil && ais.Spec.ConfigToUpdate.Net.HTTP != nil && ais.Spec.ConfigToUpdate.Net.HTTP.UseHTTPS != nil && *ais.Spec.ConfigToUpdate.Net.HTTP.UseHTTPS
+}
+
+func (ais *AIStore) MaxLogTotal() *aiscos.SizeIEC {
+	if ais.Spec.ConfigToUpdate == nil || ais.Spec.ConfigToUpdate.Log == nil {
+		return nil
+	}
+	return ais.Spec.ConfigToUpdate.Log.MaxTotal
 }
 
 // +kubebuilder:object:root=true

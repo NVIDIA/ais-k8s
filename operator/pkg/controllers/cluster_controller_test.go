@@ -258,10 +258,12 @@ var _ = Describe("AIStoreController", func() {
 
 					By("Update container resources and reconcile")
 					apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any(), false).Return(nil).Times(1)
+					expStorage := cmn.DefaultLogsStorageReq + cmn.DefaultConfigStorageReq + cmn.DefaultMiscStorageReq
 					ais.Spec.ProxySpec.Resources = corev1.ResourceRequirements{
 						Requests: corev1.ResourceList{
-							corev1.ResourceCPU:    resource.MustParse("100m"),
-							corev1.ResourceMemory: resource.MustParse("100Mi"),
+							corev1.ResourceCPU:              resource.MustParse("100m"),
+							corev1.ResourceMemory:           resource.MustParse("100Mi"),
+							corev1.ResourceEphemeralStorage: *resource.NewQuantity(expStorage, resource.BinarySI),
 						},
 						Limits: corev1.ResourceList{
 							corev1.ResourceCPU:    resource.MustParse("200m"),
@@ -270,8 +272,9 @@ var _ = Describe("AIStoreController", func() {
 					}
 					ais.Spec.TargetSpec.Resources = corev1.ResourceRequirements{
 						Requests: corev1.ResourceList{
-							corev1.ResourceCPU:    resource.MustParse("100m"),
-							corev1.ResourceMemory: resource.MustParse("100Mi"),
+							corev1.ResourceCPU:              resource.MustParse("100m"),
+							corev1.ResourceMemory:           resource.MustParse("100Mi"),
+							corev1.ResourceEphemeralStorage: *resource.NewQuantity(expStorage, resource.BinarySI),
 						},
 						Limits: corev1.ResourceList{
 							corev1.ResourceCPU:    resource.MustParse("200m"),
@@ -287,7 +290,7 @@ var _ = Describe("AIStoreController", func() {
 					Eventually(func(g Gomega) {
 						for _, stsType := range []string{"ais-proxy", "ais-target"} {
 							ss := getStatefulSet(ctx, ais, c, stsType)
-							g.Expect(ss.Spec.Template.Spec.Containers[0].Resources.Requests).To(HaveLen(2))
+							g.Expect(ss.Spec.Template.Spec.Containers[0].Resources.Requests).To(HaveLen(3))
 							g.Expect(ss.Spec.Template.Spec.Containers[0].Resources.Limits).To(HaveLen(2))
 						}
 					}, 30*time.Second, 2*time.Second).Should(Succeed())
