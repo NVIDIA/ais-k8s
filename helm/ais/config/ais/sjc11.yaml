@@ -31,10 +31,10 @@ https:
   tlsSecret: "tls-certs"
 nodeImage:
   name: aistorage/aisnode
-  tag: v3.26-a7ac713
+  tag: v3.28-9fa9265
 initImage:
   name: aistorage/ais-init
-  tag: v3.26-a7ac713
+  tag: v3.28-9fa9265
 logSidecarImage:
   name: aistorage/ais-logs
   tag: v1.0
@@ -47,18 +47,21 @@ multihome:
   networkAttachment:
 hostNetwork: false
 shutdownCluster: false
-cleanupData: false
+cleanupData: true
 cleanupMetadata: true
 stateStorageClass: "local-path"
 authNSecretName:
 logsDir:
 proxySpec:
-  resources:
-    requests:
-      cpu: "6"
-    limits:
-      cpu: "12"
+  tolerations:
+    - key: "node.kubernetes.io/disk-pressure"
+      operator: "Exists"
+      effect: "NoExecute"
 targetSpec:
+  tolerations:
+    - key: "node.kubernetes.io/disk-pressure"
+      operator: "Exists"
+      effect: "NoExecute"
   env: 
     - name: GOOGLE_APPLICATION_CREDENTIALS
       value: "/var/gcp/gcp.json"

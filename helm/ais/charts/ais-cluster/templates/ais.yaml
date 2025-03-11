@@ -17,6 +17,10 @@ spec:
         client_auth_tls: 0
     {{- end }}
   proxySpec:
+    tolerations:
+      {{- with .Values.proxySpec.tolerations }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
     env:
       {{- with .Values.proxySpec.env }}
       {{- toYaml . | nindent 6 }}
@@ -40,6 +44,10 @@ spec:
       {{- toYaml .Values.proxySpec.resources | nindent 6 }}
     {{- end }}
   targetSpec:
+    tolerations:
+      {{- with .Values.targetSpec.tolerations }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
     env:
       {{- with .Values.targetSpec.env }}
       {{- toYaml . | nindent 6 }}

@@ -26,6 +26,7 @@ spec:
     portPublic: 51080
     portIntraControl: 51082
     portIntraData: 51083
+    tolerations: {{ node_tolerations }}
     capabilities:
       privileged: true
 {% if (sysctls is defined) and (sysctls != "") %}
@@ -39,6 +40,7 @@ spec:
 {% endif %}
 
   targetSpec:
+    tolerations: {{ node_tolerations }}
     env: 
     - name: GOOGLE_APPLICATION_CREDENTIALS
       value: /var/gcp/gcp.json
