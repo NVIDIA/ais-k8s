@@ -16,6 +16,9 @@ alertmanager:
   {{- if hasKey .Values "slack"}}
   {{- if and .Values.slack.webhook .Values.slack.channel }}
   config:
+    inhibit_rules:
+      - target_match:
+          alertname: KubeVersionMismatch
     route:
       receiver: 'slack-notifications'
       group_by: ['alertname']
@@ -57,16 +60,10 @@ alertmanager:
   {{- end }}
   {{- end }}
 
-kubeControllerManager:
-    enabled: false
-
-kubeScheduler:
-  enabled: false
-
 defaultRules:
   rules:
     kubeControllerManager: false
     kubeSchedulerAlerting: false
     kubeSchedulerRecording: false
-    kubelet: false
-    kubernetesSystem: false
+    kubelet: true
+    kubernetesSystem: true
