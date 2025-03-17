@@ -43,6 +43,7 @@ type (
 		TCB         *TCBConfToUpdate         `json:"tcb,omitempty"`
 		WritePolicy *WritePolicyConfToUpdate `json:"write_policy,omitempty"`
 		Proxy       *ProxyConfToUpdate       `json:"proxy,omitempty"`
+		RateLimit   *RateLimitConfToUpdate   `json:"rate_limit,omitempty"`
 		Features    *string                  `json:"features,omitempty"`
 	}
 	MirrorConfToUpdate struct {
@@ -60,12 +61,12 @@ type (
 		DiskOnly     *bool   `json:"disk_only,omitempty"`
 	}
 	LogConfToUpdate struct {
-		Level     *string      `json:"level,omitempty"`
-		ToStderr  *bool        `json:"to_stderr,omitempty"`
-		MaxSize   *cos.SizeIEC `json:"max_size,omitempty"`
-		MaxTotal  *cos.SizeIEC `json:"max_total,omitempty"`
-		FlushTime *Duration    `json:"flush_time,omitempty"`
-		StatsTime *Duration    `json:"stats_time,omitempty"`
+		Level     *cos.LogLevel `json:"level,omitempty"`
+		ToStderr  *bool         `json:"to_stderr,omitempty"`
+		MaxSize   *cos.SizeIEC  `json:"max_size,omitempty"`
+		MaxTotal  *cos.SizeIEC  `json:"max_total,omitempty"`
+		FlushTime *Duration     `json:"flush_time,omitempty"`
+		StatsTime *Duration     `json:"stats_time,omitempty"`
 	}
 	PeriodConfToUpdate struct {
 		StatsTime     *Duration `json:"stats_time,omitempty"`
@@ -96,9 +97,9 @@ type (
 		SendFile        *Duration `json:"send_file_time,omitempty"`
 	}
 	ClientConfToUpdate struct {
-		Timeout     *Duration `json:"client_timeout,omitempty"`
-		TimeoutLong *Duration `json:"client_long_timeout,omitempty"`
-		ListObjects *Duration `json:"list_timeout,omitempty"`
+		Timeout        *Duration `json:"client_timeout,omitempty"`
+		TimeoutLong    *Duration `json:"client_long_timeout,omitempty"`
+		ListObjTimeout *Duration `json:"list_timeout,omitempty"`
 	}
 	ProxyConfToUpdate struct {
 		PrimaryURL   *string `json:"primary_url,omitempty"`
@@ -157,16 +158,19 @@ type (
 		HTTP *HTTPConfToUpdate `json:"http,omitempty"`
 	}
 	HTTPConfToUpdate struct {
-		Certificate     *string `json:"server_crt,omitempty"`
-		CertKey         *string `json:"server_key,omitempty"`
-		ServerNameTLS   *string `json:"domain_tls,omitempty"`
-		ClientCA        *string `json:"client_ca_tls,omitempty"`
-		WriteBufferSize *int    `json:"write_buffer_size,omitempty" list:"readonly"`
-		ReadBufferSize  *int    `json:"read_buffer_size,omitempty" list:"readonly"`
-		ClientAuthTLS   *int    `json:"client_auth_tls,omitempty"`
-		UseHTTPS        *bool   `json:"use_https,omitempty"`
-		SkipVerifyCrt   *bool   `json:"skip_verify,omitempty"`
-		Chunked         *bool   `json:"chunked_transfer,omitempty"`
+		Certificate         *string       `json:"server_crt,omitempty"`
+		CertKey             *string       `json:"server_key,omitempty"`
+		ServerNameTLS       *string       `json:"domain_tls,omitempty"`
+		ClientCA            *string       `json:"client_ca_tls,omitempty"`
+		IdleConnTimeout     *cos.Duration `json:"idle_conn_time,omitempty"`
+		MaxIdleConnsPerHost *int          `json:"idle_conns_per_host,omitempty"`
+		MaxIdleConns        *int          `json:"idle_conns,omitempty"`
+		WriteBufferSize     *int          `json:"write_buffer_size,omitempty" list:"readonly"`
+		ReadBufferSize      *int          `json:"read_buffer_size,omitempty" list:"readonly"`
+		ClientAuthTLS       *int          `json:"client_auth_tls,omitempty"`
+		UseHTTPS            *bool         `json:"use_https,omitempty"`
+		SkipVerifyCrt       *bool         `json:"skip_verify,omitempty"`
+		Chunked             *bool         `json:"chunked_transfer,omitempty"`
 	}
 	FSHCConfToUpdate struct {
 		TestFileCount *int          `json:"test_files,omitempty"`
@@ -226,6 +230,24 @@ type (
 	WritePolicyConfToUpdate struct {
 		Data *string `json:"data,omitempty"`
 		MD   *string `json:"md,omitempty"`
+	}
+	RateLimitBaseToUpdate struct {
+		Verbs     *string       `json:"per_op_max_tokens,omitempty"`
+		Interval  *cos.Duration `json:"interval,omitempty"`
+		MaxTokens *int          `json:"max_tokens,omitempty"`
+		Enabled   *bool         `json:"enabled,omitempty"`
+	}
+	AdaptiveToUpdate struct {
+		NumRetries            *int `json:"num_retries,omitempty"`
+		RateLimitBaseToUpdate `json:",inline"`
+	}
+	BurstyToUpdate struct {
+		Size                  *int `json:"burst_size,omitempty"`
+		RateLimitBaseToUpdate `json:",inline"`
+	}
+	RateLimitConfToUpdate struct {
+		Backend  *AdaptiveToUpdate `json:"backend,omitempty"`
+		Frontend *BurstyToUpdate   `json:"frontend,omitempty"`
 	}
 )
 

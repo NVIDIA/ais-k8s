@@ -279,6 +279,17 @@ spec:
                             type: string
                           domain_tls:
                             type: string
+                          idle_conn_time:
+                            description: |-
+                              A Duration represents the elapsed time between two instants
+                              as an int64 nanosecond count. The representation limits the
+                              largest representable duration to approximately 290 years.
+                            format: int64
+                            type: integer
+                          idle_conns:
+                            type: integer
+                          idle_conns_per_host:
+                            type: integer
                           read_buffer_size:
                             type: integer
                           server_crt:
@@ -312,6 +323,45 @@ spec:
                         type: string
                       primary_url:
                         type: string
+                    type: object
+                  rate_limit:
+                    properties:
+                      backend:
+                        properties:
+                          enabled:
+                            type: boolean
+                          interval:
+                            description: |-
+                              A Duration represents the elapsed time between two instants
+                              as an int64 nanosecond count. The representation limits the
+                              largest representable duration to approximately 290 years.
+                            format: int64
+                            type: integer
+                          max_tokens:
+                            type: integer
+                          num_retries:
+                            type: integer
+                          per_op_max_tokens:
+                            type: string
+                        type: object
+                      frontend:
+                        properties:
+                          burst_size:
+                            type: integer
+                          enabled:
+                            type: boolean
+                          interval:
+                            description: |-
+                              A Duration represents the elapsed time between two instants
+                              as an int64 nanosecond count. The representation limits the
+                              largest representable duration to approximately 290 years.
+                            format: int64
+                            type: integer
+                          max_tokens:
+                            type: integer
+                          per_op_max_tokens:
+                            type: string
+                        type: object
                     type: object
                   rebalance:
                     properties:
