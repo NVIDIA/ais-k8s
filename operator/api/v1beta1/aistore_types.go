@@ -147,13 +147,17 @@ type AIStoreSpec struct {
 	// +optional
 	ClusterDomain *string `json:"clusterDomain,omitempty"`
 
-	// Secret name containing GCP credentials
+	// Secret name containing GCP config and credentials
 	// +optional
 	GCPSecretName *string `json:"gcpSecretName,omitempty"`
 
-	// Secret name containing AWS credentials
+	// Secret name containing AWS config and credentials
 	// +optional
 	AWSSecretName *string `json:"awsSecretName,omitempty"`
+
+	// Secret name containing OCI config and credentials
+	// +optional
+	OCISecretName *string `json:"ociSecretName,omitempty"`
 
 	// Logs directory on host to store AIS logs
 	// +optional
@@ -448,6 +452,10 @@ func (ais *AIStore) ShouldCleanupMetadata() bool {
 
 func (ais *AIStore) AllowTargetSharedNodes() bool {
 	return ais.Spec.TargetSpec.DisablePodAntiAffinity != nil && *ais.Spec.TargetSpec.DisablePodAntiAffinity
+}
+
+func (ais *AIStore) HasCloudBackend() bool {
+	return ais.Spec.AWSSecretName != nil || ais.Spec.GCPSecretName != nil || ais.Spec.OCISecretName != nil
 }
 
 func (ais *AIStore) UseHTTPS() bool {

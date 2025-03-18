@@ -27,6 +27,15 @@ const (
 	StatsDDir         = "/var/statsd_config"
 	InitGlobalConfDir = "/var/global_config"
 
+	// Container mount locations for cloud provider configs
+	GCPDir = "/var/gcp"
+	AWSDir = "/root/.aws"
+	OCIDir = "/root/.oci"
+
+	// Other container mount locations
+	certsDir  = "/var/certs"
+	tracesDir = "/var/traces"
+
 	hostnameMapFileName = "hostname_map.json"
 	AISGlobalConfigName = "ais.json"
 	AISLocalConfigName  = "ais_local.json"
@@ -38,6 +47,7 @@ const (
 	stateVolume          = "state-mount"
 	awsSecretVolume      = "aws-creds"
 	gcpSecretVolume      = "gcp-creds" //nolint:gosec // This is not really credential.
+	ociSecretVolume      = "oci-creds"
 	tlsSecretVolume      = "tls-certs"
 	tracingSecretVolume  = "tracing-token"
 	logsVolume           = "logs-dir"
@@ -101,25 +111,8 @@ func NewAISVolumes(ais *v1beta1.AIStore, daeType string) []v1.Volume {
 		volumes = append(volumes, hostpathVolumes...)
 	}
 
-	if ais.Spec.AWSSecretName != nil {
-		volumes = append(volumes, v1.Volume{
-			Name: awsSecretVolume,
-			VolumeSource: v1.VolumeSource{
-				Secret: &v1.SecretVolumeSource{
-					SecretName: *ais.Spec.AWSSecretName,
-				},
-			},
-		})
-	}
-	if ais.Spec.GCPSecretName != nil {
-		volumes = append(volumes, v1.Volume{
-			Name: gcpSecretVolume,
-			VolumeSource: v1.VolumeSource{
-				Secret: &v1.SecretVolumeSource{
-					SecretName: *ais.Spec.GCPSecretName,
-				},
-			},
-		})
+	if daeType == aisapc.Target {
+		volumes = append(volumes, newCloudVolumes(ais)...)
 	}
 
 	if ais.Spec.TLSCertManagerIssuerName != nil {
@@ -169,6 +162,36 @@ func NewAISVolumes(ais *v1beta1.AIStore, daeType string) []v1.Volume {
 	return volumes
 }
 
+func newCloudVolumes(ais *v1beta1.AIStore) []v1.Volume {
+	var volumes []v1.Volume
+
+	type cloudSecret struct {
+		namePtr    *string
+		volumeName string
+	}
+
+	secrets := []cloudSecret{
+		{ais.Spec.AWSSecretName, awsSecretVolume},
+		{ais.Spec.GCPSecretName, gcpSecretVolume},
+		{ais.Spec.OCISecretName, ociSecretVolume},
+	}
+
+	for _, secret := range secrets {
+		if secret.namePtr != nil {
+			volumes = append(volumes, v1.Volume{
+				Name: secret.volumeName,
+				VolumeSource: v1.VolumeSource{
+					Secret: &v1.SecretVolumeSource{
+						SecretName: *secret.namePtr,
+					},
+				},
+			})
+		}
+	}
+
+	return volumes
+}
+
 func newLogsVolume(ais *v1beta1.AIStore, daeType string) v1.Volume {
 	if ais.Spec.LogsDirectory != "" {
 		return v1.Volume{
@@ -190,7 +213,7 @@ func newLogsVolume(ais *v1beta1.AIStore, daeType string) v1.Volume {
 }
 
 func NewAISVolumeMounts(ais *v1beta1.AIStore, daeType string) []v1.VolumeMount {
-	spec := ais.Spec
+	spec := &ais.Spec
 	volumeMounts := []v1.VolumeMount{
 		{
 			Name:      configVolume,
@@ -224,36 +247,38 @@ func NewAISVolumeMounts(ais *v1beta1.AIStore, daeType string) []v1.VolumeMount {
 		volumeMounts = append(volumeMounts, hostMounts...)
 	}
 
-	if spec.AWSSecretName != nil {
-		volumeMounts = append(volumeMounts, v1.VolumeMount{
-			Name:      awsSecretVolume,
-			ReadOnly:  true,
-			MountPath: "/root/.aws",
-		})
-	}
-	if spec.GCPSecretName != nil {
-		volumeMounts = append(volumeMounts, v1.VolumeMount{
-			Name:      gcpSecretVolume,
-			ReadOnly:  true,
-			MountPath: "/var/gcp",
-		})
-	}
-	if ais.Spec.TLSCertManagerIssuerName != nil || ais.Spec.TLSSecretName != nil {
-		volumeMounts = append(volumeMounts, v1.VolumeMount{
-			Name:      tlsSecretVolume,
-			ReadOnly:  true,
-			MountPath: "/var/certs",
-		})
-	}
-	if spec.TracingTokenSecretName != nil {
-		volumeMounts = append(volumeMounts, v1.VolumeMount{
-			Name:      tracingSecretVolume,
-			ReadOnly:  true,
-			MountPath: "/var/tracing",
-		})
+	if daeType == aisapc.Target {
+		volumeMounts = appendCloudVolumeMounts(spec, volumeMounts)
 	}
 
+	if spec.TLSCertManagerIssuerName != nil || spec.TLSSecretName != nil {
+		volumeMounts = appendSimpleReadOnlyMount(volumeMounts, tlsSecretVolume, certsDir)
+	}
+	if spec.TracingTokenSecretName != nil {
+		volumeMounts = appendSimpleReadOnlyMount(volumeMounts, tracingSecretVolume, tracesDir)
+	}
 	return volumeMounts
+}
+
+func appendCloudVolumeMounts(spec *v1beta1.AIStoreSpec, mounts []v1.VolumeMount) []v1.VolumeMount {
+	if spec.AWSSecretName != nil {
+		mounts = appendSimpleReadOnlyMount(mounts, awsSecretVolume, AWSDir)
+	}
+	if spec.GCPSecretName != nil {
+		mounts = appendSimpleReadOnlyMount(mounts, gcpSecretVolume, GCPDir)
+	}
+	if spec.OCISecretName != nil {
+		mounts = appendSimpleReadOnlyMount(mounts, ociSecretVolume, OCIDir)
+	}
+	return mounts
+}
+
+func appendSimpleReadOnlyMount(mounts []v1.VolumeMount, name, mountPath string) []v1.VolumeMount {
+	return append(mounts, v1.VolumeMount{
+		Name:      name,
+		ReadOnly:  true,
+		MountPath: mountPath,
+	})
 }
 
 func newLogsVolumeMount(daeType string) v1.VolumeMount {

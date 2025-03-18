@@ -26,6 +26,11 @@ const (
 
 	// AuthN related environment variables
 	EnvAuthNSecretKey = "SIGNING-KEY" // Key for secret signing key in the K8s secret
+
+	// Cloud provider variables
+	//nolint:gosec // This is a path, not credential
+	EnvGoogleCreds = "GOOGLE_APPLICATION_CREDENTIALS"
+	EnvOCIConfig   = "OCI_CLI_CONFIG_FILE"
 )
 
 // CommonEnv provides environment variables for all containers (target/proxy, init/aisnode)

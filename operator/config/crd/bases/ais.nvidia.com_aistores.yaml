@@ -51,7 +51,7 @@ spec:
                 description: Secret name containing AuthN's JWT signing key
                 type: string
               awsSecretName:
-                description: Secret name containing AWS credentials
+                description: Secret name containing AWS config and credentials
                 type: string
               cleanupData:
                 description: |-
@@ -486,7 +486,7 @@ spec:
                   AIS cluster using LoadBalancer service
                 type: boolean
               gcpSecretName:
-                description: Secret name containing GCP credentials
+                description: Secret name containing GCP config and credentials
                 type: string
               hostnameMap:
                 additionalProperties:
@@ -539,6 +539,9 @@ spec:
               nodeImage:
                 description: Container image used for `aisnode` container.
                 minLength: 1
+                type: string
+              ociSecretName:
+                description: Secret name containing OCI config and credentials
                 type: string
               proxySpec:
                 description: Proxy deployment specification.

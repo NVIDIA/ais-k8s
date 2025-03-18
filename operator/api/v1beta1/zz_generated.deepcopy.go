@@ -146,6 +146,11 @@ func (in *AIStoreSpec) DeepCopyInto(out *AIStoreSpec) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.OCISecretName != nil {
+		in, out := &in.OCISecretName, &out.OCISecretName
+		*out = new(string)
+		**out = **in
+	}
 	if in.TLSSecretName != nil {
 		in, out := &in.TLSSecretName, &out.TLSSecretName
 		*out = new(string)

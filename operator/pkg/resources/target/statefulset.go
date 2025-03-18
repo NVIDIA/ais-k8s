@@ -6,6 +6,7 @@ package target
 
 import (
 	"log"
+	"path/filepath"
 	"strings"
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
@@ -133,6 +134,14 @@ func NewAISContainerEnv(ais *aisv1.AIStore) []corev1.EnvVar {
 	baseEnv := cmn.CommonEnv()
 	if ais.Spec.TargetSpec.HostPort != nil {
 		baseEnv = append(baseEnv, cmn.EnvFromFieldPath(cmn.EnvPublicHostname, "status.hostIP"))
+	}
+	if ais.Spec.GCPSecretName != nil {
+		baseEnv = append(baseEnv, cmn.EnvFromValue(cmn.EnvGoogleCreds, filepath.Join(cmn.GCPDir, "gcp.json")))
+	}
+	if ais.Spec.OCISecretName != nil {
+		baseEnv = append(baseEnv,
+			cmn.EnvFromValue(cmn.EnvOCIConfig, filepath.Join(cmn.OCIDir, "config")),
+		)
 	}
 	return cmn.MergeEnvVars(baseEnv, ais.Spec.TargetSpec.Env)
 }
