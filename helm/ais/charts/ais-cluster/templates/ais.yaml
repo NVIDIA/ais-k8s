@@ -99,6 +99,7 @@ spec:
   {{- end }}
   awsSecretName: {{ .Values.cloud.awsSecretName }}
   gcpSecretName: {{ .Values.cloud.gcpSecretName }}
+  ociSecretName: {{ .Values.cloud.ociSecretName }}
   authNSecretName: {{ .Values.authNSecretName }}
   enableExternalLB: false
   {{- with .Values.multihome.hostnameMap }}

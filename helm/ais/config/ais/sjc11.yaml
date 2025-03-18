@@ -41,6 +41,7 @@ logSidecarImage:
 cloud:
   awsSecretName: "aws-creds"
   gcpSecretName: "gcp-creds"
+  ociSecretName: "oci-creds"
 multihome:
   enabled: false
   hostnameMap: 
@@ -62,9 +63,7 @@ targetSpec:
     - key: "node.kubernetes.io/disk-pressure"
       operator: "Exists"
       effect: "NoExecute"
-  env: 
-    - name: GOOGLE_APPLICATION_CREDENTIALS
-      value: "/var/gcp/gcp.json"
+  env:
   resources:
     requests:
       cpu: "24"

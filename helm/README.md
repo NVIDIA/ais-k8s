@@ -30,6 +30,16 @@ Next, copy the `values-sample.yaml` file for each chart in [./ais/config/](./cha
 
 Then modify the values in each new file for your desired cluster. 
 
+### Cloud credentials
+
+To configure backend provider secrets from the helm charts, set the value `cloud-secrets.enabled: true` for your environment in the [helmfile](./ais/helmfile.yaml). 
+
+Then, add a configuration values file in the [config/cloud](./ais/config/cloud/) directory to populate the variables used by the [cloud-secrets templates](./ais/charts/cloud-secrets/templates/).
+
+Note this chart only creates the secrets to be mounted by the targets. Extra environment variables can be provided through the values for the main AIS chart.
+
+For OCI, setting the `OCI_COMPARTMENT_OCID` variable is necessary to provide a default compartment.
+
 ### Install Charts
 
 To install the charts provided, we use [helmfile](https://github.com/helmfile/helmfile?tab=readme-ov-file). Update the `helmfile.yaml` to configure the destination namespaces and set the environment for your deployment. 
