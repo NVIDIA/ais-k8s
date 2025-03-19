@@ -650,18 +650,14 @@ func (r *AIStoreReconciler) createOrUpdateRBACResources(ctx context.Context, ais
 		return
 	}
 
-	// 4. Create AIS ClusterRole
-	cluRole := cmn.NewAISRBACClusterRole(ais)
-	if err = r.k8sClient.CreateOrUpdateResource(ctx, nil, cluRole); err != nil {
-		r.recordError(ctx, ais, err, "Failed to create ClusterRole")
-		return
+	// Delete any previously created cluster roles and bindings for this cluster
+	crbName := types.NamespacedName{Namespace: ais.Namespace, Name: cmn.ClusterRoleBindingName(ais)}
+	if _, err = r.k8sClient.DeleteCRBindingIfExists(ctx, crbName); err != nil {
+		r.recordError(ctx, ais, err, "Failed to delete ClusterRoleBinding")
 	}
-
-	// 5. Create binding for ClusterRole
-	crb := cmn.NewAISRBACClusterRoleBinding(ais)
-	if err = r.k8sClient.CreateOrUpdateResource(ctx, nil, crb); err != nil {
-		r.recordError(ctx, ais, err, "Failed to create ClusterRoleBinding")
-		return
+	crName := types.NamespacedName{Namespace: ais.Namespace, Name: cmn.ClusterRoleName(ais)}
+	if _, err = r.k8sClient.DeleteClusterRoleIfExists(ctx, crName); err != nil {
+		r.recordError(ctx, ais, err, "Failed to delete ClusterRole")
 	}
 
 	return

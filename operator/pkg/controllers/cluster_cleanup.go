@@ -140,14 +140,6 @@ func (r *AIStoreReconciler) deleteStatePVCs(ctx context.Context, ais *aisv1.AISt
 func (r *AIStoreReconciler) cleanupRBAC(ctx context.Context, ais *aisv1.AIStore) (anyUpdated bool, err error) {
 	return cmn.AnyFunc(
 		func() (bool, error) {
-			crb := cmn.NewAISRBACClusterRoleBinding(ais)
-			return r.k8sClient.DeleteResourceIfExists(ctx, crb)
-		},
-		func() (bool, error) {
-			cluRole := cmn.NewAISRBACClusterRole(ais)
-			return r.k8sClient.DeleteResourceIfExists(ctx, cluRole)
-		},
-		func() (bool, error) {
 			rb := cmn.NewAISRBACRoleBinding(ais)
 			return r.k8sClient.DeleteResourceIfExists(ctx, rb)
 		},

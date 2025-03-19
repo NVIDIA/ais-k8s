@@ -19,3 +19,10 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
   - AIS_TEST_PREV_INIT_IMAGE
 
 ### Changed
+
+- **COMPATIBILITY CHANGE**: Removed creation of a ServiceAccount with ClusterRole. ClusterRoles for existing clusters will be deleted.
+  - Since ClusterRole is not namespaced, this allowed a creation of a namespaced AIS custom resource to result in a service account with cluster-wide access,
+    which could then be impersonated.
+  - This operator version will ONLY support AIS versions v3.28 or later.
+  - Older AIS versions will error when trying to use the removed ClusterRole.
+  - Related AIS change: https://github.com/NVIDIA/aistore/commit/160626c8fa44fc43ba7e9d42561dfbfe4216745e

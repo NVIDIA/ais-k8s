@@ -25,7 +25,6 @@ import (
 	. "github.com/onsi/gomega"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -64,13 +63,9 @@ func CheckResExistence(ctx context.Context, cluster *aisv1.AIStore, aisCtx *AIST
 	// 1. Check rbac exists
 	// 1.1 ServiceAccount
 	EventuallyResourceExists(ctx, k8sClient, cmn.NewAISServiceAccount(cluster), condition, intervals...)
-	// 1.2 ClusterRole
-	EventuallyResourceExists(ctx, k8sClient, cmn.NewAISRBACClusterRole(cluster), condition, intervals...)
-	// 1.3 ClusterRoleBinding
-	EventuallyCRBExists(ctx, k8sClient, cmn.ClusterRoleBindingName(cluster), condition, intervals...)
-	// 1.4 Role
+	// 1.2 Role
 	EventuallyResourceExists(ctx, k8sClient, cmn.NewAISRBACRole(cluster), condition, intervals...)
-	// 1.5 RoleBinding
+	// 1.3 RoleBinding
 	EventuallyResourceExists(ctx, k8sClient, cmn.NewAISRBACRoleBinding(cluster), condition, intervals...)
 
 	// 2. Check for statsD config
@@ -129,7 +124,7 @@ func EventuallyCRNotExists(ctx context.Context, client *aisclient.K8sClient,
 
 func DestroyPV(ctx context.Context, client *aisclient.K8sClient, pvs []*corev1.PersistentVolume) {
 	const pvDeletionGracePeriodSeconds = int64(20)
-	const pvExistenceInterval = 40 * time.Second
+	const pvExistenceInterval = 60 * time.Second
 	for _, pv := range pvs {
 		err := deleteAssociatedPVCs(ctx, pv, client)
 		Expect(err).Should(Succeed())
@@ -275,25 +270,6 @@ func EventuallySSExists(
 	Eventually(func() bool {
 		return checkSSExists(ctx, client, name)
 	}, intervals...).Should(be)
-}
-
-func EventuallyCRBExists(ctx context.Context, client *aisclient.K8sClient, name string,
-	be OmegaMatcher, intervals ...interface{},
-) {
-	Eventually(func() bool {
-		return checkCRBExists(ctx, client, name)
-	}, intervals...).Should(be)
-}
-
-func checkCRBExists(ctx context.Context, client *aisclient.K8sClient, name string) bool {
-	// NOTE: Here we skip the Namespace, as querying CRB with Namespace always returns
-	// `NotFound` error leading to test failure.
-	err := client.Get(ctx, types.NamespacedName{Name: name}, &rbacv1.ClusterRoleBinding{})
-	if apierrors.IsNotFound(err) {
-		return false
-	}
-	Expect(err).To(BeNil())
-	return true
 }
 
 func EventuallyResourceExists(ctx context.Context, client *aisclient.K8sClient, obj clientpkg.Object,

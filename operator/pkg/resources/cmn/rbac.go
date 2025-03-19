@@ -12,10 +12,8 @@ import (
 )
 
 const (
-	verbAll = "*"
-
-	roleKind        = "Role"
-	clusterRoleKind = "ClusterRole"
+	verbAll  = "*"
+	roleKind = "Role"
 )
 
 func roleName(ais *aisv1.AIStore) string {
@@ -28,7 +26,7 @@ func roleBindingName(ais *aisv1.AIStore) string {
 
 // ClusterRole is cluster scoped, so to ensure uniqueness we
 // use both namespace and AIS CR name to generate a unique ClusterRole name.
-func clusterRoleName(ais *aisv1.AIStore) string {
+func ClusterRoleName(ais *aisv1.AIStore) string {
 	return ais.Namespace + "-" + ais.Name + "-cr"
 }
 
@@ -59,6 +57,7 @@ func NewAISRBACRole(ais *aisv1.AIStore) *rbacv1.Role {
 					// These resources are needed to support ETL in `aisnode`.
 					"pods",
 					"pods/exec",
+					"pods/log",
 				},
 				Verbs: []string{verbAll}, // TODO: set only required permissions
 			},
@@ -91,47 +90,6 @@ func NewAISServiceAccount(ais *aisv1.AIStore) *corev1.ServiceAccount {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ServiceAccountName(ais),
 			Namespace: ais.Namespace,
-		},
-	}
-}
-
-func NewAISRBACClusterRole(ais *aisv1.AIStore) *rbacv1.ClusterRole {
-	return &rbacv1.ClusterRole{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: clusterRoleName(ais),
-		},
-		Rules: []rbacv1.PolicyRule{
-			{
-				APIGroups: []string{""},
-				Resources: []string{
-					"nodes",
-
-					// These resources are needed to support ETL in `aisnode`.
-					"pods/log",
-				},
-				Verbs: []string{"get", "list"},
-			},
-		},
-	}
-}
-
-func NewAISRBACClusterRoleBinding(ais *aisv1.AIStore) *rbacv1.ClusterRoleBinding {
-	return &rbacv1.ClusterRoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      ClusterRoleBindingName(ais),
-			Namespace: ais.Namespace,
-		},
-		RoleRef: rbacv1.RoleRef{
-			APIGroup: rbacv1.SchemeGroupVersion.Group,
-			Kind:     clusterRoleKind,
-			Name:     clusterRoleName(ais),
-		},
-		Subjects: []rbacv1.Subject{
-			{
-				Kind:      rbacv1.ServiceAccountKind,
-				Namespace: ais.Namespace,
-				Name:      ServiceAccountName(ais),
-			},
 		},
 	}
 }

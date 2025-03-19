@@ -307,6 +307,14 @@ func allowObjNotFound(obj client.Object, err error) (bool, error) {
 	return true, nil
 }
 
+func (c *K8sClient) DeleteClusterRoleIfExists(ctx context.Context, name types.NamespacedName) (existed bool, err error) {
+	return deleteResourceIfExists[*rbacv1.ClusterRole](c, ctx, name)
+}
+
+func (c *K8sClient) DeleteCRBindingIfExists(ctx context.Context, name types.NamespacedName) (existed bool, err error) {
+	return deleteResourceIfExists[*rbacv1.ClusterRoleBinding](c, ctx, name)
+}
+
 func (c *K8sClient) DeleteServiceIfExists(ctx context.Context, name types.NamespacedName) (existed bool, err error) {
 	return deleteResourceIfExists[*corev1.Service](c, ctx, name)
 }
