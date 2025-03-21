@@ -70,23 +70,9 @@ func (c *K8sClient) ListAIStoreCR(ctx context.Context, namespace string) (*aisv1
 	return list, err
 }
 
-func (c *K8sClient) ListPods(ctx context.Context, ss *appsv1.StatefulSet) (*corev1.PodList, error) {
+func (c *K8sClient) ListPods(ctx context.Context, ais *aisv1.AIStore, labels map[string]string) (*corev1.PodList, error) {
 	podList := &corev1.PodList{}
-	err := c.client.List(ctx, podList, client.InNamespace(ss.Namespace), client.MatchingLabels(ss.Spec.Template.GetLabels()))
-	return podList, err
-}
-
-// TODO: Deprecate in favor of `ListPods`.
-func (c *K8sClient) ListProxyPods(ctx context.Context, ais *aisv1.AIStore) (*corev1.PodList, error) {
-	podList := &corev1.PodList{}
-	err := c.client.List(ctx, podList, client.InNamespace(ais.Namespace), client.MatchingLabels(proxy.PodLabels(ais)))
-	return podList, err
-}
-
-// TODO: Deprecate in favor of `ListPods`.
-func (c *K8sClient) ListTargetPods(ctx context.Context, ais *aisv1.AIStore) (*corev1.PodList, error) {
-	podList := &corev1.PodList{}
-	err := c.client.List(ctx, podList, client.InNamespace(ais.Namespace), client.MatchingLabels(target.PodLabels(ais)))
+	err := c.client.List(ctx, podList, client.InNamespace(ais.Namespace), client.MatchingLabels(labels))
 	return podList, err
 }
 

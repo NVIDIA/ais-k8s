@@ -197,7 +197,7 @@ func (r *AIStoreReconciler) syncProxyPodSpec(ctx context.Context, ais *aisv1.AIS
 		return ctrl.Result{Requeue: true}, err
 	}
 
-	podList, err := r.k8sClient.ListPods(ctx, ss)
+	podList, err := r.k8sClient.ListPods(ctx, ais, ss.Spec.Template.GetLabels())
 	if err != nil {
 		return
 	}

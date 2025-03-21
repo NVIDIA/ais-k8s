@@ -18,6 +18,7 @@ import (
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	aisclient "github.com/ais-operator/pkg/client"
 	"github.com/ais-operator/pkg/resources/proxy"
+	"github.com/ais-operator/pkg/resources/target"
 	. "github.com/onsi/gomega"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -186,33 +187,18 @@ func checkSSExists(ctx context.Context, client *aisclient.K8sClient, name types.
 	return true
 }
 
-func EventuallyProxyIsSize(
+func EventuallyPodsIsSize(
 	ctx context.Context,
 	client *aisclient.K8sClient,
 	cluster *aisv1.AIStore,
+	labels map[string]string,
 	size int,
 	intervals ...interface{},
 ) {
 	Eventually(func() int {
-		podList, err := client.ListProxyPods(ctx, cluster)
+		podList, err := client.ListPods(ctx, cluster, labels)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to list proxy pods; err %v\n", err)
-		}
-		return len(podList.Items)
-	}, intervals...).Should(Equal(size))
-}
-
-func EventuallyTargetIsSize(
-	ctx context.Context,
-	client *aisclient.K8sClient,
-	cluster *aisv1.AIStore,
-	size int,
-	intervals ...interface{},
-) {
-	Eventually(func() int {
-		podList, err := client.ListTargetPods(ctx, cluster)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to list target pods; err %v\n", err)
+			fmt.Fprintf(os.Stderr, "Failed to list pods with labels %v; err: %v\n", labels, err)
 		}
 		return len(podList.Items)
 	}, intervals...).Should(Equal(size))
@@ -357,9 +343,9 @@ func WaitForClusterToBeReady(ctx context.Context, client *aisclient.K8sClient, c
 		if ais.Status.State != aisv1.ClusterReady {
 			return false
 		}
-		proxies, err := client.ListProxyPods(ctx, cluster)
+		proxies, err := client.ListPods(ctx, cluster, proxy.PodLabels(cluster))
 		Expect(err).To(BeNil())
-		targets, err := client.ListTargetPods(ctx, cluster)
+		targets, err := client.ListPods(ctx, cluster, target.PodLabels(cluster))
 		Expect(err).To(BeNil())
 		if !checkPodsAISImage(proxies, cluster.Spec.NodeImage) {
 			return false

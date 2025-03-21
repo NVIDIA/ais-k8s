@@ -559,8 +559,8 @@ func createClusters(ctx context.Context, clusters []*aisv1.AIStore, intervals ..
 func restartCluster(ctx context.Context, cluster *aisv1.AIStore) {
 	// Shutdown, ensure statefulsets exist and are size 0
 	setClusterShutdown(ctx, cluster, true)
-	tutils.EventuallyProxyIsSize(ctx, k8sClient, cluster, 0, clusterDestroyTimeout)
-	tutils.EventuallyTargetIsSize(ctx, k8sClient, cluster, 0, clusterDestroyTimeout)
+	tutils.EventuallyPodsIsSize(ctx, k8sClient, cluster, proxy.PodLabels(cluster), 0, clusterDestroyTimeout)
+	tutils.EventuallyPodsIsSize(ctx, k8sClient, cluster, target.PodLabels(cluster), 0, clusterDestroyTimeout)
 	// Resume shutdown cluster, should become fully ready
 	setClusterShutdown(ctx, cluster, false)
 	tutils.WaitForClusterToBeReady(ctx, k8sClient, cluster,
