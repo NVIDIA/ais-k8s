@@ -21,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -118,7 +119,7 @@ func (c *K8sClient) GetRole(ctx context.Context, name types.NamespacedName) (*rb
 func (c *K8sClient) Status() client.StatusWriter { return c.client.Status() }
 
 // listPodsAndUpdateNodeNames lists pods based on the provided label selector and updates the uniqueNodeNames map with the node names of those pods
-func (c *K8sClient) listPodsAndUpdateNodeNames(ctx context.Context, ais *aisv1.AIStore, labelSelector map[string]string, uniqueNodeNames map[string]bool) error {
+func (c *K8sClient) listPodsAndUpdateNodeNames(ctx context.Context, ais *aisv1.AIStore, labelSelector map[string]string, uniqueNodeNames sets.Set[string]) error {
 	pods := &corev1.PodList{}
 	if err := c.List(ctx, pods, client.InNamespace(ais.Namespace), client.MatchingLabels(labelSelector)); err != nil {
 		return err
@@ -127,7 +128,7 @@ func (c *K8sClient) listPodsAndUpdateNodeNames(ctx context.Context, ais *aisv1.A
 		pod := &pods.Items[i]
 		// check if the pod is running on a node (not failed or pending)
 		if pod.Spec.NodeName != "" {
-			uniqueNodeNames[pod.Spec.NodeName] = true
+			uniqueNodeNames.Insert(pod.Spec.NodeName)
 		}
 	}
 	return nil
@@ -143,21 +144,14 @@ func (c *K8sClient) ListNodesMatchingSelector(ctx context.Context, nodeSelector 
 
 // ListNodesRunningAIS returns a map of unique node names where AIS pods are running
 func (c *K8sClient) ListNodesRunningAIS(ctx context.Context, ais *aisv1.AIStore) ([]string, error) {
-	uniqueNodeNames := make(map[string]bool)
+	uniqueNodeNames := sets.New[string]()
 	if err := c.listPodsAndUpdateNodeNames(ctx, ais, proxy.PodLabels(ais), uniqueNodeNames); err != nil {
 		return nil, err
 	}
 	if err := c.listPodsAndUpdateNodeNames(ctx, ais, target.PodLabels(ais), uniqueNodeNames); err != nil {
 		return nil, err
 	}
-	// TODO Use Go 1.23 slices.Collect https://pkg.go.dev/slices@master#Collect
-	nodeNames := make([]string, 0, len(uniqueNodeNames))
-
-	for name := range uniqueNodeNames {
-		nodeNames = append(nodeNames, name)
-	}
-
-	return nodeNames, nil
+	return uniqueNodeNames.UnsortedList(), nil
 }
 
 //////////////////////////////////////
