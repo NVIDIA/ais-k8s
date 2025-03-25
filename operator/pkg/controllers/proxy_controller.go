@@ -13,13 +13,13 @@ import (
 	"time"
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
+	aismeta "github.com/NVIDIA/aistore/core/meta"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	"github.com/ais-operator/pkg/resources/cmn"
 	"github.com/ais-operator/pkg/resources/proxy"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -143,6 +143,10 @@ func (r *AIStoreReconciler) handleProxyState(ctx context.Context, ais *aisv1.AIS
 	if err != nil || !result.IsZero() {
 		return
 	}
+	result, err = r.handleProxyRollout(ctx, ais, ss)
+	if err != nil || !result.IsZero() {
+		return
+	}
 
 	if *ss.Spec.Replicas != ais.GetProxySize() {
 		if *ss.Spec.Replicas > ais.GetProxySize() {
@@ -166,20 +170,21 @@ func (r *AIStoreReconciler) handleProxyState(ctx context.Context, ais *aisv1.AIS
 }
 
 func (r *AIStoreReconciler) syncProxyPodSpec(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) (result ctrl.Result, err error) {
-	logger := logf.FromContext(ctx)
-	firstPodName := proxy.PodName(ais, 0)
+	logger := logf.FromContext(ctx).WithValues("statefulset", ss.Name)
 	updatedSS := ss.DeepCopy()
 	desiredTemplate := &proxy.NewProxyStatefulSet(ais, ais.GetProxySize()).Spec.Template
 
 	// Any change to pod template will trigger a new rollout, so any changes to the SS should happen here
 	if needsUpdate, reason := shouldUpdatePodTemplate(desiredTemplate, &updatedSS.Spec.Template); needsUpdate {
+		// If we have an active cluster, set primary to 0 before triggering rollout
 		if updatedSS.Status.ReadyReplicas > 0 {
 			err = r.setPrimaryTo(ctx, ais, 0)
 			if err != nil {
 				logger.Error(err, "failed to set primary proxy", "podIndex", 0)
 				return
 			}
-			logger.Info("Updated primary to pod", "pod", firstPodName, "reason", reason)
+			logger.Info("Updated primary to pod", "pod", proxy.PodName(ais, 0), "reason", reason)
+			// Block updating the primary
 			updatedSS.Spec.UpdateStrategy = appsv1.StatefulSetUpdateStrategy{
 				Type: appsv1.RollingUpdateStatefulSetStrategyType,
 				RollingUpdate: &appsv1.RollingUpdateStatefulSetStrategy{
@@ -191,12 +196,17 @@ func (r *AIStoreReconciler) syncProxyPodSpec(ctx context.Context, ais *aisv1.AIS
 		logger.Info("Proxy pod template spec modified", "reason", reason)
 		patch := client.MergeFrom(ss)
 		err = r.k8sClient.Patch(ctx, updatedSS, patch)
-		if err == nil {
-			logger.Info("Proxy statefulset successfully updated", "reason", reason)
+		if err != nil {
+			return
 		}
+		logger.Info("Statefulset successfully updated", "reason", reason)
 		return ctrl.Result{Requeue: true}, err
 	}
+	return
+}
 
+func (r *AIStoreReconciler) handleProxyRollout(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) (result ctrl.Result, err error) {
+	logger := logf.FromContext(ctx).WithValues("statefulset", ss.Name)
 	podList, err := r.k8sClient.ListPods(ctx, ais, ss.Spec.Template.GetLabels())
 	if err != nil {
 		return
@@ -210,7 +220,7 @@ func (r *AIStoreReconciler) syncProxyPodSpec(ctx context.Context, ais *aisv1.AIS
 			continue
 		}
 		toUpdate++
-		firstYetToUpdate = firstYetToUpdate || pod.Name == firstPodName
+		firstYetToUpdate = firstYetToUpdate || pod.Name == proxy.PodName(ais, 0)
 	}
 
 	// NOTE: In case of statefulset rolling update strategy,
@@ -218,7 +228,7 @@ func (r *AIStoreReconciler) syncProxyPodSpec(ctx context.Context, ais *aisv1.AIS
 	// This implies the pod with the largest index is the oldest proxy,
 	// and we set it as a primary.
 	if toUpdate == 1 && firstYetToUpdate {
-		podIndex := *updatedSS.Spec.Replicas - 1
+		podIndex := *ss.Spec.Replicas - 1
 		err = r.setPrimaryTo(ctx, ais, podIndex)
 		if err != nil {
 			logger.Error(err, "failed to set primary proxy", "podIndex", podIndex)
@@ -226,29 +236,19 @@ func (r *AIStoreReconciler) syncProxyPodSpec(ctx context.Context, ais *aisv1.AIS
 		}
 		logger.Info("Removing partition from rolling update strategy")
 		// Revert statefulset partition spec
+		updatedSS := ss.DeepCopy()
 		updatedSS.Spec.UpdateStrategy = appsv1.StatefulSetUpdateStrategy{
 			Type: appsv1.RollingUpdateStatefulSetStrategyType,
 			RollingUpdate: &appsv1.RollingUpdateStatefulSetStrategy{
 				Partition: func(v int32) *int32 { return &v }(0),
 			},
 		}
-
 		patch := client.MergeFrom(ss)
 		err = r.k8sClient.Patch(ctx, updatedSS, patch)
 		if err != nil {
-			logger.Error(err, "failed to update proxy statefulset update policy")
+			logger.Error(err, "failed to patch statefulset update strategy")
 			return
 		}
-
-		// Delete the first pod to update its docker image.
-		_, err = r.k8sClient.DeletePodIfExists(ctx, types.NamespacedName{
-			Namespace: ais.Namespace,
-			Name:      firstPodName,
-		})
-		if err != nil {
-			return
-		}
-		return ctrl.Result{Requeue: true}, nil
 	}
 	if toUpdate == 0 {
 		return ctrl.Result{}, nil
@@ -266,18 +266,26 @@ func (r *AIStoreReconciler) setPrimaryTo(ctx context.Context, ais *aisv1.AIStore
 	if err != nil {
 		return err
 	}
-
+	// Primary already set to pod at given pod index
 	if strings.HasPrefix(smap.Primary.ControlNet.Hostname, podName) {
 		return nil
 	}
 
-	for _, node := range smap.Pmap {
-		if !strings.HasPrefix(node.ControlNet.Hostname, podName) {
-			continue
-		}
-		return apiClient.SetPrimaryProxy(node.ID(), node.PubNet.URL, true /*force*/)
+	node, err := findNodeByPodName(smap.Pmap, podName)
+	if err != nil {
+		return err
 	}
-	return fmt.Errorf("couldn't find a proxy node for pod %q", podName)
+	logf.FromContext(ctx).Info("Setting primary proxy", "pod", podName)
+	return apiClient.SetPrimaryProxy(node.ID(), node.PubNet.URL, true /*force*/)
+}
+
+func findNodeByPodName(pmap aismeta.NodeMap, podName string) (*aismeta.Snode, error) {
+	for _, node := range pmap {
+		if strings.HasPrefix(node.ControlNet.Hostname, podName) {
+			return node, nil
+		}
+	}
+	return nil, fmt.Errorf("no matching AIS node found for pod %q", podName)
 }
 
 // handleProxyScaledown decommissions all the proxy nodes that will be deleted due to scale down.
