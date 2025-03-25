@@ -41,7 +41,6 @@ logSidecarImage:
 cloud:
   awsSecretName: "aws-creds"
   gcpSecretName: "gcp-creds"
-  ociSecretName: "oci-creds"
 multihome:
   enabled: false
   hostnameMap: 
