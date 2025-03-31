@@ -225,8 +225,8 @@ MOCKGEN_VERSION ?= v0.4.0
 
 # Lint
 GOLANGCI_LINT = $(shell which golangci-lint)
-GOLANGCI_LINT_LIB = github.com/golangci/golangci-lint/cmd/golangci-lint
-GOLANGCI_LINT_VERSION ?= v1.63.4
+GOLANGCI_LINT_INSTALLER = https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh
+GOLANGCI_LINT_VERSION ?= v2.0.2
 
 
 OS := $(shell uname -s | tr '[:upper:]' '[:lower:]')
@@ -252,7 +252,7 @@ $(ENVTEST): $(LOCALBIN)
 golangci-lint:
 # If we don't have it in path, install locally if necessary
 ifeq ($(GOLANGCI_LINT),)
-	$(call go-install-tool,$(LOCALBIN)/golangci-lint-$(GOLANGCI_LINT_VERSION),$(GOLANGCI_LINT_LIB),$(GOLANGCI_LINT_VERSION))
+	curl -sSfL $(GOLANGCI_LINT_INSTALLER) | sh -s -- -b $(GOPATH)/bin $(GOLANGCI_LINT_VERSION)
 	$(eval GOLANGCI_LINT := $(GOPATH)/bin/golangci-lint)
 endif
 	@echo "Using golangci-lint: $(GOLANGCI_LINT)"

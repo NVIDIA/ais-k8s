@@ -89,8 +89,8 @@ func (ss *ServiceSpec) validate(path *field.Path) field.ErrorList {
 func (ais *AIStore) validateServiceSpec() (admission.Warnings, error) {
 	allErrs := field.ErrorList{}
 
-	allErrs = append(allErrs, ais.Spec.ProxySpec.ServiceSpec.validate(field.NewPath("spec", "proxySpec"))...)
-	allErrs = append(allErrs, ais.Spec.TargetSpec.ServiceSpec.validate(field.NewPath("spec", "targetSpec"))...)
+	allErrs = append(allErrs, ais.Spec.ProxySpec.validate(field.NewPath("spec", "proxySpec"))...)
+	allErrs = append(allErrs, ais.Spec.TargetSpec.validate(field.NewPath("spec", "targetSpec"))...)
 
 	return nil, allErrs.ToAggregate()
 }
