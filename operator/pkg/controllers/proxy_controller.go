@@ -6,9 +6,7 @@ package controllers
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"net"
 	"strings"
 	"time"
 
@@ -91,33 +89,29 @@ func (r *AIStoreReconciler) initProxies(ctx context.Context, ais *aisv1.AIStore)
 		r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonInitialized, msg)
 	}
 
-	// Check whether proxy service to have a registered DNS entry.
-	if dnsErr := checkDNSEntry(ctx, ais); dnsErr != nil {
-		logger.Info("Failed to find any DNS entries for proxy service", "error", dnsErr)
-		r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonWaiting, "Waiting for proxy service to have registered DNS entries")
-		return ctrl.Result{RequeueAfter: proxyDNSInterval}, nil
-	}
-	return ctrl.Result{}, nil
+	// Check whether proxy service has resolvable endpoints.
+	return r.checkProxySvcEndpoints(ctx, ais)
 }
 
-var checkDNSEntry = checkDNSEntryDefault
-
-func checkDNSEntryDefault(ctx context.Context, ais *aisv1.AIStore) error {
-	nsName := proxy.HeadlessSVCNSName(ais)
-	clusterDomain := ais.GetClusterDomain()
-	hostname := fmt.Sprintf("%s.%s.svc.%s", nsName.Name, nsName.Namespace, clusterDomain)
-
-	ctx, cancel := context.WithTimeout(ctx, proxyDNSTimeout)
-	defer cancel()
-	_, err := net.DefaultResolver.LookupIPAddr(ctx, hostname)
-	// Log an error if we have an actual error, not just no host found
+func (r *AIStoreReconciler) checkProxySvcEndpoints(ctx context.Context, ais *aisv1.AIStore) (ctrl.Result, error) {
+	svcName := proxy.HeadlessSVCNSName(ais)
+	logger := logf.FromContext(ctx).WithValues("service", svcName.Name)
+	endpoints, err := r.k8sClient.GetServiceEndpoints(ctx, svcName)
 	if err != nil {
-		var dnsErr *net.DNSError
-		if errors.As(err, &dnsErr) && !dnsErr.IsNotFound {
-			logf.FromContext(ctx).Error(dnsErr, "Error looking up DNS entry")
+		logger.Error(err, "Failed to get service endpoints")
+		return ctrl.Result{}, err
+	}
+	if endpoints != nil && len(endpoints.Subsets) > 0 {
+		for _, subset := range endpoints.Subsets {
+			// Found an address in an endpoint for the proxy svc
+			if len(subset.Addresses) > 0 {
+				return ctrl.Result{}, nil
+			}
 		}
 	}
-	return err
+	logger.Info("No ready endpoints available")
+	r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonWaiting, "Waiting for proxy service to have registered endpoints")
+	return ctrl.Result{RequeueAfter: proxyDNSInterval}, nil
 }
 
 func (r *AIStoreReconciler) cleanupProxy(ctx context.Context, ais *aisv1.AIStore) (anyExisted bool, err error) {

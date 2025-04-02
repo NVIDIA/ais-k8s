@@ -90,6 +90,10 @@ func (c *K8sClient) GetService(ctx context.Context, name types.NamespacedName) (
 	return getResource[*corev1.Service](c.client, ctx, name)
 }
 
+func (c *K8sClient) GetServiceEndpoints(ctx context.Context, svcName types.NamespacedName) (*corev1.Endpoints, error) {
+	return getResource[*corev1.Endpoints](c.client, ctx, svcName)
+}
+
 func (c *K8sClient) GetConfigMap(ctx context.Context, name types.NamespacedName) (*corev1.ConfigMap, error) {
 	return getResource[*corev1.ConfigMap](c.client, ctx, name)
 }

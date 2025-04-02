@@ -50,11 +50,6 @@ var _ = Describe("AIStoreController", func() {
 		)
 
 		BeforeEach(func() {
-			// Skip checking DNS entry because in existing cluster we might not be able to access Service(s).
-			checkDNSEntry = func(context.Context, *aisv1.AIStore) error {
-				return nil
-			}
-
 			namespace = "ais-test-" + rand.String(10)
 			By(fmt.Sprintf("Using %q namespace", namespace))
 			c = k8sClient
