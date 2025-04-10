@@ -779,7 +779,7 @@ func shouldUpdatePodTemplate(desired, current *corev1.PodTemplateSpec) (bool, st
 			return true, fmt.Sprintf("updating env variables for %q container", daemon.desiredContainer.Name)
 		}
 		if shouldUpdateResources(&daemon.desiredContainer.Resources, &daemon.currentContainer.Resources) {
-			return true, fmt.Sprintf("updating resources for %q container", daemon.desiredContainer.Name)
+			return true, fmt.Sprintf("updating resource requests/limits for %q container", daemon.desiredContainer.Name)
 		}
 	}
 
@@ -806,10 +806,11 @@ func shouldUpdatePodTemplate(desired, current *corev1.PodTemplateSpec) (bool, st
 
 func shouldUpdateResources(desired, current *corev1.ResourceRequirements) bool {
 	// TODO: Remove check in next major version (causes cluster restart)
-	// Do not sync if the only change is *adding* ephemeral storage request
-	if current.Requests.StorageEphemeral() != nil {
+	// If we already have ephemeral storage request, do a full comparison
+	if current.Requests.StorageEphemeral() != nil && !current.Requests.StorageEphemeral().IsZero() {
 		return !equality.Semantic.DeepEqual(desired, current)
 	}
+	// Do not sync if the only change is *adding* ephemeral storage request
 	desFiltered := desired.DeepCopy()
 	delete(desFiltered.Requests, corev1.ResourceEphemeralStorage)
 	return !equality.Semantic.DeepEqual(desFiltered, current)
