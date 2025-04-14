@@ -42,7 +42,7 @@ func PodLabels(ais *aisv1.AIStore) map[string]string {
 func RequiredPodLabels(ais *aisv1.AIStore) map[string]string {
 	return map[string]string{
 		cmn.LabelApp:       ais.Name,
-		cmn.LabelComponent: aisapc.Target,
+		cmn.LabelComponent: aisapc.Proxy,
 	}
 }
 
