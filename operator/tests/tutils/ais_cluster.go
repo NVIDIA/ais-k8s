@@ -21,10 +21,10 @@ import (
 
 // TODO: Should be provided from test config.
 const (
-	DefaultNodeImage  = "aistorage/aisnode:v3.25"
-	DefaultInitImage  = "aistorage/ais-init:v3.25"
+	DefaultNodeImage  = "aistorage/aisnode:v3.27"
+	DefaultInitImage  = "aistorage/ais-init:v3.27"
 	DefaultLogsImage  = "aistorage/ais-logs:v1.0"
-	PreviousNodeImage = "aistorage/aisnode:v3.24"
+	PreviousNodeImage = "aistorage/aisnode:v3.26"
 )
 
 type (
