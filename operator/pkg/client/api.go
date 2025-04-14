@@ -110,8 +110,8 @@ func (c *K8sClient) Status() client.StatusWriter { return c.client.Status() }
 
 // listPodsAndUpdateNodeNames lists pods based on the provided label selector and updates the uniqueNodeNames map with the node names of those pods
 func (c *K8sClient) listPodsAndUpdateNodeNames(ctx context.Context, ais *aisv1.AIStore, labelSelector map[string]string, uniqueNodeNames sets.Set[string]) error {
-	pods := &corev1.PodList{}
-	if err := c.List(ctx, pods, client.InNamespace(ais.Namespace), client.MatchingLabels(labelSelector)); err != nil {
+	pods, err := c.ListPods(ctx, ais, labelSelector)
+	if err != nil {
 		return err
 	}
 	for i := range pods.Items {
@@ -135,10 +135,10 @@ func (c *K8sClient) ListNodesMatchingSelector(ctx context.Context, nodeSelector 
 // ListNodesRunningAIS returns a map of unique node names where AIS pods are running
 func (c *K8sClient) ListNodesRunningAIS(ctx context.Context, ais *aisv1.AIStore) ([]string, error) {
 	uniqueNodeNames := sets.New[string]()
-	if err := c.listPodsAndUpdateNodeNames(ctx, ais, proxy.PodLabels(ais), uniqueNodeNames); err != nil {
+	if err := c.listPodsAndUpdateNodeNames(ctx, ais, proxy.RequiredPodLabels(ais), uniqueNodeNames); err != nil {
 		return nil, err
 	}
-	if err := c.listPodsAndUpdateNodeNames(ctx, ais, target.PodLabels(ais), uniqueNodeNames); err != nil {
+	if err := c.listPodsAndUpdateNodeNames(ctx, ais, target.RequiredPodLabels(ais), uniqueNodeNames); err != nil {
 		return nil, err
 	}
 	return uniqueNodeNames.UnsortedList(), nil

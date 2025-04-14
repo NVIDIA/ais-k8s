@@ -37,6 +37,15 @@ func PodLabels(ais *aisv1.AIStore) map[string]string {
 	}
 }
 
+// RequiredPodLabels contains backwards compatible pod labels for selecting pods on older clusters
+// TODO: Remove in release 3.0
+func RequiredPodLabels(ais *aisv1.AIStore) map[string]string {
+	return map[string]string{
+		cmn.LabelApp:       ais.Name,
+		cmn.LabelComponent: aisapc.Target,
+	}
+}
+
 func DefaultPrimaryNSName(ais *aisv1.AIStore) types.NamespacedName {
 	return types.NamespacedName{
 		Name:      ais.DefaultPrimaryName(),
