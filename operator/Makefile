@@ -1,4 +1,4 @@
-DEFAULT_VERSION = 2.1.1
+DEFAULT_VERSION = 2.1.2
 # Strip off any preceding `v` from version string
 HELM_CHART_VERSION := $(shell echo $(VERSION) | sed 's/^v//')
 # Use VERSION if provided
