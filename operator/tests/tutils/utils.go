@@ -15,8 +15,6 @@ import (
 	"github.com/onsi/gomega"
 )
 
-const ClusterCreateInterval = time.Second
-
 type SkipArgs struct {
 	RequiredProvider string
 	RequiresLB       bool

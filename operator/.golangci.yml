@@ -110,6 +110,7 @@ linters:
     staticcheck:
       dot-import-whitelist:
         - "github.com/onsi/gomega"
+        - "github.com/onsi/ginkgo/v2"
   exclusions:
     generated: lax
     presets:

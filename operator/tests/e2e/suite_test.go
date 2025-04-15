@@ -1,6 +1,6 @@
-// Package integration contains AIS operator integration tests
+// Package e2e contains AIS operator integration tests
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION. All rights reserved.
  */
 package e2e
 
@@ -32,30 +32,6 @@ import (
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
-
-var (
-	k8sClient *aisclient.K8sClient
-	testEnv   *envtest.Environment
-	testCtx   *testing.T
-
-	storageClass    string // storage-class to use in tests
-	storageHostPath string // where to mount hostpath test storage
-	testNS          *corev1.Namespace
-	nsExists        bool
-)
-
-const (
-	testNSName        = "ais-test-namespace"
-	testNSAnotherName = "ais-test-namespace-other"
-
-	EnvTestEnforceExternal = "TEST_EXTERNAL_CLIENT" // if set, will force the test suite to run as external client to deployed k8s cluster.
-	EnvTestStorageClass    = "TEST_STORAGECLASS"
-	//
-	EnvTestStorageHostPath = "TEST_STORAGE_HOSTPATH"
-	BeforeSuiteTimeout     = 60
-	AfterSuiteTimeout      = 60
-)
-
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
 	testCtx = t

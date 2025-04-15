@@ -29,20 +29,20 @@ const (
 
 type (
 	ClusterSpecArgs struct {
-		Name             string
-		Namespace        string
-		StorageClass     string
-		Size             int32
-		TargetSize       int32
-		ProxySize        int32
-		NodeImage        string
-		InitImage        string
-		LogSidecarImage  string
-		TargetSharedNode bool
-		EnableExternalLB bool
-		ShutdownCluster  bool
-		CleanupMetadata  bool
-		CleanupData      bool
+		Name                      string
+		Namespace                 string
+		StorageClass              string
+		Size                      int32
+		TargetSize                int32
+		ProxySize                 int32
+		NodeImage                 string
+		InitImage                 string
+		LogSidecarImage           string
+		DisableTargetAntiAffinity bool
+		EnableExternalLB          bool
+		ShutdownCluster           bool
+		CleanupMetadata           bool
+		CleanupData               bool
 		// Create a cluster with more PVs than targets for future scaling
 		MaxTargets int32
 		// Where to mount the hostpath storage for actual storage PVs
@@ -54,6 +54,11 @@ func NewAISCluster(args *ClusterSpecArgs, client *aisclient.K8sClient) (*aisv1.A
 	mounts := defineMounts(args)
 	pvs := createStoragePVs(args, client, mounts)
 	return newAISClusterCR(args, mounts), pvs
+}
+
+func NewAISClusterNoPV(args *ClusterSpecArgs) *aisv1.AIStore {
+	mounts := defineMounts(args)
+	return newAISClusterCR(args, mounts)
 }
 
 func createStoragePVs(args *ClusterSpecArgs, client *aisclient.K8sClient, mounts []aisv1.Mount) []*corev1.PersistentVolume {
@@ -71,7 +76,8 @@ func createStoragePVs(args *ClusterSpecArgs, client *aisclient.K8sClient, mounts
 	for i := range targetNum {
 		for _, mount := range mounts {
 			var k8sNodeName string
-			if args.TargetSharedNode {
+			// Force targets onto the same node to test this
+			if args.DisableTargetAntiAffinity {
 				k8sNodeName = "minikube"
 			} else {
 				k8sNodeName = determineNode("minikube", "%s-m%02d", i)
@@ -160,8 +166,13 @@ func newAISClusterCR(args *ClusterSpecArgs, mounts []aisv1.Mount) *aisv1.AIStore
 				},
 			},
 			Mounts:                 mounts,
-			DisablePodAntiAffinity: &args.TargetSharedNode,
+			DisablePodAntiAffinity: &args.DisableTargetAntiAffinity,
 		},
+	}
+	// If not using an LB, use the host port to provide external access
+	if !args.EnableExternalLB {
+		spec.ProxySpec.HostPort = aisapc.Ptr(int32(51080))
+		spec.TargetSpec.HostPort = aisapc.Ptr(int32(51081))
 	}
 
 	if args.TargetSize != 0 {

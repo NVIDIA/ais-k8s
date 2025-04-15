@@ -18,19 +18,21 @@ import (
 	aiscmn "github.com/NVIDIA/aistore/cmn"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	aisclient "github.com/ais-operator/pkg/client"
+	"github.com/ais-operator/pkg/resources/cmn"
 	"github.com/ais-operator/pkg/resources/proxy"
+	"github.com/ais-operator/pkg/resources/statsd"
 	"github.com/ais-operator/pkg/resources/target"
 	. "github.com/onsi/gomega"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	storagev1 "k8s.io/api/storage/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
-	k8sclient "sigs.k8s.io/controller-runtime/pkg/client"
+	clientpkg "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -56,11 +58,61 @@ type PVData struct {
 
 func checkCRExists(ctx context.Context, client *aisclient.K8sClient, name types.NamespacedName) bool {
 	_, err := client.GetAIStoreCR(ctx, name)
-	if errors.IsNotFound(err) {
+	if apierrors.IsNotFound(err) {
 		return false
 	}
 	Expect(err).To(BeNil())
 	return true
+}
+
+func CheckResExistence(ctx context.Context, cluster *aisv1.AIStore, k8sClient *aisclient.K8sClient, exists bool, intervals ...interface{}) {
+	condition := BeTrue()
+	if !exists {
+		condition = BeFalse()
+	}
+
+	// 1. Check rbac exists
+	// 1.1 ServiceAccount
+	EventuallyResourceExists(ctx, k8sClient, cmn.NewAISServiceAccount(cluster), condition, intervals...)
+	// 1.2 ClusterRole
+	EventuallyResourceExists(ctx, k8sClient, cmn.NewAISRBACClusterRole(cluster), condition, intervals...)
+	// 1.3 ClusterRoleBinding
+	EventuallyCRBExists(ctx, k8sClient, cmn.ClusterRoleBindingName(cluster), condition, intervals...)
+	// 1.4 Role
+	EventuallyResourceExists(ctx, k8sClient, cmn.NewAISRBACRole(cluster), condition, intervals...)
+	// 1.5 RoleBinding
+	EventuallyResourceExists(ctx, k8sClient, cmn.NewAISRBACRoleBinding(cluster), condition, intervals...)
+
+	// 2. Check for statsD config
+	EventuallyCMExists(ctx, k8sClient, statsd.ConfigMapNSName(cluster), condition, intervals...)
+
+	// 3. Proxy resources
+	// 3.1 config
+	EventuallyCMExists(ctx, k8sClient, proxy.ConfigMapNSName(cluster), condition, intervals...)
+	// 3.2 Service
+	EventuallyServiceExists(ctx, k8sClient, proxy.HeadlessSVCNSName(cluster), condition, intervals...)
+	// 3.3 StatefulSet
+	EventuallySSExists(ctx, k8sClient, proxy.StatefulSetNSName(cluster), condition, intervals...)
+	// 3.4 ExternalLB Service (optional)
+	if cluster.Spec.EnableExternalLB {
+		EventuallyServiceExists(ctx, k8sClient, proxy.LoadBalancerSVCNSName(cluster), condition, intervals...)
+	}
+
+	// 4. Target resources
+	// 4.1 config
+	EventuallyCMExists(ctx, k8sClient, target.ConfigMapNSName(cluster), condition, intervals...)
+	// 4.2 Service
+	EventuallyServiceExists(ctx, k8sClient, target.HeadlessSVCNSName(cluster), condition, intervals...)
+	// 4.3 StatefulSet
+	EventuallySSExists(ctx, k8sClient, target.StatefulSetNSName(cluster), condition, intervals...)
+	// 4.4 ExternalLB Service (optional)
+	if cluster.Spec.EnableExternalLB {
+		timeout, interval := GetLBExistenceTimeout()
+		for i := range cluster.GetTargetSize() {
+			EventuallyServiceExists(ctx, k8sClient, target.LoadBalancerSVCNSName(cluster, i),
+				condition, timeout, interval)
+		}
+	}
 }
 
 // DestroyCluster - Deletes the AISCluster resource, and waits for the resource to be cleaned up.
@@ -106,7 +158,7 @@ func DestroyPV(ctx context.Context, client *aisclient.K8sClient, pvs []*corev1.P
 
 func checkPVsExist(ctx context.Context, c *aisclient.K8sClient, pvs []*corev1.PersistentVolume) bool {
 	allPVs, err := GetAllPVs(ctx, c)
-	if errors.IsNotFound(err) {
+	if apierrors.IsNotFound(err) {
 		return false
 	}
 	Expect(err).To(BeNil())
@@ -122,6 +174,24 @@ func checkPVsExist(ctx context.Context, c *aisclient.K8sClient, pvs []*corev1.Pe
 		}
 	}
 	return false
+}
+
+func CheckPVCDoesNotExist(ctx context.Context, cluster *aisv1.AIStore, k8sClient *aisclient.K8sClient, storageClass string) {
+	pvcs := &corev1.PersistentVolumeClaimList{}
+	err := k8sClient.List(ctx, pvcs, clientpkg.InNamespace(cluster.Namespace), clientpkg.MatchingLabels(target.PodLabels(cluster)))
+	if apierrors.IsNotFound(err) {
+		err = nil
+	}
+	// For now only check actual storage pvcs
+	// Dynamic state volumes can take a while to auto-delete
+	var filteredPVCs []corev1.PersistentVolumeClaim
+	for i := range pvcs.Items {
+		if *pvcs.Items[i].Spec.StorageClassName == storageClass {
+			filteredPVCs = append(filteredPVCs, pvcs.Items[i])
+		}
+	}
+	Expect(err).ShouldNot(HaveOccurred())
+	Expect(len(filteredPVCs)).To(Equal(0))
 }
 
 func deleteAssociatedPVCs(ctx context.Context, pv *corev1.PersistentVolume, client *aisclient.K8sClient) error {
@@ -147,7 +217,7 @@ func deleteAssociatedPVCs(ctx context.Context, pv *corev1.PersistentVolume, clie
 
 func checkCMExists(ctx context.Context, client *aisclient.K8sClient, name types.NamespacedName) bool {
 	_, err := client.GetConfigMap(ctx, name)
-	if errors.IsNotFound(err) {
+	if apierrors.IsNotFound(err) {
 		return false
 	}
 	Expect(err).To(BeNil())
@@ -164,7 +234,7 @@ func EventuallyCMExists(ctx context.Context, client *aisclient.K8sClient, name t
 
 func checkServiceExists(ctx context.Context, client *aisclient.K8sClient, name types.NamespacedName) bool {
 	_, err := client.GetService(ctx, name)
-	if errors.IsNotFound(err) {
+	if apierrors.IsNotFound(err) {
 		return false
 	}
 	Expect(err).To(BeNil())
@@ -181,7 +251,7 @@ func EventuallyServiceExists(ctx context.Context, client *aisclient.K8sClient, n
 
 func checkSSExists(ctx context.Context, client *aisclient.K8sClient, name types.NamespacedName) bool {
 	_, err := client.GetStatefulSet(ctx, name)
-	if errors.IsNotFound(err) {
+	if apierrors.IsNotFound(err) {
 		return false
 	}
 	Expect(err).To(BeNil())
@@ -229,14 +299,14 @@ func checkCRBExists(ctx context.Context, client *aisclient.K8sClient, name strin
 	// NOTE: Here we skip the Namespace, as querying CRB with Namespace always returns
 	// `NotFound` error leading to test failure.
 	err := client.Get(ctx, types.NamespacedName{Name: name}, &rbacv1.ClusterRoleBinding{})
-	if errors.IsNotFound(err) {
+	if apierrors.IsNotFound(err) {
 		return false
 	}
 	Expect(err).To(BeNil())
 	return true
 }
 
-func EventuallyResourceExists(ctx context.Context, client *aisclient.K8sClient, obj k8sclient.Object,
+func EventuallyResourceExists(ctx context.Context, client *aisclient.K8sClient, obj clientpkg.Object,
 	be OmegaMatcher, intervals ...interface{},
 ) {
 	Eventually(func() bool {
@@ -244,14 +314,14 @@ func EventuallyResourceExists(ctx context.Context, client *aisclient.K8sClient, 
 	}, intervals...).Should(be)
 }
 
-func checkResourceExists(ctx context.Context, client *aisclient.K8sClient, obj k8sclient.Object) bool {
+func checkResourceExists(ctx context.Context, client *aisclient.K8sClient, obj clientpkg.Object) bool {
 	objTemp := &unstructured.Unstructured{}
 	objTemp.SetGroupVersionKind(obj.GetObjectKind().GroupVersionKind())
 	err := client.Get(ctx, types.NamespacedName{
 		Name:      obj.GetName(),
 		Namespace: obj.GetNamespace(),
 	}, obj)
-	if errors.IsNotFound(err) {
+	if apierrors.IsNotFound(err) {
 		return false
 	}
 	Expect(err).To(BeNil())
@@ -263,7 +333,7 @@ func CreateNSIfNotExists(ctx context.Context, client *aisclient.K8sClient,
 ) (ns *corev1.Namespace, exists bool) {
 	ns = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: name}}
 	err := client.Create(ctx, ns)
-	if err != nil && errors.IsAlreadyExists(err) {
+	if err != nil && apierrors.IsAlreadyExists(err) {
 		exists = true
 		return
 	}
@@ -288,7 +358,7 @@ func CreatePV(ctx context.Context, client *aisclient.K8sClient, pvData *PVData) 
 	trimmedMpath := strings.TrimPrefix(strings.ReplaceAll(pvData.mpath, "/", "-"), "-")
 	// Target name must be included because node name doesn't change and this needs to be unique
 	pvName := fmt.Sprintf("%s-%s-%s-%s-pv", pvData.ns, pvData.cluster, trimmedMpath, pvData.target)
-
+	hostPath := filepath.Join(pvData.mpath, pvData.ns, pvData.cluster, pvData.target)
 	claimRefName := fmt.Sprintf("%s-%s-%s-%s", pvData.cluster, trimmedMpath, pvData.cluster, pvData.target)
 	fmt.Fprintf(os.Stdout, "Creating PV '%s' with claim ref '%s' on node '%s'\n", pvName, claimRefName, pvData.node)
 
@@ -297,7 +367,7 @@ func CreatePV(ctx context.Context, client *aisclient.K8sClient, pvData *PVData) 
 			corev1.ResourceStorage: pvData.size,
 		},
 		PersistentVolumeSource: corev1.PersistentVolumeSource{
-			HostPath: &corev1.HostPathVolumeSource{Path: pvData.mpath},
+			HostPath: &corev1.HostPathVolumeSource{Path: hostPath},
 		},
 		AccessModes:                   []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 		ClaimRef:                      &corev1.ObjectReference{Namespace: pvData.ns, Name: claimRefName},
@@ -305,7 +375,6 @@ func CreatePV(ctx context.Context, client *aisclient.K8sClient, pvData *PVData) 
 		PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimRetain,
 		NodeAffinity:                  createVolumeNodeAffinity("kubernetes.io/hostname", pvData.node),
 	}
-
 	pv := &corev1.PersistentVolume{
 		ObjectMeta: metav1.ObjectMeta{Name: pvName},
 		Spec:       *pvSpec,
@@ -365,7 +434,9 @@ func WaitForClusterToBeReady(ctx context.Context, k8sClient *aisclient.K8sClient
 		if err != nil {
 			return false
 		}
+		readyCond := GetClusterReadyCondition(ais)
 		return ais.Status.State == aisv1.ClusterReady &&
+			readyCond.Status == metav1.ConditionStatus(corev1.ConditionTrue) &&
 			isProxyReady(ctx, k8sClient, ais) &&
 			isTargetReady(ctx, k8sClient, ais)
 	}, intervals...).Should(BeTrue())
