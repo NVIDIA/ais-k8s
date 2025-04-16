@@ -1,6 +1,6 @@
 // Package tutils provides utilities for running AIS operator tests
 /*
-* Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+* Copyright (c) 2021-2025, NVIDIA CORPORATION. All rights reserved.
  */
 package tutils
 
@@ -14,6 +14,7 @@ import (
 	"time"
 
 	aisapi "github.com/NVIDIA/aistore/api"
+	aisapc "github.com/NVIDIA/aistore/api/apc"
 	aiscmn "github.com/NVIDIA/aistore/cmn"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	aisclient "github.com/ais-operator/pkg/client"
@@ -334,24 +335,93 @@ func createVolumeNodeAffinity(key, value string) *corev1.VolumeNodeAffinity {
 	}
 }
 
-func WaitForClusterToBeReady(ctx context.Context, client *aisclient.K8sClient, cluster *aisv1.AIStore, intervals ...interface{}) {
+func GetClusterReadyCondition(ais *aisv1.AIStore) *metav1.Condition {
+	for i := range ais.Status.Conditions {
+		if ais.Status.Conditions[i].Type != string(aisv1.ConditionReady) {
+			continue
+		}
+		return aisapc.Ptr(ais.Status.Conditions[i])
+	}
+	return nil
+}
+
+func WaitForReadyConditionChange(ctx context.Context, k8sClient *aisclient.K8sClient, cluster *aisv1.AIStore, initialGen int64, intervals ...interface{}) {
 	Eventually(func() bool {
-		ais, err := client.GetAIStoreCR(ctx, cluster.NamespacedName())
+		ais, err := k8sClient.GetAIStoreCR(ctx, cluster.NamespacedName())
+		if err != nil {
+			return true
+		}
+		cond := GetClusterReadyCondition(ais)
+		if cond == nil {
+			return true
+		}
+		return cond.ObservedGeneration == initialGen
+	}, intervals...).Should(BeFalse())
+}
+
+func WaitForClusterToBeReady(ctx context.Context, k8sClient *aisclient.K8sClient, cluster *aisv1.AIStore, intervals ...interface{}) {
+	Eventually(func() bool {
+		ais, err := k8sClient.GetAIStoreCR(ctx, cluster.NamespacedName())
 		if err != nil {
 			return false
 		}
-		if ais.Status.State != aisv1.ClusterReady {
-			return false
-		}
-		proxies, err := client.ListPods(ctx, cluster, proxy.PodLabels(cluster))
-		Expect(err).To(BeNil())
-		targets, err := client.ListPods(ctx, cluster, target.PodLabels(cluster))
-		Expect(err).To(BeNil())
-		if !checkPodsAISImage(proxies, cluster.Spec.NodeImage) {
-			return false
-		}
-		return checkPodsAISImage(targets, cluster.Spec.NodeImage)
+		return ais.Status.State == aisv1.ClusterReady &&
+			isProxyReady(ctx, k8sClient, ais) &&
+			isTargetReady(ctx, k8sClient, ais)
 	}, intervals...).Should(BeTrue())
+}
+
+// Verify status of all proxy PODs matches a fully ready cluster
+func isProxyReady(ctx context.Context, k8sClient *aisclient.K8sClient, ais *aisv1.AIStore) bool {
+	proxies, err := k8sClient.ListPods(ctx, ais, proxy.PodLabels(ais))
+	Expect(err).To(BeNil())
+	if !checkPodsAISImage(proxies, ais.Spec.NodeImage) {
+		return false
+	}
+	fmt.Printf("Found ready proxy pod count: %d\n", countReadyPods(proxies))
+	return countReadyPods(proxies) == int(ais.GetProxySize())
+}
+
+// Verify status of all target PODs matches a fully ready cluster
+func isTargetReady(ctx context.Context, k8sClient *aisclient.K8sClient, ais *aisv1.AIStore) bool {
+	targets, err := k8sClient.ListPods(ctx, ais, target.PodLabels(ais))
+	Expect(err).To(BeNil())
+	if !checkPodsAISImage(targets, ais.Spec.NodeImage) {
+		return false
+	}
+	fmt.Printf("Found ready target pod count: %d\n", countReadyPods(targets))
+	return countReadyPods(targets) == int(ais.GetTargetSize())
+}
+
+func countReadyPods(pods *corev1.PodList) int {
+	count := 0
+	for i := range pods.Items {
+		if isPodReady(&pods.Items[i]) {
+			count++
+		}
+	}
+	return count
+}
+
+func isPodReady(pod *corev1.Pod) bool {
+	var podReady bool
+	for _, cond := range pod.Status.Conditions {
+		if cond.Type == corev1.PodReady && cond.Status == corev1.ConditionTrue {
+			// pod running, now check container statuses
+			podReady = true
+			break
+		}
+	}
+	if !podReady {
+		return false
+	}
+	// check that ALL containers in pod are ready
+	for i := range pod.Status.ContainerStatuses {
+		if !pod.Status.ContainerStatuses[i].Ready {
+			return false
+		}
+	}
+	return true
 }
 
 func checkPodsAISImage(pods *corev1.PodList, img string) bool {

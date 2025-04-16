@@ -33,6 +33,8 @@ const (
 	clusterReadyRetryInterval = 5 * time.Second
 	clusterReadyTimeout       = 3 * time.Minute
 	clusterDestroyTimeout     = 2 * time.Minute
+	clusterUpdateTimeout      = 30 * time.Second
+	clusterUpdateInterval     = 2 * time.Second
 )
 
 // clientCluster - used for managing cluster used by AIS API tests
@@ -67,6 +69,13 @@ func (cc *clientCluster) create() {
 	tutils.WaitForClusterToBeReady(context.Background(), k8sClient, cc.cluster, clusterReadyTimeout, clusterReadyRetryInterval)
 	initAISCluster(cc.ctx, cc.cluster)
 	Expect(tutils.StreamLogs(cc.ctx, testNSName)).To(BeNil())
+}
+
+func (cc *clientCluster) refreshCluster() {
+	var err error
+	cc.cluster, err = k8sClient.GetAIStoreCR(cc.ctx, cc.cluster.NamespacedName())
+	Expect(err).NotTo(HaveOccurred())
+	initAISCluster(cc.ctx, cc.cluster)
 }
 
 func (cc *clientCluster) updateImage(img string) {
@@ -308,11 +317,12 @@ var _ = Describe("Run Controller", func() {
 		})
 
 		It("Cluster scale down should ensure data safety", func() {
+			By("Deploy new cluster of size 2")
 			cluArgs := defaultCluArgs()
 			cluArgs.Size = 2
 			cc, pvs := newClientCluster(cluArgs)
 			cc.create()
-			// put objects
+			By("Create a bucket and put objects")
 			var (
 				bck        = aiscmn.Bck{Name: "TEST_BCK_SCALE_DOWN", Provider: aisapc.AIS}
 				objPrefix  = "test-opr/"
@@ -332,11 +342,12 @@ var _ = Describe("Run Controller", func() {
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(failCnt).To(Equal(0))
+			By("Validate the objects exist")
 			tutils.ObjectsShouldExist(baseParams, bck, names...)
-
-			// Scale down cluster
+			By("Scale down cluster to size 1")
 			scaleCluster(cc.ctx, cc.cluster, false, -1)
-
+			By("Validate objects exist after scaling")
+			cc.refreshCluster()
 			tutils.ObjectsShouldExist(cc.getBaseParams(), bck, names...)
 			cc.cleanup(pvs)
 		})
@@ -585,6 +596,17 @@ func scaleCluster(ctx context.Context, cluster *aisv1.AIStore, targetOnly bool, 
 	} else {
 		cr.Spec.Size = aisapc.Ptr(*cr.Spec.Size + factor)
 	}
+	// Get current ready condition generation
+	readyCond := tutils.GetClusterReadyCondition(cluster)
+	var readyGen int64
+	if readyCond == nil {
+		readyGen = 0
+	} else {
+		readyGen = readyCond.ObservedGeneration
+	}
 	Expect(k8sClient.Patch(ctx, cr, patch)).Should(Succeed())
+	// Wait for the condition's generation to receive some update so we know reconciliation began
+	// Otherwise, the cluster may be immediately ready
+	tutils.WaitForReadyConditionChange(ctx, k8sClient, cr, readyGen, clusterUpdateTimeout, clusterUpdateInterval)
 	tutils.WaitForClusterToBeReady(ctx, k8sClient, cr, clusterReadyTimeout, clusterReadyRetryInterval)
 }

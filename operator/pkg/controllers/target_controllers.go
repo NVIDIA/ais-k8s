@@ -118,7 +118,10 @@ func (r *AIStoreReconciler) handleTargetState(ctx context.Context, ais *aisv1.AI
 		}
 		// If successful, mark as scaling so future reconciliations will update the SS
 		err = r.updateStatusWithState(ctx, ais, aisv1.ClusterScaling)
-		return
+		if err != nil {
+			return
+		}
+		return ctrl.Result{RequeueAfter: targetRequeueDelay}, nil
 	}
 	// Requeue if the number of target pods ready does not match the size provided in AIS cluster spec.
 	if !isStatefulSetReady(ais, ss) {
