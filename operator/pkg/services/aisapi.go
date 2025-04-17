@@ -58,11 +58,7 @@ func (c *AIStoreClient) HasValidBaseParams(ais *aisv1.AIStore) bool {
 }
 
 func (c *AIStoreClient) DecommissionCluster(rmUserData bool) error {
-	params, err := c.getPrimaryParams()
-	if err != nil {
-		return err
-	}
-	return api.DecommissionCluster(*params, rmUserData)
+	return api.DecommissionCluster(*c.params, rmUserData)
 }
 
 func (c *AIStoreClient) DecommissionNode(actValue *apc.ActValRmNode) (string, error) {
@@ -74,12 +70,7 @@ func (c *AIStoreClient) GetClusterMap() (smap *meta.Smap, err error) {
 }
 
 func (c *AIStoreClient) Health(readyToRebalance bool) error {
-	// TODO: Drop requirement for primary for AIS >= v3.25 (keep now for backwards compat)
-	primaryParams, err := c.getPrimaryParams()
-	if err != nil {
-		return err
-	}
-	return api.Health(*primaryParams, readyToRebalance)
+	return api.Health(*c.params, readyToRebalance)
 }
 
 func (c *AIStoreClient) SetClusterConfigUsingMsg(config *cmn.ConfigToSet, transient bool) error {
@@ -91,19 +82,7 @@ func (c *AIStoreClient) SetPrimaryProxy(newPrimaryID, newPrimaryURL string, forc
 }
 
 func (c *AIStoreClient) ShutdownCluster() error {
-	primaryParams, err := c.getPrimaryParams()
-	if err != nil {
-		return err
-	}
-	return api.ShutdownCluster(*primaryParams)
-}
-
-func (c *AIStoreClient) getPrimaryParams() (*api.BaseParams, error) {
-	smap, err := c.GetClusterMap()
-	if err != nil || smap == nil {
-		return nil, err
-	}
-	return buildBaseParams(smap.Primary.URL(cmn.NetPublic), c.getAuthToken()), nil
+	return api.ShutdownCluster(*c.params)
 }
 
 func NewAIStoreClient(ctx context.Context, url, token string) *AIStoreClient {
@@ -111,13 +90,6 @@ func NewAIStoreClient(ctx context.Context, url, token string) *AIStoreClient {
 		ctx:    ctx,
 		params: buildBaseParams(url, token),
 	}
-}
-
-func (c *AIStoreClient) getAuthToken() string {
-	if c.params == nil {
-		return ""
-	}
-	return c.params.Token
 }
 
 func buildBaseParams(url, token string) *api.BaseParams {
