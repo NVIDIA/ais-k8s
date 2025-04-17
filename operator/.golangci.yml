@@ -55,6 +55,9 @@ linters:
       enabled-tags:
         - performance
         - style
+    gomoddirectives:
+      replace-allow-list:
+        - github.com/google/cel-go # temporarily necessary, see comment in go.mod
     gosec:
       excludes:
         - G115 ## dependency: https://github.com/kubernetes/apimachinery/blob/master/pkg/util/intstr/intstr.go#L32-L36
