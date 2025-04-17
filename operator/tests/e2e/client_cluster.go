@@ -76,8 +76,8 @@ func (cc *clientCluster) recreate(cluArgs *tutils.ClusterSpecArgs, long bool) {
 
 func (cc *clientCluster) create(long bool) {
 	cc.createCluster(cc.getTimeout(long), clusterCreateInterval)
-	tutils.WaitForClusterToBeReady(cc.ctx, k8sClient, cc.cluster, clusterReadyTimeout, clusterReadyRetryInterval)
-	cc.initAISCluster()
+	cc.waitForReadyCluster()
+	cc.initClientAccess()
 	Expect(tutils.StreamLogs(cc.ctx, cc.cluster.Namespace)).To(Succeed())
 }
 
@@ -97,13 +97,6 @@ func (cc *clientCluster) createAndDestroyCluster(postCreate func(),
 	cc.createWithCallback(long, postCreate)
 }
 
-func (cc *clientCluster) refresh() {
-	var err error
-	cc.cluster, err = k8sClient.GetAIStoreCR(cc.ctx, cc.cluster.NamespacedName())
-	Expect(err).NotTo(HaveOccurred())
-	cc.initAISCluster()
-}
-
 func (cc *clientCluster) createCluster(intervals ...interface{}) {
 	Expect(k8sClient.Create(cc.ctx, cc.cluster)).Should(Succeed())
 	By("Create cluster and wait for it to be 'Ready'")
@@ -114,12 +107,34 @@ func (cc *clientCluster) createCluster(intervals ...interface{}) {
 	}, intervals...).Should(BeTrue())
 }
 
-func (cc *clientCluster) updateImage(img string) {
+func (cc *clientCluster) refresh() {
+	var err error
+	cc.cluster, err = k8sClient.GetAIStoreCR(cc.ctx, cc.cluster.NamespacedName())
+	Expect(err).NotTo(HaveOccurred())
+}
+
+func (cc *clientCluster) waitForReadyCluster() {
+	tutils.WaitForClusterToBeReady(cc.ctx, k8sClient, cc.cluster.NamespacedName(), clusterReadyTimeout, clusterReadyRetryInterval)
+	// Validate the cluster map -- make sure all AIS nodes have successfully joined cluster
+	cc.refresh()
+	cc.initClientAccess()
+	bp := cc.getBaseParams()
+	Eventually(func() bool {
+		smap, err := aisapi.GetClusterMap(bp)
+		Expect(err).NotTo(HaveOccurred())
+		activeProxies := int32(len(smap.Pmap.ActiveNodes()))
+		activeTargets := int32(len(smap.Tmap.ActiveNodes()))
+		return activeProxies == cc.cluster.GetProxySize() && activeTargets == cc.cluster.GetTargetSize()
+	}).Should(BeTrue())
+}
+
+func (cc *clientCluster) patchImage(img string) {
 	cc.fetchLatestCluster()
+	patch := clientpkg.MergeFrom(cc.cluster.DeepCopy())
 	cc.cluster.Spec.NodeImage = img
-	Expect(k8sClient.Update(cc.ctx, cc.cluster)).Should(Succeed())
+	Expect(k8sClient.Patch(cc.ctx, cc.cluster, patch)).Should(Succeed())
 	By("Update cluster spec and wait for it to be 'Ready'")
-	tutils.WaitForClusterToBeReady(cc.ctx, k8sClient, cc.cluster, clusterReadyTimeout, clusterReadyRetryInterval)
+	cc.waitForReadyCluster()
 }
 
 func (cc *clientCluster) getBaseParams() aisapi.BaseParams {
@@ -135,7 +150,7 @@ func (cc *clientCluster) fetchLatestCluster() {
 }
 
 // Initialize AIS tutils to use the deployed cluster
-func (cc *clientCluster) initAISCluster() {
+func (cc *clientCluster) initClientAccess() {
 	// Wait for all proxies
 	proxyURLs := cc.getAllProxyURLs()
 	for i := range proxyURLs {
@@ -225,8 +240,8 @@ func (cc *clientCluster) scale(targetOnly bool, factor int32) {
 	// Wait for the condition's generation to receive some update so we know reconciliation began
 	// Otherwise, the cluster may be immediately ready
 	tutils.WaitForReadyConditionChange(cc.ctx, k8sClient, cr, readyGen, clusterUpdateTimeout, clusterUpdateInterval)
-	tutils.WaitForClusterToBeReady(cc.ctx, k8sClient, cr, clusterReadyTimeout, clusterReadyRetryInterval)
-	cc.refresh()
+	cc.waitForReadyCluster()
+	cc.initClientAccess()
 }
 
 func (cc *clientCluster) restart() {
@@ -236,9 +251,8 @@ func (cc *clientCluster) restart() {
 	tutils.EventuallyPodsIsSize(cc.ctx, k8sClient, cc.cluster, target.PodLabels(cc.cluster), 0, clusterDestroyTimeout)
 	// Resume shutdown cluster, should become fully ready
 	cc.setShutdownStatus(false)
-	tutils.WaitForClusterToBeReady(cc.ctx, k8sClient, cc.cluster,
-		clusterReadyTimeout, clusterReadyRetryInterval)
-	cc.initAISCluster()
+	cc.waitForReadyCluster()
+	cc.initClientAccess()
 }
 
 func (cc *clientCluster) setShutdownStatus(shutdown bool) {

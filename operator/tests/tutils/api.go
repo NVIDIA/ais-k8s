@@ -428,9 +428,9 @@ func WaitForReadyConditionChange(ctx context.Context, k8sClient *aisclient.K8sCl
 	}, intervals...).Should(BeFalse())
 }
 
-func WaitForClusterToBeReady(ctx context.Context, k8sClient *aisclient.K8sClient, cluster *aisv1.AIStore, intervals ...interface{}) {
+func WaitForClusterToBeReady(ctx context.Context, k8sClient *aisclient.K8sClient, clusterName types.NamespacedName, intervals ...interface{}) {
 	Eventually(func() bool {
-		ais, err := k8sClient.GetAIStoreCR(ctx, cluster.NamespacedName())
+		ais, err := k8sClient.GetAIStoreCR(ctx, clusterName)
 		if err != nil {
 			return false
 		}

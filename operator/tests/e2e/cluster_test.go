@@ -62,10 +62,8 @@ var _ = Describe("Run Controller", func() {
 			}()
 			clusters := []*clientCluster{cc1, cc2}
 			createClusters(clusters, false)
-			tutils.WaitForClusterToBeReady(ctx, k8sClient, cc1.cluster,
-				clusterReadyTimeout, clusterReadyRetryInterval)
-			tutils.WaitForClusterToBeReady(ctx, k8sClient, cc2.cluster,
-				clusterReadyTimeout, clusterReadyRetryInterval)
+			cc1.waitForReadyCluster()
+			cc2.waitForReadyCluster()
 		})
 
 		It("Should allow two clusters with same name in different namespaces", func(ctx context.Context) {
@@ -88,10 +86,8 @@ var _ = Describe("Run Controller", func() {
 			}()
 			clusters := []*clientCluster{cc1, cc2}
 			createClusters(clusters, false)
-			tutils.WaitForClusterToBeReady(ctx, k8sClient, cc1.cluster,
-				clusterReadyTimeout, clusterReadyRetryInterval)
-			tutils.WaitForClusterToBeReady(ctx, k8sClient, cc2.cluster,
-				clusterReadyTimeout, clusterReadyRetryInterval)
+			cc1.waitForReadyCluster()
+			cc2.waitForReadyCluster()
 		})
 	})
 
@@ -101,7 +97,7 @@ var _ = Describe("Run Controller", func() {
 			cluArgs.NodeImage = tutils.PreviousNodeImage
 			cc := newClientCluster(ctx, cluArgs)
 			cc.create(true)
-			cc.updateImage(tutils.DefaultNodeImage)
+			cc.patchImage(tutils.DefaultNodeImage)
 
 			// Check we didn't rebalance at all (nothing else should trigger it on this test)
 			args := aisxact.ArgsMsg{Kind: aisapc.ActRebalance}
