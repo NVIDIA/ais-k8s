@@ -12,8 +12,11 @@ import (
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	aisclient "github.com/ais-operator/pkg/client"
 	"github.com/ais-operator/pkg/resources/proxy"
-	corev1 "k8s.io/api/core/v1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+)
+
+const (
+	APIModePublic = "public"
 )
 
 //go:generate mockgen -source $GOFILE -destination mocks/client_manager.go . AISClientManagerInterface
@@ -44,10 +47,11 @@ func NewAISClientManager(k8sClient *aisclient.K8sClient) *AISClientManager {
 func (m *AISClientManager) GetClient(ctx context.Context,
 	ais *aisv1.AIStore,
 ) (client AIStoreClientInterface, err error) {
+	logger := logf.FromContext(ctx)
 	// First get the client for the given cluster and return it if its params are still valid
 	m.mu.RLock()
 	client, exists := m.clientMap[ais.NamespacedName().String()]
-	if exists && client.HasValidBaseParams(ais) {
+	if exists && client.HasValidBaseParams(ctx, ais) {
 		m.mu.RUnlock()
 		return
 	}
@@ -55,7 +59,7 @@ func (m *AISClientManager) GetClient(ctx context.Context,
 	// If the client does not exist or is no longer valid, create and cache a new client with the new params
 	url, err := m.getAISAPIEndpoint(ctx, ais)
 	if err != nil {
-		logf.FromContext(ctx).Error(err, "Failed to get AIS API parameters")
+		logger.Error(err, "Failed to get AIS API parameters")
 		return
 	}
 
@@ -63,12 +67,12 @@ func (m *AISClientManager) GetClient(ctx context.Context,
 	if ais.Spec.AuthNSecretName != nil {
 		adminToken, err = m.authN.getAdminToken(ctx)
 		if err != nil {
-			logf.FromContext(ctx).Error(err, "Failed to get admin token for AuthN")
+			logger.Error(err, "Failed to get admin token for AuthN")
 			return nil, err
 		}
 	}
-
-	client = NewAIStoreClient(ctx, url, adminToken)
+	logger.Info("Creating AIS API client", "url", url, "authN", adminToken != "")
+	client = NewAIStoreClient(ctx, url, adminToken, ais.GetAPIMode())
 	m.mu.Lock()
 	m.clientMap[ais.NamespacedName().String()] = client
 	m.mu.Unlock()
@@ -77,37 +81,63 @@ func (m *AISClientManager) GetClient(ctx context.Context,
 
 func (m *AISClientManager) getAISAPIEndpoint(ctx context.Context,
 	ais *aisv1.AIStore,
-) (url string, err error) {
-	var serviceHostname string
+) (string, error) {
+	var (
+		err      error
+		hostname string
+		port     string
+	)
 
-	// If LoadBalancer is configured use the LB service to contact the API.
-	if ais.Spec.EnableExternalLB {
-		var proxyLBSVC *corev1.Service
-		proxyLBSVC, err = m.k8sClient.GetService(ctx, proxy.LoadBalancerSVCNSName(ais))
+	switch {
+	case ais.GetAPIMode() == APIModePublic:
+		hostname, err = m.getPublicAISHostname(ctx, ais)
 		if err != nil {
+			logf.FromContext(ctx).Error(err, "Failed to get public AIS API parameters")
 			return "", err
+		}
+		port = ais.Spec.ProxySpec.PublicPort.String()
+	// If LoadBalancer is configured use the LB service to contact the API.
+	case ais.Spec.EnableExternalLB:
+		proxyLBSVC, svcErr := m.k8sClient.GetService(ctx, proxy.LoadBalancerSVCNSName(ais))
+		if svcErr != nil {
+			return "", svcErr
 		}
 
 		for _, ing := range proxyLBSVC.Status.LoadBalancer.Ingress {
 			if ing.IP != "" {
-				serviceHostname = ing.IP
-				goto createParams
+				hostname = ing.IP
+				break
 			}
 		}
-		err = fmt.Errorf("failed to fetch LoadBalancer service %q, err: %v", proxy.LoadBalancerSVCNSName(ais), err)
-		return
-	}
-
+		if hostname == "" {
+			return "", fmt.Errorf("proxy load balancer svc %q has no ingress IP", proxy.LoadBalancerSVCNSName(ais))
+		}
+		port = ais.Spec.ProxySpec.ServicePort.String()
 	// When operator is deployed within K8s cluster with no external LoadBalancer,
 	// use the proxy headless service to request the API.
-	serviceHostname = proxy.HeadlessSVCNSName(ais).Name + "." + ais.Namespace
-createParams:
-	var scheme string
-	scheme = "http"
-	if ais.UseHTTPS() {
+	default:
+		hostname = proxy.HeadlessSVCNSName(ais).Name + "." + ais.Namespace
+		port = ais.Spec.ProxySpec.ServicePort.String()
+	}
+	return createAPIURL(ais.UseHTTPS(), hostname, port), nil
+}
+
+func (m *AISClientManager) getPublicAISHostname(ctx context.Context, ais *aisv1.AIStore) (hostname string, err error) {
+	// Find ANY ready proxy pod and return the public endpoint
+	pods, err := m.k8sClient.ListReadyPods(ctx, ais, proxy.PodLabels(ais))
+	if err != nil {
+		return "", err
+	}
+	if len(pods.Items) == 0 {
+		return "", fmt.Errorf("no ready pods found matching selector %q", proxy.PodLabels(ais))
+	}
+	return pods.Items[0].Status.HostIP, nil
+}
+
+func createAPIURL(https bool, hostname, port string) string {
+	scheme := "http"
+	if https {
 		scheme = "https"
 	}
-	url = fmt.Sprintf("%s://%s:%s", scheme, serviceHostname, ais.Spec.ProxySpec.ServicePort.String())
-
-	return
+	return fmt.Sprintf("%s://%s:%s", scheme, hostname, port)
 }

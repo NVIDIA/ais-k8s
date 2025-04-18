@@ -76,6 +76,25 @@ func (c *K8sClient) ListPods(ctx context.Context, ais *aisv1.AIStore, labels map
 	return podList, err
 }
 
+func (c *K8sClient) ListReadyPods(ctx context.Context, ais *aisv1.AIStore, labels map[string]string) (*corev1.PodList, error) {
+	allPods, err := c.ListPods(ctx, ais, labels)
+	if err != nil {
+		return nil, err
+	}
+	readyPods := &corev1.PodList{}
+	readyPods.Items = make([]corev1.Pod, 0, len(allPods.Items))
+	for i := range allPods.Items {
+		conditions := allPods.Items[i].Status.Conditions
+		for j := range conditions {
+			if conditions[j].Type == corev1.PodReady && conditions[j].Status == corev1.ConditionTrue {
+				readyPods.Items = append(readyPods.Items, allPods.Items[i])
+				break
+			}
+		}
+	}
+	return readyPods, nil
+}
+
 func (c *K8sClient) ListJobsInNamespace(ctx context.Context, namespace string) (*batchv1.JobList, error) {
 	jobList := &batchv1.JobList{}
 	err := c.client.List(ctx, jobList, client.InNamespace(namespace))

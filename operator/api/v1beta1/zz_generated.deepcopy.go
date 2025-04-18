@@ -109,6 +109,11 @@ func (in *AIStoreSpec) DeepCopyInto(out *AIStoreSpec) {
 			(*out)[key] = val
 		}
 	}
+	if in.APIMode != nil {
+		in, out := &in.APIMode, &out.APIMode
+		*out = new(string)
+		**out = **in
+	}
 	if in.NetAttachment != nil {
 		in, out := &in.NetAttachment, &out.NetAttachment
 		*out = new(string)

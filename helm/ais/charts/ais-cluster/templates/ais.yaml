@@ -91,6 +91,7 @@ spec:
   {{- end }}
   hostpathPrefix: {{ .Values.hostpathPrefix }}
   stateStorageClass: {{ .Values.stateStorageClass }}
+  apiMode: {{.Values.apiMode }}
   shutdownCluster: {{ .Values.shutdownCluster }}
   cleanupMetadata: {{ .Values.cleanupMetadata }}
   cleanupData: {{ .Values.cleanupData }}

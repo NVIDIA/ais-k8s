@@ -50,6 +50,7 @@ shutdownCluster: false
 cleanupData: true
 cleanupMetadata: true
 stateStorageClass: "local-path"
+apiMode:
 authNSecretName:
 logsDir:
 proxySpec:

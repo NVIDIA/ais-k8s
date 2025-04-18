@@ -16,6 +16,7 @@ import (
 	"github.com/NVIDIA/aistore/cmn/cos"
 	"github.com/NVIDIA/aistore/core/meta"
 	aisv1 "github.com/ais-operator/api/v1beta1"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 //go:generate mockgen -source $GOFILE -destination mocks/client.go . AIStoreClientInterface
@@ -31,20 +32,34 @@ type (
 		SetClusterConfigUsingMsg(configToUpdate *cmn.ConfigToSet, transient bool) error
 		SetPrimaryProxy(newPrimaryID, newPrimaryURL string, force bool) error
 		ShutdownCluster() error
-		HasValidBaseParams(ais *aisv1.AIStore) bool
+		HasValidBaseParams(context context.Context, ais *aisv1.AIStore) bool
 	}
 
 	AIStoreClient struct {
 		ctx    context.Context
 		params *api.BaseParams
+		mode   string
 	}
 )
 
 // HasValidBaseParams checks if the client has valid params for the given AIS cluster configuration
-func (c *AIStoreClient) HasValidBaseParams(ais *aisv1.AIStore) bool {
+func (c *AIStoreClient) HasValidBaseParams(ctx context.Context, ais *aisv1.AIStore) bool {
 	if c.params == nil {
 		return false
 	}
+	// Check for an apiMode change in spec
+	if c.mode != ais.GetAPIMode() {
+		return false
+	}
+	// If using public API, no k8s service to automate changing endpoints, verify params still valid
+	if c.mode == APIModePublic {
+		err := c.Health(false)
+		if err != nil {
+			logf.FromContext(ctx).Info("AIS API health check failed", "url", c.params.URL, "err", err.Error())
+			return false
+		}
+	}
+
 	// Determine whether HTTPS should be used based on the presence of a TLS secret / TLS issuer and
 	// verify if the URL's protocol matches the expected protocol (HTTPS or HTTP)
 	httpsCheck := cos.IsHTTPS(c.params.URL) == ais.UseHTTPS()
@@ -85,10 +100,11 @@ func (c *AIStoreClient) ShutdownCluster() error {
 	return api.ShutdownCluster(*c.params)
 }
 
-func NewAIStoreClient(ctx context.Context, url, token string) *AIStoreClient {
+func NewAIStoreClient(ctx context.Context, url, token, mode string) *AIStoreClient {
 	return &AIStoreClient{
 		ctx:    ctx,
 		params: buildBaseParams(url, token),
+		mode:   mode,
 	}
 }
 

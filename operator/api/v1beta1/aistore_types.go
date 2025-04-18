@@ -115,6 +115,10 @@ type AIStoreSpec struct {
 	// Map of primary host to comma-separated string of all hosts for multi-home
 	// +optional
 	HostnameMap map[string]string `json:"hostnameMap,omitempty"`
+	// Which mode to use when communicating with the deployed AIS cluster's API
+	// Defaults to use internal headless proxy service if not provided
+	// +optional
+	APIMode *string `json:"apiMode,omitempty"`
 	// Commma-separated list of names of additional network attachment definitions to attach to each pod
 	// +optional
 	NetAttachment *string `json:"networkAttachment,omitempty"`
@@ -460,6 +464,13 @@ func (ais *AIStore) HasCloudBackend() bool {
 
 func (ais *AIStore) UseHTTPS() bool {
 	return ais.Spec.ConfigToUpdate != nil && ais.Spec.ConfigToUpdate.Net != nil && ais.Spec.ConfigToUpdate.Net.HTTP != nil && ais.Spec.ConfigToUpdate.Net.HTTP.UseHTTPS != nil && *ais.Spec.ConfigToUpdate.Net.HTTP.UseHTTPS
+}
+
+func (ais *AIStore) GetAPIMode() string {
+	if ais.Spec.APIMode != nil {
+		return *ais.Spec.APIMode
+	}
+	return ""
 }
 
 func (ais *AIStore) MaxLogTotal() *aiscos.SizeIEC {

@@ -47,6 +47,11 @@ spec:
           spec:
             description: AIStoreSpec defines the desired state of AIStore
             properties:
+              apiMode:
+                description: |-
+                  Which mode to use when communicating with the deployed AIS cluster's API
+                  Defaults to use internal headless proxy service if not provided
+                type: string
               authNSecretName:
                 description: Secret name containing AuthN's JWT signing key
                 type: string

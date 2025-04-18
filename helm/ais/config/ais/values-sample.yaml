@@ -41,6 +41,7 @@ shutdownCluster: false
 hostpathPrefix: "/etc/ais"
 # stateStorageClass defines an existing storage class for dynamic creation of k8s volumes
 stateStorageClass: "local-path"
+apiMode:
 cleanupData: false
 cleanupMetadata: false
 authNSecretName:
