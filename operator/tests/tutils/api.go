@@ -518,10 +518,6 @@ func InitK8sClusterProvider(ctx context.Context, client *aisclient.K8sClient) {
 			k8sProvider = K8sProviderGKE
 			return
 		}
-		if strings.Contains(nodes.Items[i].Name, "minikube") {
-			k8sProvider = K8sProviderMinikube
-			return
-		}
 	}
 	k8sProvider = K8sProviderUnknown
 }

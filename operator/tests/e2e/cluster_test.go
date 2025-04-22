@@ -29,7 +29,6 @@ var _ = Describe("Run Controller", func() {
 
 		Context("with externalLB", func() {
 			It("Should successfully create an AIS Cluster with required K8s objects", func(ctx context.Context) {
-				tutils.CheckSkip(&tutils.SkipArgs{RequiresLB: true})
 				cluArgs := defaultCluArgs()
 				cluArgs.EnableExternalLB = true
 				cc := newClientCluster(ctx, cluArgs)
@@ -38,7 +37,6 @@ var _ = Describe("Run Controller", func() {
 			It("Should successfully create a hetero-sized AIS Cluster", func(ctx context.Context) {
 				// If we have multiple targets on the same node we need a way to reach each of them
 				// Require an LB since we can't specify different host ports for each target in a statefulset
-				tutils.CheckSkip(&tutils.SkipArgs{RequiresLB: true})
 				cluArgs := defaultCluArgs()
 				cluArgs.TargetSize = 2
 				cluArgs.ProxySize = 1
@@ -148,7 +146,6 @@ var _ = Describe("Run Controller", func() {
 
 		Context("with externalLB", func() {
 			It("Should be able to scale-up existing cluster", func(ctx context.Context) {
-				tutils.CheckSkip(&tutils.SkipArgs{RequiresLB: true})
 				cluArgs := defaultCluArgs()
 				cluArgs.EnableExternalLB = true
 				cluArgs.MaxTargets = 2
@@ -160,7 +157,6 @@ var _ = Describe("Run Controller", func() {
 			})
 
 			It("Should be able to scale-down existing cluster", func(ctx context.Context) {
-				tutils.CheckSkip(&tutils.SkipArgs{RequiresLB: true})
 				cluArgs := defaultCluArgs()
 				cluArgs.Size = 2
 				cluArgs.EnableExternalLB = true

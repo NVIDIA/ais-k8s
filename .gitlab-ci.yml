@@ -1,11 +1,13 @@
 variables:
-  RUNNER_TAG: "ais-k8s"
+  CI_IMAGE: aistorage/gitlab-ci:latest
+  RUNNER_TAG: ais-k8s-ci
 
-image: aistorage/ci:latest
+image: $CI_IMAGE
 
 default:
   tags:
     - $RUNNER_TAG
+
 stages:
   - operator:build
   - operator:test:short
@@ -31,6 +33,17 @@ stages:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "main"
       when: manual
       allow_failure: true
+
+.operator_test_kind_template: &operator_test_kind_def
+  <<: *operator_rules_def
+  before_script:
+    - ./operator/tests/ci/cluster_setup.sh
+  after_script:
+    - cp -r /ci-kind-logs $CI_PROJECT_DIR/logs/
+  artifacts:
+    when: on_failure
+    paths: [ logs/ ]
+    expire_in: 1 day
 
 operator:lint:
   stage: operator:build
@@ -60,83 +73,17 @@ operator:test:unit:
   script:
     - make -C operator test
 
-operator:test:kind:unit:
+operator:test:kind:short:
   stage: operator:test:short
-  <<: *operator_rules_def
-  services: ["docker:24.0.5-dind"]
-  tags: ["ais"]
-  allow_failure: true
-  variables:
-    RUNNER_SCRIPT_TIMEOUT: 10m
-    RUNNER_AFTER_SCRIPT_TIMEOUT: 2m
-    DOCKER_HOST: tcp://docker:2375
-    DOCKER_TLS_CERTDIR: ""
-  parallel:
-    matrix:
-      - KUBERNETES_VERSION:
-          - v1.28.9
-          - v1.29.4
-          - v1.30.2
-  before_script:
-    - make -C operator kind
-    - kind create cluster --name ais-operator-test --image "kindest/node:${KUBERNETES_VERSION}" --config operator/scripts/kind_cluster_gitlab.yaml --retain
-    - sed -i -E -e 's/localhost|0\.0\.0\.0/docker/g' "$HOME/.kube/config"
-    - kubectl cluster-info
-  script:
-    - export USE_EXISTING_CLUSTER=true
-    - make -C operator test
-  after_script:
-    - kind export logs logs --name ais-operator-test
-    - kind delete cluster --name ais-operator-test
-  artifacts:
-    when: on_failure
-    paths: ["logs/"]
-    expire_in: 1 day
-
-operator:test:minikube:short:
-  stage: operator:test:short
-  tags: ["ais-k8s"]
+  extends: .operator_test_kind_template
   timeout: 30m
-  <<: *operator_rules_def
-  before_script:
-    - kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.31/deploy/local-path-storage.yaml
   script:
-    - make -C operator test-e2e-short
+    - ./operator/tests/ci/test_in_cluster.sh short
 
-operator:test:minikube:long:
+operator:test:kind:long:
   stage: operator:test:long
-  needs: ["operator:test:minikube:short"]
-  tags: ["ais-k8s-multinode"]
+  extends: .operator_test_kind_template
+  needs: ["operator:test:kind:short"]
   timeout: 40m
-  <<: *operator_rules_def
-  before_script:
-    - kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.31/deploy/local-path-storage.yaml
   script:
-    - make -C operator test-e2e-long
-
-operator:test:minikube:metallb:
-  stage: operator:test:long
-  needs: ["operator:test:minikube:short"]
-  tags: ["ais-k8s-multinode"]
-  timeout: 25m
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "schedule"
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_LABELS =~ /.*skip-ci.*/
-      when: never
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      changes:
-        - operator/**/*
-      when: manual
-      allow_failure: true
-  variables:
-    RUNNER_SCRIPT_TIMEOUT: 20m
-    RUNNER_AFTER_SCRIPT_TIMEOUT: 2m
-    # NOTE: No particular reason why these addresses would be unavailable.
-    EXTERNAL_ADDRESSES: 172.20.0.100–172.20.0.120
-  before_script:
-    - apt-get install gettext-base
-    - make -C operator deploy-metallb
-  script:
-    - make -C operator test-e2e
-  after_script:
-    - make -C operator undeploy-metallb
+    - ./operator/tests/ci/test_in_cluster.sh long

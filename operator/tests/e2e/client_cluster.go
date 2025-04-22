@@ -44,7 +44,6 @@ func newClientCluster(ctx context.Context, cluArgs *tutils.ClusterSpecArgs) *cli
 	cc.ctx, cc.cancelLogsStream = context.WithCancel(ctx)
 	if cluArgs.EnableExternalLB {
 		tutils.InitK8sClusterProvider(testCtx.Context(), k8sClient)
-		tutils.SkipIfLoadBalancerNotSupported()
 	}
 	return cc
 }

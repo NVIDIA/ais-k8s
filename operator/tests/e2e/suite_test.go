@@ -171,7 +171,8 @@ func CleanPVHostPath() {
 		return
 	}
 
-	nodes, err := k8sClient.ListNodesMatchingSelector(context.Background(), nil)
+	selector := map[string]string{"ais-node": "true"}
+	nodes, err := k8sClient.ListNodesMatchingSelector(context.Background(), selector)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to list nodes to run cleanup; err %v\n", err)
 		return

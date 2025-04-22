@@ -6,13 +6,13 @@ package tutils
 
 import (
 	"context"
-	"fmt"
 	"path"
 	"strconv"
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	aisclient "github.com/ais-operator/pkg/client"
+	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -73,14 +73,20 @@ func createStoragePVs(args *ClusterSpecArgs, client *aisclient.K8sClient, mounts
 
 	pvs := make([]*corev1.PersistentVolume, 0, len(mounts)*targetNum)
 
+	ctx := context.Background()
+	selector := map[string]string{"ais-node": "true"}
+	nodeList, err := client.ListNodesMatchingSelector(ctx, selector)
+
+	Expect(err).To(BeNil())
+	Expect(nodeList.Items).NotTo(BeEmpty())
+
 	for i := range targetNum {
 		for _, mount := range mounts {
 			var k8sNodeName string
-			// Force targets onto the same node to test this
 			if args.DisableTargetAntiAffinity {
-				k8sNodeName = "minikube"
+				k8sNodeName = nodeList.Items[0].Name
 			} else {
-				k8sNodeName = determineNode("minikube", "%s-m%02d", i)
+				k8sNodeName = nodeList.Items[i].Name
 			}
 			pvData := PVData{
 				storageClass: args.StorageClass,
@@ -98,17 +104,6 @@ func createStoragePVs(args *ClusterSpecArgs, client *aisclient.K8sClient, mounts
 		}
 	}
 	return pvs
-}
-
-// Determine the hostname of the node for PV affinity.
-// Targets will bind to specific PVs so in a multi-node multi-target test we must define the PVs on separate nodes
-// By default, a minikube multi-node cluster will create nodes named minikube, minikube-m02, minikube-m03...
-func determineNode(base, format string, ordinal int) string {
-	if ordinal == 0 {
-		return base
-	}
-	// minikube node names are not zero-indexed, so increment to match target names
-	return fmt.Sprintf(format, base, ordinal+1)
 }
 
 func defineMounts(args *ClusterSpecArgs) []aisv1.Mount {

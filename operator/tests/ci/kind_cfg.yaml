@@ -1,0 +1,36 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+containerdConfigPatches:
+  - |-
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+      SystemdCgroup = false
+kubeadmConfigPatches:
+  - |
+    kind: KubeletConfiguration
+    apiVersion: kubelet.config.k8s.io/v1beta1
+    featureGates:
+      KubeletInUserNamespace: true
+    cgroupDriver: "cgroupfs"
+nodes:
+  - role: control-plane
+    extraMounts:
+    - hostPath: /ci-kind-logs/control-plane
+      containerPath: /var/log
+  - role: worker
+    labels:
+      ais-node: true
+    extraMounts:
+    - hostPath: /ci-kind-logs/worker1
+      containerPath: /var/log
+  - role: worker
+    labels:
+      ais-node: true
+    extraMounts:
+    - hostPath: /ci-kind-logs/worker2
+      containerPath: /var/log
+  - role: worker
+    labels:
+      ais-node: true
+    extraMounts:
+    - hostPath: /ci-kind-logs/worker3
+      containerPath: /var/log
