@@ -1,21 +1,57 @@
-{{- if .Values.loki }}
+{{- if and .Values.remote .Values.loki }}
+{{- if .Values.loki.ngc_endpoint }}
 loki.write "ngc" {
   endpoint {
-    url = "{{ .Values.loki.endpoint }}"
+    url = "{{ .Values.loki.ngc_endpoint }}"
   }
   external_labels = {
-    cluster = "{{ .Values.loki.label }}",
+    cluster = "{{ .Values.remote.label }}",
     tenant = "anonymous",
   }
 }
+{{- end }}
+
+{{- if .Values.loki.panoptes_endpoint }}
+otelcol.receiver.loki "panoptes_loki_receiver" {
+  output {
+    logs = [otelcol.exporter.otlphttp.panoptes_logs_export.input]
+  }
+}
+
+otelcol.exporter.otlphttp "panoptes_logs_export" {
+  client {
+    auth = otelcol.auth.oauth2.azure_oidc.handler
+    endpoint = "{{ .Values.loki.panoptes_endpoint }}"
+  }
+}
+{{- end }}
 
 loki.relabel "remote" {
-  forward_to = [loki.write.ngc.receiver]
+  forward_to = [
+    {{- if .Values.loki.ngc_endpoint }}
+    loki.write.ngc.receiver,
+    {{- end }}
+    {{- if .Values.loki.panoptes_endpoint }}
+    otelcol.receiver.loki.panoptes_loki_receiver.receiver,
+    {{- end }}
+  ]
   rule {
     action = "keep"
     source_labels = ["app"]
     regex = "ais"
   }
+  rule {
+    action = "replace"
+    target_label = "cluster"
+    replacement = "{{ .Values.remote.label }}"
+  }
+}
+
+loki.relabel "all_logs" {
+  forward_to = [
+    loki.write.local.receiver,
+    loki.relabel.remote.receiver,
+  ]
 }
 {{- end }}
 

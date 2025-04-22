@@ -2,22 +2,50 @@ livedebugging {
   enabled = true
 }
 
-{{- if .Values.mimir }}
+{{- if and .Values.remote .Values.mimir }}
+{{- if .Values.mimir.ngc_endpoint }}
 prometheus.remote_write "ngc" {
   endpoint {
-    url = "{{ .Values.mimir.endpoint }}"
+    url = "{{ .Values.mimir.ngc_endpoint }} "
     remote_timeout = "15s"
   }
   external_labels = {
-    cluster = "{{ .Values.mimir.label }}",
+    cluster = "{{ .Values.remote.label }}",
     tenant = "anonymous",
   }
+}
+{{- end }}
+
+{{- if .Values.mimir.panoptes_endpoint }}
+otelcol.receiver.prometheus "panoptes_receiver_import" {
+  output {
+    metrics = [otelcol.processor.attributes.panoptes_insert_label.input]
+  }
+}
+
+otelcol.exporter.otlphttp "panoptes_metrics_export" {
+  client {
+    auth = otelcol.auth.oauth2.azure_oidc.handler
+    endpoint = "{{ .Values.mimir.panoptes_endpoint }}"
+  }
+}
+{{- end }}
+
+prometheus.relabel "remote_metrics" {
+  forward_to = [
+    {{- if .Values.mimir.panoptes_endpoint }}
+    prometheus.remote_write.ngc.receiver,
+    {{- end }}
+    {{- if .Values.mimir.ngc_endpoint }}
+    otelcol.receiver.prometheus.panoptes_receiver_import.receiver,
+    {{- end }}
+  ]
 }
 
 prometheus.relabel "all_metrics" {
   forward_to = [
     prometheus.relabel.local_metrics.receiver,
-    prometheus.remote_write.ngc.receiver,
+    prometheus.relabel.remote_metrics.receiver,
   ]
 }
 {{- end }}

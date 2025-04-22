@@ -18,6 +18,10 @@ The `config-chart` defines the base components used by multiple environments in 
 This allows for deploying alloy configs with different components for each environment. 
 Currently, local only writes to the local prometheus/loki, remote only writes to an environment-configured remote write location, and prod writes to both.  
 
+# Authentication
+
+For our panoptes remote write targets, you'll need to authenticate with our vault secrets. Follow the [instructions in the vault directory](../vault/README.md) and reference the Gitlab wiki to set up a secret in your target k8s cluster. 
+
 # Usage
 
 ## Template a new environment
@@ -31,3 +35,20 @@ Currently, local only writes to the local prometheus/loki, remote only writes to
 ## Sync a new environment with scraping for an HTTPS AIS cluster
 
 `set -a; . ../oci-iad.env ; set +a; helmfile -e prod --set https=true sync`
+
+
+# Debugging
+
+By default, the alloy deployment creates a service `alloy` in the monitoring namespace with port `12345`. 
+
+To port-forward for debugging, you can run the following command: 
+
+```bash
+kubectl port-forward -n monitoring svc/alloy 12345:12345
+```
+
+To force a config reload to test a config update, simply make an API call to this service:
+
+```bash
+curl -X POST http://localhost:12345/-/reload
+```

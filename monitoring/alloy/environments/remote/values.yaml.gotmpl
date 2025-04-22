@@ -1,7 +1,12 @@
 loki:
-  label: {{ requiredEnv "LOKI_LABEL" }}
-  endpoint: {{ requiredEnv "LOKI_ENDPOINT" }}
+  ngc_endpoint: {{ env "LOKI_ENDPOINT_NGC" }}
+  panoptes_endpoint: {{ env "LOKI_ENDPOINT_PANOPTES" }}
 
 mimir:
-  label: {{ requiredEnv "MIMIR_LABEL" }}
-  endpoint: {{ requiredEnv "MIMIR_ENDPOINT" }}
+  ngc_endpoint: {{ env "MIMIR_ENDPOINT_NGC" }}
+  panoptes_endpoint: {{ env "MIMIR_ENDPOINT_PANOPTES" }}
+
+remote: 
+  label: {{ requiredEnv "CLUSTER_LABEL" }}
+  secret: {{ requiredEnv "REMOTE_AUTH_SECRET" }}
+  scope: {{ requiredEnv "REMOTE_AUTH_SCOPE" }}

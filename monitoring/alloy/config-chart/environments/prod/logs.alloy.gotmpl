@@ -1,4 +1,5 @@
 loki.source.kubernetes "pod_logs" {
   targets    = discovery.relabel.pod_logs.output
-  forward_to = [loki.relabel.remote.receiver,loki.write.local.receiver]
+  {{/* Set to remote only, update to all_logs.receiver to also export locally */}}
+  forward_to = [loki.relabel.remote.receiver]
 }
