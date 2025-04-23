@@ -6,7 +6,7 @@ livedebugging {
 {{- if .Values.mimir.ngc_endpoint }}
 prometheus.remote_write "ngc" {
   endpoint {
-    url = "{{ .Values.mimir.ngc_endpoint }} "
+    url = "{{ .Values.mimir.ngc_endpoint }}"
     remote_timeout = "15s"
   }
   external_labels = {
