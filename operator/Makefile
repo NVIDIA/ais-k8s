@@ -15,13 +15,6 @@ ENVTEST_K8S_VERSION = 1.25.0
 # KIND_K8S_VERSION refers to the version of container images for nodes that are being created during cluster setup.
 KIND_K8S_VERSION ?= v1.28.7
 
-# Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
-ifeq (,$(shell go env GOBIN))
-GOBIN=$(shell go env GOPATH)/bin
-else
-GOBIN=$(shell go env GOBIN)
-endif
-
 # CONTAINER_TOOL defines the container tool to be used for building images.
 # Be aware that the target commands are only tested with Docker which is
 # scaffolded by default. However, you might want to replace it to use other
@@ -81,20 +74,20 @@ vet: ## Run go vet against code.
 	go vet ./...
 
 .PHONY: test test-e2e test-e2-short test-e2-long test-e2e-manual
-test: manifests generate fmt vet envtest ## Run tests.
+test: manifests generate envtest ## Run tests.
 	@[[ $$(command -v ginkgo) ]] || go install github.com/onsi/ginkgo/v2/ginkgo
 	@KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" ginkgo --vv --skip-package e2e --coverprofile cover.out ./...
 
-test-e2e: manifests generate fmt vet envtest
+test-e2e: manifests generate envtest
 	@KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" $(SHELL) "$(SCRIPTS_DIR)/test.sh"
 
-test-e2e-short: manifests generate fmt vet envtest
+test-e2e-short: manifests generate envtest
 	@KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" $(SHELL) "$(SCRIPTS_DIR)/test.sh" short
 
-test-e2e-long: manifests generate fmt vet envtest
+test-e2e-long: manifests generate envtest
 	@KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" $(SHELL) "$(SCRIPTS_DIR)/test.sh" long
 
-test-e2e-manual: manifests generate fmt vet envtest
+test-e2e-manual: manifests generate envtest
 	@KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" $(SHELL) "$(SCRIPTS_DIR)/test.sh" manual
 
 .PHONY: kind kind-setup kind-teardown
@@ -214,6 +207,8 @@ KUSTOMIZE ?= $(LOCALBIN)/kustomize-$(KUSTOMIZE_VERSION)
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen-$(CONTROLLER_TOOLS_VERSION)
 ENVTEST ?= $(LOCALBIN)/setup-envtest-$(ENVTEST_VERSION)
 HELMIFY = $(LOCALBIN)/helmify
+# Install mockgen to GOPATH since it's called from within source files
+MOCKGEN = $(GOPATH)/bin/mockgen
 HELM = $(LOCALBIN)/helm
 
 ## Tool Versions
@@ -228,25 +223,20 @@ GOLANGCI_LINT = $(shell which golangci-lint)
 GOLANGCI_LINT_INSTALLER = https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh
 GOLANGCI_LINT_VERSION ?= v2.0.2
 
-
-OS := $(shell uname -s | tr '[:upper:]' '[:lower:]')
-ARCH := $(shell uname -m)
-SYSTEM := $(OS)-$(ARCH)
-
 .PHONY: kustomize
 kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary.
 $(KUSTOMIZE): $(LOCALBIN)
-	$(call go-install-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v5,$(KUSTOMIZE_VERSION))
+	./scripts/go_install_tool.sh $(KUSTOMIZE) sigs.k8s.io/kustomize/kustomize/v5 $(KUSTOMIZE_VERSION)
 
 .PHONY: controller-gen
 controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessary.
 $(CONTROLLER_GEN): $(LOCALBIN)
-	$(call go-install-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen,$(CONTROLLER_TOOLS_VERSION))
+	./scripts/go_install_tool.sh $(CONTROLLER_GEN) sigs.k8s.io/controller-tools/cmd/controller-gen $(CONTROLLER_TOOLS_VERSION)
 
 .PHONY: envtest
 envtest: $(ENVTEST) ## Download setup-envtest locally if necessary.
 $(ENVTEST): $(LOCALBIN)
-	$(call go-install-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest,$(ENVTEST_VERSION))
+	./scripts/go_install_tool.sh $(ENVTEST) sigs.k8s.io/controller-runtime/tools/setup-envtest $(ENVTEST_VERSION)
 
 .PHONY: golangci-lint
 golangci-lint:
@@ -259,48 +249,14 @@ endif
 
 .PHONY: helm
 helm:
-	$(call helm-get-tool)
+	./scripts/install_helm.sh $(LOCALBIN) $(HELM_VERSION)
 
 .PHONY: helmify
 helmify: $(HELMIFY)
 $(HELMIFY): $(LOCALBIN)
-	$(call go-install-tool,$(HELMIFY),github.com/arttor/helmify/cmd/helmify,latest)
+	./scripts/go_install_tool.sh $(HELMIFY) github.com/arttor/helmify/cmd/helmify latest
 
 .PHONY: mockgen
-mockgen: ## Download mockgen locally if necessary.
-	@echo "Downloading mockgen"
-	@go install go.uber.org/mock/mockgen@$(MOCKGEN_VERSION)
-
-# go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist
-# $1 - target path with name of binary (ideally with version)
-# $2 - package url which can be installed
-# $3 - specific version of package
-define go-install-tool
-@[ -f $(1) ] || { \
-set -e; \
-package=$(2)@$(3) ;\
-SRC="$$(echo "$(1)" | sed "s/-$(3)$$//")" ;\
-DEST=$(1) ;\
-echo "Downloading $${package}" ;\
-GOBIN=$(LOCALBIN) go install $${package} ;\
-if [ "$$SRC" != "$$DEST" ]; then \
-  mv -f $$SRC $$DEST ;\
-fi ;\
-}
-endef
-
-
-# get helm and install it locally
-define helm-get-tool
-@[ -f $(HELM) ] || { \
-set -e ;\
-TMP_DIR=$$(mktemp -d) ;\
-[ -d $(LOCALBIN) ] || mkdir -p $(LOCALBIN) ;\
-cd $$TMP_DIR ;\
-echo "Downloading 'get-helm' script" ;\
-curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 ;\
-chmod 700 get_helm.sh ;\
-HELM_INSTALL_DIR=$(LOCALBIN) ./get_helm.sh --version $(HELM_VERSION) --no-sudo ;\
-rm -rf $$TMP_DIR ;\
-}
-endef
+mockgen: $(MOCKGEN) ## Download mockgen locally if necessary.
+$(MOCKGEN):
+	./scripts/go_install_tool.sh $(MOCKGEN) go.uber.org/mock/mockgen $(MOCKGEN_VERSION)

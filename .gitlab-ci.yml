@@ -1,5 +1,11 @@
+variables:
+  RUNNER_TAG: "ais-k8s"
+
 image: aistorage/ci:latest
 
+default:
+  tags:
+    - $RUNNER_TAG
 stages:
   - operator:build
   - operator:test:short
