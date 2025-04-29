@@ -57,6 +57,8 @@ var _ = Describe("Run Controller", func() {
 			cc2 := newClientCluster(ctx, defaultCluArgs())
 			cc2.applyHostPortOffset(int32(10))
 			defer func() {
+				Expect(tutils.PrintLogs(cc1.ctx, cc1.cluster, k8sClient)).To(Succeed())
+				Expect(tutils.PrintLogs(cc2.ctx, cc2.cluster, k8sClient)).To(Succeed())
 				cc2.destroyAndCleanup()
 				cc1.destroyAndCleanup()
 			}()
@@ -81,6 +83,8 @@ var _ = Describe("Run Controller", func() {
 			cc2 := newClientCluster(ctx, otherCluArgs)
 			cc2.applyHostPortOffset(int32(10))
 			defer func() {
+				Expect(tutils.PrintLogs(cc1.ctx, cc1.cluster, k8sClient)).To(Succeed())
+				Expect(tutils.PrintLogs(cc2.ctx, cc2.cluster, k8sClient)).To(Succeed())
 				cc2.destroyAndCleanup()
 				cc1.destroyAndCleanup()
 			}()
@@ -104,6 +108,7 @@ var _ = Describe("Run Controller", func() {
 			jobs, err := aisapi.GetAllXactionStatus(cc.getBaseParams(), &args)
 			Expect(err).To(BeNil())
 			Expect(len(jobs)).To(BeZero())
+			Expect(tutils.PrintLogs(cc.ctx, cc.cluster, k8sClient)).To(Succeed())
 			cc.destroyAndCleanup()
 		})
 	})
@@ -197,6 +202,7 @@ var _ = Describe("Run Controller", func() {
 			// Restart cluster
 			cc.restart()
 			tutils.ObjectsShouldExist(cc.getBaseParams(), bck, names...)
+			Expect(tutils.PrintLogs(cc.ctx, cc.cluster, k8sClient)).To(Succeed())
 			cc.destroyAndCleanup()
 		})
 
@@ -232,6 +238,7 @@ var _ = Describe("Run Controller", func() {
 			cc.scale(false, -1)
 			By("Validate objects exist after scaling")
 			tutils.ObjectsShouldExist(cc.getBaseParams(), bck, names...)
+			Expect(tutils.PrintLogs(cc.ctx, cc.cluster, k8sClient)).To(Succeed())
 			cc.destroyAndCleanup()
 		})
 
@@ -270,6 +277,7 @@ var _ = Describe("Run Controller", func() {
 			By("Expect error getting bucket -- all data deleted")
 			_, err = aisapi.HeadBucket(cc.getBaseParams(), bck, true)
 			Expect(aiscmn.IsStatusNotFound(err)).To(BeTrue())
+			Expect(tutils.PrintLogs(cc.ctx, cc.cluster, k8sClient)).To(Succeed())
 			cc.destroyAndCleanup()
 		})
 
@@ -306,6 +314,7 @@ var _ = Describe("Run Controller", func() {
 			cc.recreate(cluArgs, true)
 			By("Validate objects from previous cluster still exist")
 			tutils.ObjectsShouldExist(cc.getBaseParams(), bck, names...)
+			Expect(tutils.PrintLogs(cc.ctx, cc.cluster, k8sClient)).To(Succeed())
 			cc.destroyAndCleanup()
 		})
 	})

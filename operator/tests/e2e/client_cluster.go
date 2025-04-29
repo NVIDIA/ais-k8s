@@ -78,7 +78,6 @@ func (cc *clientCluster) create(long bool) {
 	cc.createCluster(cc.getTimeout(long), clusterCreateInterval)
 	cc.waitForReadyCluster()
 	cc.initClientAccess()
-	Expect(tutils.StreamLogs(cc.ctx, cc.cluster.Namespace)).To(Succeed())
 }
 
 func (cc *clientCluster) createWithCallback(long bool, postCreate func()) {
@@ -92,6 +91,7 @@ func (cc *clientCluster) createWithCallback(long bool, postCreate func()) {
 func (cc *clientCluster) createAndDestroyCluster(postCreate func(),
 	postDestroy func(), long bool) {
 	defer func() {
+		Expect(tutils.PrintLogs(cc.ctx, cc.cluster, k8sClient)).To(Succeed())
 		cc.destroyCleanupWithCallback(postDestroy)
 	}()
 	cc.createWithCallback(long, postCreate)

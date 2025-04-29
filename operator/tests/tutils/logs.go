@@ -1,49 +1,45 @@
 // Package tutils provides utilities for running AIS operator tests
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION. All rights reserved.
  */
 package tutils
 
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
-	"os/exec"
+
+	aisv1 "github.com/ais-operator/api/v1beta1"
+	aisclient "github.com/ais-operator/pkg/client"
+	corev1 "k8s.io/api/core/v1"
 )
 
-func StreamLogs(ctx context.Context, namespace string) (err error) {
-	cmd := exec.Command("kubectl", "logs", "-f",
-		"--max-log-requests", "10",
-		"-l", "app.kubernetes.io/component in (proxy,target)",
-		"-n", namespace,
-	)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stdin
-	if err = cmd.Start(); err != nil {
-		return
+// PrintLogs prints all logs from proxy and target pods in the given AIStore
+// cluster to stdout.
+func PrintLogs(ctx context.Context, cluster *aisv1.AIStore, client *aisclient.K8sClient) (err error) {
+	cs, err := NewClientset()
+	if err != nil {
+		return fmt.Errorf("error creating clientset: %v", err)
 	}
-	fmt.Println("AIStore logs started")
-
-	waitCh := make(chan error, 1)
-	go func() {
-		waitCh <- cmd.Wait()
-		close(waitCh)
-	}()
-
-	go func() {
-		defer fmt.Println("AIStore logs finished")
-
-		select {
-		case <-ctx.Done():
-			cmd.Process.Kill()
-			return
-		case err = <-waitCh:
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Logs streaming ended with err: %v\n", err)
-			}
-			return
+	clusterSelector := map[string]string{"app.kubernetes.io/name": cluster.Name}
+	podList, err := client.ListPods(ctx, cluster, clusterSelector)
+	if err != nil {
+		return fmt.Errorf("error listing pods for cluster %s: %v", cluster.Name, err)
+	}
+	for i := range podList.Items {
+		pod := &podList.Items[i]
+		opts := &corev1.PodLogOptions{Container: "ais-logs"}
+		req := cs.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, opts)
+		stream, err := req.Stream(ctx)
+		if err != nil {
+			return fmt.Errorf("error opening log stream: %v", err)
 		}
-	}()
-
+		defer stream.Close()
+		fmt.Printf("Logs for pod %s in cluster %s:\n", pod.Name, cluster.Name)
+		if _, err := io.Copy(os.Stdout, stream); err != nil {
+			return fmt.Errorf("error printing logs for pod %s in cluster %s: %v", pod.Name, cluster.Name, err)
+		}
+	}
 	return nil
 }
