@@ -16,6 +16,9 @@ spec:
         client_ca_tls: "/var/certs/ca.crt"
         client_auth_tls: 0
     {{- end }}
+    {{- with .Values.configToUpdate }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
   proxySpec:
     tolerations:
       {{- with .Values.proxySpec.tolerations }}

@@ -41,6 +41,7 @@ logSidecarImage:
 cloud:
   awsSecretName: "aws-creds"
   gcpSecretName: "gcp-creds"
+configToUpdate:
 multihome:
   enabled: false
   hostnameMap: 

@@ -30,6 +30,9 @@ logSidecarImage:
 cloud:
   awsSecretName: "aws-creds"
   gcpSecretName: "gcp-creds"
+# Update the AIS config directly in spec
+# See https://github.com/NVIDIA/ais-k8s/blob/main/operator/api/v1beta1/aisconfig.go for valid options
+configToUpdate:
 multihome:
   enabled: false
   hostnameMap: 
