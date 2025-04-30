@@ -90,13 +90,12 @@ test-e2e-long: manifests generate envtest
 test-e2e-manual: manifests generate envtest
 	@KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" $(SHELL) "$(SCRIPTS_DIR)/test.sh" manual
 
-.PHONY: kind kind-setup kind-teardown
-kind:
-	@[[ $$(command -v kind) ]] || go install sigs.k8s.io/kind@v0.23.0
+.PHONY: kind-setup kind-teardown
 kind-setup: kind
-	kind create cluster --name ais-operator-test --image kindest/node:$(KIND_K8S_VERSION) --config scripts/kind_cluster_local.yaml
+	$(KIND) create cluster --name ais-operator-test --image kindest/node:$(KIND_K8S_VERSION) --config scripts/kind_cluster_local.yaml
+
 kind-teardown: kind
-	kind delete cluster --name ais-operator-test
+	$(KIND) delete cluster --name ais-operator-test
 
 .PHONY: lint
 lint: golangci-lint ## Run golangci-lint linter
@@ -210,6 +209,8 @@ HELMIFY = $(LOCALBIN)/helmify
 # Install mockgen to GOPATH since it's called from within source files
 MOCKGEN = $(GOPATH)/bin/mockgen
 HELM = $(LOCALBIN)/helm
+KIND ?= $(LOCALBIN)/kind-$(KIND_VERSION)
+CLOUD_PROVIDER_KIND ?= $(LOCALBIN)/cloud-provider-kind-$(CLOUD_PROVIDER_KIND_VERSION)
 
 ## Tool Versions
 HELM_VERSION ?= v3.16.2
@@ -217,6 +218,8 @@ KUSTOMIZE_VERSION ?= v5.4.1
 CONTROLLER_TOOLS_VERSION ?= v0.16.1
 ENVTEST_VERSION ?= release-0.18
 MOCKGEN_VERSION ?= v0.4.0
+KIND_VERSION ?= v0.27.0
+CLOUD_PROVIDER_KIND_VERSION ?= v0.6.0
 
 # Lint
 GOLANGCI_LINT = $(shell which golangci-lint)
@@ -260,3 +263,13 @@ $(HELMIFY): $(LOCALBIN)
 mockgen: $(MOCKGEN) ## Download mockgen locally if necessary.
 $(MOCKGEN):
 	./scripts/go_install_tool.sh $(MOCKGEN) go.uber.org/mock/mockgen $(MOCKGEN_VERSION)
+
+.PHONY: kind
+kind: $(KIND)
+$(KIND): $(LOCALBIN)
+	./scripts/go_install_tool.sh $(KIND) sigs.k8s.io/kind $(KIND_VERSION)
+
+.PHONY: cloud-provider-kind
+cloud-provider-kind: $(CLOUD_PROVIDER_KIND)
+$(CLOUD_PROVIDER_KIND): $(LOCALBIN)
+	./scripts/go_install_tool.sh $(CLOUD_PROVIDER_KIND) sigs.k8s.io/cloud-provider-kind $(CLOUD_PROVIDER_KIND_VERSION)
