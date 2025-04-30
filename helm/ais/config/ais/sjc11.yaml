@@ -42,6 +42,8 @@ cloud:
   awsSecretName: "aws-creds"
   gcpSecretName: "gcp-creds"
 configToUpdate:
+  memsys: 
+    hk_time: 3m
 multihome:
   enabled: false
   hostnameMap: 

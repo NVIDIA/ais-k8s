@@ -37,16 +37,21 @@ size: 16
 protocol: http
 nodeImage:
   name: aistorage/aisnode
-  tag: v3.26-312a648
+  tag: v3.28-462d7f4
 initImage:
   name: aistorage/ais-init
-  tag: v3.26-a7ac713
+  tag: v3.28-462d7f4
 logSidecarImage:
   name: aistorage/ais-logs
   tag: v1.0
 cloud:
   awsSecretName: "aws-creds"
   gcpSecretName: ""
+configToUpdate:
+  memsys:
+    min_free: 8GiB
+    to_gc: 8GiB
+    hk_time: 3m
 multihome:
   enabled: false
   hostnameMap: 
