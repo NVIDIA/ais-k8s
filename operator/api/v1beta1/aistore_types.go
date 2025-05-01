@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
-	aiscos "github.com/NVIDIA/aistore/cmn/cos"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -473,7 +472,7 @@ func (ais *AIStore) GetAPIMode() string {
 	return ""
 }
 
-func (ais *AIStore) MaxLogTotal() *aiscos.SizeIEC {
+func (ais *AIStore) MaxLogTotal() *SizeIEC {
 	if ais.Spec.ConfigToUpdate == nil || ais.Spec.ConfigToUpdate.Log == nil {
 		return nil
 	}

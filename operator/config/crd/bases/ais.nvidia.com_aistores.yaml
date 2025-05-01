@@ -225,11 +225,9 @@ spec:
                       level:
                         type: string
                       max_size:
-                        format: int64
-                        type: integer
+                        type: string
                       max_total:
-                        format: int64
-                        type: integer
+                        type: string
                       stats_time:
                         type: string
                       to_stderr:
@@ -247,20 +245,17 @@ spec:
                   memsys:
                     properties:
                       default_buf:
-                        format: int64
-                        type: integer
+                        type: string
                       hk_time:
                         type: string
                       min_free:
-                        format: int64
-                        type: integer
+                        type: string
                       min_pct_free:
                         type: integer
                       min_pct_total:
                         type: integer
                       to_gc:
-                        format: int64
-                        type: integer
+                        type: string
                     type: object
                   mirror:
                     properties:

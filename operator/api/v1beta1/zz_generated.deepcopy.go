@@ -993,12 +993,12 @@ func (in *LogConfToUpdate) DeepCopyInto(out *LogConfToUpdate) {
 	}
 	if in.MaxSize != nil {
 		in, out := &in.MaxSize, &out.MaxSize
-		*out = new(cos.SizeIEC)
+		*out = new(SizeIEC)
 		**out = **in
 	}
 	if in.MaxTotal != nil {
 		in, out := &in.MaxTotal, &out.MaxTotal
-		*out = new(cos.SizeIEC)
+		*out = new(SizeIEC)
 		**out = **in
 	}
 	if in.FlushTime != nil {
@@ -1028,17 +1028,17 @@ func (in *MemsysConfToUpdate) DeepCopyInto(out *MemsysConfToUpdate) {
 	*out = *in
 	if in.MinFree != nil {
 		in, out := &in.MinFree, &out.MinFree
-		*out = new(cos.SizeIEC)
+		*out = new(SizeIEC)
 		**out = **in
 	}
 	if in.DefaultBufSize != nil {
 		in, out := &in.DefaultBufSize, &out.DefaultBufSize
-		*out = new(cos.SizeIEC)
+		*out = new(SizeIEC)
 		**out = **in
 	}
 	if in.SizeToGC != nil {
 		in, out := &in.SizeToGC, &out.SizeToGC
-		*out = new(cos.SizeIEC)
+		*out = new(SizeIEC)
 		**out = **in
 	}
 	if in.HousekeepTime != nil {

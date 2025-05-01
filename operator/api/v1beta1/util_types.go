@@ -21,3 +21,10 @@ type Duration cos.Duration
 
 func (d Duration) MarshalJSON() ([]byte, error)        { return cos.Duration(d).MarshalJSON() }
 func (d *Duration) UnmarshalJSON(b []byte) (err error) { return (*cos.Duration)(d).UnmarshalJSON(b) }
+
+// SizeIEC is wrapper over `cos.SizeIEC` that overrides type in generated manifests.
+// +kubebuilder:validation:Type=string
+type SizeIEC cos.SizeIEC
+
+func (s SizeIEC) MarshalJSON() ([]byte, error)        { return cos.SizeIEC(s).MarshalJSON() }
+func (s *SizeIEC) UnmarshalJSON(b []byte) (err error) { return (*cos.SizeIEC)(s).UnmarshalJSON(b) }

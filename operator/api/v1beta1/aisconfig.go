@@ -63,8 +63,8 @@ type (
 	LogConfToUpdate struct {
 		Level     *cos.LogLevel `json:"level,omitempty"`
 		ToStderr  *bool         `json:"to_stderr,omitempty"`
-		MaxSize   *cos.SizeIEC  `json:"max_size,omitempty"`
-		MaxTotal  *cos.SizeIEC  `json:"max_total,omitempty"`
+		MaxSize   *SizeIEC      `json:"max_size,omitempty"`
+		MaxTotal  *SizeIEC      `json:"max_total,omitempty"`
 		FlushTime *Duration     `json:"flush_time,omitempty"`
 		StatsTime *Duration     `json:"stats_time,omitempty"`
 	}
@@ -216,12 +216,12 @@ type (
 		LZ4FrameChecksum *bool     `json:"lz4_frame_checksum,omitempty"`
 	}
 	MemsysConfToUpdate struct {
-		MinFree        *cos.SizeIEC `json:"min_free,omitempty" list:"readonly"`
-		DefaultBufSize *cos.SizeIEC `json:"default_buf,omitempty"`
-		SizeToGC       *cos.SizeIEC `json:"to_gc,omitempty"`
-		HousekeepTime  *Duration    `json:"hk_time,omitempty"`
-		MinPctTotal    *int         `json:"min_pct_total,omitempty" list:"readonly"`
-		MinPctFree     *int         `json:"min_pct_free,omitempty" list:"readonly"`
+		MinFree        *SizeIEC  `json:"min_free,omitempty" list:"readonly"`
+		DefaultBufSize *SizeIEC  `json:"default_buf,omitempty"`
+		SizeToGC       *SizeIEC  `json:"to_gc,omitempty"`
+		HousekeepTime  *Duration `json:"hk_time,omitempty"`
+		MinPctTotal    *int      `json:"min_pct_total,omitempty" list:"readonly"`
+		MinPctFree     *int      `json:"min_pct_free,omitempty" list:"readonly"`
 	}
 	TCBConfToUpdate struct {
 		Compression *string `json:"compression,omitempty"`
