@@ -209,8 +209,8 @@ HELMIFY = $(LOCALBIN)/helmify
 # Install mockgen to GOPATH since it's called from within source files
 MOCKGEN = $(GOPATH)/bin/mockgen
 HELM = $(LOCALBIN)/helm
-KIND ?= $(LOCALBIN)/kind-$(KIND_VERSION)
-CLOUD_PROVIDER_KIND ?= $(LOCALBIN)/cloud-provider-kind-$(CLOUD_PROVIDER_KIND_VERSION)
+KIND ?= $(LOCALBIN)/kind
+CLOUD_PROVIDER_KIND ?= $(LOCALBIN)/cloud-provider-kind
 
 ## Tool Versions
 HELM_VERSION ?= v3.16.2
