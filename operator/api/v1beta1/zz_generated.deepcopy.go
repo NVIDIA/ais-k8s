@@ -788,7 +788,7 @@ func (in *FSHCConfToUpdate) DeepCopyInto(out *FSHCConfToUpdate) {
 	}
 	if in.IOErrTime != nil {
 		in, out := &in.IOErrTime, &out.IOErrTime
-		*out = new(cos.Duration)
+		*out = new(Duration)
 		**out = **in
 	}
 	if in.Enabled != nil {
@@ -833,7 +833,7 @@ func (in *HTTPConfToUpdate) DeepCopyInto(out *HTTPConfToUpdate) {
 	}
 	if in.IdleConnTimeout != nil {
 		in, out := &in.IdleConnTimeout, &out.IdleConnTimeout
-		*out = new(cos.Duration)
+		*out = new(Duration)
 		**out = **in
 	}
 	if in.MaxIdleConnsPerHost != nil {
@@ -1224,7 +1224,7 @@ func (in *RateLimitBaseToUpdate) DeepCopyInto(out *RateLimitBaseToUpdate) {
 	}
 	if in.Interval != nil {
 		in, out := &in.Interval, &out.Interval
-		*out = new(cos.Duration)
+		*out = new(Duration)
 		**out = **in
 	}
 	if in.MaxTokens != nil {

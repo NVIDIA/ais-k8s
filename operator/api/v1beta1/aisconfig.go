@@ -158,26 +158,26 @@ type (
 		HTTP *HTTPConfToUpdate `json:"http,omitempty"`
 	}
 	HTTPConfToUpdate struct {
-		Certificate         *string       `json:"server_crt,omitempty"`
-		CertKey             *string       `json:"server_key,omitempty"`
-		ServerNameTLS       *string       `json:"domain_tls,omitempty"`
-		ClientCA            *string       `json:"client_ca_tls,omitempty"`
-		IdleConnTimeout     *cos.Duration `json:"idle_conn_time,omitempty"`
-		MaxIdleConnsPerHost *int          `json:"idle_conns_per_host,omitempty"`
-		MaxIdleConns        *int          `json:"idle_conns,omitempty"`
-		WriteBufferSize     *int          `json:"write_buffer_size,omitempty" list:"readonly"`
-		ReadBufferSize      *int          `json:"read_buffer_size,omitempty" list:"readonly"`
-		ClientAuthTLS       *int          `json:"client_auth_tls,omitempty"`
-		UseHTTPS            *bool         `json:"use_https,omitempty"`
-		SkipVerifyCrt       *bool         `json:"skip_verify,omitempty"`
-		Chunked             *bool         `json:"chunked_transfer,omitempty"`
+		Certificate         *string   `json:"server_crt,omitempty"`
+		CertKey             *string   `json:"server_key,omitempty"`
+		ServerNameTLS       *string   `json:"domain_tls,omitempty"`
+		ClientCA            *string   `json:"client_ca_tls,omitempty"`
+		IdleConnTimeout     *Duration `json:"idle_conn_time,omitempty"`
+		MaxIdleConnsPerHost *int      `json:"idle_conns_per_host,omitempty"`
+		MaxIdleConns        *int      `json:"idle_conns,omitempty"`
+		WriteBufferSize     *int      `json:"write_buffer_size,omitempty" list:"readonly"`
+		ReadBufferSize      *int      `json:"read_buffer_size,omitempty" list:"readonly"`
+		ClientAuthTLS       *int      `json:"client_auth_tls,omitempty"`
+		UseHTTPS            *bool     `json:"use_https,omitempty"`
+		SkipVerifyCrt       *bool     `json:"skip_verify,omitempty"`
+		Chunked             *bool     `json:"chunked_transfer,omitempty"`
 	}
 	FSHCConfToUpdate struct {
-		TestFileCount *int          `json:"test_files,omitempty"`
-		HardErrs      *int          `json:"error_limit,omitempty"`
-		IOErrs        *int          `json:"io_err_limit,omitempty"`
-		IOErrTime     *cos.Duration `json:"io_err_time,omitempty"`
-		Enabled       *bool         `json:"enabled,omitempty"`
+		TestFileCount *int      `json:"test_files,omitempty"`
+		HardErrs      *int      `json:"error_limit,omitempty"`
+		IOErrs        *int      `json:"io_err_limit,omitempty"`
+		IOErrTime     *Duration `json:"io_err_time,omitempty"`
+		Enabled       *bool     `json:"enabled,omitempty"`
 	}
 	AuthConfToUpdate struct {
 		Enabled *bool   `json:"enabled,omitempty"`
@@ -232,10 +232,10 @@ type (
 		MD   *string `json:"md,omitempty"`
 	}
 	RateLimitBaseToUpdate struct {
-		Verbs     *string       `json:"per_op_max_tokens,omitempty"`
-		Interval  *cos.Duration `json:"interval,omitempty"`
-		MaxTokens *int          `json:"max_tokens,omitempty"`
-		Enabled   *bool         `json:"enabled,omitempty"`
+		Verbs     *string   `json:"per_op_max_tokens,omitempty"`
+		Interval  *Duration `json:"interval,omitempty"`
+		MaxTokens *int      `json:"max_tokens,omitempty"`
+		Enabled   *bool     `json:"enabled,omitempty"`
 	}
 	AdaptiveToUpdate struct {
 		NumRetries            *int `json:"num_retries,omitempty"`
