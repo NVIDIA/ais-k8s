@@ -99,11 +99,11 @@ kind-teardown: kind
 
 .PHONY: lint
 lint: golangci-lint ## Run golangci-lint linter
-	$(GOLANGCI_LINT) run
+	golangci-lint run
 
 .PHONY: lint-fix
 lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
-	$(GOLANGCI_LINT) run --fix
+	golangci-lint run --fix
 
 .PHONY: fmt-check
 fmt-check: ## Check code formatting
@@ -205,8 +205,6 @@ KUSTOMIZE ?= $(LOCALBIN)/kustomize-$(KUSTOMIZE_VERSION)
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen-$(CONTROLLER_TOOLS_VERSION)
 ENVTEST ?= $(LOCALBIN)/setup-envtest-$(ENVTEST_VERSION)
 HELMIFY = $(LOCALBIN)/helmify
-# Install mockgen to GOPATH since it's called from within source files
-MOCKGEN = $(GOPATH)/bin/mockgen
 HELM = $(LOCALBIN)/helm
 KIND ?= $(LOCALBIN)/kind
 CLOUD_PROVIDER_KIND ?= $(LOCALBIN)/cloud-provider-kind
@@ -221,7 +219,6 @@ KIND_VERSION ?= v0.27.0
 CLOUD_PROVIDER_KIND_VERSION ?= v0.6.0
 
 # Lint
-GOLANGCI_LINT = $(shell which golangci-lint)
 GOLANGCI_LINT_INSTALLER = https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh
 GOLANGCI_LINT_VERSION ?= v2.0.2
 
@@ -240,14 +237,14 @@ envtest: $(ENVTEST) ## Download setup-envtest locally if necessary.
 $(ENVTEST): $(LOCALBIN)
 	./scripts/go_install_tool.sh $(ENVTEST) sigs.k8s.io/controller-runtime/tools/setup-envtest $(ENVTEST_VERSION)
 
+
 .PHONY: golangci-lint
-golangci-lint:
-# If we don't have it in path, install locally if necessary
-ifeq ($(GOLANGCI_LINT),)
-	curl -sSfL $(GOLANGCI_LINT_INSTALLER) | sh -s -- -b $(GOPATH)/bin $(GOLANGCI_LINT_VERSION)
-	$(eval GOLANGCI_LINT := $(GOPATH)/bin/golangci-lint)
-endif
-	@echo "Using golangci-lint: $(GOLANGCI_LINT)"
+golangci-lint: ## Download golangci-lint to GOPATH/bin if necessary.
+	@command -v golangci-lint >/dev/null 2>&1 || { \
+		echo "golangci-lint not found, installing to $(GOPATH)/bin"; \
+		curl -sSfL $(GOLANGCI_LINT_INSTALLER) | sh -s -- -b $(GOPATH)/bin $(GOLANGCI_LINT_VERSION); \
+	}
+	@echo "Using golangci-lint: $$(command -v golangci-lint)"
 
 .PHONY: helm
 helm:
@@ -259,9 +256,11 @@ $(HELMIFY): $(LOCALBIN)
 	./scripts/go_install_tool.sh $(HELMIFY) github.com/arttor/helmify/cmd/helmify latest
 
 .PHONY: mockgen
-mockgen: $(MOCKGEN) ## Download mockgen locally if necessary.
-$(MOCKGEN):
-	./scripts/go_install_tool.sh $(MOCKGEN) go.uber.org/mock/mockgen $(MOCKGEN_VERSION)
+mockgen:  ## Download mockgen to default install location if necessary.
+	@command -v mockgen >/dev/null 2>&1 || { \
+		echo "mockgen not found, installing..."; \
+		go install go.uber.org/mock/mockgen@$(MOCKGEN_VERSION); \
+	}
 
 .PHONY: kind
 kind: $(KIND)
