@@ -168,7 +168,6 @@ build-installer-helm: require-img require-version helm helmify build-installer
 release: build-installer-helm
 	git add ../pages/charts config/manager/kustomization.yaml
 	git commit -s -m "operator: Release version $(VERSION)"
-	git tag $(VERSION)
 
 ##@ Deployment
 
