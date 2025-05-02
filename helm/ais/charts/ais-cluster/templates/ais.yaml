@@ -71,11 +71,12 @@ spec:
     nodeSelector:
       nvidia.com/ais-target: {{ .Values.global.cluster }}
     mounts:
-    {{- $size := .Values.global.mpath_size }}
-    {{- range .Values.global.mpaths }}
+    {{- $global := .Values.global }}
+    {{- $size := $global.mpathSize }}
+    {{- range $global.mpaths }}
       - path: {{ . }}
         size: {{ $size }}
-        storageClass: "ais-local-storage"
+        storageClass: {{ $global.storageClass }}
         selector:
           matchLabels:
             mpath: pv-{{ . | replace "/" "-" | trimPrefix "-" }}

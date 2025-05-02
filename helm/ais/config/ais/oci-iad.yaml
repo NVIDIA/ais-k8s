@@ -16,10 +16,9 @@ global:
     - 10.49.41.89
     - 10.49.41.4
     - 10.49.41.47
-  job_namespace: ais-jobs
   namespace: ais
   cluster: ais
-  mpath_size: 6.2Ti
+  mpathSize: 6.2Ti
   mpaths:
     - /ais/nvme0n1
     - /ais/nvme1n1
@@ -33,6 +32,7 @@ global:
     - /ais/nvme9n1
     - /ais/nvme10n1
     - /ais/nvme11n1
+  storageClass: "ais-local-storage"
 size: 16
 protocol: http
 nodeImage:

@@ -3,10 +3,9 @@ global:
     - aistorecpu1004.nsv.sjc11.nvmetal.net
     - aistorecpu1005.nsv.sjc11.nvmetal.net
     - aistorecpu1006.nsv.sjc11.nvmetal.net
-  job_namespace: ais-jobs
   namespace: ais
   cluster: ais
-  mpath_size: 5.8Ti
+  mpathSize: 5.8Ti
   mpaths:
     - /ais/nvme0n1
     - /ais/nvme1n1
@@ -24,6 +23,7 @@ global:
     - /ais/nvme13n1
     - /ais/nvme14n1
     - /ais/nvme15n1
+  storageClass: "ais-local-storage"
 size: 3
 protocol: https
 https:

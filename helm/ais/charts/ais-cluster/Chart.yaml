@@ -1,11 +1,11 @@
 apiVersion: v2
 name: ais-cluster
 description: A Helm chart for deploying AIS on Kubernetes
-appVersion: "3.23"
+appVersion: "3.28"
 type: application
-version: 0.1.0
+version: 0.2.0
 dependencies:
   - name: ais-create-pv
-    version: "0.1.0"
+    version: "0.2.0"
     repository: "file://../create-pv"
-    enabled: true
+    condition: ais-create-pv.enabled

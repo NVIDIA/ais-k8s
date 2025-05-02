@@ -13,15 +13,15 @@ metadata:
     cluster: {{ $global.cluster }}
     mpath: pv-{{ $mpath | replace "/" "-" | trimPrefix "-" }}
 spec:
-  storageClassName: ais-local-storage
+  storageClassName: {{ $global.storageClass }}
   capacity:
-    storage: {{ $.Values.global.mpath_size }}
+    storage: {{ $global.mpathSize }}
   accessModes:
     - ReadWriteOnce
   hostPath:
     path: {{ $mpath }}
   claimRef:
-    name: ais-{{ $mpath | replace "/" "-" | trimPrefix "-" }}-ais-target-{{ $index }}
+    name: {{ $global.cluster }}-{{ $mpath | replace "/" "-" | trimPrefix "-" }}-{{ $global.cluster }}-target-{{ $index }}
     namespace: {{ $release.Namespace }}
   nodeAffinity:
     required:
