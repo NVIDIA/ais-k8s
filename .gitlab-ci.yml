@@ -66,6 +66,19 @@ operator:build:
   script:
     - make -C operator build
 
+operator:test:operator-changelog-check:
+  stage: operator:test:short
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_LABELS =~ /.*skip-operator-changelog-check.*/'
+      when: never
+    - !reference [.operator_rules_template, rules]
+  script:
+    - git fetch origin "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
+    - CHANGED_FILES=$(git diff --name-only "origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"...HEAD)
+    - echo "Changed files are:"
+    - echo "$CHANGED_FILES"
+    - echo "$CHANGED_FILES" | grep -qx 'operator/CHANGELOG.md' || exit 1
+
 operator:test:unit:
   stage: operator:test:short
   timeout: 10m
