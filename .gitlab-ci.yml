@@ -99,7 +99,7 @@ operator:test:minikube:short:
   timeout: 30m
   <<: *operator_rules_def
   before_script:
-    - kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.30/deploy/local-path-storage.yaml
+    - kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.31/deploy/local-path-storage.yaml
   script:
     - make -C operator test-e2e-short
 
@@ -110,7 +110,7 @@ operator:test:minikube:long:
   timeout: 40m
   <<: *operator_rules_def
   before_script:
-    - kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.30/deploy/local-path-storage.yaml
+    - kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.31/deploy/local-path-storage.yaml
   script:
     - make -C operator test-e2e-long
 
