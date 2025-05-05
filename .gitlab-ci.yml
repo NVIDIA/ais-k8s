@@ -69,7 +69,9 @@ operator:build:
 operator:test:operator-changelog-check:
   stage: operator:test:short
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_LABELS =~ /.*skip-operator-changelog-check.*/'
+    - if: '$CI_PIPELINE_SOURCE != "merge_request_event"'
+      when: never
+    - if: '$CI_MERGE_REQUEST_LABELS =~ /.*skip-operator-changelog-check.*/'
       when: never
     - !reference [.operator_rules_template, rules]
   script:
