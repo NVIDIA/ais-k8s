@@ -25,7 +25,7 @@ var _ = Describe("Run Controller", func() {
 		cluArgs = tutils.NewClusterSpecArgs(AISTestContext)
 	})
 
-	Context("Deploy and Destroy cluster", Label("short"), func() {
+	Context("Deploy and Destroy cluster", func() {
 		Context("without externalLB", func() {
 			It("Should successfully create an AIS Cluster with required K8s objects", func(ctx context.Context) {
 				cc := newClientCluster(ctx, AISTestContext, cluArgs)
@@ -52,7 +52,7 @@ var _ = Describe("Run Controller", func() {
 		})
 	})
 
-	Context("Multiple Deployments", Label("short"), func() {
+	Context("Multiple Deployments", func() {
 		// Running multiple clusters in the same cluster
 		It("Should allow running two clusters in the same namespace", func(ctx context.Context) {
 			cc1 := newClientCluster(ctx, AISTestContext, cluArgs)
@@ -96,7 +96,7 @@ var _ = Describe("Run Controller", func() {
 		})
 	})
 
-	Context("Upgrade existing cluster", Label("long"), func() {
+	Context("Upgrade existing cluster", func() {
 		It("Should upgrade cluster (without rebalance) if aisnode image changes", func(ctx context.Context) {
 			cluArgs.NodeImage = AISTestContext.PreviousNodeImage
 			cluArgs.InitImage = AISTestContext.PreviousInitImage
@@ -114,7 +114,7 @@ var _ = Describe("Run Controller", func() {
 		})
 	})
 
-	Context("Scale existing cluster", Label("long"), func() {
+	Context("Scale existing cluster", func() {
 		Context("without externalLB", func() {
 			It("Should be able to scale-up existing cluster", func(ctx context.Context) {
 				cluArgs.MaxTargets = 2
@@ -167,7 +167,7 @@ var _ = Describe("Run Controller", func() {
 		})
 	})
 
-	Describe("Data-safety tests", Label("long"), func() {
+	Describe("Data-safety tests", func() {
 		It("Restarting cluster must retain data", func(ctx context.Context) {
 			cc := newClientCluster(ctx, AISTestContext, cluArgs)
 			cc.create(true)

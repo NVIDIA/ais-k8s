@@ -7,15 +7,10 @@ current_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 
 [[ $(command -v ginkgo) ]] || go install github.com/onsi/ginkgo/v2/ginkgo
 
-if [[ $1 == "short" ]]; then
-  LABELS="short && !long"
-elif [[ $1 == "long" ]]; then
-  LABELS="!short && long"
-elif [[ $1 == "manual" ]]; then
-  LABELS="!short && !long && override"
-else
-  LABELS="short || long"
-fi 
+LABELS=""
+if [[ $1 == "manual" ]]; then
+  LABELS="override"
+fi
 
 # Run as many workers as the number of tests or twice the CPU core count, whichever is smaller
 SPEC_COUNT=$(ginkgo --dry-run --no-color --label-filter="$LABELS" "$current_dir/../tests/e2e/..." 2>&1 | awk '/Will run/{print $3;exit}')

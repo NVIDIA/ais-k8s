@@ -88,17 +88,9 @@ operator:test:unit:
   script:
     - make -C operator test
 
-operator:test:kind:short:
+operator:test:kind:
   stage: operator:test:short
   extends: .operator_test_kind_template
   timeout: 30m
   script:
-    - ./operator/tests/ci/test_in_cluster.sh short
-
-operator:test:kind:long:
-  stage: operator:test:long
-  extends: .operator_test_kind_template
-  needs: ["operator:test:kind:short"]
-  timeout: 40m
-  script:
-    - ./operator/tests/ci/test_in_cluster.sh long
+    - ./operator/tests/ci/test_in_cluster.sh
