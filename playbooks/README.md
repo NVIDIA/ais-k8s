@@ -22,6 +22,7 @@ The playbooks are broken up into multiple sections, which should be executed in 
 4. [security](./security/README.md) contains [`os-hardening` playbook](security/os_hardening.yaml) are used to harden the OS for CISCAT scans. This includes various security measures such as configuring sysctl settings, journald, sshd, and ensuring audit logs and AIDE setup.
 
 An example hosts file is provided, [hosts-example.ini](./hosts-example.ini). You will need to set this up with your own hosts before running the playbooks.
+Make sure to specify the `controller` node in the `hosts.ini` file and configure the controller host with `kubectl` access.
 
 ### Quick Setup
 

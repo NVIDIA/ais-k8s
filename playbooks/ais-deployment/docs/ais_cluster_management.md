@@ -22,14 +22,15 @@ The playbooks assist in the following tasks:
 
 - **Playbook:** [`ais_deploy_operator.yml`](../ais_deploy_operator.yml)
 - **Purpose:** Deploys the AIS K8s operator to manage AIS cluster resources.
-- **Default Operator Version:** `v1.1.0` (modifiable in [defaults/main.yml](../roles/ais_deploy_operator/defaults/main.yml)). Refer to our [compatibility matrix](../../../docs/COMPATIBILITY.md) for supported versions.
+- **Default Operator Version:** `v2.2.0` (modifiable in [defaults/main.yml](../roles/ais_deploy_operator/defaults/main.yml)). Refer to our [compatibility matrix](../../../docs/COMPATIBILITY.md) for supported versions.
+  - Modify the version specified in the [defaults/main.yml](../roles/ais_deploy_operator/defaults/main.yml) to match the desired version.
 - **Operator Releases:** [GitHub Releases](https://github.com/NVIDIA/ais-k8s/releases)
 - **Execution Example:**
   ```console
   $ ansible-playbook -i host.ini ais_deploy_operator.yml
   ```
 
-### 2. Creating a Multi-Node AIS Cluster
+### 2. Deploying AIStore
 
 - **Playbook:** [`ais_deploy_cluster.yml`](../ais_deploy_cluster.yml)
 - **Tasks:**

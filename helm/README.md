@@ -1,4 +1,5 @@
 # Helm AIS Deployment
+[![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/aistore)](https://artifacthub.io/packages/search?repo=aistore)
 
 Helm provides a simple way of deploying AIStore (AIS) managed by the [AIS operator](../operator/README.md).
 This directory contains Helm charts for deploying AIS, the AIS operator, and AIS dependencies.
@@ -30,7 +31,7 @@ Next, copy the `values-sample.yaml` file for each chart in [./ais/config/](./cha
 
 Then modify the values in each new file for your desired cluster. 
 
-### Cloud credentials
+### Cloud Credentials
 
 To configure backend provider secrets from the helm charts, set the value `cloud-secrets.enabled: true` for your environment in the [helmfile](./ais/helmfile.yaml). 
 
@@ -39,6 +40,15 @@ Then, add a configuration values file in the [config/cloud](./ais/config/cloud/)
 Note this chart only creates the secrets to be mounted by the targets. Extra environment variables can be provided through the values for the main AIS chart.
 
 For OCI, setting the `OCI_COMPARTMENT_OCID` variable is necessary to provide a default compartment.
+
+
+### PV Creation
+
+The AIS chart will include the create-pv sub-chart if the value is set for the environment: `ais-create-pv.enabled: true`.
+This will automatically create HostPath persistent volumes for each of the mountpaths for every target in the cluster.
+
+If you want to use an existing set of PVs, set `ais-create-pv.enabled: false`.
+You can also change the `storageClass` option to instruct AIS target pods to mount a different existing storage class.
 
 ### Install Charts
 
@@ -66,7 +76,7 @@ helmfile sync --environment <your-env>
 
 To uninstall:
 ```bash
-helmfile delete --environment <your-env>
+helmfile destroy --environment <your-env>
 ```
 
 ## Individual Charts

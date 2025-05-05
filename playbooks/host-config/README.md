@@ -31,10 +31,10 @@ split into multiple files with comments explaining which playbooks they control
 
 We run the host config playbooks in the following order wrt other steps:
 
-1. Cluster hosts must be linux, preferrably Ubuntu >18.04 with ssh access from the ansible host.
+1. Cluster hosts must be linux, preferably Ubuntu >=22.04 with ssh access from the ansible host.
 1. If necessary, enable MQ IO scheduler with `ais_enable_multiqueue` and reboot.
-1. Next we run `ais_host_config_common` on all nodes. Check the tags in [the task](roles/ais_host_config_common/tasks/main.yml) to see what's avaiable. At the least, run the playbook with the `aisrequired` tag.
-1. If we're install gpu worker nodes, run `ais_gpuhost_config`.
+1. Next we run `ais_host_config_common` on all nodes. Check the tags in [the task](roles/ais_host_config_common/tasks/main.yml) to see what's available. At the least, run the playbook with the `aisrequired` tag.
+1. If we're installing gpu worker nodes, run `ais_gpuhost_config`.
 1. Make filesystems with `ais_datafs_mkfs`.
 1. Establish K8s cluster using kubespray or other methods, e.g. kubeadm. 
 1. Allow "unsafe" network sysctls and any other required kubelet settings with `config_kubelet`.

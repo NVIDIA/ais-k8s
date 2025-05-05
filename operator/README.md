@@ -2,23 +2,24 @@
 
 ## Overview
 AIStore is designed to run natively on Kubernetes.
-This folder contains **AIS Operator** that provides for bootstrapping, deployment, scaling up (and down), gracefully shutting down, upgrading, and managing resources of AIS clusters on Kubernetes. Technically, the project extends native Kubernetes API to automate management of all aspects of the AIStore lifecycle.
+This folder contains the **AIS Operator** for managing the resources and lifecycle of AIS clusters on Kubernetes.
+The project extends the native Kubernetes API to deploy, scale, upgrade, decommission, and otherwise automate management of all aspects of the AIStore lifecycle.
 
-> **WARNING:** The AIS K8s Operator is currently undergoing active development. Please see the [compatibility readme](../docs/COMPATIBILITY.md) for info on upgrades and deprecations.
+> **WARNING:** The AIS K8s Operator is currently undergoing active development. Please see the [compatibility docs](../docs/COMPATIBILITY.md) for info on upgrades and deprecations.
 
 ### Production Deployments
-If you want to deploy an AIStore Cluster in production setting we recommend deploying AIStore using our [ansible playbooks](../playbooks). We have provided detailed, step-by-step instructions for deploying AIStore on Kubernetes (K8s) in this [guide](../docs/README.md).
+
+See our guide for deploying [AIStore on Kubernetes](../docs/README.md).
 
 ## Deploying AIS Cluster
 ### Prerequisites
-* K8s cluster
-* `kubectl`
 
-To deploy AIS operator on an existing K8s cluster, execute the following commands:
+To deploy the operator, only K8s and `kubectl`, and a certificate provider (see below) are required. 
+Check out our [prerequisites doc](../docs/prerequisites.md) for production deployment requirements. 
 
 AIS operator employs [admission webhooks](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/) to enforce the validity of the managed AIS cluster.
 AIS operator runs a webhook server with `tls` enabled, responsible for validating each AIS cluster resource being created or updated.
-[Operator-SDK](https://sdk.operatorframework.io/) recommends using [cert-manager](https://github.com/jetstack/cert-manager) for provisioning the certificates required by the webhook server, however, any solution which can provide certificates to the AIS operator pod at location `/tmp/k8s-webhook-server/serving-certs/tls.(crt/key)`, should work.
+[Operator-SDK](https://sdk.operatorframework.io/) recommends using [cert-manager](https://github.com/jetstack/cert-manager) for provisioning the certificates required by the webhook server, however, any solution which can provide certificates to the AIS operator pod should work. The operator loads from the `webhook-cert-path` arg which defaults to `/tmp/k8s-webhook-server/serving-certs/`.
 
 For quick deployment, the `deploy` command provides an option to deploy a basic version of `cert-manager`. However, for more advanced deployments it's recommended to follow [cert-manager documentation](https://cert-manager.io/docs/installation/kubernetes/).
 
@@ -32,7 +33,7 @@ $ IMG=aistorage/ais-operator:latest make deploy
 ```console
 $ kubectl get pods -n ais-operator-system
 NAME                                               READY   STATUS    RESTARTS   AGE
-ais-operator-controller-manager-64c8c86f7b-8g8pj   2/2     Running   0          18s
+ais-operator-controller-manager-64c8c86f7b-8g8pj   1/1     Running   0          18s
 ```
 
 ### Deploy sample AIS Cluster
@@ -49,12 +50,18 @@ aistore-sample-target-0                               1/1     Running   0       
 ### Enabling external access
 
 This section discusses AIStore accessibility by external clients - the clients **outside the Kubernetes cluster**.
-To achieve that, AIS Operator utilizes K8s `LoadBalancer` service.
 
-Generally, external access relies on the K8s capability to assign an external IP (or hostname) to a `LoadBalancer` services.
-Enabling external access is as easy as setting `enableExternalLB` to `true` while `applying` the AIStore cluster resource.
+By default, each AIS pod will deploy with a `HostPort` configuration, allowing any client with access to the host to communicate to the pod directly over the specified port. 
 
-For instance, you could update `config/samples/ais_v1beta1_aistore.yaml` as follows:
+The AIStore custom resource also contains the `enableExternalLB` setting, which will instruct the operator to create K8s `LoadBalancer` services for the pods.
+External access relies on the K8s capability to assign an external IP (or hostname) to these `LoadBalancer` services.
+
+**Setting up external IPs**
+- **Bare-Metal On-Premises Deployments**: For these setups, we recommend using [MetalLB](https://metallb.universe.tf/), a popular solution for on-premises Kubernetes environments.
+- **Cloud-Based Deployments**: If your AIStore is running in a cloud environment, you can utilize standard HTTP load balancer services provided by the cloud provider.
+
+**enableExternalLB example**
+Update your AIS spec as follows:
 
 ```yaml
 # config/samples/ais_v1beta1_sample.yaml
@@ -87,7 +94,7 @@ For more information and details on *minikube tunneling*, please see [this link]
 
 In a development/testing K8s setup, the `mountpaths` attached to storage target pods may either be block devices (no disks) or share a disk. 
 This will result in target pod errors such as `has no disks` or `filesystem sharing is not allowed`.
-To deploy AIStore cluster on such K8s environments, set a shared label for each mountpath as follows:
+To deploy AIStore cluster in such K8s environments, set a shared label for each mountpath as follows:
 
 ```yaml
 # config/samples/ais_v1beta1_sample.yaml
