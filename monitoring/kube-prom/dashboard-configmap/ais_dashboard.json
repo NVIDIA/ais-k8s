@@ -265,7 +265,8 @@
             "uid": "${metricsSource}"
           },
           "editorMode": "code",
-          "expr": "sum(increase(ais_target_err_get_count{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval]))",
+          "expr": "sum(increase(ais_target_err_get_count{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval])) or vector(0)",
+          "hide": true,
           "legendFormat": "__auto",
           "range": true,
           "refId": "target_get_err"
@@ -276,8 +277,8 @@
             "uid": "${metricsSource}"
           },
           "editorMode": "code",
-          "expr": "sum(increase(ais_target_err_put_count{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval]))",
-          "hide": false,
+          "expr": "sum(increase(ais_target_err_put_count{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval])) or vector(0)",
+          "hide": true,
           "instant": false,
           "legendFormat": "__auto",
           "range": true,
