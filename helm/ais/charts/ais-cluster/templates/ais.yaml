@@ -31,17 +31,21 @@ spec:
     {{- if .Values.proxySpec.size }}
     size: {{ .Values.proxySpec.size }}
     {{- end }}
-    hostPort: 51080
-    servicePort: 51080
-    portPublic: 51080
-    portIntraControl: 51081
-    portIntraData: 51082
+    hostPort: {{ .Values.proxySpec.hostPort | default 51080 }}
+    servicePort: {{ .Values.proxySpec.servicePort | default 51080 }}
+    portPublic: {{ .Values.proxySpec.portPublic | default 51080 }}
+    portIntraControl: {{ .Values.proxySpec.portIntraControl | default 51081 }}
+    portIntraData: {{ .Values.proxySpec.portIntraData | default 51082 }}
     capabilities:
       privileged: true
-    # nodeSelector:
-    #   {{ .Values.global.nodes }}
     nodeSelector:
-      nvidia.com/ais-proxy: {{ .Values.global.cluster }}
+      {{- if not .Values.proxySpec.nodeSelector }}
+        nvidia.com/ais-proxy: {{ .Values.global.cluster | quote }}
+      {{- else if and (kindIs "string" .Values.proxySpec.nodeSelector) (eq .Values.proxySpec.nodeSelector "all") }}
+        {{- toYaml .Values.global.nodes | nindent 6 }}
+      {{- else }}
+        {{- toYaml .Values.proxySpec.nodeSelector | nindent 6 }}
+      {{- end }}
     {{- if .Values.proxySpec.resources }}
     resources:
       {{- toYaml .Values.proxySpec.resources | nindent 6 }}
@@ -58,18 +62,22 @@ spec:
     {{- if .Values.targetSpec.size }}
     size: {{ .Values.targetSpec.size }}
     {{- end }}
-    hostPort: 51081
-    servicePort: 51081
-    portPublic: 51081
-    portIntraControl: 51082
-    portIntraData: 51083
-    hostNetwork: {{ .Values.hostNetwork }}
+    hostPort: {{ .Values.targetSpec.hostPort | default 51081 }}
+    servicePort: {{ .Values.targetSpec.servicePort | default 51081 }}
+    portPublic: {{ .Values.targetSpec.portPublic | default 51081 }}
+    portIntraControl: {{ .Values.targetSpec.portIntraControl | default 51082 }}
+    portIntraData: {{ .Values.targetSpec.portIntraData | default 51083 }}
+    hostNetwork: {{ .Values.targetSpec.hostNetwork }}
     capabilities:
       privileged: true
-    # nodeSelector:
-    #   {{ .Values.global.nodes }}
     nodeSelector:
-      nvidia.com/ais-target: {{ .Values.global.cluster }}
+      {{- if not .Values.targetSpec.nodeSelector }}
+          nvidia.com/ais-target: {{ .Values.global.cluster | quote }}
+      {{- else if and (kindIs "string" .Values.targetSpec.nodeSelector) (eq .Values.targetSpec.nodeSelector "all") }}
+        {{ toYaml .Values.global.nodes | nindent 6 }}
+      {{- else }}
+        {{ toYaml .Values.targetSpec.nodeSelector | nindent 6 }}
+      {{- end }}
     mounts:
     {{- $global := .Values.global }}
     {{- $size := $global.mpathSize }}
@@ -114,4 +122,4 @@ spec:
   networkAttachment: "{{ .Values.multihome.networkAttachment }}"
   {{- end }}
   logsDir: {{ .Values.logsDir }}
-  clusterDomain: cluster.local
+  clusterDomain: {{ .Values.clusterDomain | default "cluster.local" }}

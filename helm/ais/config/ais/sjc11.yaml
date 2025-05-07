@@ -48,7 +48,6 @@ multihome:
   enabled: false
   hostnameMap: 
   networkAttachment:
-hostNetwork: false
 shutdownCluster: false
 cleanupData: true
 cleanupMetadata: true
@@ -72,3 +71,4 @@ targetSpec:
       cpu: "24"
     limits:
       cpu: "32"
+  hostNetwork: false
