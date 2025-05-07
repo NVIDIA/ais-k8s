@@ -35,12 +35,23 @@ type clientCluster struct {
 	proxyURL         string
 }
 
+func (cc *clientCluster) applyDefaultHostPortOffset(args *tutils.ClusterSpecArgs) {
+	if args.EnableExternalLB {
+		return
+	}
+	// Apply host port offset of 10 per parallel Ginkgo process to give each process a unique host port
+	// and allow for further in-test offsets (e.g. multiple clusters in the same test)
+	gid := int32(GinkgoParallelProcess())
+	cc.applyHostPortOffset(gid * 10)
+}
+
 func newClientCluster(ctx context.Context, cluArgs *tutils.ClusterSpecArgs) *clientCluster {
 	cluster, pvs := tutils.NewAISCluster(cluArgs, k8sClient)
 	cc := &clientCluster{
 		cluster: cluster,
 		pvs:     pvs,
 	}
+	cc.applyDefaultHostPortOffset(cluArgs)
 	cc.ctx, cc.cancelLogsStream = context.WithCancel(ctx)
 	if cluArgs.EnableExternalLB {
 		tutils.InitK8sClusterProvider(testCtx.Context(), k8sClient)
@@ -70,6 +81,7 @@ func (cc *clientCluster) applyHostPortOffset(offset int32) {
 // Re-initialize the local cluster CR from the given cluster args and re-create it remotely -- does not create PVs
 func (cc *clientCluster) recreate(cluArgs *tutils.ClusterSpecArgs, long bool) {
 	cc.cluster = tutils.NewAISClusterNoPV(cluArgs)
+	cc.applyDefaultHostPortOffset(cluArgs)
 	cc.create(long)
 }
 
@@ -268,6 +280,7 @@ func (cc *clientCluster) waitForResources() {
 }
 
 func (cc *clientCluster) waitForResourceDeletion() {
-	tutils.CheckResExistence(cc.ctx, cc.cluster, k8sClient, false /*exists*/)
-	tutils.CheckPVCDoesNotExist(cc.ctx, cc.cluster, k8sClient, storageClass)
+	ctx := context.Background()
+	tutils.CheckResExistence(ctx, cc.cluster, k8sClient, false /*exists*/)
+	tutils.CheckPVCDoesNotExist(ctx, cc.cluster, k8sClient, storageClass)
 }

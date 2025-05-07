@@ -53,7 +53,7 @@ var _ = Describe("Run Controller", func() {
 		It("Should allow running two clusters in the same namespace", func(ctx context.Context) {
 			cc1 := newClientCluster(ctx, defaultCluArgs())
 			cc2 := newClientCluster(ctx, defaultCluArgs())
-			cc2.applyHostPortOffset(int32(10))
+			cc2.applyHostPortOffset(int32(5))
 			defer func() {
 				Expect(tutils.PrintLogs(cc1.ctx, cc1.cluster, k8sClient)).To(Succeed())
 				Expect(tutils.PrintLogs(cc2.ctx, cc2.cluster, k8sClient)).To(Succeed())
@@ -79,7 +79,7 @@ var _ = Describe("Run Controller", func() {
 			}
 			cc1 := newClientCluster(ctx, cluArgs)
 			cc2 := newClientCluster(ctx, otherCluArgs)
-			cc2.applyHostPortOffset(int32(10))
+			cc2.applyHostPortOffset(int32(5))
 			defer func() {
 				Expect(tutils.PrintLogs(cc1.ctx, cc1.cluster, k8sClient)).To(Succeed())
 				Expect(tutils.PrintLogs(cc2.ctx, cc2.cluster, k8sClient)).To(Succeed())

@@ -25,6 +25,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -102,10 +103,9 @@ func cleanupOldTestClusters(c *aisclient.K8sClient) {
 	}
 }
 
-var _ = BeforeSuite(func() {
-	done := make(chan interface{})
-
-	go func() {
+var _ = SynchronizedBeforeSuite(
+	// --- Run only once ---
+	func() []byte {
 		defer GinkgoRecover()
 		logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
@@ -113,56 +113,61 @@ var _ = BeforeSuite(func() {
 		testEnv = &envtest.Environment{
 			CRDDirectoryPaths: []string{filepath.Join("..", "..", "config", "crd", "bases")},
 		}
-
 		cfg, err := testEnv.Start()
 		Expect(err).NotTo(HaveOccurred())
 		Expect(cfg).NotTo(BeNil())
 
-		err = scheme.AddToScheme(scheme.Scheme)
+		Expect(scheme.AddToScheme(scheme.Scheme)).To(Succeed())
+		Expect(aisv1.AddToScheme(scheme.Scheme)).To(Succeed())
+
+		mgr, err := ctrl.NewManager(cfg, ctrl.Options{Scheme: scheme.Scheme})
 		Expect(err).NotTo(HaveOccurred())
-
-		err = aisv1.AddToScheme(scheme.Scheme)
-		Expect(err).NotTo(HaveOccurred())
-
-		// +kubebuilder:scaffold:scheme
-
-		mgr, err := ctrl.NewManager(cfg, ctrl.Options{
-			Scheme: scheme.Scheme,
-		})
-
-		k8sClient = aisclient.NewClientFromMgr(mgr)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(k8sClient).NotTo(BeNil())
+		Expect(controllers.NewAISReconcilerFromMgr(
+			mgr,
+			ctrl.Log.WithName("controllers").WithName("AIStore"),
+		).SetupWithManager(mgr)).To(Succeed())
 
 		go func() {
 			err = mgr.Start(ctrl.SetupSignalHandler())
 			Expect(err).ToNot(HaveOccurred())
 		}()
 
-		err = controllers.NewAISReconcilerFromMgr(
-			mgr,
-			ctrl.Log.WithName("controllers").WithName("AIStore"),
-		).SetupWithManager(mgr)
-		Expect(err).NotTo(HaveOccurred())
-
 		// Give some time for client cache to start before creating instances.
 		time.Sleep(5 * time.Second)
 
-		By("Cleaning orphaned test clusters")
+		k8sClient = aisclient.NewClientFromMgr(mgr)
+		Expect(k8sClient).NotTo(BeNil())
+
 		cleanupOldTestClusters(k8sClient)
 
-		tutils.InitK8sClusterProvider(context.Background(), k8sClient)
 		// Create Namespace if not exists
 		testNS, nsExists = tutils.CreateNSIfNotExists(context.Background(), k8sClient, testNSName)
-
+		tutils.InitK8sClusterProvider(context.Background(), k8sClient)
 		setStorageClass()
 		setStorageHostPath()
 
-		close(done)
-	}()
+		return nil
+	},
+	// --- Run in every worker ---
+	func(_ []byte) {
+		defer GinkgoRecover()
+		logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
-	Eventually(done, BeforeSuiteTimeout).Should(BeClosed())
-})
+		By("Bootstrapping per-process test environment")
+		Expect(scheme.AddToScheme(scheme.Scheme)).To(Succeed())
+		Expect(aisv1.AddToScheme(scheme.Scheme)).To(Succeed())
+
+		cfg := ctrl.GetConfigOrDie()
+		Expect(cfg).NotTo(BeNil())
+
+		client, err := client.New(cfg, client.Options{Scheme: scheme.Scheme})
+		Expect(err).NotTo(HaveOccurred())
+		k8sClient = aisclient.NewClient(client, scheme.Scheme)
+
+		// Reinitialize cluster provider for the worker
+		tutils.InitK8sClusterProvider(context.Background(), k8sClient)
+	},
+)
 
 // Statically created hostPath volumes have no reclaim policy to clean up the actual files on host, so this creates a
 // job to mount the host path and delete any files created by the test suite
@@ -193,23 +198,28 @@ func CleanPVHostPath() {
 	}
 }
 
-var _ = AfterSuite(func() {
-	By("tearing down the test environment")
-	cleanupOldTestClusters(k8sClient)
-	CleanPVHostPath()
-	if !nsExists && testNS != nil {
-		_, err := k8sClient.DeleteResourceIfExists(context.Background(), testNS)
+var _ = SynchronizedAfterSuite(
+	// --- Run in every worker ---
+	func() {},
+	// --- Run only once ---
+	func() {
+		By("tearing down the test environment")
+		cleanupOldTestClusters(k8sClient)
+		CleanPVHostPath()
+		if !nsExists && testNS != nil {
+			_, err := k8sClient.DeleteResourceIfExists(context.Background(), testNS)
+			Expect(err).NotTo(HaveOccurred())
+			// Wait for namespace to be deleted
+			Eventually(func() bool {
+				exists, err := k8sClient.CheckIfNamespaceExists(context.Background(), testNS.Name)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Failed to check namespace %s existence; err %v\n", testNS.Name, err)
+					return false
+				}
+				return exists
+			}, AfterSuiteTimeout).Should(BeFalse())
+		}
+		err := testEnv.Stop()
 		Expect(err).NotTo(HaveOccurred())
-		// Wait for namespace to be deleted
-		Eventually(func() bool {
-			exists, err := k8sClient.CheckIfNamespaceExists(context.Background(), testNS.Name)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Failed to check namespace %s existence; err %v\n", testNS.Name, err)
-				return false
-			}
-			return exists
-		}, AfterSuiteTimeout).Should(BeFalse())
-	}
-	err := testEnv.Stop()
-	Expect(err).NotTo(HaveOccurred())
-})
+	},
+)

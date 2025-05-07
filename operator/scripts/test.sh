@@ -17,5 +17,11 @@ else
   LABELS="short || long"
 fi 
 
+# Run as many workers as the number of tests or twice the CPU core count, whichever is smaller
+SPEC_COUNT=$(ginkgo --dry-run --no-color --label-filter="$LABELS" "$current_dir/../tests/e2e/..." 2>&1 | awk '/Will run/{print $3;exit}')
+CPU_COUNT=$(nproc)
+WORKERS=$(( SPEC_COUNT < CPU_COUNT * 2 ? SPEC_COUNT : CPU_COUNT * 2 ))
+[[ -z "$WORKERS" || "$WORKERS" -lt 1 ]] && WORKERS=1
+
 TEST_STORAGECLASS="${TEST_STORAGECLASS}" USE_EXISTING_CLUSTER=true \
-  ginkgo -vv --label-filter="${LABELS}" -trace -coverprofile cover.out $current_dir/../tests/e2e/...
+  ginkgo -vv -p --procs "$WORKERS" --label-filter="${LABELS}" -trace -coverprofile cover.out $current_dir/../tests/e2e/...
