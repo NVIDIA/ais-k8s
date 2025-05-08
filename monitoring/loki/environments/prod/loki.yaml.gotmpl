@@ -28,63 +28,36 @@ loki:
     # Default is 4, if you have enough memory and CPU you can increase, reduce if OOMing
     max_concurrent: 4
 
-  affinity:
-    nodeAffinity:
-      requiredDuringSchedulingIgnoredDuringExecution:
-        nodeSelectorTerms:
-          - matchExpressions:
-            - key: {{ .Values.affinity.nodeLabelKey }}
-              operator: In
-              values:
-                - "{{ .Values.affinity.nodeLabelValue }}"
-  
-  read:
-    affinity:
-      nodeAffinity:
-        requiredDuringSchedulingIgnoredDuringExecution:
-          nodeSelectorTerms:
-            - matchExpressions:
-              - key: {{ .Values.affinity.nodeLabelKey }}
-                operator: In
-                values:
-                  - "{{ .Values.affinity.nodeLabelValue }}"
-  
-  write:
-    affinity:
-      nodeAffinity:
-        requiredDuringSchedulingIgnoredDuringExecution:
-          nodeSelectorTerms:
-            - matchExpressions:
-              - key: {{ .Values.affinity.nodeLabelKey }}
-                operator: In
-                values:
-                  - "{{ .Values.affinity.nodeLabelValue }}"
-    
-  backend:
-    affinity:
-      nodeAffinity:
-        requiredDuringSchedulingIgnoredDuringExecution:
-          nodeSelectorTerms:
-            - matchExpressions:
-              - key: {{ .Values.affinity.nodeLabelKey }}
-                operator: In
-                values:
-                  - "{{ .Values.affinity.nodeLabelValue }}"
-
 deploymentMode: SimpleScalable
 
 backend:
   persistence: 
     storageClass: local-path
   replicas: 3
+  affinity: 
+    nodeAffinity: {{- toYaml .Values.nodeAffinity | nindent 6 }}
+
 read:
   replicas: 3
   persistence:
     storageClass: local-path
+  affinity: 
+    nodeAffinity: {{- toYaml .Values.nodeAffinity | nindent 6 }}
+
 write:
   replicas: 3
   persistence:
     storageClass: local-path
+  affinity: 
+    nodeAffinity: {{- toYaml .Values.nodeAffinity | nindent 6 }}
+
+gateway:
+  affinity: 
+    nodeAffinity: {{- toYaml .Values.nodeAffinity | nindent 6 }}
+
+resultsCache:
+  affinity: 
+    nodeAffinity: {{- toYaml .Values.nodeAffinity | nindent 6 }}  
 
 # Enable minio for storage
 minio:
@@ -92,10 +65,13 @@ minio:
   persistence:
     storageClass: local-path
 
+# Disable canary pods on every node
+lokiCanary:
+  enabled: false
+
 # Zero out replica counts of other deployment modes
 singleBinary:
   replicas: 0
-
 ingester:
   replicas: 0
 querier:

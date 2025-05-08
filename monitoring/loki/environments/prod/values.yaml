@@ -1,3 +1,8 @@
-affinity: 
-  nodeLabelKey: monitoring
-  nodeLabelValue: "true"
+nodeAffinity:
+  requiredDuringSchedulingIgnoredDuringExecution:
+    nodeSelectorTerms:
+      - matchExpressions:
+        - key: monitoring
+          operator: In
+          values:
+            - "true"
