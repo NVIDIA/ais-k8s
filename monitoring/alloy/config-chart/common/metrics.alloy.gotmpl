@@ -33,10 +33,10 @@ otelcol.exporter.otlphttp "panoptes_metrics_export" {
 
 prometheus.relabel "remote_metrics" {
   forward_to = [
-    {{- if .Values.mimir.panoptes_endpoint }}
+    {{- if .Values.mimir.ngc_endpoint }}
     prometheus.remote_write.ngc.receiver,
     {{- end }}
-    {{- if .Values.mimir.ngc_endpoint }}
+    {{- if .Values.mimir.panoptes_endpoint }}
     otelcol.receiver.prometheus.panoptes_receiver_import.receiver,
     {{- end }}
   ]
