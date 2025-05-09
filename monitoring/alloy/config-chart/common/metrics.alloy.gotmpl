@@ -44,21 +44,36 @@ prometheus.relabel "remote_metrics" {
 
 prometheus.relabel "all_metrics" {
   forward_to = [
+    {{- if and .Values.prometheus .Values.prometheus.localGateway }}
     prometheus.relabel.local_metrics.receiver,
+    {{- end }}
     prometheus.relabel.remote_metrics.receiver,
   ]
 }
+
 {{- end }}
+
+
+{{- if and .Values.prometheus .Values.prometheus.localGateway }}
+prometheus.relabel "local_metrics" {
+  forward_to = [prometheus.remote_write.local.receiver]
+  rule {
+    action = "replace"
+    target_label = "cluster"
+    replacement = "local"
+  }
+}
 
 prometheus.remote_write "local" {
   endpoint {
-    url = "http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090/api/v1/write"
+    url = {{ .Values.prometheus.localGateway }}
     remote_timeout = "15s"
   }
   external_labels = {
     "cluster" = "local",
   }
 }
+{{- end }}
 
 discovery.kubernetes "ais_proxy_pods" {
   role = "pod"
@@ -101,15 +116,6 @@ discovery.relabel "all_aisnode" {
     source_labels = ["__meta_kubernetes_pod_name"]
     action = "replace"
     target_label = "pod"
-  }
-}
-
-prometheus.relabel "local_metrics" {
-  forward_to = [prometheus.remote_write.local.receiver]
-  rule {
-    action = "replace"
-    target_label = "cluster"
-    replacement = "local"
   }
 }
 
