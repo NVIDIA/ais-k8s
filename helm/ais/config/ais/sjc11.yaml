@@ -49,8 +49,8 @@ multihome:
   hostnameMap: 
   networkAttachment:
 shutdownCluster: false
-cleanupData: true
-cleanupMetadata: true
+cleanupData: false
+cleanupMetadata: false
 stateStorageClass: "local-path"
 apiMode:
 authNSecretName:

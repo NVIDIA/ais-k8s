@@ -1,6 +1,5 @@
 # Set variables based on the root context to be accessible within the range
 {{- $global := .Values.global -}}
-{{- $release := .Release -}}
 # Loop over all nodes and mpaths to create PVs
 {{- range $index, $node := $global.nodes }}
   {{- range $mpathIndex, $mpath := $.Values.global.mpaths }}
@@ -22,7 +21,7 @@ spec:
     path: {{ $mpath }}
   claimRef:
     name: {{ $global.cluster }}-{{ $mpath | replace "/" "-" | trimPrefix "-" }}-{{ $global.cluster }}-target-{{ $index }}
-    namespace: {{ $release.Namespace }}
+    namespace: {{ $.Values.namespace }}
   nodeAffinity:
     required:
       nodeSelectorTerms:

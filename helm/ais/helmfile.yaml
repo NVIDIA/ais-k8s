@@ -3,37 +3,37 @@ environments:
     values:
     - https:
         enabled: false
-    # Only controls secret creation, update AIS config "cloud" to use
-    - cloud-secrets:
+      # Only controls secret creation, update AIS config "cloud" to use
+      cloudSecrets:
         enabled: false
-    # Whether to include the AIS sub-chart for creating PVs based on values
-    - ais-create-pv:
-        enabled: true
+      # Whether to run hooks to create and delete PVs based on values
+      createPV:
+        enabled: false
   sjc11:
     values: 
     - https:
         enabled: true
-    - cloud-secrets:
+      cloudSecrets:
         enabled: true
-    - ais-create-pv:
+      createPV:
         enabled: true
     kubeContext: sjc11
   oci-iad:
     values: 
     - https:
         enabled: false
-    - cloud-secrets:
+      cloudSecrets:
         enabled: false
-    - ais-create-pv:
+      createPV:
         enabled: true
     kubeContext: oci-iad
   oci-iad-test:
     values: 
     - https:
         enabled: false
-    - cloud-secrets:
+      cloudSecrets:
         enabled: false
-    - ais-create-pv:
+      createPV:
         enabled: true
     kubeContext: oci-iad-test
 ---
@@ -68,7 +68,7 @@ releases:
     createNamespace: true
     chart: charts/cloud-secrets
     version: 0.1.0
-    condition: cloud-secrets.enabled
+    condition: cloudSecrets.enabled
     values:
       - "./config/cloud/{{ .Environment.Name }}.yaml.gotmpl"
       - "./config/ais/{{ .Environment.Name }}.yaml"
@@ -77,11 +77,11 @@ releases:
     namespace: ais
     createNamespace: true
     chart: charts/ais-cluster
-    version: 0.2.0
+    version: 0.3.0
     values:
       - "./config/ais/{{ .Environment.Name }}.yaml"
-    # Install pre-req local-path-provisioner to the cluster
     hooks:
+      # Install pre-req local-path-provisioner to the cluster
       - events: ["presync"]
         showlogs: true
         command: "kubectl"
@@ -89,3 +89,11 @@ releases:
           - "apply"
           - "-f"
           - "https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.31/deploy/local-path-storage.yaml"
+      # Create persistent volumes if requested by this env
+      - events: ["presync"]
+        showlogs: true
+        command: "./scripts/create-pvs.sh"
+        args: 
+        - '{{`{{ .Values.createPV.enabled }}`}}'
+        - '{{`./config/ais/{{ .Environment.Name }}.yaml`}}'
+        - '{{`{{ .Release.Namespace }}`}}'
