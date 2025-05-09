@@ -61,7 +61,7 @@ loki.relabel "all_logs" {
 {{- if .Values.loki.localGateway }}
 loki.write "local" {
   endpoint {
-    url = {{ .Values.loki.localGateway }}
+    url = {{ .Values.loki.localGateway | quote }}
   }
   external_labels = {
     cluster = "local",

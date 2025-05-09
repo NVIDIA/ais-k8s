@@ -66,7 +66,7 @@ prometheus.relabel "local_metrics" {
 
 prometheus.remote_write "local" {
   endpoint {
-    url = {{ .Values.prometheus.localGateway }}
+    url = {{ .Values.prometheus.localGateway | quote }}
     remote_timeout = "15s"
   }
   external_labels = {

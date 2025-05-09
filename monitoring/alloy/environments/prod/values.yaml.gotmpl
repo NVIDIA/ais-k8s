@@ -4,7 +4,7 @@ loki:
   localGateway:
 
 prometheus:
-  localGateway: "http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090/api/v1/write"
+  localGateway: http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090/api/v1/write
 
 mimir:
   ngc_endpoint: {{ env "MIMIR_ENDPOINT_NGC" }}
