@@ -49,21 +49,25 @@ loki.relabel "remote" {
 
 loki.relabel "all_logs" {
   forward_to = [
+    {{- if .Values.loki.localGateway }}
     loki.write.local.receiver,
+    {{- end }}
     loki.relabel.remote.receiver,
   ]
 }
 {{- end }}
 
 
+{{- if .Values.loki.localGateway }}
 loki.write "local" {
   endpoint {
-    url = "http://loki-gateway.monitoring.svc.cluster.local/loki/api/v1/push"
+    url = {{ .Values.loki.localGateway }}
   }
   external_labels = {
     cluster = "local",
   }
 }
+{{- end }}
 
 discovery.kubernetes "pod" {
   role = "pod"
