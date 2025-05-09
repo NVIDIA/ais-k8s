@@ -2,20 +2,20 @@ prometheus:
   persistentVolume:
     size: {{ .Values.prometheus.pvSize }}
     storageClass: {{ .Values.prometheus.storageClass }}
-  {{- if hasKey .Values "affinity"}}
-  {{- if and .Values.affinity.nodeLabelKey .Values.affinity.nodeLabelValue }}
-  affinity:
-      nodeAffinity:
-        requiredDuringSchedulingIgnoredDuringExecution:
-          nodeSelectorTerms:
-            - matchExpressions:
-              - key: {{ .Values.affinity.nodeLabelKey }}
-                operator: In
-                values:
-                  - "{{ .Values.affinity.nodeLabelValue }}"
-  {{- end }}
-  {{- end }}
   prometheusSpec:
+    {{- if hasKey .Values "affinity"}}
+    {{- if and .Values.affinity.nodeLabelKey .Values.affinity.nodeLabelValue }}
+    affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                - key: {{ .Values.affinity.nodeLabelKey }}
+                  operator: In
+                  values:
+                    - "{{ .Values.affinity.nodeLabelValue }}"
+    {{- end }}
+    {{- end }}
     enableRemoteWriteReceiver: true
     tsdb:
       outOfOrderTimeWindow: 30s
