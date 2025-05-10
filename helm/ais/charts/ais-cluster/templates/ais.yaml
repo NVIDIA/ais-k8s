@@ -93,7 +93,10 @@ spec:
     resources:
       {{- toYaml .Values.targetSpec.resources | nindent 6 }}
     {{- end }}
-
+  {{- with .Values.imagePullSecrets }}
+  imagePullSecrets:
+  {{- toYaml . | nindent 2 }}
+  {{- end }}
   nodeImage: "{{ .Values.nodeImage.name }}:{{ .Values.nodeImage.tag }}"
   initImage: "{{ .Values.initImage.name }}:{{ .Values.initImage.tag }}"
   {{- if hasKey .Values "logSidecarImage" }}

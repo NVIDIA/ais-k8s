@@ -35,6 +35,8 @@ global:
   storageClass: "ais-local-storage"
 size: 16
 protocol: http
+imagePullSecrets:
+  - name: regcred
 nodeImage:
   name: aistorage/aisnode
   tag: v3.28-462d7f4
