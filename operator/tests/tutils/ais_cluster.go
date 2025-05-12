@@ -8,8 +8,10 @@ import (
 	"context"
 	"path"
 	"strconv"
+	"strings"
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
+	aiscos "github.com/NVIDIA/aistore/cmn/cos"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	aisclient "github.com/ais-operator/pkg/client"
 	. "github.com/onsi/gomega"
@@ -19,12 +21,14 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-// TODO: Should be provided from test config.
 const (
-	DefaultNodeImage  = "aistorage/aisnode:v3.27"
-	DefaultInitImage  = "aistorage/ais-init:v3.27"
-	DefaultLogsImage  = "aistorage/ais-logs:v1.0"
-	PreviousNodeImage = "aistorage/aisnode:v3.26"
+	DefaultNodeImage     = "aistorage/aisnode:v3.28"
+	DefaultInitImage     = "aistorage/ais-init:v3.28"
+	DefaultLogsImage     = "aistorage/ais-logs:v1.0"
+	DefaultPrevNodeImage = "aistorage/aisnode:v3.27"
+	DefaultPrevInitImage = "aistorage/ais-init:v3.27"
+	TestNSName           = "ais-op-test"
+	TestNSAnotherName    = "ais-op-test-other"
 )
 
 type (
@@ -49,6 +53,26 @@ type (
 		StorageHostPath string
 	}
 )
+
+func clusterName() string {
+	return "ais-test-" + strings.ToLower(aiscos.CryptoRandS(6))
+}
+
+func NewClusterSpecArgs(testContext *AISTestContext) *ClusterSpecArgs {
+	return &ClusterSpecArgs{
+		Name:                      clusterName(),
+		Namespace:                 TestNSName,
+		StorageClass:              testContext.StorageClass,
+		StorageHostPath:           testContext.StorageHostPath,
+		Size:                      1,
+		NodeImage:                 testContext.NodeImage,
+		InitImage:                 testContext.InitImage,
+		LogSidecarImage:           testContext.LogsImage,
+		CleanupMetadata:           true,
+		CleanupData:               true,
+		DisableTargetAntiAffinity: false,
+	}
+}
 
 func NewAISCluster(args *ClusterSpecArgs, client *aisclient.K8sClient) (*aisv1.AIStore, []*corev1.PersistentVolume) {
 	mounts := defineMounts(args)

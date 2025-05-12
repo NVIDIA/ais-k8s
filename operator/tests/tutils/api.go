@@ -35,17 +35,6 @@ import (
 	clientpkg "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const (
-	K8sProviderGKE           = "gke"
-	K8sProviderMinikube      = "minikube"
-	K8sProviderUnknown       = "unknown"
-	K8sProviderUninitialized = "uninitialized"
-
-	GKEDefaultStorageClass = "standard"
-)
-
-var k8sProvider = K8sProviderUninitialized
-
 type PVData struct {
 	storageClass string
 	ns           string
@@ -65,11 +54,12 @@ func checkCRExists(ctx context.Context, client *aisclient.K8sClient, name types.
 	return true
 }
 
-func CheckResExistence(ctx context.Context, cluster *aisv1.AIStore, k8sClient *aisclient.K8sClient, exists bool, intervals ...interface{}) {
+func CheckResExistence(ctx context.Context, cluster *aisv1.AIStore, aisCtx *AISTestContext, exists bool, intervals ...interface{}) {
 	condition := BeTrue()
 	if !exists {
 		condition = BeFalse()
 	}
+	k8sClient := aisCtx.K8sClient
 
 	// 1. Check rbac exists
 	// 1.1 ServiceAccount
@@ -107,7 +97,7 @@ func CheckResExistence(ctx context.Context, cluster *aisv1.AIStore, k8sClient *a
 	EventuallySSExists(ctx, k8sClient, target.StatefulSetNSName(cluster), condition, intervals...)
 	// 4.4 ExternalLB Service (optional)
 	if cluster.Spec.EnableExternalLB {
-		timeout, interval := GetLBExistenceTimeout()
+		timeout, interval := aisCtx.GetLBExistenceTimeout()
 		for i := range cluster.GetTargetSize() {
 			EventuallyServiceExists(ctx, k8sClient, target.LoadBalancerSVCNSName(cluster, i),
 				condition, timeout, interval)
@@ -176,9 +166,9 @@ func checkPVsExist(ctx context.Context, c *aisclient.K8sClient, pvs []*corev1.Pe
 	return false
 }
 
-func CheckPVCDoesNotExist(ctx context.Context, cluster *aisv1.AIStore, k8sClient *aisclient.K8sClient, storageClass string) {
+func CheckPVCDoesNotExist(ctx context.Context, cluster *aisv1.AIStore, aisCtx *AISTestContext) {
 	pvcs := &corev1.PersistentVolumeClaimList{}
-	err := k8sClient.List(ctx, pvcs, clientpkg.InNamespace(cluster.Namespace), clientpkg.MatchingLabels(target.PodLabels(cluster)))
+	err := aisCtx.K8sClient.List(ctx, pvcs, clientpkg.InNamespace(cluster.Namespace), clientpkg.MatchingLabels(target.PodLabels(cluster)))
 	if apierrors.IsNotFound(err) {
 		err = nil
 	}
@@ -186,7 +176,7 @@ func CheckPVCDoesNotExist(ctx context.Context, cluster *aisv1.AIStore, k8sClient
 	// Dynamic state volumes can take a while to auto-delete
 	var filteredPVCs []corev1.PersistentVolumeClaim
 	for i := range pvcs.Items {
-		if *pvcs.Items[i].Spec.StorageClassName == storageClass {
+		if *pvcs.Items[i].Spec.StorageClassName == aisCtx.StorageClass {
 			filteredPVCs = append(filteredPVCs, pvcs.Items[i])
 		}
 	}
@@ -505,23 +495,6 @@ func checkPodsAISImage(pods *corev1.PodList, img string) bool {
 	return true
 }
 
-func InitK8sClusterProvider(ctx context.Context, client *aisclient.K8sClient) {
-	if k8sProvider != K8sProviderUninitialized {
-		return
-	}
-
-	nodes := &corev1.NodeList{}
-	err := client.List(ctx, nodes)
-	Expect(err).NotTo(HaveOccurred())
-	for i := range nodes.Items {
-		if strings.Contains(nodes.Items[i].Name, "gke") {
-			k8sProvider = K8sProviderGKE
-			return
-		}
-	}
-	k8sProvider = K8sProviderUnknown
-}
-
 func GetAllPVs(ctx context.Context, c *aisclient.K8sClient) (*corev1.PersistentVolumeList, error) {
 	pvList := &corev1.PersistentVolumeList{}
 	err := c.List(ctx, pvList)
@@ -530,11 +503,6 @@ func GetAllPVs(ctx context.Context, c *aisclient.K8sClient) (*corev1.PersistentV
 		return nil, err
 	}
 	return pvList, nil
-}
-
-func GetK8sClusterProvider() string {
-	Expect(k8sProvider).ToNot(Equal(K8sProviderUninitialized))
-	return k8sProvider
 }
 
 func GetLoadBalancerIP(ctx context.Context, client *aisclient.K8sClient, name types.NamespacedName) (ip string) {
@@ -576,7 +544,7 @@ func GetAllProxyIPs(ctx context.Context, client *aisclient.K8sClient, cluster *a
 	return proxyIPs
 }
 
-func CreateCleanupJob(nodeName, namespace, hostPath string) *batchv1.Job {
+func CreateCleanupJob(nodeName, hostPath string) *batchv1.Job {
 	hostVolumeName := "host-volume"
 	ttl := int32(0)
 	parentDir := filepath.Dir(hostPath)
@@ -641,7 +609,7 @@ func CreateCleanupJob(nodeName, namespace, hostPath string) *batchv1.Job {
 	return &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("test-cleanup-%s-%s", nodeName, pipelineDir),
-			Namespace: namespace,
+			Namespace: TestNSName,
 		},
 		Spec: jobSpec,
 	}
