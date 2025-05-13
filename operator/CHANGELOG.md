@@ -12,6 +12,12 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ### Added
 
+### Changed
+
+## v2.3.0
+
+### Added
+
 - Support for the following env vars for testing 
   - AIS_TEST_NODE_IMAGE
   - AIS_TEST_PREV_NODE_IMAGE
