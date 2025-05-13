@@ -13,7 +13,7 @@ PAGES = https://NVIDIA.github.io/ais-k8s/charts
 ENVTEST_K8S_VERSION = 1.25.0
 
 # KIND_K8S_VERSION refers to the version of container images for nodes that are being created during cluster setup.
-KIND_K8S_VERSION ?= v1.28.7
+KIND_K8S_VERSION ?= v1.33.0
 
 # CONTAINER_TOOL defines the container tool to be used for building images.
 # Be aware that the target commands are only tested with Docker which is

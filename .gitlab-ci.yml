@@ -100,7 +100,7 @@ operator:test:kind:compat:
   parallel:
     matrix:
       - KUBERNETES_VERSION:
-          - v1.27.0  # oldest supported
+          - v1.31.0  # oldest supported
           - v1.30.0  # current production
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"

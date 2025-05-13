@@ -4,12 +4,13 @@ For bare-metal deployments:
 - **Kubespray Installation**: Follow the instructions provided in the [Kubespray repo](https://github.com/kubernetes-sigs/kubespray)
 
 For both bare-metal and managed K8s deployments:
-- **Kubernetes**: v1.27.x or later with [kubectl](https://kubernetes.io/docs/reference/kubectl/) installed and configured.
-    - After setting up K8s, ensure all nodes are in the `Ready` state and required pods are `Running` from the controller node:
-    ```
-    $ kubectl get nodes
-    $ kubectl get pods -A
-    ```
+- **Kubernetes**: We recommend v1.31 or later (see [K8s releases](https://kubernetes.io/releases/)) with [kubectl](https://kubernetes.io/docs/reference/kubectl/) installed and configured.
+  - No operator or AIS components require cluster versions newer than v1.27, but we do not test or guarantee support for EOL K8s releases. 
+  - After setting up K8s, ensure all nodes are in the `Ready` state and required pods are `Running` from the controller node:
+  ```
+  $ kubectl get nodes
+  $ kubectl get pods -A
+  ```
 - **Operating System (OS)**: Compatible with any Linux-based OS. Ubuntu >=22.04 or RHEL >=8 recommended.
 - **Drives**:
   - AIStore's performance scales with the number and type of disks used.

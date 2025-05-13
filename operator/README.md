@@ -332,7 +332,7 @@ $ make kind-setup
 $
 $ # You can also specify which Kubernetes version should be used to bootstrap the cluster.
 $ # For example:
-$ KIND_K8S_VERSION="v1.30.2" make kind-setup 
+$ KIND_K8S_VERSION="v1.31.0" make kind-setup 
 ```
 
 To tear down the local cluster after testing, run:
