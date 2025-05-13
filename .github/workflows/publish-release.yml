@@ -42,3 +42,4 @@ jobs:
       uses: softprops/action-gh-release@v2
       with:
         files: operator/dist/*
+        prerelease: true
