@@ -4,13 +4,14 @@
 
 set -eo pipefail
 
-LPP_VERSION=v0.0.31
+KUBERNETES_VERSION=${KUBERNETES_VERSION:-v1.33.0}
+LPP_VERSION=${LPP_VERSION:-v0.0.31}
 
 # TODO: Revisit (issue w/ trying to export logs via `kind export logs` in `after_script`)
 mkdir -p /ci-kind-logs/{control-plane,worker1,worker2,worker3}
 chmod -R 755 /ci-kind-logs
 
-kind create cluster --config operator/tests/ci/kind_cfg.yaml --retain
+kind create cluster --image kindest/node:${KUBERNETES_VERSION} --config operator/tests/ci/kind_cfg.yaml --retain
 kubectl cluster-info --context kind-kind
 
 cloud-provider-kind > cloud-provider-kind.log 2>&1 &

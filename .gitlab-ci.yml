@@ -10,8 +10,7 @@ default:
 
 stages:
   - operator:build
-  - operator:test:short
-  - operator:test:long
+  - operator:test
 
 .operator_rules_template: &operator_rules_def
   rules:
@@ -36,8 +35,11 @@ stages:
 
 .operator_test_kind_template: &operator_test_kind_def
   <<: *operator_rules_def
+  timeout: 20m
   before_script:
     - ./operator/tests/ci/cluster_setup.sh
+  script:
+    - ./operator/tests/ci/test_in_cluster.sh
   after_script:
     - cp -r /ci-kind-logs $CI_PROJECT_DIR/logs/
   artifacts:
@@ -67,7 +69,7 @@ operator:build:
     - make -C operator build
 
 operator:test:operator-changelog-check:
-  stage: operator:test:short
+  stage: operator:test
   rules:
     - if: '$CI_PIPELINE_SOURCE != "merge_request_event"'
       when: never
@@ -82,15 +84,28 @@ operator:test:operator-changelog-check:
     - echo "$CHANGED_FILES" | grep -qx 'operator/CHANGELOG.md' || exit 1
 
 operator:test:unit:
-  stage: operator:test:short
+  stage: operator:test
   timeout: 10m
   <<: *operator_rules_def
   script:
     - make -C operator test
 
 operator:test:kind:
-  stage: operator:test:short
+  stage: operator:test
   extends: .operator_test_kind_template
-  timeout: 30m
-  script:
-    - ./operator/tests/ci/test_in_cluster.sh
+
+operator:test:kind:compat:
+  stage: operator:test
+  extends: .operator_test_kind_template
+  parallel:
+    matrix:
+      - KUBERNETES_VERSION:
+          - v1.27.0  # oldest supported
+          - v1.30.0  # current production
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_LABELS =~ /.*skip-ci.*/
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "main"
+      when: manual
+      allow_failure: true
