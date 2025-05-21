@@ -29,7 +29,7 @@ var _ = Describe("Run Controller", func() {
 		Context("without externalLB", func() {
 			It("Should successfully create an AIS Cluster with required K8s objects", func(ctx context.Context) {
 				cc := newClientCluster(ctx, AISTestContext, cluArgs)
-				cc.createAndDestroyCluster(cc.waitForResources, cc.waitForResourceDeletion, false)
+				cc.createAndDestroyCluster(cc.waitForResources, cc.waitForResourceDeletion)
 			})
 		})
 
@@ -37,7 +37,7 @@ var _ = Describe("Run Controller", func() {
 			It("Should successfully create an AIS Cluster with required K8s objects", func(ctx context.Context) {
 				cluArgs.EnableExternalLB = true
 				cc := newClientCluster(ctx, AISTestContext, cluArgs)
-				cc.createAndDestroyCluster(cc.waitForResources, cc.waitForResourceDeletion, true)
+				cc.createAndDestroyCluster(cc.waitForResources, cc.waitForResourceDeletion)
 			})
 			It("Should successfully create a hetero-sized AIS Cluster", func(ctx context.Context) {
 				// If we have multiple targets on the same node we need a way to reach each of them
@@ -47,7 +47,7 @@ var _ = Describe("Run Controller", func() {
 				cluArgs.DisableTargetAntiAffinity = true
 				cluArgs.EnableExternalLB = true
 				cc := newClientCluster(ctx, AISTestContext, cluArgs)
-				cc.createAndDestroyCluster(cc.waitForResources, cc.waitForResourceDeletion, true)
+				cc.createAndDestroyCluster(cc.waitForResources, cc.waitForResourceDeletion)
 			})
 		})
 	})
@@ -65,7 +65,7 @@ var _ = Describe("Run Controller", func() {
 				cc1.destroyAndCleanup()
 			}()
 			clusters := []*clientCluster{cc1, cc2}
-			createClusters(clusters, false)
+			createClusters(clusters)
 			cc1.waitForReadyCluster()
 			cc2.waitForReadyCluster()
 		})
@@ -90,7 +90,7 @@ var _ = Describe("Run Controller", func() {
 				cc1.destroyAndCleanup()
 			}()
 			clusters := []*clientCluster{cc1, cc2}
-			createClusters(clusters, false)
+			createClusters(clusters)
 			cc1.waitForReadyCluster()
 			cc2.waitForReadyCluster()
 		})
@@ -101,7 +101,7 @@ var _ = Describe("Run Controller", func() {
 			cluArgs.NodeImage = AISTestContext.PreviousNodeImage
 			cluArgs.InitImage = AISTestContext.PreviousInitImage
 			cc := newClientCluster(ctx, AISTestContext, cluArgs)
-			cc.create(true)
+			cc.create()
 			cc.patchImagesToCurrent()
 
 			// Check we didn't rebalance at all (nothing else should trigger it on this test)
@@ -122,7 +122,7 @@ var _ = Describe("Run Controller", func() {
 				scaleUpCluster := func() {
 					cc.scale(false, 1)
 				}
-				cc.createAndDestroyCluster(scaleUpCluster, nil, false)
+				cc.createAndDestroyCluster(scaleUpCluster, nil)
 			})
 
 			It("Should be able to scale-up targets of existing cluster", func(ctx context.Context) {
@@ -131,7 +131,7 @@ var _ = Describe("Run Controller", func() {
 				scaleUpCluster := func() {
 					cc.scale(true, 1)
 				}
-				cc.createAndDestroyCluster(scaleUpCluster, nil, true)
+				cc.createAndDestroyCluster(scaleUpCluster, nil)
 			})
 
 			It("Should be able to scale-down existing cluster", func(ctx context.Context) {
@@ -140,7 +140,7 @@ var _ = Describe("Run Controller", func() {
 				scaleDownCluster := func() {
 					cc.scale(false, -1)
 				}
-				cc.createAndDestroyCluster(scaleDownCluster, nil, true)
+				cc.createAndDestroyCluster(scaleDownCluster, nil)
 			})
 		})
 
@@ -152,7 +152,7 @@ var _ = Describe("Run Controller", func() {
 				scaleUpCluster := func() {
 					cc.scale(false, 1)
 				}
-				cc.createAndDestroyCluster(scaleUpCluster, nil, true)
+				cc.createAndDestroyCluster(scaleUpCluster, nil)
 			})
 
 			It("Should be able to scale-down existing cluster", func(ctx context.Context) {
@@ -162,7 +162,7 @@ var _ = Describe("Run Controller", func() {
 				scaleDownCluster := func() {
 					cc.scale(false, -1)
 				}
-				cc.createAndDestroyCluster(scaleDownCluster, nil, true)
+				cc.createAndDestroyCluster(scaleDownCluster, nil)
 			})
 		})
 	})
@@ -170,7 +170,7 @@ var _ = Describe("Run Controller", func() {
 	Describe("Data-safety tests", func() {
 		It("Restarting cluster must retain data", func(ctx context.Context) {
 			cc := newClientCluster(ctx, AISTestContext, cluArgs)
-			cc.create(true)
+			cc.create()
 			// put objects
 			var (
 				bck       = aiscmn.Bck{Name: "TEST_BCK_DATA_SAFETY", Provider: aisapc.AIS}
@@ -203,7 +203,7 @@ var _ = Describe("Run Controller", func() {
 			By("Deploy new cluster of size 2")
 			cluArgs.Size = 2
 			cc := newClientCluster(ctx, AISTestContext, cluArgs)
-			cc.create(true)
+			cc.create()
 			By("Create a bucket and put objects")
 			var (
 				bck        = aiscmn.Bck{Name: "TEST_BCK_SCALE_DOWN", Provider: aisapc.AIS}
@@ -238,7 +238,7 @@ var _ = Describe("Run Controller", func() {
 			// Default sets CleanupData to true -- wipe when we destroy the cluster
 			By("Deploy with CleanupData true")
 			cc := newClientCluster(ctx, AISTestContext, cluArgs)
-			cc.create(true)
+			cc.create()
 			By("Create AIS bucket")
 			bck := aiscmn.Bck{Name: "TEST_BCK_CLEANUP", Provider: aisapc.AIS}
 			err := aisapi.CreateBucket(cc.getBaseParams(), bck, nil)
@@ -263,7 +263,7 @@ var _ = Describe("Run Controller", func() {
 			cc.waitForResourceDeletion()
 			By("Create new cluster with the new PVs on the same host mount")
 			cc = newClientCluster(ctx, AISTestContext, cluArgs)
-			cc.create(true)
+			cc.create()
 			// All data including metadata should be deleted -- bucket should not exist in new cluster
 			By("Expect error getting bucket -- all data deleted")
 			_, err = aisapi.HeadBucket(cc.getBaseParams(), bck, true)
@@ -276,7 +276,7 @@ var _ = Describe("Run Controller", func() {
 			cluArgs.CleanupMetadata = false
 			By("Deploy with cleanupMetadata false")
 			cc := newClientCluster(ctx, AISTestContext, cluArgs)
-			cc.create(true)
+			cc.create()
 			By("Create AIS bucket")
 			bck := aiscmn.Bck{Name: "TEST_BCK_DECOMM", Provider: aisapc.AIS}
 			err := aisapi.CreateBucket(cc.getBaseParams(), bck, nil)
@@ -301,7 +301,7 @@ var _ = Describe("Run Controller", func() {
 			cluArgs.CleanupMetadata = true
 			// Same cluster should recover all the same data and metadata
 			By("Redeploy with cleanupMetadata true")
-			cc.recreate(cluArgs, true)
+			cc.recreate(cluArgs)
 			By("Validate objects from previous cluster still exist")
 			tutils.ObjectsShouldExist(cc.getBaseParams(), bck, names...)
 			Expect(cc.printLogs()).To(Succeed())

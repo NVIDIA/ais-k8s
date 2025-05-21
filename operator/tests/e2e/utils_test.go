@@ -19,7 +19,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func createClusters(clusters []*clientCluster, long bool) {
+func createClusters(clusters []*clientCluster) {
 	var wg sync.WaitGroup
 	wg.Add(len(clusters))
 
@@ -27,7 +27,7 @@ func createClusters(clusters []*clientCluster, long bool) {
 		go func(cc *clientCluster) {
 			defer GinkgoRecover()
 			defer wg.Done()
-			cc.create(long)
+			cc.create()
 		}(cluster)
 	}
 	wg.Wait()

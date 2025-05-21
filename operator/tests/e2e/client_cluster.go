@@ -69,10 +69,10 @@ func newClientCluster(ctx context.Context, aisCtx *tutils.AISTestContext, cluArg
 	return cc
 }
 
-func (cc *clientCluster) getTimeout(long bool) time.Duration {
+func (cc *clientCluster) getTimeout() time.Duration {
 	// For a cluster with external LB, allocating external-IP could be time-consuming.
 	// Force longer timeout for cluster creation.
-	if long || cc.cluster.Spec.EnableExternalLB {
+	if cc.cluster.Spec.EnableExternalLB {
 		return cc.aisCtx.GetClusterCreateLongTimeout()
 	}
 	return cc.aisCtx.GetClusterCreateTimeout()
@@ -89,33 +89,32 @@ func (cc *clientCluster) applyHostPortOffset(offset int32) {
 }
 
 // Re-initialize the local cluster CR from the given cluster args and re-create it remotely -- does not create PVs
-func (cc *clientCluster) recreate(cluArgs *tutils.ClusterSpecArgs, long bool) {
+func (cc *clientCluster) recreate(cluArgs *tutils.ClusterSpecArgs) {
 	cc.cluster = tutils.NewAISClusterNoPV(cluArgs)
 	cc.applyDefaultHostPortOffset(cluArgs)
-	cc.create(long)
+	cc.create()
 }
 
-func (cc *clientCluster) create(long bool) {
-	cc.createCluster(cc.getTimeout(long), clusterCreateInterval)
+func (cc *clientCluster) create() {
+	cc.createCluster(cc.getTimeout(), clusterCreateInterval)
 	cc.waitForReadyCluster()
 	cc.initClientAccess()
 }
 
-func (cc *clientCluster) createWithCallback(long bool, postCreate func()) {
-	cc.create(long)
+func (cc *clientCluster) createWithCallback(postCreate func()) {
+	cc.create()
 	if postCreate != nil {
 		By("Running post-create callback")
 		postCreate()
 	}
 }
 
-func (cc *clientCluster) createAndDestroyCluster(postCreate func(),
-	postDestroy func(), long bool) {
+func (cc *clientCluster) createAndDestroyCluster(postCreate, postDestroy func()) {
 	defer func() {
 		Expect(cc.printLogs()).To(Succeed())
 		cc.destroyCleanupWithCallback(postDestroy)
 	}()
-	cc.createWithCallback(long, postCreate)
+	cc.createWithCallback(postCreate)
 }
 
 func (cc *clientCluster) createCluster(intervals ...interface{}) {
