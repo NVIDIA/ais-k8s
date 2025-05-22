@@ -206,7 +206,7 @@ func (r *AIStoreReconciler) isReadyToScaleDown(ctx context.Context, ais *aisv1.A
 	}
 	// If any targets are still in the smap as decommissioning, delay scaling
 	for _, targetNode := range smap.Tmap {
-		if smap.InMaintOrDecomm(targetNode) && !smap.InMaint(targetNode) {
+		if smap.InMaintOrDecomm(targetNode.ID()) && !smap.InMaint(targetNode) {
 			logger.Info("Delaying scaling. Target still in decommissioning state", "target", targetNode.ID())
 			return
 		}
@@ -251,7 +251,7 @@ func (r *AIStoreReconciler) decommissionTargets(ctx context.Context, ais *aisv1.
 			if !strings.HasPrefix(node.ControlNet.Hostname, podName) {
 				continue
 			}
-			if !smap.InMaintOrDecomm(node) {
+			if !smap.InMaintOrDecomm(node.ID()) {
 				logger.Info("Decommissioning target", "nodeID", node.ID())
 				_, err = apiClient.DecommissionNode(&aisapc.ActValRmNode{DaemonID: node.ID(), RmUserData: true})
 				if err != nil {

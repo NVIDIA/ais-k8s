@@ -186,7 +186,7 @@ var _ = Describe("Run Controller", func() {
 				ObjCnt:    10,
 				ObjSize:   10 * cos.KiB,
 				FixedSize: true,
-				CksumType: cos.ChecksumXXHash,
+				CksumType: cos.ChecksumOneXxh,
 				IgnoreErr: false,
 			})
 			Expect(err).NotTo(HaveOccurred())
@@ -219,7 +219,7 @@ var _ = Describe("Run Controller", func() {
 				ObjCnt:    10,
 				ObjSize:   10 * cos.KiB,
 				FixedSize: true,
-				CksumType: cos.ChecksumXXHash,
+				CksumType: cos.ChecksumOneXxh,
 				IgnoreErr: false,
 			})
 			Expect(err).NotTo(HaveOccurred())
@@ -251,7 +251,7 @@ var _ = Describe("Run Controller", func() {
 				ObjCnt:    10,
 				ObjSize:   10 * cos.KiB,
 				FixedSize: true,
-				CksumType: cos.ChecksumXXHash,
+				CksumType: cos.ChecksumOneXxh,
 				IgnoreErr: false,
 			})
 			Expect(err).NotTo(HaveOccurred())
@@ -289,7 +289,7 @@ var _ = Describe("Run Controller", func() {
 				ObjCnt:    10,
 				ObjSize:   10 * cos.KiB,
 				FixedSize: true,
-				CksumType: cos.ChecksumXXHash,
+				CksumType: cos.ChecksumOneXxh,
 				IgnoreErr: false,
 			})
 			Expect(err).NotTo(HaveOccurred())
