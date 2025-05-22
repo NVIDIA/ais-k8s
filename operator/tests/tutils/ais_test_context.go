@@ -16,6 +16,7 @@ const (
 	EnvPrevNodeImage       = "AIS_TEST_PREV_NODE_IMAGE"
 	EnvInitImage           = "AIS_TEST_INIT_IMAGE"
 	EnvPrevInitImage       = "AIS_TEST_PREV_INIT_IMAGE"
+	EnvAPIMode             = "AIS_TEST_API_MODE"
 	EnvTestStorageClass    = "TEST_STORAGECLASS"
 	EnvTestStorageHostPath = "TEST_STORAGE_HOSTPATH"
 	EnvTestEphemeral       = "TEST_EPHEMERAL_CLUSTER"
@@ -37,6 +38,7 @@ type AISTestContext struct {
 	PreviousInitImage string
 	LogsImage         string
 	Ephemeral         bool
+	APIMode           string
 }
 
 func NewAISTestContext(ctx context.Context, k8sClient *aisclient.K8sClient) (*AISTestContext, error) {
@@ -55,6 +57,7 @@ func NewAISTestContext(ctx context.Context, k8sClient *aisclient.K8sClient) (*AI
 		PreviousInitImage: initPrevInitImage(),
 		LogsImage:         DefaultLogsImage,
 		Ephemeral:         initEphemeral(),
+		APIMode:           initAPIMode(),
 	}, nil
 }
 
@@ -106,6 +109,10 @@ func initStorageClass(k8sClient *aisclient.K8sClient, k8sProvider string) string
 
 func initStorageHostPath() string {
 	return getOrDefaultEnv(EnvTestStorageHostPath, "/etc/ais/"+strings.ToLower(aiscos.CryptoRandS(6)))
+}
+
+func initAPIMode() string {
+	return os.Getenv("AIS_TEST_API_MODE")
 }
 
 func getOrDefaultEnv(envVar, defaultVal string) string {

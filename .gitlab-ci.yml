@@ -37,9 +37,12 @@ stages:
   <<: *operator_rules_def
   timeout: 20m
   before_script:
-    - ./operator/tests/ci/cluster_setup.sh
+    # TODO: Revisit (issue w/ `kind export logs` in `after_script`)
+    - mkdir -p /ci-kind-logs/{control-plane,worker1,worker2,worker3}
+    - chmod -R 755 /ci-kind-logs
+    - make -C operator kind-setup test-e2e-bootstrap
   script:
-    - ./operator/tests/ci/test_in_cluster.sh
+    - make -C operator test-e2e-in-cluster
   after_script:
     - cp -r /ci-kind-logs $CI_PROJECT_DIR/logs/
   artifacts:

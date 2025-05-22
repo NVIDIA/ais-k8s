@@ -47,6 +47,7 @@ type (
 		ShutdownCluster           bool
 		CleanupMetadata           bool
 		CleanupData               bool
+		APIMode                   string
 		// Create a cluster with more PVs than targets for future scaling
 		MaxTargets int32
 		// Where to mount the hostpath storage for actual storage PVs
@@ -68,6 +69,7 @@ func NewClusterSpecArgs(testContext *AISTestContext) *ClusterSpecArgs {
 		NodeImage:                 testContext.NodeImage,
 		InitImage:                 testContext.InitImage,
 		LogSidecarImage:           testContext.LogsImage,
+		APIMode:                   testContext.APIMode,
 		CleanupMetadata:           true,
 		CleanupData:               true,
 		DisableTargetAntiAffinity: false,
@@ -190,6 +192,7 @@ func newAISClusterCR(args *ClusterSpecArgs, mounts []aisv1.Mount) *aisv1.AIStore
 	}
 	// If not using an LB, use the host port to provide external access
 	if !args.EnableExternalLB {
+		spec.APIMode = aisapc.Ptr(args.APIMode)
 		spec.ProxySpec.HostPort = aisapc.Ptr(int32(51080))
 		spec.TargetSpec.HostPort = aisapc.Ptr(int32(51081))
 	}

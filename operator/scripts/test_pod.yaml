@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: operator-test-pod
+spec:
+  restartPolicy: Never
+  containers:
+    - name: operator-test
+      image: operator-test
+      imagePullPolicy: Never
+      securityContext:
+        privileged: true
+      env:
+        - name: TEST_E2E_MODE
+          value: "${TEST_E2E_MODE}"
+        - name: TEST_STORAGECLASS
+          value: "${TEST_STORAGECLASS}"
+        - name: TEST_STORAGE_HOSTPATH
+          value: "${TEST_STORAGE_HOSTPATH}"
+        - name: TEST_EPHEMERAL_CLUSTER
+          value: "${TEST_EPHEMERAL_CLUSTER}"
+        - name: AIS_TEST_NODE_IMAGE
+          value: "${AIS_TEST_NODE_IMAGE}"
+        - name: AIS_TEST_PREV_NODE_IMAGE
+          value: "${AIS_TEST_PREV_NODE_IMAGE}"
+        - name: AIS_TEST_INIT_IMAGE
+          value: "${AIS_TEST_INIT_IMAGE}"
+        - name: AIS_TEST_PREV_INIT_IMAGE
+          value: "${AIS_TEST_PREV_INIT_IMAGE}"
+        - name: AIS_TEST_API_MODE
+          value: "${AIS_TEST_API_MODE}"

@@ -15,6 +15,21 @@ ENVTEST_K8S_VERSION = 1.25.0
 # KIND_K8S_VERSION refers to the version of container images for nodes that are being created during cluster setup.
 KIND_K8S_VERSION ?= v1.33.0
 
+# LPP_VERSION refers to the version of local-path-provisioner to be used for operator testing.
+LPP_VERSION ?= v0.0.31
+
+# KIND_CONFIG refers to the configuration file to be used for cluster setup.
+KIND_CONFIG ?= ./scripts/kind_cluster_local.yaml
+ifeq ($(CI),true)
+KIND_CONFIG := ./tests/ci/kind_cluster_ci.yaml
+endif
+
+# KIND_CLUSTER_NAME refers to the name of the cluster to be created.
+export KIND_CLUSTER_NAME ?= ais-operator-test
+
+# TEST_E2E_MODE can be set to "manual" to run E2E tests with the "manual" label only
+export TEST_E2E_MODE ?=
+
 # CONTAINER_TOOL defines the container tool to be used for building images.
 # Be aware that the target commands are only tested with Docker which is
 # scaffolded by default. However, you might want to replace it to use other
@@ -73,23 +88,42 @@ fmt: ## Run go fmt against code.
 vet: ## Run go vet against code.
 	go vet ./...
 
-.PHONY: test test-e2e test-e2e-manual
+.PHONY: test test-e2e-bootstrap test-e2e-teardown test-e2e test-e2e-in-cluster
 test: manifests generate envtest ## Run tests.
 	@[[ $$(command -v ginkgo) ]] || go install github.com/onsi/ginkgo/v2/ginkgo
 	@KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" ginkgo --vv --skip-package e2e --coverprofile cover.out ./...
 
-test-e2e: manifests generate envtest
-	@KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" $(SHELL) "$(SCRIPTS_DIR)/test.sh"
+test-e2e-bootstrap: lpp-setup lb-setup
 
-test-e2e-manual: manifests generate envtest
-	@KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" $(SHELL) "$(SCRIPTS_DIR)/test.sh" manual
+test-e2e-teardown: lpp-teardown lb-teardown
+
+test-e2e: manifests generate envtest
+	@KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" $(SHELL) "$(SCRIPTS_DIR)/test.sh" $(E2E_MODE)
+
+test-e2e-in-cluster:
+	@[ -n "$$CI" ] && $(SHELL) ./tests/ci/test_in_cluster.sh || $(SHELL) $(SCRIPTS_DIR)/test_in_cluster.sh
 
 .PHONY: kind-setup kind-teardown
 kind-setup: kind
-	$(KIND) create cluster --name ais-operator-test --image kindest/node:$(KIND_K8S_VERSION) --config scripts/kind_cluster_local.yaml
+	$(KIND) create cluster --name $(KIND_CLUSTER_NAME) --image kindest/node:$(KIND_K8S_VERSION) --config $(KIND_CONFIG)
+	$(KUBECTL) cluster-info --context kind-$(KIND_CLUSTER_NAME)
 
 kind-teardown: kind
-	$(KIND) delete cluster --name ais-operator-test
+	$(KIND) delete cluster --name $(KIND_CLUSTER_NAME)
+
+.PHONY: lpp-setup lpp-teardown lb-setup lb-teardown
+lpp-setup:
+	$(KUBECTL) apply -f "https://raw.githubusercontent.com/rancher/local-path-provisioner/$(LPP_VERSION)/deploy/local-path-storage.yaml"
+
+lpp-teardown:
+	$(KUBECTL) delete -f "https://raw.githubusercontent.com/rancher/local-path-provisioner/$(LPP_VERSION)/deploy/local-path-storage.yaml"
+
+lb-setup: cloud-provider-kind
+	@nohup $(CLOUD_PROVIDER_KIND) > cloud-provider-kind.log 2>&1 &
+
+lb-teardown:
+	pkill -f cloud-provider-kind
+	rm -f cloud-provider-kind.log
 
 .PHONY: lint
 lint: golangci-lint ## Run golangci-lint linter
