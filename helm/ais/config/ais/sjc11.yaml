@@ -31,10 +31,10 @@ https:
   tlsSecret: "tls-certs"
 nodeImage:
   name: aistorage/aisnode
-  tag: v3.28-9fa9265
+  tag: v3.29
 initImage:
   name: aistorage/ais-init
-  tag: v3.28-9fa9265
+  tag: v3.29
 logSidecarImage:
   name: aistorage/ais-logs
   tag: v1.0
