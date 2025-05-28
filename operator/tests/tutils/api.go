@@ -500,8 +500,8 @@ func GetRandomProxyIP(ctx context.Context, client *aisclient.K8sClient, cluster 
 	proxySSName.Name = fmt.Sprintf("%s-%d", proxySSName.Name, proxyIndex)
 	pod, err := client.GetPod(ctx, proxySSName)
 	Expect(err).NotTo(HaveOccurred())
-	Expect(pod.Status.PodIP).NotTo(Equal(""))
-	return pod.Status.PodIP
+	Expect(pod.Status.HostIP).NotTo(Equal(""))
+	return pod.Status.HostIP
 }
 
 func GetAllProxyIPs(ctx context.Context, client *aisclient.K8sClient, cluster *aisv1.AIStore) []string {
@@ -513,8 +513,8 @@ func GetAllProxyIPs(ctx context.Context, client *aisclient.K8sClient, cluster *a
 		podName := types.NamespacedName{Name: fmt.Sprintf("%s-%d", proxySSName.Name, i), Namespace: proxySSName.Namespace}
 		pod, err := client.GetPod(ctx, podName)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(pod.Status.PodIP).NotTo(Equal(""))
-		proxyIPs[i] = pod.Status.PodIP
+		Expect(pod.Status.HostIP).NotTo(Equal(""))
+		proxyIPs[i] = pod.Status.HostIP
 	}
 
 	return proxyIPs
