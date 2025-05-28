@@ -65,7 +65,7 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 			ServiceName:          headlessSVCName(ais.Name),
 			PodManagementPolicy:  apiv1.ParallelPodManagement,
 			Replicas:             aisapc.Ptr(ais.GetTargetSize()),
-			VolumeClaimTemplates: targetVC(ais),
+			VolumeClaimTemplates: targetPVC(ais),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels:      labels,
@@ -155,19 +155,23 @@ func NewAISContainerEnv(ais *aisv1.AIStore) []corev1.EnvVar {
 	return cmn.MergeEnvVars(baseEnv, ais.Spec.TargetSpec.Env)
 }
 
+func getVolumeMountName(ais *aisv1.AIStore, mount *aisv1.Mount) string {
+	return ais.Name + strings.ReplaceAll(mount.Path, "/", "-")
+}
+
 func volumeMounts(ais *aisv1.AIStore) []corev1.VolumeMount {
 	vols := cmn.NewAISVolumeMounts(ais, aisapc.Target)
-	for _, res := range ais.Spec.TargetSpec.Mounts {
+	for _, mnt := range ais.Spec.TargetSpec.Mounts {
 		vols = append(vols, corev1.VolumeMount{
-			Name:      ais.Name + strings.ReplaceAll(res.Path, "/", "-"),
-			MountPath: res.Path,
+			Name:      getVolumeMountName(ais, &mnt),
+			MountPath: mnt.Path,
 		})
 	}
 	return vols
 }
 
-func targetVC(ais *aisv1.AIStore) []corev1.PersistentVolumeClaim {
-	pvcs := make([]corev1.PersistentVolumeClaim, 0, int(ais.GetTargetSize()))
+func defineDataPVCs(ais *aisv1.AIStore) []corev1.PersistentVolumeClaim {
+	pvcs := make([]corev1.PersistentVolumeClaim, 0, len(ais.Spec.TargetSpec.Mounts))
 	for _, res := range ais.Spec.TargetSpec.Mounts {
 		decSize := res.Size.AsDec()
 		// Round down and get the unscaled int size
@@ -181,7 +185,7 @@ func targetVC(ais *aisv1.AIStore) []corev1.PersistentVolumeClaim {
 		}
 		pvcs = append(pvcs, corev1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: ais.Name + strings.ReplaceAll(res.Path, "/", "-"),
+				Name: getVolumeMountName(ais, &res),
 			},
 			Spec: corev1.PersistentVolumeClaimSpec{
 				AccessModes: []corev1.PersistentVolumeAccessMode{
@@ -195,6 +199,11 @@ func targetVC(ais *aisv1.AIStore) []corev1.PersistentVolumeClaim {
 			},
 		})
 	}
+	return pvcs
+}
+
+func targetPVC(ais *aisv1.AIStore) []corev1.PersistentVolumeClaim {
+	pvcs := defineDataPVCs(ais)
 	if ais.Spec.StateStorageClass != nil {
 		if statePVC := cmn.DefineStatePVC(ais, ais.Spec.StateStorageClass); statePVC != nil {
 			pvcs = append(pvcs, *statePVC)

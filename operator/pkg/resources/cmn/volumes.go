@@ -39,6 +39,7 @@ const (
 	hostnameMapFileName = "hostname_map.json"
 	AISGlobalConfigName = "ais.json"
 	AISLocalConfigName  = "ais_local.json"
+	AISDataPVC          = "target_pvcs.json"
 
 	StatsDVolume         = "statsd-config"
 	configTemplateVolume = "config-template"
