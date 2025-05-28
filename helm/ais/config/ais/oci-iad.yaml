@@ -15,7 +15,7 @@ global:
     - 10.49.41.27
     - 10.49.41.89
     - 10.49.41.4
-    - 10.49.41.47
+    - 10.49.41.67
   namespace: ais
   cluster: ais
   mpathSize: 6.2Ti

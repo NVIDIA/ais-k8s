@@ -7,7 +7,7 @@ releases:
     namespace: ais-operator-system
     createNamespace: true
     chart: aistore/ais-operator
-    version: 2.2.0
+    version: 2.3.0
     hooks:
       - events: ["presync"]
         showlogs: true
