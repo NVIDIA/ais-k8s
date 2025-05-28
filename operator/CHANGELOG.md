@@ -14,6 +14,8 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ### Changed
 
+- Update RBAC rule in AIS service account to remove access to secrets amd configmaps and add GET access to PVCs
+
 ## v2.3.0
 
 ### Added

@@ -11,11 +11,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const (
-	verbAll  = "*"
-	roleKind = "Role"
-)
-
 func roleName(ais *aisv1.AIStore) string {
 	return ais.Name + "-role"
 }
@@ -39,28 +34,35 @@ func ServiceAccountName(ais *aisv1.AIStore) string {
 }
 
 func NewAISRBACRole(ais *aisv1.AIStore) *rbacv1.Role {
+	allRule := rbacv1.PolicyRule{
+		APIGroups: []string{""},
+		Resources: []string{
+			"pods",
+			"services",
+		},
+		Verbs: []string{"get", "list", "watch", "create", "update", "delete"},
+	}
+	logRule := rbacv1.PolicyRule{
+		APIGroups: []string{""},
+		Resources: []string{
+			"pods/log",
+		},
+		Verbs: []string{"get"},
+	}
+	pvcRule := rbacv1.PolicyRule{
+		APIGroups: []string{""},
+		Resources: []string{
+			"persistentvolumeclaims",
+		},
+		Verbs: []string{"get", "list"},
+	}
 	return &rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      roleName(ais),
 			Namespace: ais.Namespace,
 		},
 		Rules: []rbacv1.PolicyRule{
-			{
-				APIGroups: []string{""},
-				Resources: []string{
-					"secrets",
-					"configmaps",
-
-					// ETL + enable-external LB.
-					"services",
-
-					// These resources are needed to support ETL in `aisnode`.
-					"pods",
-					"pods/exec",
-					"pods/log",
-				},
-				Verbs: []string{verbAll}, // TODO: set only required permissions
-			},
+			allRule, logRule, pvcRule,
 		},
 	}
 }
@@ -73,7 +75,7 @@ func NewAISRBACRoleBinding(ais *aisv1.AIStore) *rbacv1.RoleBinding {
 		},
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: rbacv1.SchemeGroupVersion.Group,
-			Kind:     roleKind,
+			Kind:     "Role",
 			Name:     roleName(ais),
 		},
 		Subjects: []rbacv1.Subject{
