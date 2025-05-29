@@ -42,19 +42,13 @@ func NewAISRBACRole(ais *aisv1.AIStore) *rbacv1.Role {
 		},
 		Verbs: []string{"get", "list", "watch", "create", "update", "delete"},
 	}
-	logRule := rbacv1.PolicyRule{
+	getRule := rbacv1.PolicyRule{
 		APIGroups: []string{""},
 		Resources: []string{
 			"pods/log",
+			"configmaps",
 		},
 		Verbs: []string{"get"},
-	}
-	pvcRule := rbacv1.PolicyRule{
-		APIGroups: []string{""},
-		Resources: []string{
-			"persistentvolumeclaims",
-		},
-		Verbs: []string{"get", "list"},
 	}
 	return &rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{
@@ -62,7 +56,7 @@ func NewAISRBACRole(ais *aisv1.AIStore) *rbacv1.Role {
 			Namespace: ais.Namespace,
 		},
 		Rules: []rbacv1.PolicyRule{
-			allRule, logRule, pvcRule,
+			allRule, getRule,
 		},
 	}
 }
