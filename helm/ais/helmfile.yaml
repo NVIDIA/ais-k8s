@@ -39,16 +39,6 @@ environments:
 ---
 
 releases:
-  # Defines a self-signed issuer for acquiring a tls cert
-  - name: ais-tls-issuer
-    namespace: ais
-    createNamespace: true
-    chart: charts/tls-issuer
-    version: 0.1.0
-    condition: https.enabled
-    values:
-      - "./config/tls-issuer/{{ .Environment.Name }}.yaml"
-
   # Acquires a tls cert from the specified issuer and stores in a secret for AIS
   - name: ais-tls-cert
     namespace: ais
@@ -56,8 +46,6 @@ releases:
     chart: charts/tls-cert
     version: 0.1.0
     condition: https.enabled
-    needs:
-      - ais-tls-issuer
     values:
       - "./config/tls-cert/{{ .Environment.Name }}.yaml"
       - "./config/ais/{{ .Environment.Name }}.yaml"

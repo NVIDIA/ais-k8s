@@ -1,0 +1,39 @@
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: operator-tls-cert
+  namespace: {{ .Release.Namespace }}
+spec:
+  secretName: {{ .Values.spec.tlsSecret }}
+  isCA: false
+  duration: {{ .Values.spec.duration }}
+  renewBefore: {{ .Values.spec.renewBefore }}
+  usages:
+    - client auth
+  subject:
+    organizations: 
+      {{- range .Values.spec.subject.organizations }}
+      - {{ . }}
+      {{- end }}
+    organizationalUnits:
+      {{- range .Values.spec.subject.organizationalUnits }}
+      - {{ . }}
+      {{- end }}
+    countries:
+      {{- range .Values.spec.subject.countries }}
+      - {{ . }}
+      {{- end }}
+  dnsNames:
+    {{- range .Values.spec.dnsNames }}
+    - "{{ . }}"
+    {{- end }}
+  ipAddresses:
+    {{- range .Values.spec.ipAddresses }}
+    - "{{ . }}"
+    {{- end }}
+  emailAddresses:
+    - {{ .Values.spec.emailAddress }}
+  issuerRef:
+    name: {{ .Values.spec.issuerRef.name }}
+    kind: {{ .Values.spec.issuerRef.kind }}

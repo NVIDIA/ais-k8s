@@ -23,71 +23,41 @@ Both approaches deploy the AIS operator, then create an AIS custom resource to s
 1. Check your current context with `kubectl config current-context`
 1. Set the context to your cluster with `kubectl config use-context <your-context>`
 
-### Update Values
+## Install Charts
 
-To create a new release, add it to the environments section at the top of `ais/helmfile.yaml`. 
+To install the charts provided, we use [helmfile](https://github.com/helmfile/helmfile?tab=readme-ov-file).
 
-Next, copy the `values-sample.yaml` file for each chart in [./ais/config/](./charts/ais-cluster/) to a new values file with the same name as the new environment. 
+To create a release for a new environment, add it to the environments section at the top of the helmfile for each required chart.
+Next, copy the `values-sample.yaml` or an existing config yaml to a new file in the `config` directory for each chart.
+This new file must match the name of the new environment.
+Then modify the values in each new file for your desired deployment. 
 
-Then modify the values in each new file for your desired cluster. 
+### Install Cluster Issuer  (optional)
 
-### Cloud Credentials
+If you want to deploy with TLS but don't have an issuer configured, we include a [chart](./cluster-issuer/) to set up a [self-signed cluster issuer](https://cert-manager.io/docs/configuration/selfsigned/).
+Cert-manager must be installed and running in the cluster for this step. 
+Installing this chart first will create a cluster issuer that can be used to issue certificates for both the operator and AIS. 
 
-To configure backend provider secrets from the helm charts, set the value `cloud-secrets.enabled: true` for your environment in the [helmfile](./ais/helmfile.yaml). 
+Create a new environment, update your certificate values in a separate config entry, then run `helmfile sync -e <your-env>` to install the cluster issuer. 
+`kubectl get clusterissuer` should show a new, non-namespaced `ca-issuer` ready. 
 
-Then, add a configuration values file in the [config/cloud](./ais/config/cloud/) directory to populate the variables used by the [cloud-secrets templates](./ais/charts/cloud-secrets/templates/).
-
-Note this chart only creates the secrets to be mounted by the targets. Extra environment variables can be provided through the values for the main AIS chart.
-
-For OCI, setting the `OCI_COMPARTMENT_OCID` variable is necessary to provide a default compartment.
-
-
-### PV Creation
-
-The AIS chart will include the create-pv sub-chart if the value is set for the environment: `ais-create-pv.enabled: true`.
-This will automatically create HostPath persistent volumes for each of the mountpaths for every target in the cluster.
-
-If you want to use an existing set of PVs, set `ais-create-pv.enabled: false`.
-You can also change the `storageClass` option to instruct AIS target pods to mount a different existing storage class.
-
-### Install Charts
-
-To install the charts provided, we use [helmfile](https://github.com/helmfile/helmfile?tab=readme-ov-file). Update the `helmfile.yaml` to configure the destination namespaces and set the environment for your deployment. 
-
-1. In the [operator](./operator/) directory, update [helmfile.yaml](./operator/helmfile.yaml) with the desired ais-operator chart version. Install the chart with helmfile:
+### Install the Operator
+In the [operator](./operator/) directory, update [helmfile.yaml](./operator/helmfile.yaml) with the desired ais-operator chart version.
+Create a new environment and update the config files for that environment. 
+Install the chart with helmfile:
 
 ```bash 
-helmfile sync
+helmfile sync -e <your-env>
 ```
 
 > **Note**: Only operator versions >= 1.4.1 are supported via Helm Chart. See the [playbook docs](../playbooks/ais-deployment/docs/ais_cluster_management.md#1-deploying-ais-kubernetes-operator) for deploying older versions via Ansible Playbooks. 
 
-
-2. Verify the operator installation by checking that the pod is in 'Ready' state:
+Verify the operator installation by checking that the pod is in 'Ready' state:
 ```bash 
 kubectl get pods -n ais-operator-system
 ```
 
-3. From the `ais` directory, run: 
+### Install AIS
 
-```bash 
-helmfile sync --environment <your-env>
-```
+See the [AIS chart docs](./ais/README.md)
 
-To uninstall:
-```bash
-helmfile destroy --environment <your-env>
-```
-
-## Individual Charts
-
-If you only want to modify one part of the installation, it is possible to run the charts individually in `./ais/charts` with their own `values.yaml` files.
-
-| Chart                                                      | Description                                                                                              |
-|------------------------------------------------------------|----------------------------------------------------------------------------------------------------------|
-| [ais-cloud-secrets](./ais/charts/cloud-secrets/Chart.yaml) | Create k8s secrets from local files for cloud backends                                                   |
-| [ais-cluster](./ais/charts/ais-cluster/Chart.yaml)         | Create an AIS cluster resource, with the expectation the operator is already deployed                    |
-| [ais-create-pv](./ais/charts/create-pv/Chart.yaml)         | Create persistent volumes to be used by AIS targets                                                      |
-| [ais-operator](https://github.com/NVIDIA/ais-k8s/releases) | Deploy the AIS operator -- our helmfile deploys the chart generated from our latest AIS operator release |
-| [tls-cert](./ais/charts/tls-cert/Chart.yaml)               | Create a cert-manager certificate                                                                        |
-| [tls-issuer](./ais/charts/tls-issuer/Chart.yaml)           | Create a cert-manager Issuer for self-signed certs                                                       |

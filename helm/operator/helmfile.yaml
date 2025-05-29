@@ -1,8 +1,28 @@
+environments: 
+  default:
+    values:
+    - createCert:
+        enabled: false
+  sjc11:
+    values: 
+    - createCert:
+        enabled: true
+    kubeContext: sjc11
+---
 repositories:
   - name: aistore
     url: https://nvidia.github.io/ais-k8s/charts/
-
+---
 releases:    
+  - name: operator-tls-cert
+    namespace: ais-operator-system
+    createNamespace: true
+    chart: tls-cert
+    condition: createCert.enabled
+    version: 0.1.0
+    values:
+      - "./config/tls-cert/{{ .Environment.Name }}.yaml"
+
   - name: ais-operator
     namespace: ais-operator-system
     createNamespace: true

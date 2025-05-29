@@ -1,0 +1,11 @@
+environments: 
+  sjc11:
+    kubeContext: sjc11
+---
+releases:
+  # Defines a self-signed issuer for acquiring a tls cert
+  - name: cluster-issuer
+    chart: issuer-chart
+    version: 0.1.0
+    values:
+      - "./config/{{ .Environment.Name }}.yaml"

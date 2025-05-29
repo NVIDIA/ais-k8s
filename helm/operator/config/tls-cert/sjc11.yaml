@@ -1,4 +1,5 @@
-certificate:
+spec:
+  tlsSecret: operator-tls
   duration: 8760h # 1 year
   renewBefore: 720h # 30 days
   subject:
@@ -9,16 +10,7 @@ certificate:
     countries:
       - US
   dnsNames:
-    # used for readiness and liveness check
     - "localhost" 
-    # used for registration of targets 
-    - "ais-proxy"
-    - "ais-target"
-    # used for intra cluster communication
-    - "*.ais-proxy.ais.svc.cluster.local"
-    - "*.ais-target.ais.svc.cluster.local"
-    # used for ais-operator communication
-    - "ais-proxy.ais"
     - "aistorecpu1004.nsv.sjc11.nvmetal.net"
     - "aistorecpu1005.nsv.sjc11.nvmetal.net"
     - "aistorecpu1006.nsv.sjc11.nvmetal.net"
