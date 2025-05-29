@@ -22,6 +22,11 @@ const (
 //go:generate mockgen -source $GOFILE -destination mocks/client_manager.go . AISClientManagerInterface
 
 type (
+	AISClientTLSOpts struct {
+		CertPath       string
+		CertPerCluster bool
+	}
+
 	AISClientManagerInterface interface {
 		GetClient(ctx context.Context, ais *aisv1.AIStore) (AIStoreClientInterface, error)
 	}
@@ -29,14 +34,16 @@ type (
 	AISClientManager struct {
 		mu        sync.RWMutex
 		k8sClient *aisclient.K8sClient
+		tlsOpts   AISClientTLSOpts
 		authN     AuthNClientInterface
 		clientMap map[string]AIStoreClientInterface
 	}
 )
 
-func NewAISClientManager(k8sClient *aisclient.K8sClient) *AISClientManager {
+func NewAISClientManager(k8sClient *aisclient.K8sClient, tlsOpts AISClientTLSOpts) *AISClientManager {
 	return &AISClientManager{
 		k8sClient: k8sClient,
+		tlsOpts:   tlsOpts,
 		authN:     NewAuthNClient(),
 		clientMap: make(map[string]AIStoreClientInterface, 16),
 	}

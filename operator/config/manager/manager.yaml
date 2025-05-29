@@ -33,6 +33,10 @@ spec:
         name: manager
         securityContext:
           allowPrivilegeEscalation: false
+        volumeMounts:
+          - name: operator-tls
+            mountPath: /etc/operator/tls
+            readOnly: true
         env:
         # Env variables for the AuthN (if its running in the same k8s cluster)
         - name: AIS_AUTHN_SU_NAME
@@ -64,4 +68,9 @@ spec:
           requests:
             cpu: 100m
             memory: 20Mi
+      volumes:
+        - name: operator-tls
+          secret:
+            secretName: operator-tls
+            optional: true
       terminationGracePeriodSeconds: 10

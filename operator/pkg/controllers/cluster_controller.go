@@ -58,10 +58,10 @@ func NewAISReconciler(c *aisclient.K8sClient, recorder record.EventRecorder, log
 	}
 }
 
-func NewAISReconcilerFromMgr(mgr manager.Manager, logger logr.Logger) *AIStoreReconciler {
+func NewAISReconcilerFromMgr(mgr manager.Manager, aisClientTLSOpts services.AISClientTLSOpts, logger logr.Logger) *AIStoreReconciler {
 	c := aisclient.NewClientFromMgr(mgr)
 	recorder := mgr.GetEventRecorderFor("ais-controller")
-	clientManager := services.NewAISClientManager(c)
+	clientManager := services.NewAISClientManager(c, aisClientTLSOpts)
 	return NewAISReconciler(c, recorder, logger, clientManager)
 }
 

@@ -13,6 +13,9 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 ### Added
 
 - Add support for `TEST_EPHEMERAL_CLUSTER` environment variable to skip cleanup/teardown when testing on ephemeral clusters (e.g. in CI).
+- Add optional mount for `operator-tls` for supplying the operator with a certificate for client authentication.
+- Add `ais-client-cert-path` for defining specific location of operator AIS client certificates
+- Add `ais-client-cert-per-cluster` to support separate certificate locations for each AIS cluster
 
 ### Changed
 

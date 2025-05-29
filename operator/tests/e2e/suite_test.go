@@ -15,6 +15,7 @@ import (
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	aisclient "github.com/ais-operator/pkg/client"
 	"github.com/ais-operator/pkg/controllers"
+	"github.com/ais-operator/pkg/services"
 	"github.com/ais-operator/tests/tutils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -69,8 +70,13 @@ var _ = SynchronizedBeforeSuite(
 
 		mgr, err := ctrl.NewManager(cfg, ctrl.Options{Scheme: scheme.Scheme})
 		Expect(err).NotTo(HaveOccurred())
+		tlsOpts := services.AISClientTLSOpts{
+			CertPath:       "my/cert/path",
+			CertPerCluster: false,
+		}
 		Expect(controllers.NewAISReconcilerFromMgr(
 			mgr,
+			tlsOpts,
 			ctrl.Log.WithName("controllers").WithName("AIStore"),
 		).SetupWithManager(mgr)).To(Succeed())
 

@@ -1,6 +1,6 @@
 // Package main contains logic for managing AIS operator manager
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION. All rights reserved.
  */
 package main
 
@@ -13,6 +13,7 @@ import (
 
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	"github.com/ais-operator/pkg/controllers"
+	"github.com/ais-operator/pkg/services"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -47,6 +48,8 @@ func main() {
 	var metricsAddr string
 	var metricsCertPath, metricsCertName, metricsCertKey string
 	var webhookCertPath, webhookCertName, webhookCertKey string
+	var aisClientCertPath string
+	var aisClientCertPerCluster bool
 	var enableLeaderElection bool
 	var probeAddr string
 	var secureMetrics bool
@@ -66,6 +69,8 @@ func main() {
 		"The directory that contains the metrics server certificate.")
 	flag.StringVar(&metricsCertName, "metrics-cert-name", "tls.crt", "The name of the metrics server certificate file.")
 	flag.StringVar(&metricsCertKey, "metrics-cert-key", "tls.key", "The name of the metrics server key file.")
+	flag.StringVar(&aisClientCertPath, "ais-client-cert-path", "/etc/operator/tls", "The directory that contains the AIS client certificate and key.")
+	flag.BoolVar(&aisClientCertPerCluster, "ais-client-cert-per-cluster", false, "If true, use namespace and cluster name from AIS spec as subdirectories to ais-client-cert-path.")
 
 	opts := zap.Options{
 		Development: true,
@@ -164,6 +169,10 @@ func main() {
 
 	if err = controllers.NewAISReconcilerFromMgr(
 		mgr,
+		services.AISClientTLSOpts{
+			CertPath:       aisClientCertPath,
+			CertPerCluster: aisClientCertPerCluster,
+		},
 		ctrl.Log.WithName("controllers").WithName("AIStore"),
 	).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "AIStore")
