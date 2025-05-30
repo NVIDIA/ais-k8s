@@ -9,12 +9,14 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sync"
 	"time"
 
 	aisapi "github.com/NVIDIA/aistore/api"
 	aisapc "github.com/NVIDIA/aistore/api/apc"
 	aistutils "github.com/NVIDIA/aistore/tools"
 	aisv1 "github.com/ais-operator/api/v1beta1"
+	aisclient "github.com/ais-operator/pkg/client"
 	"github.com/ais-operator/pkg/resources/proxy"
 	"github.com/ais-operator/pkg/resources/target"
 	"github.com/ais-operator/tests/tutils"
@@ -28,10 +30,10 @@ import (
 const (
 	clusterCreateInterval     = time.Second
 	clusterReadyRetryInterval = 5 * time.Second
-	clusterReadyTimeout       = 3 * time.Minute
+	clusterReadyTimeout       = 5 * time.Minute
 	clusterDestroyInterval    = 2 * time.Second
-	clusterDestroyTimeout     = 2 * time.Minute
-	clusterUpdateTimeout      = 30 * time.Second
+	clusterDestroyTimeout     = 3 * time.Minute
+	clusterUpdateTimeout      = 1 * time.Minute
 	clusterUpdateInterval     = 2 * time.Second
 
 	urlTemplate = "http://%s:%s"
@@ -40,11 +42,12 @@ const (
 // clientCluster - This struct contains an AIS custom resource, references to required persistent volumes,
 // and utility methods for managing clusters used by operator tests
 type clientCluster struct {
-	aisCtx   *tutils.AISTestContext
-	cluster  *aisv1.AIStore
-	pvs      []*corev1.PersistentVolume
-	ctx      context.Context
-	proxyURL string
+	aisCtx    *tutils.AISTestContext
+	k8sClient *aisclient.K8sClient
+	cluster   *aisv1.AIStore
+	pvs       []*corev1.PersistentVolume
+	ctx       context.Context
+	proxyURL  string
 }
 
 func (cc *clientCluster) applyDefaultHostPortOffset(args *tutils.ClusterSpecArgs) {
@@ -57,13 +60,14 @@ func (cc *clientCluster) applyDefaultHostPortOffset(args *tutils.ClusterSpecArgs
 	cc.applyHostPortOffset(gid * 10)
 }
 
-func newClientCluster(ctx context.Context, aisCtx *tutils.AISTestContext, cluArgs *tutils.ClusterSpecArgs) *clientCluster {
-	cluster, pvs := tutils.NewAISCluster(cluArgs, aisCtx.K8sClient)
+func newClientCluster(ctx context.Context, aisCtx *tutils.AISTestContext, k8sClient *aisclient.K8sClient, cluArgs *tutils.ClusterSpecArgs) *clientCluster {
+	cluster, pvs := tutils.NewAISCluster(cluArgs, k8sClient)
 	cc := &clientCluster{
-		ctx:     ctx,
-		aisCtx:  aisCtx,
-		cluster: cluster,
-		pvs:     pvs,
+		ctx:       ctx,
+		aisCtx:    aisCtx,
+		k8sClient: k8sClient,
+		cluster:   cluster,
+		pvs:       pvs,
 	}
 	cc.applyDefaultHostPortOffset(cluArgs)
 	return cc
@@ -101,6 +105,20 @@ func (cc *clientCluster) create() {
 	cc.initClientAccess()
 }
 
+func createClusters(clusters []*clientCluster) {
+	var wg sync.WaitGroup
+	wg.Add(len(clusters))
+
+	for _, cluster := range clusters {
+		go func(cc *clientCluster) {
+			defer GinkgoRecover()
+			defer wg.Done()
+			cc.create()
+		}(cluster)
+	}
+	wg.Wait()
+}
+
 func (cc *clientCluster) createWithCallback(postCreate func()) {
 	cc.create()
 	if postCreate != nil {
@@ -118,23 +136,23 @@ func (cc *clientCluster) createAndDestroyCluster(postCreate, postDestroy func())
 }
 
 func (cc *clientCluster) createCluster(intervals ...interface{}) {
-	Expect(cc.aisCtx.K8sClient.Create(cc.ctx, cc.cluster)).Should(Succeed())
+	Expect(cc.k8sClient.Create(cc.ctx, cc.cluster)).Should(Succeed())
 	By("Create cluster and wait for it to be 'Ready'")
 	Eventually(func() bool {
 		ais := &aisv1.AIStore{}
-		_ = cc.aisCtx.K8sClient.Get(cc.ctx, cc.cluster.NamespacedName(), ais)
+		_ = cc.k8sClient.Get(cc.ctx, cc.cluster.NamespacedName(), ais)
 		return ais.HasState(aisv1.ClusterReady)
 	}, intervals...).Should(BeTrue())
 }
 
 func (cc *clientCluster) refresh() {
 	var err error
-	cc.cluster, err = cc.aisCtx.K8sClient.GetAIStoreCR(cc.ctx, cc.cluster.NamespacedName())
+	cc.cluster, err = cc.k8sClient.GetAIStoreCR(cc.ctx, cc.cluster.NamespacedName())
 	Expect(err).NotTo(HaveOccurred())
 }
 
 func (cc *clientCluster) waitForReadyCluster() {
-	tutils.WaitForClusterToBeReady(cc.ctx, cc.aisCtx.K8sClient, cc.cluster.NamespacedName(), clusterReadyTimeout, clusterReadyRetryInterval)
+	tutils.WaitForClusterToBeReady(cc.ctx, cc.k8sClient, cc.cluster.NamespacedName(), clusterReadyTimeout, clusterReadyRetryInterval)
 	// Validate the cluster map -- make sure all AIS nodes have successfully joined cluster
 	cc.refresh()
 	cc.initClientAccess()
@@ -163,7 +181,7 @@ func (cc *clientCluster) patchImagesToCurrent() {
 	patch := clientpkg.MergeFrom(cc.cluster.DeepCopy())
 	cc.cluster.Spec.NodeImage = cc.aisCtx.NodeImage
 	cc.cluster.Spec.InitImage = cc.aisCtx.InitImage
-	Expect(cc.aisCtx.K8sClient.Patch(cc.ctx, cc.cluster, patch)).Should(Succeed())
+	Expect(cc.k8sClient.Patch(cc.ctx, cc.cluster, patch)).Should(Succeed())
 	By("Update cluster spec and wait for it to be 'Ready'")
 	cc.waitForReadyCluster()
 }
@@ -175,7 +193,7 @@ func (cc *clientCluster) getBaseParams() aisapi.BaseParams {
 }
 
 func (cc *clientCluster) fetchLatestCluster() {
-	ais, err := cc.aisCtx.K8sClient.GetAIStoreCR(cc.ctx, cc.cluster.NamespacedName())
+	ais, err := cc.k8sClient.GetAIStoreCR(cc.ctx, cc.cluster.NamespacedName())
 	Expect(err).To(BeNil())
 	cc.cluster = ais
 }
@@ -206,9 +224,9 @@ func (cc *clientCluster) initClientAccess() {
 func (cc *clientCluster) getProxyURL() (proxyURL string) {
 	var ip string
 	if cc.cluster.Spec.EnableExternalLB {
-		ip = tutils.GetLoadBalancerIP(cc.ctx, cc.aisCtx.K8sClient, proxy.LoadBalancerSVCNSName(cc.cluster))
+		ip = tutils.GetLoadBalancerIP(cc.ctx, cc.k8sClient, proxy.LoadBalancerSVCNSName(cc.cluster))
 	} else {
-		ip = tutils.GetRandomProxyIP(cc.ctx, cc.aisCtx.K8sClient, cc.cluster)
+		ip = tutils.GetRandomProxyIP(cc.ctx, cc.k8sClient, cc.cluster)
 	}
 	Expect(ip).NotTo(Equal(""))
 	return fmt.Sprintf(urlTemplate, ip, cc.cluster.Spec.ProxySpec.ServicePort.String())
@@ -217,9 +235,9 @@ func (cc *clientCluster) getProxyURL() (proxyURL string) {
 func (cc *clientCluster) getAllProxyURLs() (proxyURLs []*string) {
 	var proxyIPs []string
 	if cc.cluster.Spec.EnableExternalLB {
-		proxyIPs = []string{tutils.GetLoadBalancerIP(cc.ctx, cc.aisCtx.K8sClient, proxy.LoadBalancerSVCNSName(cc.cluster))}
+		proxyIPs = []string{tutils.GetLoadBalancerIP(cc.ctx, cc.k8sClient, proxy.LoadBalancerSVCNSName(cc.cluster))}
 	} else {
-		proxyIPs = tutils.GetAllProxyIPs(cc.ctx, cc.aisCtx.K8sClient, cc.cluster)
+		proxyIPs = tutils.GetAllProxyIPs(cc.ctx, cc.k8sClient, cc.cluster)
 	}
 	for _, ip := range proxyIPs {
 		proxyURL := fmt.Sprintf(urlTemplate, ip, cc.cluster.Spec.ProxySpec.ServicePort.String())
@@ -240,17 +258,17 @@ func (cc *clientCluster) destroyAndCleanup() {
 	By(fmt.Sprintf("Destroying cluster %q", cc.cluster.Name))
 	cc.destroyClusterOnly()
 	if cc.pvs != nil {
-		tutils.DestroyPV(context.Background(), cc.aisCtx.K8sClient, cc.pvs)
+		tutils.DestroyPV(context.Background(), cc.k8sClient, cc.pvs)
 	}
 }
 
 func (cc *clientCluster) destroyClusterOnly() {
-	tutils.DestroyCluster(context.Background(), cc.aisCtx.K8sClient, cc.cluster, clusterDestroyTimeout, clusterDestroyInterval)
+	tutils.DestroyCluster(context.Background(), cc.k8sClient, cc.cluster, clusterDestroyTimeout, clusterDestroyInterval)
 }
 
 func (cc *clientCluster) scale(targetOnly bool, factor int32) {
 	By(fmt.Sprintf("Scaling cluster %q by %d", cc.cluster.Name, factor))
-	cr, err := cc.aisCtx.K8sClient.GetAIStoreCR(cc.ctx, cc.cluster.NamespacedName())
+	cr, err := cc.k8sClient.GetAIStoreCR(cc.ctx, cc.cluster.NamespacedName())
 	Expect(err).ShouldNot(HaveOccurred())
 	patch := clientpkg.MergeFrom(cr.DeepCopy())
 	if targetOnly {
@@ -266,10 +284,10 @@ func (cc *clientCluster) scale(targetOnly bool, factor int32) {
 	} else {
 		readyGen = readyCond.ObservedGeneration
 	}
-	Expect(cc.aisCtx.K8sClient.Patch(cc.ctx, cr, patch)).Should(Succeed())
+	Expect(cc.k8sClient.Patch(cc.ctx, cr, patch)).Should(Succeed())
 	// Wait for the condition's generation to receive some update so we know reconciliation began
 	// Otherwise, the cluster may be immediately ready
-	tutils.WaitForReadyConditionChange(cc.ctx, cc.aisCtx.K8sClient, cr, readyGen, clusterUpdateTimeout, clusterUpdateInterval)
+	tutils.WaitForReadyConditionChange(cc.ctx, cc.k8sClient, cr, readyGen, clusterUpdateTimeout, clusterUpdateInterval)
 	cc.waitForReadyCluster()
 	cc.initClientAccess()
 }
@@ -277,8 +295,8 @@ func (cc *clientCluster) scale(targetOnly bool, factor int32) {
 func (cc *clientCluster) restart() {
 	// Shutdown, ensure statefulsets exist and are size 0
 	cc.setShutdownStatus(true)
-	tutils.EventuallyPodsIsSize(cc.ctx, cc.aisCtx.K8sClient, cc.cluster, proxy.PodLabels(cc.cluster), 0, clusterDestroyTimeout)
-	tutils.EventuallyPodsIsSize(cc.ctx, cc.aisCtx.K8sClient, cc.cluster, target.PodLabels(cc.cluster), 0, clusterDestroyTimeout)
+	tutils.EventuallyPodsIsSize(cc.ctx, cc.k8sClient, cc.cluster, proxy.PodLabels(cc.cluster), 0, clusterDestroyTimeout)
+	tutils.EventuallyPodsIsSize(cc.ctx, cc.k8sClient, cc.cluster, target.PodLabels(cc.cluster), 0, clusterDestroyTimeout)
 	// Resume shutdown cluster, should become fully ready
 	cc.setShutdownStatus(false)
 	cc.waitForReadyCluster()
@@ -286,21 +304,21 @@ func (cc *clientCluster) restart() {
 }
 
 func (cc *clientCluster) setShutdownStatus(shutdown bool) {
-	cr, err := cc.aisCtx.K8sClient.GetAIStoreCR(cc.ctx, cc.cluster.NamespacedName())
+	cr, err := cc.k8sClient.GetAIStoreCR(cc.ctx, cc.cluster.NamespacedName())
 	Expect(err).ShouldNot(HaveOccurred())
 	patch := clientpkg.MergeFrom(cr.DeepCopy())
 	cr.Spec.ShutdownCluster = aisapc.Ptr(shutdown)
-	err = cc.aisCtx.K8sClient.Patch(cc.ctx, cr, patch)
+	err = cc.k8sClient.Patch(cc.ctx, cr, patch)
 	Expect(err).ShouldNot(HaveOccurred())
 }
 
 func (cc *clientCluster) waitForResources() {
-	tutils.CheckResExistence(cc.ctx, cc.cluster, cc.aisCtx, true /*exists*/)
+	tutils.CheckResExistence(cc.ctx, cc.cluster, cc.aisCtx, cc.k8sClient, true /*exists*/)
 }
 
 func (cc *clientCluster) waitForResourceDeletion() {
-	tutils.CheckResExistence(cc.ctx, cc.cluster, cc.aisCtx, false /*exists*/)
-	tutils.CheckPVCDoesNotExist(cc.ctx, cc.cluster, cc.aisCtx)
+	tutils.CheckResExistence(cc.ctx, cc.cluster, cc.aisCtx, cc.k8sClient, false /*exists*/)
+	tutils.CheckPVCDoesNotExist(cc.ctx, cc.cluster, cc.aisCtx, cc.k8sClient)
 }
 
 func (cc *clientCluster) printLogs() (err error) {
@@ -311,7 +329,7 @@ func (cc *clientCluster) printLogs() (err error) {
 
 	clusterName := cc.cluster.Name
 	clusterSelector := map[string]string{"app.kubernetes.io/name": clusterName}
-	podList, err := cc.aisCtx.K8sClient.ListPods(cc.ctx, cc.cluster, clusterSelector)
+	podList, err := cc.k8sClient.ListPods(cc.ctx, cc.cluster, clusterSelector)
 	if err != nil {
 		return fmt.Errorf("error listing pods for cluster %s: %v", clusterName, err)
 	}

@@ -28,7 +28,6 @@ const (
 )
 
 type AISTestContext struct {
-	K8sClient         *aisclient.K8sClient
 	K8sProvider       string
 	StorageClass      string
 	StorageHostPath   string
@@ -47,7 +46,6 @@ func NewAISTestContext(ctx context.Context, k8sClient *aisclient.K8sClient) (*AI
 		return nil, err
 	}
 	return &AISTestContext{
-		K8sClient:         k8sClient,
 		K8sProvider:       k8sProvider,
 		StorageClass:      initStorageClass(k8sClient, k8sProvider),
 		StorageHostPath:   initStorageHostPath(),
@@ -125,16 +123,16 @@ func getOrDefaultEnv(envVar, defaultVal string) string {
 
 func (c *AISTestContext) GetClusterCreateTimeout() time.Duration {
 	if c.K8sProvider == K8sProviderGKE {
-		return 4 * time.Minute
+		return 5 * time.Minute
 	}
-	return 2 * time.Minute
+	return 3 * time.Minute
 }
 
 func (c *AISTestContext) GetClusterCreateLongTimeout() time.Duration {
 	if c.K8sProvider == K8sProviderGKE {
-		return 6 * time.Minute
+		return 8 * time.Minute
 	}
-	return 4 * time.Minute
+	return 6 * time.Minute
 }
 
 func (c *AISTestContext) GetLBExistenceTimeout() (timeout, interval time.Duration) {

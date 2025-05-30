@@ -27,8 +27,8 @@ const (
 	DefaultLogsImage     = "aistorage/ais-logs:v1.0"
 	DefaultPrevNodeImage = "aistorage/aisnode:v3.28"
 	DefaultPrevInitImage = "aistorage/ais-init:v3.28"
-	TestNSName           = "ais-op-test"
-	TestNSAnotherName    = "ais-op-test-other"
+	TestNSBase           = "ais-op-test"
+	TestNSOtherBase      = "ais-op-test-other"
 )
 
 type (
@@ -59,10 +59,10 @@ func clusterName() string {
 	return "ais-test-" + strings.ToLower(aiscos.CryptoRandS(6))
 }
 
-func NewClusterSpecArgs(testContext *AISTestContext) *ClusterSpecArgs {
+func NewClusterSpecArgs(testContext *AISTestContext, namespace string) *ClusterSpecArgs {
 	return &ClusterSpecArgs{
 		Name:                      clusterName(),
-		Namespace:                 TestNSName,
+		Namespace:                 namespace,
 		StorageClass:              testContext.StorageClass,
 		StorageHostPath:           testContext.StorageHostPath,
 		Size:                      1,

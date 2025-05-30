@@ -53,12 +53,11 @@ func checkCRExists(ctx context.Context, client *aisclient.K8sClient, name types.
 	return true
 }
 
-func CheckResExistence(ctx context.Context, cluster *aisv1.AIStore, aisCtx *AISTestContext, exists bool, intervals ...interface{}) {
+func CheckResExistence(ctx context.Context, cluster *aisv1.AIStore, aisCtx *AISTestContext, k8sClient *aisclient.K8sClient, exists bool, intervals ...interface{}) {
 	condition := BeTrue()
 	if !exists {
 		condition = BeFalse()
 	}
-	k8sClient := aisCtx.K8sClient
 
 	// 1. Check rbac exists
 	// 1.1 ServiceAccount
@@ -124,7 +123,7 @@ func EventuallyCRNotExists(ctx context.Context, client *aisclient.K8sClient,
 
 func DestroyPV(ctx context.Context, client *aisclient.K8sClient, pvs []*corev1.PersistentVolume) {
 	const pvDeletionGracePeriodSeconds = int64(20)
-	const pvExistenceInterval = 60 * time.Second
+	const pvExistenceInterval = 90 * time.Second
 	for _, pv := range pvs {
 		err := deleteAssociatedPVCs(ctx, pv, client)
 		Expect(err).Should(Succeed())
@@ -161,9 +160,9 @@ func checkPVsExist(ctx context.Context, c *aisclient.K8sClient, pvs []*corev1.Pe
 	return false
 }
 
-func CheckPVCDoesNotExist(ctx context.Context, cluster *aisv1.AIStore, aisCtx *AISTestContext) {
+func CheckPVCDoesNotExist(ctx context.Context, cluster *aisv1.AIStore, aisCtx *AISTestContext, k8sClient *aisclient.K8sClient) {
 	pvcs := &corev1.PersistentVolumeClaimList{}
-	err := aisCtx.K8sClient.List(ctx, pvcs, clientpkg.InNamespace(cluster.Namespace), clientpkg.MatchingLabels(target.PodLabels(cluster)))
+	err := k8sClient.List(ctx, pvcs, clientpkg.InNamespace(cluster.Namespace), clientpkg.MatchingLabels(target.PodLabels(cluster)))
 	if apierrors.IsNotFound(err) {
 		err = nil
 	}
@@ -520,7 +519,7 @@ func GetAllProxyIPs(ctx context.Context, client *aisclient.K8sClient, cluster *a
 	return proxyIPs
 }
 
-func CreateCleanupJob(nodeName, hostPath string) *batchv1.Job {
+func CreateCleanupJob(nodeName, hostPath, namespace string) *batchv1.Job {
 	hostVolumeName := "host-volume"
 	ttl := int32(0)
 	parentDir := filepath.Dir(hostPath)
@@ -585,7 +584,7 @@ func CreateCleanupJob(nodeName, hostPath string) *batchv1.Job {
 	return &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("test-cleanup-%s-%s", nodeName, pipelineDir),
-			Namespace: TestNSName,
+			Namespace: namespace,
 		},
 		Spec: jobSpec,
 	}
