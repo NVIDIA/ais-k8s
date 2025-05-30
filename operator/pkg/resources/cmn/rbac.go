@@ -46,7 +46,6 @@ func NewAISRBACRole(ais *aisv1.AIStore) *rbacv1.Role {
 		APIGroups: []string{""},
 		Resources: []string{
 			"pods/log",
-			"configmaps",
 		},
 		Verbs: []string{"get"},
 	}

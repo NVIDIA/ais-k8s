@@ -12,11 +12,9 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ### Added
 
-- Add target PVC claim template to the ais-target configmap. This can be used by AIS ETL to mount specific data PVCs for FQN. 
-
 ### Changed
 
-- Update RBAC rule in AIS service account to remove access to secrets and restrict configmap access to GET only.
+- Update RBAC rule in AIS service account to remove access to secrets and configmaps.
 
 ## v2.3.0
 

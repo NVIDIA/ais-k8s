@@ -5,8 +5,6 @@
 package target
 
 import (
-	"fmt"
-
 	aisapc "github.com/NVIDIA/aistore/api/apc"
 	aiscmn "github.com/NVIDIA/aistore/cmn"
 	aiscos "github.com/NVIDIA/aistore/cmn/cos"
@@ -30,10 +28,6 @@ func NewTargetCM(ais *aisv1.AIStore) (*corev1.ConfigMap, error) {
 	if err != nil {
 		return nil, err
 	}
-	pvcList, err := buildDataPVCList(ais)
-	if err != nil {
-		return nil, err
-	}
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cmn.AISConfigMapName(ais, aisapc.Target),
@@ -41,19 +35,8 @@ func NewTargetCM(ais *aisv1.AIStore) (*corev1.ConfigMap, error) {
 		},
 		Data: map[string]string{
 			cmn.AISLocalConfigName: localConfStr,
-			cmn.AISDataPVC:         pvcList,
 		},
 	}, nil
-}
-
-func buildDataPVCList(ais *aisv1.AIStore) (string, error) {
-	dataVCs := defineDataPVCs(ais)
-	vcNames := make([]string, 0, len(dataVCs))
-	for i := range dataVCs {
-		// Match the formatting of a volume claim template, once the pod name is inserted
-		vcNames = append(vcNames, fmt.Sprintf("%s-${%s}", dataVCs[i].Name, cmn.EnvPodName))
-	}
-	return jsoniter.MarshalToString(vcNames)
 }
 
 func buildLocalConf(ais *aisv1.AIStore) (string, error) {
