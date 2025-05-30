@@ -138,14 +138,24 @@ func (cc *clientCluster) waitForReadyCluster() {
 	// Validate the cluster map -- make sure all AIS nodes have successfully joined cluster
 	cc.refresh()
 	cc.initClientAccess()
-	bp := cc.getBaseParams()
-	Eventually(func() bool {
-		smap, err := aisapi.GetClusterMap(bp)
-		Expect(err).NotTo(HaveOccurred())
-		activeProxies := int32(len(smap.Pmap.ActiveNodes()))
-		activeTargets := int32(len(smap.Tmap.ActiveNodes()))
-		return activeProxies == cc.cluster.GetProxySize() && activeTargets == cc.cluster.GetTargetSize()
-	}).Should(BeTrue())
+
+	proxyURLs := cc.getAllProxyURLs()
+	expectedProxies := cc.cluster.GetProxySize()
+	expectedTargets := cc.cluster.GetTargetSize()
+
+	for i := range proxyURLs {
+		proxyURL := *proxyURLs[i]
+		bp := aistutils.BaseAPIParams(proxyURL)
+		Eventually(func() bool {
+			smap, err := aisapi.GetClusterMap(bp)
+			if err != nil {
+				return false
+			}
+			activeProxies := int32(len(smap.Pmap.ActiveNodes()))
+			activeTargets := int32(len(smap.Tmap.ActiveNodes()))
+			return activeProxies == expectedProxies && activeTargets == expectedTargets
+		}).Should(BeTrue())
+	}
 }
 
 func (cc *clientCluster) patchImagesToCurrent() {
