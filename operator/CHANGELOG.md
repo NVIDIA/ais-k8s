@@ -12,6 +12,8 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ### Added
 
+- Add support for `TEST_EPHEMERAL_CLUSTER` environment variable to skip cleanup/teardown when testing on ephemeral clusters (e.g. in CI).
+
 ### Changed
 
 - Update RBAC rule in AIS service account to remove access to secrets and configmaps.

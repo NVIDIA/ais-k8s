@@ -30,8 +30,7 @@ import (
 var (
 	testCtx *testing.T
 	testEnv *envtest.Environment
-
-	testNS *corev1.Namespace
+	testNS  *corev1.Namespace
 	// Do not remove test namespace if it already existed
 	preexistingNS  bool
 	AISTestContext *tutils.AISTestContext
@@ -86,11 +85,15 @@ var _ = SynchronizedBeforeSuite(
 		k8sClient := aisclient.NewClientFromMgr(mgr)
 		Expect(k8sClient).NotTo(BeNil())
 
-		cleanupOldTestClusters(ctx, k8sClient)
+		AISTestContext, err = tutils.NewAISTestContext(ctx, k8sClient)
+		Expect(err).To(Not(HaveOccurred()))
+
+		if !AISTestContext.Ephemeral {
+			cleanupOldTestClusters(ctx, k8sClient)
+		}
 
 		// Create Namespace if not exists
 		testNS, preexistingNS = tutils.CreateNSIfNotExists(ctx, k8sClient, tutils.TestNSName)
-		AISTestContext, err = tutils.NewAISTestContext(ctx, k8sClient)
 		return nil
 	},
 	// --- Run in every worker ---
@@ -114,13 +117,14 @@ var _ = SynchronizedAfterSuite(
 	func() {},
 	// --- Run only once ---
 	func() {
-		ctx := context.Background()
-		By("tearing down the test environment")
-		cleanupOldTestClusters(ctx, AISTestContext.K8sClient)
-		cleanPVHostPath(ctx)
-		cleanNamespace(ctx, AfterSuiteTimeout)
-
-		err := testEnv.Stop()
-		Expect(err).NotTo(HaveOccurred())
+		if !AISTestContext.Ephemeral {
+			By("tearing down the test environment")
+			ctx := context.Background()
+			cleanupOldTestClusters(ctx, AISTestContext.K8sClient)
+			cleanPVHostPath(ctx)
+			cleanNamespace(ctx, AfterSuiteTimeout)
+			err := testEnv.Stop()
+			Expect(err).NotTo(HaveOccurred())
+		}
 	},
 )

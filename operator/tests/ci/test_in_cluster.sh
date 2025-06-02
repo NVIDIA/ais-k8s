@@ -9,7 +9,7 @@ set -eo pipefail
 
 kubectl apply -f operator/tests/ci/rbac.yaml
 kind load image-archive /operator-test.tar && sleep 2  # Wait for image to register w/ containerd
-kubectl run operator-test-pod --image=operator-test --image-pull-policy=Never --privileged
+kubectl run operator-test-pod --image=operator-test --image-pull-policy=Never --env=TEST_EPHEMERAL_CLUSTER=true --privileged
 kubectl wait --for=condition=Ready pod/operator-test-pod --timeout=120s
 kubectl cp operator operator-test-pod:/operator
 kubectl exec operator-test-pod -- bash -c "make -C /operator test-e2e"

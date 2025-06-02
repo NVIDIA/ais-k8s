@@ -18,6 +18,7 @@ const (
 	EnvPrevInitImage       = "AIS_TEST_PREV_INIT_IMAGE"
 	EnvTestStorageClass    = "TEST_STORAGECLASS"
 	EnvTestStorageHostPath = "TEST_STORAGE_HOSTPATH"
+	EnvTestEphemeral       = "TEST_EPHEMERAL_CLUSTER"
 	GKEDefaultStorageClass = "standard"
 
 	K8sProviderGKE      = "gke"
@@ -35,6 +36,7 @@ type AISTestContext struct {
 	PreviousNodeImage string
 	PreviousInitImage string
 	LogsImage         string
+	Ephemeral         bool
 }
 
 func NewAISTestContext(ctx context.Context, k8sClient *aisclient.K8sClient) (*AISTestContext, error) {
@@ -52,6 +54,7 @@ func NewAISTestContext(ctx context.Context, k8sClient *aisclient.K8sClient) (*AI
 		PreviousNodeImage: initPrevNodeImage(),
 		PreviousInitImage: initPrevInitImage(),
 		LogsImage:         DefaultLogsImage,
+		Ephemeral:         initEphemeral(),
 	}, nil
 }
 
@@ -67,6 +70,11 @@ func initK8sProvider(ctx context.Context, client *aisclient.K8sClient) (string, 
 		}
 	}
 	return K8sProviderUnknown, nil
+}
+
+func initEphemeral() bool {
+	ephemeral, _ := aiscos.ParseBool(os.Getenv(EnvTestEphemeral))
+	return ephemeral
 }
 
 func initPrevInitImage() string {
