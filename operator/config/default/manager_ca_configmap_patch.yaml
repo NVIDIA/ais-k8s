@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: controller-manager
+  namespace: system
+spec:
+  template:
+    spec:
+      containers:
+        - name: manager
+          volumeMounts:
+            - name: ais-ca
+              mountPath: /etc/ais/ca
+              readOnly: true
+      volumes:
+        - name: ais-ca
+          configMap:
+            name: ais-operator-ais-ca
+            optional: true

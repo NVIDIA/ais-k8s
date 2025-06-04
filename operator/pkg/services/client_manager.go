@@ -9,14 +9,17 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	aiscos "github.com/NVIDIA/aistore/cmn/cos"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	aisclient "github.com/ais-operator/pkg/client"
 	"github.com/ais-operator/pkg/resources/proxy"
+	"github.com/go-logr/logr"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -26,6 +29,7 @@ const (
 	ClientCertFile = "tls.crt"
 	ClientKeyFile  = "tls.key"
 	ClientCAFile   = "ca.crt"
+	CAMountPath    = "/etc/ais/ca"
 )
 
 //go:generate mockgen -source $GOFILE -destination mocks/client_manager.go . AISClientManagerInterface
@@ -175,6 +179,7 @@ func (m *AISClientManager) getTLSConfig(ctx context.Context, ais *aisv1.AIStore)
 }
 
 func configureCAVerification(ctx context.Context, tlsConf *tls.Config, tlsDir string) error {
+	logger := logf.FromContext(ctx)
 	skipVerify, err := aiscos.ParseBool(os.Getenv(EnvSkipVerify))
 	if err != nil {
 		return err
@@ -185,9 +190,9 @@ func configureCAVerification(ctx context.Context, tlsConf *tls.Config, tlsDir st
 	}
 	// Add CA from our specified TLS config dir to the system trusted CA pool
 	providedCA := filepath.Join(tlsDir, ClientCAFile)
-	caPool, err := loadOptionalProvidedCA(providedCA)
+	caPool, err := loadOptionalProvidedCA(logger, providedCA)
 	if err != nil {
-		logf.FromContext(ctx).Error(err, "Failed to load AIS CA", "location", providedCA)
+		logger.Error(err, "Failed to load AIS CA", "location", providedCA)
 		return err
 	}
 	tlsConf.RootCAs = caPool
@@ -217,24 +222,77 @@ func (m *AISClientManager) getTLSPath(ais *aisv1.AIStore) string {
 	return m.tlsOpts.CertPath
 }
 
-// TODO: Support additional CA trust from configMap
-func loadOptionalProvidedCA(caPath string) (*x509.CertPool, error) {
-	cert, err := os.ReadFile(caPath)
-	if err != nil {
-		// If the CA does not exist, return nil which should default to the system pool
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
-		return nil, err
-	}
+func loadOptionalProvidedCA(logger logr.Logger, caPath string) (*x509.CertPool, error) {
 	pool, err := x509.SystemCertPool()
 	if err != nil {
+		logger.Error(err, "Failed to load system cert pool")
 		return nil, err
 	}
-	if ok := pool.AppendCertsFromPEM(cert); !ok {
-		return nil, fmt.Errorf("operator tls: failed to append CA certs from PEM: %q", caPath)
+	err = appendCertIfExists(logger, pool, caPath)
+	if err != nil {
+		logger.Error(err, "Failed to append CA cert to pool", "path", caPath)
+		return nil, err
 	}
-	return pool, nil
+	// Load any additional certs provided from configMap
+	_, err = os.Stat(CAMountPath)
+	if os.IsNotExist(err) {
+		logger.Info("No path found with additional CA certs", "path", CAMountPath)
+		return pool, nil
+	} else if err != nil {
+		logger.Error(err, "Failed to stat CA mount path", "path", CAMountPath)
+		return nil, err
+	}
+	certPaths, err := findCerts(CAMountPath, []string{".crt", ".pem"})
+	if err != nil {
+		// Non-fatal error if we cannot load additional trust, log and continue
+		logger.Error(err, "Failed to search cert paths", "caRoot", CAMountPath)
+		return pool, nil
+	}
+	for _, path := range certPaths {
+		if appendErr := appendCertIfExists(logger, pool, path); appendErr != nil {
+			logger.Error(err, "Failed to add new trusted CA", "path", path)
+		}
+	}
+	return pool, err
+}
+
+func appendCertIfExists(logger logr.Logger, pool *x509.CertPool, path string) error {
+	cert, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	logger.Info("Adding trusted CA certificate", "path", path)
+	if ok := pool.AppendCertsFromPEM(cert); !ok {
+		return fmt.Errorf("failed to append existing CA certs from PEM: %q", path)
+	}
+	return nil
+}
+
+func findCerts(root string, exts []string) ([]string, error) {
+	var certPaths []string
+	err := filepath.WalkDir(root, func(s string, d fs.DirEntry, e error) error {
+		if e != nil {
+			return e
+		}
+		// Filter out entries starting with two dots -- K8s-managed hidden directories
+		if strings.HasPrefix(d.Name(), "..") {
+			if d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		for _, ext := range exts {
+			if filepath.Ext(d.Name()) == ext {
+				certPaths = append(certPaths, s)
+				break
+			}
+		}
+		return nil
+	})
+	return certPaths, err
 }
 
 func createAPIURL(https bool, hostname, port string) string {

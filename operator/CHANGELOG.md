@@ -19,6 +19,8 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 - Add `ais-client-cert-per-cluster` to support separate certificate locations for each AIS cluster.
 - Add `OPERATOR_SKIP_VERIFY_CRT` option to deployment, which will initially default to `True` to match previous deployments.
 - Add TLS configuration to AIS API client, supporting additional CA trust and client Auth. 
+- Add patch to mount a configMap `ais-operator-ais-ca` for trusting specific AIS CAs.
+
 
 ### Changed
 
