@@ -121,10 +121,9 @@ func proxyPodSpec(ais *aisv1.AIStore) *corev1.PodSpec {
 		// otherwise during comparison we will always fail (nil vs non-nil).
 		//
 		// See: https://github.com/kubernetes/kubernetes/blob/fa03b93d25a5a22d4f91e4c44f66fc69a6f69a35/pkg/apis/core/v1/defaults.go#L215-L236
-		SecurityContext:  cmn.ValueOrDefault(ais.Spec.ProxySpec.SecurityContext, &corev1.PodSecurityContext{}),
-		Volumes:          cmn.NewAISVolumes(ais, aisapc.Proxy),
-		Tolerations:      ais.Spec.ProxySpec.Tolerations,
-		ImagePullSecrets: ais.Spec.ImagePullSecrets,
+		SecurityContext: cmn.ValueOrDefault(ais.Spec.ProxySpec.SecurityContext, &corev1.PodSecurityContext{}),
+		Volumes:         cmn.NewAISVolumes(ais, aisapc.Proxy),
+		Tolerations:     ais.Spec.ProxySpec.Tolerations,
 	}
 	if ais.Spec.LogSidecarImage != nil {
 		spec.Containers = append(spec.Containers, cmn.NewLogSidecar(*ais.Spec.LogSidecarImage, aisapc.Proxy))

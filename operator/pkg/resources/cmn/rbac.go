@@ -86,5 +86,6 @@ func NewAISServiceAccount(ais *aisv1.AIStore) *corev1.ServiceAccount {
 			Name:      ServiceAccountName(ais),
 			Namespace: ais.Namespace,
 		},
+		ImagePullSecrets: ais.Spec.ImagePullSecrets,
 	}
 }

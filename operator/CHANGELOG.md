@@ -22,6 +22,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ### Changed
 
+- Apply `imagePullSecrets` for image pull authentication to service account instead of individual proxy/target pod specs.
 - Update RBAC rule in AIS service account to remove access to secrets and configmaps.
 
 ## v2.3.0

@@ -181,8 +181,9 @@ type AIStoreSpec struct {
 	// +optional
 	AuthNSecretName *string `json:"authNSecretName,omitempty"`
 
-	// ImagePullScerets is an optional list of references to secrets in the same namespace to pull container images of AIS Daemons
-	// More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod
+	// ImagePullSecrets is an optional list of references to secrets in the same namespace to pull container images of AIS Daemons
+	// Applied to the service account so all pods inherit authentication automatically
+	// More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/#add-imagepullsecrets-to-a-service-account
 	// +optional
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 
