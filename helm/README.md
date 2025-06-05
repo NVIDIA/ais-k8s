@@ -7,7 +7,7 @@ This directory contains Helm charts for deploying AIS, the AIS operator, and AIS
 Before deploying, ensure that your Kubernetes nodes are properly configured and ready for AIS deployment. 
 The [host-config playbooks](../playbooks/host-config/README.md) provide a good starting point for properly configuring your hosts and formatting drives.
 
-For deploying AIS without Helm, see the [Ansible playbooks](../../playbooks/README.md). 
+For deploying AIS without Helm, see the [Ansible playbooks](../playbooks/README.md). 
 Both approaches deploy the AIS operator, then create an AIS custom resource to specify cluster settings. 
 
 ## Prerequisites
