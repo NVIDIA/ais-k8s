@@ -36,6 +36,8 @@ stages:
 .operator_test_kind_template: &operator_test_kind_def
   <<: *operator_rules_def
   timeout: 20m
+  variables:
+    TEST_EPHEMERAL_CLUSTER: "true"
   before_script:
     # TODO: Revisit (issue w/ `kind export logs` in `after_script`)
     - mkdir -p /ci-kind-logs/{control-plane,worker1,worker2,worker3}
