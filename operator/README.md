@@ -11,20 +11,54 @@ The project extends the native Kubernetes API to deploy, scale, upgrade, decommi
 
 See our guide for deploying [AIStore on Kubernetes](../docs/README.md).
 
-## Deploying AIS Cluster
+## Deploying AIS
 ### Prerequisites
 
-To deploy the operator, only K8s and `kubectl`, and a certificate provider (see below) are required. 
+To deploy the operator, only a K8s cluster, `kubectl`, and a certificate provider (see below) are required. 
 Check out our [prerequisites doc](../docs/prerequisites.md) for production deployment requirements. 
+
+### Operator Deployment Options
 
 AIS operator employs [admission webhooks](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/) to enforce the validity of the managed AIS cluster.
 AIS operator runs a webhook server with `tls` enabled, responsible for validating each AIS cluster resource being created or updated.
-[Operator-SDK](https://sdk.operatorframework.io/) recommends using [cert-manager](https://github.com/jetstack/cert-manager) for provisioning the certificates required by the webhook server, however, any solution which can provide certificates to the AIS operator pod should work. The operator loads from the `webhook-cert-path` arg which defaults to `/tmp/k8s-webhook-server/serving-certs/`.
+[Operator-SDK](https://sdk.operatorframework.io/) recommends using [cert-manager](https://github.com/jetstack/cert-manager) for provisioning the certificates required by the webhook server.
+However, any solution which can provide certificates to the AIS operator pod should work.
+The operator loads from the `webhook-cert-path` arg which defaults to `/tmp/k8s-webhook-server/serving-certs/`.
 
-For quick deployment, the `deploy` command provides an option to deploy a basic version of `cert-manager`. However, for more advanced deployments it's recommended to follow [cert-manager documentation](https://cert-manager.io/docs/installation/kubernetes/).
+For quick deployment, the `deploy` command provides an option to deploy a basic version of `cert-manager`.
+However, for more advanced deployments it's recommended to follow [cert-manager documentation](https://cert-manager.io/docs/installation/kubernetes/).
 
+### Configure Operator TLS and mTLS
+
+The operator communicates with the deployed AIS clusters over the AIS API.
+Today, by default, if the AIS cluster is using HTTPS the operator will not verify the certificate. 
+Certificate verification can be enabled by setting `OPERATOR_SKIP_VERIFY_CRT` to `False` in the operator deployment yaml (kustomize generated from [config/default/manager_env_patch.yaml](config/default/manager_env_patch.yaml))
+
+If your AIS cluster uses an untrusted CA, you can configure trust for verification by creating a configMap `ais-operator-ais-ca` in the operator namespace before starting the operator pod.
+This will automatically mount to `/etc/ais/ca` and add any `.crt` or `.pem` files as trusted CA certificates.
+
+#### Mutual TLS / Client Auth
+
+To enable mutual TLS (mTLS) between the operator and an AIS cluster, first create a certificate with `usage: client auth` defined (see [cert-manager docs](https://cert-manager.io/docs/usage/certificate/)).
+
+You can mount this into the pod with a tool such as the [Vault agent](https://developer.hashicorp.com/vault/docs/agent-and-proxy/agent), or you can create a secret `operator-tls` in the operator namespace.
+This secret will be mounted by default at `/etc/operator/tls`. 
+The operator will use the client certificate at this location when communicating with AIS clusters.
+
+To configure the location of the operator's client cert, use the `ais-client-cert-path` when running the manager. 
+
+If the `ais-client-cert-per-cluster` arg is provided, the operator will load the value from `ais-client-cert-path` and append the values from each cluster's namespace and name when loading certificates.
+For example, `/etc/operator/tls/aisNamespace/aisCluster`.
+
+See the linked [certificates diagram](../docs/diagrams/certificates.jpg) for a visualization of the TLS options.
 
 ### Deploy AIS Operator
+
+First, install the AIS CRD
+```console
+make install
+```
+Then run the deployment. This will apply the [default kustomization](./config/default/kustomization.yaml) configuration. 
 ```console
 $ IMG=aistorage/ais-operator:latest make deploy
 ```
@@ -120,7 +154,7 @@ The above spec will tell AIS to allow both mounts to share a single disk as long
 
 AIS Operator supports deploying AIStore with distributed tracing enabled. To get started, below instructions demonstrate how to enable distributed tracing and export traces to [Lightstep](https://docs.lightstep.com/).
 
-### Prerequisites
+#### Prerequisites
 - **Create a Lightstep Freemium Account**  
   Sign up for a Lightstep account if you haven't already: [Lightstep Sign-Up](https://info.servicenow.com/developersignup.html).
 
@@ -142,7 +176,8 @@ Refer to the [AIStore distributed-tracing](https://github.com/NVIDIA/aistore/blo
 
 ### Locally testing multi-node AIS cluster
 
-By default, AIS operator restricts having more than one AIS target per K8s node. In other words, if AIS custom resource spec has a `size` greater than the number of K8s nodes, additional target pods will remain pending until we add a new K8s node.
+By default, AIS operator restricts having more than one AIS target per K8s node.
+In other words, if AIS custom resource spec has a `size` greater than the number of K8s nodes, additional target pods will remain pending until we add a new K8s node.
 
 However, this constraint can be relaxed for local testing using the `disablePodAntiAffinity` property as follows:
 
@@ -158,35 +193,17 @@ spec:
 ...
 ```
 
-### Config Backend Provider for GCP & AWS
+### Configure Cloud Providers 
 
-AIS operator supports configuring  GCP and AWS as cloud providers for buckets. To enable the config for these providers, you need to create a secret with the corresponding credential file.
+AIS operator supports configuring cloud providers for buckets.
+To enable the config for these providers, you need to create a secret with the corresponding credential file.
 
 #### Helm
 Helm deployments include a [chart](../helm/ais/charts/cloud-secrets/Chart.yaml) for generating these secrets based on local config and credentials. 
-  1. Update the environment in the provided [helmfile](../helm/ais/helmfile.yaml) with the `cloud-secrets` variable: 
-  ```yaml 
-      - cloud-secrets:
-        enabled: true
-  ```
-
-  2. Create a `<env_name>.yaml.gotmpl` file in [helm/ais/config/cloud/](../helm/ais/config/cloud/)
-
-  3. Add references to the local files you want to use. Example for sjc11 (be sure to update your paths correctly):
-  ```yaml
-  aws_config: |-
-  {{ readFile (printf "%s/.aws/sjc11/config" (env "HOME")) | indent 2 }}
-
-  aws_credentials: |-
-  {{ readFile (printf "%s/.aws/sjc11/credentials" (env "HOME")) | indent 2 }}
-
-  gcp_json: |-
-  {{ readFile (printf "%s/.gcp/sjc11/gcp.json" (env "HOME")) | indent 2 }}
-  ```
+See the [Helm AIS README](../helm/ais/README.md#cloud-credentials) for instructions.
 
 #### Ansible
 For ansible deployments, see the [ais_aws_config](../playbooks/cloud/ais_aws_config.yml) and [ais_gcp_config](../playbooks/cloud/ais_gcp_config.yml) playbooks and the associated [README](../playbooks/cloud/README.md).
-
 
 #### Manual
 You can also create the secrets manually:
@@ -214,29 +231,46 @@ spec:
 ...
 ```
 
-Finally, for **GCP** configs, the environment variable for the location **MUST** be provided through the `targetSpec.Env` section (For ansible, it is included in the default template). As of writing, the operator will always mount the provided secret to `/var/gcp`, so for a secret with `data.gcp.json` the resulting file location in the pod will be `var/gcp/gcp.json` :
+For **GCP** configs, the environment variable for the location may be provided through the `targetSpec.Env` section.
+By default, this will be `/var/gcp/gcp.json`
+As of writing, the operator will always mount the provided secret to `/var/gcp`, so for a secret with `data.gcp.json` the resulting file location in the pod will be `var/gcp/gcp.json`. 
+This is the default value for the `GOOGLE_APPLICATION_CREDENTIALS` environment variable in the container. 
+
+### AIS HTTPS Deployment
+
+You may want to enhance the security of your AIStore deployment by enabling HTTPS.
+
+**Important:** Before proceeding, please ensure that you have `cert-manager` (or equivalent) installed.
+
+To deploy with HTTPS, the AIS spec must define the `spec.ConfigToUpdate.net.http` section, example below: 
 
 ```yaml
-targetSpec:
-  env: 
-    - name: GOOGLE_APPLICATION_CREDENTIALS
-      value: "/var/gcp/gcp.json"
+    net:
+      http:
+        server_crt: "/var/certs/tls.crt"
+        server_key: "/var/certs/tls.key"
+        use_https: true
+        skip_verify: true # if you are using self-signed certs without trust
+        client_ca_tls: "/var/certs/ca.crt"
+        client_auth_tls: 0
 ```
 
+>> Note: This will be included in the spec by default when enabling https and using our Helm charts or playbooks
 
-### Enabling HTTPS for AIStore Deployment in Kubernetes
+#### Using a secret mount
 
-While the examples above demonstrate running web servers that accept plain HTTP requests, you may want to enhance the security of your AIStore deployment by enabling HTTPS in a Kubernetes environment.
+If you are using a secret mount to access your certificate, define it with `spec.tlsSecretName`.
+The operator will automatically mount the contents of the secret at the location `/var/certs`.
 
-**Important:** Before proceeding, please ensure that you have `cert-manager` installed.
+We provide automation for creating this secret for both Helm and Ansible Playbooks. 
 
-This specification defines a ClusterIssuer responsible for certificate issuance. It creates a Certificate, which is securely stored as a Secret within the same namespace as the operator.
+Helm: See [HTTPS Deployment docs section](../helm/ais/README.md#https-deployment)
 
-```bash
-kubectl apply -f config/samples/ais_v1beta1_aistore_tls_selfsigned.yaml
-```
+Playbooks: See [generate_https_cert.yml](../playbooks/ais-deployment/generate_https_cert.yml) and associated [templates](../playbooks/ais-deployment/roles/generate_https_cert/templates).
 
-With `cert-manager csi-driver` installed, you can get signed certificates directly from your Issuer. The attached sample configuration contains RBAC and Issuer definition for use with Vault.
+#### Using csi-driver
+With `cert-manager csi-driver` installed, you can get signed certificates directly from your Issuer.
+The sample configuration below contains definitions for RBAC and an Issuer for use with Vault.
 
 ```bash
 kubectl apply -f  config/samples/ais_v1beta1_aistore_tls_certmanager_csi.yaml
