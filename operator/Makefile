@@ -18,10 +18,17 @@ KIND_K8S_VERSION ?= v1.33.0
 # LPP_VERSION refers to the version of local-path-provisioner to be used for operator testing.
 LPP_VERSION ?= v0.0.31
 
+SCRIPTS_DIR = ./scripts
+TESTS_DIR = ./tests
+
 # KIND_CONFIG refers to the configuration file to be used for cluster setup.
-KIND_CONFIG ?= ./scripts/kind_cluster_local.yaml
+KIND_CONFIG ?= $(SCRIPTS_DIR)/kind_cluster_local.yaml
+# TEST_IN_CLUSTER_SCRIPT refers to the script used for in-cluster testing.
+TEST_IN_CLUSTER_SCRIPT ?= $(SCRIPTS_DIR)/test_in_cluster.sh
+
 ifeq ($(CI),true)
-KIND_CONFIG := ./tests/ci/kind_cluster_ci.yaml
+KIND_CONFIG := $(TESTS_DIR)/ci/kind_cluster_ci.yaml
+TEST_IN_CLUSTER_SCRIPT := $(TESTS_DIR)/ci/test_in_cluster.sh
 endif
 
 # KIND_CLUSTER_NAME refers to the name of the cluster to be created.
@@ -40,8 +47,6 @@ CONTAINER_TOOL ?= docker
 # Options are set to exit when a recipe line exits non-zero or a piped command fails.
 SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
-
-SCRIPTS_DIR = ./scripts
 
 .PHONY: all
 all: build
@@ -101,7 +106,7 @@ test-e2e: manifests generate envtest
 	@KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" $(SHELL) "$(SCRIPTS_DIR)/test.sh" $(E2E_MODE)
 
 test-e2e-in-cluster:
-	@[ -n "$$CI" ] && $(SHELL) ./tests/ci/test_in_cluster.sh || $(SHELL) $(SCRIPTS_DIR)/test_in_cluster.sh
+	@$(SHELL) $(TEST_IN_CLUSTER_SCRIPT)
 
 .PHONY: kind-setup kind-teardown
 kind-setup: kind
