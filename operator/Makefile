@@ -77,8 +77,8 @@ help: ## Display this help.
 ##@ Development
 
 .PHONY: manifests
-manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
-	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects. https://book.kubebuilder.io/reference/controller-gen.html#output-rules
+	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:rbac:artifacts:config=config/base/rbac output:crd:artifacts:config=config/base/crd output:webhook:artifacts:config=config/base/webhook
 
 .PHONY: generate
 generate: controller-gen mockgen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
@@ -187,8 +187,8 @@ docker-buildx: ## Build and push docker image for the manager for cross-platform
 .PHONY: build-installer
 build-installer: require-img manifests generate kustomize ## Generate a consolidated YAML with CRDs and deployment.
 	mkdir -p dist
-	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
-	$(KUSTOMIZE) build config/default > dist/ais-operator.yaml
+	cd config/overlays/default && $(KUSTOMIZE) edit set image controller=${IMG}
+	$(KUSTOMIZE) build config/overlays/default > dist/ais-operator.yaml
 
 .PHONY: build-installer-helm
 build-installer-helm: require-img require-version helm helmify build-installer
@@ -199,8 +199,12 @@ build-installer-helm: require-img require-version helm helmify build-installer
 
 .PHONY: release
 release: build-installer-helm
-	git add ../pages/charts config/manager/kustomization.yaml
+	git add ../pages/charts config/overlays/default/kustomization.yaml
 	git commit -s -m "operator: Release version $(VERSION)"
+
+.PHONY: operator-sdk-generate ## Use the operator-sdk CLI to generate kustomize manifests
+operator-sdk-generate: 
+	operator-sdk generate kustomize manifests --input-dir config/base/manifests --output-dir config/base/manifests
 
 ##@ Deployment
 
@@ -210,20 +214,20 @@ endif
 
 .PHONY: install
 install: manifests kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.
-	$(KUSTOMIZE) build config/crd | $(KUBECTL) apply -f -
+	$(KUSTOMIZE) build config/base/crd | $(KUBECTL) apply -f -
 
 .PHONY: uninstall
 uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
-	$(KUSTOMIZE) build config/crd | $(KUBECTL) delete --ignore-not-found=$(ignore-not-found) -f -
+	$(KUSTOMIZE) build config/base/crd | $(KUBECTL) delete --ignore-not-found=$(ignore-not-found) -f -
 
 .PHONY: deploy
 deploy: require-img manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
-	$(KUSTOMIZE) build config/default | $(KUBECTL) apply -f -
+	$(KUSTOMIZE) build config/overlays/default | $(KUBECTL) apply -f -
 
 .PHONY: undeploy
 undeploy: kustomize ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
-	$(KUSTOMIZE) build config/default | $(KUBECTL) delete --ignore-not-found=$(ignore-not-found) -f -
+	$(KUSTOMIZE) build config/overlays/default | $(KUBECTL) delete --ignore-not-found=$(ignore-not-found) -f -
 
 ##@ Dependencies
 

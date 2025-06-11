@@ -10,13 +10,13 @@ spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
-    - description: AIStore is the Schema for the aistores API
+    - description: AIStore is the Schema for the aistores API.
       displayName: AIStore
       kind: AIStore
       name: aistores.ais.nvidia.com
       version: v1beta1
-  description: AIStore operator
-  displayName: aistore
+  description: AIStore Operator
+  displayName: AIS Operator
   icon:
   - base64data: ""
     mediatype: ""
@@ -34,12 +34,19 @@ spec:
   - supported: true
     type: AllNamespaces
   keywords:
-  - AI
+  - AIStore
+  - AIS
   - K8s
+  - AI
+  - Storage
   links:
   - name: Ais Operator
     url: https://ais-operator.domain
+  maintainers:
+  - email: aistore@nvidia.com
+    name: AIStore Team
   maturity: alpha
   provider:
-    name: Nvidia
+    name: NVIDIA Corporation
+    url: https://aistore.nvidia.com
   version: 0.0.0

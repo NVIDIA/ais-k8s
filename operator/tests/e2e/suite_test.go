@@ -59,7 +59,7 @@ var _ = SynchronizedBeforeSuite(
 
 		By("Bootstrapping test environment")
 		testEnv = &envtest.Environment{
-			CRDDirectoryPaths: []string{filepath.Join("..", "..", "config", "crd", "bases")},
+			CRDDirectoryPaths: []string{filepath.Join("..", "..", "config", "base", "crd")},
 		}
 		cfg, err := testEnv.Start()
 		Expect(err).NotTo(HaveOccurred())

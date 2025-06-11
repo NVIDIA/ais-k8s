@@ -1,0 +1,125 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- ../../base
+
+# Adds namespace to all resources.
+namespace: ais-operator-system
+
+# Value of this field is prepended to the
+# names of all resources, e.g. a deployment named
+# "wordpress" becomes "alices-wordpress".
+# Note that it should also match with the prefix (text before '-') of the namespace
+# field above.
+namePrefix: ais-operator-
+
+# TODO: vars should be replaced with replacements
+  # namespace of the certificate CR
+    # this name should match the one in certificate_webhook.yaml
+    # this name should match the one in certificate_webhook.yaml
+vars:
+- fieldref:
+    fieldPath: metadata.namespace
+  name: CERTIFICATE_NAMESPACE
+  objref:
+    group: cert-manager.io
+    kind: Certificate
+    name: serving-cert
+    version: v1
+- fieldref: {}
+  name: CERTIFICATE_NAME
+  objref:
+    group: cert-manager.io
+    kind: Certificate
+    name: serving-cert
+    version: v1
+- fieldref:
+    fieldPath: metadata.namespace
+  name: SERVICE_NAMESPACE
+  objref:
+    kind: Service
+    name: webhook-service
+    version: v1
+- fieldref: {}
+  name: SERVICE_NAME
+  objref:
+    kind: Service
+    name: webhook-service
+    version: v1
+
+replacements:
+- source:
+    fieldPath: metadata.name
+    kind: Service
+    name: controller-manager-metrics-service
+    version: v1
+  targets:
+  - fieldPaths:
+    - spec.dnsNames.0
+    - spec.dnsNames.1
+    options:
+      create: true
+      delimiter: .
+    select:
+      group: cert-manager.io
+      kind: Certificate
+      name: metrics-certs
+      version: v1
+  - fieldPaths:
+    - spec.endpoints.0.tlsConfig.serverName
+    options:
+      create: true
+      delimiter: .
+    select:
+      group: monitoring.coreos.com
+      kind: ServiceMonitor
+      name: controller-manager-metrics-monitor
+      version: v1
+- source:
+    fieldPath: metadata.namespace
+    kind: Service
+    name: controller-manager-metrics-service
+    version: v1
+  targets:
+  - fieldPaths:
+    - spec.dnsNames.0
+    - spec.dnsNames.1
+    options:
+      create: true
+      delimiter: .
+      index: 1
+    select:
+      group: cert-manager.io
+      kind: Certificate
+      name: metrics-certs
+      version: v1
+  - fieldPaths:
+    - spec.endpoints.0.tlsConfig.serverName
+    options:
+      create: true
+      delimiter: .
+      index: 1
+    select:
+      group: monitoring.coreos.com
+      kind: ServiceMonitor
+      name: controller-manager-metrics-monitor
+      version: v1
+
+
+# TODO: Move commented patches to separate overlays
+# Protect the /metrics endpoint by putting it behind auth.
+patches:
+- path: manager_auth_metric_patch.yaml
+- path: manager_webhook_patch.yaml
+- path: webhookcainjection_patch.yaml
+- path: manager_env_patch.yaml
+- path: manager_ca_configmap_patch.yaml
+# - path: aistores_webhook_patch.yaml
+- path: aistores_cainjection_patch.yaml
+# Mount the controller config file for loading manager configurations
+# through a ComponentConfig type
+# - path: manager_config_patch.yaml
+images:
+- name: controller
+  newName: aistorage/ais-operator
+  newTag: v2.3.0
