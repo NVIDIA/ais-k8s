@@ -1457,8 +1457,8 @@ spec:
                   annotations:
                     additionalProperties:
                       type: string
-                    description: Annotations holds pod annotations for AIStore daemon
-                      pods.
+                    description: Annotations holds additional pod annotations for
+                      AIStore daemon pods.
                     type: object
                   capabilities:
                     description: ContainerSecurity holds the security context for
@@ -1779,6 +1779,12 @@ spec:
                     description: HostPort - host port to use for hostnetworking
                     format: int32
                     type: integer
+                  labels:
+                    additionalProperties:
+                      type: string
+                    description: Labels holds additional pod labels for AIStore daemon
+                      pods.
+                    type: object
                   nodeSelector:
                     additionalProperties:
                       type: string
@@ -3102,8 +3108,8 @@ spec:
                   annotations:
                     additionalProperties:
                       type: string
-                    description: Annotations holds pod annotations for AIStore daemon
-                      pods.
+                    description: Annotations holds additional pod annotations for
+                      AIStore daemon pods.
                     type: object
                   capabilities:
                     description: ContainerSecurity holds the security context for
@@ -3433,6 +3439,12 @@ spec:
                     description: HostPort - host port to use for hostnetworking
                     format: int32
                     type: integer
+                  labels:
+                    additionalProperties:
+                      type: string
+                    description: Labels holds additional pod labels for AIStore daemon
+                      pods.
+                    type: object
                   mounts:
                     items:
                       properties:

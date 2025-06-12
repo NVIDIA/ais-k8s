@@ -783,6 +783,10 @@ func shouldUpdatePodTemplate(desired, current *corev1.PodTemplateSpec) (bool, st
 		return true, "updating annotations"
 	}
 
+	if !equality.Semantic.DeepEqual(desired.Labels, current.Labels) {
+		return true, "updating labels"
+	}
+
 	// Both `desired.Spec.SecurityContext` and `current.Spec.SecurityContext` are
 	// expected to be non-nil here as `SecurityContext` should be set by default.
 	if !equality.Semantic.DeepEqual(desired.Spec.SecurityContext, current.Spec.SecurityContext) {
@@ -852,6 +856,11 @@ func syncPodTemplate(desired, current *corev1.PodTemplateSpec) (updated bool) {
 
 	if !equality.Semantic.DeepDerivative(desired.Annotations, current.Annotations) {
 		current.Annotations = desired.Annotations
+		updated = true
+	}
+
+	if !equality.Semantic.DeepEqual(desired.Labels, current.Labels) {
+		current.Labels = desired.Labels
 		updated = true
 	}
 

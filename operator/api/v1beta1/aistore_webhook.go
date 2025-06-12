@@ -165,6 +165,7 @@ func (aisw *AIStoreWebhook) validateUpdate(ctx context.Context, prev, ais *AISto
 	// users can update size for scaling up or down
 	prev.Spec.ProxySpec.Size = ais.Spec.ProxySpec.Size
 	prev.Spec.ProxySpec.Annotations = ais.Spec.ProxySpec.Annotations
+	prev.Spec.ProxySpec.Labels = ais.Spec.ProxySpec.Labels
 	prev.Spec.ProxySpec.Env = ais.Spec.ProxySpec.Env
 	prev.Spec.ProxySpec.Resources = ais.Spec.ProxySpec.Resources
 	prev.Spec.ProxySpec.SecurityContext = ais.Spec.ProxySpec.SecurityContext
@@ -178,6 +179,7 @@ func (aisw *AIStoreWebhook) validateUpdate(ctx context.Context, prev, ais *AISto
 	// same
 	prev.Spec.TargetSpec.Size = ais.Spec.TargetSpec.Size
 	prev.Spec.TargetSpec.Annotations = ais.Spec.TargetSpec.Annotations
+	prev.Spec.TargetSpec.Labels = ais.Spec.TargetSpec.Labels
 	prev.Spec.TargetSpec.Env = ais.Spec.TargetSpec.Env
 	prev.Spec.TargetSpec.Resources = ais.Spec.TargetSpec.Resources
 	prev.Spec.TargetSpec.SecurityContext = ais.Spec.TargetSpec.SecurityContext

@@ -295,8 +295,8 @@ func (cc *clientCluster) scale(targetOnly bool, factor int32) {
 func (cc *clientCluster) restart() {
 	// Shutdown, ensure statefulsets exist and are size 0
 	cc.setShutdownStatus(true)
-	tutils.EventuallyPodsIsSize(cc.ctx, cc.k8sClient, cc.cluster, proxy.PodLabels(cc.cluster), 0, clusterDestroyTimeout)
-	tutils.EventuallyPodsIsSize(cc.ctx, cc.k8sClient, cc.cluster, target.PodLabels(cc.cluster), 0, clusterDestroyTimeout)
+	tutils.EventuallyPodsIsSize(cc.ctx, cc.k8sClient, cc.cluster, proxy.BasicLabels(cc.cluster), 0, clusterDestroyTimeout)
+	tutils.EventuallyPodsIsSize(cc.ctx, cc.k8sClient, cc.cluster, target.BasicLabels(cc.cluster), 0, clusterDestroyTimeout)
 	// Resume shutdown cluster, should become fully ready
 	cc.setShutdownStatus(false)
 	cc.waitForReadyCluster()

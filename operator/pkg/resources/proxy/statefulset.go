@@ -6,6 +6,7 @@ package proxy
 
 import (
 	"fmt"
+	"maps"
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
 	aisenv "github.com/NVIDIA/aistore/api/env"
@@ -28,7 +29,7 @@ func PodName(ais *aisv1.AIStore, idx int32) string {
 	return fmt.Sprintf("%s-%d", ais.ProxyStatefulSetName(), idx)
 }
 
-func PodLabels(ais *aisv1.AIStore) map[string]string {
+func BasicLabels(ais *aisv1.AIStore) map[string]string {
 	return map[string]string{
 		cmn.LabelApp:               ais.Name,
 		cmn.LabelAppPrefixed:       ais.Name,
@@ -54,16 +55,20 @@ func DefaultPrimaryNSName(ais *aisv1.AIStore) types.NamespacedName {
 }
 
 func NewProxyStatefulSet(ais *aisv1.AIStore, size int32) *apiv1.StatefulSet {
-	ls := PodLabels(ais)
+	basicLabels := BasicLabels(ais)
+	podLabels := map[string]string{}
+	maps.Copy(podLabels, basicLabels)
+	maps.Copy(podLabels, ais.Spec.ProxySpec.Labels)
+
 	return &apiv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ais.ProxyStatefulSetName(),
 			Namespace: ais.Namespace,
-			Labels:    ls,
+			Labels:    basicLabels,
 		},
 		Spec: apiv1.StatefulSetSpec{
 			Selector: &metav1.LabelSelector{
-				MatchLabels: PodLabels(ais),
+				MatchLabels: basicLabels,
 			},
 			ServiceName:          headlessSVCName(ais.Name),
 			PodManagementPolicy:  apiv1.ParallelPodManagement,
@@ -71,7 +76,7 @@ func NewProxyStatefulSet(ais *aisv1.AIStore, size int32) *apiv1.StatefulSet {
 			VolumeClaimTemplates: proxyVC(ais),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels:      ls,
+					Labels:      podLabels,
 					Annotations: cmn.PrepareAnnotations(ais.Spec.ProxySpec.Annotations, ais.Spec.NetAttachment, aisapc.Ptr(ais.Annotations[cmn.RestartConfigHashAnnotation])),
 				},
 				Spec: *proxyPodSpec(ais),
@@ -114,7 +119,7 @@ func proxyPodSpec(ais *aisv1.AIStore) *corev1.PodSpec {
 				ReadinessProbe:  cmn.NewReadinessProbe(ais, aisapc.Proxy),
 			},
 		},
-		Affinity:           cmn.CreateAISAffinity(ais.Spec.ProxySpec.Affinity, PodLabels(ais)),
+		Affinity:           cmn.CreateAISAffinity(ais.Spec.ProxySpec.Affinity, BasicLabels(ais)),
 		NodeSelector:       ais.Spec.ProxySpec.NodeSelector,
 		ServiceAccountName: cmn.ServiceAccountName(ais),
 		// By default, Kubernetes sets non-nil `SecurityContext`. So we have do that too,

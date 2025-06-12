@@ -2,7 +2,7 @@
 
 All notable changes to the AIStore K8s Operator project are documented in this file, starting with version v2.2.0.
 
-Note: Changes to Helm charts, Ansible playbooks, and other deployment tools are not included. 
+Note: Changes to Helm charts, Ansible playbooks, and other deployment tools are not included.
 
 We structure this changelog in accordance with [Keep a Changelog](https://keepachangelog.com/) guidelines, and this project follows [Semantic Versioning](https://semver.org/).
 
@@ -12,13 +12,14 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ### Added
 
+- Add support for `labels` in `AIStore` CRD to allow users to specify custom labels that will be applied to either proxies or targets Pods.
 - Add support for `AIS_TEST_API_MODE` environment variable to specify API mode for non-external LB clusters.
 - Add support for `TEST_EPHEMERAL_CLUSTER` environment variable to skip cleanup/teardown when testing on ephemeral clusters (e.g. in CI).
 - Add optional mount for `operator-tls` for supplying the operator with a certificate for client authentication.
 - Add `ais-client-cert-path` for defining specific location of operator AIS client certificates.
 - Add `ais-client-cert-per-cluster` to support separate certificate locations for each AIS cluster.
 - Add `OPERATOR_SKIP_VERIFY_CRT` option to deployment, which will initially default to `True` to match previous deployments.
-- Add TLS configuration to AIS API client, supporting additional CA trust and client Auth. 
+- Add TLS configuration to AIS API client, supporting additional CA trust and client Auth.
 - Add patch to mount a configMap `ais-operator-ais-ca` for trusting specific AIS CAs.
 
 
@@ -32,7 +33,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ### Added
 
-- Support for the following env vars for testing 
+- Support for the following env vars for testing
   - AIS_TEST_NODE_IMAGE
   - AIS_TEST_PREV_NODE_IMAGE
   - AIS_TEST_INIT_IMAGE

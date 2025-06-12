@@ -291,54 +291,6 @@ var _ = Describe("AIStoreController", func() {
 					}, 30*time.Second, 2*time.Second).Should(Succeed())
 				})
 
-				It("should reconcile changed container env variables", func() {
-					createStatefulSets(ctx, c, ais, r)
-
-					By("Update container resources and reconcile")
-					apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any(), false).Return(nil).Times(1)
-					ais.Spec.ProxySpec.Env = []corev1.EnvVar{{Name: "key", Value: "value"}}
-					ais.Spec.TargetSpec.Env = []corev1.EnvVar{{Name: "key", Value: "value"}}
-					err := c.Update(ctx, ais)
-					Expect(err).ToNot(HaveOccurred())
-					reconcileProxy(ctx, ais, r)
-					reconcileTarget(ctx, ais, r)
-
-					By("Expect statefulset spec to update")
-					Eventually(func(g Gomega) {
-						for _, stsType := range []string{"ais-proxy", "ais-target"} {
-							ss := getStatefulSet(ctx, ais, c, stsType)
-							// Custom env variable should be first in the list.
-							env := ss.Spec.Template.Spec.Containers[0].Env[0]
-							g.Expect(env.Name).To(Equal("key"))
-							g.Expect(env.Value).To(Equal("value"))
-						}
-					}, 30*time.Second, 2*time.Second).Should(Succeed())
-				})
-
-				It("should reconcile changed annotations", func() {
-					createStatefulSets(ctx, c, ais, r)
-
-					By("Update annotations in spec and reconcile")
-					apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any(), false).Return(nil).Times(1)
-					ais.Spec.ProxySpec.Annotations = map[string]string{"key": "value"}
-					ais.Spec.TargetSpec.Annotations = map[string]string{"key2": "value2"}
-					err := c.Update(ctx, ais)
-					Expect(err).ToNot(HaveOccurred())
-
-					reconcileProxy(ctx, ais, r)
-					reconcileTarget(ctx, ais, r)
-
-					By("Expect statefulset specs to update")
-					Eventually(func(g Gomega) {
-						ss := getStatefulSet(ctx, ais, c, "ais-proxy")
-						g.Expect(ss.Spec.Template.Annotations["key"]).To(Equal("value"))
-					}, 10*time.Second, 2*time.Second).Should(Succeed())
-					Eventually(func(g Gomega) {
-						ss := getStatefulSet(ctx, ais, c, "ais-target")
-						g.Expect(ss.Spec.Template.Annotations["key2"]).To(Equal("value2"))
-					}, 10*time.Second, 2*time.Second).Should(Succeed())
-				})
-
 				It("should reconcile changed security context", func() {
 					createStatefulSets(ctx, c, ais, r)
 
@@ -397,6 +349,56 @@ var _ = Describe("AIStoreController", func() {
 					}, 10*time.Second, 2*time.Second).Should(Succeed())
 				})
 
+				DescribeTable("should reconcile on changed field", func(setField func(ais *aisv1.AIStore), checkField func(g Gomega, podTemplate corev1.PodTemplateSpec)) {
+					createStatefulSets(ctx, c, ais, r)
+
+					By("Update field in spec and reconcile")
+					apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any(), false).Return(nil).Times(1)
+					setField(ais)
+					err := c.Update(ctx, ais)
+					Expect(err).ToNot(HaveOccurred())
+
+					reconcileProxy(ctx, ais, r)
+					reconcileTarget(ctx, ais, r)
+
+					By("Expect StatefulSet specs to be updated")
+					Eventually(func(g Gomega) {
+						ss := getStatefulSet(ctx, ais, c, "ais-proxy")
+						checkField(g, ss.Spec.Template)
+					}, 10*time.Second, 2*time.Second).Should(Succeed())
+					Eventually(func(g Gomega) {
+						ss := getStatefulSet(ctx, ais, c, "ais-target")
+						checkField(g, ss.Spec.Template)
+					}, 10*time.Second, 2*time.Second).Should(Succeed())
+				},
+					Entry("annotations",
+						func(ais *aisv1.AIStore) {
+							ais.Spec.ProxySpec.Annotations = map[string]string{"key": "value"}
+							ais.Spec.TargetSpec.Annotations = map[string]string{"key": "value"}
+						},
+						func(g Gomega, podTemplate corev1.PodTemplateSpec) {
+							g.ExpectWithOffset(1, podTemplate.Annotations["key"]).To(Equal("value"))
+						},
+					),
+					Entry("labels",
+						func(ais *aisv1.AIStore) {
+							ais.Spec.ProxySpec.Labels = map[string]string{"key": "value"}
+							ais.Spec.TargetSpec.Labels = map[string]string{"key": "value"}
+						},
+						func(g Gomega, podTemplate corev1.PodTemplateSpec) {
+							g.ExpectWithOffset(1, podTemplate.Labels["key"]).To(Equal("value"))
+						},
+					),
+					Entry("env",
+						func(ais *aisv1.AIStore) {
+							ais.Spec.ProxySpec.Env = []corev1.EnvVar{{Name: "key", Value: "value"}}
+							ais.Spec.TargetSpec.Env = []corev1.EnvVar{{Name: "key", Value: "value"}}
+						},
+						func(g Gomega, podTemplate corev1.PodTemplateSpec) {
+							g.ExpectWithOffset(1, podTemplate.Spec.Containers[0].Env[0].Name).To(Equal("key"))
+						},
+					),
+				)
 			})
 
 			Describe("With existing cluster", func() {
@@ -605,10 +607,42 @@ var _ = Describe("AIStoreController", func() {
 				},
 				true,
 			),
-			Entry("different annotations",
+			Entry("different annotations", //nolint:dupl // For now it is okay to duplicate, maybe in the future we will fix it.
 				&corev1.PodTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
+							"key": "value",
+						},
+					},
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers: []corev1.Container{{
+							Image: "test:latest",
+							Env:   []corev1.EnvVar{{Name: "key", Value: "value"}},
+							Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{
+								corev1.ResourceCPU: resource.MustParse("100m"),
+							}},
+						}},
+					},
+				},
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers: []corev1.Container{{
+							Image: "test:latest",
+							Env:   []corev1.EnvVar{{Name: "key", Value: "value"}},
+							Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{
+								corev1.ResourceCPU: resource.MustParse("100m"),
+							}},
+						}},
+					},
+				},
+				true,
+			),
+			Entry("different labels", //nolint:dupl // For now it is okay to duplicate, maybe in the future we will fix it.
+				&corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: map[string]string{
 							"key": "value",
 						},
 					},
@@ -682,6 +716,9 @@ var _ = Describe("AIStoreController", func() {
 						Annotations: map[string]string{
 							"key": "value",
 						},
+						Labels: map[string]string{
+							"key": "value",
+						},
 					},
 					Spec: corev1.PodSpec{
 						InitContainers: []corev1.Container{{Image: "test:latest"}},
@@ -700,6 +737,9 @@ var _ = Describe("AIStoreController", func() {
 				&corev1.PodTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
+							"key": "value",
+						},
+						Labels: map[string]string{
 							"key": "value",
 						},
 					},

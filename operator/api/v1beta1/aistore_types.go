@@ -227,9 +227,13 @@ type DaemonSpec struct {
 	// +optional
 	Size *int32 `json:"size,omitempty"`
 
-	// Annotations holds pod annotations for AIStore daemon pods.
+	// Annotations holds additional pod annotations for AIStore daemon pods.
 	// +optional
 	Annotations map[string]string `json:"annotations,omitempty"`
+
+	// Labels holds additional pod labels for AIStore daemon pods.
+	// +optional
+	Labels map[string]string `json:"labels,omitempty"`
 
 	// Compute Resources required by AIStore daemon pods.
 	// More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/

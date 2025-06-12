@@ -6,6 +6,7 @@ package target
 
 import (
 	"log"
+	"maps"
 	"path/filepath"
 	"strings"
 
@@ -31,7 +32,7 @@ func StatefulSetNSName(ais *aisv1.AIStore) types.NamespacedName {
 	}
 }
 
-func PodLabels(ais *aisv1.AIStore) map[string]string {
+func BasicLabels(ais *aisv1.AIStore) map[string]string {
 	return map[string]string{
 		cmn.LabelApp:               ais.Name,
 		cmn.LabelAppPrefixed:       ais.Name,
@@ -50,17 +51,21 @@ func RequiredPodLabels(ais *aisv1.AIStore) map[string]string {
 }
 
 func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
-	labels := PodLabels(ais)
+	basicLabels := BasicLabels(ais)
+	podLabels := map[string]string{}
+	maps.Copy(podLabels, BasicLabels(ais))
+	maps.Copy(podLabels, ais.Spec.TargetSpec.Labels)
+
 	return &apiv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        statefulSetName(ais),
 			Namespace:   ais.Namespace,
-			Labels:      labels,
+			Labels:      basicLabels,
 			Annotations: map[string]string{cmn.RestartConfigHashAnnotation: ais.Annotations[cmn.RestartConfigHashAnnotation]},
 		},
 		Spec: apiv1.StatefulSetSpec{
 			Selector: &metav1.LabelSelector{
-				MatchLabels: PodLabels(ais),
+				MatchLabels: basicLabels,
 			},
 			ServiceName:          headlessSVCName(ais.Name),
 			PodManagementPolicy:  apiv1.ParallelPodManagement,
@@ -68,16 +73,16 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 			VolumeClaimTemplates: targetPVC(ais),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels:      labels,
+					Labels:      podLabels,
 					Annotations: cmn.PrepareAnnotations(ais.Spec.TargetSpec.Annotations, ais.Spec.NetAttachment, aisapc.Ptr(ais.Annotations[cmn.RestartConfigHashAnnotation])),
 				},
-				Spec: *targetPodSpec(ais, labels),
+				Spec: *targetPodSpec(ais),
 			},
 		},
 	}
 }
 
-func targetPodSpec(ais *aisv1.AIStore, labels map[string]string) *corev1.PodSpec {
+func targetPodSpec(ais *aisv1.AIStore) *corev1.PodSpec {
 	spec := &corev1.PodSpec{
 		InitContainers: []corev1.Container{
 			{
@@ -115,7 +120,7 @@ func targetPodSpec(ais *aisv1.AIStore, labels map[string]string) *corev1.PodSpec
 		//
 		// See: https://github.com/kubernetes/kubernetes/blob/fa03b93d25a5a22d4f91e4c44f66fc69a6f69a35/pkg/apis/core/v1/defaults.go#L215-L236
 		SecurityContext: cmn.ValueOrDefault(ais.Spec.TargetSpec.SecurityContext, &corev1.PodSecurityContext{}),
-		Affinity:        createTargetAffinity(ais, labels),
+		Affinity:        createTargetAffinity(ais, BasicLabels(ais)),
 		NodeSelector:    ais.Spec.TargetSpec.NodeSelector,
 		Volumes:         cmn.NewAISVolumes(ais, aisapc.Target),
 		Tolerations:     ais.Spec.TargetSpec.Tolerations,
@@ -211,10 +216,10 @@ func targetPVC(ais *aisv1.AIStore) []corev1.PersistentVolumeClaim {
 	return pvcs
 }
 
-func createTargetAffinity(ais *aisv1.AIStore, podLabels map[string]string) *corev1.Affinity {
+func createTargetAffinity(ais *aisv1.AIStore, basicLabels map[string]string) *corev1.Affinity {
 	// Don't add additional rules to the affinity set in the target spec (can also be nil)
 	if ais.AllowTargetSharedNodes() {
 		return ais.Spec.TargetSpec.Affinity
 	}
-	return cmn.CreateAISAffinity(ais.Spec.TargetSpec.Affinity, podLabels)
+	return cmn.CreateAISAffinity(ais.Spec.TargetSpec.Affinity, basicLabels)
 }

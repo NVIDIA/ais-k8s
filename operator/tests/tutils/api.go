@@ -162,7 +162,7 @@ func checkPVsExist(ctx context.Context, c *aisclient.K8sClient, pvs []*corev1.Pe
 
 func CheckPVCDoesNotExist(ctx context.Context, cluster *aisv1.AIStore, aisCtx *AISTestContext, k8sClient *aisclient.K8sClient) {
 	pvcs := &corev1.PersistentVolumeClaimList{}
-	err := k8sClient.List(ctx, pvcs, clientpkg.InNamespace(cluster.Namespace), clientpkg.MatchingLabels(target.PodLabels(cluster)))
+	err := k8sClient.List(ctx, pvcs, clientpkg.InNamespace(cluster.Namespace), clientpkg.MatchingLabels(target.BasicLabels(cluster)))
 	if apierrors.IsNotFound(err) {
 		err = nil
 	}
@@ -409,7 +409,7 @@ func WaitForClusterToBeReady(ctx context.Context, k8sClient *aisclient.K8sClient
 
 // Verify status of all proxy PODs matches a fully ready cluster
 func isProxyReady(ctx context.Context, k8sClient *aisclient.K8sClient, ais *aisv1.AIStore) bool {
-	proxies, err := k8sClient.ListPods(ctx, ais, proxy.PodLabels(ais))
+	proxies, err := k8sClient.ListPods(ctx, ais, proxy.BasicLabels(ais))
 	Expect(err).To(BeNil())
 	if !checkPodsAISImage(proxies, ais.Spec.NodeImage) {
 		return false
@@ -420,7 +420,7 @@ func isProxyReady(ctx context.Context, k8sClient *aisclient.K8sClient, ais *aisv
 
 // Verify status of all target PODs matches a fully ready cluster
 func isTargetReady(ctx context.Context, k8sClient *aisclient.K8sClient, ais *aisv1.AIStore) bool {
-	targets, err := k8sClient.ListPods(ctx, ais, target.PodLabels(ais))
+	targets, err := k8sClient.ListPods(ctx, ais, target.BasicLabels(ais))
 	Expect(err).To(BeNil())
 	if !checkPodsAISImage(targets, ais.Spec.NodeImage) {
 		return false

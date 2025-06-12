@@ -594,6 +594,13 @@ func (in *DaemonSpec) DeepCopyInto(out *DaemonSpec) {
 			(*out)[key] = val
 		}
 	}
+	if in.Labels != nil {
+		in, out := &in.Labels, &out.Labels
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	in.Resources.DeepCopyInto(&out.Resources)
 	if in.ContainerSecurity != nil {
 		in, out := &in.ContainerSecurity, &out.ContainerSecurity
