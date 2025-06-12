@@ -20,14 +20,15 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 - Add `ais-client-cert-per-cluster` to support separate certificate locations for each AIS cluster.
 - Add `OPERATOR_SKIP_VERIFY_CRT` option to deployment, which will initially default to `True` to match previous deployments.
 - Add TLS configuration to AIS API client, supporting additional CA trust and client Auth.
-- Add patch to mount a configMap `ais-operator-ais-ca` for trusting specific AIS CAs.
+- Add kustomize patch to mount a configMap `ais-operator-ais-ca` for trusting specific AIS CAs.
 
 
 ### Changed
 
 - Apply `imagePullSecrets` for image pull authentication to service account instead of individual proxy/target pod specs.
 - Update RBAC rule in AIS service account to remove access to secrets and configmaps.
-- Updated kustomize structure to support overlays with different patch options on top of a common base.
+- Update kustomize structure to support overlays with different patch options on top of a common base.
+- Remove kustomize usage of deprecated 'vars'.
 
 ## v2.3.0
 
