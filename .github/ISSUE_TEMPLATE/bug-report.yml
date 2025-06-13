@@ -1,6 +1,6 @@
 ---
 name: "🐞 Bug Report"
-description: File a bug/issue
+description: Report a bug
 title: "(short issue description)"
 labels: [bug, needs-triage]
 body:
@@ -62,7 +62,7 @@ body:
     validations:
       required: false
   - type: input
-    id: version
+    id: operator-version
     attributes:
       label: AIS Operator version
       description: |
@@ -70,7 +70,7 @@ body:
     validations:
       required: false
   - type: input
-    id: version
+    id: ais-version
     attributes:
       label: AIStore version
       description: |
