@@ -2,7 +2,7 @@
 name: "🐞 Bug Report"
 description: File a bug/issue
 title: "(short issue description)"
-labels: ["bug", "needs-triage"]
+labels: [bug, needs-triage]
 body:
   - type: checkboxes
     attributes:
@@ -82,4 +82,4 @@ body:
     attributes:
       label: Environment details (K8s deployment type and version, etc.)
     validations:
-        required: true
+      required: true

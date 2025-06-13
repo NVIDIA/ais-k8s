@@ -1,6 +1,6 @@
 ---
 name: "📕 Documentation Issue"
-description: Report an issue in the API, CLI or SDK Documentation?
+description: Report a documentation issue in the Operator, Helm, Playbooks, or other
 title: "(short issue description)"
 labels: [documentation, needs-triage]
 body:
