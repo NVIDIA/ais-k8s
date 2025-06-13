@@ -1,11 +1,13 @@
 # Contributing to AIStore
 
-The AIStore project repository follows an open source model where anyone is allowed and encouraged to contribute. However, contributing to AIStore has a few guidelines that must be followed.
+This repository follows an open source model where anyone is allowed and encouraged to contribute.
+However, contributing to AIStore has a few guidelines that must be followed.
 
 
 ## Contribution Workflow
 
-The AIStore project repository maintains a contribution structure in which everyone *proposes* changes to the codebase via *pull requests*. To contribute to AIStore:
+The AIS-K8s repository maintains a contribution structure in which everyone *proposes* changes to the codebase via *pull requests*.
+To contribute to AIStore:
 
 1. [Fork the repository](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request-from-a-fork),
 2. [Create branch for issue](https://docs.github.com/en/issues/tracking-your-work-with-issues/creating-a-branch-for-an-issue),
@@ -18,7 +20,9 @@ The AIStore project repository maintains a contribution structure in which every
 
 #### Formatting Operator Changes
 
-AIStore operator maintains a few formatting rules to ensure a consistent coding style. These rules are checked and enforced by `gofmt`, etc.  Before committing any changes, make sure to check (or fix) all changes against the formatting rules as follows:
+AIStore operator maintains a few formatting rules to ensure a consistent coding style.
+These rules are checked and enforced by `gofmt`, etc.
+Before committing any changes, make sure to check (or fix) all changes against the formatting rules as follows:
 
 ```console
 $ cd operator
@@ -31,18 +35,17 @@ $ make fmt-check
 
 # Fix code formatting
 $ make fmt-fix
-
-# Check for any misspelled words
-$ make spell-check
 ```
 
 #### Testing Operator Changes
 
-Before committing any changes, run the following tests to verify any added changes to the codebase. Refer to operator [Development](operator/README.md#development) and [Test](operator/README.md#testing) sections for more details.
+Before committing any changes, run the following tests to verify any added changes to the codebase.
+Refer to operator [Development](operator/README.md#development) and [Test](operator/README.md#testing) sections for more details.
 
 #### Signing-Off Commits
 
-All contributors must *sign-off* on each commit. This certifies that each contribution is that contributor's original work per the following *Developer Certificate of Origin*[^developer-certificate-of-origin].
+All contributors must *sign-off* on each commit.
+This certifies that each contribution is that contributor's original work per the following *Developer Certificate of Origin*[^developer-certificate-of-origin].
 
 [^developer-certificate-of-origin]: **Developer Certificate of Origin**
     ```
@@ -114,7 +117,8 @@ git rebase -i HEAD~<# of commits to squash>
 
 ## Raise an Issue
 
-If a bug requires more attention, raise an issue [here](https://github.com/NVIDIA/aistore/issues). We will try to respond to the issue as soon as possible.
+If a bug requires more attention, raise an issue [here](https://github.com/NVIDIA/ais-k8s/issues).
+We will try to respond to the issue as soon as possible.
 
 Please give the issue an appropriate title and include detailed information on the issue at hand.
 
