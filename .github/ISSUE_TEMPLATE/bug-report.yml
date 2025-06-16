@@ -11,6 +11,13 @@ body:
       options:
       - label: I have searched the existing issues
         required: true
+  - type: checkboxes
+    attributes:
+      label: Is this a security issue?
+      description: If this bug impacts cluster or deployment security, please see SECURITY.md and contact us at aistore@nvidia.com.
+      options:
+      - label: This is not a security issue
+        required: true
   - type: textarea
     id: description
     attributes:
