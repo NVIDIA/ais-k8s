@@ -1,0 +1,8 @@
+# Simple playbook to use the oci-growfs tool to expand the root volume on OCI hosts
+# See https://docs.oracle.com/en-us/iaas/oracle-linux/oci-utils/index.htm#oci-growfs
+- name: Expand OCI host root volume
+  hosts: all
+  gather_facts: false
+  become: true
+  roles:
+    - growfs

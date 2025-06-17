@@ -1,0 +1,12 @@
+- name: Check if /usr/libexec/oci-growfs exists
+  stat:
+    path: /usr/libexec/oci-growfs
+  register: growfs_file_status
+
+- name: Fail if /usr/libexec/oci-growfs does not exist
+  fail:
+    msg: "/usr/libexec/oci-growfs does not exist"
+  when: not growfs_file_status.stat.exists
+
+- name: Run oci-growfs to expand root filesystem
+  command: /usr/libexec/oci-growfs -y
