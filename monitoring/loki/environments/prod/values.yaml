@@ -6,3 +6,5 @@ nodeAffinity:
           operator: In
           values:
             - "true"
+
+storageClass: local-path
