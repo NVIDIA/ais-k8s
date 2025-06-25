@@ -20,6 +20,14 @@ spec:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   proxySpec:
+    annotations:
+      {{- with .Values.proxySpec.annotations }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
+    labels:
+      {{- with .Values.proxySpec.labels }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
     tolerations:
       {{- with .Values.proxySpec.tolerations }}
       {{- toYaml . | nindent 6 }}
@@ -51,6 +59,14 @@ spec:
       {{- toYaml .Values.proxySpec.resources | nindent 6 }}
     {{- end }}
   targetSpec:
+    annotations:
+      {{- with .Values.targetSpec.annotations }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
+    labels:
+      {{- with .Values.targetSpec.labels }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
     tolerations:
       {{- with .Values.targetSpec.tolerations }}
       {{- toYaml . | nindent 6 }}

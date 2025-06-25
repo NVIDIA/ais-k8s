@@ -64,6 +64,14 @@ proxySpec:
     custom-label-proxy-key: custom-label-value
   resources:
 targetSpec:
+  annotations:
+    sample-key: "sample-annotation"
+  labels:
+    sample-key: "sample-label"
+  tolerations:
+    - key: "node.kubernetes.io/disk-pressure"
+      operator: "Exists"
+      effect: "NoExecute"
   size: 3
   # Omit to use default nvidia.com/ais-target label selection
   # Optionally, provide "all" to select based on global.nodes or provide your own selection entries
