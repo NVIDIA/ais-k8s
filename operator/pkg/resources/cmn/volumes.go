@@ -28,9 +28,9 @@ const (
 	InitGlobalConfDir = "/var/global_config"
 
 	// Container mount locations for cloud provider configs
-	GCPDir = "/var/gcp"
-	AWSDir = "/root/.aws"
-	OCIDir = "/root/.oci"
+	DefaultGCPDir = "/var/gcp"
+	DefaultAWSDir = "/root/.aws"
+	DefaultOCIDir = "/root/.oci"
 
 	// Other container mount locations
 	certsDir  = "/var/certs"
@@ -262,14 +262,22 @@ func NewAISVolumeMounts(ais *v1beta1.AIStore, daeType string) []v1.VolumeMount {
 }
 
 func appendCloudVolumeMounts(spec *v1beta1.AIStoreSpec, mounts []v1.VolumeMount) []v1.VolumeMount {
-	if spec.AWSSecretName != nil {
-		mounts = appendSimpleReadOnlyMount(mounts, awsSecretVolume, AWSDir)
+	type cloudConfig struct {
+		secretName *string
+		defaultDir string
+		volumeName string
 	}
-	if spec.GCPSecretName != nil {
-		mounts = appendSimpleReadOnlyMount(mounts, gcpSecretVolume, GCPDir)
+
+	configs := []cloudConfig{
+		{spec.AWSSecretName, DefaultAWSDir, awsSecretVolume},
+		{spec.GCPSecretName, DefaultGCPDir, gcpSecretVolume},
+		{spec.OCISecretName, DefaultOCIDir, ociSecretVolume},
 	}
-	if spec.OCISecretName != nil {
-		mounts = appendSimpleReadOnlyMount(mounts, ociSecretVolume, OCIDir)
+
+	for _, cfg := range configs {
+		if cfg.secretName != nil {
+			mounts = appendSimpleReadOnlyMount(mounts, cfg.volumeName, cfg.defaultDir)
+		}
 	}
 	return mounts
 }

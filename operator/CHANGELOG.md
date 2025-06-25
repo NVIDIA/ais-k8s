@@ -8,6 +8,15 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ---
 
+
+## Unreleased
+
+### Added
+
+### Changed
+
+- Allow configured cloud backends via `spec.configToUpdate.backend` in the absence of K8s secrets -- supports alternative secret injection
+
 ## v2.4.0
 
 ### Added

@@ -79,6 +79,9 @@ const (
 // Helper constants.
 const (
 	defaultClusterDomain = "cluster.local"
+	azureStorageAccount  = "AZURE_STORAGE_ACCOUNT"
+	azureStorageKey      = "AZURE_STORAGE_KEY"
+	aisAzureURL          = "AIS_AZURE_URL"
 )
 
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
@@ -462,8 +465,55 @@ func (ais *AIStore) AllowTargetSharedNodes() bool {
 	return ais.Spec.TargetSpec.DisablePodAntiAffinity != nil && *ais.Spec.TargetSpec.DisablePodAntiAffinity
 }
 
+func (ais *AIStore) HasAWSBackend() bool {
+	return ais.Spec.AWSSecretName != nil || ais.isProviderInConf(aisapc.AWS)
+}
+
+func (ais *AIStore) HasGCPBackend() bool {
+	return ais.Spec.GCPSecretName != nil || ais.isProviderInConf(aisapc.GCP)
+}
+
+func (ais *AIStore) HasOCIBackend() bool {
+	return ais.Spec.OCISecretName != nil || ais.isProviderInConf(aisapc.OCI)
+}
+
+func (ais *AIStore) HasAzureBackend() bool {
+	return ais.hasAzureConfig() || ais.isProviderInConf(aisapc.Azure)
+}
+
+func (ais *AIStore) hasAzureConfig() bool {
+	var azureEnvVars = []string{
+		azureStorageAccount,
+		azureStorageKey,
+		aisAzureURL,
+	}
+	for _, env := range ais.Spec.TargetSpec.Env {
+		for _, key := range azureEnvVars {
+			if env.Name == key {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (ais *AIStore) isProviderInConf(provider string) bool {
+	if backend := ais.getBackendConfig(); backend != nil {
+		_, exists := backend[provider]
+		return exists
+	}
+	return false
+}
+
+func (ais *AIStore) getBackendConfig() map[string]Empty {
+	if ais.Spec.ConfigToUpdate == nil || ais.Spec.ConfigToUpdate.Backend == nil {
+		return nil
+	}
+	return *ais.Spec.ConfigToUpdate.Backend
+}
+
 func (ais *AIStore) HasCloudBackend() bool {
-	return ais.Spec.AWSSecretName != nil || ais.Spec.GCPSecretName != nil || ais.Spec.OCISecretName != nil
+	return ais.HasAWSBackend() || ais.HasGCPBackend() || ais.HasOCIBackend() || ais.HasAzureBackend()
 }
 
 func (ais *AIStore) UseHTTPS() bool {

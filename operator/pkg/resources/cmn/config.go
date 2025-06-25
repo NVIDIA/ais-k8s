@@ -48,27 +48,29 @@ func newInitialConfig(ais *aisv1.AIStore) *aiscmn.ConfigToSet {
 		},
 	}
 	if ais.HasCloudBackend() {
-		configureBackend(conf, &ais.Spec)
+		configureBackend(conf, ais)
 	}
 	return conf
 }
 
-// TODO: Support Azure-only backend
-func configureBackend(conf *aiscmn.ConfigToSet, spec *aisv1.AIStoreSpec) {
+func configureBackend(conf *aiscmn.ConfigToSet, ais *aisv1.AIStore) {
 	if conf.Backend == nil {
 		conf.Backend = &aiscmn.BackendConf{}
 	}
 	if conf.Backend.Conf == nil {
 		conf.Backend.Conf = make(map[string]interface{}, 8)
 	}
-	if spec.AWSSecretName != nil {
+	if ais.HasAWSBackend() {
 		conf.Backend.Conf["aws"] = aisv1.Empty{}
 	}
-	if spec.GCPSecretName != nil {
+	if ais.HasGCPBackend() {
 		conf.Backend.Conf["gcp"] = aisv1.Empty{}
 	}
-	if spec.OCISecretName != nil {
+	if ais.HasOCIBackend() {
 		conf.Backend.Conf["oci"] = aisv1.Empty{}
+	}
+	if ais.HasAzureBackend() {
+		conf.Backend.Conf["azure"] = aisv1.Empty{}
 	}
 }
 
