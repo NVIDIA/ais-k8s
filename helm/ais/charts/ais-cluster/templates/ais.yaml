@@ -129,9 +129,11 @@ spec:
   {{- if eq .Values.protocol "https" }}
   tlsSecretName: {{ .Values.https.tlsSecret }}
   {{- end }}
+  {{- if .Values.cloud }}
   awsSecretName: {{ .Values.cloud.awsSecretName }}
   gcpSecretName: {{ .Values.cloud.gcpSecretName }}
   ociSecretName: {{ .Values.cloud.ociSecretName }}
+  {{- end }}
   authNSecretName: {{ .Values.authNSecretName }}
   enableExternalLB: false
   {{- with .Values.multihome.hostnameMap }}

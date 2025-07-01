@@ -38,12 +38,11 @@ initImage:
 logSidecarImage:
   name: aistorage/ais-logs
   tag: v1.0
-cloud:
-  awsSecretName: "aws-creds"
-  gcpSecretName: "gcp-creds"
 configToUpdate:
   memsys: 
     hk_time: 3m
+  backend:
+    aws: {}
 multihome:
   enabled: false
   hostnameMap: 
@@ -61,11 +60,33 @@ proxySpec:
       operator: "Exists"
       effect: "NoExecute"
 targetSpec:
+  annotations:
+    nvault.nvidia.com/agent-auto-config: 'true'
+    nvault.nvidia.com/agent-inject: 'true'
+    nvault.nvidia.com/vault-agent-http-reload-enable: 'true'
+    nvault.nvidia.com/auth-jwt-mount-path: 'jwt/nvidia/sjc11/aawilson-dev'
+    nvault.nvidia.com/auth-jwt-role: 'ais'
+    nvault.nvidia.com/namespace: 'ngc-storage-aistore'
+    nvault.nvidia.com/vault-addr: 'https://stg.vault.nvidia.com'
+    nvault.nvidia.com/vault-agent-template-cnt-aws-config-secrets: |
+      {{- with secret "nvidia/cluster/sjc11/cloud/aws/kv/config" }}
+      {{ .Data.data.config }}
+      {{- end }}
+    nvault.nvidia.com/vault-agent-template-cnt-aws-cred-secrets: |
+      {{- with secret "nvidia/cluster/sjc11/cloud/aws/kv/credentials" }}
+      {{ .Data.data.credentials }}
+      {{- end }}
+    nvault.nvidia.com/vault-agent-template-dst-aws-config-secrets: aws/config
+    nvault.nvidia.com/vault-agent-template-dst-aws-cred-secrets: aws/credentials
   tolerations:
     - key: "node.kubernetes.io/disk-pressure"
       operator: "Exists"
       effect: "NoExecute"
   env:
+    - name: AWS_CONFIG_FILE
+      value: "/vault/secrets/aws/config"
+    - name: AWS_SHARED_CREDENTIALS_FILE
+      value: "/vault/secrets/aws/credentials"
   resources:
     requests:
       cpu: "24"

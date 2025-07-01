@@ -14,7 +14,7 @@ environments:
     - https:
         enabled: true
       cloudSecrets:
-        enabled: true
+        enabled: false
       createPV:
         enabled: true
     kubeContext: sjc11
