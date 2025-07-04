@@ -1,13 +1,13 @@
-// Package contains declaration of AIS Kubernetes Custom Resource Definitions
+// Package v1beta1 contains declaration of AIS Kubernetes Custom Resource Definitions
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION. All rights reserved.
  */
 package v1beta1
 
 import (
 	aisapc "github.com/NVIDIA/aistore/api/apc"
 	aiscmn "github.com/NVIDIA/aistore/cmn"
-	"github.com/NVIDIA/aistore/cmn/cos"
+	aiscos "github.com/NVIDIA/aistore/cmn/cos"
 )
 
 // NOTE: `*ToUpdate` structures are duplicates of `*ToUpdate` structs from AIStore main repository.
@@ -61,12 +61,12 @@ type (
 		DiskOnly     *bool   `json:"disk_only,omitempty"`
 	}
 	LogConfToUpdate struct {
-		Level     *cos.LogLevel `json:"level,omitempty"`
-		ToStderr  *bool         `json:"to_stderr,omitempty"`
-		MaxSize   *SizeIEC      `json:"max_size,omitempty"`
-		MaxTotal  *SizeIEC      `json:"max_total,omitempty"`
-		FlushTime *Duration     `json:"flush_time,omitempty"`
-		StatsTime *Duration     `json:"stats_time,omitempty"`
+		Level     *aiscos.LogLevel `json:"level,omitempty"`
+		ToStderr  *bool            `json:"to_stderr,omitempty"`
+		MaxSize   *SizeIEC         `json:"max_size,omitempty"`
+		MaxTotal  *SizeIEC         `json:"max_total,omitempty"`
+		FlushTime *Duration        `json:"flush_time,omitempty"`
+		StatsTime *Duration        `json:"stats_time,omitempty"`
 	}
 	PeriodConfToUpdate struct {
 		StatsTime     *Duration `json:"stats_time,omitempty"`
@@ -265,6 +265,27 @@ func (c *ConfigToUpdate) UpdateRebalanceEnabled(enabled *bool) {
 	c.Rebalance.Enabled = enabled
 }
 
+func (c *ConfigToUpdate) ConfigureBackend(spec *AIStoreSpec) {
+	if c.Backend == nil {
+		m := make(map[string]Empty, 8)
+		c.Backend = &m
+	}
+	backend := *c.Backend
+	// If we have secrets with missing config entries, add them
+	if spec.AWSSecretName != nil {
+		backend[aisapc.AWS] = Empty{}
+	}
+	if spec.GCPSecretName != nil {
+		backend[aisapc.GCP] = Empty{}
+	}
+	if spec.OCISecretName != nil {
+		backend[aisapc.OCI] = Empty{}
+	}
+	if spec.HasAzureConfig() {
+		backend[aisapc.Azure] = Empty{}
+	}
+}
+
 func (c *ConfigToUpdate) EnableAuth() {
 	if c.Auth == nil {
 		c.Auth = &AuthConfToUpdate{}
@@ -274,6 +295,6 @@ func (c *ConfigToUpdate) EnableAuth() {
 
 func (c *ConfigToUpdate) Convert() (toUpdate *aiscmn.ConfigToSet, err error) {
 	toUpdate = &aiscmn.ConfigToSet{}
-	err = cos.MorphMarshal(c, toUpdate)
+	err = aiscos.MorphMarshal(c, toUpdate)
 	return toUpdate, err
 }

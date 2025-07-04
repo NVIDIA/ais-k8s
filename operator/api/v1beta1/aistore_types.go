@@ -1,4 +1,4 @@
-// Package contains declaration of AIS Kubernetes Custom Resource Definitions
+// Package v1beta1 contains declaration of AIS Kubernetes Custom Resource Definitions
 /*
  * Copyright (c) 2021-2025, NVIDIA CORPORATION. All rights reserved.
  */
@@ -84,7 +84,7 @@ const (
 	aisAzureURL          = "AIS_AZURE_URL"
 )
 
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+// NOTE: json tags are required. Any new fields you add must have json tags for the fields to be serialized.
 // IMPORTANT: Run "make" to regenerate code after modifying this file
 
 // AIStoreSpec defines the desired state of AIStore
@@ -465,29 +465,29 @@ func (ais *AIStore) AllowTargetSharedNodes() bool {
 	return ais.Spec.TargetSpec.DisablePodAntiAffinity != nil && *ais.Spec.TargetSpec.DisablePodAntiAffinity
 }
 
-func (ais *AIStore) HasAWSBackend() bool {
-	return ais.Spec.AWSSecretName != nil || ais.isProviderInConf(aisapc.AWS)
+func (s *AIStoreSpec) hasAWSBackend() bool {
+	return s.AWSSecretName != nil || s.isProviderInConf(aisapc.AWS)
 }
 
-func (ais *AIStore) HasGCPBackend() bool {
-	return ais.Spec.GCPSecretName != nil || ais.isProviderInConf(aisapc.GCP)
+func (s *AIStoreSpec) HasGCPBackend() bool {
+	return s.GCPSecretName != nil || s.isProviderInConf(aisapc.GCP)
 }
 
-func (ais *AIStore) HasOCIBackend() bool {
-	return ais.Spec.OCISecretName != nil || ais.isProviderInConf(aisapc.OCI)
+func (s *AIStoreSpec) HasOCIBackend() bool {
+	return s.OCISecretName != nil || s.isProviderInConf(aisapc.OCI)
 }
 
-func (ais *AIStore) HasAzureBackend() bool {
-	return ais.hasAzureConfig() || ais.isProviderInConf(aisapc.Azure)
+func (s *AIStoreSpec) hasAzureBackend() bool {
+	return s.HasAzureConfig() || s.isProviderInConf(aisapc.Azure)
 }
 
-func (ais *AIStore) hasAzureConfig() bool {
+func (s *AIStoreSpec) HasAzureConfig() bool {
 	var azureEnvVars = []string{
 		azureStorageAccount,
 		azureStorageKey,
 		aisAzureURL,
 	}
-	for _, env := range ais.Spec.TargetSpec.Env {
+	for _, env := range s.TargetSpec.Env {
 		for _, key := range azureEnvVars {
 			if env.Name == key {
 				return true
@@ -497,23 +497,23 @@ func (ais *AIStore) hasAzureConfig() bool {
 	return false
 }
 
-func (ais *AIStore) isProviderInConf(provider string) bool {
-	if backend := ais.getBackendConfig(); backend != nil {
+func (s *AIStoreSpec) isProviderInConf(provider string) bool {
+	if backend := s.GetBackendConfig(); backend != nil {
 		_, exists := backend[provider]
 		return exists
 	}
 	return false
 }
 
-func (ais *AIStore) getBackendConfig() map[string]Empty {
-	if ais.Spec.ConfigToUpdate == nil || ais.Spec.ConfigToUpdate.Backend == nil {
+func (s *AIStoreSpec) GetBackendConfig() map[string]Empty {
+	if s.ConfigToUpdate == nil || s.ConfigToUpdate.Backend == nil {
 		return nil
 	}
-	return *ais.Spec.ConfigToUpdate.Backend
+	return *s.ConfigToUpdate.Backend
 }
 
-func (ais *AIStore) HasCloudBackend() bool {
-	return ais.HasAWSBackend() || ais.HasGCPBackend() || ais.HasOCIBackend() || ais.HasAzureBackend()
+func (s *AIStoreSpec) HasCloudBackend() bool {
+	return s.hasAWSBackend() || s.HasGCPBackend() || s.HasOCIBackend() || s.hasAzureBackend()
 }
 
 func (ais *AIStore) UseHTTPS() bool {

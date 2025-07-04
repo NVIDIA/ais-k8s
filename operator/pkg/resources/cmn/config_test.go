@@ -80,13 +80,19 @@ var _ = Describe("Config", Label("short"), func() {
 					},
 					AWSSecretName: aisapc.Ptr("any-secret"),
 					GCPSecretName: aisapc.Ptr("any-secret"),
+					ConfigToUpdate: &aisv1.ConfigToUpdate{
+						Backend: &map[string]aisv1.Empty{
+							aisapc.OCI: {},
+						},
+					},
 				},
 			}
 			expected := aiscmn.ConfigToSet{
 				Backend: &aiscmn.BackendConf{
 					Conf: map[string]interface{}{
-						"aws": aisv1.Empty{},
-						"gcp": aisv1.Empty{},
+						"aws": map[string]any{},
+						"gcp": map[string]any{},
+						"oci": map[string]any{},
 					},
 				},
 				Rebalance: &aiscmn.RebalanceConfToSet{Enabled: aisapc.Ptr(false)},

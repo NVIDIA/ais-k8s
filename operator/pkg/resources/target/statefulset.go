@@ -148,10 +148,10 @@ func NewAISContainerEnv(ais *aisv1.AIStore) []corev1.EnvVar {
 	if ais.Spec.TargetSpec.HostPort != nil {
 		baseEnv = append(baseEnv, cmn.EnvFromFieldPath(cmn.EnvPublicHostname, "status.hostIP"))
 	}
-	if ais.HasGCPBackend() {
+	if ais.Spec.HasGCPBackend() {
 		baseEnv = append(baseEnv, cmn.EnvFromValue(cmn.EnvGoogleCreds, filepath.Join(cmn.DefaultGCPDir, "gcp.json")))
 	}
-	if ais.HasOCIBackend() {
+	if ais.Spec.HasOCIBackend() {
 		baseEnv = append(baseEnv,
 			cmn.EnvFromValue(cmn.EnvOCIConfig, filepath.Join(cmn.DefaultOCIDir, "config")),
 		)

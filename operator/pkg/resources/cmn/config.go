@@ -47,31 +47,7 @@ func newInitialConfig(ais *aisv1.AIStore) *aiscmn.ConfigToSet {
 			DiscoveryURL: discoveryURL,
 		},
 	}
-	if ais.HasCloudBackend() {
-		configureBackend(conf, ais)
-	}
 	return conf
-}
-
-func configureBackend(conf *aiscmn.ConfigToSet, ais *aisv1.AIStore) {
-	if conf.Backend == nil {
-		conf.Backend = &aiscmn.BackendConf{}
-	}
-	if conf.Backend.Conf == nil {
-		conf.Backend.Conf = make(map[string]interface{}, 8)
-	}
-	if ais.HasAWSBackend() {
-		conf.Backend.Conf["aws"] = aisv1.Empty{}
-	}
-	if ais.HasGCPBackend() {
-		conf.Backend.Conf["gcp"] = aisv1.Empty{}
-	}
-	if ais.HasOCIBackend() {
-		conf.Backend.Conf["oci"] = aisv1.Empty{}
-	}
-	if ais.HasAzureBackend() {
-		conf.Backend.Conf["azure"] = aisv1.Empty{}
-	}
 }
 
 // GenerateConfigToSet determines the actual config we want to apply based on config overrides provided in spec
@@ -89,6 +65,10 @@ func GenerateConfigToSet(ais *aisv1.AIStore) (*aiscmn.ConfigToSet, error) {
 		}
 	} else {
 		specConfig.UpdateRebalanceEnabled(aisapc.Ptr(false))
+	}
+
+	if ais.Spec.HasCloudBackend() {
+		specConfig.ConfigureBackend(&ais.Spec)
 	}
 
 	if ais.Spec.AuthNSecretName != nil {
