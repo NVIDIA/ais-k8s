@@ -37,7 +37,7 @@ initImage:
   tag: v3.29
 logSidecarImage:
   name: aistorage/ais-logs
-  tag: v1.0
+  tag: v1.1
 configToUpdate:
   memsys: 
     hk_time: 3m

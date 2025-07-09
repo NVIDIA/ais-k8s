@@ -24,7 +24,7 @@ import (
 const (
 	DefaultNodeImage     = "aistorage/aisnode:v3.29"
 	DefaultInitImage     = "aistorage/ais-init:v3.29"
-	DefaultLogsImage     = "aistorage/ais-logs:v1.0"
+	DefaultLogsImage     = "aistorage/ais-logs:v1.1"
 	DefaultPrevNodeImage = "aistorage/aisnode:v3.28"
 	DefaultPrevInitImage = "aistorage/ais-init:v3.28"
 	TestNSBase           = "ais-op-test"

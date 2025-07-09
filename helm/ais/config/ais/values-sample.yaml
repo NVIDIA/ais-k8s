@@ -29,7 +29,7 @@ initImage:
 # Optional
 logSidecarImage:
   name: aistorage/ais-logs
-  tag: v1.0
+  tag: v1.1
 cloud:
   awsSecretName: "aws-creds"
   gcpSecretName: "gcp-creds"

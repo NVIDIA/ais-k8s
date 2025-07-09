@@ -2,7 +2,7 @@ CONTAINER_TOOL ?= docker
 REGISTRY ?= docker.io
 REPO_NS ?= aistorage
 REPO_NAME ?= ais-logs
-TAG ?= v1.0
+TAG ?= v1.1
 IMG ?= $(REGISTRY)/$(REPO_NS)/$(REPO_NAME):$(TAG)
 
 .PHONY: all
