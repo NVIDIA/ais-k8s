@@ -1,38 +1,23 @@
 {{- if and .Values.remote .Values.loki }}
-{{- if .Values.loki.ngc_endpoint }}
-loki.write "ngc" {
-  endpoint {
-    url = "{{ .Values.loki.ngc_endpoint }}"
-  }
-  external_labels = {
-    cluster = "{{ .Values.remote.label }}",
-    tenant = "anonymous",
-  }
-}
-{{- end }}
 
-{{- if .Values.loki.panoptes_endpoint }}
-otelcol.receiver.loki "panoptes_loki_receiver" {
+{{- if .Values.loki.remoteEndpoint }}
+otelcol.receiver.loki "remote_loki_receiver" {
   output {
-    logs = [otelcol.exporter.otlphttp.panoptes_logs_export.input]
+    logs = [otelcol.exporter.otlphttp.remote_logs_export.input]
   }
 }
-
-otelcol.exporter.otlphttp "panoptes_logs_export" {
+otelcol.exporter.otlphttp "remote_logs_export" {
   client {
     auth = otelcol.auth.oauth2.azure_oidc.handler
-    endpoint = "{{ .Values.loki.panoptes_endpoint }}"
+    endpoint = "{{ .Values.loki.remoteEndpoint }}"
   }
 }
 {{- end }}
 
 loki.relabel "remote" {
   forward_to = [
-    {{- if .Values.loki.ngc_endpoint }}
-    loki.write.ngc.receiver,
-    {{- end }}
-    {{- if .Values.loki.panoptes_endpoint }}
-    otelcol.receiver.loki.panoptes_loki_receiver.receiver,
+    {{- if .Values.loki.remoteEndpoint }}
+    otelcol.receiver.loki.remote_loki_receiver.receiver,
     {{- end }}
   ]
   rule {
@@ -52,7 +37,9 @@ loki.relabel "all_logs" {
     {{- if .Values.loki.localGateway }}
     loki.write.local.receiver,
     {{- end }}
+    {{- if .Values.loki.remoteEndpoint }}
     loki.relabel.remote.receiver,
+    {{- end }}
   ]
 }
 {{- end }}

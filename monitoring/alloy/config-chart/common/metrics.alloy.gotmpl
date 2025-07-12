@@ -3,41 +3,26 @@ livedebugging {
 }
 
 {{- if and .Values.remote .Values.mimir }}
-{{- if .Values.mimir.ngc_endpoint }}
-prometheus.remote_write "ngc" {
-  endpoint {
-    url = "{{ .Values.mimir.ngc_endpoint }}"
-    remote_timeout = "15s"
-  }
-  external_labels = {
-    cluster = "{{ .Values.remote.label }}",
-    tenant = "anonymous",
-  }
-}
-{{- end }}
 
-{{- if .Values.mimir.panoptes_endpoint }}
-otelcol.receiver.prometheus "panoptes_receiver_import" {
+{{- if .Values.mimir.remoteEndpoint }}
+otelcol.receiver.prometheus "remote_receiver_import" {
   output {
-    metrics = [otelcol.processor.attributes.panoptes_insert_label.input]
+    metrics = [otelcol.processor.attributes.remote_insert_label.input]
   }
 }
 
-otelcol.exporter.otlphttp "panoptes_metrics_export" {
+otelcol.exporter.otlphttp "remote_metrics_export" {
   client {
     auth = otelcol.auth.oauth2.azure_oidc.handler
-    endpoint = "{{ .Values.mimir.panoptes_endpoint }}"
+    endpoint = "{{ .Values.mimir.remoteEndpoint }}"
   }
 }
 {{- end }}
 
 prometheus.relabel "remote_metrics" {
   forward_to = [
-    {{- if .Values.mimir.ngc_endpoint }}
-    prometheus.remote_write.ngc.receiver,
-    {{- end }}
-    {{- if .Values.mimir.panoptes_endpoint }}
-    otelcol.receiver.prometheus.panoptes_receiver_import.receiver,
+    {{- if .Values.mimir.remoteEndpoint }}
+    otelcol.receiver.prometheus.remote_receiver_import.receiver,
     {{- end }}
   ]
 }
@@ -45,7 +30,7 @@ prometheus.relabel "remote_metrics" {
 prometheus.relabel "all_metrics" {
   forward_to = [
     {{- if and .Values.prometheus .Values.prometheus.localGateway }}
-    prometheus.relabel.local_metrics.receiver,
+    otelcol.receiver.prometheus.local_receiver_import.receiver,
     {{- end }}
     prometheus.relabel.remote_metrics.receiver,
   ]
@@ -55,22 +40,30 @@ prometheus.relabel "all_metrics" {
 
 
 {{- if and .Values.prometheus .Values.prometheus.localGateway }}
-prometheus.relabel "local_metrics" {
-  forward_to = [prometheus.remote_write.local.receiver]
-  rule {
-    action = "replace"
-    target_label = "cluster"
-    replacement = "local"
+
+otelcol.receiver.prometheus "local_receiver_import" {
+  output {
+    metrics = [otelcol.processor.attributes.local_insert_label.input]
   }
 }
 
-prometheus.remote_write "local" {
-  endpoint {
-    url = {{ .Values.prometheus.localGateway | quote }}
-    remote_timeout = "15s"
+otelcol.processor.attributes "local_insert_label" {  
+  action {
+    key = "cluster"
+    value = "local"
+    action = "insert"
   }
-  external_labels = {
-    "cluster" = "local",
+  output {
+    metrics = [otelcol.exporter.otlphttp.local_metrics_export.input]
+  }
+}
+
+otelcol.exporter.otlphttp "local_metrics_export" {
+  client {
+    endpoint = "{{ .Values.prometheus.localGateway }}"
+    tls {
+      insecure = true
+    }
   }
 }
 {{- end }}

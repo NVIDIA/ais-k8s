@@ -12,14 +12,14 @@ otelcol.auth.oauth2 "azure_oidc" {
   token_url = convert.nonsensitive(remote.kubernetes.secret.azure_oidc.data.azure_token_url)
 }
 
-otelcol.processor.attributes "panoptes_insert_label" {  
+otelcol.processor.attributes "remote_insert_label" {  
   action {
     key = "cluster"
     value = "{{ .Values.remote.label }}"
     action = "insert"
   }
   output {
-    metrics = [otelcol.exporter.otlphttp.panoptes_metrics_export.input]
+    metrics = [otelcol.exporter.otlphttp.remote_metrics_export.input]
   }
 }
 

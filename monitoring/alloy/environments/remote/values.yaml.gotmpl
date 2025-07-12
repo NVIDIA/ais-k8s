@@ -1,11 +1,9 @@
 loki:
-  ngc_endpoint: {{ env "LOKI_ENDPOINT_NGC" }}
-  panoptes_endpoint: {{ env "LOKI_ENDPOINT_PANOPTES" }}
+  remoteEndpoint: {{ env "LOKI_ENDPOINT_PANOPTES" }}
   localGateway:
 
 mimir:
-  ngc_endpoint: {{ env "MIMIR_ENDPOINT_NGC" }}
-  panoptes_endpoint: {{ env "MIMIR_ENDPOINT_PANOPTES" }}
+  remoteEndpoint: {{ env "MIMIR_ENDPOINT_PANOPTES" }}
 
 remote: 
   label: {{ requiredEnv "CLUSTER_LABEL" }}
