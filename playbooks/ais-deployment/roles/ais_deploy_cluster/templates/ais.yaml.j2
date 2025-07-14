@@ -9,9 +9,12 @@ spec:
   # Add fields here
   size: {{ cluster_size }}
   configToUpdate:
-{% if protocol == "https" %}
     net:
       http:
+        idle_conn_time: 20s
+        idle_conns: 2048
+        idle_conns_per_host: 128
+{% if protocol == "https" %}
         server_crt: "/var/certs/tls.crt"
         server_key: "/var/certs/tls.key"
         use_https: true
