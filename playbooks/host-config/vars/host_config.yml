@@ -29,18 +29,16 @@ ais_cpufreq:
   governor: performance
 
 #
-# Block device tweaks suitable for xfs on scsi HDD
-# See e.g. https://www.beegfs.io/wiki/StorageServerTuning
-# and https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/performance_tuning_guide/sect-red_hat_enterprise_linux-performance_tuning_guide-storage_and_file_systems-configuration_tools
+# Block device tweaks
+# The following variables will be applied to all disks matching the given prefix
 #
-# Note: the maximum for nr_requests is 4096 for single-queue deadline, 2048 for mq-deadline
+# Ref: https://www.kernel.org/doc/html/v5.3/block/queue-sysfs.html 
+# See "Generic Block Device Tuning Parameters":
+# https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/7/html/performance_tuning_guide/sect-red_hat_enterprise_linux-performance_tuning_guide-storage_and_file_systems-configuration_tools
 #
+blkdevtune_prefix: /sys/block/nvme*
 blkdevtune:
-  queue/scheduler: mq-deadline
-  queue/nr_requests: 2048
-  queue/read_ahead_kb: 4096
-  queue/rq_affinity: 2
-  queue/max_sectors_kb: 16383
+  queue/read_ahead_kb: 256
 
 #
 # Local ntp servers to use - applied only if running the ais_ntp.yml playbook
@@ -48,18 +46,6 @@ blkdevtune:
 ntp_pools:
   - pool-ntp-3.nvidiangn.net
 
-#
-# Mellanox driver download and expected version info. topdir is the name of the directory that the download archive
-# extracts into (yuck).
-#
-mlx5_driver:
-  update: true
-  # url: 'http://www.mellanox.com/downloads/ofed/MLNX_OFED-4.6-1.0.1.1/MLNX_OFED_LINUX-4.6-1.0.1.1-ubuntu18.04-x86_64.tgz'
-  url: 'http://www.mellanox.com/downloads/ofed/MLNX_OFED-5.2-2.2.0.0/MLNX_OFED_LINUX-5.2-2.2.0.0-ubuntu20.04-x86_64.tgz'
-  #topdir: 'MLNX_OFED_LINUX-4.6-1.0.1.1-ubuntu18.04-x86_64'
-  topdir: 'MLNX_OFED_LINUX-5.2-2.2.0.0-ubuntu20.04-x86_64'
-  #version: 4.6-1.0.1
-  version: 5.2-2.2.0
 
 #
 # Ethtool tweaks to apply on boot to interfaces with matching driver names.

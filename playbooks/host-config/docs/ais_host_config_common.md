@@ -8,24 +8,28 @@ This document provides a detailed guide for system tuning in the context of AISt
 
 ### Tagging Scheme
 
-Different deployments, given their unique hardware and network environments, will necessitate different configurations. To accommodate this, we have categorized tasks into several functional areas, each marked with one or more of the following tags:
+Different deployments, given their unique hardware and network environments, will necessitate different configurations. To accommodate this, we have grouped configurations into categories applied with specific tags:
 
 - `aisrequired`: Essential tuning for AIStore. Default OS settings might not be optimal, and some tweaking might be needed.
 - `never`: These are site-specific configurations that should be reviewed and enabled explicitly. In Ansible, the "never" tag means these tasks are not selected by default and don't require explicit skipping.
 - `nvidiastd`: (NVIDIA Standard) Common tasks we apply in our environment but are not universal.
 - `aisdev`: Tasks specifically for development systems.
+- `io`: Configures the `aishostconfig` service to apply io tweaks set in the `blkdevtune` section of playbook variables.
+- `ethtool`: Configures the `aishostconfig` service to apply ethtool tweaks in the `ethtool` section of playbook variables.
+- `rmsvc`: Remove the `aishostconfig` service and its config file. 
 
 The functional areas include:
 
-| Area             | Additional Tags   | Description |
+| Area             | Tags   | Description |
 |------------------|-------------------|-------------|
 | `ulimits`        | `aisrequired`     | Adjusts `/etc/security/limits.conf` to set file descriptor limits as specified in this [file](https://raw.githubusercontent.com/NVIDIA/aistore/b732d063d837885474c1f801ed92e4c49754aef3/deploy/conf/limits.conf). |
 | `sysctlrequired` | `aisrequired`     | Implements essential sysctls from `vars/host_config_sysctl.yml`. |
 | `sysctlnetwork`  | `never`, `nvidiastd` | Networking tuning for 100GigE environments, customizable as per your setup. See `vars/host_config_sysctl.yml` for details. |
 | `sysctlnetmisc`  | `never`, `nvidiastd` | OS-related sysctls for review, listed in `vars/host_config_sysctl.yml`. |
-| `mtu`            | `never`, `nvidiastd` | Sets MTU on Mellanox CX-5 NIC to 9000. |
+| `mtu`            | `aisdev`, `nvidiastd`, `mtu` | Sets MTU on Mellanox CX-5 NIC to 9000. |
 | `cpufreq`        | `never`, `nvidiastd` | Sets the `performance` governor, ensuring necessary packages are installed. |
-| `iosched_ethtool`| `never`, `nvidiastd` | Configures IO scheduler and ethtool settings. Defaults to `mq-deadline` scheduler; use `deadman` if MQ scheduling is not enabled. Includes a `systemd` service for applying these settings. |
+| `blkdevtune`| `io` | Configures an `aishostconfig` systemd service to set IO scheduler and queue settings.|
+| `ethtool`| `ethtool` | Configures an `aishostconfig` systemd service to set ethtool settings.|
 
 ### Configuration Variables
 

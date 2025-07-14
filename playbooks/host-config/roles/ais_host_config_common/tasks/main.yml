@@ -53,22 +53,23 @@
   with_items:
     - "{{ ais_host_sysctl_misc }}"
 
-- name: Set host mtu in netplan
-  tags: [ never, aisdev, nvidiastd, mtu ]
-  template:
-    src: 01-netcfg.yaml.j2
-    dest: /etc/netplan/01-netcfg.yaml
-    owner: root
-    group: root
-    mode: 0644
-  with_items:
-    - "{{ ais_host_mtu }}"
-  register: netplan
+- name: Configure MTU with netplan
+  block: 
+    - name: Set host mtu in netplan
+      template:
+        src: 01-netcfg.yaml.j2
+        dest: /etc/netplan/01-netcfg.yaml
+        owner: root
+        group: root
+        mode: 0644
+      with_items:
+        - "{{ ais_host_mtu }}"
+      register: netplan
 
-- name: Apply netplan if changed
-  tags: [ never, aisdev, nvidiastd, mtu ]
-  command: netplan apply
-  when: netplan.changed
+    - name: Apply netplan if changed
+      command: netplan apply
+      when: netplan.changed
+  tags: [ aisdev, nvidiastd, mtu ]
 
 - block:
     - name: Install packages required for cpupower
@@ -89,6 +90,22 @@
   tags: [ never, nvidiastd, cpufreq ]
 
 - block:
+  - name: Set tune_block in config if 'io' tag is set
+    ansible.builtin.lineinfile:
+      path: /etc/ais_host_config.conf
+      regexp: '^tune_block\s*='
+      line: "tune_block=\"true\""
+      create: yes
+    when: "'io' in ansible_run_tags"
+
+  - name: Set tune_net in config if 'ethtool' tag is set
+    ansible.builtin.lineinfile:
+      path: /etc/ais_host_config.conf
+      regexp: '^tune_net\s*='
+      line: "tune_net=\"true\""
+      create: yes
+    when: "'ethtool' in ansible_run_tags"
+
   - name: Make sure we have a /usr/local/bin
     file:
       dest: /usr/local/bin
@@ -120,4 +137,33 @@
       enabled: yes
       state: restarted
     when: configservice.changed or configscript.changed
-  tags: [ never, nvidiastd, iosched_ethtool ]
+  tags: [ nvidiastd, io, ethtool ]
+
+- block:
+    - name: Stop aishostconfig service if running
+      ansible.builtin.systemd:
+        name: aishostconfig
+        state: stopped
+        enabled: no
+        daemon_reload: yes
+
+    - name: Remove aishostconfig systemd unit file
+      ansible.builtin.file:
+        path: /etc/systemd/system/aishostconfig.service
+        state: absent
+
+    - name: Remove ais_host_config.sh script
+      ansible.builtin.file:
+        path: /usr/local/bin/ais_host_config.sh
+        state: absent
+
+    - name: Remove ais_host_config.conf
+      ansible.builtin.file:
+        path: /etc/ais_host_config.conf
+        state: absent
+
+    - name: Reload systemd daemon after removal
+      ansible.builtin.systemd:
+        daemon_reload: yes
+
+  tags: [ rmsvc ]

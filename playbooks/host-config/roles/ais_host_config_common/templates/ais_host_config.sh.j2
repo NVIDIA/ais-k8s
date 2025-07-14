@@ -10,17 +10,16 @@
 
 PROG=$0
 rc=0
+CONFIG_FILE="/etc/ais_host_config.conf"
 
-#
-# Uses our Ansible inventory convention of {cpu,gpu}-worker-node to
-# identify GPU worker nodes.
-#
-cpunode=true
-gpunode=false
-{% if 'gpu-worker-node' in group_names %}
-cpunode=false
-gpunode=true
-{% endif %}
+# Default values
+tune_block="false"
+tune_network="false"
+
+# Load config if present
+if [[ -f "$CONFIG_FILE" ]]; then
+    source "$CONFIG_FILE"
+fi
 
 #
 # Complain and arrange to exit indicating failure, but don't exit now
@@ -37,31 +36,28 @@ function bleat {
 # can be applied as a default by updating /etc/default/grub, but we do it here
 # for now.
 #
-function update_blk_sd_value {
+function update_blk_values {
     what=$1
     val=$2
+    prefix={{ blkdevtune_prefix }}
 
-    echo "sd*/$what values before:"
-    cat /sys/block/sd*/$what | sort -u
+    echo "$prefix/$what values before:"
+    cat $prefix/$what | sort -u
     echo
 
-    for p in /sys/block/sd*/$what
+    for p in $prefix/$what
     do
         echo "$val" > $p || bleat "failed to set $p to value $val"
     done
 
-    echo "sd*/$what values after:"
-    cat /sys/block/sd*/$what | sort -u
+    echo "$prefix/$what values after:"
+    cat $prefix/$what | sort -u
     echo
 }
 
-#
-# Note: If using Python 2 with Ansible then items() below will
-# need to be changed ti iteritems()
-#
-function do_blk_sd {
+function do_blk_subst {
     {% for item in blkdevtune.items() %}
-    update_blk_sd_value "{{ item[0] }}" "{{ item[1] }}"
+    update_blk_values "{{ item[0] }}" "{{ item[1] }}"
     {% endfor %}
 }
 
@@ -117,7 +113,14 @@ function do_ethtool {
     done
 }
 
-$cpunode && do_blk_sd
-do_ethtool
+
+# Run functions based on config
+if [[ "$tune_block" == "true" ]]; then
+    do_blk_subst
+fi
+
+if [[ "$tune_net" == "true" ]]; then
+    do_ethtool
+fi
 
 exit $rc

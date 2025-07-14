@@ -14,13 +14,14 @@
       prompt: "Are you sure you want to run ais_host_config_common on {{ ais_hosts }} cluster? Type 'yes' to confirm."
       default: "no"
       private: no
+    - name: pcm_install_confirmation
+      prompt: "Do you want to install the pcm tool on {{ ais_hosts }}? Type 'yes' to confirm."
+      default: "no"
+      private: no
   become: true
   gather_facts: false
   roles:
     - role: ais_host_config_common
       when: host_config_confirmation | bool
     - role: pcm
-      when: host_config_confirmation | bool
-      tags: 
-        - never
-        - aisdev
+      when: pcm_install_confirmation | bool
