@@ -11,7 +11,7 @@ additionalPrometheusRulesMap:
           annotations:
             summary: High Disk IO Utilization on AIS Disks
             description: "The disk IO utilization on disk '{{ $labels.disk }}' ({{ $labels.instance }}) in pod '{{ $labels.pod }}' (node {{ $labels.node_id }}, namespace '{{ $labels.namespace }}') is above 95% for a continuous period of 5 minutes."
-        - alert: AISLowDiskCapacity
+        - alert: NodeLowDiskCapacity
           expr: (sum by (instance, device) (node_filesystem_avail_bytes{mountpoint=~"^/ais/.*"}) / sum by (instance, device) (node_filesystem_size_bytes{mountpoint=~"^/ais/.*"})) < 0.10
           for: 5m
           labels:
@@ -19,7 +19,7 @@ additionalPrometheusRulesMap:
           annotations:
             summary: Disk Space Critical on AIS Disks
             description: "The disk space on device '{{ $labels.device }}' on instance '{{ $labels.instance }}' has exceeded 90% capacity."
-        - alert: AISLowDiskCapacityInfo
+        - alert: NodeLowDiskCapacityInfo
           expr: (sum by (instance, device) (node_filesystem_avail_bytes{mountpoint=~"^/ais/.*"}) / sum by (instance, device) (node_filesystem_size_bytes{mountpoint=~"^/ais/.*"})) < 0.25
           for: 5m
           labels:
@@ -243,3 +243,20 @@ additionalPrometheusRulesMap:
           annotations:
             summary: AIS Node Low CPU Availability
             description: "AIS Node '{{ $labels.node_id }}' (instance '{{ $labels.instance }}') has low CPU availability, with utilization exceeding 80%."
+        - alert: AISDiskOOS
+          expr: (floor(ais_target_state_flags / 4194304)) % 2 == 1
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: AIS Disk Out Of Space
+            description: "AIS disk on node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) is out of space."
+        # “disk low capacity” at the mountpath level
+        - alert: AISDiskLowCapacity
+          expr: (floor(ais_target_state_flags / 8388608)) % 2 == 1
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: AIS Disk Low Capacity
+            description: "AIS disk on node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) has low available capacity."
