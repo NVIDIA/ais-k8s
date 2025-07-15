@@ -88,7 +88,7 @@ func targetPodSpec(ais *aisv1.AIStore) *corev1.PodSpec {
 			{
 				Name:            "populate-env",
 				Image:           ais.Spec.InitImage,
-				ImagePullPolicy: corev1.PullIfNotPresent,
+				ImagePullPolicy: corev1.PullAlways,
 				Env:             NewInitContainerEnv(ais),
 				Resources:       *cmn.NewInitResourceReq(),
 				Args:            cmn.NewInitContainerArgs(aisapc.Target, ais.Spec.HostnameMap),
