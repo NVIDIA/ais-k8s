@@ -36,6 +36,15 @@ environments:
       createPV:
         enabled: true
     kubeContext: oci-iad-test
+  sjc4-dev:
+    values: 
+    - https:
+        enabled: false
+      cloudSecrets:
+        enabled: false
+      createPV:
+        enabled: false
+    kubeContext: sjc4-dev
 ---
 
 releases:
