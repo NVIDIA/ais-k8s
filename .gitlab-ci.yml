@@ -114,3 +114,16 @@ operator:test:kind:compat:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "main"
       when: manual
       allow_failure: true
+
+operator:test:kind:latest:
+  stage: operator:test
+  extends: .operator_test_kind_template
+  variables:
+    AIS_TEST_NODE_IMAGE: "aistorage/aisnode:latest"
+    AIS_TEST_INIT_IMAGE: "aistorage/ais-init:latest"
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: manual
+      allow_failure: true

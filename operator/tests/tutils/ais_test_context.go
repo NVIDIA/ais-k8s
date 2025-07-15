@@ -91,6 +91,9 @@ func initNodeImage() string {
 }
 
 func initPrevNodeImage() string {
+	if os.Getenv(EnvNodeImage) != "" {
+		return getOrDefaultEnv(EnvPrevNodeImage, DefaultNodeImage)
+	}
 	return getOrDefaultEnv(EnvPrevNodeImage, DefaultPrevNodeImage)
 }
 
