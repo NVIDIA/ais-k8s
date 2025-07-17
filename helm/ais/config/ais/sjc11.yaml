@@ -43,6 +43,11 @@ configToUpdate:
     hk_time: 3m
   backend:
     aws: {}
+  net:
+    http:
+      idle_conn_time: 20s
+      idle_conns: 2048
+      idle_conns_per_host: 128
 multihome:
   enabled: false
   hostnameMap: 
