@@ -1,0 +1,5 @@
+#
+# Local ntp servers to use - applied only if running the ais_ntp.yml playbook
+#
+ntp_pools:
+  - pool-ntp-3.nvidiangn.net

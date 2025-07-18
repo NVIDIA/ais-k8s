@@ -23,7 +23,7 @@ For network setup details, see the [network configuration doc](./network_configu
 
 - **Ansible Host Config Playbooks**
 To assist you in setting up your system for AIStore, we've included a set of [Ansible playbooks](../playbooks/host-config/README.md) for host configuration.
-For an effective initial setup, we suggest following the [`ais_host_config_common guide`](../playbooks/host-config/docs/ais_host_config_common.md), especially with the `aisrequired` tag.
+For an effective initial setup, we suggest following the [`ais_host_config_common guide`](../playbooks/host-config/docs/ais_host_config_common.md).
 This will help you fine-tune your system to meet AIStore's requirements, ensuring optimal performance. 
 
 - **Persistent Volumes**:

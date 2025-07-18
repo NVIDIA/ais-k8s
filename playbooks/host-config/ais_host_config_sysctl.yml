@@ -1,0 +1,17 @@
+#
+# Apply sysctl tweaks to the 'ais' host group
+#
+---
+- hosts: '{{ ais_hosts | default("ais") }}'
+  vars_files:
+    - "vars/host_config_sysctl.yml"
+  vars_prompt:
+    - name: host_config_confirmation
+      prompt: "Are you sure you want to run ais_host_config_sysctl on {{ ais_hosts }} cluster? Type 'yes' to confirm."
+      default: "no"
+      private: no
+  become: true
+  gather_facts: false
+  roles:
+    - role: ais_host_config_sysctl
+      when: host_config_confirmation | bool

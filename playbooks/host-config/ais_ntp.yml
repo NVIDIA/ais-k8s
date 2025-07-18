@@ -6,7 +6,7 @@
 ---
 - hosts: '{{ ais_hosts | default("ais") }}'
   vars_files:
-    - "vars/host_config.yml"
+    - "vars/ntp.yml"
 
   gather_facts: False
   roles:

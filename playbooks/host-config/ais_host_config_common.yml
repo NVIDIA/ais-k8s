@@ -7,15 +7,10 @@
 ---
 - hosts: '{{ ais_hosts | default("ais") }}'
   vars_files:
-    - "vars/host_config_sysctl.yml"
     - "vars/host_config.yml"
   vars_prompt:
     - name: host_config_confirmation
       prompt: "Are you sure you want to run ais_host_config_common on {{ ais_hosts }} cluster? Type 'yes' to confirm."
-      default: "no"
-      private: no
-    - name: pcm_install_confirmation
-      prompt: "Do you want to install the pcm tool on {{ ais_hosts }}? Type 'yes' to confirm."
       default: "no"
       private: no
   become: true
@@ -23,5 +18,3 @@
   roles:
     - role: ais_host_config_common
       when: host_config_confirmation | bool
-    - role: pcm
-      when: pcm_install_confirmation | bool

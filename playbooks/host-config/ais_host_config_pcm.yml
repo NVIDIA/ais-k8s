@@ -1,0 +1,15 @@
+#
+# Install the PCM tool to all hosts in the 'ais' host group
+#
+---
+- hosts: '{{ ais_hosts | default("ais") }}'
+  vars_prompt:
+    - name: pcm_install_confirmation
+      prompt: "Do you want to install the pcm tool on {{ ais_hosts }}? Type 'yes' to confirm."
+      default: "no"
+      private: no
+  become: true
+  gather_facts: false
+  roles:
+    - role: pcm
+      when: pcm_install_confirmation | bool

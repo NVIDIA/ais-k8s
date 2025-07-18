@@ -1,0 +1,48 @@
+- name: Clean up old AIS sysctl config
+  block:
+    - name: Find previous sysctl files matching *-ais-*.conf
+      find:
+        paths: /etc/sysctl.d/
+        patterns: '*-ais-*.conf'
+      register: ais_sysctl_conf_files
+
+    - name: Remove previous sysctl files matching *-ais-*.conf
+      file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ ais_sysctl_conf_files.files }}"
+      when: ais_sysctl_conf_files.matched > 0
+  tags: [ sysctlrequired, sysctlnet, sysctlvm ]
+
+- name: Adding required tweaks to {{ required_sysctl_file }}
+  tags: [ sysctlrequired ]
+  sysctl:
+    sysctl_file: "{{ required_sysctl_file }}"
+    reload: yes
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    state: "{{ item.state }}"
+  with_items:
+    - "{{ ais_host_sysctl_required }}"
+
+- name: Adding optional network tweaks to {{ network_sysctl_file }}
+  tags: [ sysctlnet ]
+  sysctl:
+    sysctl_file: "{{ network_sysctl_file }}"
+    reload: yes
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    state: "{{ item.state }}"
+  with_items:
+    - "{{ ais_host_sysctl_net }}"
+
+- name: Adding optional vm tweaks to {{ vm_sysctl_file }}
+  tags: [ sysctlvm ]
+  sysctl:
+    sysctl_file: "{{ vm_sysctl_file }}"
+    reload: yes
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    state: "{{ item.state }}"
+  with_items:
+    - "{{ ais_host_sysctl_vm }}"

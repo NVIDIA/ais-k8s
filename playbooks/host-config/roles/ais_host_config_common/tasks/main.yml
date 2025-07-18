@@ -20,39 +20,6 @@
         mode: "0644"
   tags: [ aisrequired, ulimits ]
 
-- name: Tweak sysctl.conf - required tweaks
-  tags: [ aisrequired, sysctlrequired ]
-  sysctl:
-    sysctl_file: /etc/sysctl.d/90-ais.conf
-    reload: yes
-    name: "{{ item.name }}"
-    value: "{{ item.value }}"
-    state: "{{ item.state }}"
-  with_items:
-    - "{{ ais_host_sysctl_required }}"
-
-- name: Tweak sysctl.conf - optional network tweaks
-  tags: [ never, nvidiastd, sysctlnetwork ]
-  sysctl:
-    sysctl_file: /etc/sysctl.d/90-ais.conf
-    reload: yes
-    name: "{{ item.name }}"
-    value: "{{ item.value }}"
-    state: "{{ item.state }}"
-  with_items:
-    - "{{ ais_host_sysctl_network }}"
-
-- name: Tweak sysctl.conf - optional misc bits
-  tags: [ never, nvidiastd, sysctlnetmisc ]
-  sysctl:
-    sysctl_file: /etc/sysctl.d/90-ais.conf
-    reload: yes
-    name: "{{ item.name }}"
-    value: "{{ item.value }}"
-    state: "{{ item.state }}"
-  with_items:
-    - "{{ ais_host_sysctl_misc }}"
-
 - name: Configure MTU with netplan
   block: 
     - name: Set host mtu in netplan
@@ -69,7 +36,7 @@
     - name: Apply netplan if changed
       command: netplan apply
       when: netplan.changed
-  tags: [ aisdev, nvidiastd, mtu ]
+  tags: [ nvidiastd, mtu ]
 
 - block:
     - name: Install packages required for cpupower
@@ -137,7 +104,7 @@
       enabled: yes
       state: restarted
     when: configservice.changed or configscript.changed
-  tags: [ nvidiastd, io, ethtool ]
+  tags: [ io, ethtool ]
 
 - block:
     - name: Stop aishostconfig service if running

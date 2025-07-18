@@ -8,7 +8,7 @@
 # Note that if changing this you also need to change the MTU used
 # in Calico within k8s (to at least 20 bytes less than this value).
 #
-# Tags: never, aisdev, nvidiastd, hostmtu
+# Tags: never, nvidiastd, mtu
 #
 ais_host_mtu:
   - interface: enp94s0f0
@@ -36,15 +36,11 @@ ais_cpufreq:
 # See "Generic Block Device Tuning Parameters":
 # https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/7/html/performance_tuning_guide/sect-red_hat_enterprise_linux-performance_tuning_guide-storage_and_file_systems-configuration_tools
 #
+# Tags: io
+#
 blkdevtune_prefix: /sys/block/nvme*
 blkdevtune:
   queue/read_ahead_kb: 256
-
-#
-# Local ntp servers to use - applied only if running the ais_ntp.yml playbook
-#
-ntp_pools:
-  - pool-ntp-3.nvidiangn.net
 
 
 #
@@ -57,6 +53,8 @@ ntp_pools:
 # - for each 'channel' array element, perform an 'ethtool -L <interface> <item>'; default is
 #   to calculate the number of cpu cores in the system (ignoring hyperthreads) and used
 #   that number of 'combined' channels.
+#
+# Tags: ethtool
 #
 ethtool:
   mlx5_core:
