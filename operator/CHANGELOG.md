@@ -15,6 +15,10 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ### Changed
 
+##  v2.5.0
+
+### Changed
+
 - Allow configured cloud backends via `spec.configToUpdate.backend` in the absence of K8s secrets -- supports alternative secret injection
 - Use statefulset status to simplify proxy rollout
 - Update direct dependencies including AIS
