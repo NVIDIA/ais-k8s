@@ -3,15 +3,15 @@ module github.com/ais-operator
 go 1.24
 
 require (
-	github.com/NVIDIA/aistore v1.3.30-0.20250708221303-182904d0ee6a
+	github.com/NVIDIA/aistore v1.3.30
 	github.com/cert-manager/csi-driver v0.10.2
 	github.com/go-logr/logr v1.4.3
 	github.com/go-test/deep v1.1.1
 	github.com/json-iterator/go v1.1.12
-	github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.7.6
+	github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.7.7
 	github.com/onsi/ginkgo/v2 v2.23.4
-	github.com/onsi/gomega v1.37.0
-	go.uber.org/mock v0.5.1
+	github.com/onsi/gomega v1.38.0
+	go.uber.org/mock v0.5.2
 	gopkg.in/inf.v0 v0.9.1
 	k8s.io/api v0.32.3
 	k8s.io/apimachinery v0.32.3
