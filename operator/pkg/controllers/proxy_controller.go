@@ -172,8 +172,7 @@ func (r *AIStoreReconciler) syncProxyPodSpec(ctx context.Context, ais *aisv1.AIS
 	if needsUpdate, reason := shouldUpdatePodTemplate(desiredTemplate, &updatedSS.Spec.Template); needsUpdate {
 		// If we have an active cluster, set primary to 0 before triggering rollout
 		if updatedSS.Status.ReadyReplicas > 0 {
-			err = r.setPrimaryTo(ctx, ais, 0)
-			if err != nil {
+			if err = r.setPrimaryTo(ctx, ais, 0); err != nil {
 				logger.Error(err, "failed to set primary proxy", "podIndex", 0)
 				return
 			}
@@ -182,7 +181,7 @@ func (r *AIStoreReconciler) syncProxyPodSpec(ctx context.Context, ais *aisv1.AIS
 			updatedSS.Spec.UpdateStrategy = appsv1.StatefulSetUpdateStrategy{
 				Type: appsv1.RollingUpdateStatefulSetStrategyType,
 				RollingUpdate: &appsv1.RollingUpdateStatefulSetStrategy{
-					Partition: func(v int32) *int32 { return &v }(1),
+					Partition: aisapc.Ptr(int32(1)),
 				},
 			}
 		}
@@ -200,54 +199,67 @@ func (r *AIStoreReconciler) syncProxyPodSpec(ctx context.Context, ais *aisv1.AIS
 }
 
 func (r *AIStoreReconciler) handleProxyRollout(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) (result ctrl.Result, err error) {
-	logger := logf.FromContext(ctx).WithValues("statefulset", ss.Name)
-	podList, err := r.k8sClient.ListPods(ctx, ais, ss.Spec.Template.GetLabels())
-	if err != nil {
-		return
-	}
-	var (
-		toUpdate         int
-		firstYetToUpdate bool
-	)
-	for pod := range cmn.IterPtr(podList.Items) {
-		if pod.Labels[appsv1.StatefulSetRevisionLabel] == ss.Status.UpdateRevision {
-			continue
-		}
-		toUpdate++
-		firstYetToUpdate = firstYetToUpdate || pod.Name == proxy.PodName(ais, 0)
-	}
-
-	// NOTE: In case of statefulset rolling update strategy,
-	// pod are updated in descending order of their pod index.
-	// This implies the pod with the largest index is the oldest proxy,
-	// and we set it as a primary.
-	if toUpdate == 1 && firstYetToUpdate {
-		podIndex := *ss.Spec.Replicas - 1
-		err = r.setPrimaryTo(ctx, ais, podIndex)
-		if err != nil {
-			logger.Error(err, "failed to set primary proxy", "podIndex", podIndex)
-			return
-		}
-		logger.Info("Removing partition from rolling update strategy")
-		// Revert statefulset partition spec
-		updatedSS := ss.DeepCopy()
-		updatedSS.Spec.UpdateStrategy = appsv1.StatefulSetUpdateStrategy{
-			Type: appsv1.RollingUpdateStatefulSetStrategyType,
-			RollingUpdate: &appsv1.RollingUpdateStatefulSetStrategy{
-				Partition: func(v int32) *int32 { return &v }(0),
-			},
-		}
-		patch := client.MergeFrom(ss)
-		err = r.k8sClient.Patch(ctx, updatedSS, patch)
-		if err != nil {
-			logger.Error(err, "failed to patch statefulset update strategy")
-			return
-		}
-	}
-	if toUpdate == 0 {
+	// If rollout is complete, current revision will match update revision
+	if ss.Status.UpdateRevision == ss.Status.CurrentRevision {
 		return ctrl.Result{}, nil
 	}
+
+	// Reset partition to update last pod
+	if shouldResetPartition(ss) {
+		err = r.setHighestPodAsPrimary(ctx, ais, ss)
+		if err != nil {
+			return
+		}
+		err = r.resetSSPartition(ctx, ss)
+		if err != nil {
+			return
+		}
+	}
 	return ctrl.Result{Requeue: true}, nil
+}
+
+// With statefulset rolling update strategy, pods are updated in descending order of their pod index.
+// This implies the pod with the largest index is the oldest proxy, and we set it as primary.
+func (r *AIStoreReconciler) setHighestPodAsPrimary(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) (err error) {
+	podIndex := *ss.Spec.Replicas - 1
+	err = r.setPrimaryTo(ctx, ais, podIndex)
+	if err != nil {
+		logger := logf.FromContext(ctx).WithValues("statefulset", ss.Name)
+		logger.Error(err, "failed to set primary proxy", "podIndex", podIndex)
+	}
+	return
+}
+
+func shouldResetPartition(ss *appsv1.StatefulSet) bool {
+	// Not using rolling update
+	if ss.Spec.UpdateStrategy.RollingUpdate == nil {
+		return false
+	}
+	// Already reset
+	if ss.Spec.UpdateStrategy.RollingUpdate.Partition == aisapc.Ptr(int32(0)) {
+		return false
+	}
+	// Reset to allow updating the last pod (lowest ordinal)
+	return ss.Status.CurrentReplicas == 1
+}
+
+func (r *AIStoreReconciler) resetSSPartition(ctx context.Context, ss *appsv1.StatefulSet) (err error) {
+	logger := logf.FromContext(ctx).WithValues("statefulset", ss.Name)
+	logger.Info("Removing partition from rolling update strategy")
+	// Revert statefulset partition spec
+	updatedSS := ss.DeepCopy()
+	updatedSS.Spec.UpdateStrategy = appsv1.StatefulSetUpdateStrategy{
+		Type: appsv1.RollingUpdateStatefulSetStrategyType,
+		RollingUpdate: &appsv1.RollingUpdateStatefulSetStrategy{
+			Partition: aisapc.Ptr(int32(0)),
+		},
+	}
+	patch := client.MergeFrom(ss)
+	err = r.k8sClient.Patch(ctx, updatedSS, patch)
+	if err != nil {
+		logger.Error(err, "failed to patch statefulset update strategy")
+	}
+	return
 }
 
 func (r *AIStoreReconciler) setPrimaryTo(ctx context.Context, ais *aisv1.AIStore, podIdx int32) error {
