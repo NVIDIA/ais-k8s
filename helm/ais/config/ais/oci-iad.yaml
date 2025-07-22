@@ -39,10 +39,10 @@ imagePullSecrets:
   - name: regcred
 nodeImage:
   name: aistorage/aisnode
-  tag: v3.29
+  tag: v3.30
 initImage:
   name: aistorage/ais-init
-  tag: v3.29
+  tag: v3.30
 logSidecarImage:
   name: aistorage/ais-logs
   tag: v1.1

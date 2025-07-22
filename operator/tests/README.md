@@ -20,10 +20,10 @@ The following environment variables allow customization of the E2E test environm
 
 | Variable Name             | Description                                                | Default Value                                   |
 |---------------------------|------------------------------------------------------------|-------------------------------------------------|
-| `AIS_TEST_NODE_IMAGE`     | Node container image used for deploying AIS nodes          | `aistorage/aisnode:v3.29`                       |
-| `AIS_TEST_PREV_NODE_IMAGE`| Previous node image for upgrade/downgrade testing          | `aistorage/aisnode:v3.28`                       |
-| `AIS_TEST_INIT_IMAGE`     | Init container image used during AIS deployment            | `aistorage/ais-init:v3.29`                      |
-| `AIS_TEST_PREV_INIT_IMAGE`| Previous init container image for upgrade/downgrade testing| `aistorage/ais-init:v3.28`                      |
+| `AIS_TEST_NODE_IMAGE`     | Node container image used for deploying AIS nodes          | `aistorage/aisnode:v3.30`                       |
+| `AIS_TEST_PREV_NODE_IMAGE`| Previous node image for upgrade/downgrade testing          | `aistorage/aisnode:v3.29`                       |
+| `AIS_TEST_INIT_IMAGE`     | Init container image used during AIS deployment            | `aistorage/ais-init:v3.30`                      |
+| `AIS_TEST_PREV_INIT_IMAGE`| Previous init container image for upgrade/downgrade testing| `aistorage/ais-init:v3.29`                      |
 | `AIS_TEST_API_MODE`       | API mode used for non-external LB clusters                 | Internal DNS (headless service)                 |
 | `TEST_STORAGECLASS`       | Storage class to use for test volumes                      | `ais-operator-test-storage` (`standard` for GKE)|
 | `TEST_STORAGE_HOSTPATH`   | Host path to use for storage when using hostPath volumes   | `/etc/ais/<random>`                             |

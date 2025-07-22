@@ -1,6 +1,6 @@
 apiVersion: v2
 name: ais-cluster
 description: A Helm chart for deploying AIS on Kubernetes
-appVersion: "3.29"
+appVersion: "3.30"
 type: application
 version: 0.3.0
