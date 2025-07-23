@@ -26,12 +26,9 @@ Make sure to specify the `controller` node in the `hosts.ini` file and configure
 
 ### Quick Setup
 
-For a streamlined setup, we offer playbooks for configuring hosts and deploying the AIS Operator and Cluster with recommended settings:
+Before installing AIS, we recommend configuring the K8s hosts to optimize the network and storage performance. See our [host config playbook documentation](./host-config/README.md) to get started. 
 
-- To configure hosts for AIS Deployment:
-  ```bash
-  ansible-playbook -i hosts.ini ais_host_config.yml -e ais_hosts=ais
-  ```
+For a streamlined setup, we offer playbooks for deploying the AIS Operator and cluster with recommended settings:
 
 - To deploy the AIS Cluster:
   ```bash
