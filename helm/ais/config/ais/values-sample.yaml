@@ -62,6 +62,11 @@ proxySpec:
   # Optionally, provide "all" to select based on global.nodes or provide your own selection entries
   nodeSelector:
     custom-label-proxy-key: custom-label-value
+  securityContext:
+    # Namespaced sysctls or those that do not propagate from host must be applied at the pod level
+    sysctls:
+        # Note: if this is an "unsafe" sysctl such as net.core.somaxconn it must be allowed by kubelet config
+      net.core.somaxconn: 65535
   resources:
 targetSpec:
   annotations:
@@ -77,5 +82,10 @@ targetSpec:
   # Optionally, provide "all" to select based on global.nodes or provide your own selection entries
   nodeSelector:
     custom-label-target-key: custom-label-value
+  securityContext:
+    # Namespaced sysctls or those that do not propagate from host must be applied at the pod level
+    sysctls:
+      # Note: if this is an "unsafe" sysctl such as net.core.somaxconn it must be allowed by kubelet config
+      net.core.somaxconn: 65535
   resources:
   hostNetwork: false

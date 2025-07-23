@@ -52,6 +52,10 @@ spec:
     portIntraData: {{ .Values.proxySpec.portIntraData | default 51082 }}
     capabilities:
       privileged: true
+    {{- if .Values.proxySpec.securityContext }}
+    securityContext:
+      {{- toYaml .Values.proxySpec.securityContext | nindent 6 }}
+    {{- end }}
     nodeSelector:
       {{- if not .Values.proxySpec.nodeSelector }}
         nvidia.com/ais-proxy: {{ .Values.global.cluster | quote }}
@@ -92,6 +96,10 @@ spec:
     hostNetwork: {{ .Values.targetSpec.hostNetwork }}
     capabilities:
       privileged: true
+    {{- if .Values.targetSpec.securityContext }}
+    securityContext:
+      {{- toYaml .Values.targetSpec.securityContext | nindent 6 }}
+    {{- end }}
     nodeSelector:
       {{- if not .Values.targetSpec.nodeSelector }}
           nvidia.com/ais-target: {{ .Values.global.cluster | quote }}
