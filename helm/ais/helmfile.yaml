@@ -90,7 +90,7 @@ releases:
       - events: ["presync"]
         showlogs: true
         command: "./scripts/create-pvs.sh"
-        args: 
-        - '{{`{{ .Values.createPV.enabled }}`}}'
-        - '{{`./config/ais/{{ .Environment.Name }}.yaml`}}'
-        - '{{`{{ .Release.Namespace }}`}}'
+        args:
+          - '{{ .Environment.Values.createPV.enabled }}'
+          - './config/ais/{{ .Environment.Name }}.yaml'
+          - '{{ .Release.Namespace }}'

@@ -10,6 +10,11 @@ CREATE_PVS="$1"
 VALUES_YAML="$2"
 RELEASE_NAMESPACE="$3"
 
+echo "Creating PersistentVolumes with the following parameters:"
+echo "CREATE_PVS: $CREATE_PVS"
+echo "VALUES_YAML: $VALUES_YAML"
+echo "RELEASE_NAMESPACE: $RELEASE_NAMESPACE"
+
 if [[ "$CREATE_PVS" == "true" ]]; then
   echo "Templating and applying PersistentVolumes with claimRef namespace "$RELEASE_NAMESPACE" and values from $VALUES_YAML "
   helm template ais-create-pv ./charts/create-pv -f "$VALUES_YAML" --set namespace="$RELEASE_NAMESPACE" | kubectl apply -f -
