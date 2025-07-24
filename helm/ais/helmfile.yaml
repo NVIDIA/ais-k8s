@@ -9,6 +9,11 @@ environments:
       # Whether to run hooks to create and delete PVs based on values
       createPV:
         enabled: false
+      # Enable this to automatically label cluster nodes based on configuration.
+      # This should be set to true the first time you deploy to ensure nodes are labeled correctly.
+      # Subsequent runs can disable this unless node labels need to be updated.
+      labelNodes:
+        enabled: false
   sjc11:
     values: 
     - https:
@@ -17,6 +22,8 @@ environments:
         enabled: false
       createPV:
         enabled: true
+      labelNodes:
+        enabled: false
     kubeContext: sjc11
   oci-iad:
     values: 
@@ -26,6 +33,8 @@ environments:
         enabled: false
       createPV:
         enabled: true
+      labelNodes:
+        enabled: false
     kubeContext: oci-iad
   oci-iad-test:
     values: 
@@ -35,6 +44,8 @@ environments:
         enabled: false
       createPV:
         enabled: true
+      labelNodes:
+        enabled: false
     kubeContext: oci-iad-test
   sjc4-dev:
     values: 
@@ -43,6 +54,8 @@ environments:
       cloudSecrets:
         enabled: false
       createPV:
+        enabled: false
+      labelNodes:
         enabled: false
     kubeContext: sjc4-dev
 ---
@@ -86,6 +99,13 @@ releases:
           - "apply"
           - "-f"
           - "https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.31/deploy/local-path-storage.yaml"
+      # Label nodes with AIS labels based on config
+      - events: ["presync"]
+        showlogs: true
+        command: "./scripts/label-nodes-from-config.sh"
+        args:
+          - '{{ .Environment.Values.labelNodes.enabled }}'
+          - './config/ais/{{ .Environment.Name }}.yaml'
       # Create persistent volumes if requested by this env
       - events: ["presync"]
         showlogs: true
