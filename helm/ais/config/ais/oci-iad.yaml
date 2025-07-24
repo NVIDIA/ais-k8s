@@ -70,6 +70,9 @@ stateStorageClass: "local-path"
 authNSecretName:
 logsDir:
 proxySpec:
+  # TODO: change these to 51082 and 51083. Kept this for now as cluster is already deployed.
+  portIntraControl: 51081
+  portIntraData: 51082
   resources:
     requests:
       cpu: "8"

@@ -20,8 +20,8 @@
       - **ProxySpec Default Settings**:
         - `servicePort`: `51080` (used for general service access)
         - `portPublic`: `51080` (public-facing port for external communication)
-        - `portIntraControl`: `51081` (internal control communication within the cluster)
-        - `portIntraData`: `51082` (data transfer within the cluster)
+        - `portIntraControl`: `51082` (internal control communication within the cluster)
+        - `portIntraData`: `51083` (data transfer within the cluster)
       - **TargetSpec Default Settings**:
         - `servicePort`: `51081` (service port dedicated for target nodes)
         - `portPublic`: `51081` (public-facing port for target nodes)

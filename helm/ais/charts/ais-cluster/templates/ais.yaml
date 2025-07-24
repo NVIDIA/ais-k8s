@@ -48,8 +48,8 @@ spec:
     hostPort: {{ .Values.proxySpec.hostPort | default 51080 }}
     servicePort: {{ .Values.proxySpec.servicePort | default 51080 }}
     portPublic: {{ .Values.proxySpec.portPublic | default 51080 }}
-    portIntraControl: {{ .Values.proxySpec.portIntraControl | default 51081 }}
-    portIntraData: {{ .Values.proxySpec.portIntraData | default 51082 }}
+    portIntraControl: {{ .Values.proxySpec.portIntraControl | default 51082 }}
+    portIntraData: {{ .Values.proxySpec.portIntraData | default 51083 }}
     capabilities:
       privileged: true
     {{- if .Values.proxySpec.securityContext }}
