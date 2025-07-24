@@ -5,7 +5,7 @@
   block:
     - name: Download limits.conf file
       get_url:
-        url: https://raw.githubusercontent.com/NVIDIA/aistore/b732d063d837885474c1f801ed92e4c49754aef3/deploy/conf/limits.conf
+        url: https://raw.githubusercontent.com/NVIDIA/aistore/main/deploy/conf/limits.conf
         dest: /tmp/limits.conf_tmp
       register: download_result
 
