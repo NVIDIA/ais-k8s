@@ -1,12 +1,8 @@
-global:
-  nodes: 
-    - 10.49.41.16
-    - 10.49.41.61
-    - 10.49.41.56
-  namespace: ais
-  cluster: ais
-  mpathSize: 6.2Ti
-  mpaths:
+cluster: ais
+mpathInfo:
+  storageClass: "ais-local-storage"
+  size: 6.2Ti
+  paths:
     - /ais/nvme0n1
     - /ais/nvme1n1
     - /ais/nvme2n1
@@ -19,31 +15,16 @@ global:
     - /ais/nvme9n1
     - /ais/nvme10n1
     - /ais/nvme11n1
-  storageClass: "ais-local-storage"
 size: 3
-protocol: http
 nodeImage:
-  name: aistorage/aisnode
   tag: v3.26-312a648
 initImage:
-  name: aistorage/ais-init
   tag: v3.26-a7ac713
 logSidecarImage:
-  name: aistorage/ais-logs
   tag: v1.1
 cloud:
   awsSecretName: "aws-creds"
-  gcpSecretName: ""
-multihome:
-  enabled: false
-  hostnameMap: 
-  networkAttachment:
-shutdownCluster: false
-cleanupData: false
-cleanupMetadata: false
 stateStorageClass: "local-path"
-authNSecretName:
-logsDir:
 proxySpec:
   resources:
     requests:
@@ -56,4 +37,3 @@ targetSpec:
       cpu: "128"
     limits:
       cpu: "192"
-  hostNetwork: false

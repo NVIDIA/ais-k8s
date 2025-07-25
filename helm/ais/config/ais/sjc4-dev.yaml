@@ -1,12 +1,8 @@
-global:
-  nodes: 
-    - aistorecpu1010.nsv.sjc4.nvmetal.net
-    - aistorecpu1011.nsv.sjc4.nvmetal.net
-    - aistorecpu1012.nsv.sjc4.nvmetal.net
-  namespace: ais
-  cluster: ais
-  mpathSize: 9.1Ti
-  mpaths:
+cluster: ais
+mpathInfo:
+  storageClass: "ais-local-storage"
+  size: 9.1Ti
+  paths:
     - "/ais/sda"
     - "/ais/sdb"
     - "/ais/sdc"
@@ -17,19 +13,13 @@ global:
     - "/ais/sdh"
     - "/ais/sdi"
     - "/ais/sdj"
-  storageClass: "ais-local-storage"
 size: 3
 protocol: http
-https:
-  skipVerifyCert: false
 nodeImage:
-  name: aistorage/aisnode
   tag: latest
 initImage:
-  name: aistorage/ais-init
   tag: latest
 logSidecarImage:
-  name: aistorage/ais-logs
   tag: v1.1
 configToUpdate:
   memsys: 
@@ -41,21 +31,4 @@ configToUpdate:
       idle_conn_time: 20s
       idle_conns: 2048
       idle_conns_per_host: 128
-multihome:
-  enabled: false
-  hostnameMap: 
-  networkAttachment:
-shutdownCluster: false
-cleanupData: false
-cleanupMetadata: false
 stateStorageClass: "local-path"
-apiMode:
-authNSecretName:
-logsDir:
-proxySpec:
-  tolerations:
-    - key: "node.kubernetes.io/disk-pressure"
-      operator: "Exists"
-      effect: "NoExecute"
-targetSpec:
-  hostNetwork: false

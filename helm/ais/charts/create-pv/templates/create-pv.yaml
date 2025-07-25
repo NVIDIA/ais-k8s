@@ -1,26 +1,31 @@
 # Set variables based on the root context to be accessible within the range
-{{- $global := .Values.global -}}
-# Loop over all nodes and mpaths to create PVs
-{{- range $index, $node := $global.nodes }}
-  {{- range $mpathIndex, $mpath := $.Values.global.mpaths }}
+{{- $cluster := .Values.cluster -}}
+{{- $mpathInfo := .Values.mpathInfo -}}
+{{- $storageClass := $mpathInfo.storageClass -}}
+{{- $mpathSize := $mpathInfo.size -}}
+{{- $paths := $mpathInfo.paths -}}
+{{- $nodes := .Values.nodes -}}
+
+{{- range $nodeIndex, $node := $nodes }}
+  {{- range $mpathIndex, $mpath := $paths }}
 apiVersion: v1
 kind: PersistentVolume
 metadata:
   name: {{ $node }}-pv-{{ $mpath | replace "/" "-" | trimPrefix "-" }}
   labels:
     type: local
-    cluster: {{ $global.cluster }}
+    cluster: {{ $cluster }}
     mpath: pv-{{ $mpath | replace "/" "-" | trimPrefix "-" }}
 spec:
-  storageClassName: {{ $global.storageClass }}
+  storageClassName: {{ $storageClass }}
   capacity:
-    storage: {{ $global.mpathSize }}
+    storage: {{ $mpathSize }}
   accessModes:
     - ReadWriteOnce
   hostPath:
     path: {{ $mpath }}
   claimRef:
-    name: {{ $global.cluster }}-{{ $mpath | replace "/" "-" | trimPrefix "-" }}-{{ $global.cluster }}-target-{{ $index }}
+    name: {{ $cluster }}-{{ $mpath | replace "/" "-" | trimPrefix "-" }}-{{ $cluster }}-target-{{ $nodeIndex }}
     namespace: {{ $.Values.namespace }}
   nodeAffinity:
     required:

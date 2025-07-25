@@ -1,7 +1,7 @@
 apiVersion: ais.nvidia.com/v1beta1
 kind: AIStore
 metadata:
-  name: {{ .Values.global.cluster }}
+  name: {{ .Values.cluster }}
   namespace: {{ .Release.namespace }}
 spec:
   size: {{ .Values.size }}
@@ -57,12 +57,10 @@ spec:
       {{- toYaml .Values.proxySpec.securityContext | nindent 6 }}
     {{- end }}
     nodeSelector:
-      {{- if not .Values.proxySpec.nodeSelector }}
-        nvidia.com/ais-proxy: {{ .Values.global.cluster | quote }}
-      {{- else if and (kindIs "string" .Values.proxySpec.nodeSelector) (eq .Values.proxySpec.nodeSelector "all") }}
-        {{- toYaml .Values.global.nodes | nindent 6 }}
-      {{- else }}
+      {{- if .Values.proxySpec.nodeSelector }}
         {{- toYaml .Values.proxySpec.nodeSelector | nindent 6 }}
+      {{- else }}
+        nvidia.com/ais-proxy: {{ .Values.cluster | quote }}
       {{- end }}
     {{- if .Values.proxySpec.resources }}
     resources:
@@ -93,7 +91,9 @@ spec:
     portPublic: {{ .Values.targetSpec.portPublic | default 51081 }}
     portIntraControl: {{ .Values.targetSpec.portIntraControl | default 51082 }}
     portIntraData: {{ .Values.targetSpec.portIntraData | default 51083 }}
+    {{- if .Values.targetSpec.hostNetwork }}
     hostNetwork: {{ .Values.targetSpec.hostNetwork }}
+    {{- end }}
     capabilities:
       privileged: true
     {{- if .Values.targetSpec.securityContext }}
@@ -101,20 +101,17 @@ spec:
       {{- toYaml .Values.targetSpec.securityContext | nindent 6 }}
     {{- end }}
     nodeSelector:
-      {{- if not .Values.targetSpec.nodeSelector }}
-          nvidia.com/ais-target: {{ .Values.global.cluster | quote }}
-      {{- else if and (kindIs "string" .Values.targetSpec.nodeSelector) (eq .Values.targetSpec.nodeSelector "all") }}
-        {{ toYaml .Values.global.nodes | nindent 6 }}
-      {{- else }}
+      {{- if .Values.targetSpec.nodeSelector }}
         {{ toYaml .Values.targetSpec.nodeSelector | nindent 6 }}
+      {{- else }}
+          nvidia.com/ais-target: {{ .Values.cluster | quote }}
       {{- end }}
     mounts:
-    {{- $global := .Values.global }}
-    {{- $size := $global.mpathSize }}
-    {{- range $global.mpaths }}
+    {{- $mpath := .Values.mpathInfo }}
+    {{- range $mpath.paths }}
       - path: {{ . }}
-        size: {{ $size }}
-        storageClass: {{ $global.storageClass }}
+        size: {{ $mpath.size }}
+        storageClass: {{ $mpath.storageClass }}
         selector:
           matchLabels:
             mpath: pv-{{ . | replace "/" "-" | trimPrefix "-" }}
@@ -136,7 +133,7 @@ spec:
   {{- end }}
   hostpathPrefix: {{ .Values.hostpathPrefix }}
   stateStorageClass: {{ .Values.stateStorageClass }}
-  apiMode: {{.Values.apiMode }}
+  apiMode: {{ .Values.apiMode }}
   shutdownCluster: {{ .Values.shutdownCluster }}
   cleanupMetadata: {{ .Values.cleanupMetadata }}
   cleanupData: {{ .Values.cleanupData }}
@@ -150,11 +147,13 @@ spec:
   {{- end }}
   authNSecretName: {{ .Values.authNSecretName }}
   enableExternalLB: false
+  {{- if .Values.multihome }}
   {{- with .Values.multihome.hostnameMap }}
   hostnameMap: {{ toJson . }}
   {{- end }}
   {{- if .Values.multihome.networkAttachment }}
   networkAttachment: "{{ .Values.multihome.networkAttachment }}"
   {{- end }}
+  {{- end }}
   logsDir: {{ .Values.logsDir }}
-  clusterDomain: {{ .Values.clusterDomain | default "cluster.local" }}
+  clusterDomain: {{ .Values.clusterDomain }}

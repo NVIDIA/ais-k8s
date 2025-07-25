@@ -1,12 +1,8 @@
-global:
-  nodes: 
-    - aistorecpu1004.nsv.sjc11.nvmetal.net
-    - aistorecpu1005.nsv.sjc11.nvmetal.net
-    - aistorecpu1006.nsv.sjc11.nvmetal.net
-  namespace: ais
-  cluster: ais
-  mpathSize: 5.8Ti
-  mpaths:
+cluster: ais
+mpathInfo:
+  storageClass: "ais-local-storage"
+  size: 5.8Ti
+  paths:
     - /ais/nvme0n1
     - /ais/nvme1n1
     - /ais/nvme2n1
@@ -23,7 +19,6 @@ global:
     - /ais/nvme13n1
     - /ais/nvme14n1
     - /ais/nvme15n1
-  storageClass: "ais-local-storage"
 size: 3
 protocol: https
 https:
@@ -48,22 +43,7 @@ configToUpdate:
       idle_conn_time: 20s
       idle_conns: 2048
       idle_conns_per_host: 128
-multihome:
-  enabled: false
-  hostnameMap: 
-  networkAttachment:
-shutdownCluster: false
-cleanupData: false
-cleanupMetadata: false
 stateStorageClass: "local-path"
-apiMode:
-authNSecretName:
-logsDir:
-proxySpec:
-  tolerations:
-    - key: "node.kubernetes.io/disk-pressure"
-      operator: "Exists"
-      effect: "NoExecute"
 targetSpec:
   annotations:
     nvault.nvidia.com/agent-auto-config: 'true'
@@ -83,10 +63,6 @@ targetSpec:
       {{- end }}
     nvault.nvidia.com/vault-agent-template-dst-aws-config-secrets: aws/config
     nvault.nvidia.com/vault-agent-template-dst-aws-cred-secrets: aws/credentials
-  tolerations:
-    - key: "node.kubernetes.io/disk-pressure"
-      operator: "Exists"
-      effect: "NoExecute"
   env:
     - name: AWS_CONFIG_FILE
       value: "/vault/secrets/aws/config"
@@ -97,4 +73,3 @@ targetSpec:
       cpu: "24"
     limits:
       cpu: "32"
-  hostNetwork: false

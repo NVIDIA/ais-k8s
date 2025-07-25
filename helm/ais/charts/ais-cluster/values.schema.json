@@ -1,0 +1,375 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AIS Cluster Values",
+  "description": "Schema for configuring ais-cluster Helm Chart. Contains required and optional values, with examples and descriptions.",
+  "type": "object",
+  "properties": {
+    "cluster": {
+      "type": "string",
+      "description": "Name of the AIS cluster.",
+      "examples": ["ais"]
+    },
+    "size": {
+      "type": "integer",
+      "description": "Number of nodes in the AIS cluster.",
+      "examples": [3],
+      "minimum": 1
+    },
+    "mpathInfo": {
+      "type": "object",
+      "description": "Mountpath information for AIS storage",
+      "properties": {
+        "storageClass": {
+          "type": "string", 
+          "description": "Storage class defined in K8s cluster, used for AIS mounts",
+          "examples": ["ais-local-storage"]
+        },
+        "size": {
+          "type": "string",
+          "description": "Size of the storage mount. Must be parsable as a k8s resource.Quantity.",
+          "examples": ["5.8Ti"]
+        },
+        "paths": {
+          "type": "array",
+          "description": "List of all mountpaths for each target",
+          "examples": [
+            "/ais/nvme0n1",
+            "/ais/nvme1n1",
+            "/ais/nvme2n1"
+          ]
+        }
+      }
+    },
+    "protocol": {
+      "type": "string",
+      "description": "Protocol to use for public endpoint.",
+      "enum": ["http", "https"],
+      "examples": ["http"]
+    },
+    "https": {
+      "type": "object",
+      "description": "HTTPS configuration options (only applies if protocol is https).",
+      "properties": {
+        "skipVerifyCert": {
+          "type": "boolean",
+          "description": "Skip TLS certificate verification (useful for self-signed certs in testing).",
+          "examples": [true]
+        },
+        "tlsSecret": {
+          "type": "string",
+          "description": "Name of the Kubernetes secret containing TLS cert/key.",
+          "examples": ["tls-certs"]
+        }
+      }
+    },
+    "imagePullSecrets": {
+      "type": ["array", "null"],
+      "description": "Array of secrets to use when authenticating with registry for image pulls",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name of the pull secret"
+          }
+        },
+        "required": ["name"]
+      }
+    },
+    "nodeImage": {
+      "type": "object",
+      "description": "AIS node container image.",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Container image repository.",
+          "examples": ["aistorage/aisnode"]
+        },
+        "tag": {
+          "type": "string",
+          "description": "Container image tag.",
+          "examples": ["v3.30"]
+        }
+      }
+    },
+    "initImage": {
+      "type": "object",
+      "description": "Init container image for AIS preparation on startup.",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Repository for init utility container.",
+          "examples": ["aistorage/ais-init"]
+        },
+        "tag": {
+          "type": "string",
+          "description": "Image tag for the init container. Should usually be kept in sync with NodeImage",
+          "examples": ["v3.30"]
+        }
+      }
+    },
+    "logSidecarImage": {
+      "type": "object",
+      "description": "Optional sidecar container for log collection and shipping.",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Repository for log sidecar image.",
+          "examples": ["aistorage/ais-logs"]
+        },
+        "tag": {
+          "type": "string",
+          "description": "Tag of log sidecar image.",
+          "examples": ["v1.1"]
+        }
+      }
+    },
+    "cloud": {
+      "type": ["object", "null"],
+      "description": "Optional cloud secrets for backend providers.",
+      "properties": {
+        "awsSecretName": {
+          "type": ["string", "null"],
+          "description": "Name of Kubernetes secret for AWS credentials.",
+          "examples": ["aws-creds"]
+        },
+        "gcpSecretName": {
+          "type": ["string", "null"],
+          "description": "Name of Kubernetes secret for GCP credentials.",
+          "examples": ["gcp-creds"]
+        },
+        "ociSecretName": {
+          "type": ["string", "null"],
+          "description": "Name of Kubernetes secret for OCI credentials.",
+          "examples": ["oci-creds"]
+        }
+      }
+    },
+    "apiMode": {
+      "type": ["string", "null"],
+      "description": "Mode for the operator to use when communicating with this cluster. Optional, defaults to using internal K8s service",
+      "examples": ["public"]
+    },
+    "clusterDomain": {
+      "type": ["string", "null"],
+      "description": "Kubernetes cluster DNS domain. Optional, defaults to cluster.local.",
+      "examples": ["cluster.local"]
+    },
+    "configToUpdate": {
+      "type": ["object", "null"],
+      "description": "Update the AIS config directly in spec. See https://github.com/NVIDIA/ais-k8s/blob/main/operator/api/v1beta1/aisconfig.go for valid options",
+      "examples": [
+        {
+          "memsys": {
+            "min_free": "8GiB",
+            "to_gc": "8GiB",
+            "hk_time": "3m"
+          }
+        }
+      ]
+    },
+    "multihome": {
+      "type": ["object", "null"],
+      "description": "Support for multiple network interfaces (multihome).",
+      "properties": {
+        "hostnameMap": {
+          "type": "object",
+          "description": "Map node hostnames to the second IP to use.",
+          "examples": [
+            { "aistorecpu1004.nsv.sjc11.nvmetal.net": "10.1.2.4" }
+          ]
+        },
+        "networkAttachment": {
+          "type": "string",
+          "description": "NetworkAttachmentDefinition to use for CNI.",
+          "examples": ["macvlan-conf"]
+        }
+      }
+    },
+    "shutdownCluster": {
+      "type": "boolean",
+      "description": "Shut down the cluster (dangerous: scales down all pods).",
+      "examples": [false]
+    },
+    "hostpathPrefix": {
+      "type": "string",
+      "description": "DEPRECATED. Path on node for pod hostPath volumes. Use stateStorageClass if possible.",
+      "examples": ["/etc/ais"]
+    },
+    "stateStorageClass": {
+      "type": "string",
+      "description": "StorageClass for dynamically provisioning state/config volumes.",
+      "examples": ["local-path"]
+    },
+    "cleanupData": {
+      "type": "boolean",
+      "description": "Delete all data on cluster removal.",
+      "examples": [false]
+    },
+    "cleanupMetadata": {
+      "type": "boolean",
+      "description": "Delete all cluster metadata on removal, including state PVCs.",
+      "examples": [false]
+    },
+    "authNSecretName": {
+      "type": ["string", "null"],
+      "description": "Kubernetes secret for the AIS authN server credentials.",
+      "examples": ["ais-authn"]
+    },
+    "logsDir": {
+      "type": ["string", "null"],
+      "description": "Logs directory on host to store AIS logs, mounted as a HostPath volume.",
+      "examples": ["/var/log/ais"]
+    },
+    "proxySpec": {
+      "type": "object",
+      "description": "Proxy statefulset and pod configuration.",
+      "properties": {
+        "size": {
+          "type": "integer",
+          "description": "Number of proxy pods to deploy. If not set, uses cluster size.",
+          "examples": [3]
+        },
+        "annotations": {
+          "type": "object",
+          "description": "Annotations to attach to proxy pods.",
+          "examples": [
+            { "sample-key": "sample-annotation" }
+          ]
+        },
+        "tolerations": {
+          "type": "array",
+          "description": "Scheduling tolerations for proxy pods.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": { "type": "string" },
+              "operator": { "type": "string" },
+              "effect": { "type": "string" }
+            }
+          }
+        },
+        "labels": {
+          "type": "object",
+          "description": "Labels to attach to proxy pods.",
+          "examples": [
+            { "sample-key": "sample-label" }
+          ]
+        },
+        "nodeSelector": {
+          "type": "object",
+          "description": "Node selector for scheduling proxies. Omit to use default: nvidia.com/ais-proxy=<cluster name>.",
+          "examples": [
+            { "nvidia.com/ais-proxy": "ais" },
+            { "custom-label-proxy-key": "custom-label-value" }
+          ]
+        },
+        "securityContext": {
+          "type": "object",
+          "description": "Pod-level security context for proxies.",
+          "properties": {
+            "sysctls": {
+              "type": "object",
+              "description": "Custom sysctls for the proxy pod. Unsafe sysctls require kubelet allow-list.",
+              "examples": [
+                { "net.core.somaxconn": 65535 }
+              ]
+            }
+          }
+        },
+        "resources": {
+          "type": "object",
+          "description": "Resource requests/limits block. Example format matches core Kubernetes resource definitions.",
+          "examples": [
+            {
+              "requests": { "cpu": "2", "memory": "4Gi" },
+              "limits": { "cpu": "4", "memory": "8Gi" }
+            }
+          ]
+        }
+      }
+    },
+    "targetSpec": {
+      "type": "object",
+      "description": "Target statefulset and pod configuration.",
+      "properties": {
+        "size": {
+          "type": "integer",
+          "description": "Number of target pods to deploy.",
+          "examples": [3]
+        },
+        "annotations": {
+          "type": "object",
+          "description": "Annotations to attach to target pods.",
+          "examples": [
+            { "sample-key": "sample-annotation" }
+          ]
+        },
+        "labels": {
+          "type": "object",
+          "description": "Labels to attach to target pods.",
+          "examples": [
+            { "sample-key": "sample-label" }
+          ]
+        },
+        "tolerations": {
+          "type": "array",
+          "description": "Scheduling tolerations for target pods.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": { "type": "string" },
+              "operator": { "type": "string" },
+              "effect": { "type": "string" }
+            }
+          },
+          "examples": [
+            [
+              {
+                "key": "node.kubernetes.io/disk-pressure",
+                "operator": "Exists",
+                "effect": "NoExecute"
+              }
+            ]
+          ]
+        },
+        "nodeSelector": {
+          "type": "object",
+          "description": "Node selector for scheduling target pods. Omit to use default: nvidia.com/ais-proxy=<your cluster>",
+          "examples": [
+            { "custom-label-target-key": "custom-label-value" }
+          ]
+        },
+        "securityContext": {
+          "type": "object",
+          "description": "Security context for target pods.",
+          "properties": {
+            "sysctls": {
+              "type": "object",
+              "description": "Custom sysctls for the target pod. Unsafe sysctls require kubelet allow-list.",
+              "examples": [
+                { "net.core.somaxconn": 65535 }
+              ]
+            }
+          }
+        },
+        "resources": {
+          "type": "object",
+          "description": "Resource requests/limits block for target pods.",
+          "examples": [
+            {
+              "requests": { "cpu": "8", "memory": "64Gi" },
+              "limits": { "cpu": "32", "memory": "128Gi" }
+            }
+          ]
+        },
+        "hostNetwork": {
+          "type": "boolean",
+          "description": "Set to true to run pods with host networking enabled.",
+          "examples": [false]
+        }
+      }
+    }
+  },
+  "required": ["cluster", "size", "protocol", "nodeImage", "initImage", "shutdownCluster", "cleanupData", "cleanupMetadata"]
+}

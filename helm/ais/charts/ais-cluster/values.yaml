@@ -1,0 +1,37 @@
+cluster: ais
+# size:
+protocol: http
+imagePullSecrets:
+  # - name:
+nodeImage:
+  name: aistorage/aisnode
+  tag: v3.31
+initImage:
+  name: aistorage/ais-init
+  tag: v3.31
+logSidecarImage:
+  name: aistorage/ais-logs
+  tag: v1.1
+cloud:
+  awsSecretName:
+  gcpSecretName:
+  ociSecretName:
+configToUpdate:
+shutdownCluster: false
+cleanupData: false
+cleanupMetadata: false
+apiMode: 
+clusterDomain:
+stateStorageClass:
+authNSecretName:
+logsDir:
+proxySpec:
+  tolerations:
+    - key: "node.kubernetes.io/disk-pressure"
+      operator: "Exists"
+      effect: "NoExecute"
+targetSpec:
+  tolerations:
+    - key: "node.kubernetes.io/disk-pressure"
+      operator: "Exists"
+      effect: "NoExecute"

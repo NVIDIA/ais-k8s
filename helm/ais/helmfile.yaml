@@ -87,7 +87,7 @@ releases:
     namespace: ais
     createNamespace: true
     chart: charts/ais-cluster
-    version: 0.3.0
+    version: 0.4.0
     values:
       - "./config/ais/{{ .Environment.Name }}.yaml"
     hooks:
@@ -113,4 +113,5 @@ releases:
         args:
           - '{{ .Environment.Values.createPV.enabled }}'
           - './config/ais/{{ .Environment.Name }}.yaml'
+          - './config/create-pv/{{ .Environment.Name }}.yaml'
           - '{{ .Release.Namespace }}'

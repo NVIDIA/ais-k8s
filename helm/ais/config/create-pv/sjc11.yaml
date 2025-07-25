@@ -1,0 +1,5 @@
+# Nodes to create PVs on -- other values will be pulled from the ais config
+nodes: 
+  - aistorecpu1004.nsv.sjc11.nvmetal.net
+  - aistorecpu1005.nsv.sjc11.nvmetal.net
+  - aistorecpu1006.nsv.sjc11.nvmetal.net
