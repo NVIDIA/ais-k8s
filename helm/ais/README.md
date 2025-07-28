@@ -1,4 +1,30 @@
-## AIS Helm Chart
+## AIS Helm Chart and Helmfile
+
+This file contains instructions for the provided [helmfile](./helmfile.yaml) and the included [AIS Helm Chart](./charts/ais-cluster/Chart.yaml). 
+
+For details on the values accepted by the AIS chart, see the [values schema](./charts/ais-cluster/values.schema.json). 
+
+We use helmfile to manage values files for different deployments as well as to automate running scripts for various administrative purposes.
+See the [cluster management section](#cluster-management) before enabling any of the additional values in the helmfile. 
+
+## Cluster management
+
+Important: Add a values file for your environment matching the format <env>.yaml to [the cluster-setup config directory](./config/cluster-setup/). 
+See the [README](./config/cluster-setup/README.md) for instructions.
+These values will be used for the additional scripts specified for the environment in helmfile. 
+
+### Node labeling
+
+The provided helmfile will run the [label-nodes.sh](./scripts/label-nodes.sh) if the value is set for the environment: `labelNodes.enabled: true`.
+This script will read the nodes from the [cluster-setup config file](./config/cluster-setup/) and use `kubectl` to label them with our default labels: `nvidia.com/ais-proxy=<cluster>` and `nvidia.com/ais-target=<cluster>` . 
+
+### PV Creation
+
+The provided helmfile will run the [create-pvs.sh](./scripts/create-pvs.sh) if the value is set for the environment: `createPV: true`.
+This will use `helm` to template using the provided values files and `kubectl` to create HostPath persistent volumes for each of the mount-paths for every target in the cluster.
+
+If you want to use an existing set of PVs, set `createPV.enabled: false`.
+You can also change the `storageClass` option to instruct AIS target pods to mount a different existing storage class.
 
 ## HTTPS deployment
 
@@ -15,9 +41,9 @@ This will update the AIS config and mount the secret if provided (read below for
 
 ### Generating the certificates
 
-To use a self-signed ClusterIssuer, follow the [README](../README.md#install-cluster-issuer-optional) to install the [cluster-issuer chart](../cluster-issuer).
+To use a self-signed ClusterIssuer, follow the [README](../README.md#install-cluster-issuer--optional) to install the [cluster-issuer chart](../cluster-issuer).
 
-If you want to use the [tls-cert chart](./charts/tls-cert) to actually generate the certificates, set the value `https.enabled: true` for your environment in the [helmfile](./helmfile.yaml).
+If you want to use the [tls-cert chart](./charts/tls-cert) to actually generate and manage the certificates, set the value `https.enabled: true` for your environment in the [helmfile](./helmfile.yaml).
 
 Create a values file for your environment in [config/tls-cert](./config/tls-cert).
 
@@ -25,7 +51,7 @@ Finally, update the values file including the reference to the Issuer or Cluster
 
 ## Cloud Credentials
 
-To configure backend provider secrets from the helm charts, set the value `cloud-secrets.enabled: true` for your environment in the [helmfile](./helmfile.yaml). 
+To configure backend provider secrets managed by helm, set the value `cloudSecrets.enabled: true` for your environment in the [helmfile](./helmfile.yaml). 
 
 Then, add a configuration values file in the [config/cloud](./config/cloud/) directory to populate the variables used by the [cloud-secrets templates](./charts/cloud-secrets/templates/).
 
@@ -45,16 +71,7 @@ Add references to the local files you want to use. Example for sjc11 (be sure to
 Note this chart only creates the secrets to be mounted by the targets.
 Extra environment variables can be provided through the values for the main AIS chart.
 
-For OCI, setting the `OCI_COMPARTMENT_OCID` variable is necessary to provide a default compartment.
-
-
-## PV Creation
-
-The AIS chart will run the [create-pvs.sh](./scripts/create-pvs.sh) if the value is set for the environment: `ais-create-pv.enabled: true`.
-This will use helm to template and automatically create HostPath persistent volumes for each of the mount-paths for every target in the cluster.
-
-If you want to use an existing set of PVs, set `ais-create-pv.enabled: false`.
-You can also change the `storageClass` option to instruct AIS target pods to mount a different existing storage class.
+For OCI, setting the `OCI_COMPARTMENT_OCID` environment variable is necessary to provide a default compartment.
 
 ## Running the deployment 
 
@@ -66,7 +83,7 @@ helmfile sync --environment <your-env>
 
 To uninstall:
 ```bash
-helmfile delete --environment <your-env>
+helmfile destroy --environment <your-env>
 ```
 
 | Chart                                                      | Description                                                                           |

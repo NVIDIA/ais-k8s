@@ -102,10 +102,11 @@ releases:
       # Label nodes with AIS labels based on config
       - events: ["presync"]
         showlogs: true
-        command: "./scripts/label-nodes-from-config.sh"
+        command: "./scripts/label-nodes.sh"
         args:
           - '{{ .Environment.Values.labelNodes.enabled }}'
-          - './config/ais/{{ .Environment.Name }}.yaml'
+          - '{{ (fromYaml (readFile (print "./config/ais/" .Environment.Name ".yaml"))).cluster }}'
+          - '{{ (fromYaml (readFile (print "./config/cluster-setup/" .Environment.Name ".yaml"))).nodes | join "," }}'
       # Create persistent volumes if requested by this env
       - events: ["presync"]
         showlogs: true
@@ -113,5 +114,5 @@ releases:
         args:
           - '{{ .Environment.Values.createPV.enabled }}'
           - './config/ais/{{ .Environment.Name }}.yaml'
-          - './config/create-pv/{{ .Environment.Name }}.yaml'
+          - './config/cluster-setup/{{ .Environment.Name }}.yaml'
           - '{{ .Release.Namespace }}'
