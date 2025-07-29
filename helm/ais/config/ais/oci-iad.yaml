@@ -20,9 +20,9 @@ protocol: http
 imagePullSecrets:
   - name: regcred
 nodeImage:
-  tag: v3.30
+  tag: v3.31
 initImage:
-  tag: v3.30
+  tag: v3.31
 logSidecarImage:
   tag: v1.1
 cloud:
@@ -38,18 +38,3 @@ configToUpdate:
       idle_conns: 2048
       idle_conns_per_host: 128
 stateStorageClass: "local-path"
-proxySpec:
-  # TODO: change these to 51082 and 51083. Kept this for now as cluster is already deployed.
-  portIntraControl: 51081
-  portIntraData: 51082
-  resources:
-    requests:
-      cpu: "8"
-    limits:
-      cpu: "32"
-targetSpec:
-  resources:
-    requests:
-      cpu: "128"
-    limits:
-      cpu: "192"
