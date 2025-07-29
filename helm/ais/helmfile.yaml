@@ -58,6 +58,17 @@ environments:
       labelNodes:
         enabled: false
     kubeContext: sjc4-dev
+  oci-ord:
+    values: 
+    - https:
+        enabled: false
+      cloudSecrets:
+        enabled: false
+      createPV:
+        enabled: true
+      labelNodes:
+        enabled: false
+    kubeContext: oci-ord
 ---
 
 releases:
