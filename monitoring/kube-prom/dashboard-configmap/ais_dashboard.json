@@ -5466,7 +5466,7 @@
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 1,
-        "regex": "",
+        "regex": "([^:]+)",
         "type": "query"
       },
       {
