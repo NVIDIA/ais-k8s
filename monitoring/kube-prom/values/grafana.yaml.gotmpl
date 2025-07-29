@@ -32,4 +32,24 @@ grafana:
       access: proxy
       editable: true
   
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+      - name: 'gnet-downloads'
+        orgId: 1
+        folder: ''
+        type: file
+        disableDeletion: false
+        allowUiUpdates: false
+        options:
+          path: /var/lib/grafana/dashboards/default
+
+  dashboards:
+    default:
+      node-exporter:
+        gnetId: 1860
+        revision: 41
+        datasource: prometheus
+
   adminPassword: {{ requiredEnv "GRAFANA_PASSWORD" }}
