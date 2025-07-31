@@ -32,6 +32,7 @@ MIMIR_LABEL
 MIMIR_ENDPOINT
 LOKI_LABEL
 LOKI_ENDPOINT
+CONTAINER_RUNTIME
 ```
 
 ## Accessing internal services (Prometheus, Loki, Grafana, Alloy)

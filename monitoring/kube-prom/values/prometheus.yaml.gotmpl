@@ -61,6 +61,8 @@ prometheusOperator:
 
 kubelet:
   enabled: true
+  serviceMonitor:
+    cAdvisor: false
 
 kubeControllerManager:
     enabled: false

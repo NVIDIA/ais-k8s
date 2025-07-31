@@ -148,6 +148,37 @@ discovery.relabel "ksm" {
   }
 }
 
+prometheus.exporter.cadvisor "cadvisor" {
+  allowlisted_container_labels = ["io.kubernetes.container.name", "io.kubernetes.pod.namespace", "io.kubernetes.pod.name"]
+  enabled_metrics = ["cpu", "memory", "network", "disk", "diskIO"]
+}
+
+prometheus.scrape "cadvisor" {
+  targets = prometheus.exporter.cadvisor.cadvisor.targets
+  forward_to = [prometheus.relabel.cadvisor.receiver]
+  scrape_interval = "30s"
+}
+
+prometheus.relabel "cadvisor" {
+  rule {
+    source_labels = ["container_label_io_kubernetes_container_name"] 
+    target_label = "container"
+  }  
+  rule {
+    source_labels = ["container_label_io_kubernetes_pod_namespace"]
+    target_label = "namespace"
+  }  
+  rule {
+    source_labels = ["container_label_io_kubernetes_pod_name"]
+    target_label = "pod"
+  }  
+  rule {
+    action = "labeldrop"
+    regex = "container_label_.*"
+  }
+  forward_to = [prometheus.relabel.redirect.receiver]
+}
+
 prometheus.scrape "aistore" {
   targets = discovery.relabel.all_aisnode.output
   forward_to = [prometheus.relabel.aistore.receiver]

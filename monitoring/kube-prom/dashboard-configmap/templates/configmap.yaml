@@ -21,3 +21,16 @@ metadata:
 data:
   ais-dashboard-old.json: |-
 {{ .Files.Get "ais_dashboard_old.json" | indent 4 }}
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: k8s-grafana-dashboard
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  k8s-dashboard.json: |-
+{{ .Files.Get "k8s_dashboard.json" | indent 4 }}

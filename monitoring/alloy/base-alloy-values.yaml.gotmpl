@@ -34,12 +34,36 @@ alloy:
     # -- Extra volume mounts to add into the Grafana Alloy container. Does not
     # affect the watch container.
     extra:
+      # Base mounts
       - name: proc
         mountPath: /proc
       - name: sys
         mountPath: /sys
       - name: ais
         mountPath: /ais
+      # cAdvisor required mounts
+      - name: rootfs
+        mountPath: /rootfs
+        readOnly: true
+      - name: dev-disk
+        mountPath: /dev/disk
+        readOnly: true
+      # Container runtime specific cAdvisor mounts
+{{- if eq (env "CONTAINER_RUNTIME" | default "docker") "crio" }}
+      - name: crio-sock
+        mountPath: /var/run/crio/crio.sock
+        readOnly: false
+      - name: var-lib-containers
+        mountPath: /var/lib/containers
+        readOnly: true
+{{- else }}
+      - name: docker-sock
+        mountPath: /var/run/docker.sock
+        readOnly: false
+      - name: var-lib-docker
+        mountPath: /var/lib/docker
+        readOnly: true
+{{- end }}
 
   # -- Resource requests and limits to apply to the Grafana Alloy container.
   resources: {}
@@ -59,6 +83,7 @@ image:
   # -- Optional set of image pull secrets.
   pullSecrets: []
 
+
 controller:
   # -- Type of controller to use for deploying Grafana Alloy in the cluster.
   # Must be one of 'daemonset', 'deployment', or 'statefulset'.
@@ -66,6 +91,7 @@ controller:
   volumes:
     # -- Extra volumes to add to the Grafana Alloy pod.
     extra:
+      # Base volumes
       - name: ais
         hostPath:
           path: /ais
@@ -75,3 +101,28 @@ controller:
       - name: sys
         hostPath:
           path: /sys
+      # cAdvisor required volumes
+      - name: rootfs
+        hostPath:
+          path: /
+      - name: dev-disk
+        hostPath:
+          path: /dev/disk
+      # Container runtime specific cAdvisor required volumes + sockets
+{{- if eq (env "CONTAINER_RUNTIME" | default "docker") "crio" }}
+      - name: crio-sock
+        hostPath:
+          path: /var/run/crio/crio.sock
+          type: Socket
+      - name: var-lib-containers
+        hostPath:
+          path: /var/lib/containers
+{{- else }}
+      - name: docker-sock
+        hostPath:
+          path: /var/run/docker.sock
+          type: Socket
+      - name: var-lib-docker
+        hostPath:
+          path: /var/lib/docker
+{{- end }}

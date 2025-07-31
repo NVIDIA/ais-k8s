@@ -24,7 +24,7 @@ releases:
     chart: grafana/alloy
     version: 0.10.1
     values:
-      - ./base-alloy-values.yaml
+      - ./base-alloy-values.yaml.gotmpl
       - ./environments/{{ .Environment.Name }}/alloy-values.yaml
     needs:
       - alloy-config
