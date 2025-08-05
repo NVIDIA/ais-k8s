@@ -101,10 +101,11 @@ func (r *AIStoreReconciler) checkProxySvcEndpoints(ctx context.Context, ais *ais
 		logger.Error(err, "Failed to get service endpoints")
 		return ctrl.Result{}, err
 	}
-	if endpoints != nil && len(endpoints.Subsets) > 0 {
-		for _, subset := range endpoints.Subsets {
-			// Found an address in an endpoint for the proxy svc
-			if len(subset.Addresses) > 0 {
+	for i := range endpoints.Items {
+		slice := &endpoints.Items[i]
+		// Found a ready endpoint in an endpoint slice for the proxy SVC
+		for _, endpoint := range slice.Endpoints {
+			if endpoint.Conditions.Ready != nil && *endpoint.Conditions.Ready {
 				return ctrl.Result{}, nil
 			}
 		}

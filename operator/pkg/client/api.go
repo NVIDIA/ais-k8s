@@ -15,6 +15,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -109,8 +110,12 @@ func (c *K8sClient) GetService(ctx context.Context, name types.NamespacedName) (
 	return getResource[*corev1.Service](c.client, ctx, name)
 }
 
-func (c *K8sClient) GetServiceEndpoints(ctx context.Context, svcName types.NamespacedName) (*corev1.Endpoints, error) {
-	return getResource[*corev1.Endpoints](c.client, ctx, svcName)
+func (c *K8sClient) GetServiceEndpoints(ctx context.Context, svcName types.NamespacedName) (*discoveryv1.EndpointSliceList, error) {
+	sliceList := &discoveryv1.EndpointSliceList{}
+	err := c.client.List(ctx, sliceList,
+		client.InNamespace(svcName.Namespace),
+		client.MatchingLabels{"kubernetes.io/service-name": svcName.Name})
+	return sliceList, err
 }
 
 func (c *K8sClient) GetConfigMap(ctx context.Context, name types.NamespacedName) (*corev1.ConfigMap, error) {
