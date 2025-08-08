@@ -179,15 +179,15 @@ additionalPrometheusRulesMap:
           annotations:
             summary: AIS Disk Fault
             description: "AIS Node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) has encountered a disk fault."
-        - alert: AISNoMountpaths
+        - alert: AISNumGoroutines
           expr: (floor(ais_target_state_flags / 16384)) % 2 == 1
           for: 3m
           labels:
-            severity: critical
+            severity: warning
           annotations:
-            summary: AIS No Available Mountpaths
-            description: "AIS Node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) has no available mountpaths."
-        - alert: AISNumGoroutinesHigh
+            summary: AIS High Number of Goroutines
+            description: "AIS Node '{{ $labels.node_id }}' ({{ $labels.instance }}) has a high goroutine count (above normal levels), possibly indicating performance issues."
+        - alert: AISHighNumGoroutines
           expr: (floor(ais_target_state_flags / 32768)) % 2 == 1
           for: 3m
           labels:
