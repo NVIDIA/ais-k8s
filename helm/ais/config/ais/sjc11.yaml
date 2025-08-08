@@ -54,11 +54,11 @@ targetSpec:
     nvault.nvidia.com/namespace: 'ngc-storage-aistore'
     nvault.nvidia.com/vault-addr: 'https://stg.vault.nvidia.com'
     nvault.nvidia.com/vault-agent-template-cnt-aws-config-secrets: |
-      {{- with secret "nvidia/cluster/sjc11/cloud/aws/kv/config" }}
+      {{- with secret "nvidia/sjc11/aawilson/cloud/aws/kv/config" }}
       {{ .Data.data.config }}
       {{- end }}
     nvault.nvidia.com/vault-agent-template-cnt-aws-cred-secrets: |
-      {{- with secret "nvidia/cluster/sjc11/cloud/aws/kv/credentials" }}
+      {{- with secret "nvidia/sjc11/aawilson/cloud/aws/kv/credentials" }}
       {{ .Data.data.credentials }}
       {{- end }}
     nvault.nvidia.com/vault-agent-template-dst-aws-config-secrets: aws/config
