@@ -19,6 +19,22 @@ additionalPrometheusRulesMap:
           annotations:
             summary: Node Disk Space Critical on AIS Mountpath
             description: "Free space on device '{{ $labels.device }}', instance '{{ $labels.instance }}' is below 10%."
+        - alert: NodeNetworkErrorsHigh
+          expr: sum by(cluster, instance, device) (rate(node_network_receive_errs_total{cluster=~".*aistore.*"}[5m]) + rate(node_network_transmit_errs_total{cluster=~".*aistore.*"}[5m])) > 0
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Network errors detected on node interface
+            description: "Network errors on interface '{{ $labels.device }}' of instance '{{ $labels.instance }}' over the last 10 minutes."
+        - alert: NodeNetworkDropsHigh
+          expr: sum by(cluster, instance, device) (rate(node_network_receive_drop_total{cluster=~".*aistore.*"}[5m]) + rate(node_network_transmit_drop_total{cluster=~".*aistore.*"}[5m])) > 0
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Network packet drops detected on node interface
+            description: "Network packet drops on interface '{{ $labels.device }}' of instance '{{ $labels.instance }}' over the last 10 minutes."
         - alert: NodeLowFreeDiskInfo
           expr: (sum by (cluster, instance, device) (node_filesystem_avail_bytes{mountpoint=~"^/ais/.*", cluster=~".*aistore.*"}) / sum by (cluster, instance, device) (node_filesystem_size_bytes{mountpoint=~"^/ais/.*", cluster=~".*aistore.*"})) < 0.20
           for: 5m
@@ -67,6 +83,30 @@ additionalPrometheusRulesMap:
           annotations:
             summary: High CPU Usage Detected
             description: "CPU utilization on instance '{{ $labels.instance }}' has exceeded 80% for the last 5 minutes."
+        - alert: K8sHighContainerRestarts
+          expr: increase(kube_pod_container_status_restarts_total{cluster=~".*aistore.*"}[5m]) > 3
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: High container restarts detected
+            description: "Container '{{ $labels.container }}' in pod '{{ $labels.pod }}' (namespace '{{ $labels.namespace }}') restarted more than 3 times over the last 5 minutes."
+        - alert: K8sPodPendingTooLong
+          expr: sum by (namespace, pod) (kube_pod_status_phase{phase="Pending", cluster=~".*aistore.*"}) > 0
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Pod pending too long
+            description: "Pod '{{ $labels.pod }}' in namespace '{{ $labels.namespace }}' has been in Pending state for over 10 minutes."
+        - alert: K8sResourceQuotaNearLimit
+          expr: (kube_resourcequota{type="used", cluster=~".*aistore.*"} / on (namespace, resource, quota) kube_resourcequota{type="hard", cluster=~".*aistore.*"}) > 0.9
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Namespace resource quota near limit
+            description: "Namespace '{{ $labels.namespace }}' resource '{{ $labels.resource }}' is above 90% of its quota in quota set '{{ $labels.quota }}'."       
         - alert: AISTargetRestart
           expr: (floor(ais_target_state_flags / 256)) % 2 == 1
           for: 1m
