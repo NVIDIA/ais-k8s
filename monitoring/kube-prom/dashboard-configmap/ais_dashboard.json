@@ -148,8 +148,6 @@
               "type": "special"
             }
           ],
-          "max": 100,
-          "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -171,7 +169,7 @@
       "id": 59,
       "options": {
         "colorMode": "value",
-        "graphMode": "area",
+        "graphMode": "none",
         "justifyMode": "auto",
         "orientation": "auto",
         "percentChangeColorMode": "standard",
@@ -659,7 +657,7 @@
               }
             ]
           },
-          "unit": "none"
+          "unit": "req/s"
         },
         "overrides": []
       },
@@ -833,7 +831,7 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "fixedColor": "light-yellow",
+            "fixedColor": "light-green",
             "mode": "shades"
           },
           "mappings": [],
@@ -1361,7 +1359,7 @@
             "uid": "${metricsSource}"
           },
           "editorMode": "code",
-          "expr": "avg(100 - ((node_memory_MemAvailable_bytes{instance=~\"^${node}$\",job=\"node-exporter\"} * 100) / node_memory_MemTotal_bytes{instance=~\"^${node}$\",job=\"node-exporter\"}))",
+          "expr": "avg((1 - (node_memory_MemAvailable_bytes{instance=~\"^${node}$\",job=\"node-exporter\", cluster=~\"${cluster}\"} / node_memory_MemTotal_bytes{instance=~\"^${node}$\",job=\"node-exporter\", cluster=~\"${cluster}\"})) * 100)",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 1,
@@ -1395,18 +1393,6 @@
               "type": "special"
             }
           ],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green"
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
           "unit": "short"
         },
         "overrides": []
@@ -1479,18 +1465,6 @@
               "type": "special"
             }
           ],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green"
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
           "unit": "s"
         },
         "overrides": []
@@ -1525,7 +1499,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${datasource}"
+          "uid": "${metricsSource}"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -1563,18 +1537,6 @@
               "type": "special"
             }
           ],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green"
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
           "unit": "bytes"
         },
         "overrides": []
@@ -1687,18 +1649,6 @@
           "links": [],
           "mappings": [],
           "min": 0,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green"
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
           "unit": "binBps"
         },
         "overrides": []
@@ -1733,7 +1683,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${datasource}"
+          "uid": "${metricsSource}"
           },
           "disableTextWrap": false,
           "editorMode": "code",
@@ -1849,7 +1799,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${datasource}"
+          "uid": "${metricsSource}"
           },
           "disableTextWrap": false,
           "editorMode": "code",
@@ -1967,7 +1917,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${datasource}"
+          "uid": "${metricsSource}"
           },
           "disableTextWrap": false,
           "editorMode": "code",
@@ -2078,7 +2028,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${datasource}"
+          "uid": "${metricsSource}"
           },
           "disableTextWrap": false,
           "editorMode": "code",
@@ -2190,7 +2140,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "${metricsSource}"
           },
           "disableTextWrap": false,
           "editorMode": "code",
@@ -2298,7 +2248,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "${metricsSource}"
           },
           "disableTextWrap": false,
           "editorMode": "code",
@@ -2433,7 +2383,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "${metricsSource}"
           },
           "disableTextWrap": false,
           "editorMode": "code",
@@ -2544,7 +2494,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "${metricsSource}"
           },
           "disableTextWrap": false,
           "editorMode": "code",
@@ -2655,11 +2605,11 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "${metricsSource}"
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "sum by(node_id) (ais_target_disk_read_bps{node_id=~\"$target\", cluster=~\"$cluster\"}[$interval])",
+          "expr": "sum by(node_id) (ais_target_disk_read_bps{node_id=~\"$target\", cluster=~\"$cluster\"})",
           "format": "time_series",
           "fullMetaSearch": false,
           "hide": false,
@@ -2766,11 +2716,11 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "${metricsSource}"
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "sum by(node_id) (ais_target_disk_write_bps{node_id=~\"$target\", cluster=~\"$cluster\"}[$interval])",
+          "expr": "sum by(node_id) (ais_target_disk_write_bps{node_id=~\"$target\", cluster=\"$cluster\"})",
           "format": "time_series",
           "fullMetaSearch": false,
           "hide": false,
@@ -2877,10 +2827,10 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "${metricsSource}"
           },
           "editorMode": "code",
-          "expr": "avg(ais_target_disk_util{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval]) by (node_id)",
+          "expr": "avg(ais_target_disk_util{node_id=~\"$target\", cluster=\"$cluster\"}) by (node_id)",
           "format": "time_series",
           "hide": false,
           "interval": "",
@@ -3023,7 +2973,7 @@
           "custom": {
             "axisCenteredZero": false,
             "axisColorMode": "text",
-            "axisLabel": "latency (ms)",
+          "axisLabel": "latency (ns)",
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "line",
@@ -3099,10 +3049,10 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "${metricsSource}"
           },
           "editorMode": "code",
-          "expr": "sum by (bucket) (rate(ais_target_get_ns_total[$interval])) / sum by (bucket) (rate(ais_target_get_count[$interval]))\n",
+          "expr": "sum by (bucket) (rate(ais_target_get_ns_total{cluster=\"$cluster\"}[$interval])) / sum by (bucket) (rate(ais_target_get_count{cluster=\"$cluster\"}[$interval]))\n",
           "format": "time_series",
           "hide": false,
           "interval": "",
@@ -3130,7 +3080,7 @@
           "custom": {
             "axisCenteredZero": false,
             "axisColorMode": "text",
-            "axisLabel": "latency (ms)",
+            "axisLabel": "latency (ns)",
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "line",
@@ -3231,10 +3181,10 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "${metricsSource}"
           },
           "editorMode": "code",
-          "expr": "sum by (bucket) (rate(ais_target_put_ns_total[$interval]))",
+          "expr": "sum by (bucket) (rate(ais_target_put_ns_total{cluster=\"$cluster\"}[$interval]))",
           "format": "time_series",
           "hide": true,
           "interval": "",
@@ -3250,7 +3200,7 @@
             "uid": "${metricsSource}"
           },
           "editorMode": "code",
-          "expr": "sum by (bucket) (rate(ais_target_put_count[$interval]))",
+          "expr": "sum by (bucket) (rate(ais_target_put_count{cluster=\"$cluster\"}[$interval]))",
           "hide": true,
           "instant": false,
           "legendFormat": "__auto",
@@ -3786,7 +3736,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "${metricsSource}"
           },
           "editorMode": "code",
           "expr": "sum by (node_id) (rate(ais_proxy_get_count{node_id=~\"$proxy\", cluster=~\"${cluster}\"}[$interval]))",
@@ -3903,13 +3853,13 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "${metricsSource}"
           },
           "editorMode": "code",
-          "expr": "sum by (instance) (\n    node_filesystem_size_bytes{instance=~\"^${node}\",mountpoint=~\"/ais/.+\",cluster=~\"${cluster}\"} - \n    node_filesystem_avail_bytes{instance=~\"^${node}\",mountpoint=~\"/ais/.+\",cluster=~\"${cluster}\"}\n)",
+          "expr": "sum by (instance, mountpoint) (\n    node_filesystem_size_bytes{instance=~\"^${node}$\", mountpoint=~\"/ais/.+\", cluster=~\"${cluster}\"} - \n    node_filesystem_avail_bytes{instance=~\"^${node}$\", mountpoint=~\"/ais/.+\", cluster=~\"${cluster}\"}\n)",
           "format": "time_series",
           "intervalFactor": 1,
-          "legendFormat": "{{mountpoint}}",
+          "legendFormat": "{{instance}}:{{mountpoint}}",
           "range": true,
           "refId": "A",
           "step": 240
@@ -4019,7 +3969,7 @@
             "uid": "${metricsSource}"
           },
           "editorMode": "code",
-          "expr": "sum(node_filesystem_size_bytes{cluster=\"$cluster\",mountpoint=~\"^/ais/.+\"})",
+          "expr": "sum(node_filesystem_avail_bytes{cluster=\"$cluster\",mountpoint=~\"^/ais/.+\"})",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "Free Storage",
@@ -4033,7 +3983,7 @@
             "uid": "${metricsSource}"
           },
           "editorMode": "code",
-          "expr": "sum(node_filesystem_avail_bytes{cluster=\"$cluster\",mountpoint=~\"^/ais/.+\"})",
+          "expr": "sum(node_filesystem_size_bytes{cluster=\"$cluster\",mountpoint=~\"^/ais/.+\"}) - sum(node_filesystem_avail_bytes{cluster=\"$cluster\",mountpoint=~\"^/ais/.+\"})",
           "hide": false,
           "legendFormat": "Used Storage",
           "range": true,
@@ -4131,7 +4081,7 @@
             "uid": "${metricsSource}"
           },
           "editorMode": "code",
-          "expr": "topk(5, \n  sum by (instance, device) (node_filesystem_avail_bytes{cluster=~\"${cluster}\",instance=~\"^${node}$\",mountpoint=~\"^/ais/.*\"}) \n  / \n  sum by (instance, device) (node_filesystem_size_bytes{cluster=~\"${cluster}\",instance=~\"^${node}$\",mountpoint=~\"^/ais/.*\"})\n) * 100",
+          "expr": "topk(5, (1 - (sum by (instance, device) (node_filesystem_avail_bytes{cluster=~\"${cluster}\",instance=~\"^${node}$\",mountpoint=~\"^/ais/.*\"}) / sum by (instance, device) (node_filesystem_size_bytes{cluster=~\"${cluster}\",instance=~\"^${node}$\",mountpoint=~\"^/ais/.*\"}))) * 100)",
           "hide": false,
           "instant": false,
           "legendFormat": "__auto",
@@ -4684,7 +4634,7 @@
             "uid": "${metricsSource}"
           },
           "editorMode": "code",
-          "expr": "topk(5, sum by (instance) (irate(node_network_receive_bytes_total{cluster=~\"${cluster}\",instance=~\"$node\"}[$interval])))",
+          "expr": "topk(5, sum by (instance) (irate(node_network_receive_bytes_total{cluster=~\"${cluster}\",instance=~\"$node\",device=~\"$NIC\"}[$interval])))",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "{{instance}}-rx",
@@ -4698,7 +4648,7 @@
             "uid": "${metricsSource}"
           },
           "editorMode": "code",
-          "expr": "topk(5, sum by (instance) (irate(node_network_transmit_bytes_total{cluster=~\"${cluster}\",instance=~\"$node\"}[$interval])))",
+          "expr": "topk(5, sum by (instance) (irate(node_network_transmit_bytes_total{cluster=~\"${cluster}\",instance=~\"$node\",device=~\"$NIC\"}[$interval])))",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 1,
