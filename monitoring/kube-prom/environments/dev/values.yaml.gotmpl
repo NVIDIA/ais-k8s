@@ -1,4 +1,8 @@
 # See defaults: https://github.com/prometheus-community/helm-charts/blob/main/charts/kube-prometheus-stack/values.yaml
+
+kubeStateMetrics:
+  enabled: false
+
 affinity:
   nodeLabelKey: monitoring
   nodeLabelValue: true

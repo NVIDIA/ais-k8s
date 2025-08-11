@@ -4,8 +4,7 @@
    - [Prometheus](https://prometheus.io/) and the [Prometheus Operator](https://github.com/prometheus-operator/prometheus-operator)
    - [AlertManager](https://prometheus.io/docs/alerting/latest/alertmanager/)
    - [Grafana](https://grafana.com/)
-   - [kube-state-metrics](https://github.com/kubernetes/kube-state-metrics)
-   - [node_exporter](https://github.com/prometheus/node_exporter)
+   - [Node Exporter](https://github.com/prometheus/node_exporter)
 
 ### General Config
 

@@ -1,3 +1,7 @@
+kubeStateMetrics:
+  enabled: {{ .Values.kubeStateMetrics.enabled | default false }}
+
+{{- if .Values.kubeStateMetrics.enabled }}
 kube-state-metrics:
   {{- if hasKey .Values "affinity"}}
   {{- if and .Values.affinity.nodeLabelKey .Values.affinity.nodeLabelValue }}
@@ -15,3 +19,4 @@ kube-state-metrics:
   prometheus:
     monitor:
       enabled: false
+{{- end }}

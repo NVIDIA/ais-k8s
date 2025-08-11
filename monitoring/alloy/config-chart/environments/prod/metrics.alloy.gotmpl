@@ -12,7 +12,8 @@ prometheus.relabel "node_exporter" {
 }
 
 prometheus.scrape "kube_state_metrics" {
-  targets = discovery.relabel.ksm.output
-  forward_to = [prometheus.relabel.all_metrics.receiver]
+  targets = discovery.relabel.kube_state_metrics.output
+  job_name = "kube-state-metrics"
   scrape_interval = "15s"
+  forward_to = [prometheus.relabel.all_metrics.receiver]
 }

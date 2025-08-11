@@ -130,20 +130,19 @@ prometheus.scrape "system" {
   forward_to = [prometheus.relabel.node_exporter.receiver]
 }
 
-discovery.kubernetes "kube_state_metrics" {
-  role = "pod"
+discovery.kubernetes "kube_state_metrics_endpoints" {
+  role = "endpoints"
   selectors {
-    role = "pod"
+    role = "endpoint"
     label = "app.kubernetes.io/name=kube-state-metrics"
   }
 }
 
-discovery.relabel "ksm" {
-  targets = discovery.kubernetes.kube_state_metrics.targets
-  
+discovery.relabel "kube_state_metrics" {
+  targets = discovery.kubernetes.kube_state_metrics_endpoints.targets
   rule {
-    source_labels = ["__meta_kubernetes_pod_container_port_number"]
-    regex = "8080"
+    source_labels = ["__meta_kubernetes_endpoint_port_name"]
+    regex = "^http$"
     action = "keep"
   }
 }

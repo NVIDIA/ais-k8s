@@ -1,9 +1,10 @@
 # Helm charts for AIS Cluster Monitoring
 
 ## Included charts:
-- [Kube-prometheus stack](./kube-prom/README.md) for local prometheus, grafana, etc.
+- [Kube-Prometheus stack](./kube-prom/README.md) for local Prometheus, Grafana, etc.
 - [Loki](./loki/README.md) for local log storage and search
 - [Alloy](./alloy/README.md) for scraping, processing, and exporting observability events
+- [Kube State Metrics](./kube-state-metrics/README.md) for exposing metrics about Kubernetes API object state
 
 ## Prereqs
 1. Install and configure [helm](https://helm.sh/docs/intro/install/) and [helmfile](https://helmfile.readthedocs.io/en/latest/#installation) (including configuring kubectl context for your cluster).
