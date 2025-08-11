@@ -1499,7 +1499,7 @@
         {
           "datasource": {
             "type": "prometheus",
-          "uid": "${metricsSource}"
+            "uid": "${metricsSource}"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -1683,7 +1683,7 @@
         {
           "datasource": {
             "type": "prometheus",
-          "uid": "${metricsSource}"
+            "uid": "${metricsSource}"
           },
           "disableTextWrap": false,
           "editorMode": "code",
@@ -1799,7 +1799,7 @@
         {
           "datasource": {
             "type": "prometheus",
-          "uid": "${metricsSource}"
+            "uid": "${metricsSource}"
           },
           "disableTextWrap": false,
           "editorMode": "code",
@@ -1917,7 +1917,7 @@
         {
           "datasource": {
             "type": "prometheus",
-          "uid": "${metricsSource}"
+            "uid": "${metricsSource}"
           },
           "disableTextWrap": false,
           "editorMode": "code",
@@ -2028,7 +2028,7 @@
         {
           "datasource": {
             "type": "prometheus",
-          "uid": "${metricsSource}"
+            "uid": "${metricsSource}"
           },
           "disableTextWrap": false,
           "editorMode": "code",
@@ -2973,7 +2973,7 @@
           "custom": {
             "axisCenteredZero": false,
             "axisColorMode": "text",
-          "axisLabel": "latency (ns)",
+            "axisLabel": "latency (ns)",
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "line",
