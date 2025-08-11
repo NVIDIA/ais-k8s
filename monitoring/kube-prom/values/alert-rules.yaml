@@ -11,48 +11,48 @@ additionalPrometheusRulesMap:
           annotations:
             summary: High Disk IO Utilization on AIS Disks
             description: "The disk IO utilization on disk '{{ $labels.disk }}' ({{ $labels.instance }}) in pod '{{ $labels.pod }}' (node {{ $labels.node_id }}, namespace '{{ $labels.namespace }}') is above 95% for a continuous period of 5 minutes."
-        - alert: NodeLowDiskCapacity
-          expr: (sum by (instance, device) (node_filesystem_avail_bytes{mountpoint=~"^/ais/.*"}) / sum by (instance, device) (node_filesystem_size_bytes{mountpoint=~"^/ais/.*"})) < 0.10
+        - alert: NodeLowFreeDisk
+          expr: (sum by (cluster, instance, device) (node_filesystem_avail_bytes{mountpoint=~"^/ais/.*", cluster=~".*aistore.*"}) / sum by (cluster, instance, device) (node_filesystem_size_bytes{mountpoint=~"^/ais/.*", cluster=~".*aistore.*"})) < 0.10
           for: 5m
           labels:
             severity: critical
           annotations:
-            summary: Disk Space Critical on AIS Disks
-            description: "The disk space on device '{{ $labels.device }}' on instance '{{ $labels.instance }}' has exceeded 90% capacity."
-        - alert: NodeLowDiskCapacityInfo
-          expr: (sum by (instance, device) (node_filesystem_avail_bytes{mountpoint=~"^/ais/.*"}) / sum by (instance, device) (node_filesystem_size_bytes{mountpoint=~"^/ais/.*"})) < 0.25
+            summary: Node Disk Space Critical on AIS Mountpath
+            description: "Free space on device '{{ $labels.device }}', instance '{{ $labels.instance }}' is below 10%."
+        - alert: NodeLowFreeDiskInfo
+          expr: (sum by (cluster, instance, device) (node_filesystem_avail_bytes{mountpoint=~"^/ais/.*", cluster=~".*aistore.*"}) / sum by (cluster, instance, device) (node_filesystem_size_bytes{mountpoint=~"^/ais/.*", cluster=~".*aistore.*"})) < 0.20
           for: 5m
           labels:
             severity: info
           annotations:
-            summary: Disk Space Utilization High on AIS Disks
-            description: "The disk space utilization on device '{{ $labels.device }}' on instance '{{ $labels.instance }}' has exceeded 75% capacity."
-        - alert: K8sNodeDown
-          expr: sum by(node) (kube_node_status_condition{condition="Ready", status!="true"}) > 0
+            summary: Node Disk Space Low on AIS Mountpath
+            description: "Free space on device '{{ $labels.device }}', instance '{{ $labels.instance }}' is below 20%."
+        - alert: K8sNodeNotReady
+          expr: sum by(cluster, node) (kube_node_status_condition{condition="Ready", status!="true", cluster=~".*aistore.*"}) > 0
           for: 2m
           labels:
             severity: critical
           annotations:
-            summary: K8s Node is unavailable
-            description: "Node '{{ $labels.node }}' is unavailable."
-        - alert: AISProxyDown
-          expr: (max by (namespace, statefulset) (kube_statefulset_status_replicas{statefulset=~".*proxy$"}) - min by (namespace, statefulset) (kube_statefulset_status_replicas_ready{statefulset=~".*proxy$"})) > 0
+            summary: K8s Node is not ready
+            description: "Node '{{ $labels.node }}' status is not ready."
+        - alert: ProxyUnavailable
+          expr: (max by (cluster, namespace, statefulset) (kube_statefulset_status_replicas{statefulset=~".*proxy$", cluster=~".*aistore.*"}) - min by (cluster, namespace, statefulset) (kube_statefulset_status_replicas_ready{statefulset=~".*proxy$", cluster=~".*aistore.*"})) > 0
           for: 1m
           labels:
             severity: critical
           annotations:
             summary: AIS Proxy is unavailable
-            description: "Proxy '{{ $labels.statefulset }}' in namespace '{{ $labels.namespace }}' is unavailable."
-        - alert: AISTargetDown
-          expr: (max by (namespace, statefulset) (kube_statefulset_status_replicas{statefulset=~".*target$"}) - min by (namespace, statefulset) (kube_statefulset_status_replicas_ready{statefulset=~".*target$"})) > 0
+            description: "Proxy in statefulset '{{ $labels.statefulset }}' in namespace '{{ $labels.namespace }}' is unavailable."
+        - alert: TargetUnavailable
+          expr: (max by (cluster, namespace, statefulset) (kube_statefulset_status_replicas{statefulset=~".*target$", cluster=~".*aistore.*"}) - min by (cluster, namespace, statefulset) (kube_statefulset_status_replicas_ready{statefulset=~".*target$", cluster=~".*aistore.*"})) > 0
           for: 1m
           labels:
             severity: critical
           annotations:
             summary: AIS Target is unavailable
-            description: "Target '{{ $labels.statefulset }}' in namespace '{{ $labels.namespace }}' is unavailable."
+            description: "Target in statefulset '{{ $labels.statefulset }}' in namespace '{{ $labels.namespace }}' is unavailable."
         - alert: K8sHighMemoryUtilization
-          expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100 > 80
+          expr: (node_memory_MemTotal_bytes{cluster=~".*aistore.*"}  - node_memory_MemAvailable_bytes{cluster=~".*aistore.*"}) / node_memory_MemTotal_bytes{cluster=~".*aistore.*"} * 100 > 80
           for: 5m
           labels:
             severity: critical
@@ -60,7 +60,7 @@ additionalPrometheusRulesMap:
             summary: High Memory Usage Detected
             description: "Memory utilization on instance '{{ $labels.instance }}' has exceeded 80% for the last 5 minutes."
         - alert: K8sHighCpuUtilization
-          expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+          expr: 100 - (avg by(cluster, instance) (irate(node_cpu_seconds_total{mode="idle",cluster=~".*aistore.*"}[5m])) * 100) > 80
           for: 5m
           labels:
             severity: critical
