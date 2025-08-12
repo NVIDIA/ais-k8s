@@ -25,7 +25,8 @@ def process_rules(rules, output_dir, datasource):
     for rule in rules:
         output_path = Path(output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
-        output_file = output_path.joinpath(rule.get("alert"))
+        alert_name = rule.get("alert")
+        output_file = output_path.joinpath(f"{alert_name}.yaml")
         rule["data"] = {"datasourceUid": datasource}
         write_yaml(output_file, rule)
 
@@ -51,10 +52,10 @@ if __name__ == '__main__':
         '--outputs',
         nargs='*',  # accept multiple folder=datasource pairs
         action=ParseOutputs,
-        default=[
-            'Storage_AIStore_EAST=mimir-us-east-1',
-            'Storage_AIStore_WEST=mimir-us-west-2'
-        ],
+        default={
+            'Storage_AIStore_EAST': 'mimir-us-east-1',
+            'Storage_AIStore_WEST': 'mimir-us-west-2'
+        },
         metavar='FOLDER=DATASOURCE',
         help='Map output folders to their data sources, e.g. AIS-West=mimir-west AIS-East=mimir-east'
     )
