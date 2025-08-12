@@ -27,7 +27,7 @@ def process_rules(rules, output_dir, datasource):
         output_path.mkdir(parents=True, exist_ok=True)
         alert_name = rule.get("alert")
         output_file = output_path.joinpath(f"{alert_name}.yaml")
-        rule["data"] = {"datasourceUid": datasource}
+        rule["data"] = [{"datasourceUid": datasource}]
         write_yaml(output_file, rule)
 
 
