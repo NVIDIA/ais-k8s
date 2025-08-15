@@ -108,7 +108,7 @@ additionalPrometheusRulesMap:
             summary: Namespace resource quota near limit
             description: "Namespace '{{ $labels.namespace }}' resource '{{ $labels.resource }}' is above 90% of its quota in quota set '{{ $labels.quota }}'."       
         - alert: AISTargetRestart
-          expr: (floor(ais_target_state_flags / 256)) % 2 == 1
+          expr: (floor(ais_target_state_flags / 128)) % 2 == 1
           for: 1m
           labels:
             severity: critical
@@ -116,7 +116,7 @@ additionalPrometheusRulesMap:
             summary: AIS Target Restart Detected
             description: "AIS target pod '{{ $labels.pod }}' on node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) has restarted."
         - alert: AISChecksumError
-          expr: increase(ais_target_err_cksum_n[5m]) > 0
+          expr: increase(ais_target_err_put_cksum_count[5m]) > 0
           for: 1m
           labels:
             severity: critical
@@ -163,14 +163,6 @@ additionalPrometheusRulesMap:
           annotations:
             summary: AIS Resilver Interrupted
             description: "AIS Resilvering has been interrupted on node '{{ $labels.node_id }}' (instance {{ $labels.instance }})."
-        - alert: AISRestarted
-          expr: (floor(ais_target_state_flags / 128)) % 2 == 1
-          for: 1m
-          labels:
-            severity: warning
-          annotations:
-            summary: AIS Node Restarted
-            description: "AIS Node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) has been restarted."
         - alert: AISOutOfSpace
           expr: (floor(ais_target_state_flags / 256)) % 2 == 1
           for: 1m
@@ -266,7 +258,7 @@ additionalPrometheusRulesMap:
             severity: warning
           annotations:
             summary: AIS KeepAlive Errors Detected
-            description: "AIS Node '{{ $labels.node_id }}' (instance '{{ $labels.instance }}') has encountered keep-alive errors within the last 5 minute."
+            description: "AIS Node '{{ $labels.node_id }}' (instance '{{ $labels.instance }}') has encountered keep-alive errors within the last 5 minutes."
         - alert: AISOutOfCPU
           expr: (floor(ais_target_state_flags / 1048576)) % 2 == 1
           for: 2m
