@@ -267,6 +267,38 @@ additionalPrometheusRulesMap:
           annotations:
             summary: AIS Node Out of CPU
             description: "AIS Node '{{ $labels.node_id }}' (instance '{{ $labels.instance }}') is out of CPU resources, with utilization exceeding 95%."
+        - alert: AISGetRetryRatioHighWarn
+          expr: (sum by (bucket, cluster) (rate(ais_target_ratelim_retry_get_count{cluster=~".*aistore.*"}[5m])) /sum by (bucket, cluster) (rate(ais_target_get_count{cluster=~".*aistore.*"}[5m]))) > 0.01
+          for: 1m
+          labels:
+            severity: warning
+          annotations:
+            summary: High GET retry ratio (rate limit)
+            description: "Bucket {{ $labels.bucket }} GET retry ratio > 1%."
+        - alert: AISGetRetryRatioCritical
+          expr: (sum by (bucket, cluster) (rate(ais_target_ratelim_retry_get_count{cluster=~".*aistore.*"}[5m])) /sum by (bucket, cluster) (rate(ais_target_get_count{cluster=~".*aistore.*"}[5m]))) > 0.05
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: High GET retry ratio (rate limit)
+            description: "Bucket {{ $labels.bucket }} GET retry ratio > 5%."
+        - alert: AISPutRetryRatioWarn
+          expr: (sum by (bucket, cluster) (rate(ais_target_ratelim_retry_put_count{cluster=~".*aistore.*"}[5m])) /sum by (bucket, cluster) (rate(ais_target_put_count{cluster=~".*aistore.*"}[5m]))) > 0.01
+          for: 1m
+          labels:
+            severity: warning
+          annotations:
+            summary: High PUT retry ratio (rate limit)
+            description: "Bucket {{ $labels.bucket }} PUT retry ratio > 1%."
+        - alert: AISPutRetryRatioCritical
+          expr: (sum by (bucket, cluster) (rate(ais_target_ratelim_retry_put_count{cluster=~".*aistore.*"}[5m])) /sum by (bucket, cluster) (rate(ais_target_put_count{cluster=~".*aistore.*"}[5m]))) > 0.05
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: High PUT retry ratio (rate limit)
+            description: "Bucket {{ $labels.bucket }} PUT retry ratio > 5%."
         - alert: AISLowCPU
           expr: (floor(ais_target_state_flags / 2097152)) % 2 == 1
           for: 2m
