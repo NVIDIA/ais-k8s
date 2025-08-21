@@ -1,0 +1,11 @@
+# Run this and restart the cluster pods to update access to oci 
+# Copies the oci_api_key containing oci credentials in roles/oci_config/files 
+# to the controller host and recreates the kubernetes secret 
+
+- hosts: controller
+  vars_files:
+    - "vars/oci_config.yml"
+
+  gather_facts: false
+  roles:
+    - oci_config

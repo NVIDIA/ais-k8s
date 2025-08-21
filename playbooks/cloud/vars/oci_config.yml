@@ -1,0 +1,9 @@
+target_dir: /tmp/oci
+secret_name: oci-creds
+
+# OCI literal values - configure these for your environment
+oci_tenancy_ocid: ""
+oci_user_ocid: ""
+oci_region: ""
+oci_fingerprint: ""
+oci_compartment_ocid: ""

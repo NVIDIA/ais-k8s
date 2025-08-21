@@ -1,0 +1,3 @@
+# Add your OCI credential files here:
+# oci_api_key - Your OCI API private key file
+oci_api_key

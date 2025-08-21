@@ -83,6 +83,30 @@
     - role: cloud/roles/gcp_config
       when: gcp_confirmation | bool
 
+# oci
+- name: Add OCI Creds to your AIS Cluster
+  hosts: "controller"
+  vars_files:
+    - "cloud/vars/oci_config.yml"
+  vars_prompt:
+    - name: oci_confirmation
+      prompt: "Do you wish to set up AIStore with OCI backend? If 'yes' ensure the 'oci_api_key' file exists at 'ais-k8s/playbooks/cloud/roles/oci_config/files', or add it before proceeding."
+      default: "no"
+      private: no
+  gather_facts: false
+  tasks:
+    - name: Set oci-creds variable based on oci_confirmation
+      set_fact:
+        oci_secret_name: "oci-creds"
+      when: oci_confirmation | bool
+  roles:
+    - role: ais-deployment/roles/create_namespace
+      when: oci_confirmation | bool
+      vars:
+        k8s_namespace: "{{ cluster }}"
+    - role: cloud/roles/oci_config
+      when: oci_confirmation | bool
+
 # https support
 - name: Add TLS support to your AIS Cluster
   hosts: "controller"

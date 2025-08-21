@@ -1,0 +1,32 @@
+- name: Ensure target directory exists
+  become: true
+  file:
+    path: "{{ target_dir }}"
+    state: directory
+
+- name: Copy OCI private key file to target directory
+  become: true
+  ansible.builtin.copy:
+    src: "oci_api_key"
+    dest: "{{ target_dir }}/OCI_PRIVATE_KEY"
+
+- name: Create OCI config file from template
+  become: true
+  template:
+    src: "config.j2"
+    dest: "{{ target_dir }}/config"
+
+- name: Remove existing Kubernetes secret if it exists
+  shell: kubectl delete secret {{ secret_name }} -n ais --ignore-not-found
+    
+- name: Create new Kubernetes secret from OCI credentials
+  shell: "kubectl create secret -n ais generic {{ secret_name }} \
+  --from-file=config={{ target_dir }}/config \
+  --from-file=OCI_PRIVATE_KEY={{ target_dir }}/OCI_PRIVATE_KEY \
+  --from-literal=OCI_COMPARTMENT_OCID='{{ oci_compartment_ocid }}'"
+
+- name: Clean up - remove target directory and its contents
+  become: true  
+  file:
+    path: "{{ target_dir }}"
+    state: absent

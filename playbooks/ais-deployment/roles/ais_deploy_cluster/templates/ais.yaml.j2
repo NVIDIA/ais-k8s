@@ -47,6 +47,14 @@ spec:
     env: 
     - name: GOOGLE_APPLICATION_CREDENTIALS
       value: /var/gcp/gcp.json
+{% if oci_secret_name %}
+    # TODO: Remove exposing secret literals at the pod level. AIS should support reading the literals from the file directly.
+    - name: OCI_COMPARTMENT_OCID
+      valueFrom:
+        secretKeyRef:
+          name: {{ oci_secret_name }}
+          key: OCI_COMPARTMENT_OCID
+{% endif %}
     hostPort: 51081
     servicePort: 51081
     portPublic: 51081
@@ -94,6 +102,9 @@ spec:
 {% endif %}
 {% if gcp_secret_name != "" %}
   gcpSecretName: {{ gcp_secret_name }}
+{% endif %}
+{% if oci_secret_name %}
+  ociSecretName: "{{ oci_secret_name }}"
 {% endif %}
 {% if authn_secret_name != "" %}
   authNSecretName: {{ authn_secret_name }}

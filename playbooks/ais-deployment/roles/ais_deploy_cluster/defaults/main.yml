@@ -5,6 +5,7 @@ logs_image: aistorage/ais-logs:v1.1
 # Cloud
 gcp_secret_name: ""
 aws_secret_name: ""
+oci_secret_name: ""
 
 # AuthN JWT Signing Key Secret
 authn_secret_name: ""
