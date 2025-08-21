@@ -292,3 +292,19 @@ additionalPrometheusRulesMap:
           annotations:
             summary: AIS Disk Low Capacity
             description: "AIS disk on node '{{ $labels.node_id }}' (instance {{ $labels.instance }}) has low available capacity."
+        - alert: NodeExporterDown
+          expr: up{job="node-exporter", cluster=~".*aistore.*"} == 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Node Exporter job not scraping metrics"
+            description: "No scrape response for job 'node-exporter'."
+        - alert: AISExporterDown
+          expr: up{job="aistore", cluster=~".*aistore.*"} == 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "AIS job not scraping metrics"
+            description: "No scrape response for job 'aistore'."
