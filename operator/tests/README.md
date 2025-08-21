@@ -52,7 +52,7 @@ $ make test-e2e-bootstrap
 Then, you can run tests in the cluster:
 
 ```bash
-$ make test-in-cluster
+$ make test-e2e-in-cluster
 ```
 
 Or, run tests outside the cluster:
