@@ -1,3 +1,5 @@
+{{- $runtime := requiredEnv "CONTAINER_RUNTIME" -}}
+
 alloy:
   configMap:
     # -- Create a new ConfigMap for the config file.
@@ -30,7 +32,6 @@ alloy:
     # -- Mount /var/lib/docker/containers from the host into the container for log
     # collection.
     dockercontainers: false
-
     # -- Extra volume mounts to add into the Grafana Alloy container. Does not
     # affect the watch container.
     extra:
@@ -48,15 +49,24 @@ alloy:
       - name: dev-disk
         mountPath: /dev/disk
         readOnly: true
-      # Container runtime specific cAdvisor mounts
-{{- if eq (env "CONTAINER_RUNTIME" | default "docker") "crio" }}
+      # cAdvisor runtime-specific sockets and data directories
+{{- if eq $runtime "crio" }}
       - name: crio-sock
         mountPath: /var/run/crio/crio.sock
         readOnly: false
       - name: var-lib-containers
         mountPath: /var/lib/containers
         readOnly: true
-{{- else }}
+{{- end }}
+{{- if eq $runtime "containerd" }}
+      - name: containerd-sock
+        mountPath: /run/containerd/containerd.sock
+        readOnly: false
+      - name: var-lib-containerd
+        mountPath: /var/lib/containerd
+        readOnly: true
+{{- end }}
+{{- if eq $runtime "docker" }}
       - name: docker-sock
         mountPath: /var/run/docker.sock
         readOnly: false
@@ -109,7 +119,7 @@ controller:
         hostPath:
           path: /dev/disk
       # Container runtime specific cAdvisor required volumes + sockets
-{{- if eq (env "CONTAINER_RUNTIME" | default "docker") "crio" }}
+{{- if eq $runtime "crio" }}
       - name: crio-sock
         hostPath:
           path: /var/run/crio/crio.sock
@@ -117,7 +127,17 @@ controller:
       - name: var-lib-containers
         hostPath:
           path: /var/lib/containers
-{{- else }}
+{{- end }}
+{{- if eq $runtime "containerd" }}
+      - name: containerd-sock
+        hostPath:
+          path: /run/containerd/containerd.sock
+          type: Socket
+      - name: var-lib-containerd
+        hostPath:
+          path: /var/lib/containerd
+{{- end }}
+{{- if eq $runtime "docker" }}
       - name: docker-sock
         hostPath:
           path: /var/run/docker.sock

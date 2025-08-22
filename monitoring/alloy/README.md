@@ -14,7 +14,7 @@ Today we expect all environment specific changes to come through the environment
 
 The values for the alloy deployment itself are provided as a base `base-alloy-values.yaml.gotmpl` with overrides available for each environment in `environments/<env>/alloy-values.yaml`. The full list of available helm values can be found [here](https://github.com/grafana/alloy/blob/main/operations/helm/charts/alloy/values.yaml).
 
-> **Note:** Container runtime specific configurations (for cAdvisor metrics) are controlled via the `CONTAINER_RUNTIME` environment variable (default: `docker`, accepted: `docker`|`crio`).
+> **Note:** Container runtime–specific configurations (for cAdvisor metrics) are controlled via the `CONTAINER_RUNTIME` environment variable (accepted: `docker` | `crio` | `containerd`).
 
 The `config-chart` defines the base components used by multiple environments in [config-chart/common](./config-chart/common/). Environment specific configurations can be found in [config-chart/environments](./config-chart/environments/) (currently prod, local, and remote). 
 This allows for deploying alloy configs with different components for each environment. 

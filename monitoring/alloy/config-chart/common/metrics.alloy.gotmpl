@@ -149,7 +149,7 @@ discovery.relabel "kube_state_metrics" {
 
 prometheus.exporter.cadvisor "cadvisor" {
   allowlisted_container_labels = ["io.kubernetes.container.name", "io.kubernetes.pod.namespace", "io.kubernetes.pod.name"]
-  enabled_metrics = ["cpu", "memory", "network", "disk", "diskIO"]
+  enabled_metrics = ["cpu", "memory"]
 }
 
 prometheus.scrape "cadvisor" {
