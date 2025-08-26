@@ -1,0 +1,73 @@
+# Tuned for 100 Gbps network with local drives
+# 1.5 TB of memory
+# Expecting RTT of ~5ms (Requests are intra-network)
+# Bandwidth delay product (BDP) = 5ms * 100 Gb/s = 0.5 Gb = 62.5 MB ~= 64 MB
+# tcp_adv_win_scale is 1, so the tcp window size is up to 1/2 the memory in receive buffer.
+# So we set the max receive buffer size to 128MB. 
+
+ais_host_sysctl_net:
+  - name: net.ipv4.ip_forward
+    value: 1
+    default: 0
+    state: present
+  - name: net.core.optmem_max
+    value: 25165824
+    default: 20480
+    state: present
+  - name: net.core.rmem_max
+    value: 134217728
+    default: 212992 - 208 KB
+    comment: 128MB, based on a Bandwidth Delay Product of ~64MB and tcp_adv_win_scale of 1. 
+  - name: net.core.wmem_max
+    value: 134217728
+    default: 212992 - 208 KB
+    comment: 128MB, based on a Bandwidth Delay Product of ~64MB and tcp_adv_win_scale of 1. 
+  - name: net.core.netdev_max_backlog
+    value: 250000
+    default: 1000
+    state: present
+  - name: net.ipv4.tcp_mem
+    value: 9087424 12116566 18174849
+    state: present
+  - name: net.ipv4.tcp_wmem
+    value:   4096 16384 134217728
+    default: 4096 16384 4194304 (max is calculated)
+    state: present
+  - name: net.ipv4.tcp_rmem
+    value:   8192     262144 134217728
+    default: 4096       87380  6291456 (max is calculated)
+    state: present
+  - name: net.ipv4.tcp_adv_win_scale
+    value: 1
+    default: 2
+    state: present
+  - name: net.ipv4.tcp_mtu_probing
+    value: 2
+    default: 0
+    state: present
+  - name: net.ipv4.tcp_slow_start_after_idle
+    value: 0
+    default: 1
+    state: present
+  - name: net.ipv4.tcp_max_syn_backlog
+    value: 100000
+    state: present
+    default: 2048
+  - name: net.ipv4.tcp_rfc1337
+    value: 1
+    state: present
+    default: 0
+
+ais_host_sysctl_vm:
+  - name: vm.swappiness
+    value: 10
+    state: present
+    default: 60
+  - name: vm.min_free_kbytes
+    value: 7922082
+    state: present
+    default: Variable, but too low for our purposes. On E5 nodes, 159214. 
+  - name: vm.vfs_cache_pressure
+    value: 50
+    state: present
+    default: 100

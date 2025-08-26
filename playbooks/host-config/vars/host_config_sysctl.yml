@@ -1,3 +1,8 @@
+# This file contains the default values for the sysctl settings.
+# These are only suggestions and MUST be tuned per your hosts, as many depend on network speed, memory, etc.  
+# See environments/README.md for details on how to override these values per environment.
+# Note that any overridden section must override the entire section as ansible does not merge by default. 
+
 # Applied in lexicographic order, tweak if needed override existing conf on your system
 required_sysctl_file: /etc/sysctl.d/100-ais-required.conf
 network_sysctl_file: /etc/sysctl.d/100-ais-network.conf
@@ -47,6 +52,9 @@ ais_host_sysctl_required:
 # pipes then use this as a starting point. These values worked well on hosts with 50 and
 # 100 GigE Mellanox CX-5 cards.
 #
+# See https://blog.cloudflare.com/optimizing-tcp-for-high-throughput-and-low-latency/
+# for details on optimizing for higher throughput
+#
 # Tags: sysctlnet
 #
 ais_host_sysctl_net:
@@ -60,6 +68,14 @@ ais_host_sysctl_net:
     default: 20480
     state: present
     comment: Max ancillary buffer size. Some say must tune up, some say no difference.
+  - name: net.core.rmem_max
+    value: 134217728
+    default: 212992 - 208 KB
+    comment: 128MB, based on a Bandwidth Delay Product of ~64MB and tcp_adv_win_scale of 1. 
+  - name: net.core.wmem_max
+    value: 134217728
+    default: 212992 - 208 KB
+    comment: 128MB, based on a Bandwidth Delay Product of ~64MB and tcp_adv_win_scale of 1. 
   - name: net.core.netdev_max_backlog
     value: 250000
     default: 1000
@@ -70,13 +86,13 @@ ais_host_sysctl_net:
     state: present
     comment: In pages, usually based on available memory. Depending on other settings, this may need increased to help overall TCP memory usage. See https://access.redhat.com/solutions/6964027 for RHEL defaults. 
   - name: net.ipv4.tcp_wmem
-    value:   4096    12582912  268435456
-    default: 4096       16384  4194304 (max is calculated)
+    value:   4096    16384    134217728
+    default: 4096    16384      4194304 (max is calculated)
     state: present
     comment: Min guaranteed under memory pressure, default, and maximum TCP send socket size. Applies only to automatically-sized buffers (as used in AIS) - apps that set SO_SNDBUF get what they request. Allow automatic sizing up to 128M.
   - name: net.ipv4.tcp_rmem
-    value:   4096    12582912 268435456
-    default: 4096       87380  6291456 (max is calculated)
+    value:   4096    262144    134217728
+    default: 4096     87380      6291456 (max is calculated)
     state: present
     comment: Min guaranteed under memory pressure, default, and maximum TCP receive socket size. Applies only to automatically-sized buffers (as used in AIS) - apps that set SO_RCVBUF get what they request. Allow automatic sizing up to 128M.
   - name: net.ipv4.tcp_adv_win_scale
