@@ -14,10 +14,11 @@
       default: "no"
       private: no
 
-  tasks:
+  pre_tasks:
     - name: Include environment-specific sysctl overrides (if `env` is set)
       include_vars: "vars/environments/{{ env }}/host_config_sysctl.yml"
       when: env is defined
+      tags: always
 
   roles:
     - role: ais_host_config_sysctl

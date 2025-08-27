@@ -71,10 +71,12 @@ ais_host_sysctl_net:
   - name: net.core.rmem_max
     value: 134217728
     default: 212992 - 208 KB
+    state: present
     comment: 128MB, based on a Bandwidth Delay Product of ~64MB and tcp_adv_win_scale of 1. 
   - name: net.core.wmem_max
     value: 134217728
     default: 212992 - 208 KB
+    state: present
     comment: 128MB, based on a Bandwidth Delay Product of ~64MB and tcp_adv_win_scale of 1. 
   - name: net.core.netdev_max_backlog
     value: 250000
