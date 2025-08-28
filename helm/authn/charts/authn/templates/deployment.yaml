@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-deployment
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ .Release.Name }}
+    spec:
+      containers:
+      - name: {{ .Release.Name }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+        - containerPort: {{ .Values.applicationPort }}
+        env:
+        - name: AIS_AUTHN_SU_NAME
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Release.Name }}-su-creds
+              key: SU-NAME
+        - name: AIS_AUTHN_SU_PASS
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Release.Name }}-su-creds
+              key: SU-PASS
+        - name: AIS_AUTHN_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Release.Name }}-jwt-signing-key
+              key: SIGNING-KEY
+        volumeMounts:
+        - mountPath: /etc/ais/authn
+          name: storage
+        - mountPath: /etc/ais/authn/authn.json
+          name: config
+          subPath: authn.json
+          readOnly: true
+        {{- if .Values.tls.enabled }}
+        - mountPath: /var/certs
+          name: tls-certs
+          readOnly: true
+        {{- end }}
+      volumes:
+      - name: storage
+        {{- if .Values.persistence.enabled }}
+        persistentVolumeClaim:
+          claimName: {{ .Release.Name }}-pvc
+        {{- else }}
+        emptyDir: {}
+        {{- end }}
+      - name: config
+        configMap:
+          name: {{ .Release.Name }}-config
+      {{- if .Values.tls.enabled }}
+      - name: tls-certs
+        secret:
+          secretName: {{ .Values.tls.secretName }}
+          defaultMode: 420
+      {{- end }}

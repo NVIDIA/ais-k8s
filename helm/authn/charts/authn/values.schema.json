@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "title": "AuthN Chart Values",
+  "type": "object",
+  "properties": {
+    "image": {
+      "type": "object",
+      "description": "Container image configuration",
+      "properties": {
+        "repository": {
+          "type": "string",
+          "description": "Container image repository"
+        },
+        "tag": {
+          "type": "string",
+          "description": "Container image tag"
+        },
+        "pullPolicy": {
+          "type": "string",
+          "enum": ["Always", "IfNotPresent", "Never"],
+          "description": "Image pull policy"
+        }
+      },
+      "required": ["repository", "tag", "pullPolicy"]
+    },
+    "superuser": {
+      "type": "object",
+      "description": "Superuser credentials",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Superuser username"
+        },
+        "password": {
+          "type": "string",
+          "description": "Superuser password"
+        }
+      },
+      "required": ["name", "password"]
+    },
+    "jwtSigningKey": {
+      "type": "string",
+      "description": "JWT signing key"
+    },
+    "tls": {
+      "type": "object",
+      "description": "TLS configuration",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Whether TLS is enabled"
+        },
+        "secretName": {
+          "type": "string",
+          "description": "Name of the TLS secret"
+        },
+        "certPath": {
+          "type": "string",
+          "description": "Path to TLS certificate file"
+        },
+        "keyPath": {
+          "type": "string",
+          "description": "Path to TLS private key file"
+        }
+      },
+      "required": ["enabled", "secretName", "certPath", "keyPath"]
+    },
+    "log": {
+      "type": "object",
+      "description": "Logging configuration",
+      "properties": {
+        "level": {
+          "type": "string",
+          "description": "Log level (0-5)"
+        },
+        "dir": {
+          "type": "string",
+          "description": "Log directory path"
+        }
+      },
+      "required": ["level", "dir"]
+    },
+    "applicationPort": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 65535,
+      "description": "Port for AuthN server to listen on"
+    },
+    "nodePort": {
+      "type": "integer",
+      "minimum": 30000,
+      "maximum": 32767,
+      "description": "NodePort -- Used by external clients such as CLI, SDKs, etc."
+    },
+    "persistence": {
+      "type": "object",
+      "description": "Persistence configuration",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Whether persistence is enabled"
+        },
+        "size": {
+          "type": "string",
+          "pattern": "^[0-9]+[KMG]?i?$",
+          "description": "Storage size (e.g., 50Mi, 1Gi)"
+        },
+        "hostPath": {
+          "type": "string",
+          "description": "Host path for persistent storage"
+        }
+      },
+      "required": ["enabled", "size", "hostPath"]
+    }
+  },
+  "required": ["image", "superuser", "jwtSigningKey", "tls", "log", "applicationPort", "nodePort", "persistence"]
+}

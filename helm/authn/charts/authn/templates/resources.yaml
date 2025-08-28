@@ -1,0 +1,79 @@
+---
+# Creates a K8s Secret with the JWT Signing Key
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Release.Name }}-jwt-signing-key
+  namespace: {{ .Release.Namespace }}
+type: Opaque
+stringData:
+  SIGNING-KEY: {{ .Values.jwtSigningKey }}
+---
+# Creates a K8s Secret with the superuser credentials
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Release.Name }}-su-creds
+  namespace: {{ .Release.Namespace }}
+type: Opaque
+stringData:
+  SU-NAME: {{ .Values.superuser.name }}
+  SU-PASS: {{ .Values.superuser.password }}
+---
+# ConfigMap for AuthN Server with the default configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-config
+  namespace: {{ .Release.Namespace }}
+data:
+  authn.json: |
+    {
+      "log": {
+        "dir": "{{ .Values.log.dir }}",
+        "level": "{{ .Values.log.level }}"
+      },
+      "net": {
+        "http": {
+          "port": {{ .Values.applicationPort }},
+          "use_https": {{ .Values.tls.enabled }},
+          "server_crt": "{{ if .Values.tls.enabled }}{{ .Values.tls.certPath }}{{ end }}",
+          "server_key": "{{ if .Values.tls.enabled }}{{ .Values.tls.keyPath }}{{ end }}"
+        }
+      },
+      "auth": {
+        "expiration_time": "24h"
+      },
+      "timeout": {
+        "default_timeout": "30s"
+      }
+    }
+{{- if .Values.persistence.enabled }}
+---
+# AuthN PV for storing AuthN configuration and user data
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ .Release.Name }}-pv
+spec:
+  capacity:
+    storage: {{ .Values.persistence.size }}
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: {{ .Values.persistence.hostPath }}
+  persistentVolumeReclaimPolicy: Retain
+---
+# AuthN PVC for storing AuthN configuration and user data
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-pvc
+  namespace: {{ .Release.Namespace }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.persistence.size }}
+{{- end }}

@@ -1,0 +1,30 @@
+# Default values for authn chart
+image:
+  repository: aistorage/authn
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+superuser:
+  name: "admin"
+  password: {{ requiredEnv "AUTHN_ADMIN_PASSWORD" }}
+
+jwtSigningKey: {{ requiredEnv "JWT_SIGNING_KEY" }}
+
+tls:
+  enabled: false
+  secretName: "tls-certs"
+  certPath: "/var/certs/tls.crt"
+  keyPath: "/var/certs/tls.key"
+
+log:
+  level: "3"
+  dir: "/var/log/ais/authn/"
+
+applicationPort: 52001
+servicePort: 52001
+nodePort: 30001
+
+persistence:
+  enabled: true
+  size: 50Mi
+  hostPath: /etc/ais/authn

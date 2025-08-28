@@ -1,0 +1,31 @@
+---
+# Service for the AuthN Server to be accessed by CLI, SDKs, etc.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-nodeport
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    app.kubernetes.io/name: {{ .Release.Name }}
+  ports:
+    - protocol: TCP
+      port: {{ .Values.servicePort }}
+      targetPort: {{ .Values.applicationPort }}
+      nodePort: {{ .Values.nodePort }}
+  type: NodePort
+---
+# Service for the AuthN Server to be accessed by AIS-Operator
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: {{ .Release.Name }}
+  ports:
+    - protocol: TCP
+      port: {{ .Values.servicePort }}
+      targetPort: {{ .Values.applicationPort }}

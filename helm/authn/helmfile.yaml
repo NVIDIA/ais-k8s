@@ -1,0 +1,13 @@
+environments: 
+  default:
+  tls: 
+---
+releases:
+  - name: ais-authn
+    namespace: ais
+    createNamespace: true
+    chart: charts/authn
+    version: 0.1.0
+    values:
+      - "./charts/authn/values.yaml.gotmpl"
+      - "./config/authn/{{ .Environment.Name }}.yaml.gotmpl"
