@@ -164,3 +164,7 @@ func proxyVC(ais *aisv1.AIStore) []corev1.PersistentVolumeClaim {
 	}
 	return nil
 }
+
+func IsStatefulSetReady(ais *aisv1.AIStore, ss *apiv1.StatefulSet) bool {
+	return cmn.IsStatefulSetReady(ss, ais.GetProxySize())
+}

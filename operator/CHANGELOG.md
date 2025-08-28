@@ -15,6 +15,9 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ### Changed
 
+- Refactor proxy reconcile to a state-driven flow for upgrades and scaling:
+  - Add proxy-specific states `ProxyUpgrading` and `ProxyScaling`
+
 ##  v2.5.0
 
 ### Changed
