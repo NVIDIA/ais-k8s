@@ -5,6 +5,7 @@ environments:
         enabled: false
   sjc11:
     values: 
+    - ./config/operator/sjc11.yaml.gotmpl
     - createCert:
         enabled: true
     kubeContext: sjc11
@@ -27,7 +28,7 @@ releases:
     namespace: ais-operator-system
     createNamespace: true
     chart: aistore/ais-operator
-    version: 2.4.0
+    version: 2.5.0
     hooks:
       - events: ["presync"]
         showlogs: true

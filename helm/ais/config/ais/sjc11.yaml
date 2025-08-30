@@ -26,10 +26,10 @@ https:
   tlsSecret: "tls-certs"
 nodeImage:
   name: aistorage/aisnode
-  tag: v3.30
+  tag: v3.31
 initImage:
   name: aistorage/ais-init
-  tag: v3.30
+  tag: v3.31
 logSidecarImage:
   name: aistorage/ais-logs
   tag: v1.1
@@ -44,6 +44,7 @@ configToUpdate:
       idle_conns: 2048
       idle_conns_per_host: 128
 stateStorageClass: "local-path"
+authNSecretName: ais-authn-jwt-signing-key
 targetSpec:
   annotations:
     nvault.nvidia.com/agent-auto-config: 'true'
