@@ -44,6 +44,58 @@ loki.relabel "all_logs" {
 }
 {{- end }}
 
+loki.process "ais_extract_level" {
+  stage.match {
+    selector = "{namespace=\"ais\", app=\"ais\"}"
+
+    // Extract first non-space character (i.e. I/W/E)
+    stage.regex {
+      expression = "^[ \\t]*(?P<level>[IWE])\\b"
+    }
+
+    // Promote extracted level to a label
+    stage.labels {
+      values = { level = "level" }
+    }
+  }
+
+  forward_to = [ loki.relabel.ais_map_level.receiver ]
+}
+
+loki.relabel "ais_map_level" {
+  rule {
+    action        = "replace"
+    source_labels = ["level"]
+    regex         = "^I$"
+    target_label  = "level"
+    replacement   = "info"
+  }
+
+  rule {
+    action        = "replace"
+    source_labels = ["level"]
+    regex         = "^W$"
+    target_label  = "level"
+    replacement   = "warn"
+  }
+
+  rule {
+    action        = "replace"
+    source_labels = ["level"]
+    regex         = "^E$"
+    target_label  = "level"
+    replacement   = "error"
+  }
+
+  forward_to = [
+    {{- if .Values.loki.localGateway }}
+    loki.write.local.receiver,
+    {{- end }}
+    {{- if .Values.loki.remoteEndpoint }}
+    loki.relabel.remote.receiver,
+    {{- end }}
+  ]
+}
 
 {{- if .Values.loki.localGateway }}
 loki.write "local" {

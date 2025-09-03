@@ -1,4 +1,4 @@
 loki.source.kubernetes "pod_logs" {
   targets    = discovery.relabel.pod_logs.output
-  forward_to = [loki.write.local.receiver]
+  forward_to = [loki.process.ais_extract_level.receiver]
 }
