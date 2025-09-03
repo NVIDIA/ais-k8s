@@ -71,7 +71,7 @@ func GenerateConfigToSet(ais *aisv1.AIStore) (*aiscmn.ConfigToSet, error) {
 		specConfig.ConfigureBackend(&ais.Spec)
 	}
 
-	if ais.Spec.AuthNSecretName != nil {
+	if specConfig.IsAuthEnabled() {
 		specConfig.EnableAuth()
 	}
 	return specConfig.Convert()

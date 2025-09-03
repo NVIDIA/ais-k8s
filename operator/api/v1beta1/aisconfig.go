@@ -265,6 +265,10 @@ func (c *ConfigToUpdate) UpdateRebalanceEnabled(enabled *bool) {
 	c.Rebalance.Enabled = enabled
 }
 
+func (c *ConfigToUpdate) IsAuthEnabled() bool {
+	return c.Auth != nil && c.Auth.Enabled != nil && *c.Auth.Enabled
+}
+
 func (c *ConfigToUpdate) ConfigureBackend(spec *AIStoreSpec) {
 	if c.Backend == nil {
 		m := make(map[string]Empty, 8)
