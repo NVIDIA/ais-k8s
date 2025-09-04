@@ -1,71 +1,223 @@
 # This playbook automates replacing a Kubernetes node hosting ais-target and ais-proxy pods in the AIS (AIStore) cluster. 
-# It is used to move these workloads to another node, typically for maintenance or decommissioning.
+# It handles two scenarios:
+# 1. Node exists with running pods - shows pods, confirms deletion, and recreates on new node
+# 2. Node doesn't exist - finds pending pods and recreates them on new node
 ---
-- name: Unlabel the old node and delete target/proxy pods, PVCs, and PVs
+- name: Replace AIS node - handle running or pending pods
   hosts: controller
   gather_facts: no
   vars_prompt:
     - name: "prev_node"
-      prompt: "Enter the previous k8s node name"
+      prompt: "Enter the previous k8s node name (leave empty if node doesn't exist)"
       private: no
     - name: "new_node"
       prompt: "Enter the new k8s node name"
       private: no
   tasks:
-    - name: Get ais-target-* and ais-proxy-* pods on the previous node
+    # SCENARIO 1: Node exists - find pods running on it
+    - name: Check if previous node exists and get pods on it
       shell: >
         kubectl get pods -n ais --field-selector spec.nodeName={{ prev_node }} 
         | grep -E 'ais-target-|ais-proxy-' 
         | awk '{print $1}'
       register: pods_on_prev_node
       changed_when: false
+      failed_when: false
+      when: prev_node != ""
 
-    - name: Set the pod name for deletion based on previous pod
+    - name: Set pods from existing node
       set_fact:
-        target_pod: "{{ pods_on_prev_node.stdout_lines | select('search', 'ais-target-') | list | first }}"
-        proxy_pod: "{{ pods_on_prev_node.stdout_lines | select('search', 'ais-proxy-') | list | first }}"
-      when: pods_on_prev_node.stdout_lines | length > 0
+        target_pod: "{{ pods_on_prev_node.stdout_lines | select('search', 'ais-target-') | first | default('') }}"
+        proxy_pod: "{{ pods_on_prev_node.stdout_lines | select('search', 'ais-proxy-') | first | default('') }}"
+        scenario: "existing_node"
+      when: 
+        - prev_node != ""
+        - pods_on_prev_node.stdout_lines | length > 0
 
+    # SCENARIO 2: Node doesn't exist - find pending pods
+    - name: Find pending ais-target and ais-proxy pods
+      shell: >
+        kubectl get pods -n ais --field-selector status.phase=Pending --no-headers
+        | grep -E 'ais-target-|ais-proxy-'
+        | awk '{print $1}'
+      register: pending_pods
+      changed_when: false
+      when: prev_node == "" or (pods_on_prev_node is defined and pods_on_prev_node.stdout_lines | length == 0)
+
+    - name: Extract pending target and proxy pods
+      set_fact:
+        pending_target_pods: "{{ pending_pods.stdout_lines | select('search', 'ais-target-') | list }}"
+        pending_proxy_pods: "{{ pending_pods.stdout_lines | select('search', 'ais-proxy-') | list }}"
+      when: prev_node == "" or (pods_on_prev_node is defined and pods_on_prev_node.stdout_lines | length == 0)
+
+    - name: Auto-select pods when only one of each type is pending
+      set_fact:
+        target_pod: "{{ pending_target_pods[0] | default('') }}"
+        proxy_pod: "{{ pending_proxy_pods[0] | default('') }}"
+        scenario: "pending_pods"
+        auto_selected: true
+      when: 
+        - prev_node == "" or (pods_on_prev_node is defined and pods_on_prev_node.stdout_lines | length == 0)
+        - pending_target_pods | length <= 1
+        - pending_proxy_pods | length <= 1
+
+    - name: Display auto-selected pods
+      debug:
+        msg:
+          - "Auto-selected pending pods:"
+          - "  Target: {{ target_pod | default('None found') }}"
+          - "  Proxy: {{ proxy_pod | default('None found') }}"
+      when: 
+        - prev_node == "" or (pods_on_prev_node is defined and pods_on_prev_node.stdout_lines | length == 0)
+        - auto_selected is defined
+        - auto_selected
+
+    - name: Get target pod selection (multiple pending targets found)
+      pause:
+        prompt: |
+          
+          Multiple pending target pods found:
+          {{ pending_target_pods | join(', ') }}
+          
+          Please enter the TARGET pod name to recreate:
+      register: user_target_pod
+      when: 
+        - prev_node == "" or (pods_on_prev_node is defined and pods_on_prev_node.stdout_lines | length == 0)
+        - pending_target_pods | length > 1
+
+    - name: Get proxy pod selection (multiple pending proxies found)
+      pause:
+        prompt: |
+          
+          Multiple pending proxy pods found:
+          {{ pending_proxy_pods | join(', ') }}
+          
+          Please enter the PROXY pod name to recreate:
+      register: user_proxy_pod
+      when: 
+        - prev_node == "" or (pods_on_prev_node is defined and pods_on_prev_node.stdout_lines | length == 0)
+        - pending_proxy_pods | length > 1
+
+    - name: Set pods from user selection (multiple options scenario)
+      set_fact:
+        target_pod: "{{ user_target_pod.user_input | trim if user_target_pod is defined else pending_target_pods[0] | default('') }}"
+        proxy_pod: "{{ user_proxy_pod.user_input | trim if user_proxy_pod is defined else pending_proxy_pods[0] | default('') }}"
+        scenario: "pending_pods"
+      when: 
+        - prev_node == "" or (pods_on_prev_node is defined and pods_on_prev_node.stdout_lines | length == 0)
+        - auto_selected is not defined
+
+    # Common processing for both scenarios
     - name: Extract target index from target pod name
       set_fact:
         target_index: "{{ target_pod.split('-')[-1] }}"
-      when: target_pod is defined
+      when: target_pod != ""
   
     - name: Set new_node as fact
       set_fact:
         new_node_fact: "{{ new_node }}"
-    - name: Verify the pod names were set
+
+    - name: Display selected pods
       debug:
         msg:
-          - "Target pod for deletion: {{ target_pod }}"
-          - "Proxy pod for deletion: {{ proxy_pod }}"
-          - "Target index: {{ target_index }}"
+          - "Scenario: {{ scenario }}"
+          - "Target pod: {{ target_pod | default('None') }}"
+          - "Proxy pod: {{ proxy_pod | default('None') }}"
+          - "Target index: {{ target_index | default('Not applicable') }}"
+          - "New node: {{ new_node_fact }}"
 
+    # Confirmation for existing node scenario
+    - name: Confirm pod deletion and recreation (existing node)
+      pause:
+        prompt: |
+          
+          EXISTING NODE SCENARIO
+          ======================
+          
+          The following pods will be DELETED from node {{ prev_node }}:
+          - Target pod: {{ target_pod | default('None') }}
+          - Proxy pod: {{ proxy_pod | default('None') }}
+          
+          Then recreated on new node: {{ new_node_fact }}
+          
+          This will also delete and recreate associated PVCs and PVs.
+
+          RECOMMENDATION: Put the target in maintenance mode and wait
+          for rebalance to complete before proceeding.
+          
+          Are you sure you want to proceed? (yes/no)
+      register: user_confirmation_existing
+      when: scenario == "existing_node"
+
+    - name: Confirm pod recreation (pending pods scenario)
+      pause:
+        prompt: |
+          
+          PENDING PODS SCENARIO
+          =====================
+          
+          The following pods will be recreated on new node {{ new_node_fact }}:
+          - Target pod: {{ target_pod | default('None') }}
+          - Proxy pod: {{ proxy_pod | default('None') }}
+          
+          New PVCs and PVs will be created for these pods.
+          
+          Are you sure you want to proceed? (yes/no)
+      register: user_confirmation_pending
+      when: scenario == "pending_pods"
+
+    - name: Check user confirmation
+      fail:
+        msg: "Operation cancelled by user"
+      when: >
+        (scenario == "existing_node" and user_confirmation_existing.user_input | lower not in ['yes', 'y']) or
+        (scenario == "pending_pods" and user_confirmation_pending.user_input | lower not in ['yes', 'y'])
+
+    # Cleanup existing node (only for existing node scenario)
     - name: Unlabel the previous node
       command: >
         kubectl label nodes {{ prev_node }} 
         nvidia.com/ais-target- 
         nvidia.com/ais-proxy-
+      when: 
+        - scenario == "existing_node"
+        - prev_node != ""
 
-    - name: Delete the ais-target-* and ais-proxy-* pods on the previous node
+    - name: Delete pods on existing node
       shell: >
-        kubectl delete pod -n ais {{ target_pod }} {{ proxy_pod }}
-      when: target_pod is defined and proxy_pod is defined
+        kubectl delete pod -n ais {{ ([target_pod, proxy_pod] | select | join(' ')) }}
+      ignore_errors: yes
+      when: 
+        - scenario == "existing_node"
+        - target_pod != "" or proxy_pod != ""
 
-    - name: Delete the PVCs for the target and proxy
-      shell: kubectl get pvc -n ais --no-headers | awk '/{{ target_pod }}|{{ proxy_pod }}/ {print $1}' | xargs kubectl delete pvc -n ais
+    - name: Delete PVCs for pods on existing node
+      shell: >
+        kubectl get pvc -n ais --no-headers | 
+        awk '/{{ target_pod }}|{{ proxy_pod }}/ {print $1}' | 
+        xargs -r kubectl delete pvc -n ais
       args:
         executable: /bin/bash
       register: delete_pvc_out
       changed_when: "'deleted' in delete_pvc_out.stdout"
+      ignore_errors: yes
+      when: 
+        - scenario == "existing_node"
+        - target_pod != "" or proxy_pod != ""
 
-    - name: Delete the PVs for the target and proxy
-      shell: kubectl get pv --no-headers | awk '/{{ target_pod }}|{{ proxy_pod }}/ {print $1}' | xargs kubectl delete pv
+    - name: Delete PVs for pods on existing node
+      shell: >
+        kubectl get pv --no-headers | 
+        awk '/{{ target_pod }}|{{ proxy_pod }}/ {print $1}' | 
+        xargs -r kubectl delete pv
       args:
         executable: /bin/bash
       register: delete_pv_out
       changed_when: "'deleted' in delete_pv_out.stdout"
       ignore_errors: yes
+      when: 
+        - scenario == "existing_node"
+        - target_pod != "" or proxy_pod != ""
 
 - name: Label the new node and create new PV/PVCs
   hosts: controller
