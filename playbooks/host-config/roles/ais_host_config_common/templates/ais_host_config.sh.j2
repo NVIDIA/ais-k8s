@@ -30,36 +30,37 @@ function bleat {
 }
 
 #
-# first arg is path relative to /sys/block/sd*, eg 'queue/scheduler'
-# second arg is the value to write to all paths /sys/block/sd*
-# These parameters are not configurable in /etc/sysctl.d, sadly. The IO scheduler
-# can be applied as a default by updating /etc/default/grub, but we do it here
-# for now.
+# The first arg is the full path of the device parameter to change
+# For example, /sys/block/sda/queue/read_ahead_kb or a wildcard like /sys/block/nvme*/queue/read_ahead_kb
+# The second arg is the value to write to all paths at the destination
 #
 function update_blk_values {
-    what=$1
+    path=$1
     val=$2
-    prefix={{ blkdevtune_prefix }}
 
-    echo "$prefix/$what values before:"
-    cat $prefix/$what | sort -u
+    echo "$path values before:"
+    cat $path | sort -u
     echo
 
-    for p in $prefix/$what
+    for p in $path
     do
         echo "$val" > $p || bleat "failed to set $p to value $val"
     done
 
-    echo "$prefix/$what values after:"
-    cat $prefix/$what | sort -u
+    echo "$path values after:"
+    cat $path | sort -u
     echo
 }
 
+
 function do_blk_subst {
-    {% for item in blkdevtune.items() %}
-    update_blk_values "{{ item[0] }}" "{{ item[1] }}"
-    {% endfor %}
+{% for prefix in blkdevtune_prefixes %}
+{% for what, val in blkdevtune.items() %}
+    update_blk_values "{{ prefix }}/{{ what }}" "{{ val }}"
+{% endfor %}
+{% endfor %}
 }
+
 
 #
 # Apply ethtool tweaks. These used to go in /etc/network/interfaces, no longer consulted

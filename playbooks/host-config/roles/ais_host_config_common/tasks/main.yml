@@ -80,6 +80,21 @@
       mode: 0755
       owner: root
       group: root
+
+  - name: Set block device prefixes for tuning (used with io tag)
+    set_fact:
+      blkdevtune_prefixes: >-
+        {{
+          (bkdevtune_list | default([], true) | length > 0)
+            | ternary(
+                  ['/sys/block/'] | product(bkdevtune_list | default([], true)) | map('join', '') | list,
+                  [blkdevtune_prefix]
+            )
+        }}
+  
+  - name: Show blkdevtune_prefixes variable
+    debug:
+      var: blkdevtune_prefixes
   
   - name: Install /usr/local/bin/ais_host_config.sh
     template:

@@ -30,7 +30,7 @@ ais_cpufreq:
 
 #
 # Block device tweaks
-# The following variables will be applied to all disks matching the given prefix
+# The following variables will be applied to all disks matching the given prefix or list, if provided.
 #
 # Ref: https://www.kernel.org/doc/html/v5.3/block/queue-sysfs.html 
 # See "Generic Block Device Tuning Parameters":
@@ -38,9 +38,22 @@ ais_cpufreq:
 #
 # Tags: io
 #
+# Full prefix for all drives, e.g. `sys/block/nvme*``
 blkdevtune_prefix: /sys/block/nvme*
+# Optional -- overrides prefix at /sys/block
+bkdevtune_list:
+  # - vdc
+  # - vdd
+  # - vde
+  # - vdf
+  # - vdg
+  # - vdh
+  # - vdi
+
 blkdevtune:
-  queue/read_ahead_kb: 256
+  queue/read_ahead_kb: 128
+  # queue/logical_block_size: 65536
+  # queue/rotational: 0
 
 
 #
