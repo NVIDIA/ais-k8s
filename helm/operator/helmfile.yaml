@@ -9,6 +9,12 @@ environments:
     - createCert:
         enabled: true
     kubeContext: sjc11
+  neb-fin: 
+    values:
+    - ./config/operator/neb-fin.yaml.gotmpl
+    - createCert:
+        enabled: false
+
 ---
 repositories:
   - name: aistore

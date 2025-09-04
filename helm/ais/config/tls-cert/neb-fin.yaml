@@ -1,0 +1,43 @@
+certificate:
+  duration: 8760h # 1 year
+  renewBefore: 720h # 30 days
+  subject:
+    organizations:
+      - NVIDIA Corporation
+    organizationalUnits:
+      - NGC Storage
+    countries:
+      - US
+  dnsNames:
+    # used for readiness and liveness check
+    - "localhost" 
+    # used for registration of targets 
+    - "ais-proxy"
+    - "ais-target"
+    # used for intra cluster communication
+    - "*.ais-proxy.ais.svc.cluster.local"
+    - "*.ais-target.ais.svc.cluster.local"
+    # used for ais-operator communication
+    - "ais-proxy.ais"
+  ipAddresses:
+    - 127.0.0.1
+    - 10.11.0.14
+    - 10.8.100.56
+    - 10.8.54.76
+    - 10.8.30.0
+    - 10.8.54.47 
+    - 10.8.30.8
+    - 10.8.54.0
+    - 10.8.6.60
+    - 10.8.54.1
+    - 10.11.0.13
+    - 10.8.6.29
+    - 10.11.0.16
+    # authN
+    - 10.10.122.17
+    # LB
+    - 10.8.54.38
+  emailAddress: ais@exchange.nvidia.com
+  issuerRef:
+    name: ca-issuer
+    kind: ClusterIssuer

@@ -69,6 +69,18 @@ environments:
       labelNodes:
         enabled: false
     kubeContext: oci-ord
+  neb-fin:
+    values: 
+    - https:
+        # Values used to template before deploying AuthN 
+        enabled: false
+      cloudSecrets:
+        enabled: false
+      createPV:
+        enabled: true
+      labelNodes:
+        enabled: false
+    kubeContext: neb-fin
 ---
 
 releases:

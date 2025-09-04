@@ -1,0 +1,24 @@
+# Used for setting up a private PKI
+ca_cert_secret: ca-root-secret
+
+clusterIssuer:
+  name: selfsigned-issuer
+
+caCertificate:
+  name: selfsigned-cert
+  duration: 8760h
+  renewBefore: 720h
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS1
+    size: 4096
+  subject:
+    organizations:
+      - NVIDIA Corporation
+    organizationalUnits:
+      - NGC Storage
+    countries:
+      - US
+
+Issuer:
+  name: ca-issuer
