@@ -1,19 +1,20 @@
 environments: 
   default:
     values:
+    - envFile: default
+    - createCert:
+        enabled: false
+  authn:
+    values:
+    - envFile: authn
     - createCert:
         enabled: false
   sjc11:
     values: 
-    - ./config/operator/sjc11.yaml.gotmpl
+    - envFile: authn
     - createCert:
         enabled: true
     kubeContext: sjc11
-  neb-fin: 
-    values:
-    - ./config/operator/neb-fin.yaml.gotmpl
-    - createCert:
-        enabled: false
 
 ---
 repositories:
@@ -35,6 +36,8 @@ releases:
     createNamespace: true
     chart: aistore/ais-operator
     version: 2.5.0
+    values:
+      - "./config/operator/{{ .Values.envFile }}.yaml.gotmpl"
     hooks:
       - events: ["presync"]
         showlogs: true
