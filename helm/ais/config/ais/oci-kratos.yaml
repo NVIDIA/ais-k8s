@@ -1,0 +1,44 @@
+cluster: ais
+mpathInfo:
+  storageClass: "ais-local-storage"
+  size: 6.2Ti
+  paths:
+    - /ais/nvme0n1
+    - /ais/nvme1n1
+    - /ais/nvme2n1
+    - /ais/nvme3n1
+    - /ais/nvme4n1
+    - /ais/nvme5n1
+    - /ais/nvme6n1
+    - /ais/nvme7n1
+    - /ais/nvme8n1
+    - /ais/nvme9n1
+    - /ais/nvme10n1
+    - /ais/nvme11n1
+size: 16
+protocol: https
+https:
+  skipVerifyCert: false
+  tlsSecret: "tls-certs"
+imagePullSecrets:
+  - name: regcred
+nodeImage:
+  tag: v3.31
+initImage:
+  tag: v3.31
+logSidecarImage:
+  tag: v1.1
+cloud:
+  awsSecretName: "aws-creds"
+configToUpdate:
+  memsys:
+    min_free: 8GiB
+    to_gc: 8GiB
+    hk_time: 3m
+  net:
+    http:
+      idle_conn_time: 20s
+      idle_conns: 2048
+      idle_conns_per_host: 128
+stateStorageClass: "local-path"
+authNSecretName: "ais-authn-jwt-signing-key"
