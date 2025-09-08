@@ -1,6 +1,7 @@
 environments: 
   default:
   tls: 
+  oci:
 ---
 releases:
   - name: ais-authn

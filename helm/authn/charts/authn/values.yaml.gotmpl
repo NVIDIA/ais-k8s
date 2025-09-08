@@ -24,6 +24,11 @@ applicationPort: 52001
 servicePort: 52001
 nodePort: 30001
 
+lb:
+  enabled: false
+  port: 52001
+  annotations:
+
 persistence:
   enabled: true
   size: 50Mi

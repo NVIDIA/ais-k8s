@@ -29,3 +29,26 @@ spec:
     - protocol: TCP
       port: {{ .Values.servicePort }}
       targetPort: {{ .Values.applicationPort }}
+---
+{{- if .Values.lb.enabled }}
+# Service for external access to AuthN
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-lb
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    {{- with .Values.lb.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  labels:
+    app.kubernetes.io/name: {{ .Release.Name }}
+spec:
+  selector:
+    app.kubernetes.io/name: {{ .Release.Name }}
+  ports:
+    - protocol: TCP
+      port: {{ .Values.lb.port }}
+      targetPort: {{ .Values.applicationPort }}
+  type: LoadBalancer
+{{- end }}

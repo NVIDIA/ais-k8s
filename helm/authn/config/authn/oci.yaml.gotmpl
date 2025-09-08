@@ -1,0 +1,12 @@
+tls:
+  enabled: true
+  secretName: "tls-certs"
+  certPath: "/var/certs/tls.crt"
+  keyPath: "/var/certs/tls.key"
+
+lb:
+  enabled: true
+  port: 52001
+  annotations:
+    oci.oraclecloud.com/load-balancer-type: "nlb"
+    oci-network-load-balancer.oraclecloud.com/internal: "true"

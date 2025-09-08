@@ -92,6 +92,31 @@
       "maximum": 32767,
       "description": "NodePort -- Used by external clients such as CLI, SDKs, etc."
     },
+    "lb": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable the AuthN LoadBalancer service."
+        },
+        "port": {
+          "type": "integer",
+          "default": 52001,
+          "minimum": 1,
+          "maximum": 65535,
+          "description": "External port for the AuthN LoadBalancer service."
+        },
+        "annotations": {
+          "type": ["object", "null"],
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Annotations to add to the AuthN LoadBalancer service."
+        }
+      },
+      "required": ["enabled", "port"]
+    },
     "persistence": {
       "type": "object",
       "description": "Persistence configuration",
@@ -113,5 +138,5 @@
       "required": ["enabled", "size", "hostPath"]
     }
   },
-  "required": ["image", "superuser", "jwtSigningKey", "tls", "log", "applicationPort", "nodePort", "persistence"]
+  "required": ["image", "superuser", "jwtSigningKey", "tls", "log", "applicationPort", "nodePort", "lb", "persistence"]
 }
