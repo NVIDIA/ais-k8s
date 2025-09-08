@@ -1,0 +1,43 @@
+{{- if and .Values.tls.enabled .Values.tls.createCert}}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Release.Name }}-server-cert
+  namespace: {{ .Release.Namespace }}
+spec:
+  secretName: {{ .Values.tls.secretName }}
+  isCA: false
+  duration: {{ .Values.tls.certificate.duration }}
+  renewBefore: {{ .Values.tls.certificate.renewBefore }}
+  usages:
+    - server auth
+  subject:
+    organizations: 
+      {{- range .Values.tls.certificate.subject.organizations }}
+      - {{ . }}
+      {{- end }}
+    organizationalUnits:
+      {{- range .Values.tls.certificate.subject.organizationalUnits }}
+      - {{ . }}
+      {{- end }}
+    countries:
+      {{- range .Values.tls.certificate.subject.countries }}
+      - {{ . }}
+      {{- end }}
+  dnsNames:
+    - localhost
+    {{- range .Values.tls.certificate.dnsNames }}
+    - {{ . }}
+    {{- end }}
+  ipAddresses:
+    - 127.0.0.1
+    {{- range .Values.tls.certificate.ipAddresses }}
+    - {{ . }}
+    {{- end }}
+  emailAddresses:
+    - {{ .Values.tls.certificate.emailAddress }}
+  issuerRef:
+    name: {{ .Values.tls.certificate.issuerRef.name }}
+    kind: {{ .Values.tls.certificate.issuerRef.kind }}
+{{- end }}

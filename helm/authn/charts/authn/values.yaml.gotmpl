@@ -12,7 +12,8 @@ jwtSigningKey: {{ requiredEnv "JWT_SIGNING_KEY" }}
 
 tls:
   enabled: false
-  secretName: "tls-certs"
+  createCert: false
+  secretName: "{{ .Release.Name }}-tls-certs"
   certPath: "/var/certs/tls.crt"
   keyPath: "/var/certs/tls.key"
 

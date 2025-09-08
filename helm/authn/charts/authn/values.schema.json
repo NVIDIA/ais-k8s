@@ -50,9 +50,13 @@
           "type": "boolean",
           "description": "Whether TLS is enabled"
         },
+        "createCert": {
+          "type": "boolean",
+          "description": "Whether to create a certificate as part of the AuthN deployment"
+        },
         "secretName": {
           "type": "string",
-          "description": "Name of the TLS secret"
+          "description": "Name of the TLS secret. If using createCert, name of secret to create."
         },
         "certPath": {
           "type": "string",
@@ -63,7 +67,7 @@
           "description": "Path to TLS private key file"
         }
       },
-      "required": ["enabled", "secretName", "certPath", "keyPath"]
+      "required": ["enabled", "createCert", "secretName", "certPath", "keyPath"]
     },
     "log": {
       "type": "object",

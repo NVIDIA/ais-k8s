@@ -1,7 +1,26 @@
-environments: 
+environments:
   default:
-  tls: 
-  oci:
+    values:
+      - envFile: default
+  tls:
+    values:
+      - envFile: tls
+  neb-fin: 
+    values: 
+      - envFile: nvidia
+    kubeContext: neb-fin
+  oci-kratos:
+    values:
+      - envFile: oci
+    kubeContext: oci-kratos
+  oci-ord:
+    values:
+      - envFile: oci
+    kubeContext: oci-ord
+  oci-iad:
+    values:
+      - envFile: oci
+    kubeContext: oci-iad
 ---
 releases:
   - name: ais-authn
@@ -11,4 +30,5 @@ releases:
     version: 0.1.0
     values:
       - "./charts/authn/values.yaml.gotmpl"
-      - "./config/authn/{{ .Environment.Name }}.yaml.gotmpl"
+      - "./config/authn/{{ .Values.envFile }}.yaml.gotmpl"
+      - "./config/authn/cert/{{ .Environment.Name }}.yaml"
