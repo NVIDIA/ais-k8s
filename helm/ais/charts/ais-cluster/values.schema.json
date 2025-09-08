@@ -369,6 +369,31 @@
           "examples": [false]
         }
       }
+    },
+    "proxyLB": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable a LoadBalancer service for AIS proxies."
+        },
+        "port": {
+          "type": "integer",
+          "default": 51080,
+          "minimum": 1,
+          "maximum": 65535,
+          "description": "External port for the AIS proxy LoadBalancer service."
+        },
+        "annotations": {
+          "type": ["object", "null"],
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Annotations to add to the AIS proxy LoadBalancer service."
+        }
+      },
+      "required": ["enabled", "port"]
     }
   },
   "required": ["cluster", "size", "protocol", "nodeImage", "initImage", "shutdownCluster", "cleanupData", "cleanupMetadata"]

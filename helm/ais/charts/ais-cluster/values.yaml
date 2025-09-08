@@ -30,8 +30,25 @@ proxySpec:
     - key: "node.kubernetes.io/disk-pressure"
       operator: "Exists"
       effect: "NoExecute"
+  hostPort: 51080
+  servicePort: 51080
+  portPublic: 51080
+  portIntraControl: 51082
+  portIntraData: 51083 
+
 targetSpec:
   tolerations:
     - key: "node.kubernetes.io/disk-pressure"
       operator: "Exists"
       effect: "NoExecute"
+  hostPort: 51081
+  servicePort: 51081
+  portPublic: 51081
+  portIntraControl: 51082
+  portIntraData: 51083
+
+proxyLB:
+  enabled: false
+  port: 51080
+  annotations:
+    prometheus.io/scrape: "true"

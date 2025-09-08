@@ -1,0 +1,23 @@
+{{- if .Values.proxyLB.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    {{- with .Values.proxyLB.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  labels:
+    app.kubernetes.io/name: {{ .Values.cluster }}
+  name: {{ .Values.cluster }}-proxy-lb
+  namespace: {{ .Release.namespace }}
+spec:
+  ports:
+  - name: pub
+    port: {{ .Values.proxyLB.port }}
+    protocol: TCP
+    targetPort: {{ .Values.proxySpec.portPublic }}
+  selector:
+    app.kubernetes.io/name: {{ .Values.cluster }}
+    app.kubernetes.io/component: proxy
+  type: LoadBalancer
+{{- end }}

@@ -38,3 +38,10 @@ configToUpdate:
       idle_conns: 2048
       idle_conns_per_host: 128
 stateStorageClass: "local-path"
+
+proxyLB:
+  enabled: true
+  annotations:
+    oci.oraclecloud.com/load-balancer-type: "nlb"
+    oci-network-load-balancer.oraclecloud.com/internal: "true"
+    oci-network-load-balancer.oraclecloud.com/node-label-selector: nvidia.com/ais-proxy=ais

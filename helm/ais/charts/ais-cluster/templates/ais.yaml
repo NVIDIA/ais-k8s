@@ -45,11 +45,11 @@ spec:
     {{- if .Values.proxySpec.size }}
     size: {{ .Values.proxySpec.size }}
     {{- end }}
-    hostPort: {{ .Values.proxySpec.hostPort | default 51080 }}
-    servicePort: {{ .Values.proxySpec.servicePort | default 51080 }}
-    portPublic: {{ .Values.proxySpec.portPublic | default 51080 }}
-    portIntraControl: {{ .Values.proxySpec.portIntraControl | default 51082 }}
-    portIntraData: {{ .Values.proxySpec.portIntraData | default 51083 }}
+    hostPort: {{ .Values.proxySpec.hostPort }}
+    servicePort: {{ .Values.proxySpec.servicePort }}
+    portPublic: {{ .Values.proxySpec.portPublic }}
+    portIntraControl: {{ .Values.proxySpec.portIntraControl }}
+    portIntraData: {{ .Values.proxySpec.portIntraData }}
     capabilities:
       privileged: true
     {{- if .Values.proxySpec.securityContext }}
@@ -86,11 +86,11 @@ spec:
     {{- if .Values.targetSpec.size }}
     size: {{ .Values.targetSpec.size }}
     {{- end }}
-    hostPort: {{ .Values.targetSpec.hostPort | default 51081 }}
-    servicePort: {{ .Values.targetSpec.servicePort | default 51081 }}
-    portPublic: {{ .Values.targetSpec.portPublic | default 51081 }}
-    portIntraControl: {{ .Values.targetSpec.portIntraControl | default 51082 }}
-    portIntraData: {{ .Values.targetSpec.portIntraData | default 51083 }}
+    hostPort: {{ .Values.targetSpec.hostPort }}
+    servicePort: {{ .Values.targetSpec.servicePort }}
+    portPublic: {{ .Values.targetSpec.portPublic }}
+    portIntraControl: {{ .Values.targetSpec.portIntraControl }}
+    portIntraData: {{ .Values.targetSpec.portIntraData }}
     {{- if .Values.targetSpec.hostNetwork }}
     hostNetwork: {{ .Values.targetSpec.hostNetwork }}
     {{- end }}
