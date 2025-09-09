@@ -1,0 +1,38 @@
+cluster: ais
+mpathInfo:
+  storageClass: "ais-local-storage"
+  size: 930Gi
+  paths:
+    - /ais/vdc
+    - /ais/vdd
+    - /ais/vde
+    - /ais/vdf
+    - /ais/vdg
+size: 3
+protocol: http
+https:
+  skipVerifyCert: false
+nodeImage:
+  tag: v3.31-fuse-6c97f1b-rebuild
+initImage:
+  tag: v3.31
+logSidecarImage:
+  tag: v1.1
+cloud:
+  awsSecretName: "aws-creds"
+configToUpdate:
+  memsys:
+    min_free: 8GiB
+    to_gc: 8GiB
+    hk_time: 3m
+  backend:
+    aws: {}
+  net:
+    http:
+      idle_conn_time: 20s
+      idle_conns: 2048
+      idle_conns_per_host: 128
+stateStorageClass: "local-path"
+authNSecretName:
+proxyLB:
+  enabled: true

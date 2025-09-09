@@ -81,6 +81,17 @@ environments:
       labelNodes:
         enabled: false
     kubeContext: neb-fin
+  neb-fin-test:
+    values: 
+    - https:
+        enabled: false
+      cloudSecrets:
+        enabled: false
+      createPV:
+        enabled: false
+      labelNodes:
+        enabled: false
+    kubeContext: neb-fin-test
 ---
 
 releases:
