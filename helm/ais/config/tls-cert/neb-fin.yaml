@@ -33,10 +33,9 @@ certificate:
     - 10.11.0.13
     - 10.8.6.29
     - 10.11.0.16
-    # authN
-    - 10.10.122.17
     # LB
-    - 10.8.54.38
+    - 10.10.132.70
+    - 89.169.108.253
   emailAddress: ais@exchange.nvidia.com
   issuerRef:
     name: ca-issuer

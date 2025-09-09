@@ -39,3 +39,5 @@ configToUpdate:
       idle_conns_per_host: 128
 stateStorageClass: "local-path"
 authNSecretName: "ais-authn-jwt-signing-key"
+proxyLB:
+  enabled: true

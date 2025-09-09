@@ -77,7 +77,7 @@ environments:
       cloudSecrets:
         enabled: false
       createPV:
-        enabled: true
+        enabled: false
       labelNodes:
         enabled: false
     kubeContext: neb-fin

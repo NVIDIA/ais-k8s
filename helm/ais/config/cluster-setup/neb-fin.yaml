@@ -2,7 +2,7 @@
 # Nodes to create PVs on -- other values will be pulled from the ais config
 nodes:
   - computeinstance-e00em8ha715y3gmy4v
-  - computeinstance-e00fg2nv3fak2nxkeh
+  - computeinstance-e00acft3p4fve472xz
   - computeinstance-e00kp1f6tqs48z03h2
   - computeinstance-e00phcfwjn3ab2c097
   - computeinstance-e00mpm4mw1526tersr
