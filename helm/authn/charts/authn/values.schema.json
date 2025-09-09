@@ -107,12 +107,16 @@
           "maximum": 65535,
           "description": "External port for the AuthN LoadBalancer service."
         },
+        "clusterIP": {
+          "type": ["string", "null"],
+          "description": "Static cluster IP for the AuthN LoadBalancer service. If null or empty, Kubernetes assigns an IP from the service CIDR range."
+        },
         "annotations": {
           "type": ["object", "null"],
           "additionalProperties": {
             "type": "string"
           },
-          "description": "Annotations to add to the AuthN LoadBalancer service."
+          "description": "Annotations to add to the AuthN LoadBalancer service. Use cloud provider specific annotations to configure a static external IP."
         }
       },
       "required": ["enabled", "port"]

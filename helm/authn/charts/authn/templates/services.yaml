@@ -51,4 +51,7 @@ spec:
       port: {{ .Values.lb.port }}
       targetPort: {{ .Values.applicationPort }}
   type: LoadBalancer
+  {{- if .Values.lb.clusterIP }}
+  clusterIP: {{ .Values.lb.clusterIP }}
+  {{- end }}
 {{- end }}
