@@ -13,10 +13,21 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ### Added
 
+- Read authN configuration and secret location from ConfigMap defined by `AIS_AUTHN_CM`
+
 ### Changed
 
 - Refactor proxy reconcile to a state-driven flow for upgrades and scaling:
   - Add proxy-specific states `ProxyUpgrading` and `ProxyScaling`
+
+### Removed
+
+- All AuthN environment variables from operator deployment
+  - `AIS_AUTHN_SU_NAME`
+  - `AIS_AUTHN_SU_PASS`
+  - `AIS_AUTHN_SERVICE_HOST`
+  - `AIS_AUTHN_SERVICE_PORT`
+  - `AIS_AUTHN_USE_HTTPS`
 
 ##  v2.5.0
 

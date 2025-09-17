@@ -57,7 +57,7 @@ func NewAISClientManager(k8sClient *aisclient.K8sClient, tlsOpts AISClientTLSOpt
 	return &AISClientManager{
 		k8sClient: k8sClient,
 		tlsOpts:   tlsOpts,
-		authN:     NewAuthNClient(),
+		authN:     NewAuthNClient(k8sClient),
 		clientMap: make(map[string]AIStoreClientInterface, 16),
 	}
 }
@@ -83,13 +83,11 @@ func (m *AISClientManager) GetClient(ctx context.Context,
 		return
 	}
 
-	var adminToken string
-	if ais.Spec.AuthNSecretName != nil {
-		adminToken, err = m.authN.getAdminToken(ctx)
-		if err != nil {
-			logger.Error(err, "Failed to get admin token for AuthN")
-			return nil, err
-		}
+	// Attempt to get an authN token from the secret mapped for this cluster in the configmap
+	adminToken, err := m.authN.getAdminToken(ctx, ais)
+	if err != nil {
+		logger.Error(err, "Failed to get admin token for AuthN")
+		return nil, err
 	}
 
 	tlsConf, err := m.getTLSConfig(ctx, ais)

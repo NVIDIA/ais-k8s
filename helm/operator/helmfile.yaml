@@ -7,11 +7,15 @@ environments:
   authn:
     values:
     - envFile: authn
+    - authn:
+        enabled: true
     - createCert:
         enabled: false
   sjc11:
     values: 
     - envFile: authn
+    - authn:
+        enabled: true
     - createCert:
         enabled: true
     kubeContext: sjc11
@@ -30,6 +34,15 @@ releases:
     version: 0.1.0
     values:
       - "./config/tls-cert/{{ .Environment.Name }}.yaml"
+
+  - name: operator-authn-cm
+    namespace: ais-operator-system
+    createNamespace: true
+    chart: authn-cm
+    condition: authn.enabled
+    version: 0.1.0
+    values:
+      - "./config/authn-cm/{{ .Environment.Name }}.yaml"
 
   - name: ais-operator
     namespace: ais-operator-system

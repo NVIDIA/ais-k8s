@@ -1,0 +1,12 @@
+# These config map values tell the operator which AuthN secrets to use for each AIS cluster
+# This can be updated without an operator redeploy
+config:
+  # Cluster "ais" in namespace "ais"
+  ais-ais:
+    tls: true
+    # These are the defaults for host/port, but are explicitly provided here
+    host: ais-authn.ais
+    port: 52001
+    # Default credentials secret name for an authN deployment
+    secretName: ais-authn-su-creds
+    secretNamespace: ais

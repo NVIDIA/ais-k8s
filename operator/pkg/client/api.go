@@ -122,6 +122,10 @@ func (c *K8sClient) GetConfigMap(ctx context.Context, name types.NamespacedName)
 	return getResource[*corev1.ConfigMap](c.client, ctx, name)
 }
 
+func (c *K8sClient) GetSecret(ctx context.Context, name types.NamespacedName) (*corev1.Secret, error) {
+	return getResource[*corev1.Secret](c.client, ctx, name)
+}
+
 func (c *K8sClient) GetPod(ctx context.Context, name types.NamespacedName) (*corev1.Pod, error) {
 	return getResource[*corev1.Pod](c.client, ctx, name)
 }

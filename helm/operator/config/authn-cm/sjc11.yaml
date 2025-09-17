@@ -1,0 +1,5 @@
+config:
+  ais-ais:
+    tls: true
+    secretNamespace: ais
+    secretName: ais-authn-su-creds
