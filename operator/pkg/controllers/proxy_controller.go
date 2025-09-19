@@ -60,7 +60,7 @@ func (r *AIStoreReconciler) initProxies(ctx context.Context, ais *aisv1.AIStore)
 		logger  = logf.FromContext(ctx)
 	)
 
-	// 1. Create a proxy StatefulSet with single replica as primary
+	// 1. Create a proxy statefulset with single replica as primary
 	ss := proxy.NewProxyStatefulSet(ais, 1)
 	if exists, err = r.k8sClient.CreateResourceIfNotExists(ctx, ais, ss); err != nil {
 		r.recordError(ctx, ais, err, "Failed to deploy Primary proxy")
@@ -134,32 +134,98 @@ func (r *AIStoreReconciler) handleProxyState(ctx context.Context, ais *aisv1.AIS
 		return
 	}
 
-	// If an upgrade or scaling operation is in progress, handle it
-	switch {
-	case ais.HasState(aisv1.ClusterProxyScaling):
-		if res := handleProxyScale(ctx, ais, ss); !res.IsZero() {
-			return res, nil
+	result, err = r.syncProxyPodSpec(ctx, ais, ss)
+	if err != nil || !result.IsZero() {
+		return
+	}
+	result, err = r.handleProxyRollout(ctx, ais, ss)
+	if err != nil || !result.IsZero() {
+		return
+	}
+
+	if *ss.Spec.Replicas != ais.GetProxySize() {
+		if *ss.Spec.Replicas > ais.GetProxySize() {
+			// If the cluster is scaling down, ensure the pod being delete is not primary.
+			r.handleProxyScaledown(ctx, ais, *ss.Spec.Replicas)
 		}
-	case ais.HasState(aisv1.ClusterProxyUpgrading):
-		if res, err := r.handleProxyUpgrade(ctx, ais, ss); err != nil || !res.IsZero() {
-			return res, err
+		// If anything was updated, we consider it not immediately ready.
+		updated, err := r.k8sClient.UpdateStatefulSetReplicas(ctx, proxySSName, ais.GetProxySize())
+		if err != nil || updated {
+			result.Requeue = true
+			return result, err
 		}
 	}
 
-	// Determine if we need to start a scale or upgrade operation
-	if needsProxyScale(ais, ss) {
-		return r.startProxyScale(ctx, ais, ss)
+	// Requeue if the number of proxy pods ready does not match the size provided in AIS cluster spec.
+	if ss.Status.ReadyReplicas != ais.GetProxySize() {
+		logf.FromContext(ctx).Info("Waiting for proxy statefulset to reach desired replicas")
+		return ctrl.Result{RequeueAfter: proxyStartupInterval}, nil
 	}
-	return r.checkProxyUpgrade(ctx, ais, ss)
+	return
 }
 
-// With StatefulSet rolling update strategy, pods are updated in descending order of their pod index.
+func (r *AIStoreReconciler) syncProxyPodSpec(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) (result ctrl.Result, err error) {
+	logger := logf.FromContext(ctx).WithValues("statefulset", ss.Name)
+	updatedSS := ss.DeepCopy()
+	desiredTemplate := &proxy.NewProxyStatefulSet(ais, ais.GetProxySize()).Spec.Template
+
+	// Any change to pod template will trigger a new rollout, so any changes to the SS should happen here
+	if needsUpdate, reason := shouldUpdatePodTemplate(desiredTemplate, &updatedSS.Spec.Template); needsUpdate {
+		// If we have an active cluster, set primary to 0 before triggering rollout
+		if updatedSS.Status.ReadyReplicas > 0 {
+			if err = r.setPrimaryTo(ctx, ais, 0); err != nil {
+				logger.Error(err, "failed to set primary proxy", "podIndex", 0)
+				return
+			}
+			logger.Info("Updated primary to pod", "pod", proxy.PodName(ais, 0), "reason", reason)
+			// Block updating the primary
+			updatedSS.Spec.UpdateStrategy = appsv1.StatefulSetUpdateStrategy{
+				Type: appsv1.RollingUpdateStatefulSetStrategyType,
+				RollingUpdate: &appsv1.RollingUpdateStatefulSetStrategy{
+					Partition: aisapc.Ptr(int32(1)),
+				},
+			}
+		}
+		syncPodTemplate(desiredTemplate, &updatedSS.Spec.Template)
+		logger.Info("Proxy pod template spec modified", "reason", reason)
+		patch := client.MergeFrom(ss)
+		err = r.k8sClient.Patch(ctx, updatedSS, patch)
+		if err != nil {
+			return
+		}
+		logger.Info("Statefulset successfully updated", "reason", reason)
+		return ctrl.Result{Requeue: true}, err
+	}
+	return
+}
+
+func (r *AIStoreReconciler) handleProxyRollout(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) (result ctrl.Result, err error) {
+	// If rollout is complete, current revision will match update revision
+	if ss.Status.UpdateRevision == ss.Status.CurrentRevision {
+		return ctrl.Result{}, nil
+	}
+
+	// Reset partition to update last pod
+	if shouldResetPartition(ss) {
+		err = r.setHighestPodAsPrimary(ctx, ais, ss)
+		if err != nil {
+			return
+		}
+		err = r.resetSSPartition(ctx, ss)
+		if err != nil {
+			return
+		}
+	}
+	return ctrl.Result{Requeue: true}, nil
+}
+
+// With statefulset rolling update strategy, pods are updated in descending order of their pod index.
 // This implies the pod with the largest index is the oldest proxy, and we set it as primary.
 func (r *AIStoreReconciler) setHighestPodAsPrimary(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) (err error) {
 	podIndex := *ss.Spec.Replicas - 1
 	err = r.setPrimaryTo(ctx, ais, podIndex)
 	if err != nil {
-		logger := logf.FromContext(ctx).WithValues("StatefulSet", ss.Name)
+		logger := logf.FromContext(ctx).WithValues("statefulset", ss.Name)
 		logger.Error(err, "failed to set primary proxy", "podIndex", podIndex)
 	}
 	return
@@ -179,9 +245,9 @@ func shouldResetPartition(ss *appsv1.StatefulSet) bool {
 }
 
 func (r *AIStoreReconciler) resetSSPartition(ctx context.Context, ss *appsv1.StatefulSet) (err error) {
-	logger := logf.FromContext(ctx).WithValues("StatefulSet", ss.Name)
+	logger := logf.FromContext(ctx).WithValues("statefulset", ss.Name)
 	logger.Info("Removing partition from rolling update strategy")
-	// Revert StatefulSet partition spec
+	// Revert statefulset partition spec
 	updatedSS := ss.DeepCopy()
 	updatedSS.Spec.UpdateStrategy = appsv1.StatefulSetUpdateStrategy{
 		Type: appsv1.RollingUpdateStatefulSetStrategyType,
@@ -192,7 +258,7 @@ func (r *AIStoreReconciler) resetSSPartition(ctx context.Context, ss *appsv1.Sta
 	patch := client.MergeFrom(ss)
 	err = r.k8sClient.Patch(ctx, updatedSS, patch)
 	if err != nil {
-		logger.Error(err, "failed to patch StatefulSet update strategy")
+		logger.Error(err, "failed to patch statefulset update strategy")
 	}
 	return
 }
@@ -229,9 +295,9 @@ func findNodeByPodName(pmap aismeta.NodeMap, podName string) (*aismeta.Snode, er
 	return nil, fmt.Errorf("no matching AIS node found for pod %q", podName)
 }
 
-// prepProxyScaleDown decommissions all the proxy nodes that will be deleted due to scale down.
+// handleProxyScaledown decommissions all the proxy nodes that will be deleted due to scale down.
 // If the node being deleted is a primary, a new primary is designated before decommissioning.
-func (r *AIStoreReconciler) prepProxyScaleDown(ctx context.Context, ais *aisv1.AIStore, actualSize int32) {
+func (r *AIStoreReconciler) handleProxyScaledown(ctx context.Context, ais *aisv1.AIStore, actualSize int32) {
 	logger := logf.FromContext(ctx)
 
 	apiClient, err := r.clientManager.GetClient(ctx, ais)
@@ -286,7 +352,7 @@ func (r *AIStoreReconciler) prepProxyScaleDown(ctx context.Context, ais *aisv1.A
 	}
 }
 
-// enableProxyExternalService, creates a LoadBalancer service for proxy StatefulSet.
+// enableProxyExternalService, creates a LoadBalancer service for proxy statefulset.
 // NOTE: As opposed to `target` external services, where we have a separate LoadBalancer service per pod,
 // `proxies` have a single LoadBalancer service across all the proxy pods.
 func (r *AIStoreReconciler) enableProxyExternalService(ctx context.Context,
@@ -311,98 +377,4 @@ func (r *AIStoreReconciler) enableProxyExternalService(ctx context.Context,
 		}
 	}
 	return
-}
-
-func (r *AIStoreReconciler) checkProxyUpgrade(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) (result ctrl.Result, err error) {
-	logger := logf.FromContext(ctx).WithValues("StatefulSet", ss.Name)
-	desiredTemplate := &proxy.NewProxyStatefulSet(ais, ais.GetProxySize()).Spec.Template
-	// Any change to pod template will trigger a new rollout, so any changes to the SS should happen here.
-	needsUpdate, reason := shouldUpdatePodTemplate(desiredTemplate, &ss.Spec.Template)
-	if !needsUpdate {
-		return
-	}
-
-	updatedSS := ss.DeepCopy()
-
-	// Update status and condition to indicate that the cluster is upgrading.
-	ais.SetConditionFalse(aisv1.ConditionReady, aisv1.ReasonUpgrading, "Upgrading proxy StatefulSet")
-	if err = r.updateStatusWithState(ctx, ais, aisv1.ClusterProxyUpgrading); err != nil {
-		return
-	}
-	// If we have an active cluster, set primary to 0 before triggering rollout.
-	if updatedSS.Status.ReadyReplicas > 0 {
-		if err = r.setPrimaryTo(ctx, ais, 0); err != nil {
-			logger.Error(err, "failed to set primary proxy", "podIndex", 0)
-			return
-		}
-		logger.Info("Updated primary to pod", "pod", proxy.PodName(ais, 0), "reason", reason)
-		// Block updating the primary
-		updatedSS.Spec.UpdateStrategy = appsv1.StatefulSetUpdateStrategy{
-			Type: appsv1.RollingUpdateStatefulSetStrategyType,
-			RollingUpdate: &appsv1.RollingUpdateStatefulSetStrategy{
-				Partition: aisapc.Ptr(int32(1)),
-			},
-		}
-	}
-	// Sync pod template and patch StatefulSet.
-	syncPodTemplate(desiredTemplate, &updatedSS.Spec.Template)
-	logger.Info("Proxy pod template spec modified", "reason", reason)
-	patch := client.MergeFrom(ss)
-	err = r.k8sClient.Patch(ctx, updatedSS, patch)
-	if err != nil {
-		return
-	}
-	logger.Info("StatefulSet successfully updated", "reason", reason)
-
-	// Requeue to enter handleProxyUpgrade.
-	return ctrl.Result{Requeue: true}, nil
-}
-
-func (r *AIStoreReconciler) handleProxyUpgrade(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) (ctrl.Result, error) {
-	// Reset partition to update last pod when at last pod to update.
-	if shouldResetPartition(ss) {
-		if err := r.setHighestPodAsPrimary(ctx, ais, ss); err != nil {
-			return ctrl.Result{}, err
-		}
-		if err := r.resetSSPartition(ctx, ss); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-	// Requeue until upgrade is complete.
-	if !proxy.IsStatefulSetReady(ais, ss) {
-		logf.FromContext(ctx).Info("Waiting for proxy StatefulSet upgrade to complete")
-		return ctrl.Result{RequeueAfter: proxyStartupInterval}, nil
-	}
-	return ctrl.Result{}, nil
-}
-
-func needsProxyScale(ais *aisv1.AIStore, ss *appsv1.StatefulSet) bool {
-	return *ss.Spec.Replicas != ais.GetProxySize()
-}
-
-func (r *AIStoreReconciler) startProxyScale(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) (ctrl.Result, error) {
-	// Update status and condition to indicate that the cluster is scaling.
-	ais.SetConditionFalse(aisv1.ConditionReady, aisv1.ReasonScaling, "Scaling proxy StatefulSet")
-	if err := r.updateStatusWithState(ctx, ais, aisv1.ClusterProxyScaling); err != nil {
-		return ctrl.Result{}, err
-	}
-	// If scale-in, decommission proxies and move primary if necessary before updating replicas.
-	if *ss.Spec.Replicas > ais.GetProxySize() {
-		r.prepProxyScaleDown(ctx, ais, *ss.Spec.Replicas)
-	}
-	// Update replicas to desired size
-	if _, err := r.k8sClient.UpdateStatefulSetReplicas(ctx, proxy.StatefulSetNSName(ais), ais.GetProxySize()); err != nil {
-		return ctrl.Result{}, err
-	}
-	// Requeue to enter handleProxyScale.
-	return ctrl.Result{RequeueAfter: proxyStartupInterval}, nil
-}
-
-func handleProxyScale(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) ctrl.Result {
-	// Requeue until scale is complete
-	if !proxy.IsStatefulSetReady(ais, ss) {
-		logf.FromContext(ctx).Info("Waiting for proxy StatefulSet scale to complete")
-		return ctrl.Result{RequeueAfter: proxyStartupInterval}
-	}
-	return ctrl.Result{}
 }

@@ -13,7 +13,6 @@ import (
 	aiscos "github.com/NVIDIA/aistore/cmn/cos"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	nadv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
@@ -109,20 +108,4 @@ func NewResourceReq(ais *aisv1.AIStore, reqs *corev1.ResourceRequirements) *core
 	storageBytes = storageBytes + DefaultConfigStorageReq + DefaultMiscStorageReq
 	reqs.Requests[corev1.ResourceEphemeralStorage] = *resource.NewQuantity(storageBytes, resource.BinarySI)
 	return reqs
-}
-
-func IsStatefulSetReady(ss *appsv1.StatefulSet, desired int32) bool {
-	if *ss.Spec.Replicas != desired {
-		return false
-	}
-	if ss.Status.UpdateRevision != "" && ss.Status.CurrentRevision != ss.Status.UpdateRevision {
-		return false
-	}
-	if desired != ss.Status.Replicas {
-		return false
-	}
-	if desired != ss.Status.CurrentReplicas {
-		return false
-	}
-	return desired == ss.Status.ReadyReplicas
 }

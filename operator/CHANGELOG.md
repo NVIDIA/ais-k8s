@@ -17,9 +17,6 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ### Changed
 
-- Refactor proxy reconcile to a state-driven flow for upgrades and scaling:
-  - Add proxy-specific states `ProxyUpgrading` and `ProxyScaling`
-
 ### Removed
 
 - All AuthN environment variables from operator deployment
@@ -28,7 +25,6 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
   - `AIS_AUTHN_SERVICE_HOST`
   - `AIS_AUTHN_SERVICE_PORT`
   - `AIS_AUTHN_USE_HTTPS`
-
 ##  v2.5.0
 
 ### Changed

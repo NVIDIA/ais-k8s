@@ -42,10 +42,6 @@ const (
 	ClusterUpgrading ClusterState = "Upgrading"
 	// ClusterScaling indicates the cluster is adjusting its resources (up or down).
 	ClusterScaling ClusterState = "Scaling"
-	// ClusterProxyUpgrading signifies cluster proxies are undergoing an upgrade process.
-	ClusterProxyUpgrading ClusterState = "ProxyUpgrading"
-	// ClusterProxyScaling signifies cluster proxies are adjusting their resources (up or down).
-	ClusterProxyScaling ClusterState = "ProxyScaling"
 	// ClusterShuttingDown means the cluster is in the process of shutting down.
 	ClusterShuttingDown ClusterState = "ShuttingDown"
 	// ClusterShutdown indicates the cluster is fully shut down and not operational.
