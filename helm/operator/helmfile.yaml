@@ -11,6 +11,12 @@ environments:
         enabled: true
     - createCert:
         enabled: false
+  sjc4-1000:
+    values:
+      - envFile: default
+      - createCert:
+          enabled: true
+    kubeContext: sjc4-1000
   sjc11:
     values: 
     - envFile: authn

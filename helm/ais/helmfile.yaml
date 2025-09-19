@@ -14,6 +14,17 @@ environments:
       # Subsequent runs can disable this unless node labels need to be updated.
       labelNodes:
         enabled: false
+  sjc4-1000:
+    values:
+    - https:
+        enabled: true
+      cloudSecrets:
+        enabled: false
+      createPV:
+        enabled: true
+      labelNodes:
+        enabled: true
+    kubeContext: sjc4-1000
   sjc11:
     values: 
     - https:
