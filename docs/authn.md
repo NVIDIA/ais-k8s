@@ -13,24 +13,6 @@ For more information on AuthN, visit the [AIStore AuthN documentation](https://g
 
 The best way to deploy authN is to use our [provided Helm chart](../helm/authn/README.md)
 
-### Deploy with Ansible
-
-Alternatively, you can use Ansible playbooks to [deploy](../playbooks/ais-deployment/ais_deploy_authn.yml) or [undeploy](../playbooks/ais-deployment/ais_undeploy_authn.yml) the AuthN server.
-
-#### Deploy AuthN Server
-
-```bash
-ansible-playbook -i inventory.ini playbooks/ais-deployment/ais_deploy_authn.yml -e cluster=ais
-```
-
-#### Undeploy AuthN Server
-
-To undeploy the AuthN server, run:
-
-```bash
-ansible-playbook -i inventory.ini playbooks/ais-deployment/ais_undeploy_authn.yml -e cluster=ais
-```
-
 ### AuthN Resources in Kubernetes
 
 - **Static Resources**
@@ -117,28 +99,26 @@ See [AIS Operator section above](#ais-operator)
 
 ## Disabling AuthN in an Existing AIStore Deployment
 
-If you have AuthN enabled but no longer wish to require authentication tokens for your requests or use AuthN features, you can easily disable it via the CLI or APIs/SDK with a simple configuration update:
+If you have AuthN enabled but no longer wish to use it, you can disable it via the CLI:
 
 ```bash
 ais config cluster set auth.enabled=false
 ```
 
-In most cases, a restart of AIStore is not necessary for this change to take effect. 
-However, if AIStore continues to request tokens with each API call, you may need to restart the servers for the configuration to apply properly.
+Or in the AIS spec:
+
+```yaml
+spec:
+   configToUpdate:
+      authn:
+         enabled: false 
+```
 
 ## Enabling AuthN on a Running AIStore Server
 
-> **Note:** Enabling AuthN on an already running AIStore server requires a cluster restart.
+1. Deploy Authn using our [provided Helm chart](../helm/authn/README.md).
+1. [Update the Operator](#ais-operator) to give it credentials for fetching a token and specify the AuthN server to use. For Operator versions 2.5.0 and before, update the `AUTHN_*` environment variables. 
+1. Update the AIS custom resource `spec.authNSecretName` with the signing key secret name created by the AuthN Deployment (default is `ais-authn-jwt-signing-key`).
 
-To enable AuthN, ensure that the JWT Signing Key Secret is created. Once the secret is set up, you’ll need to restart the cluster and clear the existing configurations on all nodes. This can be done using the [`ais_restart_cluster`](../playbooks/ais-deployment/ais_restart_cluster.yml) playbook with the `delete_conf=true` environment variable. This playbook will:
-
-- Delete the AIStore CRD
-- Shutdown the cluster
-- Remove configuration mounts on the target nodes, allowing them to load new configs
-- Redeploy AIStore using the [`ais_deploy_cluster`](../playbooks/ais-deployment/ais_deploy_cluster.yml) playbook
-
-Be sure to specify the JWT signing key secret in the [defaults](../playbooks/ais-deployment/roles/ais_deploy_cluster/defaults/main.yml) file.
-
-```bash
-ansible-playbook -i hosts.ini ais_restart_cluster.yml -e cluster=ais -e delete_conf=true
-```
+This will trigger a rollout of all proxies to reload the provided secret.
+AIS will begin authenticating all requests.
