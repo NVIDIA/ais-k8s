@@ -17,6 +17,8 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ### Changed
 
+- Refactored proxy scaledown handling to improve primary proxy reassignment and node decommissioning with better logging.
+
 ### Removed
 
 - All AuthN environment variables from operator deployment

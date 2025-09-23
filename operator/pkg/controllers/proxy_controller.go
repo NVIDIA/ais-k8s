@@ -18,6 +18,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -299,56 +300,73 @@ func findNodeByPodName(pmap aismeta.NodeMap, podName string) (*aismeta.Snode, er
 // If the node being deleted is a primary, a new primary is designated before decommissioning.
 func (r *AIStoreReconciler) handleProxyScaledown(ctx context.Context, ais *aisv1.AIStore, actualSize int32) {
 	logger := logf.FromContext(ctx)
+	proxySize := ais.GetProxySize()
 
 	apiClient, err := r.clientManager.GetClient(ctx, ais)
 	if err != nil {
+		logger.Error(err, "failed to get API client")
 		return
 	}
 	smap, err := apiClient.GetClusterMap()
 	if err != nil {
+		logger.Error(err, "failed to get cluster map")
 		return
 	}
 
-	decommissionNode := func(daemonID string) {
-		rmAction := &aisapc.ActValRmNode{
-			DaemonID: daemonID,
-		}
-		_, decommErr := apiClient.DecommissionNode(rmAction)
-		if decommErr != nil {
-			logger.Error(err, "failed to decommission node - "+daemonID)
+	// Find the current primary pod index
+	currentPrimaryPodIdx := int32(-1)
+	for idx := range actualSize {
+		podName := proxy.PodName(ais, idx)
+		if strings.HasPrefix(smap.Primary.ControlNet.Hostname, podName) {
+			currentPrimaryPodIdx = idx
+			break
 		}
 	}
 
-	var oldPrimaryID string
-	for idx := actualSize; idx > ais.GetProxySize(); idx-- {
+	// If current primary is set to be decommissioned and removed, attempt to move the primary away first
+	if currentPrimaryPodIdx >= proxySize {
+		r.reassignPrimaryForScaledown(ctx, ais, smap)
+	}
+
+	// Decommission the nodes to be removed
+	for idx := actualSize; idx > proxySize; idx-- {
 		podName := proxy.PodName(ais, idx-1)
 		for daeID, node := range smap.Pmap {
 			if !strings.HasPrefix(node.ControlNet.Hostname, podName) {
 				continue
 			}
-			delete(smap.Pmap, daeID)
-			if smap.IsPrimary(node) {
-				oldPrimaryID = daeID
+			logger.Info("Decommissioning proxy node", "nodeID", node.ID())
+			rmAction := &aisapc.ActValRmNode{DaemonID: daeID}
+			_, err = apiClient.DecommissionNode(rmAction)
+			if err != nil {
+				logger.Error(err, "failed to decommission node", "nodeID", node.ID())
+			}
+			break
+		}
+	}
+}
+
+func (r *AIStoreReconciler) reassignPrimaryForScaledown(ctx context.Context, ais *aisv1.AIStore, smap *aismeta.Smap) {
+	logger := logf.FromContext(ctx)
+	for idx := range ais.GetProxySize() {
+		podName := proxy.PodName(ais, idx)
+		node, err := findNodeByPodName(smap.Pmap, podName)
+		if err != nil {
+			continue
+		}
+		if !smap.InMaintOrDecomm(node.ID()) {
+			_, err = r.k8sClient.GetReadyPod(ctx, types.NamespacedName{Name: podName, Namespace: ais.Namespace})
+			if err != nil {
 				continue
 			}
-			decommissionNode(daeID)
+			err = r.setPrimaryTo(ctx, ais, idx)
+			if err != nil {
+				logger.Error(err, "failed to set primary, trying next pod", "podIndex", idx)
+				continue
+			}
+			logger.Info("Set new primary before scale down", "podIndex", idx)
+			return
 		}
-	}
-	if oldPrimaryID == "" {
-		return
-	}
-
-	// Set new primary before decommissioning old primary
-	for _, node := range smap.Pmap {
-		if smap.InMaintOrDecomm(node.ID()) {
-			continue
-		}
-		err = apiClient.SetPrimaryProxy(node.DaeID, node.PubNet.URL, true /*force*/)
-		if err != nil {
-			logger.Error(err, "failed to set primary as "+node.DaeID)
-			continue
-		}
-		decommissionNode(oldPrimaryID)
 	}
 }
 
