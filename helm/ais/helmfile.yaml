@@ -151,7 +151,9 @@ releases:
         args:
           - '{{ .Environment.Values.labelNodes.enabled }}'
           - '{{ (fromYaml (readFile (print "./config/ais/" .Environment.Name ".yaml"))).cluster }}'
-          - '{{ (fromYaml (readFile (print "./config/cluster-setup/" .Environment.Name ".yaml"))).nodes | join "," }}'
+          - '{{ if isFile (print "./config/cluster-setup/" .Environment.Name ".yaml") }}
+                {{ (fromYaml (readFile (print "./config/cluster-setup/" .Environment.Name ".yaml"))).nodes | join "," }}
+            {{ end }}'
       # Create persistent volumes if requested by this env
       - events: ["presync"]
         showlogs: true

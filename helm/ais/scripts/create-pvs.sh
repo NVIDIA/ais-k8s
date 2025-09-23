@@ -17,9 +17,20 @@ echo "AIS_VALUES_YAML: $AIS_VALUES_YAML"
 echo "PV_VALUES_YAML: $PV_VALUES_YAML"
 echo "RELEASE_NAMESPACE: $RELEASE_NAMESPACE"
 
-if [[ "$CREATE_PVS" == "true" ]]; then
-  echo "Templating and applying PersistentVolumes with claimRef namespace "$RELEASE_NAMESPACE" and values from $AIS_VALUES_YAML and $PV_VALUES_YAML"
-  helm template ais-create-pv ./charts/create-pv -f "$AIS_VALUES_YAML" -f "$PV_VALUES_YAML" --set namespace="$RELEASE_NAMESPACE" | kubectl apply -f -
-else
+if [[ ! "$CREATE_PVS" == "true" ]]; then
   echo "Skipping PersistentVolume creation."
+  exit 0
 fi
+
+if [ ! -f $AIS_VALUES_YAML ]; then
+  echo "AIS values file '$AIS_VALUES_YAML' does not exist."
+  exit 1
+fi
+
+if [ ! -f $PV_VALUES_YAML ]; then
+  echo "Cluster setup values file '$PV_VALUES_YAML' does not exist."
+  exit 1
+fi
+
+echo "Templating and applying PersistentVolumes with claimRef namespace "$RELEASE_NAMESPACE" and values from $AIS_VALUES_YAML and $PV_VALUES_YAML"
+helm template ais-create-pv ./charts/create-pv -f "$AIS_VALUES_YAML" -f "$PV_VALUES_YAML" --set namespace="$RELEASE_NAMESPACE" | kubectl apply -f -

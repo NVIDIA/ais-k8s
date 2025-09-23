@@ -21,7 +21,7 @@ if [[ -z "$CLUSTER" ]]; then
 fi
 
 if [[ -z "$NODE_LIST" ]]; then
-  echo "Error: At least one node is required"
+  echo "Error: At least one node is required to label nodes. Check your config file in config/cluster-setup/<env>.yaml"
   exit 1
 fi
 
