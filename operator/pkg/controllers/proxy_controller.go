@@ -298,7 +298,7 @@ func findNodeByPodName(pmap aismeta.NodeMap, podName string) (*aismeta.Snode, er
 
 // handleProxyScaledown decommissions all the proxy nodes that will be deleted due to scale down.
 // If the node being deleted is a primary, a new primary is designated before decommissioning.
-func (r *AIStoreReconciler) handleProxyScaledown(ctx context.Context, ais *aisv1.AIStore, actualSize int32) {
+func (r *AIStoreReconciler) handleProxyScaledown(ctx context.Context, ais *aisv1.AIStore, actualSize int32) (err error) {
 	logger := logf.FromContext(ctx)
 	proxySize := ais.GetProxySize()
 
@@ -323,12 +323,15 @@ func (r *AIStoreReconciler) handleProxyScaledown(ctx context.Context, ais *aisv1
 		}
 	}
 
-	// If current primary is set to be decommissioned and removed, attempt to move the primary away first
+	// If current primary is set to be decommissioned and removed, move the primary away first
 	if currentPrimaryPodIdx >= proxySize {
-		r.reassignPrimaryForScaledown(ctx, ais, smap)
+		if err = r.reassignPrimaryForScaledown(ctx, ais, smap); err != nil {
+			logger.Error(err, "failed to reassign primary for scaledown")
+			return
+		}
 	}
 
-	// Decommission the nodes to be removed
+	// Decommission the nodes to be removed (best-effort)
 	for idx := actualSize; idx > proxySize; idx-- {
 		podName := proxy.PodName(ais, idx-1)
 		for daeID, node := range smap.Pmap {
@@ -344,19 +347,23 @@ func (r *AIStoreReconciler) handleProxyScaledown(ctx context.Context, ais *aisv1
 			break
 		}
 	}
+	return
 }
 
-func (r *AIStoreReconciler) reassignPrimaryForScaledown(ctx context.Context, ais *aisv1.AIStore, smap *aismeta.Smap) {
+func (r *AIStoreReconciler) reassignPrimaryForScaledown(ctx context.Context, ais *aisv1.AIStore, smap *aismeta.Smap) (err error) {
 	logger := logf.FromContext(ctx)
 	for idx := range ais.GetProxySize() {
+		var node *aismeta.Snode
 		podName := proxy.PodName(ais, idx)
-		node, err := findNodeByPodName(smap.Pmap, podName)
+		node, err = findNodeByPodName(smap.Pmap, podName)
 		if err != nil {
+			logger.Error(err, "failed to find node by pod name, trying next pod", "podName", podName)
 			continue
 		}
 		if !smap.InMaintOrDecomm(node.ID()) {
 			_, err = r.k8sClient.GetReadyPod(ctx, types.NamespacedName{Name: podName, Namespace: ais.Namespace})
 			if err != nil {
+				logger.Error(err, "failed to get ready pod, trying next pod", "podIndex", idx)
 				continue
 			}
 			err = r.setPrimaryTo(ctx, ais, idx)
@@ -368,6 +375,7 @@ func (r *AIStoreReconciler) reassignPrimaryForScaledown(ctx context.Context, ais
 			return
 		}
 	}
+	return fmt.Errorf("no pod found to set as primary")
 }
 
 // enableProxyExternalService, creates a LoadBalancer service for proxy statefulset.
