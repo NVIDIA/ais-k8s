@@ -304,21 +304,12 @@ func (r *AIStoreReconciler) setPrimaryTo(ctx context.Context, ais *aisv1.AIStore
 		return nil
 	}
 
-	node, err := findNodeByPodName(smap.Pmap, podName)
+	node, err := findAISNodeByPodName(smap.Pmap, podName)
 	if err != nil {
 		return err
 	}
 	logf.FromContext(ctx).Info("Setting primary proxy", "pod", podName)
 	return apiClient.SetPrimaryProxy(node.ID(), node.PubNet.URL, true /*force*/)
-}
-
-func findNodeByPodName(pmap aismeta.NodeMap, podName string) (*aismeta.Snode, error) {
-	for _, node := range pmap {
-		if strings.HasPrefix(node.ControlNet.Hostname, podName) {
-			return node, nil
-		}
-	}
-	return nil, fmt.Errorf("no matching AIS node found for pod %q", podName)
 }
 
 // handleProxyScaledown decommissions all the proxy nodes that will be deleted due to scale down.
@@ -358,7 +349,7 @@ func (r *AIStoreReconciler) handleProxyScaledown(ctx context.Context, ais *aisv1
 	// Decommission nodes from highest index down (best-effort)
 	for idx := currentSize - 1; idx >= desiredSize; idx-- {
 		podName := proxy.PodName(ais, idx)
-		node, err := findNodeByPodName(smap.Pmap, podName)
+		node, err := findAISNodeByPodName(smap.Pmap, podName)
 		if err != nil {
 			logger.Info("Proxy node not found in cluster map", "podName", podName)
 			continue
@@ -377,7 +368,7 @@ func (r *AIStoreReconciler) reassignPrimaryForScaledown(ctx context.Context, ais
 	for idx := range ais.GetProxySize() {
 		var node *aismeta.Snode
 		podName := proxy.PodName(ais, idx)
-		node, err = findNodeByPodName(smap.Pmap, podName)
+		node, err = findAISNodeByPodName(smap.Pmap, podName)
 		if err != nil {
 			logger.Error(err, "failed to find node by pod name, trying next pod", "podName", podName)
 			continue

@@ -14,16 +14,14 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 - Auto-scaling mode: Set `size: -1` to automatically scale proxy/target pods based on node selectors and tolerations
 - Host path mounting: Use `useHostPath: true` in mount spec to bypass PV/PVC provisioning for direct host storage
 - Auto-scale status tracking: New `AutoScaleStatus` field in cluster status tracks expected nodes for autoScaling clusters
+- Token exchange authentication support to allow operators to exchange tokens (e.g., Kubernetes service account tokens or OIDC tokens) with authentication services for AIS JWT tokens
 
 ### Changed
 
 - Size validation: Allow `size: -1` for autoScaling mode
-
-##  v2.7.0
-
-### Added
-
-- Token exchange authentication support to allow operators to exchange tokens (e.g., Kubernetes service account tokens or OIDC tokens) with authentication services for AIS JWT tokens
+- Update target StatefulSet update strategy changed from RollingUpdate to OnDelete.
+- Set maintenance mode before pod deletion during target rollouts.
+- Reverse target rollout order to start from lowest ordinal (0 to N-1).
 
 ##  v2.6.0
 

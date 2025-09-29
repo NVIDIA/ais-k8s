@@ -156,3 +156,18 @@ func (mr *MockAIStoreClientInterfaceMockRecorder) ShutdownCluster() *gomock.Call
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ShutdownCluster", reflect.TypeOf((*MockAIStoreClientInterface)(nil).ShutdownCluster))
 }
+
+// StartMaintenance mocks base method.
+func (m *MockAIStoreClientInterface) StartMaintenance(actValue *apc.ActValRmNode) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "StartMaintenance", actValue)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// StartMaintenance indicates an expected call of StartMaintenance.
+func (mr *MockAIStoreClientInterfaceMockRecorder) StartMaintenance(actValue any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartMaintenance", reflect.TypeOf((*MockAIStoreClientInterface)(nil).StartMaintenance), actValue)
+}

@@ -67,9 +67,12 @@ func NewTargetSS(ais *aisv1.AIStore, expectedSize int32) *apiv1.StatefulSet {
 			Selector: &metav1.LabelSelector{
 				MatchLabels: basicLabels,
 			},
-			ServiceName:          headlessSVCName(ais.Name),
-			PodManagementPolicy:  apiv1.ParallelPodManagement,
-			Replicas:             &expectedSize,
+			ServiceName:         headlessSVCName(ais.Name),
+			PodManagementPolicy: apiv1.ParallelPodManagement,
+			Replicas:            &expectedSize,
+			UpdateStrategy: apiv1.StatefulSetUpdateStrategy{
+				Type: apiv1.OnDeleteStatefulSetStrategyType,
+			},
 			VolumeClaimTemplates: targetPVC(ais),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{

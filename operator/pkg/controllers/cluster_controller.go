@@ -12,6 +12,7 @@ import (
 	"time"
 
 	aiscmn "github.com/NVIDIA/aistore/cmn"
+	aismeta "github.com/NVIDIA/aistore/core/meta"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	aisclient "github.com/ais-operator/pkg/client"
 	"github.com/ais-operator/pkg/resources/cmn"
@@ -1059,6 +1060,15 @@ func syncPodTemplate(desired, current *corev1.PodTemplateSpec) (updated bool) {
 	}
 
 	return
+}
+
+func findAISNodeByPodName(nodeMap aismeta.NodeMap, podName string) (*aismeta.Snode, error) {
+	for _, node := range nodeMap {
+		if strings.HasPrefix(node.ControlNet.Hostname, podName) {
+			return node, nil
+		}
+	}
+	return nil, fmt.Errorf("no matching AIS node found for pod %q", podName)
 }
 
 func syncSidecarContainer(desired, current *corev1.PodTemplateSpec) (updated bool) {

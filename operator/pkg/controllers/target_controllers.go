@@ -7,7 +7,6 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
@@ -17,12 +16,14 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-const targetRequeueDelay = 10 * time.Second
+const targetLongRequeueDelay = 10 * time.Second
+const targetShortRequeueDelay = 2 * time.Second
 
 func (r *AIStoreReconciler) ensureTargetPrereqs(ctx context.Context, ais *aisv1.AIStore) (err error) {
 	// 1. Deploy required ConfigMap
@@ -100,7 +101,11 @@ func (r *AIStoreReconciler) handleTargetState(ctx context.Context, ais *aisv1.AI
 		return ctrl.Result{}, err
 	}
 	if updated {
-		return ctrl.Result{RequeueAfter: targetRequeueDelay}, nil
+		return ctrl.Result{RequeueAfter: targetLongRequeueDelay}, nil
+	}
+
+	if result, err := r.handleTargetRollout(ctx, ais, ss); err != nil || !result.IsZero() {
+		return result, err
 	}
 
 	if ais.HasState(aisv1.ClusterScaling) {
@@ -123,34 +128,30 @@ func (r *AIStoreReconciler) handleTargetState(ctx context.Context, ais *aisv1.AI
 		if err != nil {
 			return
 		}
-		return ctrl.Result{RequeueAfter: targetRequeueDelay}, nil
+		return ctrl.Result{RequeueAfter: targetLongRequeueDelay}, nil
 	}
 	// Requeue if the number of target pods ready does not match the size provided in AIS cluster spec.
 	if !r.isStatefulSetReady(ais, ss) {
 		logger.Info("Waiting for target statefulset to reach desired replicas", "desired", ss.Spec.Replicas)
-		return ctrl.Result{RequeueAfter: targetRequeueDelay}, nil
+		return ctrl.Result{RequeueAfter: targetLongRequeueDelay}, nil
 	}
 	return
 }
 
 func (*AIStoreReconciler) isStatefulSetReady(ais *aisv1.AIStore, ss *appsv1.StatefulSet) bool {
 	specReplicas := *ss.Spec.Replicas
+
 	// Must match size provided in AIS cluster spec
 	if specReplicas != ais.GetTargetSize() {
 		return false
 	}
 
-	// If update revision is set, check that it equals current revision indicating the rollout is complete
-	if ss.Status.UpdateRevision != "" && ss.Status.CurrentRevision != ss.Status.UpdateRevision {
+	// If update revision exists, all replicas must be updated
+	if ss.Status.UpdateRevision != "" && specReplicas != ss.Status.UpdatedReplicas {
 		return false
 	}
-	// To be ready, spec must match status.Replicas, status.CurrentReplicas, status.ReadyReplicas
-	if specReplicas != ss.Status.Replicas {
-		return false
-	}
-	if specReplicas != ss.Status.CurrentReplicas {
-		return false
-	}
+
+	// To be ready, spec must match status.ReadyReplicas
 	return specReplicas == ss.Status.ReadyReplicas
 }
 
@@ -249,20 +250,20 @@ func (r *AIStoreReconciler) decommissionTargets(ctx context.Context, ais *aisv1.
 	for idx := actualSize; idx > ais.GetTargetSize(); idx-- {
 		podName := target.PodName(ais, idx-1)
 		logger.Info("Attempting to decommission target", "podName", podName)
-		for _, node := range smap.Tmap {
-			if !strings.HasPrefix(node.ControlNet.Hostname, podName) {
-				continue
+		node, err := findAISNodeByPodName(smap.Tmap, podName)
+		if err != nil {
+			logger.Error(err, "Failed to find target node for pod", "podName", podName)
+			continue
+		}
+		if !smap.InMaintOrDecomm(node.ID()) {
+			logger.Info("Decommissioning target", "nodeID", node.ID())
+			_, err = apiClient.DecommissionNode(&aisapc.ActValRmNode{DaemonID: node.ID(), RmUserData: true})
+			if err != nil {
+				logger.Error(err, "Failed to decommission node", "nodeID", node.ID())
+				return err
 			}
-			if !smap.InMaintOrDecomm(node.ID()) {
-				logger.Info("Decommissioning target", "nodeID", node.ID())
-				_, err = apiClient.DecommissionNode(&aisapc.ActValRmNode{DaemonID: node.ID(), RmUserData: true})
-				if err != nil {
-					logger.Error(err, "Failed to decommission node", "nodeID", node.ID())
-					return err
-				}
-			} else {
-				logger.Info("AIS target is already in decommissioning state", "nodeID", node.ID())
-			}
+		} else {
+			logger.Info("AIS target is already in decommissioning state", "nodeID", node.ID())
 		}
 	}
 	return nil
@@ -289,6 +290,122 @@ func (r *AIStoreReconciler) syncTargetPodSpec(ctx context.Context, ais *aisv1.AI
 		return true, err
 	}
 	return false, nil
+}
+
+func (r *AIStoreReconciler) isPodReady(ctx context.Context, ais *aisv1.AIStore, podIndex int32) (ready bool, err error) {
+	pod, err := r.k8sClient.GetPod(ctx, types.NamespacedName{
+		Name:      target.PodName(ais, podIndex),
+		Namespace: ais.Namespace,
+	})
+
+	if err != nil || pod.DeletionTimestamp != nil {
+		return false, err
+	}
+
+	for _, condition := range pod.Status.Conditions {
+		if condition.Type == corev1.PodReady && condition.Status == corev1.ConditionTrue {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+func (r *AIStoreReconciler) findPodNeedingUpdate(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) string {
+	logger := logf.FromContext(ctx).WithValues("statefulset", ss.Name)
+
+	// The next pod index is simply the count of updated replicas
+	nextPodIndex := ss.Status.UpdatedReplicas
+	if nextPodIndex >= *ss.Spec.Replicas {
+		return ""
+	}
+
+	// Before processing the next pod, ensure the previous pod (if any) is ready
+	// to ensure only one pod is in a non-ready state at a time (for high availability)
+	if nextPodIndex > 0 {
+		if ready, err := r.isPodReady(ctx, ais, nextPodIndex-1); err != nil || !ready {
+			logger.Info("Waiting for previous pod to be ready", "pod", target.PodName(ais, nextPodIndex-1))
+			return ""
+		}
+	}
+
+	podName := target.PodName(ais, nextPodIndex)
+	pod, err := r.k8sClient.GetPod(ctx, types.NamespacedName{
+		Name:      podName,
+		Namespace: ais.Namespace,
+	})
+
+	// Wait if pod doesn't exist or is being deleted
+	if err != nil || pod.DeletionTimestamp != nil {
+		if err != nil {
+			logger.Info("Pod doesn't exist or is being deleted, waiting", "pod", podName)
+		}
+		return ""
+	}
+
+	podRevision := pod.Labels["controller-revision-hash"]
+	if podRevision == ss.Status.UpdateRevision {
+		return ""
+	}
+
+	logger.Info("Found pod needing update", "pod", podName, "currentRevision", podRevision, "targetRevision", ss.Status.UpdateRevision)
+	return podName
+}
+
+func (r *AIStoreReconciler) handleTargetRollout(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) (ctrl.Result, error) {
+	logger := logf.FromContext(ctx)
+
+	// Only handle rollouts if there's a revision mismatch
+	if ss.Status.UpdateRevision == "" || ss.Status.CurrentRevision == ss.Status.UpdateRevision {
+		return ctrl.Result{}, nil
+	}
+
+	// If all pods are updated and ready, rollout is complete
+	if ss.Status.UpdatedReplicas >= *ss.Spec.Replicas && ss.Status.ReadyReplicas >= *ss.Spec.Replicas {
+		return ctrl.Result{}, nil
+	}
+
+	podName := r.findPodNeedingUpdate(ctx, ais, ss)
+	if podName == "" {
+		return ctrl.Result{RequeueAfter: targetShortRequeueDelay}, nil // No pod needs update or waiting for current pod
+	}
+
+	apiClient, err := r.clientManager.GetClient(ctx, ais)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to get API client: %w", err)
+	}
+
+	smap, err := apiClient.GetClusterMap()
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to get cluster map: %w", err)
+	}
+
+	node, err := findAISNodeByPodName(smap.Tmap, podName)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to find node for pod %s: %w", podName, err)
+	}
+
+	if !smap.InMaint(node) {
+		logger.Info("Setting maintenance mode for pod", "pod", podName, "node", node.ID())
+		_, err = apiClient.StartMaintenance(&aisapc.ActValRmNode{DaemonID: node.ID(), SkipRebalance: true})
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to start maintenance for pod %s: %w", podName, err)
+		}
+		return ctrl.Result{RequeueAfter: targetShortRequeueDelay}, nil
+	}
+
+	_, err = r.k8sClient.DeletePodIfExists(ctx, types.NamespacedName{
+		Name:      podName,
+		Namespace: ais.Namespace,
+	})
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to delete pod %s: %w", podName, err)
+	}
+
+	logger.Info("Deleted pod for rollout", "pod", podName)
+
+	// Requeue to handle next pod
+	return ctrl.Result{RequeueAfter: targetShortRequeueDelay}, nil
 }
 
 func (r *AIStoreReconciler) scaleUpLB(ctx context.Context, ais *aisv1.AIStore) error {

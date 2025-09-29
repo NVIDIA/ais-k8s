@@ -32,6 +32,7 @@ type (
 		SetClusterConfigUsingMsg(configToUpdate *cmn.ConfigToSet, transient bool) error
 		SetPrimaryProxy(newPrimaryID, newPrimaryURL string, force bool) error
 		ShutdownCluster() error
+		StartMaintenance(actValue *apc.ActValRmNode) (string, error)
 		HasValidBaseParams(context context.Context, ais *aisv1.AIStore) bool
 	}
 
@@ -99,6 +100,10 @@ func (c *AIStoreClient) SetPrimaryProxy(newPrimaryID, newPrimaryURL string, forc
 
 func (c *AIStoreClient) ShutdownCluster() error {
 	return api.ShutdownCluster(*c.params)
+}
+
+func (c *AIStoreClient) StartMaintenance(actValue *apc.ActValRmNode) (string, error) {
+	return api.StartMaintenance(*c.params, actValue)
 }
 
 func NewAIStoreClient(ctx context.Context, url, token, mode string, tlsCfg *tls.Config) *AIStoreClient {
