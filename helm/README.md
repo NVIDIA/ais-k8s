@@ -1,14 +1,13 @@
 # Helm AIS Deployment
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/aistore)](https://artifacthub.io/packages/search?repo=aistore)
 
-Helm provides a simple way of deploying AIStore (AIS) managed by the [AIS operator](../operator/README.md).
-This directory contains Helm charts for deploying AIS, the AIS operator, and AIS dependencies.
+Use Helm to deploy AIStore (AIS) managed by the [AIS operator](../operator/README.md).
+This directory has Helm charts for AIS, AIS operator, and AIS dependencies.
 
-Before deploying, ensure that your Kubernetes nodes are properly configured and ready for AIS deployment. 
+**Before you start:** Ensure that your Kubernetes nodes are properly configured and ready for AIS deployment. 
 The [host-config playbooks](../playbooks/host-config/README.md) provide a good starting point for properly configuring your hosts and formatting drives.
 
-For deploying AIS without Helm, see the [Ansible playbooks](../playbooks/README.md). 
-Both approaches deploy the AIS operator, then create an AIS custom resource to specify cluster settings. 
+**Alternative:** You can also deploy AIS using [Ansible playbooks](../playbooks/README.md) instead of Helm. 
 
 ## Prerequisites
 
@@ -20,44 +19,64 @@ Both approaches deploy the AIS operator, then create an AIS custom resource to s
 
 ### Kubernetes context
 1. Configure access to your cluster with a new context. See the [k8s docs](https://kubernetes.io/docs/tasks/access-application-cluster/configure-access-multiple-clusters/).
-1. Check your current context with `kubectl config current-context`
-1. Set the context to your cluster with `kubectl config use-context <your-context>`
+2. Check your current context: `kubectl config current-context`
+3. Switch to your cluster: `kubectl config use-context <your-context>`
 
-## Install Charts
+## Installation Steps
 
-To install the charts provided, we use [helmfile](https://github.com/helmfile/helmfile?tab=readme-ov-file).
+We use [helmfile](https://github.com/helmfile/helmfile?tab=readme-ov-file) to install the charts.
 
-To create a release for a new environment, add it to the environments section at the top of the helmfile for each required chart.
-Next, copy the `values-sample.yaml` or an existing config yaml to a new file in the `config` directory for each chart.
-This new file must match the name of the new environment.
-Then modify the values in each new file for your desired deployment. 
+**Before starting:** For each chart you want to deploy:
+1. Add your environment to the `environments` section in the helmfile
+2. Copy `values-sample.yaml` (or an existing config) to a new file in the `config` directory
+3. Name the new file to match your environment name  
+4. Update the values for your deployment
 
-### Install Cluster Issuer  (optional)
+**Follow these steps in order:** 
 
-If you want to deploy with TLS but don't have an issuer configured, we include a [chart](./cluster-issuer/) to set up a [self-signed cluster issuer](https://cert-manager.io/docs/configuration/selfsigned/).
-Cert-manager must be installed and running in the cluster for this step. 
-Installing this chart first will create a cluster issuer that can be used to issue certificates for both the operator and AIS. 
+### 1. Install Cluster Issuer (optional - only for HTTPS)
 
-Create a new environment, update your certificate values in a separate config entry, then run `helmfile sync -e <your-env>` to install the cluster issuer. 
-`kubectl get clusterissuer` should show a new, non-namespaced `ca-issuer` ready. 
+You need a cluster issuer only if you want HTTPS:
+- HTTPS AIStore cluster, OR
+- AuthN with HTTPS
 
-### Install the Operator
-In the [operator](./operator/) directory, update [helmfile.yaml](./operator/helmfile.yaml) with the desired ais-operator chart version.
-Create a new environment and update the config files for that environment. 
-Install the chart with helmfile:
+If you don't want HTTPS, skip this step.
 
-```bash 
-helmfile sync -e <your-env>
-```
+We provide a [chart](./cluster-issuer/) to set up a [self-signed cluster issuer](https://cert-manager.io/docs/configuration/selfsigned/).
+Before proceeding, ensure that [cert-manager](https://cert-manager.io/) is installed and all its pods are running in your cluster.  
+You can verify this by running the provided [check_cert_manager.sh script](./operator/check_cert_manager.sh).
 
-> **Note**: Only operator versions >= 1.4.1 are supported via Helm Chart. See the [playbook docs](../playbooks/ais-deployment/docs/ais_cluster_management.md#1-deploying-ais-kubernetes-operator) for deploying older versions via Ansible Playbooks. 
+1. Go to the [`cluster-issuer`](./cluster-issuer/) directory
+2. Create a new environment in the [helmfile](./cluster-issuer/helmfile.yaml)
+3. Update your certificate values in a config file
+4. Run: `helmfile sync -e <your-env>`
 
-Verify the operator installation by checking that the pod is in 'Ready' state:
+Check it worked: `kubectl get clusterissuer` should show a `ca-issuer` ready.
+
+### 2. Deploy [AuthN](https://github.com/NVIDIA/aistore/blob/main/docs/authn.md) Server (optional - only if you want AuthN)
+
+You only need AuthN if you want authentication/authorization for your AIS cluster. If you don't want AuthN, skip this step.
+
+**Important:** Run AuthN server before the operator or AIS deployment. AuthN creates resources that the operator needs to talk to the AuthN server and AIS.
+
+See the [`authn`](./authn/) directory for instructions on deploying the AuthN server, including all options for deploying with HTTPS and other configurations.
+
+### 3. Install the Operator
+
+1. Go to the [operator](./operator/) directory
+2. Update [helmfile.yaml](./operator/helmfile.yaml) with your desired ais-operator chart version
+3. Create a new environment and update config files for that environment
+4. Install: `helmfile sync -e <your-env>`
+
+> **Note**: Only operator versions >= 1.4.1 work with Helm Chart. For older versions, use [Ansible Playbooks](../playbooks/ais-deployment/docs/ais_cluster_management.md#1-deploying-ais-kubernetes-operator).
+
+Check it worked:
 ```bash 
 kubectl get pods -n ais-operator-system
 ```
+The pod should be in 'Ready' state.
 
-### Install AIS
+### 4. Install AIS
 
-See the [AIS chart docs](./ais/README.md)
+See the [AIS chart docs](./ais/README.md) for detailed instructions.
 
