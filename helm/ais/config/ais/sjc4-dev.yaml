@@ -14,7 +14,11 @@ mpathInfo:
     - "/ais/sdi"
     - "/ais/sdj"
 size: 3
-protocol: http
+protocol: https
+https:
+  skipVerifyCert: false
+  tlsSecret: "tls-certs"
+authNSecretName: ais-authn-jwt-signing-key
 nodeImage:
   tag: latest
 initImage:

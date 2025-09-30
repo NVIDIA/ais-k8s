@@ -21,6 +21,10 @@ environments:
     values:
       - envFile: oci
     kubeContext: oci-iad
+  sjc4-dev:
+    values:
+      - envFile: nvidia
+    kubeContext: sjc4-dev
 ---
 releases:
   - name: ais-authn

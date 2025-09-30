@@ -36,7 +36,7 @@ TARGET_LABEL=nvidia.com/ais-target="$CLUSTER"
 
 for NODE in "${NODES[@]}"; do
   echo "Labeling node $NODE with "$PROXY_LABEL" and "$TARGET_LABEL""
-  kubectl label node "$NODE" "$PROXY_LABEL" "$TARGET_LABEL" --overwrite
+  kubectl label node $NODE "$PROXY_LABEL" "$TARGET_LABEL" --overwrite
 done
 
 echo "Node labeling completed for cluster $CLUSTER."

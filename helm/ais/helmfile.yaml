@@ -61,13 +61,13 @@ environments:
   sjc4-dev:
     values: 
     - https:
-        enabled: false
+        enabled: true
       cloudSecrets:
         enabled: false
       createPV:
-        enabled: false
+        enabled: true
       labelNodes:
-        enabled: false
+        enabled: true
     kubeContext: sjc4-dev
   oci-ord:
     values: 

@@ -25,6 +25,14 @@ environments:
     - createCert:
         enabled: true
     kubeContext: sjc11
+  sjc4-dev:
+    values: 
+    - envFile: authn
+    - authn:
+        enabled: true
+    - createCert:
+        enabled: true
+    kubeContext: sjc4-dev
 
 ---
 repositories:
