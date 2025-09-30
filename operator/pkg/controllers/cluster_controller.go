@@ -468,7 +468,7 @@ func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore
 	return
 }
 
-// handlerCREvents matches the AIS cluster state obtained from reconciler request against the existing cluster state.
+// handleCREvents matches the AIS cluster state obtained from reconciler request against the existing cluster state.
 // It applies changes to cluster resources to ensure the request state is reached.
 // Stages:
 //  1. Check if the proxy daemon resources have a state (e.g. replica count) that matches the latest cluster spec.
@@ -476,57 +476,57 @@ func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore
 //  2. Similarly, check the resource state for targets and ensure the state matches the reconciler request.
 //  3. Check if config is properly updated in the cluster.
 //  4. If expected state is not yet met we should reconcile until everything is ready.
-func (r *AIStoreReconciler) handleCREvents(ctx context.Context, ais *aisv1.AIStore) (result ctrl.Result, err error) {
-	var (
-		ready         bool
-		shouldRequeue bool
-	)
+func (r *AIStoreReconciler) handleCREvents(ctx context.Context, ais *aisv1.AIStore) (ctrl.Result, error) {
 	logger := logf.FromContext(ctx)
-	if result, err = r.handleProxyState(ctx, ais); err != nil {
-		return
-	} else if !result.IsZero() {
-		goto requeue
+
+	if res, err := r.handleProxyState(ctx, ais); err != nil {
+		return res, err
+	} else if !res.IsZero() {
+		return r.updateStatusAndRequeue(ctx, ais, res)
 	}
 
-	if result, err = r.handleTargetState(ctx, ais); err != nil {
-		return
-	} else if !result.IsZero() {
-		goto requeue
+	if res, err := r.handleTargetState(ctx, ais); err != nil {
+		return res, err
+	} else if !res.IsZero() {
+		return r.updateStatusAndRequeue(ctx, ais, res)
 	}
 
-	ready, err = r.checkAISClusterReady(ctx, ais)
+	ready, err := r.checkAISClusterReady(ctx, ais)
 	if err != nil {
-		return
+		return ctrl.Result{}, err
+	} else if !ready {
+		return r.updateStatusAndRequeue(ctx, ais, ctrl.Result{Requeue: true})
 	}
-	if !ready {
-		result.Requeue = true
-		return
-	}
-	// Enables the rebalance condition (still respects the spec desired rebalance.Enabled property)
+
+	// Enable the rebalance condition (still respects the spec desired rebalance.Enabled property)
 	err = r.enableRebalanceCondition(ctx, ais)
 	if err != nil {
 		logger.Error(err, "Failed to enable rebalance condition")
-		return
+		return ctrl.Result{}, err
 	}
 
-	shouldRequeue, err = r.handleConfigState(ctx, ais, false /*force*/)
+	shouldRequeue, err := r.handleConfigState(ctx, ais, false /*force*/)
 	if err != nil {
-		return
-	}
-	if shouldRequeue {
-		result.Requeue = true
-		goto requeue
+		return ctrl.Result{}, err
+	} else if shouldRequeue {
+		return r.updateStatusAndRequeue(ctx, ais, ctrl.Result{Requeue: true})
 	}
 
-	return result, r.handleSuccessfulReconcile(ctx, ais)
+	return ctrl.Result{}, r.handleSuccessfulReconcile(ctx, ais)
+}
 
-requeue:
-	// We requeue till the AIStore cluster becomes ready.
-	if ais.IsConditionTrue(aisv1.ConditionReady) {
-		ais.SetConditionFalse(aisv1.ConditionReady, aisv1.ReasonUpgrading, "Waiting for cluster to upgrade")
-		err = r.updateStatusWithState(ctx, ais, aisv1.ClusterUpgrading)
+// updateStatusAndRequeue updates the cluster status to indicate it's upgrading when we need to requeue.
+func (r *AIStoreReconciler) updateStatusAndRequeue(ctx context.Context, ais *aisv1.AIStore, result ctrl.Result) (ctrl.Result, error) {
+	if !ais.IsConditionTrue(aisv1.ConditionReady) {
+		return result, nil
 	}
-	return
+
+	ais.SetConditionFalse(aisv1.ConditionReady, aisv1.ReasonUpgrading, "Waiting for cluster to upgrade")
+	if err := r.updateStatusWithState(ctx, ais, aisv1.ClusterUpgrading); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	return result, nil
 }
 
 // handleConfigState properly reconciles the AIS cluster config with the `.spec.configToUpdate` field and any other
