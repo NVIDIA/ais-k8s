@@ -1,0 +1,6 @@
+type: postgresql
+mode: standalone
+cluster:
+  instances: 3
+  storage:
+    storageClass: openebs-hostpath

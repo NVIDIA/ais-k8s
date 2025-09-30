@@ -1,0 +1,28 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: keycloak-cert
+  namespace: keycloak
+spec:
+  dnsNames:
+  - localhost
+  - aistore-keycloak.sjc11
+  duration: 8760h
+  emailAddresses:
+  - aistore@nvidia.com
+  ipAddresses:
+  isCA: false
+  issuerRef:
+    kind: ClusterIssuer
+    name: ca-issuer
+  renewBefore: 720h
+  secretName: keycloak-tls
+  subject:
+    countries:
+    - US
+    organizationalUnits:
+    - NGC Storage
+    organizations:
+    - NVIDIA Corporation
+  usages:
+  - server auth

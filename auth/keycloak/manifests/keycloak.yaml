@@ -1,0 +1,28 @@
+apiVersion: k8s.keycloak.org/v2alpha1
+kind: Keycloak
+metadata:
+  name: keycloak-server
+  namespace: keycloak
+spec:
+  instances: 1
+  db:
+    vendor: postgres
+    host: cloudnative-pg-cluster-rw.cnpg-database.svc.cluster.local
+    database: app
+    usernameSecret:
+      name: keycloak-db-secret
+      key: username
+    passwordSecret:
+      name: keycloak-db-secret
+      key: password
+  http:
+    httpEnabled: true
+    httpPort: 8180
+    httpsPort: 8543
+  hostname: 
+    hostname: aistore-keycloak.sjc11
+  ingress:
+    enabled: true
+    tlsSecret: keycloak-tls
+  proxy:
+    headers: xforwarded # double check your reverse proxy sets and overwrites the X-Forwarded-* headers
