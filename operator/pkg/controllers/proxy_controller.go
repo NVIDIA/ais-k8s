@@ -135,34 +135,58 @@ func (r *AIStoreReconciler) handleProxyState(ctx context.Context, ais *aisv1.AIS
 		return
 	}
 
-	result, err = r.syncProxyPodSpec(ctx, ais, ss)
-	if err != nil || !result.IsZero() {
+	if result, err = r.syncProxyPodSpec(ctx, ais, ss); err != nil || !result.IsZero() {
 		return
 	}
-	result, err = r.handleProxyRollout(ctx, ais, ss)
-	if err != nil || !result.IsZero() {
+	if result, err = r.handleProxyRollout(ctx, ais, ss); err != nil || !result.IsZero() {
+		return
+	}
+	if result, err = r.handleProxyScale(ctx, ais, ss); err != nil || !result.IsZero() {
 		return
 	}
 
-	if *ss.Spec.Replicas != ais.GetProxySize() {
-		if *ss.Spec.Replicas > ais.GetProxySize() {
-			// If the cluster is scaling down, ensure the pod being delete is not primary.
-			r.handleProxyScaledown(ctx, ais, *ss.Spec.Replicas)
-		}
-		// If anything was updated, we consider it not immediately ready.
-		updated, err := r.k8sClient.UpdateStatefulSetReplicas(ctx, proxySSName, ais.GetProxySize())
-		if err != nil || updated {
-			result.Requeue = true
-			return result, err
+	return r.waitForProxyReplicasReady(ctx, ais, ss), nil
+}
+
+func (r *AIStoreReconciler) handleProxyScale(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) (result ctrl.Result, err error) {
+	currentReplicas := *ss.Spec.Replicas
+	desiredReplicas := ais.GetProxySize()
+
+	// If the current replicas match the desired replicas, no scaling is needed
+	if currentReplicas == desiredReplicas {
+		return
+	}
+
+	// If the current replicas are greater than the desired replicas, decommission
+	// proxies to be scaled down and move primary to the lowest ready pod if needed
+	if currentReplicas > desiredReplicas {
+		if err = r.handleProxyScaledown(ctx, ais, currentReplicas); err != nil {
+			return
 		}
 	}
 
-	// Requeue if the number of proxy pods ready does not match the size provided in AIS cluster spec.
-	if ss.Status.ReadyReplicas != ais.GetProxySize() {
-		logf.FromContext(ctx).Info("Waiting for proxy statefulset to reach desired replicas")
-		return ctrl.Result{RequeueAfter: proxyStartupInterval}, nil
+	updated, err := r.k8sClient.UpdateStatefulSetReplicas(ctx, proxy.StatefulSetNSName(ais), desiredReplicas)
+	if err != nil {
+		return
 	}
+	if updated {
+		result.Requeue = true
+		return
+	}
+
 	return
+}
+
+func (*AIStoreReconciler) waitForProxyReplicasReady(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) ctrl.Result {
+	if ss.Status.ReadyReplicas == ais.GetProxySize() {
+		return ctrl.Result{}
+	}
+
+	logf.FromContext(ctx).Info("Waiting for proxy StatefulSet to reach desired replicas",
+		"ready", ss.Status.ReadyReplicas,
+		"desired", ais.GetProxySize())
+
+	return ctrl.Result{RequeueAfter: proxyStartupInterval}
 }
 
 func (r *AIStoreReconciler) syncProxyPodSpec(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) (result ctrl.Result, err error) {
@@ -190,12 +214,11 @@ func (r *AIStoreReconciler) syncProxyPodSpec(ctx context.Context, ais *aisv1.AIS
 		syncPodTemplate(desiredTemplate, &updatedSS.Spec.Template)
 		logger.Info("Proxy pod template spec modified", "reason", reason)
 		patch := client.MergeFrom(ss)
-		err = r.k8sClient.Patch(ctx, updatedSS, patch)
-		if err != nil {
+		if err = r.k8sClient.Patch(ctx, updatedSS, patch); err != nil {
 			return
 		}
 		logger.Info("Statefulset successfully updated", "reason", reason)
-		return ctrl.Result{Requeue: true}, err
+		return ctrl.Result{Requeue: true}, nil
 	}
 	return
 }
@@ -298,9 +321,9 @@ func findNodeByPodName(pmap aismeta.NodeMap, podName string) (*aismeta.Snode, er
 
 // handleProxyScaledown decommissions all the proxy nodes that will be deleted due to scale down.
 // If the node being deleted is a primary, a new primary is designated before decommissioning.
-func (r *AIStoreReconciler) handleProxyScaledown(ctx context.Context, ais *aisv1.AIStore, actualSize int32) (err error) {
+func (r *AIStoreReconciler) handleProxyScaledown(ctx context.Context, ais *aisv1.AIStore, currentSize int32) (err error) {
 	logger := logf.FromContext(ctx)
-	proxySize := ais.GetProxySize()
+	desiredSize := ais.GetProxySize()
 
 	apiClient, err := r.clientManager.GetClient(ctx, ais)
 	if err != nil {
@@ -315,36 +338,33 @@ func (r *AIStoreReconciler) handleProxyScaledown(ctx context.Context, ais *aisv1
 
 	// Find the current primary pod index
 	currentPrimaryPodIdx := int32(-1)
-	for idx := range actualSize {
-		podName := proxy.PodName(ais, idx)
-		if strings.HasPrefix(smap.Primary.ControlNet.Hostname, podName) {
+	for idx := range currentSize {
+		if strings.HasPrefix(smap.Primary.ControlNet.Hostname, proxy.PodName(ais, idx)) {
 			currentPrimaryPodIdx = idx
 			break
 		}
 	}
 
-	// If current primary is set to be decommissioned and removed, move the primary away first
-	if currentPrimaryPodIdx >= proxySize {
+	// If current primary will be removed, reassign it first
+	if currentPrimaryPodIdx >= desiredSize {
 		if err = r.reassignPrimaryForScaledown(ctx, ais, smap); err != nil {
 			logger.Error(err, "failed to reassign primary for scaledown")
 			return
 		}
 	}
 
-	// Decommission the nodes to be removed (best-effort)
-	for idx := actualSize; idx > proxySize; idx-- {
-		podName := proxy.PodName(ais, idx-1)
-		for daeID, node := range smap.Pmap {
-			if !strings.HasPrefix(node.ControlNet.Hostname, podName) {
-				continue
-			}
-			logger.Info("Decommissioning proxy node", "nodeID", node.ID())
-			rmAction := &aisapc.ActValRmNode{DaemonID: daeID}
-			_, err = apiClient.DecommissionNode(rmAction)
-			if err != nil {
-				logger.Error(err, "failed to decommission node", "nodeID", node.ID())
-			}
-			break
+	// Decommission nodes from highest index down (best-effort)
+	for idx := currentSize - 1; idx >= desiredSize; idx-- {
+		podName := proxy.PodName(ais, idx)
+		node, err := findNodeByPodName(smap.Pmap, podName)
+		if err != nil {
+			logger.Info("Proxy node not found in cluster map", "podName", podName)
+			continue
+		}
+		logger.Info("Decommissioning proxy node", "nodeID", node.ID(), "podName", podName)
+		rmAction := &aisapc.ActValRmNode{DaemonID: node.ID()}
+		if _, err := apiClient.DecommissionNode(rmAction); err != nil {
+			logger.Error(err, "failed to decommission node", "nodeID", node.ID())
 		}
 	}
 	return
@@ -381,9 +401,7 @@ func (r *AIStoreReconciler) reassignPrimaryForScaledown(ctx context.Context, ais
 // enableProxyExternalService, creates a LoadBalancer service for proxy statefulset.
 // NOTE: As opposed to `target` external services, where we have a separate LoadBalancer service per pod,
 // `proxies` have a single LoadBalancer service across all the proxy pods.
-func (r *AIStoreReconciler) enableProxyExternalService(ctx context.Context,
-	ais *aisv1.AIStore,
-) (ready bool, err error) {
+func (r *AIStoreReconciler) enableProxyExternalService(ctx context.Context, ais *aisv1.AIStore) (ready bool, err error) {
 	proxyLBSVC := proxy.NewProxyLoadBalancerSVC(ais)
 	err = r.k8sClient.CreateOrUpdateResource(ctx, ais, proxyLBSVC)
 	if err != nil {
