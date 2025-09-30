@@ -75,32 +75,37 @@ func (r *AIStoreReconciler) listCleanupJobs(ctx context.Context, namespace strin
 }
 
 func (r *AIStoreReconciler) deleteFinishedJobs(ctx context.Context, jobs *batchv1.JobList) (*batchv1.JobList, error) {
-	remainingJobs := &batchv1.JobList{}
 	logger := logf.FromContext(ctx)
+	remaining := &batchv1.JobList{
+		TypeMeta: jobs.TypeMeta,
+		ListMeta: jobs.ListMeta,
+		Items:    make([]batchv1.Job, 0, len(jobs.Items)),
+	}
 
 	for i := range jobs.Items {
 		job := &jobs.Items[i]
 		// Job succeeded, delete it
 		if job.Status.Succeeded > 0 {
-			_, err := r.k8sClient.DeleteResourceIfExists(ctx, job)
-			if err != nil {
+			if _, err := r.k8sClient.DeleteResourceIfExists(ctx, job); err != nil {
 				logger.Error(err, "Failed to delete successful job", "name", job.Name)
 				return nil, err
 			}
 			logger.Info("Deleted successful cleanup job", "name", job.Name)
+			continue
 		}
 		// Job has been stuck too long, delete it
 		if time.Since(job.CreationTimestamp.Time) > 2*time.Minute {
-			_, err := r.k8sClient.DeleteResourceIfExists(ctx, job)
-			if err != nil {
+			if _, err := r.k8sClient.DeleteResourceIfExists(ctx, job); err != nil {
 				logger.Error(err, "Failed to delete expired job", "name", job.Name)
 				return nil, err
 			}
-			logger.Info("Aborted expired job", "job", job.Name)
+			logger.Info("Aborted expired job", "name", job.Name)
+			continue
 		}
-		remainingJobs.Items = append(remainingJobs.Items, *job)
+		remaining.Items = append(remaining.Items, *job)
 	}
-	return remainingJobs, nil
+
+	return remaining, nil
 }
 
 func (r *AIStoreReconciler) cleanupPVC(ctx context.Context, ais *aisv1.AIStore) (bool, error) {

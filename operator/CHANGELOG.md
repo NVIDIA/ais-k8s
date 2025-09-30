@@ -17,8 +17,9 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ### Changed
 
-- Primary proxy reassignment during proxy scaledown, if required, is now enforced (was previously attempted on a best-effort basis).
-- Refactored proxy scaledown handling to improve primary proxy reassignment and node decommissioning with better logging.
+- Fix cleanup job loop to skip deleted jobs and avoid unnecessary requeues during cluster cleanup.
+- Enforce primary proxy reassignment, if required, during proxy scaledown (was previously best-effort).
+- Refactor proxy scaledown handling to improve primary proxy reassignment and node decommissioning with better logging.
 
 ### Removed
 
