@@ -80,6 +80,17 @@ environments:
       labelNodes:
         enabled: false
     kubeContext: oci-ord
+  oci-kratos:
+    values: 
+    - https:
+        enabled: false
+      cloudSecrets:
+        enabled: false
+      createPV:
+        enabled: false
+      labelNodes:
+        enabled: false
+    kubeContext: oci-kratos
   neb-fin:
     values: 
     - https:

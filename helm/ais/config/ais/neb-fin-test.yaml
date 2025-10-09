@@ -13,9 +13,9 @@ protocol: http
 https:
   skipVerifyCert: false
 nodeImage:
-  tag: v3.31-fuse-6c97f1b-rebuild
+  tag: v4.0-fuse
 initImage:
-  tag: v3.31
+  tag: v4.0
 logSidecarImage:
   tag: v1.1
 cloud:
