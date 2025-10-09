@@ -6,7 +6,7 @@ config:
     tls: true
     # These are the defaults for host/port, but are explicitly provided here
     host: ais-authn.ais
-    port: 52001
+    port: "52001"
     # Default credentials secret name for an authN deployment
     secretName: ais-authn-su-creds
     secretNamespace: ais
