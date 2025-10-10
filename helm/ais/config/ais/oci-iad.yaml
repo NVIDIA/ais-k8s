@@ -39,6 +39,12 @@ configToUpdate:
       idle_conns_per_host: 128
 stateStorageClass: "local-path"
 
+proxySpec:
+  tolerations: []
+
+targetSpec:
+  tolerations: []
+
 proxyLB:
   enabled: true
   annotations:

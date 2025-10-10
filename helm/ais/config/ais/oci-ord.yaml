@@ -43,6 +43,12 @@ configToUpdate:
 stateStorageClass: "local-path"
 authNSecretName: "jwt-signing-key"
 
+proxySpec:
+  tolerations: []
+
+targetSpec:
+  tolerations: []
+
 proxyLB:
   enabled: true
   annotations:
