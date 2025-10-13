@@ -8,6 +8,12 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ---
 
+##  v2.7.0
+
+### Added
+
+- Token exchange authentication support to allow operators to exchange tokens (e.g., Kubernetes service account tokens or OIDC tokens) with authentication services for AIS JWT tokens
+
 ##  v2.6.0
 
 ### Added

@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ais-operator-authn
+  namespace: ais-operator-system
+data:
+  # Token exchange mode - uses K8s service account token by default
+  ais-aistore-sample: |
+    {
+      "tls": false,
+      "host": "ais-authn.ais",
+      "port": "52001",
+      "useTokenExchange": true
+    }
+  
+  # Token exchange mode - custom token path and endpoint
+  prod-aistore-cluster: |
+    {
+      "tls": true,
+      "host": "ais-authn.prod",
+      "port": "52001",
+      "useTokenExchange": true,
+      "tokenPath": "/var/run/secrets/tokens/oidc-token",
+      "tokenExchangeEndpoint": "/v1/token/exchange"
+    }
+  
+  # Traditional username/password mode (backwards compatible)
+  dev-aistore-cluster: |
+    {
+      "tls": false,
+      "host": "ais-authn.dev",
+      "port": "52001",
+      "secretNamespace": "dev",
+      "secretName": "ais-authn-admin-creds"
+    }
+

@@ -48,6 +48,10 @@ Here’s how different components interact with AuthN:
 
 If AuthN is enabled for your AIStore cluster, AIS Operator requires a token since it frequently calls AIStore lifecycle APIs. 
 
+The operator supports two authentication modes:
+
+#### Username/Password Authentication (Default)
+
 AIS Operator logs in as an admin user using the username and password specified for each cluster in the ConfigMap defined by `AIS_AUTHN_CM`.
 By default, the operator will look for the ConfigMap `ais-operator-authn`. 
 This is defined in the manifest when deploying the operator (see [here](../operator/config/overlays/default/manager_env_patch.yaml) for the kustomize overlay).
@@ -56,6 +60,41 @@ The operator will look up the value by the cluster's `namespace`-`name` to find 
 It will use that config to fetch a token to use for admin access to the AIS cluster API.
 
 If using Helm, [we provide a chart](../helm/operator/authn-cm/README.md) to manage this ConfigMap.
+
+#### Token Exchange Authentication
+
+The operator can exchange a token from the filesystem (e.g., Kubernetes service account token or OIDC token) with the authentication service for an AIS JWT token. This eliminates the need to store admin credentials.
+
+**ConfigMap Example:**
+```json
+{
+  "tls": false,
+  "host": "ais-authn.ais",
+  "port": "52001",
+  "useTokenExchange": true,
+  "tokenPath": "/var/run/secrets/tokens/oidc-token",
+  "tokenExchangeEndpoint": "/token"
+}
+```
+
+Defaults:
+- `tokenPath`: `/var/run/secrets/kubernetes.io/serviceaccount/token`
+- `tokenExchangeEndpoint`: `/token`
+
+**Mounting Custom Tokens:**
+To use a custom OIDC token, add a projected volume to the operator deployment:
+```yaml
+volumes:
+- name: oidc-token
+  projected:
+    sources:
+    - serviceAccountToken:
+        path: token
+        expirationSeconds: 3600
+        audience: ais-authn
+```
+
+This mode requires the authentication service to support a token exchange endpoint (default: `/token`).
 
 ### AIStore Cluster
 

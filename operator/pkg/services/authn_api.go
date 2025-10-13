@@ -5,12 +5,15 @@
 package services
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/NVIDIA/aistore/api"
@@ -32,6 +35,10 @@ const (
 	AuthNConfigMapVar  = "AIS_AUTHN_CM"
 	AuthNSecretRefName = "SU-NAME"
 	AuthNSecretRefPass = "SU-PASS"
+
+	// Token exchange defaults
+	DefaultTokenPath             = "/var/run/secrets/kubernetes.io/serviceaccount/token" //nolint:gosec // This is a file path, not a credential
+	DefaultTokenExchangeEndpoint = "/token"                                              //nolint:gosec // This is a URL path, not a credential
 )
 
 type (
@@ -49,6 +56,10 @@ type (
 		Port            string `json:"port"`
 		SecretNamespace string `json:"secretNamespace"`
 		SecretName      string `json:"secretName"`
+		// Token exchange fields
+		UseTokenExchange      bool   `json:"useTokenExchange"`
+		TokenPath             string `json:"tokenPath"`
+		TokenExchangeEndpoint string `json:"tokenExchangeEndpoint"`
 	}
 )
 
@@ -61,8 +72,18 @@ func NewAuthNClient(k8sClient *aisclient.K8sClient) *AuthNClient {
 // getAdminToken Gets an admin token for the given cluster using the credentials secret referenced by the operator's authN configmap
 func (c *AuthNClient) getAdminToken(ctx context.Context, ais *aisv1.AIStore) (string, error) {
 	authnConf, err := c.getAuthConfig(ctx, ais)
-	if err != nil || authnConf == nil || authnConf.SecretName == "" {
+	if err != nil || authnConf == nil {
 		return "", err
+	}
+
+	// Token exchange mode
+	if authnConf.UseTokenExchange {
+		return c.getTokenViaExchange(ctx, authnConf)
+	}
+
+	// Username/password mode (existing)
+	if authnConf.SecretName == "" {
+		return "", nil
 	}
 	secretData, err := c.getSecretData(ctx, authnConf.SecretNamespace, authnConf.SecretName)
 	if err != nil || secretData == nil {
@@ -165,4 +186,95 @@ func authNBaseParams(conf *AuthNClusterConfig) *api.BaseParams {
 		URL: createAPIURL(conf.TLS, host, port),
 		UA:  userAgent,
 	}
+}
+
+// getTokenViaExchange reads a token from filesystem and exchanges it with AuthN for an AIS token
+func (*AuthNClient) getTokenViaExchange(ctx context.Context, conf *AuthNClusterConfig) (string, error) {
+	logger := logf.FromContext(ctx)
+
+	tokenPath := conf.TokenPath
+	if tokenPath == "" {
+		tokenPath = DefaultTokenPath
+	}
+
+	endpoint := conf.TokenExchangeEndpoint
+	if endpoint == "" {
+		endpoint = DefaultTokenExchangeEndpoint
+	}
+
+	sourceToken, err := readTokenFromFile(tokenPath)
+	if err != nil {
+		logger.Error(err, "Failed to read source token", "path", tokenPath)
+		return "", fmt.Errorf("failed to read token from %s: %w", tokenPath, err)
+	}
+
+	aisToken, err := exchangeTokenWithAuthN(ctx, authNBaseParams(conf), sourceToken, endpoint)
+	if err != nil {
+		logger.Error(err, "Failed to exchange token with AuthN")
+		return "", err
+	}
+
+	logger.Info("Successfully exchanged token with AuthN", "tokenPath", tokenPath)
+	return aisToken, nil
+}
+
+// readTokenFromFile reads and returns a token from the specified file path
+func readTokenFromFile(path string) (string, error) {
+	tokenBytes, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	token := strings.TrimSpace(string(tokenBytes))
+	if token == "" {
+		return "", fmt.Errorf("token file is empty: %s", path)
+	}
+	return token, nil
+}
+
+// exchangeTokenWithAuthN exchanges a source token (e.g., K8s SA token) for an AIS JWT token
+func exchangeTokenWithAuthN(ctx context.Context, params *api.BaseParams, sourceToken, endpoint string) (string, error) {
+	logger := logf.FromContext(ctx)
+
+	reqBody := map[string]interface{}{
+		"token": sourceToken,
+	}
+
+	reqBytes, err := json.Marshal(reqBody)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal exchange request: %w", err)
+	}
+
+	url := params.URL + endpoint
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(reqBytes))
+	if err != nil {
+		return "", fmt.Errorf("failed to create exchange request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", params.UA)
+
+	resp, err := params.Client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("token exchange request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("token exchange failed with status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var result struct {
+		Token string `json:"token"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", fmt.Errorf("failed to decode exchange response: %w", err)
+	}
+
+	if result.Token == "" {
+		return "", fmt.Errorf("exchange response contained empty token")
+	}
+
+	logger.Info("Token exchange successful")
+	return result.Token, nil
 }
