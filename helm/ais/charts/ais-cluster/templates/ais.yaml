@@ -91,7 +91,7 @@ spec:
     portPublic: {{ .Values.targetSpec.portPublic }}
     portIntraControl: {{ .Values.targetSpec.portIntraControl }}
     portIntraData: {{ .Values.targetSpec.portIntraData }}
-    {{- if .Values.targetSpec.hostNetwork }}
+    {{- if hasKey .Values.targetSpec "hostNetwork" }}
     hostNetwork: {{ .Values.targetSpec.hostNetwork }}
     {{- end }}
     capabilities:

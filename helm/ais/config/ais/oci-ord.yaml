@@ -48,6 +48,7 @@ proxySpec:
 
 targetSpec:
   tolerations: []
+  hostNetwork: false
 
 proxyLB:
   enabled: true
