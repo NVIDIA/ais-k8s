@@ -2111,7 +2111,7 @@ spec:
                       Size holds number of AIS Daemon (proxy/target) replicas.
                       Overrides value present in `AIStore` spec.
                     format: int32
-                    minimum: 0
+                    minimum: -1
                     type: integer
                   tolerations:
                     description: Tolerations - list of tolerations for AIS Daemon
@@ -2170,7 +2170,7 @@ spec:
                   Size of the cluster i.e. number of proxies and number of targets.
                   This can be changed by specifying size in either `proxySpec` or `targetSpec`.
                 format: int32
-                minimum: 0
+                minimum: -1
                 type: integer
               stateStorageClass:
                 description: Used for creating dynamic volumes for storing state
@@ -3513,6 +3513,8 @@ spec:
                           x-kubernetes-int-or-string: true
                         storageClass:
                           type: string
+                        useHostPath:
+                          type: boolean
                       required:
                       - path
                       - size
@@ -3844,7 +3846,7 @@ spec:
                       Size holds number of AIS Daemon (proxy/target) replicas.
                       Overrides value present in `AIStore` spec.
                     format: int32
-                    minimum: 0
+                    minimum: -1
                     type: integer
                   tolerations:
                     description: Tolerations - list of tolerations for AIS Daemon
@@ -3913,11 +3915,31 @@ spec:
             x-kubernetes-validations:
             - message: Invalid cluster size, it is either not specified or value is
                 not valid
-              rule: (has(self.targetSpec.size) && has(self.proxySpec.size)) || (has(self.size)
-                && self.size > 0)
+              rule: (has(self.targetSpec.size) && has(self.proxySpec.size)) || has(self.size)
           status:
             description: AIStoreStatus defines the observed state of AIStore
             properties:
+              autoscaleStatus:
+                description: |-
+                  AutoScaleStatus is used to track what nodes the controller
+                  has discovered for the cluster
+                  this is only used for clusters that are set to auto-scale
+                properties:
+                  expectedProxyNodes:
+                    description: |-
+                      ProxyNodes is a list of nodes that have matched the node selector
+                      this is only used for auto-scaling clusters
+                    items:
+                      type: string
+                    type: array
+                  expectedTargetNodes:
+                    description: |-
+                      TargetNodes is a list of nodes that have matched the node selector
+                      this is only used for auto-scaling clusters
+                    items:
+                      type: string
+                    type: array
+                type: object
               conditions:
                 description: |-
                   Represents the observations of a AIStores's current state.
@@ -3980,6 +4002,9 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              intraClusterURL:
+                description: IntraClusterURL is the in cluster url for the AIS cluster
+                type: string
               state:
                 description: |-
                   The state of a AIStore is a simple, high-level summary of where the cluster is in its lifecycle.

@@ -39,16 +39,16 @@ type AIStoreWebhook struct {
 var _ webhook.CustomValidator = &AIStoreWebhook{}
 
 func (ais *AIStore) validateSize() (admission.Warnings, error) {
-	if ais.Spec.ProxySpec.Size != nil && *ais.Spec.ProxySpec.Size <= 0 {
+	if ais.Spec.ProxySpec.Size != nil && *ais.Spec.ProxySpec.Size <= 0 && !ais.IsProxyAutoScaling() {
 		return nil, errInvalidDaemonSize(*ais.Spec.ProxySpec.Size, aisapc.Proxy)
 	}
 
-	if ais.Spec.TargetSpec.Size != nil && *ais.Spec.TargetSpec.Size <= 0 {
+	if ais.Spec.TargetSpec.Size != nil && *ais.Spec.TargetSpec.Size <= 0 && !ais.IsTargetAutoScaling() {
 		return nil, errInvalidDaemonSize(*ais.Spec.TargetSpec.Size, aisapc.Target)
 	}
 
 	// Validate `.spec.size` only when `.spec.targetSpec.size` or `.spec.proxySpec.size` is not set.
-	if (ais.Spec.TargetSpec.Size == nil || ais.Spec.ProxySpec.Size == nil) && (ais.Spec.Size == nil || *ais.Spec.Size <= 0) {
+	if (ais.Spec.TargetSpec.Size == nil || ais.Spec.ProxySpec.Size == nil) && (ais.Spec.Size == nil || *ais.Spec.Size <= -2 || *ais.Spec.Size == 0) {
 		return nil, errInvalidClusterSize(ais.Spec.Size)
 	}
 
@@ -65,6 +65,25 @@ func (ais *AIStore) validateStateStorage() (admission.Warnings, error) {
 		return nil, errUndefinedStateStorage()
 	}
 	return nil, nil
+}
+
+func (ais *AIStore) validateAutoScaling() (admission.Warnings, error) {
+	warns := admission.Warnings{}
+	if ais.Spec.Size != nil && *ais.Spec.Size == -1 {
+		if ais.Spec.TargetSpec.Size != nil && *ais.Spec.TargetSpec.Size != -1 {
+			warns = append(warns, "spec.targetSpec.size is set when spec.Size is -1; defaulting to use the -1 of spec.Size")
+		}
+		if ais.Spec.ProxySpec.Size != nil && *ais.Spec.ProxySpec.Size != -1 {
+			warns = append(warns, "spec.proxySpec.size is set when spec.Size is -1; defaulting to use the -1 of spec.Size")
+		}
+	}
+	if ais.IsTargetAutoScaling() && ais.Spec.TargetSpec.NodeSelector == nil {
+		return nil, errUndefinedNodeSelector("target")
+	}
+	if ais.IsProxyAutoScaling() && ais.Spec.ProxySpec.NodeSelector == nil {
+		return nil, errUndefinedNodeSelector("proxy")
+	}
+	return warns, nil
 }
 
 func (ss *ServiceSpec) validate(path *field.Path) field.ErrorList {
@@ -126,6 +145,7 @@ func (ais *AIStore) ValidateSpec(_ context.Context, extraValidations ...func() (
 	validations := []func() (admission.Warnings, error){
 		ais.validateSize,
 		ais.validateStateStorage,
+		ais.validateAutoScaling,
 		ais.validateServiceSpec,
 	}
 	validations = append(validations, extraValidations...)
@@ -275,7 +295,7 @@ func errInvalidClusterSize(size *int32) error {
 	if size == nil {
 		return fmt.Errorf("cluster size is not specified")
 	}
-	return fmt.Errorf("invalid cluster size %d, should be at least 1", *size)
+	return fmt.Errorf("invalid cluster size %d, should be at least 1 or -1 for autoScaling", *size)
 }
 
 // errors
@@ -292,4 +312,8 @@ func errCannotUpdateSpec(specName string, diff ...string) error {
 
 func errUndefinedStateStorage() error {
 	return fmt.Errorf("AIS spec does not define hostpathPrefix or stateStorageClass. Set hostpathPrefix to use a directory on each node or set stateStorageClass to use a dynamic storage class")
+}
+
+func errUndefinedNodeSelector(spec string) error {
+	return fmt.Errorf("missing nodeSelector for %s; nodeSelector is required when autoScale is enabled", spec)
 }

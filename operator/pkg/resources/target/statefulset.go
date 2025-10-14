@@ -50,7 +50,7 @@ func RequiredPodLabels(ais *aisv1.AIStore) map[string]string {
 	}
 }
 
-func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
+func NewTargetSS(ais *aisv1.AIStore, expectedSize int32) *apiv1.StatefulSet {
 	basicLabels := BasicLabels(ais)
 	podLabels := map[string]string{}
 	maps.Copy(podLabels, BasicLabels(ais))
@@ -69,7 +69,7 @@ func NewTargetSS(ais *aisv1.AIStore) *apiv1.StatefulSet {
 			},
 			ServiceName:          headlessSVCName(ais.Name),
 			PodManagementPolicy:  apiv1.ParallelPodManagement,
-			Replicas:             aisapc.Ptr(ais.GetTargetSize()),
+			Replicas:             &expectedSize,
 			VolumeClaimTemplates: targetPVC(ais),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
@@ -167,7 +167,7 @@ func volumeMounts(ais *aisv1.AIStore) []corev1.VolumeMount {
 	vols := cmn.NewAISVolumeMounts(ais, aisapc.Target)
 	for _, mnt := range ais.Spec.TargetSpec.Mounts {
 		vols = append(vols, corev1.VolumeMount{
-			Name:      getVolumeMountName(ais, &mnt),
+			Name:      mnt.GetMountName(ais.Name),
 			MountPath: mnt.Path,
 		})
 	}
@@ -177,6 +177,9 @@ func volumeMounts(ais *aisv1.AIStore) []corev1.VolumeMount {
 func defineDataPVCs(ais *aisv1.AIStore) []corev1.PersistentVolumeClaim {
 	pvcs := make([]corev1.PersistentVolumeClaim, 0, len(ais.Spec.TargetSpec.Mounts))
 	for _, res := range ais.Spec.TargetSpec.Mounts {
+		if res.IsHostPath() {
+			continue
+		}
 		decSize := res.Size.AsDec()
 		// Round down and get the unscaled int size
 		roundedBytes, ok := decSize.Round(decSize, 0, inf.RoundDown).Unscaled()

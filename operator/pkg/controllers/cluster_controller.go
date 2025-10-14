@@ -7,6 +7,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -23,12 +24,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	k8sclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -95,6 +98,12 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 	}
 
+	if ais.IsTargetAutoScaling() || ais.IsProxyAutoScaling() {
+		if err := r.determineAutoScaleStatus(ctx, ais); err != nil {
+			return reconcile.Result{}, err
+		}
+	}
+
 	if ais.ShouldDecommission() {
 		err = r.updateStatusWithState(ctx, ais, aisv1.ClusterDecommissioning)
 		if err != nil {
@@ -144,11 +153,85 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return result, err
 	}
 
+	if ais.Status.IntraClusterURL == "" {
+		err = r.updateIntraClusterURLStatus(ctx, ais)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+	}
+
 	if !ais.IsConditionTrue(aisv1.ConditionCreated) {
 		return r.bootstrapNew(ctx, ais)
 	}
 
 	return r.handleCREvents(ctx, ais)
+}
+
+func (r *AIStoreReconciler) determineAutoScaleStatus(ctx context.Context, ais *aisv1.AIStore) error {
+	logger := logf.FromContext(ctx)
+	autoScaleStatus := aisv1.AutoScaleStatus{}
+	// If autoScale is enabled figure out target nodes and proxy nodes
+	if ais.IsTargetAutoScaling() {
+		nodes, err := r.k8sClient.ListNodesMatchingSelector(ctx, ais.Spec.TargetSpec.NodeSelector)
+		if err != nil {
+			logger.Error(err, "Unable to fetch nodes for autoScaleStatus target")
+			return err
+		}
+
+		targetNodes := make([]string, 0, len(nodes.Items))
+		for i := range nodes.Items {
+			node := nodes.Items[i]
+
+			if !toleratesTaints(ais.Spec.TargetSpec.Tolerations, &node) {
+				continue
+			}
+			targetNodes = append(targetNodes, node.Name)
+		}
+		logger.Info("Discovered autoScaleStatus target nodes", "targetNodes", targetNodes)
+		slices.Sort(targetNodes)
+		autoScaleStatus.ExpectedTargetNodes = targetNodes
+	}
+
+	if ais.IsProxyAutoScaling() {
+		nodes, err := r.k8sClient.ListNodesMatchingSelector(ctx, ais.Spec.ProxySpec.NodeSelector)
+		if err != nil {
+			logger.Error(err, "Unable to fetch nodes for autoScaleStatus proxy")
+			return err
+		}
+		proxyNodes := make([]string, 0, len(nodes.Items))
+		for i := range nodes.Items {
+			node := nodes.Items[i]
+
+			if !toleratesTaints(ais.Spec.ProxySpec.Tolerations, &node) {
+				continue
+			}
+			proxyNodes = append(proxyNodes, node.Name)
+		}
+		logger.Info("Discovered autoScaleStatus proxy nodes", "proxyNodes", proxyNodes)
+		slices.Sort(proxyNodes)
+		autoScaleStatus.ExpectedProxyNodes = proxyNodes
+	}
+
+	return r.updateAutoScaleStatus(ctx, ais, autoScaleStatus)
+}
+
+func toleratesTaints(tolerations []corev1.Toleration, node *corev1.Node) bool {
+	for _, taint := range node.Spec.Taints {
+		if taint.Effect != corev1.TaintEffectNoSchedule && taint.Effect != corev1.TaintEffectNoExecute {
+			continue
+		}
+		isTolerated := false
+		for _, toleration := range tolerations {
+			if toleration.ToleratesTaint(&taint) {
+				isTolerated = true
+				break
+			}
+		}
+		if !isTolerated {
+			return false
+		}
+	}
+	return true
 }
 
 func (r *AIStoreReconciler) initializeCR(ctx context.Context, ais *aisv1.AIStore) (err error) {
@@ -687,6 +770,22 @@ func (r *AIStoreReconciler) enableRebalanceCondition(ctx context.Context, ais *a
 	return r.patchStatus(ctx, ais)
 }
 
+func (r *AIStoreReconciler) updateAutoScaleStatus(ctx context.Context, ais *aisv1.AIStore, status aisv1.AutoScaleStatus) error {
+	if slices.Equal(ais.Status.AutoScaleStatus.ExpectedProxyNodes, status.ExpectedProxyNodes) && slices.Equal(ais.Status.AutoScaleStatus.ExpectedTargetNodes, status.ExpectedTargetNodes) {
+		return nil
+	}
+	logf.FromContext(ctx).Info("Updating autoScaleStatus", "status", status)
+	ais.Status.AutoScaleStatus = status
+	return r.patchStatus(ctx, ais)
+}
+
+func (r *AIStoreReconciler) updateIntraClusterURLStatus(ctx context.Context, ais *aisv1.AIStore) error {
+	intraClusterURL := ais.GetIntraClusterURL()
+	logf.FromContext(ctx).WithValues("intraClusterURL", intraClusterURL).Info("Updating AIS with intraClusterURL")
+	ais.Status.IntraClusterURL = intraClusterURL
+	return r.patchStatus(ctx, ais)
+}
+
 func (r *AIStoreReconciler) updateStatusWithState(ctx context.Context, ais *aisv1.AIStore, state aisv1.ClusterState) error {
 	logf.FromContext(ctx).Info("Updating AIS state", "state", state)
 	ais.SetState(state)
@@ -714,10 +813,96 @@ func (r *AIStoreReconciler) patchStatus(ctx context.Context, ais *aisv1.AIStore)
 func (r *AIStoreReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&aisv1.AIStore{}).
+		Watches(&corev1.Node{},
+			handler.EnqueueRequestsFromMapFunc(r.findAISClustersForNode),
+		).
 		Owns(&apiv1.StatefulSet{}).
 		Owns(&corev1.ConfigMap{}).
 		Owns(&corev1.Service{}).
 		Complete(r)
+}
+
+func (r *AIStoreReconciler) findAISClustersForNode(ctx context.Context, o k8sclient.Object) []reconcile.Request {
+	logger := r.log.WithName("node-mapper").WithValues("object", o.GetName())
+
+	// convert to node
+	node, ok := o.(*corev1.Node)
+	if !ok {
+		logger.Error(fmt.Errorf("unexpected object type"), "Expected Node", "got", fmt.Sprintf("%T", o))
+		return nil
+	}
+
+	logger.Info("Finding ais clusters for node")
+
+	// Find all autoScale AIStore clusters
+	aisList := &aisv1.AIStoreList{}
+	if err := r.k8sClient.List(ctx, aisList); err != nil {
+		logger.Error(err, "Failed to list ais crs")
+		return nil
+	}
+
+	var requests []reconcile.Request
+
+	for idx := range len(aisList.Items) {
+		ais := aisList.Items[idx]
+		// the match funcs check for two things: is the node in already in the node list and does it match the node selector
+		// We check the expectedNode list, as we could be here because the node change labels.
+		// If the node change labels we queue up the reconcile and the reconcile function will handle it.
+		if ais.IsProxyAutoScaling() {
+			if r.nodeMatchesForProxy(node, &ais) {
+				requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{Namespace: ais.Namespace, Name: ais.Name}})
+				continue
+			}
+		}
+		if ais.IsTargetAutoScaling() {
+			if r.nodeMatchesForTarget(node, &ais) {
+				requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{Namespace: ais.Namespace, Name: ais.Name}})
+				continue
+			}
+		}
+
+		logger.Info("Skipping non-autoScaleStatus AIStore cr", "cr", ais.GetName())
+	}
+
+	if len(requests) > 0 {
+		// fine to log requests here as it's only the name and namespace of each ais cr
+		logger.Info("Found new nodes for ais crs", "cluster-count", len(requests), "crs", requests)
+	}
+
+	return requests
+}
+
+func (r *AIStoreReconciler) nodeMatchesForProxy(node *corev1.Node, ais *aisv1.AIStore) bool {
+	logger := r.log.WithName("node-mapper").WithValues("node", node.Name)
+
+	if ais.IsProxyAutoScaling() && slices.Contains(ais.Status.AutoScaleStatus.ExpectedProxyNodes, node.Name) {
+		logger.Info("Node is in expected proxy nodes", "cr", ais.GetName())
+		return true
+	}
+	if ais.IsProxyAutoScaling() && r.nodeMatchesSelector(node, ais.Spec.ProxySpec.NodeSelector) {
+		logger.Info("Node selector found for proxy", "cr", ais.GetName())
+		return true
+	}
+	return false
+}
+
+func (r *AIStoreReconciler) nodeMatchesForTarget(node *corev1.Node, ais *aisv1.AIStore) bool {
+	logger := r.log.WithName("node-mapper").WithValues("node", node.Name)
+	if ais.IsTargetAutoScaling() && slices.Contains(ais.Status.AutoScaleStatus.ExpectedTargetNodes, node.Name) {
+		logger.Info("Node is in expected target nodes", "cr", ais.GetName())
+		return true
+	}
+	if ais.IsTargetAutoScaling() && r.nodeMatchesSelector(node, ais.Spec.TargetSpec.NodeSelector) {
+		logger.Info("Node selector found for target", "cr", ais.GetName())
+		return true
+	}
+	return false
+}
+
+func (*AIStoreReconciler) nodeMatchesSelector(node *corev1.Node, selector map[string]string) bool {
+	nodeLabels := labels.Set(node.Labels)
+	selectorLabels := labels.Set(selector)
+	return selectorLabels.AsSelector().Matches(nodeLabels)
 }
 
 func (r *AIStoreReconciler) handleSuccessfulReconcile(ctx context.Context, ais *aisv1.AIStore) (err error) {

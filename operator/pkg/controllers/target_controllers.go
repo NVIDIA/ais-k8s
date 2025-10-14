@@ -48,7 +48,7 @@ func (r *AIStoreReconciler) ensureTargetPrereqs(ctx context.Context, ais *aisv1.
 
 func (r *AIStoreReconciler) initTargets(ctx context.Context, ais *aisv1.AIStore) (result ctrl.Result, err error) {
 	// Deploy statefulset
-	ss := target.NewTargetSS(ais)
+	ss := target.NewTargetSS(ais, ais.GetTargetSize())
 	exists, err := r.k8sClient.CreateResourceIfNotExists(ctx, ais, ss)
 	if err != nil {
 		r.recordError(ctx, ais, err, "Failed to deploy target statefulset")
@@ -81,6 +81,8 @@ func (r *AIStoreReconciler) cleanupTargetSS(ctx context.Context, ais *aisv1.AISt
 }
 
 func (r *AIStoreReconciler) handleTargetState(ctx context.Context, ais *aisv1.AIStore) (result ctrl.Result, err error) {
+	targetSize := ais.GetTargetSize()
+
 	// Fetch the latest target StatefulSet.
 	ss, err := r.k8sClient.GetStatefulSet(ctx, target.StatefulSetNSName(ais))
 
@@ -103,7 +105,7 @@ func (r *AIStoreReconciler) handleTargetState(ctx context.Context, ais *aisv1.AI
 
 	if ais.HasState(aisv1.ClusterScaling) {
 		// If desired does not match AIS, update the statefulset
-		if *ss.Spec.Replicas != ais.GetTargetSize() {
+		if *ss.Spec.Replicas != targetSize {
 			err = r.resolveStatefulSetScaling(ctx, ais)
 			if err != nil {
 				return
@@ -111,7 +113,7 @@ func (r *AIStoreReconciler) handleTargetState(ctx context.Context, ais *aisv1.AI
 		}
 	}
 	// Start the target scaling process by updating services and contacting the AIS API
-	if *ss.Spec.Replicas != ais.GetTargetSize() {
+	if *ss.Spec.Replicas != targetSize {
 		err = r.startTargetScaling(ctx, ais, ss)
 		if err != nil {
 			return
@@ -124,14 +126,14 @@ func (r *AIStoreReconciler) handleTargetState(ctx context.Context, ais *aisv1.AI
 		return ctrl.Result{RequeueAfter: targetRequeueDelay}, nil
 	}
 	// Requeue if the number of target pods ready does not match the size provided in AIS cluster spec.
-	if !isStatefulSetReady(ais, ss) {
+	if !r.isStatefulSetReady(ais, ss) {
 		logger.Info("Waiting for target statefulset to reach desired replicas", "desired", ss.Spec.Replicas)
 		return ctrl.Result{RequeueAfter: targetRequeueDelay}, nil
 	}
 	return
 }
 
-func isStatefulSetReady(ais *aisv1.AIStore, ss *appsv1.StatefulSet) bool {
+func (*AIStoreReconciler) isStatefulSetReady(ais *aisv1.AIStore, ss *appsv1.StatefulSet) bool {
 	specReplicas := *ss.Spec.Replicas
 	// Must match size provided in AIS cluster spec
 	if specReplicas != ais.GetTargetSize() {
@@ -154,15 +156,15 @@ func isStatefulSetReady(ais *aisv1.AIStore, ss *appsv1.StatefulSet) bool {
 
 func (r *AIStoreReconciler) resolveStatefulSetScaling(ctx context.Context, ais *aisv1.AIStore) error {
 	logger := logf.FromContext(ctx)
-	desiredSize := ais.GetTargetSize()
+	expectedSize := ais.GetTargetSize()
 	current, ssErr := r.k8sClient.GetStatefulSet(ctx, target.StatefulSetNSName(ais))
 	if ssErr != nil {
 		return ssErr
 	}
 	currentSize := *current.Spec.Replicas
 	// Scaling up
-	if desiredSize > currentSize {
-		if desiredSize > currentSize+1 {
+	if expectedSize > currentSize {
+		if expectedSize > currentSize+1 {
 			ready, err := r.checkAISClusterReady(ctx, ais)
 			if err != nil {
 				return err
@@ -178,15 +180,15 @@ func (r *AIStoreReconciler) resolveStatefulSetScaling(ctx context.Context, ais *
 				return err
 			}
 		}
-		logger.Info("Scaling up target statefulset to match AIS cluster spec size", "desiredSize", desiredSize)
-	} else if desiredSize < currentSize {
+		logger.Info("Scaling up target statefulset to match AIS cluster spec size", "desiredSize", expectedSize)
+	} else if expectedSize < currentSize {
 		// Don't proceed to update state to ready until we can proceed to statefulset scale-down
 		if ready, scaleErr := r.isReadyToScaleDown(ctx, ais, currentSize); scaleErr != nil || !ready {
 			return scaleErr
 		}
-		logger.Info("Scaling down target statefulset to match AIS cluster spec size", "desiredSize", desiredSize)
+		logger.Info("Scaling down target statefulset to match AIS cluster spec size", "desiredSize", expectedSize)
 	}
-	_, ssErr = r.k8sClient.UpdateStatefulSetReplicas(ctx, target.StatefulSetNSName(ais), desiredSize)
+	_, ssErr = r.k8sClient.UpdateStatefulSetReplicas(ctx, target.StatefulSetNSName(ais), expectedSize)
 	if ssErr != nil {
 		return ssErr
 	}
@@ -269,7 +271,7 @@ func (r *AIStoreReconciler) decommissionTargets(ctx context.Context, ais *aisv1.
 func (r *AIStoreReconciler) syncTargetPodSpec(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) (updated bool, err error) {
 	logger := logf.FromContext(ctx)
 	updatedSS := ss.DeepCopy()
-	desiredTemplate := &target.NewTargetSS(ais).Spec.Template
+	desiredTemplate := &target.NewTargetSS(ais, ais.GetTargetSize()).Spec.Template
 	if needsUpdate, reason := shouldUpdatePodTemplate(desiredTemplate, &updatedSS.Spec.Template); needsUpdate {
 		// Disable rebalance condition before ANY changes that trigger a rolling upgrade
 		err = r.disableRebalance(ctx, ais, aisv1.ReasonUpgrading, "Disabled due to rolling upgrade: "+reason)

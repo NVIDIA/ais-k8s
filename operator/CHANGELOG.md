@@ -7,6 +7,17 @@ Note: Changes to Helm charts, Ansible playbooks, and other deployment tools are 
 We structure this changelog in accordance with [Keep a Changelog](https://keepachangelog.com/) guidelines, and this project follows [Semantic Versioning](https://semver.org/).
 
 ---
+## Unreleased
+
+### Added
+
+- Auto-scaling mode: Set `size: -1` to automatically scale proxy/target pods based on node selectors and tolerations
+- Host path mounting: Use `useHostPath: true` in mount spec to bypass PV/PVC provisioning for direct host storage
+- Auto-scale status tracking: New `AutoScaleStatus` field in cluster status tracks expected nodes for autoScaling clusters
+
+### Changed
+
+- Size validation: Allow `size: -1` for autoScaling mode
 
 ##  v2.7.0
 

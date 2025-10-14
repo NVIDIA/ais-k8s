@@ -6,6 +6,7 @@ package v1beta1
 
 import (
 	"fmt"
+	"strings"
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
 	corev1 "k8s.io/api/core/v1"
@@ -88,11 +89,11 @@ const (
 // IMPORTANT: Run "make" to regenerate code after modifying this file
 
 // AIStoreSpec defines the desired state of AIStore
-// +kubebuilder:validation:XValidation:rule="(has(self.targetSpec.size) && has(self.proxySpec.size)) || (has(self.size) && self.size > 0)",message="Invalid cluster size, it is either not specified or value is not valid"
+// +kubebuilder:validation:XValidation:rule="(has(self.targetSpec.size) && has(self.proxySpec.size)) || has(self.size)",message="Invalid cluster size, it is either not specified or value is not valid"
 type AIStoreSpec struct {
 	// Size of the cluster i.e. number of proxies and number of targets.
 	// This can be changed by specifying size in either `proxySpec` or `targetSpec`.
-	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Minimum=-1
 	// +optional
 	Size *int32 `json:"size,omitempty"`
 	// Container image used for `aisnode` container.
@@ -200,6 +201,16 @@ type AIStoreStatus struct {
 	// The conditions array field contain more detail about the cluster's status.
 	// +optional
 	State ClusterState `json:"state"`
+
+	// AutoScaleStatus is used to track what nodes the controller
+	// has discovered for the cluster
+	// this is only used for clusters that are set to auto-scale
+	// +optional
+	AutoScaleStatus AutoScaleStatus `json:"autoscaleStatus"`
+
+	// IntraClusterURL is the in cluster url for the AIS cluster
+	// +optional
+	IntraClusterURL string `json:"intraClusterURL"`
 	// Represents the observations of a AIStores's current state.
 	// Known condition types are: "Initialized", "Created", and "Ready".
 	// +patchMergeKey=type
@@ -207,6 +218,18 @@ type AIStoreStatus struct {
 	// +listType=map
 	// +listMapKey=type
 	Conditions []metav1.Condition `json:"conditions"`
+}
+
+type AutoScaleStatus struct {
+	// ProxyNodes is a list of nodes that have matched the node selector
+	// this is only used for auto-scaling clusters
+	// +optional
+	ExpectedProxyNodes []string `json:"expectedProxyNodes"`
+
+	// TargetNodes is a list of nodes that have matched the node selector
+	// this is only used for auto-scaling clusters
+	// +optional
+	ExpectedTargetNodes []string `json:"expectedTargetNodes"`
 }
 
 // ServiceSpec defines the specs of AIS Gateways
@@ -226,7 +249,7 @@ type DaemonSpec struct {
 
 	// Size holds number of AIS Daemon (proxy/target) replicas.
 	// Overrides value present in `AIStore` spec.
-	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Minimum=-1
 	// +optional
 	Size *int32 `json:"size,omitempty"`
 
@@ -279,10 +302,13 @@ type TargetSpec struct {
 }
 
 type Mount struct {
-	Path         string                `json:"path"`
-	Size         resource.Quantity     `json:"size"`
-	StorageClass *string               `json:"storageClass,omitempty"` // storage class for volume resource
-	Selector     *metav1.LabelSelector `json:"selector,omitempty"`     // selector for choosing PVs
+	Path string            `json:"path"`
+	Size resource.Quantity `json:"size"`
+	// +optional
+	StorageClass *string `json:"storageClass,omitempty"` // storage class for volume resource
+	// +optional
+	UseHostPath *bool                 `json:"useHostPath,omitempty"` // skip PVs and mount directly on the host
+	Selector    *metav1.LabelSelector `json:"selector,omitempty"`    // selector for choosing PVs
 	// Mountpath labels can be used for mapping mountpaths to disks, enabling disk sharing,
 	// defining storage classes for bucket-specific storage, and allowing user-defined mountpath
 	// grouping for capacity and storage class differentiation
@@ -378,6 +404,9 @@ func (ais *AIStore) DefaultPrimaryName() string {
 }
 
 func (ais *AIStore) GetProxySize() int32 {
+	if ais.IsProxyAutoScaling() {
+		return int32(len(ais.Status.AutoScaleStatus.ExpectedProxyNodes))
+	}
 	if ais.Spec.ProxySpec.Size != nil {
 		return *ais.Spec.ProxySpec.Size
 	}
@@ -385,6 +414,9 @@ func (ais *AIStore) GetProxySize() int32 {
 }
 
 func (ais *AIStore) GetTargetSize() int32 {
+	if ais.IsTargetAutoScaling() {
+		return int32(len(ais.Status.AutoScaleStatus.ExpectedTargetNodes))
+	}
 	if ais.Spec.TargetSpec.Size != nil {
 		return *ais.Spec.TargetSpec.Size
 	}
@@ -397,6 +429,13 @@ func (ais *AIStore) GetDefaultProxyURL() string {
 	svcSuffix := ais.getControlSvcSuffix()
 	// Example: http://ais-proxy-0.ais-proxy.ais.svc.cluster.local:51080
 	return fmt.Sprintf("%s://%s.%s.%s.%s", ais.getScheme(), primaryProxy, svcName, ais.Namespace, svcSuffix)
+}
+
+func (ais *AIStore) GetIntraClusterURL() string {
+	svcName := ais.ProxyStatefulSetName()
+	svcSuffix := ais.getPublicSvcSuffix()
+	// Example: http://ais-proxy.ais.svc.cluster.local:51080
+	return fmt.Sprintf("%s://%s.%s.%s", ais.getScheme(), svcName, ais.Namespace, svcSuffix)
 }
 
 func (ais *AIStore) GetDiscoveryProxyURL() string {
@@ -418,6 +457,11 @@ func (ais *AIStore) getControlSvcSuffix() string {
 	return fmt.Sprintf("svc.%s:%s", ais.GetClusterDomain(), intraCtrlPort)
 }
 
+func (ais *AIStore) getPublicSvcSuffix() string {
+	pubPort := ais.Spec.ProxySpec.PublicPort.String()
+	return fmt.Sprintf("svc.%s:%s", ais.GetClusterDomain(), pubPort)
+}
+
 func (ais *AIStore) ShouldStartShutdown() bool {
 	return ais.ShouldBeShutdown() && ais.HasState(ClusterReady)
 }
@@ -428,6 +472,42 @@ func (ais *AIStore) ShouldBeShutdown() bool {
 
 func (ais *AIStore) UseHostNetwork() bool {
 	return ais.Spec.TargetSpec.HostNetwork != nil && *ais.Spec.TargetSpec.HostNetwork
+}
+
+func (ais *AIStore) IsFullyAutoScaling() bool {
+	return ais.GetTargetSize() == -1 && ais.GetProxySize() == -1
+}
+
+func (ais *AIStore) IsTargetAutoScaling() bool {
+	if ais.Spec.Size != nil {
+		if *ais.Spec.Size == -1 {
+			return true
+		}
+	}
+	if ais.Spec.TargetSpec.Size != nil && *ais.Spec.TargetSpec.Size == -1 {
+		return true
+	}
+	return false
+}
+
+func (ais *AIStore) IsProxyAutoScaling() bool {
+	if ais.Spec.Size != nil {
+		if *ais.Spec.Size == -1 {
+			return true
+		}
+	}
+	if ais.Spec.ProxySpec.Size != nil && *ais.Spec.ProxySpec.Size == -1 {
+		return true
+	}
+	return false
+}
+
+func (m *Mount) IsHostPath() bool {
+	return m.UseHostPath != nil && *m.UseHostPath
+}
+
+func (m *Mount) GetMountName(aisName string) string {
+	return aisName + strings.ReplaceAll(m.Path, "/", "-")
 }
 
 func (ais *AIStore) GetTargetDNSPolicy() corev1.DNSPolicy {

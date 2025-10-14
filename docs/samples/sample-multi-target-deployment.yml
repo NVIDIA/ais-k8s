@@ -92,9 +92,9 @@ spec:
     - path: /data/aistore
       size: 5T
       storageClass: ais-local-storage
+  hostpathPrefix: "/etc/ais"
   nodeImage: "aistorage/aisnode:latest"
   initImage: "aistorage/ais-init:latest"
-  hostpathPrefix: "/etc/ais"
   enableExternalLB: false
   logsDir: "/var/log/ais"
   clusterDomain: "cluster.local"

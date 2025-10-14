@@ -114,6 +114,20 @@ func NewAISVolumes(ais *v1beta1.AIStore, daeType string) []v1.Volume {
 
 	if daeType == aisapc.Target {
 		volumes = append(volumes, newCloudVolumes(ais)...)
+
+		for _, mnt := range ais.Spec.TargetSpec.Mounts {
+			if mnt.IsHostPath() {
+				volumes = append(volumes, v1.Volume{
+					Name: mnt.GetMountName(ais.Name),
+					VolumeSource: v1.VolumeSource{
+						HostPath: &v1.HostPathVolumeSource{
+							Path: path.Join(mnt.Path, ais.Namespace, ais.Name, daeType),
+							Type: aisapc.Ptr(v1.HostPathDirectoryOrCreate),
+						},
+					},
+				})
+			}
+		}
 	}
 
 	if ais.Spec.TLSCertManagerIssuerName != nil {

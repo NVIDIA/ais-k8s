@@ -103,13 +103,13 @@ var _ = Describe("AIStore", func() {
 					&AIStore{Spec: AIStoreSpec{
 						InitImage: "init-image:tag",
 						NodeImage: "node-image:tag",
-						Size:      aisapc.Ptr[int32](-1),
+						Size:      aisapc.Ptr[int32](-2),
 						ProxySpec: DaemonSpec{},
 						TargetSpec: TargetSpec{
 							Mounts: []Mount{{Path: "/mnt"}},
 						},
 					}},
-					"Invalid cluster size, it is either not specified or value is not valid",
+					"Invalid value: -2: spec.size in body should be greater than or equal to -1",
 				),
 				Entry(
 					"invalid value for targetSize.size",
@@ -120,12 +120,12 @@ var _ = Describe("AIStore", func() {
 						ProxySpec: DaemonSpec{},
 						TargetSpec: TargetSpec{
 							DaemonSpec: DaemonSpec{
-								Size: aisapc.Ptr[int32](-1),
+								Size: aisapc.Ptr[int32](-2),
 							},
 							Mounts: []Mount{{Path: "/mnt"}},
 						},
 					}},
-					"spec.targetSpec.size in body should be greater than or equal to 0",
+					"spec.targetSpec.size in body should be greater than or equal to -1",
 				),
 				Entry(
 					"invalid value for proxySize.size",
@@ -133,7 +133,7 @@ var _ = Describe("AIStore", func() {
 						InitImage: "init-image:tag",
 						NodeImage: "node-image:tag",
 						ProxySpec: DaemonSpec{
-							Size: aisapc.Ptr[int32](-1),
+							Size: aisapc.Ptr[int32](-2),
 						},
 						TargetSpec: TargetSpec{
 							DaemonSpec: DaemonSpec{
@@ -142,7 +142,7 @@ var _ = Describe("AIStore", func() {
 							Mounts: []Mount{{Path: "/mnt"}},
 						},
 					}},
-					"spec.proxySpec.size in body should be greater than or equal to 0",
+					"Invalid value: -2: spec.proxySpec.size in body should be greater than or equal to -1",
 				),
 			)
 
@@ -185,8 +185,8 @@ var _ = Describe("AIStore", func() {
 				),
 				Entry(
 					"invalid size",
-					AIStore{Spec: AIStoreSpec{Size: aisapc.Ptr[int32](-1)}},
-					"invalid cluster size -1, should be at least 1",
+					AIStore{Spec: AIStoreSpec{Size: aisapc.Ptr[int32](-2)}},
+					"invalid cluster size -2, should be at least 1 or -1 for autoScaling",
 				),
 				Entry(
 					"hostpathPrefix and stateStorageClass empty",
