@@ -246,7 +246,9 @@ func (r *AIStoreReconciler) handleProxyRollout(ctx context.Context, ais *aisv1.A
 // With statefulset rolling update strategy, pods are updated in descending order of their pod index.
 // This implies the pod with the largest index is the oldest proxy, and we set it as primary.
 func (r *AIStoreReconciler) setHighestPodAsPrimary(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) (err error) {
+	logger := logf.FromContext(ctx).WithValues("statefulset", ss.Name)
 	podIndex := *ss.Spec.Replicas - 1
+	logger.Info("Setting highest pod as primary", "podIndex", podIndex)
 	err = r.setPrimaryTo(ctx, ais, podIndex)
 	if err != nil {
 		logger := logf.FromContext(ctx).WithValues("statefulset", ss.Name)
