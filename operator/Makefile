@@ -121,14 +121,13 @@ lpp-setup:
 	$(KUBECTL) apply -f "https://raw.githubusercontent.com/rancher/local-path-provisioner/$(LPP_VERSION)/deploy/local-path-storage.yaml"
 
 lpp-teardown:
-	$(KUBECTL) delete -f "https://raw.githubusercontent.com/rancher/local-path-provisioner/$(LPP_VERSION)/deploy/local-path-storage.yaml"
+	-$(KUBECTL) delete -f "https://raw.githubusercontent.com/rancher/local-path-provisioner/$(LPP_VERSION)/deploy/local-path-storage.yaml" --ignore-not-found
 
 lb-setup: cloud-provider-kind
-	@nohup $(CLOUD_PROVIDER_KIND) > cloud-provider-kind.log 2>&1 &
+	@$(SHELL) $(SCRIPTS_DIR)/cloud-provider-kind.sh start $(CLOUD_PROVIDER_KIND) $(LOCALBIN)
 
 lb-teardown:
-	pkill -f cloud-provider-kind
-	rm -f cloud-provider-kind.log
+	@$(SHELL) $(SCRIPTS_DIR)/cloud-provider-kind.sh stop $(CLOUD_PROVIDER_KIND) $(LOCALBIN)
 
 .PHONY: lint
 lint: golangci-lint ## Run golangci-lint linter
