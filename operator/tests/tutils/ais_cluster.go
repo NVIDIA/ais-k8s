@@ -22,11 +22,11 @@ import (
 )
 
 const (
-	DefaultNodeImage     = "aistorage/aisnode:v3.31"
-	DefaultInitImage     = "aistorage/ais-init:v3.31"
+	DefaultNodeImage     = "aistorage/aisnode:v4.0"
+	DefaultInitImage     = "aistorage/ais-init:v4.0"
 	DefaultLogsImage     = "aistorage/ais-logs:v1.1"
-	DefaultPrevNodeImage = "aistorage/aisnode:v3.30"
-	DefaultPrevInitImage = "aistorage/ais-init:v3.30"
+	DefaultPrevNodeImage = "aistorage/aisnode:v3.31"
+	DefaultPrevInitImage = "aistorage/ais-init:v3.31"
 	TestNSBase           = "ais-op-test"
 	TestNSOtherBase      = "ais-op-test-other"
 )
