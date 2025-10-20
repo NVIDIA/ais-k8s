@@ -178,10 +178,12 @@ func (cc *clientCluster) waitForReadyCluster() {
 
 func (cc *clientCluster) patchImagesToCurrent() {
 	cc.fetchLatestCluster()
+	readyGen := cc.getReadyObservedGen()
 	patch := clientpkg.MergeFrom(cc.cluster.DeepCopy())
 	cc.cluster.Spec.NodeImage = cc.aisCtx.NodeImage
 	cc.cluster.Spec.InitImage = cc.aisCtx.InitImage
 	Expect(cc.k8sClient.Patch(cc.ctx, cc.cluster, patch)).Should(Succeed())
+	tutils.WaitForReadyConditionChange(cc.ctx, cc.k8sClient, cc.cluster, readyGen, clusterUpdateTimeout, clusterUpdateInterval)
 	By("Update cluster spec and wait for it to be 'Ready'")
 	cc.waitForReadyCluster()
 }
@@ -196,6 +198,14 @@ func (cc *clientCluster) fetchLatestCluster() {
 	ais, err := cc.k8sClient.GetAIStoreCR(cc.ctx, cc.cluster.NamespacedName())
 	Expect(err).To(BeNil())
 	cc.cluster = ais
+}
+
+func (cc *clientCluster) getReadyObservedGen() int64 {
+	cond := tutils.GetClusterReadyCondition(cc.cluster)
+	if cond == nil {
+		return 0
+	}
+	return cond.ObservedGeneration
 }
 
 // Initialize AIS tutils to use the deployed cluster
@@ -277,13 +287,7 @@ func (cc *clientCluster) scale(targetOnly bool, factor int32) {
 		cr.Spec.Size = aisapc.Ptr(*cr.Spec.Size + factor)
 	}
 	// Get current ready condition generation
-	readyCond := tutils.GetClusterReadyCondition(cc.cluster)
-	var readyGen int64
-	if readyCond == nil {
-		readyGen = 0
-	} else {
-		readyGen = readyCond.ObservedGeneration
-	}
+	readyGen := cc.getReadyObservedGen()
 	Expect(cc.k8sClient.Patch(cc.ctx, cr, patch)).Should(Succeed())
 	// Wait for the condition's generation to receive some update so we know reconciliation began
 	// Otherwise, the cluster may be immediately ready

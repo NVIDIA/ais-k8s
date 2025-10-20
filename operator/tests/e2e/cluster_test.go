@@ -100,6 +100,7 @@ var _ = Describe("Run Controller", func() {
 		It("Should upgrade cluster (without rebalance) if aisnode image changes", func(ctx context.Context) {
 			cluArgs.NodeImage = AISTestContext.PreviousNodeImage
 			cluArgs.InitImage = AISTestContext.PreviousInitImage
+			cluArgs.Size = 2
 			cc := newClientCluster(ctx, AISTestContext, WorkerCtx.K8sClient, cluArgs)
 			cc.create()
 			cc.patchImagesToCurrent()
