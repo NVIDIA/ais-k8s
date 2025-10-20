@@ -125,6 +125,10 @@ var _ = Describe("Run Controller", func() {
 			cluArgs.InitImage = AISTestContext.PreviousInitImage
 			cluArgs.Size = 2
 			cc := newClientCluster(ctx, AISTestContext, WorkerCtx.K8sClient, cluArgs)
+			defer func() {
+				_ = cc.printLogs()
+				cc.destroyAndCleanup()
+			}()
 			cc.create()
 			cc.patchImagesToCurrent()
 
@@ -133,8 +137,6 @@ var _ = Describe("Run Controller", func() {
 			jobs, err := aisapi.GetAllXactionStatus(cc.getBaseParams(), &args)
 			Expect(err).To(BeNil())
 			Expect(len(jobs)).To(BeZero())
-			Expect(cc.printLogs()).To(Succeed())
-			cc.destroyAndCleanup()
 		})
 	})
 
@@ -194,6 +196,10 @@ var _ = Describe("Run Controller", func() {
 	Describe("Data-safety tests", func() {
 		It("Restarting cluster must retain data", func(ctx context.Context) {
 			cc := newClientCluster(ctx, AISTestContext, WorkerCtx.K8sClient, cluArgs)
+			defer func() {
+				_ = cc.printLogs()
+				cc.destroyAndCleanup()
+			}()
 			cc.create()
 			// put objects
 			var (
@@ -219,14 +225,16 @@ var _ = Describe("Run Controller", func() {
 			// Restart cluster
 			cc.restart()
 			tutils.ObjectsShouldExist(cc.getBaseParams(), bck, names...)
-			Expect(cc.printLogs()).To(Succeed())
-			cc.destroyAndCleanup()
 		})
 
 		It("Cluster scale down should ensure data safety", func(ctx context.Context) {
 			By("Deploy new cluster of size 2")
 			cluArgs.Size = 2
 			cc := newClientCluster(ctx, AISTestContext, WorkerCtx.K8sClient, cluArgs)
+			defer func() {
+				_ = cc.printLogs()
+				cc.destroyAndCleanup()
+			}()
 			cc.create()
 			By("Create a bucket and put objects")
 			var (
@@ -254,14 +262,16 @@ var _ = Describe("Run Controller", func() {
 			cc.scale(false, -1)
 			By("Validate objects exist after scaling")
 			tutils.ObjectsShouldExist(cc.getBaseParams(), bck, names...)
-			Expect(cc.printLogs()).To(Succeed())
-			cc.destroyAndCleanup()
 		})
 
 		It("Re-deploying with CleanupData should wipe out all data", func(ctx context.Context) {
 			// Default sets CleanupData to true -- wipe when we destroy the cluster
 			By("Deploy with CleanupData true")
 			cc := newClientCluster(ctx, AISTestContext, WorkerCtx.K8sClient, cluArgs)
+			defer func() {
+				_ = cc.printLogs()
+				cc.destroyAndCleanup()
+			}()
 			cc.create()
 			By("Create AIS bucket")
 			bck := aiscmn.Bck{Name: "TEST_BCK_CLEANUP", Provider: aisapc.AIS}
@@ -280,26 +290,27 @@ var _ = Describe("Run Controller", func() {
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(failCnt).To(Equal(0))
-			Expect(err).ShouldNot(HaveOccurred())
-			By("Destroy cluster including PVs")
-			// Operator should clean up host data on shutdown before pvs are removed
+			By("Destroy cluster and delete PVs")
 			cc.destroyAndCleanup()
 			cc.waitForResourceDeletion()
-			By("Create new cluster with the new PVs on the same host mount")
+			By("Create new cluster with new PVs on the same host mount")
+			cluArgs.CleanupMetadata = true
 			cc = newClientCluster(ctx, AISTestContext, WorkerCtx.K8sClient, cluArgs)
 			cc.create()
 			// All data including metadata should be deleted -- bucket should not exist in new cluster
 			By("Expect error getting bucket -- all data deleted")
 			_, err = aisapi.HeadBucket(cc.getBaseParams(), bck, true)
 			Expect(aiscmn.IsStatusNotFound(err)).To(BeTrue())
-			Expect(cc.printLogs()).To(Succeed())
-			cc.destroyAndCleanup()
 		})
 
 		It("Re-deploying with CleanupMetadata disabled should recover cluster", func(ctx context.Context) {
 			cluArgs.CleanupMetadata = false
 			By("Deploy with cleanupMetadata false")
 			cc := newClientCluster(ctx, AISTestContext, WorkerCtx.K8sClient, cluArgs)
+			defer func() {
+				_ = cc.printLogs()
+				cc.destroyAndCleanup()
+			}()
 			cc.create()
 			By("Create AIS bucket")
 			bck := aiscmn.Bck{Name: "TEST_BCK_DECOMM", Provider: aisapc.AIS}
@@ -318,7 +329,6 @@ var _ = Describe("Run Controller", func() {
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(failCnt).To(Equal(0))
-			Expect(err).ShouldNot(HaveOccurred())
 			By("Destroy initial cluster but leave PVs")
 			cc.destroyClusterOnly()
 			// Cleanup metadata to remove PVCs so we can destroyAndCleanup PVs at the end
@@ -328,8 +338,6 @@ var _ = Describe("Run Controller", func() {
 			cc.recreate(cluArgs)
 			By("Validate objects from previous cluster still exist")
 			tutils.ObjectsShouldExist(cc.getBaseParams(), bck, names...)
-			Expect(cc.printLogs()).To(Succeed())
-			cc.destroyAndCleanup()
 		})
 	})
 })
