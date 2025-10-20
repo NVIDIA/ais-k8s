@@ -7,7 +7,7 @@ Note: Changes to Helm charts, Ansible playbooks, and other deployment tools are 
 We structure this changelog in accordance with [Keep a Changelog](https://keepachangelog.com/) guidelines, and this project follows [Semantic Versioning](https://semver.org/).
 
 ---
-## Unreleased
+## v2.7.0
 
 ### Added
 
