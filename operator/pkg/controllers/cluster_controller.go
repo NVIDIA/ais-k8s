@@ -7,6 +7,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"slices"
 	"strings"
 	"time"
@@ -30,11 +31,14 @@ import (
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	k8sclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -812,10 +816,22 @@ func (r *AIStoreReconciler) patchStatus(ctx context.Context, ais *aisv1.AIStore)
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *AIStoreReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	nodePredicate := predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			return !reflect.DeepEqual(e.ObjectOld.GetLabels(), e.ObjectNew.GetLabels())
+		},
+		CreateFunc: func(_ event.CreateEvent) bool {
+			return true
+		},
+		DeleteFunc: func(_ event.DeleteEvent) bool {
+			return true
+		},
+	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&aisv1.AIStore{}).
 		Watches(&corev1.Node{},
 			handler.EnqueueRequestsFromMapFunc(r.findAISClustersForNode),
+			builder.WithPredicates(nodePredicate),
 		).
 		Owns(&apiv1.StatefulSet{}).
 		Owns(&corev1.ConfigMap{}).
