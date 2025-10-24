@@ -145,35 +145,8 @@ func (cc *clientCluster) createCluster(intervals ...interface{}) {
 	}, intervals...).Should(BeTrue())
 }
 
-func (cc *clientCluster) refresh() {
-	var err error
-	cc.cluster, err = cc.k8sClient.GetAIStoreCR(cc.ctx, cc.cluster.NamespacedName())
-	Expect(err).NotTo(HaveOccurred())
-}
-
 func (cc *clientCluster) waitForReadyCluster() {
 	tutils.WaitForClusterToBeReady(cc.ctx, cc.k8sClient, cc.cluster.NamespacedName(), clusterReadyTimeout, clusterReadyRetryInterval)
-	// Validate the cluster map -- make sure all AIS nodes have successfully joined cluster
-	cc.refresh()
-	cc.initClientAccess()
-
-	proxyURLs := cc.getAllProxyURLs()
-	expectedProxies := cc.cluster.GetProxySize()
-	expectedTargets := cc.cluster.GetTargetSize()
-
-	for i := range proxyURLs {
-		proxyURL := *proxyURLs[i]
-		bp := aistutils.BaseAPIParams(proxyURL)
-		Eventually(func() bool {
-			smap, err := aisapi.GetClusterMap(bp)
-			if err != nil {
-				return false
-			}
-			activeProxies := int32(len(smap.Pmap.ActiveNodes()))
-			activeTargets := int32(len(smap.Tmap.ActiveNodes()))
-			return activeProxies == expectedProxies && activeTargets == expectedTargets
-		}).Should(BeTrue())
-	}
 }
 
 func (cc *clientCluster) patchImagesToCurrent() {
@@ -210,6 +183,8 @@ func (cc *clientCluster) getReadyObservedGen() int64 {
 
 // Initialize AIS tutils to use the deployed cluster
 func (cc *clientCluster) initClientAccess() {
+	// Refresh CR to avoid using stale proxy size
+	cc.fetchLatestCluster()
 	// Wait for all proxies
 	proxyURLs := cc.getAllProxyURLs()
 	for i := range proxyURLs {

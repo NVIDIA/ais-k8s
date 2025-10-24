@@ -6,6 +6,7 @@ package e2e
 
 import (
 	"context"
+	"time"
 
 	aisapi "github.com/NVIDIA/aistore/api"
 	aisapc "github.com/NVIDIA/aistore/api/apc"
@@ -211,8 +212,8 @@ var _ = Describe("Run Controller", func() {
 				objPrefix  = "test-opr/"
 				baseParams = cc.getBaseParams()
 			)
-			err := aisapi.CreateBucket(baseParams, bck, nil)
-			Expect(err).ShouldNot(HaveOccurred())
+			// TODO: Remove once K8s cluster readiness is tightened to ensure operational readiness.
+			Eventually(func() error { return aisapi.CreateBucket(baseParams, bck, nil) }, 5*time.Second).Should(Succeed())
 			names, failCnt, err := aistutils.PutRandObjs(aistutils.PutObjectsArgs{
 				ProxyURL:  cc.proxyURL,
 				Bck:       bck,

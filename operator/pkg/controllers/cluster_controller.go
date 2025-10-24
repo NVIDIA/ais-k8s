@@ -950,6 +950,27 @@ func (r *AIStoreReconciler) checkAISClusterReady(ctx context.Context, ais *aisv1
 		logger.Info("AIS cluster is not ready", "health_error", err.Error())
 		return
 	}
+
+	smap, err := apiClient.GetClusterMap()
+	if err != nil {
+		logger.Error(err, "Failed to get cluster map to check cluster readiness")
+		return
+	}
+
+	proxyCount := int32(len(smap.Pmap))
+	targetCount := int32(len(smap.Tmap))
+	expectedProxies := ais.GetProxySize()
+	expectedTargets := ais.GetTargetSize()
+
+	if proxyCount != expectedProxies || targetCount != expectedTargets {
+		logger.Info(
+			"AIS cluster is not ready, counts do not match spec",
+			"smapProxies", proxyCount, "expectedProxies", expectedProxies,
+			"smapTargets", targetCount, "expectedTargets", expectedTargets,
+		)
+		return
+	}
+
 	return true, nil
 }
 

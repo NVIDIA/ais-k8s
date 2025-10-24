@@ -7,6 +7,12 @@ Note: Changes to Helm charts, Ansible playbooks, and other deployment tools are 
 We structure this changelog in accordance with [Keep a Changelog](https://keepachangelog.com/) guidelines, and this project follows [Semantic Versioning](https://semver.org/).
 
 ---
+## Unreleased
+
+### Added
+
+- Operator now additionally verifies cluster map proxy/target counts match the spec before setting the CR `Ready` condition to `True`.
+
 ## v2.7.1
 
 ### Added
