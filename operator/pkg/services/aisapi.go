@@ -21,7 +21,12 @@ import (
 
 //go:generate mockgen -source $GOFILE -destination mocks/client.go . AIStoreClientInterface
 
-const userAgent = "ais-operator"
+const (
+	userAgent = "ais-operator"
+	// TokenExpiryBuffer is the safety margin before token expiration to trigger refresh
+	// If a token expires in less than this duration, it will be considered invalid
+	TokenExpiryBuffer = 5 * time.Minute
+)
 
 type (
 	AIStoreClientInterface interface {
@@ -37,10 +42,11 @@ type (
 	}
 
 	AIStoreClient struct {
-		ctx    context.Context
-		params *api.BaseParams
-		mode   string
-		tlsCfg *tls.Config
+		ctx           context.Context
+		params        *api.BaseParams
+		mode          string
+		tlsCfg        *tls.Config
+		tokenExpireAt time.Time
 	}
 )
 
@@ -62,6 +68,12 @@ func (c *AIStoreClient) HasValidBaseParams(ctx context.Context, ais *aisv1.AISto
 		}
 	}
 
+	// Check if token is expired
+	if c.isTokenExpired() {
+		logf.FromContext(ctx).Info("Token expired or expiring soon", "expiresAt", c.tokenExpireAt)
+		return false
+	}
+
 	// Determine whether HTTPS should be used based on the presence of a TLS secret / TLS issuer and
 	// verify if the URL's protocol matches the expected protocol (HTTPS or HTTP)
 	httpsCheck := cos.IsHTTPS(c.params.URL) == ais.UseHTTPS()
@@ -72,6 +84,27 @@ func (c *AIStoreClient) HasValidBaseParams(ctx context.Context, ais *aisv1.AISto
 		(c.params.Token != "" && ais.Spec.AuthNSecretName != nil)
 
 	return httpsCheck && authNCheck
+}
+
+// isTokenExpired checks if the token is expired or expiring soon (within TokenExpiryBuffer)
+func (c *AIStoreClient) isTokenExpired() bool {
+	// Zero time means no expiration tracking
+	if c.tokenExpireAt.IsZero() {
+		return false
+	}
+	// Token is considered expired if it expires within TokenExpiryBuffer (5 minutes)
+	return time.Now().Add(TokenExpiryBuffer).After(c.tokenExpireAt)
+}
+
+// refreshToken updates the token and expiration time in-place
+func (c *AIStoreClient) refreshToken(tokenInfo *TokenInfo) {
+	if tokenInfo == nil {
+		c.params.Token = ""
+		c.tokenExpireAt = time.Time{}
+		return
+	}
+	c.params.Token = tokenInfo.Token
+	c.tokenExpireAt = tokenInfo.ExpiresAt
 }
 
 func (c *AIStoreClient) DecommissionCluster(rmUserData bool) error {
@@ -106,12 +139,20 @@ func (c *AIStoreClient) StartMaintenance(actValue *apc.ActValRmNode) (string, er
 	return api.StartMaintenance(*c.params, actValue)
 }
 
-func NewAIStoreClient(ctx context.Context, url, token, mode string, tlsCfg *tls.Config) *AIStoreClient {
+func NewAIStoreClient(ctx context.Context, url string, tokenInfo *TokenInfo, mode string, tlsCfg *tls.Config) *AIStoreClient {
+	var token string
+	var tokenExpireAt time.Time
+	if tokenInfo != nil {
+		token = tokenInfo.Token
+		tokenExpireAt = tokenInfo.ExpiresAt
+	}
+
 	return &AIStoreClient{
-		ctx:    ctx,
-		params: buildBaseParams(url, token, tlsCfg),
-		mode:   mode,
-		tlsCfg: tlsCfg,
+		ctx:           ctx,
+		params:        buildBaseParams(url, token, tlsCfg),
+		mode:          mode,
+		tlsCfg:        tlsCfg,
+		tokenExpireAt: tokenExpireAt,
 	}
 }
 

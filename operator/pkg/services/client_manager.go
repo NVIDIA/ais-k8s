@@ -64,19 +64,35 @@ func NewAISClientManager(k8sClient *aisclient.K8sClient, tlsOpts AISClientTLSOpt
 
 // GetClient gets an AIStoreClientInterface for making request to the given AIS cluster.
 // Gets a cached object if exists, else creates a new one.
+// If the token is expired, refreshes it in-place.
 func (m *AISClientManager) GetClient(ctx context.Context,
 	ais *aisv1.AIStore,
 ) (client AIStoreClientInterface, err error) {
 	logger := logf.FromContext(ctx)
-	// First get the client for the given cluster and return it if its params are still valid
 	m.mu.RLock()
 	client, exists := m.clientMap[ais.NamespacedName().String()]
+	m.mu.RUnlock()
+
+	// If client exists and token is expired, refresh it
+	if exists {
+		if concreteClient, ok := client.(*AIStoreClient); ok && concreteClient.isTokenExpired() {
+			tokenInfo, err := m.authN.getAdminToken(ctx, ais)
+			if err != nil {
+				logger.Error(err, "Failed to get admin token for refresh")
+				return nil, err
+			}
+
+			hasExpiration := tokenInfo != nil && !tokenInfo.ExpiresAt.IsZero()
+			logger.Info("Refreshing expired token", "tokenExpires", hasExpiration)
+			concreteClient.refreshToken(tokenInfo)
+		}
+	}
+
+	// Check if the client params are valid
 	if exists && client.HasValidBaseParams(ctx, ais) {
-		m.mu.RUnlock()
 		return
 	}
-	m.mu.RUnlock()
-	// If the client does not exist or is no longer valid, create and cache a new client with the new params
+
 	url, err := m.getAISAPIEndpoint(ctx, ais)
 	if err != nil {
 		logger.Error(err, "Failed to get AIS API parameters")
@@ -84,7 +100,7 @@ func (m *AISClientManager) GetClient(ctx context.Context,
 	}
 
 	// Attempt to get an authN token from the secret mapped for this cluster in the configmap
-	adminToken, err := m.authN.getAdminToken(ctx, ais)
+	tokenInfo, err := m.authN.getAdminToken(ctx, ais)
 	if err != nil {
 		logger.Error(err, "Failed to get admin token for AuthN")
 		return nil, err
@@ -95,12 +111,14 @@ func (m *AISClientManager) GetClient(ctx context.Context,
 		return nil, err
 	}
 
+	hasToken := tokenInfo != nil && tokenInfo.Token != ""
+	hasExpiration := tokenInfo != nil && !tokenInfo.ExpiresAt.IsZero()
 	if tlsConf == nil {
-		logger.Info("Creating AIS API client", "url", url, "authN", adminToken != "")
+		logger.Info("Creating AIS API client", "url", url, "authN", hasToken, "tokenExpires", hasExpiration)
 	} else {
-		logger.Info("Creating HTTPS AIS API client", "url", url, "authN", adminToken != "", "tlsPath", m.getTLSPath(ais), "skipVerify", tlsConf.InsecureSkipVerify)
+		logger.Info("Creating HTTPS AIS API client", "url", url, "authN", hasToken, "tokenExpires", hasExpiration, "tlsPath", m.getTLSPath(ais), "skipVerify", tlsConf.InsecureSkipVerify)
 	}
-	client = NewAIStoreClient(ctx, url, adminToken, ais.GetAPIMode(), tlsConf)
+	client = NewAIStoreClient(ctx, url, tokenInfo, ais.GetAPIMode(), tlsConf)
 	m.mu.Lock()
 	m.clientMap[ais.NamespacedName().String()] = client
 	m.mu.Unlock()

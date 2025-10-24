@@ -5,13 +5,13 @@
 package services
 
 import (
-	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -38,12 +38,22 @@ const (
 
 	// Token exchange defaults
 	DefaultTokenPath             = "/var/run/secrets/kubernetes.io/serviceaccount/token" //nolint:gosec // This is a file path, not a credential
-	DefaultTokenExchangeEndpoint = "/token"                                              //nolint:gosec // This is a URL path, not a credential
+	DefaultTokenExchangeEndpoint = "/token"
+
+	// RFC 8693 OAuth 2.0 Token Exchange constants
+	RFC8693GrantType           = "urn:ietf:params:oauth:grant-type:token-exchange"
+	RFC8693SubjectTokenTypeJWT = "urn:ietf:params:oauth:token-type:jwt" //nolint:gosec // This is a URN identifier, not a credential
 )
+
+// TokenInfo contains token and optional expiration information
+type TokenInfo struct {
+	Token     string
+	ExpiresAt time.Time
+}
 
 type (
 	AuthNClientInterface interface {
-		getAdminToken(ctx context.Context, ais *aisv1.AIStore) (string, error)
+		getAdminToken(ctx context.Context, ais *aisv1.AIStore) (*TokenInfo, error)
 	}
 
 	AuthNClient struct {
@@ -70,10 +80,10 @@ func NewAuthNClient(k8sClient *aisclient.K8sClient) *AuthNClient {
 }
 
 // getAdminToken Gets an admin token for the given cluster using the credentials secret referenced by the operator's authN configmap
-func (c *AuthNClient) getAdminToken(ctx context.Context, ais *aisv1.AIStore) (string, error) {
+func (c *AuthNClient) getAdminToken(ctx context.Context, ais *aisv1.AIStore) (*TokenInfo, error) {
 	authnConf, err := c.getAuthConfig(ctx, ais)
 	if err != nil || authnConf == nil {
-		return "", err
+		return nil, err
 	}
 
 	// Token exchange mode
@@ -83,11 +93,11 @@ func (c *AuthNClient) getAdminToken(ctx context.Context, ais *aisv1.AIStore) (st
 
 	// Username/password mode (existing)
 	if authnConf.SecretName == "" {
-		return "", nil
+		return nil, nil
 	}
 	secretData, err := c.getSecretData(ctx, authnConf.SecretNamespace, authnConf.SecretName)
 	if err != nil || secretData == nil {
-		return "", err
+		return nil, err
 	}
 	return getTokenFromAuthN(ctx, authNBaseParams(authnConf), secretData)
 }
@@ -146,18 +156,22 @@ func (c *AuthNClient) getSecretData(ctx context.Context, namespace, secretName s
 }
 
 // getTokenFromAuthN retrieves an admin token from AuthN using the username and password from the provided secret data
-func getTokenFromAuthN(ctx context.Context, params *api.BaseParams, secretData map[string][]byte) (string, error) {
+func getTokenFromAuthN(ctx context.Context, params *api.BaseParams, secretData map[string][]byte) (*TokenInfo, error) {
 	logger := logf.FromContext(ctx)
 	zeroDuration := time.Duration(0)
 	user := string(secretData[AuthNSecretRefName])
 	pass := string(secretData[AuthNSecretRefPass])
 	tokenMsg, err := authn.LoginUser(*params, user, pass, &zeroDuration)
 	if err != nil {
-		return "", fmt.Errorf("failed to login %q user to AuthN: %w", user, err)
+		return nil, fmt.Errorf("failed to login %q user to AuthN: %w", user, err)
 	}
 
 	logger.Info(fmt.Sprintf("Successfully fetched token for user %q from AuthN", user))
-	return tokenMsg.Token, nil
+	// Username/password mode doesn't provide expiration info
+	return &TokenInfo{
+		Token:     tokenMsg.Token,
+		ExpiresAt: time.Time{}, // Zero value = no expiration
+	}, nil
 }
 
 func authNBaseParams(conf *AuthNClusterConfig) *api.BaseParams {
@@ -189,7 +203,7 @@ func authNBaseParams(conf *AuthNClusterConfig) *api.BaseParams {
 }
 
 // getTokenViaExchange reads a token from filesystem and exchanges it with AuthN for an AIS token
-func (*AuthNClient) getTokenViaExchange(ctx context.Context, conf *AuthNClusterConfig) (string, error) {
+func (*AuthNClient) getTokenViaExchange(ctx context.Context, conf *AuthNClusterConfig) (*TokenInfo, error) {
 	logger := logf.FromContext(ctx)
 
 	tokenPath := conf.TokenPath
@@ -205,17 +219,17 @@ func (*AuthNClient) getTokenViaExchange(ctx context.Context, conf *AuthNClusterC
 	sourceToken, err := readTokenFromFile(tokenPath)
 	if err != nil {
 		logger.Error(err, "Failed to read source token", "path", tokenPath)
-		return "", fmt.Errorf("failed to read token from %s: %w", tokenPath, err)
+		return nil, fmt.Errorf("failed to read token from %s: %w", tokenPath, err)
 	}
 
-	aisToken, err := exchangeTokenWithAuthN(ctx, authNBaseParams(conf), sourceToken, endpoint)
+	tokenInfo, err := exchangeTokenWithAuthN(ctx, authNBaseParams(conf), sourceToken, endpoint)
 	if err != nil {
 		logger.Error(err, "Failed to exchange token with AuthN")
-		return "", err
+		return nil, err
 	}
 
 	logger.Info("Successfully exchanged token with AuthN", "tokenPath", tokenPath)
-	return aisToken, nil
+	return tokenInfo, nil
 }
 
 // readTokenFromFile reads and returns a token from the specified file path
@@ -232,49 +246,81 @@ func readTokenFromFile(path string) (string, error) {
 }
 
 // exchangeTokenWithAuthN exchanges a source token (e.g., K8s SA token) for an AIS JWT token
-func exchangeTokenWithAuthN(ctx context.Context, params *api.BaseParams, sourceToken, endpoint string) (string, error) {
+// Implements RFC 8693 OAuth 2.0 Token Exchange specification
+// See: https://datatracker.ietf.org/doc/html/rfc8693
+func exchangeTokenWithAuthN(ctx context.Context, params *api.BaseParams, sourceToken, endpoint string) (*TokenInfo, error) {
 	logger := logf.FromContext(ctx)
 
-	reqBody := map[string]interface{}{
-		"token": sourceToken,
-	}
+	// RFC 8693 Section 2.1 - Request format (form-encoded)
+	formData := url.Values{}
+	formData.Set("grant_type", RFC8693GrantType)                   // REQUIRED
+	formData.Set("subject_token", sourceToken)                     // REQUIRED
+	formData.Set("subject_token_type", RFC8693SubjectTokenTypeJWT) // REQUIRED
 
-	reqBytes, err := json.Marshal(reqBody)
+	requestURL := params.URL + endpoint
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, requestURL, strings.NewReader(formData.Encode()))
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal exchange request: %w", err)
+		return nil, fmt.Errorf("failed to create exchange request: %w", err)
 	}
-
-	url := params.URL + endpoint
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(reqBytes))
-	if err != nil {
-		return "", fmt.Errorf("failed to create exchange request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("User-Agent", params.UA)
 
 	resp, err := params.Client.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("token exchange request failed: %w", err)
+		return nil, fmt.Errorf("token exchange request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("token exchange failed with status %d: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("token exchange failed with status %d: %s", resp.StatusCode, string(body))
 	}
 
+	// RFC 8693 Section 2.2 - Response format (REQUIRED fields only)
 	var result struct {
-		Token string `json:"token"`
+		AccessToken     string `json:"access_token"`         // REQUIRED
+		IssuedTokenType string `json:"issued_token_type"`    // REQUIRED
+		TokenType       string `json:"token_type"`           // REQUIRED
+		ExpiresIn       int    `json:"expires_in,omitempty"` // Not required by RFC but needed for token expiration
+		Token           string `json:"token"`                // Legacy: backward compatibility
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return "", fmt.Errorf("failed to decode exchange response: %w", err)
+		return nil, fmt.Errorf("failed to decode exchange response: %w", err)
 	}
 
-	if result.Token == "" {
-		return "", fmt.Errorf("exchange response contained empty token")
+	// RFC 8693 Section 2.2.1 - access_token is REQUIRED
+	token := result.AccessToken
+	if token == "" {
+		// Fall back to legacy "token" field for backward compatibility
+		token = result.Token
 	}
 
-	logger.Info("Token exchange successful")
-	return result.Token, nil
+	if token == "" {
+		return nil, fmt.Errorf("exchange response missing required 'access_token' field")
+	}
+
+	// RFC 8693 Section 2.2.1 - token_type is REQUIRED
+	if result.TokenType == "" {
+		logger.Info("Warning: token_type missing in response (RFC 8693 violation)")
+	}
+
+	// RFC 8693 Section 2.2.1 - issued_token_type is REQUIRED
+	if result.IssuedTokenType == "" {
+		logger.Info("Warning: issued_token_type missing in response (RFC 8693 violation)")
+	}
+
+	// Calculate expiration time if provided
+	var expiresAt time.Time
+	if result.ExpiresIn > 0 {
+		expiresAt = time.Now().Add(time.Duration(result.ExpiresIn) * time.Second)
+		logger.Info("Token exchange successful", "expires_in", result.ExpiresIn)
+	} else {
+		logger.Info("Token exchange successful", "no_expiration", true)
+	}
+
+	return &TokenInfo{
+		Token:     token,
+		ExpiresAt: expiresAt,
+	}, nil
 }

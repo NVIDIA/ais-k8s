@@ -7,6 +7,21 @@ Note: Changes to Helm charts, Ansible playbooks, and other deployment tools are 
 We structure this changelog in accordance with [Keep a Changelog](https://keepachangelog.com/) guidelines, and this project follows [Semantic Versioning](https://semver.org/).
 
 ---
+## v2.7.1
+
+### Added
+
+- RFC 8693 OAuth 2.0 Token Exchange support for AuthN token exchange with proper form-encoded requests
+- `TokenInfo` struct to track both token and expiration time returned from AuthN
+- Support for RFC 8693 standard response fields (`access_token`, `issued_token_type`, `token_type`, `expires_in`)
+- Backward compatibility with legacy "token" field in token exchange responses
+
+### Changed
+
+- Token exchange now implements RFC 8693 specification with `application/x-www-form-urlencoded` content type
+- AuthN client methods now return `*TokenInfo` instead of plain string to include expiration metadata
+- Token exchange requests use RFC 8693 required fields: `grant_type`, `subject_token`, and `subject_token_type`
+
 ## v2.7.0
 
 ### Added
@@ -15,6 +30,8 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 - Host path mounting: Use `useHostPath: true` in mount spec to bypass PV/PVC provisioning for direct host storage
 - Auto-scale status tracking: New `AutoScaleStatus` field in cluster status tracks expected nodes for autoScaling clusters
 - Token exchange authentication support to allow operators to exchange tokens (e.g., Kubernetes service account tokens or OIDC tokens) with authentication services for AIS JWT tokens
+- Token expiration tracking: Support for OAuth `expires_in` field in token exchange responses with automatic token refresh
+- Efficient token refresh: In-place token updates without rebuilding HTTP clients when tokens expire
 
 ### Changed
 
