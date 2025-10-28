@@ -211,6 +211,9 @@ type AIStoreStatus struct {
 	// IntraClusterURL is the in cluster url for the AIS cluster
 	// +optional
 	IntraClusterURL string `json:"intraClusterURL"`
+	// ClusterID is a unique identifier for the cluster.
+	// +optional
+	ClusterID string `json:"clusterID,omitempty"`
 	// Represents the observations of a AIStores's current state.
 	// Known condition types are: "Initialized", "Created", and "Ready".
 	// +patchMergeKey=type

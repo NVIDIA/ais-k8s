@@ -147,6 +147,16 @@ func (cc *clientCluster) createCluster(intervals ...interface{}) {
 
 func (cc *clientCluster) waitForReadyCluster() {
 	tutils.WaitForClusterToBeReady(cc.ctx, cc.k8sClient, cc.cluster.NamespacedName(), clusterReadyTimeout, clusterReadyRetryInterval)
+
+	By("Verifying ClusterID status matches smap UUID")
+	baseParams := cc.getBaseParams()
+	smap, err := aisapi.GetClusterMap(baseParams)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(smap.UUID).NotTo(BeEmpty(), "smap UUID should not be empty")
+
+	cc.fetchLatestCluster()
+	Expect(cc.cluster.Status.ClusterID).To(Equal(smap.UUID),
+		"ClusterID in status should match smap UUID")
 }
 
 func (cc *clientCluster) patchImagesToCurrent() {

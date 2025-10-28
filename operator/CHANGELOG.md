@@ -21,6 +21,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 - `TokenInfo` struct to track both token and expiration time returned from AuthN
 - Support for RFC 8693 standard response fields (`access_token`, `issued_token_type`, `token_type`, `expires_in`)
 - Backward compatibility with legacy "token" field in token exchange responses
+- Add clusterID field in AIStore status to track the unique identifier for the cluster
 
 ### Changed
 

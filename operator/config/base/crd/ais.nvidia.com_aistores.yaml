@@ -3940,6 +3940,9 @@ spec:
                       type: string
                     type: array
                 type: object
+              clusterID:
+                description: ClusterID is a unique identifier for the cluster.
+                type: string
               conditions:
                 description: |-
                   Represents the observations of a AIStores's current state.
