@@ -13,6 +13,10 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 - Operator now additionally verifies cluster map proxy/target counts match the spec before setting the CR `Ready` condition to `True`.
 
+### Changed
+
+- Set `publishNotReadyAddresses: true` on headless SVCs for proxies and targets to enable pre-readiness peer discovery.
+
 ## v2.7.1
 
 ### Added

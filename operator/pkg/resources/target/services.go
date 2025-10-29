@@ -70,7 +70,8 @@ func NewTargetHeadlessSvc(ais *aisv1.AIStore) *corev1.Service {
 		// https://github.com/kubernetes/apimachinery/blob/master/pkg/util/intstr/intstr.go#L32-L36
 		// once resolved in apimachinery, remove G115 exclusion from golangci yaml
 		Spec: corev1.ServiceSpec{
-			ClusterIP: "None", // headless
+			ClusterIP:                "None", // headless
+			PublishNotReadyAddresses: true,
 			Ports: []corev1.ServicePort{
 				{
 					Name:       "pub",

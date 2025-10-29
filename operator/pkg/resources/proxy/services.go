@@ -63,7 +63,8 @@ func NewProxyHeadlessSvc(ais *aisv1.AIStore) *corev1.Service {
 			Labels: cmn.NewServiceLabels(ais.Name, ServiceLabelHeadless),
 		},
 		Spec: corev1.ServiceSpec{
-			ClusterIP: "None", // headless
+			ClusterIP:                "None", // headless
+			PublishNotReadyAddresses: true,
 			Ports: []corev1.ServicePort{
 				{
 					Name:       "pub",
