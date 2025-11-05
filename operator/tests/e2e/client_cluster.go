@@ -169,6 +169,7 @@ func (cc *clientCluster) patchImagesToCurrent() {
 	tutils.WaitForReadyConditionChange(cc.ctx, cc.k8sClient, cc.cluster, readyGen, clusterUpdateTimeout, clusterUpdateInterval)
 	By("Update cluster spec and wait for it to be 'Ready'")
 	cc.waitForReadyCluster()
+	cc.verifyPodImages()
 }
 
 func (cc *clientCluster) getBaseParams() aisapi.BaseParams {
@@ -278,6 +279,7 @@ func (cc *clientCluster) scale(targetOnly bool, factor int32) {
 	// Otherwise, the cluster may be immediately ready
 	tutils.WaitForReadyConditionChange(cc.ctx, cc.k8sClient, cr, readyGen, clusterUpdateTimeout, clusterUpdateInterval)
 	cc.waitForReadyCluster()
+	cc.verifyPodCounts()
 	cc.initClientAccess()
 }
 
@@ -308,6 +310,32 @@ func (cc *clientCluster) waitForResources() {
 func (cc *clientCluster) waitForResourceDeletion() {
 	tutils.CheckResExistence(cc.ctx, cc.cluster, cc.aisCtx, cc.k8sClient, false /*exists*/)
 	tutils.CheckPVCDoesNotExist(cc.ctx, cc.cluster, cc.aisCtx, cc.k8sClient)
+}
+
+func (cc *clientCluster) verifyPodImages() {
+	By("Verifying pod images match cluster spec")
+	cc.fetchLatestCluster()
+	proxies, err := cc.k8sClient.ListPods(cc.ctx, cc.cluster, proxy.BasicLabels(cc.cluster))
+	Expect(err).To(BeNil())
+	for i := range proxies.Items {
+		Expect(proxies.Items[i].Spec.Containers[0].Image).To(Equal(cc.cluster.Spec.NodeImage))
+	}
+	targets, err := cc.k8sClient.ListPods(cc.ctx, cc.cluster, target.BasicLabels(cc.cluster))
+	Expect(err).To(BeNil())
+	for i := range targets.Items {
+		Expect(targets.Items[i].Spec.Containers[0].Image).To(Equal(cc.cluster.Spec.NodeImage))
+	}
+}
+
+func (cc *clientCluster) verifyPodCounts() {
+	By("Verifying pod counts match cluster spec")
+	cc.fetchLatestCluster()
+	proxies, err := cc.k8sClient.ListPods(cc.ctx, cc.cluster, proxy.BasicLabels(cc.cluster))
+	Expect(err).To(BeNil())
+	Expect(len(proxies.Items)).To(Equal(int(cc.cluster.GetProxySize())))
+	targets, err := cc.k8sClient.ListPods(cc.ctx, cc.cluster, target.BasicLabels(cc.cluster))
+	Expect(err).To(BeNil())
+	Expect(len(targets.Items)).To(Equal(int(cc.cluster.GetTargetSize())))
 }
 
 func (cc *clientCluster) printLogs() (err error) {

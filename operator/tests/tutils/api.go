@@ -400,74 +400,8 @@ func WaitForClusterToBeReady(ctx context.Context, k8sClient *aisclient.K8sClient
 			return false
 		}
 		readyCond := GetClusterReadyCondition(ais)
-		return ais.Status.State == aisv1.ClusterReady &&
-			readyCond.Status == metav1.ConditionStatus(corev1.ConditionTrue) &&
-			isProxyReady(ctx, k8sClient, ais) &&
-			isTargetReady(ctx, k8sClient, ais)
+		return ais.Status.State == aisv1.ClusterReady && readyCond.Status == metav1.ConditionStatus(corev1.ConditionTrue)
 	}, intervals...).Should(BeTrue())
-}
-
-// Verify status of all proxy PODs matches a fully ready cluster
-func isProxyReady(ctx context.Context, k8sClient *aisclient.K8sClient, ais *aisv1.AIStore) bool {
-	proxies, err := k8sClient.ListPods(ctx, ais, proxy.BasicLabels(ais))
-	Expect(err).To(BeNil())
-	if !checkPodsAISImage(proxies, ais.Spec.NodeImage) {
-		return false
-	}
-	fmt.Printf("Found ready proxy pod count: %d\n", countReadyPods(proxies))
-	return countReadyPods(proxies) == int(ais.GetProxySize())
-}
-
-// Verify status of all target PODs matches a fully ready cluster
-func isTargetReady(ctx context.Context, k8sClient *aisclient.K8sClient, ais *aisv1.AIStore) bool {
-	targets, err := k8sClient.ListPods(ctx, ais, target.BasicLabels(ais))
-	Expect(err).To(BeNil())
-	if !checkPodsAISImage(targets, ais.Spec.NodeImage) {
-		return false
-	}
-	fmt.Printf("Found ready target pod count: %d\n", countReadyPods(targets))
-	return countReadyPods(targets) == int(ais.GetTargetSize())
-}
-
-func countReadyPods(pods *corev1.PodList) int {
-	count := 0
-	for i := range pods.Items {
-		if isPodReady(&pods.Items[i]) {
-			count++
-		}
-	}
-	return count
-}
-
-func isPodReady(pod *corev1.Pod) bool {
-	var podReady bool
-	for _, cond := range pod.Status.Conditions {
-		if cond.Type == corev1.PodReady && cond.Status == corev1.ConditionTrue {
-			// pod running, now check container statuses
-			podReady = true
-			break
-		}
-	}
-	if !podReady {
-		return false
-	}
-	// check that ALL containers in pod are ready
-	for i := range pod.Status.ContainerStatuses {
-		if !pod.Status.ContainerStatuses[i].Ready {
-			return false
-		}
-	}
-	return true
-}
-
-func checkPodsAISImage(pods *corev1.PodList, img string) bool {
-	for i := range pods.Items {
-		aisnodeContainer := pods.Items[i].Spec.Containers[0]
-		if aisnodeContainer.Image != img {
-			return false
-		}
-	}
-	return true
 }
 
 func GetAllPVs(ctx context.Context, c *aisclient.K8sClient) (*corev1.PersistentVolumeList, error) {

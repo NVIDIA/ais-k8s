@@ -945,6 +945,7 @@ func (r *AIStoreReconciler) checkAISClusterReady(ctx context.Context, ais *aisv1
 		logger.Error(err, "Failed to get client to check cluster readiness")
 		return
 	}
+
 	err = apiClient.Health(true /*readyToRebalance*/)
 	if err != nil {
 		logger.Info("AIS cluster is not ready", "health_error", err.Error())
