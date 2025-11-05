@@ -88,6 +88,53 @@ const (
 // NOTE: json tags are required. Any new fields you add must have json tags for the fields to be serialized.
 // IMPORTANT: Run "make" to regenerate code after modifying this file
 
+// AuthSpec defines the configuration for accessing AuthN service
+// Exactly one of UsernamePassword or TokenExchange must be specified
+// +kubebuilder:validation:XValidation:rule="(has(self.usernamePassword) && !has(self.tokenExchange)) || (!has(self.usernamePassword) && has(self.tokenExchange))",message="exactly one of usernamePassword or tokenExchange must be specified"
+type AuthSpec struct {
+	// ServiceURL is the base URL of the AuthN service (scheme + host + optional port, no path)
+	// Supports formats: "http://hostname[:port]" or "https://hostname[:port]"
+	// TLS is determined from the URL scheme (https = TLS enabled)
+	// Port defaults to 80 for http and 443 for https if not specified
+	// If not specified, defaults to "http://ais-authn.ais:52001"
+	// +optional
+	ServiceURL *string `json:"serviceURL,omitempty"`
+
+	// UsernamePassword authentication configuration using static credentials
+	// +optional
+	UsernamePassword *UsernamePasswordAuth `json:"usernamePassword,omitempty"`
+
+	// TokenExchange authentication configuration using RFC 8693 OAuth 2.0 Token Exchange
+	// This is the preferred method for workload identity and eliminates the need for static credentials
+	// +optional
+	TokenExchange *TokenExchangeAuth `json:"tokenExchange,omitempty"`
+}
+
+// UsernamePasswordAuth defines authentication using static username/password credentials
+type UsernamePasswordAuth struct {
+	// SecretName is the name of the secret containing AuthN admin credentials (SU-NAME and SU-PASS)
+	// +kubebuilder:validation:MinLength=1
+	SecretName string `json:"secretName"`
+
+	// SecretNamespace is the namespace of the secret containing AuthN admin credentials
+	// If not specified, defaults to the AIStore cluster namespace
+	// +optional
+	SecretNamespace *string `json:"secretNamespace,omitempty"`
+}
+
+// TokenExchangeAuth defines authentication using RFC 8693 OAuth 2.0 Token Exchange
+type TokenExchangeAuth struct {
+	// TokenPath is the path to the service account token file
+	// If not specified, defaults to "/var/run/secrets/kubernetes.io/serviceaccount/token"
+	// +optional
+	TokenPath *string `json:"tokenPath,omitempty"`
+
+	// TokenExchangeEndpoint is the AuthN endpoint for token exchange
+	// If not specified, defaults to "/token"
+	// +optional
+	TokenExchangeEndpoint *string `json:"tokenExchangeEndpoint,omitempty"`
+}
+
 // AIStoreSpec defines the desired state of AIStore
 // +kubebuilder:validation:XValidation:rule="(has(self.targetSpec.size) && has(self.proxySpec.size)) || has(self.size)",message="Invalid cluster size, it is either not specified or value is not valid"
 type AIStoreSpec struct {
@@ -184,6 +231,11 @@ type AIStoreSpec struct {
 	// Secret name containing AuthN's JWT signing key
 	// +optional
 	AuthNSecretName *string `json:"authNSecretName,omitempty"`
+
+	// Auth specifies the Auth service configuration for admin authentication
+	// If not specified, the operator will look for configuration in the legacy ConfigMap
+	// +optional
+	Auth *AuthSpec `json:"auth,omitempty"`
 
 	// ImagePullSecrets is an optional list of references to secrets in the same namespace to pull container images of AIS Daemons
 	// Applied to the service account so all pods inherit authentication automatically

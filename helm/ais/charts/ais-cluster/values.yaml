@@ -24,6 +24,7 @@ apiMode:
 clusterDomain:
 stateStorageClass:
 authNSecretName:
+auth:
 logsDir:
 proxySpec:
   tolerations:

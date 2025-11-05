@@ -1,0 +1,83 @@
+---
+# Example 1: Username/Password Authentication (traditional approach)
+apiVersion: ais.nvidia.com/v1beta1
+kind: AIStore
+metadata:
+  name: ais-basic
+  namespace: ais
+spec:
+  size: 3
+
+  # AuthN configuration using username/password
+  auth:
+    # AuthN service URL (scheme determines TLS: https = TLS enabled, http = TLS disabled)
+    serviceURL: https://ais-authn.ais:52001  # Optional, defaults to "http://ais-authn.ais:52001"
+    
+    # Username/password authentication (exactly one of usernamePassword or tokenExchange must be set)
+    usernamePassword:
+      secretName: ais-authn-su-creds
+      secretNamespace: ais  # Optional, defaults to cluster namespace
+
+  # JWT signing key secret (required for AuthN verification)
+  authNSecretName: ais-authn-secret
+
+  nodeImage: "aistorage/aisnode:latest"
+  initImage: "aistorage/ais-init:latest"
+
+  proxySpec:
+    servicePort: 51080
+    portPublic: 51080
+    portIntraControl: 51082
+    portIntraData: 51083
+
+  targetSpec:
+    servicePort: 51081
+    portPublic: 51081
+    portIntraControl: 51082
+    portIntraData: 51083
+    mounts:
+      - path: /ais/sda
+        size: 100Gi
+
+---
+# Example 2: Token Exchange Authentication (RFC 8693 OAuth 2.0 - recommended for workload identity)
+apiVersion: ais.nvidia.com/v1beta1
+kind: AIStore
+metadata:
+  name: ais-token-exchange
+  namespace: ais
+spec:
+  size: 3
+
+  # AuthN configuration using token exchange (no static credentials needed)
+  auth:
+    # AuthN service URL (scheme determines TLS: https = TLS enabled, http = TLS disabled)
+    # Port is optional: defaults to 443 for https, 80 for http
+    serviceURL: https://ais-authn.ais  # Optional, defaults to "http://ais-authn.ais:52001"
+    
+    # Token exchange authentication (exactly one of usernamePassword or tokenExchange must be set)
+    tokenExchange:
+      tokenPath: /var/run/secrets/kubernetes.io/serviceaccount/token  # Optional, default shown
+      tokenExchangeEndpoint: /token  # Optional, default shown
+
+  # JWT signing key secret (required for AuthN verification)
+  authNSecretName: ais-authn-secret
+
+  nodeImage: "aistorage/aisnode:latest"
+  initImage: "aistorage/ais-init:latest"
+
+  proxySpec:
+    servicePort: 51080
+    portPublic: 51080
+    portIntraControl: 51082
+    portIntraData: 51083
+
+  targetSpec:
+    servicePort: 51081
+    portPublic: 51081
+    portIntraControl: 51082
+    portIntraData: 51083
+    mounts:
+      - path: /ais/sda
+        size: 100Gi
+

@@ -52,6 +52,58 @@ spec:
                   Which mode to use when communicating with the deployed AIS cluster's API
                   Defaults to use internal headless proxy service if not provided
                 type: string
+              auth:
+                description: |-
+                  Auth specifies the Auth service configuration for admin authentication
+                  If not specified, the operator will look for configuration in the legacy ConfigMap
+                properties:
+                  serviceURL:
+                    description: |-
+                      ServiceURL is the base URL of the AuthN service (scheme + host + optional port, no path)
+                      Supports formats: "http://hostname[:port]" or "https://hostname[:port]"
+                      TLS is determined from the URL scheme (https = TLS enabled)
+                      Port defaults to 80 for http and 443 for https if not specified
+                      If not specified, defaults to "http://ais-authn.ais:52001"
+                    type: string
+                  tokenExchange:
+                    description: |-
+                      TokenExchange authentication configuration using RFC 8693 OAuth 2.0 Token Exchange
+                      This is the preferred method for workload identity and eliminates the need for static credentials
+                    properties:
+                      tokenExchangeEndpoint:
+                        description: |-
+                          TokenExchangeEndpoint is the AuthN endpoint for token exchange
+                          If not specified, defaults to "/token"
+                        type: string
+                      tokenPath:
+                        description: |-
+                          TokenPath is the path to the service account token file
+                          If not specified, defaults to "/var/run/secrets/kubernetes.io/serviceaccount/token"
+                        type: string
+                    type: object
+                  usernamePassword:
+                    description: UsernamePassword authentication configuration using
+                      static credentials
+                    properties:
+                      secretName:
+                        description: SecretName is the name of the secret containing
+                          AuthN admin credentials (SU-NAME and SU-PASS)
+                        minLength: 1
+                        type: string
+                      secretNamespace:
+                        description: |-
+                          SecretNamespace is the namespace of the secret containing AuthN admin credentials
+                          If not specified, defaults to the AIStore cluster namespace
+                        type: string
+                    required:
+                    - secretName
+                    type: object
+                type: object
+                x-kubernetes-validations:
+                - message: exactly one of usernamePassword or tokenExchange must be
+                    specified
+                  rule: (has(self.usernamePassword) && !has(self.tokenExchange)) ||
+                    (!has(self.usernamePassword) && has(self.tokenExchange))
               authNSecretName:
                 description: Secret name containing AuthN's JWT signing key
                 type: string

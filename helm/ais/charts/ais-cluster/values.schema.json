@@ -216,6 +216,50 @@
       "description": "Kubernetes secret for the AIS authN server credentials.",
       "examples": ["ais-authn"]
     },
+    "auth": {
+      "type": ["object", "null"],
+      "description": "Auth specifies the Auth service configuration for admin authentication. If not specified, the operator will look for configuration in the legacy ConfigMap.",
+      "properties": {
+        "serviceURL": {
+          "type": "string",
+          "description": "ServiceURL is the base URL of the AuthN service (scheme + host + optional port, no path). Defaults to 'http://ais-authn.ais:52001'.",
+          "examples": ["https://ais-authn.ais:52001", "http://ais-authn.ais:52001"]
+        },
+        "usernamePassword": {
+          "type": "object",
+          "description": "UsernamePassword authentication configuration using static credentials.",
+          "properties": {
+            "secretName": {
+              "type": "string",
+              "description": "SecretName is the name of the secret containing AuthN admin credentials (SU-NAME and SU-PASS).",
+              "examples": ["ais-authn-su-creds"]
+            },
+            "secretNamespace": {
+              "type": "string",
+              "description": "SecretNamespace is the namespace of the secret containing AuthN admin credentials. If not specified, defaults to the AIStore cluster namespace.",
+              "examples": ["ais"]
+            }
+          },
+          "required": ["secretName"]
+        },
+        "tokenExchange": {
+          "type": "object",
+          "description": "TokenExchange authentication configuration using RFC 8693 OAuth 2.0 Token Exchange. This is the preferred method for workload identity.",
+          "properties": {
+            "tokenPath": {
+              "type": "string",
+              "description": "TokenPath is the path to the service account token file. Defaults to '/var/run/secrets/kubernetes.io/serviceaccount/token'.",
+              "examples": ["/var/run/secrets/kubernetes.io/serviceaccount/token"]
+            },
+            "tokenExchangeEndpoint": {
+              "type": "string",
+              "description": "TokenExchangeEndpoint is the AuthN endpoint for token exchange. Defaults to '/token'.",
+              "examples": ["/token"]
+            }
+          }
+        }
+      }
+    },
     "logsDir": {
       "type": ["string", "null"],
       "description": "Logs directory on host to store AIS logs, mounted as a HostPath volume.",

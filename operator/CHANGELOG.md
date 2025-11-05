@@ -11,7 +11,12 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ### Added
 
-- Operator now additionally verifies cluster map proxy/target counts match the spec before setting the CR `Ready` condition to `True`.
+- AuthN configuration can now be specified directly in the AIStore CRD via `spec.auth` field with support for multiple authentication methods (username/password and token exchange) using CEL validation
+- Operator verifies cluster map proxy/target counts match spec before setting CR `Ready` condition
+
+### Changed
+
+- AuthN configuration prioritizes CRD `spec.auth` over ConfigMap (ConfigMap approach is deprecated but supported for backward compatibility)
 
 ### Changed
 

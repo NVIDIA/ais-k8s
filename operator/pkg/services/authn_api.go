@@ -28,9 +28,8 @@ import (
 
 // AuthN constants
 const (
-	OperatorNamespace    = "OPERATOR_NAMESPACE"
-	AuthNServiceHostName = "ais-authn.ais"
-	AuthNServicePort     = "52001"
+	OperatorNamespace      = "OPERATOR_NAMESPACE"
+	DefaultAuthNServiceURL = "http://ais-authn.ais:52001"
 
 	AuthNConfigMapVar  = "AIS_AUTHN_CM"
 	AuthNSecretRefName = "SU-NAME"
@@ -60,7 +59,18 @@ type (
 		k8sClient *aisclient.K8sClient
 	}
 
-	AuthNClusterConfig struct {
+	// AuthConfig interface for getting AuthN configuration
+	AuthConfig interface {
+		GetServiceURL() string
+		IsTokenExchange() bool
+		GetTokenPath() string
+		GetTokenExchangeEndpoint() string
+		GetSecretName() string
+		GetSecretNamespace() string
+	}
+
+	// AuthNConfigMapConfig is the legacy ConfigMap-based configuration
+	AuthNConfigMapConfig struct {
 		TLS             bool   `json:"tls"`
 		Host            string `json:"host"`
 		Port            string `json:"port"`
@@ -71,12 +81,84 @@ type (
 		TokenPath             string `json:"tokenPath"`
 		TokenExchangeEndpoint string `json:"tokenExchangeEndpoint"`
 	}
+
+	// AuthSpecConfig wraps the CRD AuthSpec configuration
+	AuthSpecConfig struct {
+		spec      *aisv1.AuthSpec
+		namespace string // cluster namespace for default secret lookup
+	}
 )
 
 func NewAuthNClient(k8sClient *aisclient.K8sClient) *AuthNClient {
 	return &AuthNClient{
 		k8sClient: k8sClient,
 	}
+}
+
+// AuthNConfigMapConfig implements AuthConfig interface
+func (c *AuthNConfigMapConfig) GetServiceURL() string {
+	return createAPIURL(c.TLS, c.Host, c.Port)
+}
+
+func (c *AuthNConfigMapConfig) IsTokenExchange() bool {
+	return c.UseTokenExchange
+}
+
+func (c *AuthNConfigMapConfig) GetTokenPath() string {
+	return c.TokenPath
+}
+
+func (c *AuthNConfigMapConfig) GetTokenExchangeEndpoint() string {
+	return c.TokenExchangeEndpoint
+}
+
+func (c *AuthNConfigMapConfig) GetSecretName() string {
+	return c.SecretName
+}
+
+func (c *AuthNConfigMapConfig) GetSecretNamespace() string {
+	return c.SecretNamespace
+}
+
+// AuthSpecConfig implements AuthConfig interface
+func (c *AuthSpecConfig) GetServiceURL() string {
+	serviceURL := DefaultAuthNServiceURL
+	if c.spec.ServiceURL != nil {
+		serviceURL = *c.spec.ServiceURL
+	}
+	return serviceURL
+}
+
+func (c *AuthSpecConfig) IsTokenExchange() bool {
+	return c.spec.TokenExchange != nil
+}
+
+func (c *AuthSpecConfig) GetTokenPath() string {
+	if c.spec.TokenExchange != nil && c.spec.TokenExchange.TokenPath != nil {
+		return *c.spec.TokenExchange.TokenPath
+	}
+	return DefaultTokenPath
+}
+
+func (c *AuthSpecConfig) GetTokenExchangeEndpoint() string {
+	if c.spec.TokenExchange != nil && c.spec.TokenExchange.TokenExchangeEndpoint != nil {
+		return *c.spec.TokenExchange.TokenExchangeEndpoint
+	}
+	return DefaultTokenExchangeEndpoint
+}
+
+func (c *AuthSpecConfig) GetSecretName() string {
+	if c.spec.UsernamePassword != nil {
+		return c.spec.UsernamePassword.SecretName
+	}
+	return ""
+}
+
+func (c *AuthSpecConfig) GetSecretNamespace() string {
+	if c.spec.UsernamePassword != nil && c.spec.UsernamePassword.SecretNamespace != nil {
+		return *c.spec.UsernamePassword.SecretNamespace
+	}
+	return c.namespace
 }
 
 // getAdminToken Gets an admin token for the given cluster using the credentials secret referenced by the operator's authN configmap
@@ -87,23 +169,56 @@ func (c *AuthNClient) getAdminToken(ctx context.Context, ais *aisv1.AIStore) (*T
 	}
 
 	// Token exchange mode
-	if authnConf.UseTokenExchange {
+	if authnConf.IsTokenExchange() {
 		return c.getTokenViaExchange(ctx, authnConf)
 	}
 
 	// Username/password mode (existing)
-	if authnConf.SecretName == "" {
+	if authnConf.GetSecretName() == "" {
 		return nil, nil
 	}
-	secretData, err := c.getSecretData(ctx, authnConf.SecretNamespace, authnConf.SecretName)
+	secretData, err := c.getSecretData(ctx, authnConf.GetSecretNamespace(), authnConf.GetSecretName())
 	if err != nil || secretData == nil {
 		return nil, err
 	}
 	return getTokenFromAuthN(ctx, authNBaseParams(authnConf), secretData)
 }
 
-// getAuthConfig Gets the data from the configmap defined by `AIS_AUTHN_CM`
-func (c *AuthNClient) getAuthConfig(ctx context.Context, ais *aisv1.AIStore) (*AuthNClusterConfig, error) {
+// getAuthConfig Gets the AuthN configuration from the CRD first, falls back to ConfigMap
+func (c *AuthNClient) getAuthConfig(ctx context.Context, ais *aisv1.AIStore) (AuthConfig, error) {
+	// First, check if AuthN configuration is in the CRD spec
+	if ais.Spec.Auth != nil {
+		return c.getAuthConfigFromCRD(ctx, ais)
+	}
+
+	// Fall back to ConfigMap for backward compatibility
+	return c.getAuthConfigFromConfigMap(ctx, ais)
+}
+
+// getAuthConfigFromCRD extracts AuthN configuration from the AIStore CRD spec
+func (*AuthNClient) getAuthConfigFromCRD(ctx context.Context, ais *aisv1.AIStore) (AuthConfig, error) {
+	logger := logf.FromContext(ctx)
+	spec := ais.Spec.Auth
+
+	// Validate that exactly one auth method is configured
+	if spec.TokenExchange == nil && spec.UsernamePassword == nil {
+		return nil, fmt.Errorf("invalid AuthN configuration: exactly one of usernamePassword or tokenExchange must be specified")
+	}
+
+	config := &AuthSpecConfig{
+		spec:      spec,
+		namespace: ais.Namespace,
+	}
+
+	logger.Info("Using AuthN configuration from CRD",
+		"serviceURL", config.GetServiceURL(),
+		"tokenExchange", config.IsTokenExchange())
+
+	return config, nil
+}
+
+// getAuthConfigFromConfigMap Gets the data from the configmap defined by `AIS_AUTHN_CM` (legacy)
+func (c *AuthNClient) getAuthConfigFromConfigMap(ctx context.Context, ais *aisv1.AIStore) (AuthConfig, error) {
 	logger := logf.FromContext(ctx)
 	// Get the authN credentials secret name for this cluster, if it exists
 	cmName, found := os.LookupEnv(AuthNConfigMapVar)
@@ -132,11 +247,15 @@ func (c *AuthNClient) getAuthConfig(ctx context.Context, ais *aisv1.AIStore) (*A
 	if !ok {
 		return nil, nil
 	}
-	var conf *AuthNClusterConfig
+	var conf *AuthNConfigMapConfig
 	if err = json.Unmarshal([]byte(confJSON), &conf); err != nil {
 		logger.Error(err, fmt.Sprintf("Failed to unmarshal entry for cluster %s in AuthN ConfigMap %s in namespace %s", key, cmName, cmNs))
 		return nil, err
 	}
+	logger.Info("Using AuthN configuration from ConfigMap (DEPRECATED - consider migrating to CRD spec.auth)",
+		"configMap", cmName,
+		"cluster", key)
+
 	return conf, nil
 }
 
@@ -174,16 +293,7 @@ func getTokenFromAuthN(ctx context.Context, params *api.BaseParams, secretData m
 	}, nil
 }
 
-func authNBaseParams(conf *AuthNClusterConfig) *api.BaseParams {
-	host := conf.Host
-	port := conf.Port
-	if host == "" {
-		host = AuthNServiceHostName
-	}
-	if port == "" {
-		port = AuthNServicePort
-	}
-
+func authNBaseParams(conf AuthConfig) *api.BaseParams {
 	transportArgs := cmn.TransportArgs{
 		Timeout:         10 * time.Second,
 		UseHTTPProxyEnv: true,
@@ -197,24 +307,17 @@ func authNBaseParams(conf *AuthNClusterConfig) *api.BaseParams {
 			Transport: transport,
 			Timeout:   transportArgs.Timeout,
 		},
-		URL: createAPIURL(conf.TLS, host, port),
+		URL: conf.GetServiceURL(),
 		UA:  userAgent,
 	}
 }
 
 // getTokenViaExchange reads a token from filesystem and exchanges it with AuthN for an AIS token
-func (*AuthNClient) getTokenViaExchange(ctx context.Context, conf *AuthNClusterConfig) (*TokenInfo, error) {
+func (*AuthNClient) getTokenViaExchange(ctx context.Context, conf AuthConfig) (*TokenInfo, error) {
 	logger := logf.FromContext(ctx)
 
-	tokenPath := conf.TokenPath
-	if tokenPath == "" {
-		tokenPath = DefaultTokenPath
-	}
-
-	endpoint := conf.TokenExchangeEndpoint
-	if endpoint == "" {
-		endpoint = DefaultTokenExchangeEndpoint
-	}
+	tokenPath := conf.GetTokenPath()
+	endpoint := conf.GetTokenExchangeEndpoint()
 
 	sourceToken, err := readTokenFromFile(tokenPath)
 	if err != nil {

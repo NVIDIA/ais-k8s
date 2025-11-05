@@ -146,6 +146,10 @@ spec:
   ociSecretName: {{ .Values.cloud.ociSecretName }}
   {{- end }}
   authNSecretName: {{ .Values.authNSecretName }}
+  {{- if .Values.auth }}
+  auth:
+    {{- toYaml .Values.auth | nindent 4 }}
+  {{- end }}
   enableExternalLB: false
   {{- if .Values.multihome }}
   {{- with .Values.multihome.hostnameMap }}
