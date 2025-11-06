@@ -178,13 +178,15 @@ func (r *AIStoreReconciler) handleProxyScale(ctx context.Context, ais *aisv1.AIS
 }
 
 func (*AIStoreReconciler) waitForProxyReplicasReady(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) ctrl.Result {
-	if ss.Status.ReadyReplicas == ais.GetProxySize() {
+	desired := ais.GetProxySize()
+	if ss.Status.ReadyReplicas == desired && ss.Status.Replicas == desired {
 		return ctrl.Result{}
 	}
 
 	logf.FromContext(ctx).Info("Waiting for proxy StatefulSet to reach desired replicas",
 		"ready", ss.Status.ReadyReplicas,
-		"desired", ais.GetProxySize())
+		"replicas", ss.Status.Replicas,
+		"desired", desired)
 
 	return ctrl.Result{RequeueAfter: proxyStartupInterval}
 }

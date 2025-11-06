@@ -151,6 +151,11 @@ func (*AIStoreReconciler) isStatefulSetReady(ais *aisv1.AIStore, ss *appsv1.Stat
 		return false
 	}
 
+	// Ensure there are no extra (terminating) pods still counted
+	if ss.Status.Replicas != specReplicas {
+		return false
+	}
+
 	// To be ready, spec must match status.ReadyReplicas
 	return specReplicas == ss.Status.ReadyReplicas
 }
