@@ -41,3 +41,6 @@ stateStorageClass: "local-path"
 authNSecretName: "ais-authn-jwt-signing-key"
 proxyLB:
   enabled: true
+targetSpec: 
+  annotations: 
+    "cluster-autoscaler.kubernetes.io/safe-to-evict": "false"
