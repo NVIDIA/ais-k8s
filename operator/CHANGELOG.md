@@ -14,6 +14,8 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 - AuthN configuration can now be specified directly in the AIStore CRD via `spec.auth` field with support for multiple authentication methods (username/password and token exchange) using CEL validation
 - Operator verifies cluster map proxy/target counts match spec before setting CR `Ready` condition
 
+- Helm chart: AIStore CRD now includes `helm.sh/resource-policy: keep` annotation to prevent CRD deletion during `helm uninstall`, protecting AIStore clusters from cascade deletion
+
 ### Changed
 
 - AuthN configuration prioritizes CRD `spec.auth` over ConfigMap (ConfigMap approach is deprecated but supported for backward compatibility)
