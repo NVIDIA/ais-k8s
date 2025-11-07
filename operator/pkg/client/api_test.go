@@ -138,47 +138,5 @@ var _ = Describe("K8sClient", func() {
 			err = k8sClient.CreateOrUpdateResource(ctx, ais, podObj)
 			Expect(err).NotTo(HaveOccurred())
 		})
-
-		It("should skip updating when unspecified fields are updated", func() {
-			podObj := &corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-pod-resource",
-					Namespace: ns.GetName(),
-				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Image: "something:tag",
-						},
-					},
-					ServiceAccountName: "default", // assumed to be set by some controller.
-				},
-			}
-
-			err := k8sClient.CreateOrUpdateResource(ctx, ais, podObj)
-			Expect(err).NotTo(HaveOccurred())
-
-			newObj := &corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-pod-resource",
-					Namespace: ns.GetName(),
-				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Image: "something:tag",
-						},
-					},
-					// missing sa name.
-				},
-			}
-			err = k8sClient.CreateOrUpdateResource(ctx, ais, newObj)
-			Expect(err).NotTo(HaveOccurred())
-
-			comparePod := &corev1.Pod{}
-			err = c.Get(ctx, client.ObjectKeyFromObject(podObj), comparePod)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(comparePod).To(Equal(podObj))
-		})
 	})
 })

@@ -13,22 +13,26 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 ### Added
 
 - Helm chart: AIStore CRD now includes `helm.sh/resource-policy: keep` annotation to prevent CRD deletion during `helm uninstall`, protecting AIStore clusters from cascade deletion
-- RFC 8693 OAuth 2.0 Token Exchange support for AuthN token exchange with proper form-encoded requests
-- `TokenInfo` struct to track both token and expiration time returned from AuthN
-- Support for RFC 8693 standard response fields (`access_token`, `issued_token_type`, `token_type`, `expires_in`)
-- Backward compatibility with legacy "token" field in token exchange responses
-- Add clusterID field in AIStore status to track the unique identifier for the cluster
-- Operator to check cluster map proxy/target counts match the spec before setting the CR `Ready` condition to `True`.
-- AuthN configuration can now be specified directly in the AIStore CRD via `spec.auth` field with support for multiple authentication methods (username/password and token exchange) using CEL validation
+- Add `clusterID` field in AIStore status to track the unique identifier for the cluster
+- Operator to check cluster map proxy/target counts match the spec before setting the CR `Ready` condition to `True`
+- Auth
+  - RFC 8693 OAuth 2.0 Token Exchange support for AuthN token exchange with proper form-encoded requests
+  - `TokenInfo` struct to track both token and expiration time returned from AuthN
+  - Support for RFC 8693 standard response fields (`access_token`, `issued_token_type`, `token_type`, `expires_in`)
+  - Backward compatibility with legacy `token` field in token exchange responses
+  - AuthN configuration can now be specified directly in the AIStore CRD via `spec.auth` field with support for multiple authentication methods (username/password and token exchange) using CEL validation
 
 ### Changed
 
-- Token exchange now implements RFC 8693 specification with `application/x-www-form-urlencoded` content type
-- AuthN client methods now return `*TokenInfo` instead of plain string to include expiration metadata
-- Token exchange requests use RFC 8693 required fields: `grant_type`, `subject_token`, and `subject_token_type`
-- AuthN configuration prioritizes CRD `spec.auth` over ConfigMap (ConfigMap approach is deprecated but supported for backward compatibility)
-- Set `publishNotReadyAddresses: true` on headless SVCs for proxies and targets to enable pre-readiness peer discovery.
-- Reduced requeues and set specific requeue delays instead of exponential backoff. 
+- Updated Go version to 1.25 and updated direct dependencies
+- Reduced requeues and set specific requeue delays instead of exponential backoff
+- Set `publishNotReadyAddresses: true` on headless SVCs for proxies and targets to enable pre-readiness peer discovery
+
+- Auth
+  - Token exchange now implements RFC 8693 specification with `application/x-www-form-urlencoded` content type
+  - AuthN client methods now return `*TokenInfo` instead of plain string to include expiration metadata
+  - Token exchange requests use RFC 8693 required fields: `grant_type`, `subject_token`, and `subject_token_type`
+  - AuthN configuration prioritizes CRD `spec.auth` over ConfigMap (ConfigMap approach is deprecated but supported for backward compatibility)
 
 ## v2.7.0
 

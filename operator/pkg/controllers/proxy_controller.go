@@ -39,7 +39,7 @@ func (r *AIStoreReconciler) ensureProxyPrereqs(ctx context.Context, ais *aisv1.A
 		return
 	}
 
-	if err = r.k8sClient.CreateOrUpdateResource(context.TODO(), ais, cm); err != nil {
+	if err = r.k8sClient.CreateOrUpdateResource(ctx, ais, cm); err != nil {
 		r.recordError(ctx, ais, err, "Failed to deploy ConfigMap")
 		return
 	}
