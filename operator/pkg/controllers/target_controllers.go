@@ -59,7 +59,7 @@ func (r *AIStoreReconciler) initTargets(ctx context.Context, ais *aisv1.AIStore)
 		msg := "Successfully initialized target nodes"
 		logf.FromContext(ctx).Info(msg)
 		r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonInitialized, msg)
-		result.Requeue = true
+		result.RequeueAfter = targetShortRequeueDelay
 	}
 	return
 }

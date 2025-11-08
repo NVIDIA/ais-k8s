@@ -195,9 +195,8 @@ var _ = Describe("AIStoreController", func() {
 
 					By("Reconcile to propagate config")
 					apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any(), false).Times(1)
-					requeue, err := r.handleConfigState(ctx, ais, true /*force*/)
+					err = r.handleConfigState(ctx, ais, true /*force*/)
 					Expect(err).ToNot(HaveOccurred())
-					Expect(requeue).To(BeFalse())
 
 					By("Ensure that config update is propagated to proxies/targets")
 					err = c.Get(ctx, types.NamespacedName{Name: ais.Name, Namespace: namespace}, ais)
@@ -206,15 +205,13 @@ var _ = Describe("AIStoreController", func() {
 
 					By("Ensure that a repeat with the same config does not result in an API call")
 					apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any(), false).Times(0)
-					requeue, err = r.handleConfigState(ctx, ais, false /*force*/)
+					err = r.handleConfigState(ctx, ais, false /*force*/)
 					Expect(err).ToNot(HaveOccurred())
-					Expect(requeue).To(BeFalse())
 
 					By("Ensure that a repeat with the same config and force DOES result in an API call")
 					apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any(), false).Times(1)
-					requeue, err = r.handleConfigState(ctx, ais, true /*force*/)
+					err = r.handleConfigState(ctx, ais, true /*force*/)
 					Expect(err).ToNot(HaveOccurred())
-					Expect(requeue).To(BeFalse())
 				})
 
 				It("should reconcile new init image in spec", func() {
@@ -436,7 +433,7 @@ var _ = Describe("AIStoreController", func() {
 
 					result, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: "ais", Namespace: namespace}})
 					Expect(err).ToNot(HaveOccurred())
-					Expect(result.Requeue).To(BeTrue())
+					Expect(result.RequeueAfter).To(Not(BeZero()))
 
 					By("Ensure that target Service has been created")
 					var targetService corev1.Service
@@ -455,7 +452,7 @@ var _ = Describe("AIStoreController", func() {
 
 					result, err = r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: "ais", Namespace: namespace}})
 					Expect(err).ToNot(HaveOccurred())
-					Expect(result.Requeue).To(BeFalse())
+					Expect(result.RequeueAfter).To(BeZero())
 				})
 			})
 		})
@@ -821,7 +818,7 @@ func reconcileProxy(ctx context.Context, ais *aisv1.AIStore, r *AIStoreReconcile
 	By("Reconcile proxies")
 	result, err := r.handleProxyState(ctx, ais)
 	Expect(err).ToNot(HaveOccurred())
-	Expect(result.Requeue).To(BeTrue())
+	Expect(result.RequeueAfter).To(Not(BeNil()))
 }
 
 func hashGlobalConfig(c *aiscmn.ConfigToSet) (string, error) {

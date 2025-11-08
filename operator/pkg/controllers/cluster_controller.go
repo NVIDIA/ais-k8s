@@ -43,8 +43,11 @@ import (
 )
 
 const (
-	aisFinalizer            = "finalize.ais"
-	aisShutdownRequeueDelay = 5 * time.Second
+	aisFinalizer             = "finalize.ais"
+	aisShutdownRequeueDelay  = 5 * time.Second
+	aisReadinessRequeueDelay = 3 * time.Second
+	cleanupJobDelay          = 5 * time.Second
+	proxyLBDelay             = 2 * time.Second
 )
 
 type (
@@ -347,7 +350,7 @@ func (r *AIStoreReconciler) cleanupHost(ctx context.Context, ais *aisv1.AIStore)
 	}
 	// If some still running, requeue
 	if len(remainingJobs.Items) > 0 {
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{RequeueAfter: cleanupJobDelay}, nil
 	}
 	// If all are gone, move to finalized stage
 	err = r.updateStatusWithState(ctx, ais, aisv1.ClusterFinalized)
@@ -372,7 +375,7 @@ func (r *AIStoreReconciler) finalize(ctx context.Context, ais *aisv1.AIStore) (r
 	}
 
 	// Do not requeue if we've removed the finalizer -- CR should be removed
-	return reconcile.Result{Requeue: false}, nil
+	return reconcile.Result{}, nil
 }
 
 func (r *AIStoreReconciler) isClusterRunning(ctx context.Context, ais *aisv1.AIStore) bool {
@@ -516,7 +519,7 @@ func (r *AIStoreReconciler) ensurePrereqs(ctx context.Context, ais *aisv1.AIStor
 					)
 				}
 			}
-			result.Requeue = true
+			result.RequeueAfter = proxyLBDelay
 			return
 		}
 	}
@@ -583,7 +586,7 @@ func (r *AIStoreReconciler) handleCREvents(ctx context.Context, ais *aisv1.AISto
 	if err != nil {
 		return ctrl.Result{}, err
 	} else if !ready {
-		return r.updateStatusAndRequeue(ctx, ais, ctrl.Result{Requeue: true})
+		return r.updateStatusAndRequeue(ctx, ais, ctrl.Result{RequeueAfter: aisReadinessRequeueDelay})
 	}
 
 	// Enable the rebalance condition (still respects the spec desired rebalance.Enabled property)
@@ -593,11 +596,9 @@ func (r *AIStoreReconciler) handleCREvents(ctx context.Context, ais *aisv1.AISto
 		return ctrl.Result{}, err
 	}
 
-	shouldRequeue, err := r.handleConfigState(ctx, ais, false /*force*/)
+	err = r.handleConfigState(ctx, ais, false /*force*/)
 	if err != nil {
 		return ctrl.Result{}, err
-	} else if shouldRequeue {
-		return r.updateStatusAndRequeue(ctx, ais, ctrl.Result{Requeue: true})
 	}
 
 	return ctrl.Result{}, r.handleSuccessfulReconcile(ctx, ais)
@@ -623,37 +624,37 @@ func (r *AIStoreReconciler) updateStatusAndRequeue(ctx context.Context, ais *ais
 //
 // The ConfigMap that also contains the global config is updated earlier, but
 // this synchronizes any changes to the active loaded config in the cluster.
-func (r *AIStoreReconciler) handleConfigState(ctx context.Context, ais *aisv1.AIStore, forceSync bool) (requeue bool, err error) {
+func (r *AIStoreReconciler) handleConfigState(ctx context.Context, ais *aisv1.AIStore, forceSync bool) error {
 	logger := logf.FromContext(ctx)
 	// Get the config provided in spec plus any additional ones set by the operator
 	conf, err := cmn.GenerateGlobalConfig(ais)
 	if err != nil {
 		logger.Error(err, "Error generating global config")
-		return
+		return err
 	}
 
 	newConfHash, err := r.updateClusterConfig(ctx, ais, conf, forceSync)
 	if err != nil {
-		return
+		return err
 	}
 	restartAnnot, err := calcRestartConfigAnnotation(ais.Annotations[cmn.RestartConfigHashAnnotation], conf)
 	if err != nil {
 		logger.Error(err, "Error hashing restart configs")
-		return
+		return err
 	}
 	confChanged := newConfHash != ais.Annotations[cmn.ConfigHashAnnotation]
 	restartChanged := restartAnnot != ais.Annotations[cmn.RestartConfigHashAnnotation]
 	// We only care about re-queueing if the restart annotation changes and is not initial -- regular config is done syncing at this point
-	requeue = restartChanged && !strings.HasSuffix(restartAnnot, cmn.RestartConfigHashInitial)
+	requeue := restartChanged && !strings.HasSuffix(restartAnnot, cmn.RestartConfigHashInitial)
 	// If nothing changed, we're done
 	if !requeue && !confChanged {
-		return
+		return nil
 	}
 	err = r.patchAISAnnotations(ctx, ais, newConfHash, restartAnnot)
 	if err != nil {
 		logger.Error(err, "Error patching AIS with latest annotations")
 	}
-	return
+	return err
 }
 
 func (r *AIStoreReconciler) patchAISAnnotations(ctx context.Context, ais *aisv1.AIStore, confHash, restartHash string) error {
@@ -761,8 +762,7 @@ func (r *AIStoreReconciler) disableRebalance(ctx context.Context, ais *aisv1.AIS
 	// Also disable in the live cluster (don't wait for config sync)
 	// This function will update the annotation so future reconciliations can tell the config has been updated
 	// Force to ensure we still disable rebalance when set disabled in spec (in case it was enabled manually)
-	_, err = r.handleConfigState(ctx, ais, true /*force*/)
-	return err
+	return r.handleConfigState(ctx, ais, true /*force*/)
 }
 
 func (r *AIStoreReconciler) enableRebalanceCondition(ctx context.Context, ais *aisv1.AIStore) error {

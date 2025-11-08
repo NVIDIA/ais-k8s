@@ -28,6 +28,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 - Token exchange requests use RFC 8693 required fields: `grant_type`, `subject_token`, and `subject_token_type`
 - AuthN configuration prioritizes CRD `spec.auth` over ConfigMap (ConfigMap approach is deprecated but supported for backward compatibility)
 - Set `publishNotReadyAddresses: true` on headless SVCs for proxies and targets to enable pre-readiness peer discovery.
+- Reduced requeues and set specific requeue delays instead of exponential backoff. 
 
 ## v2.7.0
 
