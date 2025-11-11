@@ -1,0 +1,6 @@
+apiVersion: v2
+name: ais-client
+description: Deploy an AIS client pod for executing commands from within a cluster
+type: application
+version: 0.1.0
+appVersion: "1.0"

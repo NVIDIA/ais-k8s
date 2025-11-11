@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      nodeSelector:
+        {{- toYaml .Values.nodeSelector | nindent 8 }}
+      containers:
+        - name: ais-client
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: [ "sleep", "infinity" ]
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          env:
+            - name: AIS_ENDPOINT
+              value: {{ .Values.ais.endpoint | quote }}
+            - name: AIS_CLIENT_CA
+              value: /etc/ais-ca/{{ .Values.ais.bundleFile }}
+          volumeMounts:
+            - name: ais-ca
+              mountPath: /etc/ais-ca
+              readOnly: true
+      volumes:
+        - name: ais-ca
+          configMap:
+            name: {{ .Values.ais.caConfigMap }}
+            optional: true
+            items:
+              - key: {{ .Values.ais.bundleFile }}
+                path: {{ .Values.ais.bundleFile }}

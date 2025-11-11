@@ -1,0 +1,5 @@
+releases:
+  - name: ais-client
+    namespace: ais
+    createNamespace: true
+    chart: ./

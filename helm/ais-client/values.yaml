@@ -1,0 +1,23 @@
+image:
+  repository: aistorage/ais-util
+  tag: latest
+  pullPolicy: IfNotPresent
+
+serviceAccount:
+  create: true
+  name: ais-client
+
+ais:
+  endpoint: https://ais-proxy.ais.svc.cluster.local:51080
+  caConfigMap : aistore.nvidia.com
+  bundleFile: trust-bundle.pem
+
+resources:
+  limits:
+    cpu: 2
+    memory: 2Gi
+  requests:
+    cpu: 2
+    memory: 2Gi
+
+nodeSelector:
