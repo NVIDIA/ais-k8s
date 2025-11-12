@@ -10,7 +10,7 @@ mpathInfo:
     - /ais/vdg
     - /ais/vdh
     - /ais/vdi
-size: 12
+size: 7
 protocol: https
 https:
   skipVerifyCert: false
