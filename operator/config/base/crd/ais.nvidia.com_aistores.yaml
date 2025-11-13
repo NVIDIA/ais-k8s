@@ -132,8 +132,29 @@ spec:
                     properties:
                       enabled:
                         type: boolean
-                      secret:
-                        type: string
+                      oidc:
+                        properties:
+                          allowed_iss:
+                            items:
+                              type: string
+                            type: array
+                          issuer_ca_bundle:
+                            type: string
+                        type: object
+                      required_claims:
+                        properties:
+                          aud:
+                            items:
+                              type: string
+                            type: array
+                        type: object
+                      signature:
+                        properties:
+                          key:
+                            type: string
+                          method:
+                            type: string
+                        type: object
                     type: object
                   backend:
                     additionalProperties:

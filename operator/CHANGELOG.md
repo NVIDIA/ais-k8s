@@ -32,7 +32,8 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
   - Token exchange now implements RFC 8693 specification with `application/x-www-form-urlencoded` content type
   - AuthN client methods now return `*TokenInfo` instead of plain string to include expiration metadata
   - Token exchange requests use RFC 8693 required fields: `grant_type`, `subject_token`, and `subject_token_type`
-  - AuthN configuration prioritizes CRD `spec.auth` over ConfigMap (ConfigMap approach is deprecated but supported for backward compatibility)
+  - Operator AuthN configuration prioritizes CRD `spec.auth` over ConfigMap (ConfigMap approach is deprecated but supported for backward compatibility)
+  - Updated CRD `configToUpdate.auth` options to match latest changes to AIS config including RSA key support, required audience claims, and OIDC issuer lookup
 
 ## v2.7.0
 

@@ -180,9 +180,26 @@ type (
 		Enabled       *bool     `json:"enabled,omitempty"`
 	}
 	AuthConfToUpdate struct {
-		Enabled *bool   `json:"enabled,omitempty"`
-		Secret  *string `json:"secret,omitempty"`
+		Enabled        *bool                       `json:"enabled,omitempty"`
+		Signature      *AuthSignatureConfToUpdate  `json:"signature,omitempty"`
+		RequiredClaims *RequiredClaimsConfToUpdate `json:"required_claims,omitempty"`
+		OIDC           *OIDCConfToUpdate           `json:"oidc,omitempty"`
 	}
+
+	AuthSignatureConfToUpdate struct {
+		Key    string `json:"key,omitempty"`
+		Method string `json:"method,omitempty"`
+	}
+
+	RequiredClaimsConfToUpdate struct {
+		Aud []string `json:"aud,omitempty"`
+	}
+
+	OIDCConfToUpdate struct {
+		AllowedIssuers *[]string `json:"allowed_iss,omitempty"`
+		IssuerCA       *string   `json:"issuer_ca_bundle,omitempty"`
+	}
+
 	KeepaliveTrackerConfToUpdate struct {
 		Interval *Duration `json:"interval,omitempty"`
 		Name     *string   `json:"name,omitempty"`
