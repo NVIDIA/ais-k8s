@@ -156,4 +156,4 @@ patches:
 images:
 - name: controller
   newName: aistorage/ais-operator
-  newTag: v2.7.0
+  newTag: v2.8.0
