@@ -43,9 +43,9 @@ Get the password for the `app` user created in a secret by the CNPG installation
 1. Log in. In my case: 
     1. Find the external IP from your ingress controller
     1. If necessary, SSH tunnel to that IP on any of your k8s nodes
-    1.  `ssh -L 8443:192.168.1.240:443 aistorecpu1004.nsv.sjc11.nvmetal.net`
-    1. Add an entry to etc/hosts, in my case `127.0.0.1 aistore-keycloak.sjc11`
-    1. Go to this address in your browser `https://aistore-keycloak.sjc11:8443/`
+    1.  `ssh -L 8443:192.168.1.240:443 <your node hostname>`
+    1. Add an entry to etc/hosts, in my case `127.0.0.1 <keycloak hostname>`
+    1. Go to this address in your browser `https://<keycloak hostname>:8443/`
     1. Get the admin login info from k8s
     ```
     kubectl get secret -n keycloak keycloak-server-initial-admin -o jsonpath='{.data.username}' | base64 --decode

@@ -6,7 +6,7 @@ metadata:
 spec:
   dnsNames:
   - localhost
-  - aistore-keycloak.sjc11
+  - "*.keycloak.svc.cluster.local"
   duration: 8760h
   emailAddresses:
   - aistore@nvidia.com
