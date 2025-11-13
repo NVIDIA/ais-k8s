@@ -13,12 +13,11 @@ jobs:
   release:
     runs-on: ubuntu-22.04
     steps:
-    
     - name: Checkout Repo
       uses: actions/checkout@v5
     - uses: actions/setup-go@v5
       with:
-        go-version: '1.24.x'
+        go-version: '1.25.x'
     - name: Login to DockerHub
       uses: docker/login-action@v3
       with:
