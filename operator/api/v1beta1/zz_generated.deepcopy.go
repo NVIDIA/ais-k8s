@@ -102,6 +102,11 @@ func (in *AIStoreSpec) DeepCopyInto(out *AIStoreSpec) {
 		*out = new(ConfigToUpdate)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.IssuerCAConfigMap != nil {
+		in, out := &in.IssuerCAConfigMap, &out.IssuerCAConfigMap
+		*out = new(string)
+		**out = **in
+	}
 	if in.HostnameMap != nil {
 		in, out := &in.HostnameMap, &out.HostnameMap
 		*out = make(map[string]string, len(*in))

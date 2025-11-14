@@ -7,6 +7,7 @@ package cmn
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"path/filepath"
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
 	aiscmn "github.com/NVIDIA/aistore/cmn"
@@ -71,9 +72,13 @@ func GenerateConfigToSet(ais *aisv1.AIStore) (*aiscmn.ConfigToSet, error) {
 		specConfig.ConfigureBackend(&ais.Spec)
 	}
 
-	if specConfig.IsAuthEnabled() {
-		specConfig.EnableAuth()
+	// Build OIDC issuer CA path from constants if ConfigMap is specified
+	var issuerCAPath string
+	if ais.Spec.IssuerCAConfigMap != nil {
+		issuerCAPath = filepath.Join(OIDCCAMountPath, OIDCCAFileName)
 	}
+	specConfig.ConfigureAuth(ais.Spec.Auth, issuerCAPath)
+
 	return specConfig.Convert()
 }
 

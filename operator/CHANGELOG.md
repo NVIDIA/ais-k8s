@@ -9,6 +9,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 ---
 
 ## Unreleased
+- OIDC issuer CA configuration via `spec.issuerCAConfigMap` for automatic certificate mounting and `auth.oidc.issuer_ca_bundle` configuration
 
 ### Added
 
@@ -25,8 +26,8 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 - Auth
   - TLS configuration only applied for HTTPS URLs; HTTP connections skip
   - Return errors on TLS failures instead of silently falling back to insecure connections
-  - Operator uses required audiences from AIStore cluster's `spec.configToUpdate.auth.required_claims.aud` to requests tokens with matching audiences during token exchange.
-- Fixed a bug where resuming from shutdown state would become stuck on target scale up due to failing API calls.
+  - Operator uses required audiences from AIStore cluster's `spec.configToUpdate.auth.required_claims.aud` to requests tokens with matching audiences during token exchange
+- Fixed a bug where resuming from shutdown state would become stuck on target scale up due to failing API calls
 - Build: `mockgen` now installed to `LOCALBIN` with versioned suffix to prevent version mismatches that cause unnecessary diffs in generated mock files
 
 ### Deprecated

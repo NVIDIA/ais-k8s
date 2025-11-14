@@ -33,8 +33,11 @@ const (
 	DefaultOCIDir = "/root/.oci"
 
 	// Other container mount locations
-	certsDir  = "/var/certs"
-	tracesDir = "/var/traces"
+	certsDir         = "/var/certs"
+	tracesDir        = "/var/traces"
+	OIDCCAMountPath  = "/etc/ais/oidc-ca"
+	OIDCCAFileName   = "ca.crt"
+	oidcCAVolumeName = "oidc-ca"
 
 	hostnameMapFileName = "hostname_map.json"
 	AISGlobalConfigName = "ais.json"
@@ -174,6 +177,12 @@ func NewAISVolumes(ais *v1beta1.AIStore, daeType string) []v1.Volume {
 			},
 		})
 	}
+
+	// Add OIDC CA volume for proxies only
+	if daeType == aisapc.Proxy && ais.Spec.IssuerCAConfigMap != nil {
+		volumes = append(volumes, NewOIDCCAVolume(*ais.Spec.IssuerCAConfigMap))
+	}
+
 	return volumes
 }
 
@@ -272,6 +281,12 @@ func NewAISVolumeMounts(ais *v1beta1.AIStore, daeType string) []v1.VolumeMount {
 	if spec.TracingTokenSecretName != nil {
 		volumeMounts = appendSimpleReadOnlyMount(volumeMounts, tracingSecretVolume, tracesDir)
 	}
+
+	// Add OIDC CA volume mount for proxies only
+	if daeType == aisapc.Proxy && spec.IssuerCAConfigMap != nil {
+		volumeMounts = append(volumeMounts, NewOIDCCAVolumeMount())
+	}
+
 	return volumeMounts
 }
 
@@ -336,4 +351,27 @@ func getHostMountSubPath(daeType string) string {
 		return "$(MY_POD)"
 	}
 	return ""
+}
+
+// NewOIDCCAVolume creates a volume for OIDC issuer CA certificates
+func NewOIDCCAVolume(configMapName string) v1.Volume {
+	return v1.Volume{
+		Name: oidcCAVolumeName,
+		VolumeSource: v1.VolumeSource{
+			ConfigMap: &v1.ConfigMapVolumeSource{
+				LocalObjectReference: v1.LocalObjectReference{
+					Name: configMapName,
+				},
+			},
+		},
+	}
+}
+
+// NewOIDCCAVolumeMount creates a volume mount for OIDC issuer CA certificates
+func NewOIDCCAVolumeMount() v1.VolumeMount {
+	return v1.VolumeMount{
+		Name:      oidcCAVolumeName,
+		MountPath: OIDCCAMountPath,
+		ReadOnly:  true,
+	}
 }

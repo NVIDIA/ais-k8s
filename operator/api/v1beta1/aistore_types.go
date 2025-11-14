@@ -180,6 +180,16 @@ type AIStoreSpec struct {
 	// +optional
 	StateStorageClass *string         `json:"stateStorageClass,omitempty"`
 	ConfigToUpdate    *ConfigToUpdate `json:"configToUpdate,omitempty"`
+
+	// IssuerCAConfigMap is the name of a ConfigMap containing the CA certificate bundle
+	// for verifying OIDC issuer certificates. When set, the ConfigMap will be mounted
+	// to proxy pods at /etc/ais/oidc-ca and spec.configToUpdate.auth.oidc.issuer_ca_bundle
+	// will be automatically configured to reference it.
+	// The ConfigMap must contain a key named "ca.crt" with the CA bundle in PEM format.
+	// +kubebuilder:validation:MinLength=1
+	// +optional
+	IssuerCAConfigMap *string `json:"issuerCAConfigMap,omitempty"`
+
 	// Map of primary host to comma-separated string of all hosts for multi-home
 	// +optional
 	HostnameMap map[string]string `json:"hostnameMap,omitempty"`

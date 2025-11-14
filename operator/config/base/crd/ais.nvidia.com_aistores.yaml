@@ -595,6 +595,15 @@ spec:
                 description: Container image used for `ais-init` container.
                 minLength: 1
                 type: string
+              issuerCAConfigMap:
+                description: |-
+                  IssuerCAConfigMap is the name of a ConfigMap containing the CA certificate bundle
+                  for verifying OIDC issuer certificates. When set, the ConfigMap will be mounted
+                  to proxy pods at /etc/ais/oidc-ca and spec.configToUpdate.auth.oidc.issuer_ca_bundle
+                  will be automatically configured to reference it.
+                  The ConfigMap must contain a key named "ca.crt" with the CA bundle in PEM format.
+                minLength: 1
+                type: string
               logSidecarImage:
                 description: Container image used for `ais-logs` container.
                 minLength: 1
