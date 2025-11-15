@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/NVIDIA/aistore/api"
@@ -21,6 +22,7 @@ import (
 	"github.com/NVIDIA/aistore/cmn"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	aisclient "github.com/ais-operator/pkg/client"
+	"github.com/ais-operator/pkg/truststore"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -42,6 +44,17 @@ const (
 	// RFC 8693 OAuth 2.0 Token Exchange constants
 	RFC8693GrantType           = "urn:ietf:params:oauth:grant-type:token-exchange"
 	RFC8693SubjectTokenTypeJWT = "urn:ietf:params:oauth:token-type:jwt" //nolint:gosec // This is a URN identifier, not a credential
+
+	// TLS config cache defaults
+	// Environment variable to configure cache TTL: OPERATOR_AUTH_TLS_CACHE_TTL (e.g., "1h", "30m", "6h")
+	AuthTLSCacheTTLEnv       = "OPERATOR_AUTH_TLS_CACHE_TTL"
+	defaultTLSConfigCacheTTL = 6 * time.Hour // Default: refresh every 6 hours to pick up certificate rotations
+)
+
+// Global TLS config cache TTL configuration
+var (
+	tlsConfigCacheTTL time.Duration // Configured TTL for cache entries
+	tlsCacheTTLOnce   sync.Once     // Initialize TTL once
 )
 
 // TokenInfo contains token and optional expiration information
@@ -67,6 +80,9 @@ type (
 		GetTokenExchangeEndpoint() string
 		GetSecretName() string
 		GetSecretNamespace() string
+		GetCACertPath() string
+		GetInsecureSkipVerify() bool
+		GetTLSConfig(ctx context.Context) (*tls.Config, error)
 	}
 
 	// AuthNConfigMapConfig is the legacy ConfigMap-based configuration
@@ -80,12 +96,23 @@ type (
 		UseTokenExchange      bool   `json:"useTokenExchange"`
 		TokenPath             string `json:"tokenPath"`
 		TokenExchangeEndpoint string `json:"tokenExchangeEndpoint"`
+		// TLS configuration fields
+		CACertPath         string `json:"caCertPath,omitempty"`
+		InsecureSkipVerify bool   `json:"insecureSkipVerify,omitempty"`
+		// TLS config caching
+		tlsConfig  *tls.Config
+		tlsCreated time.Time
+		tlsMu      sync.RWMutex
 	}
 
 	// AuthSpecConfig wraps the CRD AuthSpec configuration
 	AuthSpecConfig struct {
 		spec      *aisv1.AuthSpec
 		namespace string // cluster namespace for default secret lookup
+		// TLS config caching
+		tlsConfig  *tls.Config
+		tlsCreated time.Time
+		tlsMu      sync.RWMutex
 	}
 )
 
@@ -118,6 +145,18 @@ func (c *AuthNConfigMapConfig) GetSecretName() string {
 
 func (c *AuthNConfigMapConfig) GetSecretNamespace() string {
 	return c.SecretNamespace
+}
+
+func (c *AuthNConfigMapConfig) GetCACertPath() string {
+	return c.CACertPath
+}
+
+func (c *AuthNConfigMapConfig) GetInsecureSkipVerify() bool {
+	return c.InsecureSkipVerify
+}
+
+func (c *AuthNConfigMapConfig) GetTLSConfig(ctx context.Context) (*tls.Config, error) {
+	return getTLSConfigWithCache(ctx, &c.tlsMu, &c.tlsConfig, &c.tlsCreated, c.GetCACertPath(), c.GetInsecureSkipVerify())
 }
 
 // AuthSpecConfig implements AuthConfig interface
@@ -161,6 +200,76 @@ func (c *AuthSpecConfig) GetSecretNamespace() string {
 	return c.namespace
 }
 
+func (c *AuthSpecConfig) GetCACertPath() string {
+	if c.spec.TLS != nil {
+		return c.spec.TLS.CACertPath
+	}
+	return ""
+}
+
+func (c *AuthSpecConfig) GetInsecureSkipVerify() bool {
+	if c.spec.TLS != nil {
+		return c.spec.TLS.InsecureSkipVerify
+	}
+	return false
+}
+
+func (c *AuthSpecConfig) GetTLSConfig(ctx context.Context) (*tls.Config, error) {
+	return getTLSConfigWithCache(ctx, &c.tlsMu, &c.tlsConfig, &c.tlsCreated, c.GetCACertPath(), c.GetInsecureSkipVerify())
+}
+
+// getTLSConfigWithCache is a helper function that implements the TLS config caching logic
+// shared by both AuthNConfigMapConfig and AuthSpecConfig
+func getTLSConfigWithCache(ctx context.Context, mu *sync.RWMutex, cachedConfig **tls.Config, cachedTime *time.Time, caCertPath string, insecureSkipVerify bool) (*tls.Config, error) {
+	logger := logf.FromContext(ctx)
+	cacheTTL := getTLSConfigCacheTTL(ctx)
+
+	mu.RLock()
+	// Check if we have a valid cached config
+	if *cachedConfig != nil && time.Since(*cachedTime) < cacheTTL {
+		tlsConfig := *cachedConfig
+		mu.RUnlock()
+		logger.V(2).Info("Using cached TLS config", "age", time.Since(*cachedTime), "ttl", cacheTTL)
+		return tlsConfig, nil
+	}
+	mu.RUnlock()
+
+	// Need to create/refresh TLS config
+	mu.Lock()
+	defer mu.Unlock()
+
+	// Double-check after acquiring write lock (another goroutine might have created it)
+	if *cachedConfig != nil && time.Since(*cachedTime) < cacheTTL {
+		logger.V(2).Info("Using cached TLS config (after lock)", "age", time.Since(*cachedTime), "ttl", cacheTTL)
+		return *cachedConfig, nil
+	}
+
+	// Create new TLS config
+	var caCertPaths []string
+	if caCertPath != "" {
+		caCertPaths = []string{caCertPath}
+	}
+	logger.V(1).Info("Creating new TLS config", "caCertPath", caCertPath)
+	tlsConfig, err := truststore.NewTLSConfig(logger.WithName("truststore"), truststore.Config{
+		CACertPaths: caCertPaths,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create TLS config: %w", err)
+	}
+
+	// Apply insecureSkipVerify if configured
+	if insecureSkipVerify {
+		logger.Info("WARNING: TLS certificate verification disabled (insecureSkipVerify=true)")
+		tlsConfig.InsecureSkipVerify = true
+	}
+
+	// Cache the new config
+	*cachedConfig = tlsConfig
+	*cachedTime = time.Now()
+
+	return tlsConfig, nil
+}
+
 // getAdminToken Gets an admin token for the given cluster using the credentials secret referenced by the operator's authN configmap
 func (c *AuthNClient) getAdminToken(ctx context.Context, ais *aisv1.AIStore) (*TokenInfo, error) {
 	authnConf, err := c.getAuthConfig(ctx, ais)
@@ -181,7 +290,11 @@ func (c *AuthNClient) getAdminToken(ctx context.Context, ais *aisv1.AIStore) (*T
 	if err != nil || secretData == nil {
 		return nil, err
 	}
-	return getTokenFromAuthN(ctx, authNBaseParams(authnConf), secretData)
+	baseParams, err := newAuthNBaseParams(ctx, authnConf)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create AuthN base params: %w", err)
+	}
+	return getTokenFromAuthN(ctx, baseParams, secretData)
 }
 
 // getAuthConfig Gets the AuthN configuration from the CRD first, falls back to ConfigMap
@@ -293,23 +406,71 @@ func getTokenFromAuthN(ctx context.Context, params *api.BaseParams, secretData m
 	}, nil
 }
 
-func authNBaseParams(conf AuthConfig) *api.BaseParams {
+func newAuthNBaseParams(ctx context.Context, conf AuthConfig) (*api.BaseParams, error) {
+	logger := logf.FromContext(ctx)
+
 	transportArgs := cmn.TransportArgs{
 		Timeout:         10 * time.Second,
 		UseHTTPProxyEnv: true,
 	}
 	transport := cmn.NewTransport(transportArgs)
 
-	transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	serviceURL := conf.GetServiceURL()
+
+	// Only use TLS for HTTPS URLs
+	if strings.HasPrefix(serviceURL, "https://") {
+		tlsConfig, err := conf.GetTLSConfig(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get TLS config for Auth service: %w", err)
+		}
+
+		transport.TLSClientConfig = tlsConfig
+	} else {
+		// HTTP connection - no TLS config needed
+		logger.V(1).Info("Using HTTP (non-TLS) connection to Auth service", "url", serviceURL)
+	}
 
 	return &api.BaseParams{
 		Client: &http.Client{
 			Transport: transport,
 			Timeout:   transportArgs.Timeout,
 		},
-		URL: conf.GetServiceURL(),
+		URL: serviceURL,
 		UA:  userAgent,
-	}
+	}, nil
+}
+
+// getTLSConfigCacheTTL returns the configured cache TTL, reading from environment if set
+// The TTL is initialized once and cached for the lifetime of the process
+func getTLSConfigCacheTTL(ctx context.Context) time.Duration {
+	tlsCacheTTLOnce.Do(func() {
+		logger := logf.FromContext(ctx)
+		ttlStr := os.Getenv(AuthTLSCacheTTLEnv)
+		if ttlStr == "" {
+			tlsConfigCacheTTL = defaultTLSConfigCacheTTL
+			logger.Info("Using default TLS cache TTL", "ttl", tlsConfigCacheTTL)
+			return
+		}
+
+		ttl, err := time.ParseDuration(ttlStr)
+		if err != nil {
+			logger.Error(err, "Invalid OPERATOR_AUTH_TLS_CACHE_TTL, using default",
+				"value", ttlStr, "default", defaultTLSConfigCacheTTL)
+			tlsConfigCacheTTL = defaultTLSConfigCacheTTL
+			return
+		}
+
+		if ttl < time.Minute {
+			logger.Info("OPERATOR_AUTH_TLS_CACHE_TTL too short, using minimum 1 minute",
+				"requested", ttl, "using", time.Minute)
+			tlsConfigCacheTTL = time.Minute
+			return
+		}
+
+		tlsConfigCacheTTL = ttl
+		logger.Info("Using configured TLS cache TTL", "ttl", tlsConfigCacheTTL)
+	})
+	return tlsConfigCacheTTL
 }
 
 // getTokenViaExchange reads a token from filesystem and exchanges it with AuthN for an AIS token
@@ -325,7 +486,13 @@ func (*AuthNClient) getTokenViaExchange(ctx context.Context, conf AuthConfig) (*
 		return nil, fmt.Errorf("failed to read token from %s: %w", tokenPath, err)
 	}
 
-	tokenInfo, err := exchangeTokenWithAuthN(ctx, authNBaseParams(conf), sourceToken, endpoint)
+	baseParams, err := newAuthNBaseParams(ctx, conf)
+	if err != nil {
+		logger.Error(err, "Failed to create AuthN base params")
+		return nil, fmt.Errorf("failed to create AuthN base params: %w", err)
+	}
+
+	tokenInfo, err := exchangeTokenWithAuthN(ctx, baseParams, sourceToken, endpoint)
 	if err != nil {
 		logger.Error(err, "Failed to exchange token with AuthN")
 		return nil, err

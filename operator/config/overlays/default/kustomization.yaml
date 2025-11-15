@@ -146,6 +146,7 @@ patches:
 - path: webhook/webhook_cainjection_patch.yaml
 - path: manager_env_patch.yaml
 - path: manager_ca_configmap_patch.yaml
+- path: manager_authn_ca_configmap_patch.yaml
 - path: aistores_cainjection_patch.yaml
 - path: aistores_keep_policy_patch.yaml
 # Mount the controller config file for loading manager configurations

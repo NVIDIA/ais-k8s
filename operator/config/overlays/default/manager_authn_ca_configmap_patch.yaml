@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: controller-manager
+  namespace: system
+spec:
+  template:
+    spec:
+      containers:
+        - name: manager
+          volumeMounts:
+            - name: authn-ca
+              mountPath: /etc/ssl/certs/authn-ca
+              readOnly: true
+      volumes:
+        - name: authn-ca
+          configMap:
+            # ConfigMap name can be overridden via kustomize patches
+            # Default: ais-operator-authn-ca (for general use)
+            name: ais-operator-authn-ca
+            optional: true
+

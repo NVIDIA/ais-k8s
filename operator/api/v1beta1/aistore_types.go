@@ -108,6 +108,24 @@ type AuthSpec struct {
 	// This is the preferred method for workload identity and eliminates the need for static credentials
 	// +optional
 	TokenExchange *TokenExchangeAuth `json:"tokenExchange,omitempty"`
+
+	// TLS configuration for secure connections with Auth service
+	// +optional
+	TLS *AuthTLSConfig `json:"tls,omitempty"`
+}
+
+// AuthTLSConfig defines TLS configuration for Auth connections
+type AuthTLSConfig struct {
+	// CACertPath is a filesystem path to a CA certificate file (PEM format)
+	// This certificate will be added to the trust store for verifying Auth service certificates
+	// Example: "/etc/ssl/certs/custom-ca.crt"
+	// +optional
+	CACertPath string `json:"caCertPath,omitempty"`
+
+	// InsecureSkipVerify disables TLS certificate verification (not recommended for production)
+	// If true, the operator will accept any certificate presented by the Auth service
+	// +optional
+	InsecureSkipVerify bool `json:"insecureSkipVerify,omitempty"`
 }
 
 // UsernamePasswordAuth defines authentication using static username/password credentials

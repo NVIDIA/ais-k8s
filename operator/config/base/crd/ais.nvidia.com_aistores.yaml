@@ -65,6 +65,22 @@ spec:
                       Port defaults to 80 for http and 443 for https if not specified
                       If not specified, defaults to "http://ais-authn.ais:52001"
                     type: string
+                  tls:
+                    description: TLS configuration for secure connections with Auth
+                      service
+                    properties:
+                      caCertPath:
+                        description: |-
+                          CACertPath is a filesystem path to a CA certificate file (PEM format)
+                          This certificate will be added to the trust store for verifying Auth service certificates
+                          Example: "/etc/ssl/certs/custom-ca.crt"
+                        type: string
+                      insecureSkipVerify:
+                        description: |-
+                          InsecureSkipVerify disables TLS certificate verification (not recommended for production)
+                          If true, the operator will accept any certificate presented by the Auth service
+                        type: boolean
+                    type: object
                   tokenExchange:
                     description: |-
                       TokenExchange authentication configuration using RFC 8693 OAuth 2.0 Token Exchange

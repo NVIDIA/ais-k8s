@@ -81,3 +81,56 @@ spec:
       - path: /ais/sda
         size: 100Gi
 
+---
+# Example 3: Token Exchange with Custom TLS CA Certificates
+apiVersion: ais.nvidia.com/v1beta1
+kind: AIStore
+metadata:
+  name: ais-token-exchange-tls
+  namespace: ais
+spec:
+  size: 3
+
+  # AuthN configuration with TLS certificate verification
+  auth:
+    # AuthN service URL (using https for TLS)
+    serviceURL: https://ais-authn.ais:52001
+    
+    # Token exchange authentication
+    tokenExchange:
+      tokenPath: /var/run/secrets/kubernetes.io/serviceaccount/token
+      tokenExchangeEndpoint: /token
+    
+    # TLS configuration for secure connections to AuthN
+    tls:
+      # CA certificate path for verifying AuthN service certificate
+      # To use custom CA certificates, create a ConfigMap named 'ais-operator-authn-ca' 
+      # in the operator namespace. It will be automatically mounted at /etc/ssl/certs/authn-ca/
+      # Example:
+      #   kubectl create configmap ais-operator-authn-ca \
+      #     --from-file=ca.crt=/path/to/ca.pem \
+      #     -n ais-operator-system
+      caCertPath: /etc/ssl/certs/authn-ca/ca.crt  # Mounted from ais-operator-authn-ca ConfigMap
+      # insecureSkipVerify: false  # Optional, defaults to false (verify certificates)
+
+  # JWT signing key secret 
+  authNSecretName: ais-authn-secret
+
+  nodeImage: "aistorage/aisnode:latest"
+  initImage: "aistorage/ais-init:latest"
+
+  proxySpec:
+    servicePort: 51080
+    portPublic: 51080
+    portIntraControl: 51082
+    portIntraData: 51083
+
+  targetSpec:
+    servicePort: 51081
+    portPublic: 51081
+    portIntraControl: 51082
+    portIntraData: 51083
+    mounts:
+      - path: /ais/sda
+        size: 100Gi
+

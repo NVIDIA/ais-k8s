@@ -8,6 +8,19 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ---
 
+## Unreleased
+
+### Added
+
+- Auth
+  - TLS support for operator-to-AuthN communication with `spec.auth.tls.caCertPath` configuration
+  - TLS config caching (6 hour TTL) to minimize disk I/O when loading CA certificates
+  - `truststore` package for CA certificate loading and TLS configuration management
+  - TLS certificate verification for the auth service can be disabled via `spec.auth.tls.insecureSkipVerify` (not recommended for production)
+  - Operator mounts `ais-operator-authn-ca` ConfigMap to `/etc/ssl/certs/authn-ca` for AuthN CA certificates
+  - TLS configuration only applied for HTTPS URLs; HTTP connections skip 
+  - Return errors on TLS failures instead of silently falling back to insecure connections
+
 ## v2.8.0
 
 ### Added
@@ -33,6 +46,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
   - AuthN client methods now return `*TokenInfo` instead of plain string to include expiration metadata
   - Token exchange requests use RFC 8693 required fields: `grant_type`, `subject_token`, and `subject_token_type`
   - Operator AuthN configuration prioritizes CRD `spec.auth` over ConfigMap (ConfigMap approach is deprecated but supported for backward compatibility)
+  - TLS configuration is now only applied for HTTPS URLs (HTTP connections no longer attempt TLS setup)
   - Updated CRD `configToUpdate.auth` options to match latest changes to AIS config including RSA key support, required audience claims, and OIDC issuer lookup
 
 ## v2.7.0
