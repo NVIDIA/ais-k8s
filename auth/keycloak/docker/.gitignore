@@ -1,0 +1,4 @@
+*.pem
+*.csr
+# Allow our sample.env in this dir
+!.env
