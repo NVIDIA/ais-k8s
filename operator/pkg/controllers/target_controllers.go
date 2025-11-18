@@ -170,7 +170,8 @@ func (r *AIStoreReconciler) resolveStatefulSetScaling(ctx context.Context, ais *
 	currentSize := *current.Spec.Replicas
 	// Scaling up
 	if expectedSize > currentSize {
-		if expectedSize > currentSize+1 {
+		// If we have an existing cluster, make sure it's ready and disable rebalance before adding multiple targets
+		if expectedSize > currentSize+1 && currentSize > 0 {
 			ready, err := r.checkAISClusterReady(ctx, ais)
 			if err != nil {
 				return err
