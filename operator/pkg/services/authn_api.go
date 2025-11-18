@@ -280,7 +280,7 @@ func (c *AuthNClient) getAdminToken(ctx context.Context, ais *aisv1.AIStore) (*T
 
 	// Token exchange mode
 	if authnConf.IsTokenExchange() {
-		return c.getTokenViaExchange(ctx, authnConf)
+		return c.getTokenViaExchange(ctx, ais, authnConf)
 	}
 
 	// Username/password mode (existing)
@@ -475,7 +475,7 @@ func getTLSConfigCacheTTL(ctx context.Context) time.Duration {
 }
 
 // getTokenViaExchange reads a token from filesystem and exchanges it with AuthN for an AIS token
-func (*AuthNClient) getTokenViaExchange(ctx context.Context, conf AuthConfig) (*TokenInfo, error) {
+func (*AuthNClient) getTokenViaExchange(ctx context.Context, ais *aisv1.AIStore, conf AuthConfig) (*TokenInfo, error) {
 	logger := logf.FromContext(ctx)
 
 	tokenPath := conf.GetTokenPath()
@@ -493,13 +493,17 @@ func (*AuthNClient) getTokenViaExchange(ctx context.Context, conf AuthConfig) (*
 		return nil, fmt.Errorf("failed to create AuthN base params: %w", err)
 	}
 
-	tokenInfo, err := exchangeTokenWithAuthN(ctx, baseParams, sourceToken, endpoint)
+	// Get all audiences from the AIStore cluster's required claims configuration
+	// If not configured, we pass an empty slice (don't request audiences if cluster doesn't require them)
+	audiences := ais.GetRequiredAudiences()
+
+	tokenInfo, err := exchangeTokenWithAuthN(ctx, baseParams, sourceToken, endpoint, audiences)
 	if err != nil {
-		logger.Error(err, "Failed to exchange token with AuthN")
+		logger.Error(err, "Failed to exchange token with AuthN", "audiences", audiences)
 		return nil, err
 	}
 
-	logger.Info("Successfully exchanged token with AuthN", "tokenPath", tokenPath)
+	logger.Info("Successfully exchanged token with AuthN", "tokenPath", tokenPath, "audiences", audiences)
 	return tokenInfo, nil
 }
 
@@ -519,7 +523,7 @@ func readTokenFromFile(path string) (string, error) {
 // exchangeTokenWithAuthN exchanges a source token (e.g., K8s SA token) for an AIS JWT token
 // Implements RFC 8693 OAuth 2.0 Token Exchange specification
 // See: https://datatracker.ietf.org/doc/html/rfc8693
-func exchangeTokenWithAuthN(ctx context.Context, params *api.BaseParams, sourceToken, endpoint string) (*TokenInfo, error) {
+func exchangeTokenWithAuthN(ctx context.Context, params *api.BaseParams, sourceToken, endpoint string, audiences []string) (*TokenInfo, error) {
 	logger := logf.FromContext(ctx)
 
 	// RFC 8693 Section 2.1 - Request format (form-encoded)
@@ -527,6 +531,14 @@ func exchangeTokenWithAuthN(ctx context.Context, params *api.BaseParams, sourceT
 	formData.Set("grant_type", RFC8693GrantType)                   // REQUIRED
 	formData.Set("subject_token", sourceToken)                     // REQUIRED
 	formData.Set("subject_token_type", RFC8693SubjectTokenTypeJWT) // REQUIRED
+	// RFC 8693 Section 2.1 - audience parameter (OPTIONAL but recommended)
+	// Specifies the target audience(s) for the issued token
+	// Per RFC 8693, the audience parameter can appear multiple times
+	for _, audience := range audiences {
+		if audience != "" {
+			formData.Add("audience", audience)
+		}
+	}
 
 	requestURL := params.URL + endpoint
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, requestURL, strings.NewReader(formData.Encode()))

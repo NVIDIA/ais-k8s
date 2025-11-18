@@ -25,6 +25,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 - Auth
   - TLS configuration only applied for HTTPS URLs; HTTP connections skip
   - Return errors on TLS failures instead of silently falling back to insecure connections
+  - Operator uses required audiences from AIStore cluster's `spec.configToUpdate.auth.required_claims.aud` to requests tokens with matching audiences during token exchange.
 
 
 ### Deprecated

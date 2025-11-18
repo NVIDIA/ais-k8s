@@ -541,3 +541,97 @@ func createTestCACertPEM(commonName string) []byte {
 
 	return certPEM
 }
+
+var _ = Describe("GetRequiredAudiences", func() {
+	It("should return nil when ConfigToUpdate is nil", func() {
+		ais := &aisv1.AIStore{
+			Spec: aisv1.AIStoreSpec{},
+		}
+
+		audiences := ais.GetRequiredAudiences()
+		Expect(audiences).To(BeNil())
+	})
+
+	It("should return nil when Auth is nil", func() {
+		ais := &aisv1.AIStore{
+			Spec: aisv1.AIStoreSpec{
+				ConfigToUpdate: &aisv1.ConfigToUpdate{},
+			},
+		}
+
+		audiences := ais.GetRequiredAudiences()
+		Expect(audiences).To(BeNil())
+	})
+
+	It("should return nil when RequiredClaims is nil", func() {
+		ais := &aisv1.AIStore{
+			Spec: aisv1.AIStoreSpec{
+				ConfigToUpdate: &aisv1.ConfigToUpdate{
+					Auth: &aisv1.AuthConfToUpdate{},
+				},
+			},
+		}
+
+		audiences := ais.GetRequiredAudiences()
+		Expect(audiences).To(BeNil())
+	})
+
+	It("should return nil when Aud slice is empty", func() {
+		ais := &aisv1.AIStore{
+			Spec: aisv1.AIStoreSpec{
+				ConfigToUpdate: &aisv1.ConfigToUpdate{
+					Auth: &aisv1.AuthConfToUpdate{
+						RequiredClaims: &aisv1.RequiredClaimsConfToUpdate{
+							Aud: []string{},
+						},
+					},
+				},
+			},
+		}
+
+		audiences := ais.GetRequiredAudiences()
+		Expect(audiences).To(BeNil())
+	})
+
+	It("should return single audience when one is configured", func() {
+		expectedAudience := "namespace/cluster-name"
+		ais := &aisv1.AIStore{
+			Spec: aisv1.AIStoreSpec{
+				ConfigToUpdate: &aisv1.ConfigToUpdate{
+					Auth: &aisv1.AuthConfToUpdate{
+						RequiredClaims: &aisv1.RequiredClaimsConfToUpdate{
+							Aud: []string{expectedAudience},
+						},
+					},
+				},
+			},
+		}
+
+		audiences := ais.GetRequiredAudiences()
+		Expect(audiences).To(HaveLen(1))
+		Expect(audiences[0]).To(Equal(expectedAudience))
+	})
+
+	It("should return all audiences when multiple are configured", func() {
+		expectedAudiences := []string{
+			"namespace/cluster-name",
+			"admin",
+			"global-access",
+		}
+		ais := &aisv1.AIStore{
+			Spec: aisv1.AIStoreSpec{
+				ConfigToUpdate: &aisv1.ConfigToUpdate{
+					Auth: &aisv1.AuthConfToUpdate{
+						RequiredClaims: &aisv1.RequiredClaimsConfToUpdate{
+							Aud: expectedAudiences,
+						},
+					},
+				},
+			},
+		}
+
+		audiences := ais.GetRequiredAudiences()
+		Expect(audiences).To(HaveLen(3))
+		Expect(audiences).To(Equal(expectedAudiences))
+	})
+})

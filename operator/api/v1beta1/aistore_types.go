@@ -687,6 +687,18 @@ func (ais *AIStore) MaxLogTotal() *SizeIEC {
 	return ais.Spec.ConfigToUpdate.Log.MaxTotal
 }
 
+// GetRequiredAudiences extracts all audiences from the AIStore cluster's required claims if set.
+// Returns nil if not configured
+func (ais *AIStore) GetRequiredAudiences() []string {
+	if ais.Spec.ConfigToUpdate == nil ||
+		ais.Spec.ConfigToUpdate.Auth == nil ||
+		ais.Spec.ConfigToUpdate.Auth.RequiredClaims == nil ||
+		len(ais.Spec.ConfigToUpdate.Auth.RequiredClaims.Aud) == 0 {
+		return nil
+	}
+	return ais.Spec.ConfigToUpdate.Auth.RequiredClaims.Aud
+}
+
 // +kubebuilder:object:root=true
 
 // AIStoreList contains a list of AIStore
