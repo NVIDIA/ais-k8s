@@ -83,7 +83,7 @@ manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and Cust
 .PHONY: generate
 generate: controller-gen mockgen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
-	go generate ./...
+	PATH=$(LOCALBIN):$$PATH go generate ./...
 
 .PHONY: fmt
 fmt: ## Run go fmt against code.
@@ -240,6 +240,7 @@ KUBECTL ?= kubectl
 KUSTOMIZE ?= $(LOCALBIN)/kustomize-$(KUSTOMIZE_VERSION)
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen-$(CONTROLLER_TOOLS_VERSION)
 ENVTEST ?= $(LOCALBIN)/setup-envtest-$(ENVTEST_VERSION)
+MOCKGEN ?= $(LOCALBIN)/mockgen-$(MOCKGEN_VERSION)
 HELMIFY = $(LOCALBIN)/helmify
 HELM = $(LOCALBIN)/helm
 KIND ?= $(LOCALBIN)/kind
@@ -292,11 +293,10 @@ $(HELMIFY): $(LOCALBIN)
 	./scripts/go_install_tool.sh $(HELMIFY) github.com/arttor/helmify/cmd/helmify latest
 
 .PHONY: mockgen
-mockgen:  ## Download mockgen to default install location if necessary.
-	@command -v mockgen >/dev/null 2>&1 || { \
-		echo "mockgen not found, installing..."; \
-		go install go.uber.org/mock/mockgen@$(MOCKGEN_VERSION); \
-	}
+mockgen: $(MOCKGEN) ## Download mockgen locally if necessary.
+$(MOCKGEN): $(LOCALBIN)
+	./scripts/go_install_tool.sh $(MOCKGEN) go.uber.org/mock/mockgen $(MOCKGEN_VERSION)
+	@ln -sf $(notdir $(MOCKGEN)) $(LOCALBIN)/mockgen
 
 .PHONY: kind
 kind: $(KIND)
