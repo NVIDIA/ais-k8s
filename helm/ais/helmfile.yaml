@@ -43,7 +43,7 @@ environments:
       cloudSecrets:
         enabled: false
       createPV:
-        enabled: true
+        enabled: false
       labelNodes:
         enabled: false
     kubeContext: oci-iad
@@ -76,7 +76,7 @@ environments:
       cloudSecrets:
         enabled: false
       createPV:
-        enabled: true
+        enabled: false
       labelNodes:
         enabled: false
     kubeContext: oci-ord
