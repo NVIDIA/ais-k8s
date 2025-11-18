@@ -33,6 +33,7 @@ const (
 	OperatorNamespace      = "OPERATOR_NAMESPACE"
 	DefaultAuthNServiceURL = "http://ais-authn.ais:52001"
 
+	// Deprecated: Use spec.auth to configure token access
 	AuthNConfigMapVar  = "AIS_AUTHN_CM"
 	AuthNSecretRefName = "SU-NAME"
 	AuthNSecretRefPass = "SU-PASS"
@@ -85,7 +86,7 @@ type (
 		GetTLSConfig(ctx context.Context) (*tls.Config, error)
 	}
 
-	// AuthNConfigMapConfig is the legacy ConfigMap-based configuration
+	// Deprecated: AuthNConfigMapConfig is the legacy ConfigMap-based configuration
 	AuthNConfigMapConfig struct {
 		TLS             bool   `json:"tls"`
 		Host            string `json:"host"`
@@ -270,7 +271,7 @@ func getTLSConfigWithCache(ctx context.Context, mu *sync.RWMutex, cachedConfig *
 	return tlsConfig, nil
 }
 
-// getAdminToken Gets an admin token for the given cluster using the credentials secret referenced by the operator's authN configmap
+// getAdminToken Gets an admin token for the given cluster using token exchange or configured credentials secret
 func (c *AuthNClient) getAdminToken(ctx context.Context, ais *aisv1.AIStore) (*TokenInfo, error) {
 	authnConf, err := c.getAuthConfig(ctx, ais)
 	if err != nil || authnConf == nil {
@@ -330,7 +331,7 @@ func (*AuthNClient) getAuthConfigFromCRD(ctx context.Context, ais *aisv1.AIStore
 	return config, nil
 }
 
-// getAuthConfigFromConfigMap Gets the data from the configmap defined by `AIS_AUTHN_CM` (legacy)
+// Deprecated: getAuthConfigFromConfigMap Gets the data from the configmap defined by `AIS_AUTHN_CM` (legacy)
 func (c *AuthNClient) getAuthConfigFromConfigMap(ctx context.Context, ais *aisv1.AIStore) (AuthConfig, error) {
 	logger := logf.FromContext(ctx)
 	// Get the authN credentials secret name for this cluster, if it exists

@@ -1,5 +1,11 @@
 # AIS Operator authn-cm Helm Chart
 
+## DEPRECATED -- Use spec options to configure auth
+
+See the [auth docs](../../../docs/authn.md) for more info. 
+
+---
+
 This small helper chart sets up a ConfigMap to tell the Operator how to access AuthN clusters for each AIS cluster it may support. 
 
 The ConfigMap name is hardcoded to `ais-operator-authn` which is the default value included in operator deployments >= v2.6.0. 

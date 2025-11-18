@@ -50,16 +50,20 @@ If AuthN is enabled for your AIStore cluster, AIS Operator requires a token sinc
 
 The operator supports two authentication modes:
 
-#### Username/Password Authentication (Default)
+#### Username/Password Authentication
 
-AIS Operator logs in as an admin user using the username and password specified for each cluster in the ConfigMap defined by `AIS_AUTHN_CM`.
-By default, the operator will look for the ConfigMap `ais-operator-authn`. 
-This is defined in the manifest when deploying the operator (see [here](../operator/config/overlays/default/manager_env_patch.yaml) for the kustomize overlay).
+AIS Operator logs in as an admin user using the username and password specified for each cluster in a configured secret.
+To allow for each cluster to configure its own admin credentials location, the operator now reads the location of this secret from AIS spec.
 
-The operator will look up the value by the cluster's `namespace`-`name` to find which secret it should load for admin credentials as well as config information for the AuthN service.
-It will use that config to fetch a token to use for admin access to the AIS cluster API.
+> With the new `auth` field in the AIS spec, defining the location of the admin credentials secret via ConfigMap is **deprecated** and will be **REMOVED** in a future release.
 
-If using Helm, [we provide a chart](../helm/operator/authn-cm/README.md) to manage this ConfigMap.
+Previously, the location of the secret was defined with the `AIS_AUTHN_CM` environment variable and a ConfigMap mounted to the operator.
+The operator would look up config values in that ConfigMap by the cluster's `namespace`-`name`.
+
+For the equivalent behavior, specify the location of the admin credentials secret directly in spec with
+ `spec.auth.usernamePassword.secretName` and  `spec.auth.usernamePassword.secretName`. 
+
+An example of this `usernamePassword` config in an AIS spec can be seen in the [provided config examples](../operator/config/samples/aistore_with_authn_in_crd.yaml)
 
 #### Token Exchange Authentication
 
@@ -95,6 +99,8 @@ volumes:
 ```
 
 This mode requires the authentication service to support a token exchange endpoint (default: `/token`).
+
+For configuring token exchange in the AIS spec see `tokenExchange` in the [provided config examples](../operator/config/samples/aistore_with_authn_in_crd.yaml)
 
 ### AIStore Cluster
 

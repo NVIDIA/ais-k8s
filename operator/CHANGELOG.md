@@ -18,8 +18,20 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
   - `truststore` package for CA certificate loading and TLS configuration management
   - TLS certificate verification for the auth service can be disabled via `spec.auth.tls.insecureSkipVerify` (not recommended for production)
   - Operator mounts `ais-operator-authn-ca` ConfigMap to `/etc/ssl/certs/authn-ca` for AuthN CA certificates
-  - TLS configuration only applied for HTTPS URLs; HTTP connections skip 
+
+
+### Changed
+
+- Auth
+  - TLS configuration only applied for HTTPS URLs; HTTP connections skip
   - Return errors on TLS failures instead of silently falling back to insecure connections
+
+
+### Deprecated
+
+- Defining the location of the admin credentials secret via `AIS_AUTHN_CM` ConfigMap
+  - Use `spec.auth.usernamePassword.secretName` and `spec.auth.usernamePassword.secretNamespace` for static secrets
+  - Use `spec.auth.tokenExchange` options for token exchange
 
 ## v2.8.0
 
