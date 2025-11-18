@@ -32,10 +32,10 @@ class RestoreRunner:
 
     def extract_restore_file(self):
         print(f"Extracting {self.src_path}")
-        with tarfile.open(self.src_path, 'r:gz') as tar:
+        with tarfile.open(self.src_path, "r:gz") as tar:
             tar.extractall(path=self.pvc_backups)
 
-    #TODO: This should use backed-up PVC settings to copy the original
+    # TODO: This should use backed-up PVC settings to copy the original
     def create_pvcs(self, pvc_names):
         for pvc in pvc_names:
             component = "proxy"
@@ -43,25 +43,27 @@ class RestoreRunner:
                 component = "target"
             print("Creating PVC", pvc)
             pvc_manifest = client.V1PersistentVolumeClaim(
-                metadata=client.V1ObjectMeta(name=pvc, labels={
-                    "app.kubernetes.io/name": self.manager.cluster_name,
-                    "app.kubernetes.io/component": component
-                }),
+                metadata=client.V1ObjectMeta(
+                    name=pvc,
+                    labels={
+                        "app.kubernetes.io/name": self.manager.cluster_name,
+                        "app.kubernetes.io/component": component,
+                    },
+                ),
                 spec=client.V1PersistentVolumeClaimSpec(
                     access_modes=["ReadWriteOnce"],
                     storage_class_name="local-path",
                     resources=client.V1ResourceRequirements(
                         requests={"storage": "1Gi"}
-                    )
-                )
+                    ),
+                ),
             )
             self.manager.create_pvc(pvc_manifest)
-
 
     def validate_pvcs(self):
         pvcs = self.manager.find_pvcs()
         # From the restore file, figure out desired PVC names
-        pvc_backup_files = self.pvc_backups.glob('*.tar.gz')
+        pvc_backup_files = self.pvc_backups.glob("*.tar.gz")
         desired_pvcs = []
         for backup in pvc_backup_files:
             desired_pvcs.append(backup.name.rstrip(".tar.gz"))
@@ -75,7 +77,9 @@ class RestoreRunner:
             self.create_pvcs(desired_pvcs)
             return desired_pvcs
         # If it doesn't match, probably an invalid restore file for this cluster, abort
-        sys.exit(f"Found non-zero existing PVCs not matching restore file. Desired: {desired_pvcs}. Actual: {pvcs}")
+        sys.exit(
+            f"Found non-zero existing PVCs not matching restore file. Desired: {desired_pvcs}. Actual: {pvcs}"
+        )
 
     def copy_to_pod(self, pod_name, remote_path, local_path):
         # Uses 'kubectl cp' as the Python client does not provide file copy
@@ -95,7 +99,14 @@ class RestoreRunner:
     def restore(self):
         print("Checking for running cluster")
         if self.manager.is_cluster_running():
-            sys.exit("Aborting restore -- cluster is running")
+            proceed = input(
+                "WARNING -- Cluster is still running. Are you sure you want to proceed with restore? (y/n): "
+            )
+            if proceed.lower() != "y":
+                print("Aborting restore as requested.")
+                sys.exit(1)
+            else:
+                print("Proceeding with restore.")
         print("Extract local restore file")
         self.extract_restore_file()
         print("Validating PVCs")

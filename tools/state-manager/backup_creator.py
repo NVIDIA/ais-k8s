@@ -39,7 +39,6 @@ class BackupCreator:
         if os.system(cmd) != 0:
             sys.exit(f"Failed to copy backup from {pod_name}")
 
-
     def fetch_backups(self, pvcs):
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         backup_name = f"{self.cluster_ns}-{self.cluster_name}-{timestamp}"

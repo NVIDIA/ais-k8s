@@ -21,7 +21,14 @@ class DeletionRunner(object):
     def delete(self):
         print("Checking for running cluster")
         if self.manager.is_cluster_running():
-            sys.exit("Aborting deletion -- cluster is running")
+            proceed = input(
+                "WARNING -- Cluster is still running. Are you sure you want to proceed with deletion? (y/n): "
+            )
+            if proceed.lower() != "y":
+                print("Aborting deletion as requested.")
+                sys.exit(1)
+            else:
+                print("Proceeding with deletion.")
         pvcs = self.manager.find_pvcs()
         print("Deploying deletion pods")
         self.manager.create_pods(self.pod_config, pvcs)

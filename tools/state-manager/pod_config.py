@@ -4,6 +4,7 @@
 from dataclasses import dataclass, field
 from typing import List, Dict
 
+
 @dataclass
 class PodConfig:
     name: str
@@ -15,4 +16,4 @@ class PodConfig:
 
     @property
     def label_selector(self) -> str:
-        return ','.join(f'{key}={value}' for key, value in self.labels.items())
+        return ",".join(f"{key}={value}" for key, value in self.labels.items())

@@ -16,9 +16,7 @@ class K8sManager:
         self.k8s_client = self.init_k8s_client(kube_context)
         self.cluster_ns = cluster_ns
         self.cluster_name = cluster_name
-        self.ais_label_selector = (
-            f"app.kubernetes.io/component in (proxy,target),app.kubernetes.io/name={self.cluster_name}"
-        )
+        self.ais_label_selector = f"app.kubernetes.io/component in (proxy,target),app.kubernetes.io/name={self.cluster_name}"
 
     @staticmethod
     def init_k8s_client(kube_context) -> client.CoreV1Api:
@@ -29,7 +27,11 @@ class K8sManager:
         return {
             "apiVersion": "v1",
             "kind": "Pod",
-            "metadata": {"name": pod_config.name.format(pvc_name=pvc_name), "namespace": self.cluster_ns, "labels": pod_config.labels},
+            "metadata": {
+                "name": pod_config.name.format(pvc_name=pvc_name),
+                "namespace": self.cluster_ns,
+                "labels": pod_config.labels,
+            },
             "spec": {
                 "containers": [
                     {
@@ -39,20 +41,31 @@ class K8sManager:
                         "volumeMounts": [{"mountPath": "/data", "name": "pvc-volume"}],
                     }
                 ],
-                "volumes": [{"name": "pvc-volume", "persistentVolumeClaim": {"claimName": pvc_name}}],
-                "restartPolicy": "Never"
+                "volumes": [
+                    {
+                        "name": "pvc-volume",
+                        "persistentVolumeClaim": {"claimName": pvc_name},
+                    }
+                ],
+                "restartPolicy": "Never",
             },
         }
 
     def create_pods(self, pod_config, pvc_names):
         for pvc in pvc_names:
             manifest = self.define_pod_manifest(pod_config, pvc)
-            self.k8s_client.create_namespaced_pod(namespace=self.cluster_ns, body=manifest)
+            self.k8s_client.create_namespaced_pod(
+                namespace=self.cluster_ns, body=manifest
+            )
 
     def create_pvc(self, manifest):
-        self.k8s_client.create_namespaced_persistent_volume_claim(namespace=self.cluster_ns, body=manifest)
+        self.k8s_client.create_namespaced_persistent_volume_claim(
+            namespace=self.cluster_ns, body=manifest
+        )
 
-    def wait_for_pods_status(self, pod_config, desired_status="Running", timeout=30, poll_interval=5):
+    def wait_for_pods_status(
+        self, pod_config, desired_status="Running", timeout=30, poll_interval=5
+    ):
         """
         Waits until all pods matching a label reach the specified status or timeout occurs.
         :param pod_config: Pod configuration defining which pod to wait on
@@ -77,11 +90,7 @@ class K8sManager:
     def exec_command(self, pod_config: PodConfig, pvcs):
         for pvc in pvcs:
             pod_name = pod_config.name.format(pvc_name=pvc)
-            exec_command = [
-                "/bin/sh",
-                "-c",
-                pod_config.exec_cmd.format(name=pvc)
-            ]
+            exec_command = ["/bin/sh", "-c", pod_config.exec_cmd.format(name=pvc)]
             print(f"Executing command {exec_command} in pod {pod_name}...")
             resp = k8s_stream(
                 self.k8s_client.connect_get_namespaced_pod_exec,
@@ -109,11 +118,13 @@ class K8sManager:
 
         if not pvc_names:
             print(f"No PVCs found matching label selector {self.ais_label_selector}")
-        print ("Found pvcs: ", pvc_names)
+        print("Found pvcs: ", pvc_names)
         return pvc_names
 
     def list_pods_matching_label(self, label_selector):
-        return self.k8s_client.list_namespaced_pod(self.cluster_ns, label_selector=label_selector)
+        return self.k8s_client.list_namespaced_pod(
+            self.cluster_ns, label_selector=label_selector
+        )
 
     def list_ais_pods(self):
         return self.list_pods_matching_label(self.ais_label_selector)
@@ -133,7 +144,9 @@ class K8sManager:
             pod_name = pod.metadata.name
             print(f"Deleting pod: {pod_name}")
             # Delete the pod
-            self.k8s_client.delete_namespaced_pod(name=pod_name, namespace=self.cluster_ns)
+            self.k8s_client.delete_namespaced_pod(
+                name=pod_name, namespace=self.cluster_ns
+            )
         self.wait_for_pods_deleted(pod_config)
 
     def is_cluster_running(self):

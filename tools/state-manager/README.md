@@ -29,14 +29,10 @@ The backup tar.gz contains individual entries for every state PVC in the cluster
 
 This allows you to delete any specific AIS metadata cluster-wide or any individual metadata file. 
 
-Deletion is only supported when a cluster is **not** online, because these PVCs are configured with `ReadWriteOnce` policy.
-
 ### Restore
 
 For `restore` you MUST use a compatible tgz, as created by the backup tool. 
 Place this backup file in a restore/ directory before selecting a restore option. 
-
-Restoration is only supported when a cluster is **not** online, because these PVCs are configured with `ReadWriteOnce` policy.
 
 ---
 
