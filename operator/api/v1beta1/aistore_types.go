@@ -326,6 +326,10 @@ type DaemonSpec struct {
 	// +optional
 	Size *int32 `json:"size,omitempty"`
 
+	// AutoScaleConf contains additional configuration for auto-scaling (size == -1)
+	// +optional
+	AutoScaleConf *AutoScaleConf `json:"autoScale,omitempty"`
+
 	// Annotations holds additional pod annotations for AIStore daemon pods.
 	// +optional
 	Annotations map[string]string `json:"annotations,omitempty"`
@@ -386,6 +390,13 @@ type Mount struct {
 	// defining storage classes for bucket-specific storage, and allowing user-defined mountpath
 	// grouping for capacity and storage class differentiation
 	Label *string `json:"label,omitempty"`
+}
+
+type AutoScaleConf struct {
+	// Maximum size of a given node type when auto-scaling is enabled
+	// +kubebuilder:validation:Minimum=1
+	// +optional
+	SizeLimit *int32 `json:"sizeLimit,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -478,7 +489,12 @@ func (ais *AIStore) DefaultPrimaryName() string {
 
 func (ais *AIStore) GetProxySize() int32 {
 	if ais.IsProxyAutoScaling() {
-		return int32(len(ais.Status.AutoScaleStatus.ExpectedProxyNodes))
+		proxyNodes := int32(len(ais.Status.AutoScaleStatus.ExpectedProxyNodes))
+		autoScaleConf := ais.Spec.ProxySpec.AutoScaleConf
+		if autoScaleConf != nil && autoScaleConf.SizeLimit != nil {
+			return min(proxyNodes, *autoScaleConf.SizeLimit)
+		}
+		return proxyNodes
 	}
 	if ais.Spec.ProxySpec.Size != nil {
 		return *ais.Spec.ProxySpec.Size
@@ -488,7 +504,12 @@ func (ais *AIStore) GetProxySize() int32 {
 
 func (ais *AIStore) GetTargetSize() int32 {
 	if ais.IsTargetAutoScaling() {
-		return int32(len(ais.Status.AutoScaleStatus.ExpectedTargetNodes))
+		targetNodes := int32(len(ais.Status.AutoScaleStatus.ExpectedTargetNodes))
+		autoScaleConf := ais.Spec.TargetSpec.AutoScaleConf
+		if autoScaleConf != nil && autoScaleConf.SizeLimit != nil {
+			return min(targetNodes, *autoScaleConf.SizeLimit)
+		}
+		return targetNodes
 	}
 	if ais.Spec.TargetSpec.Size != nil {
 		return *ais.Spec.TargetSpec.Size

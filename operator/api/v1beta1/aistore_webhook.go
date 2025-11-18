@@ -189,6 +189,7 @@ func (aisw *AIStoreWebhook) validateUpdate(ctx context.Context, prev, ais *AISto
 	prev.Spec.ProxySpec.Env = ais.Spec.ProxySpec.Env
 	prev.Spec.ProxySpec.Resources = ais.Spec.ProxySpec.Resources
 	prev.Spec.ProxySpec.SecurityContext = ais.Spec.ProxySpec.SecurityContext
+	prev.Spec.ProxySpec.AutoScaleConf = ais.Spec.ProxySpec.AutoScaleConf
 	if !equality.Semantic.DeepEqual(ais.Spec.ProxySpec, prev.Spec.ProxySpec) {
 		diff := deep.Equal(ais.Spec.ProxySpec, prev.Spec.ProxySpec)
 		webhooklog.Info(fmt.Sprintf("Differences found in proxy spec: [%s]", strings.Join(diff, ", ")))
@@ -203,6 +204,7 @@ func (aisw *AIStoreWebhook) validateUpdate(ctx context.Context, prev, ais *AISto
 	prev.Spec.TargetSpec.Env = ais.Spec.TargetSpec.Env
 	prev.Spec.TargetSpec.Resources = ais.Spec.TargetSpec.Resources
 	prev.Spec.TargetSpec.SecurityContext = ais.Spec.TargetSpec.SecurityContext
+	prev.Spec.TargetSpec.AutoScaleConf = ais.Spec.TargetSpec.AutoScaleConf
 	if !equality.Semantic.DeepEqual(ais.Spec.TargetSpec, prev.Spec.TargetSpec) {
 		diff := deep.Equal(ais.Spec.TargetSpec, prev.Spec.TargetSpec)
 		webhooklog.Info(fmt.Sprintf("Differences found in target spec: [%s]", strings.Join(diff, ", ")))

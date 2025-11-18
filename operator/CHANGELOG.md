@@ -18,7 +18,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
   - `truststore` package for CA certificate loading and TLS configuration management
   - TLS certificate verification for the auth service can be disabled via `spec.auth.tls.insecureSkipVerify` (not recommended for production)
   - Operator mounts `ais-operator-authn-ca` ConfigMap to `/etc/ssl/certs/authn-ca` for AuthN CA certificates
-
+- Autoscaling cluster size can now be limited by `spec.proxySpec.autoScale.sizeLimit` and `spec.targetSpec.autoScale.sizeLimit`
 
 ### Changed
 

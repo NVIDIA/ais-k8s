@@ -1541,6 +1541,17 @@ spec:
                     description: Annotations holds additional pod annotations for
                       AIStore daemon pods.
                     type: object
+                  autoScale:
+                    description: AutoScaleConf contains additional configuration for
+                      auto-scaling (size == -1)
+                    properties:
+                      sizeLimit:
+                        description: Maximum size of a given node type when auto-scaling
+                          is enabled
+                        format: int32
+                        minimum: 1
+                        type: integer
+                    type: object
                   capabilities:
                     description: ContainerSecurity holds the security context for
                       AIS Daemon containers.
@@ -3221,6 +3232,17 @@ spec:
                       type: string
                     description: Annotations holds additional pod annotations for
                       AIStore daemon pods.
+                    type: object
+                  autoScale:
+                    description: AutoScaleConf contains additional configuration for
+                      auto-scaling (size == -1)
+                    properties:
+                      sizeLimit:
+                        description: Maximum size of a given node type when auto-scaling
+                          is enabled
+                        format: int32
+                        minimum: 1
+                        type: integer
                     type: object
                   capabilities:
                     description: ContainerSecurity holds the security context for
