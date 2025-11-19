@@ -131,33 +131,11 @@ func (r *AIStoreReconciler) handleTargetState(ctx context.Context, ais *aisv1.AI
 		return ctrl.Result{RequeueAfter: targetLongRequeueDelay}, nil
 	}
 	// Requeue if the number of target pods ready does not match the size provided in AIS cluster spec.
-	if !r.isStatefulSetReady(ais, ss) {
+	if !r.isStatefulSetReady(ais.GetTargetSize(), ss) {
 		logger.Info("Waiting for target statefulset to reach desired replicas", "desired", ss.Spec.Replicas)
 		return ctrl.Result{RequeueAfter: targetLongRequeueDelay}, nil
 	}
 	return
-}
-
-func (*AIStoreReconciler) isStatefulSetReady(ais *aisv1.AIStore, ss *appsv1.StatefulSet) bool {
-	specReplicas := *ss.Spec.Replicas
-
-	// Must match size provided in AIS cluster spec
-	if specReplicas != ais.GetTargetSize() {
-		return false
-	}
-
-	// If update revision exists, all replicas must be updated
-	if ss.Status.UpdateRevision != "" && specReplicas != ss.Status.UpdatedReplicas {
-		return false
-	}
-
-	// Ensure there are no extra (terminating) pods still counted
-	if ss.Status.Replicas != specReplicas {
-		return false
-	}
-
-	// To be ready, spec must match status.ReadyReplicas
-	return specReplicas == ss.Status.ReadyReplicas
 }
 
 func (r *AIStoreReconciler) resolveStatefulSetScaling(ctx context.Context, ais *aisv1.AIStore) error {

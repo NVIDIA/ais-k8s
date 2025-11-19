@@ -155,7 +155,15 @@ func (r *AIStoreReconciler) handleProxyState(ctx context.Context, ais *aisv1.AIS
 		return
 	}
 
-	return r.waitForProxyReplicasReady(ctx, ais, ss), nil
+	// Requeue if the number of proxy pods ready does not match the size provided in AIS cluster spec.
+	if !r.isStatefulSetReady(ais.GetProxySize(), ss) {
+		logf.FromContext(ctx).Info("Waiting for proxy statefulset to reach desired replicas",
+			"ready", ss.Status.ReadyReplicas,
+			"desired", ss.Spec.Replicas,
+		)
+		return ctrl.Result{RequeueAfter: proxyStartupInterval}, nil
+	}
+	return
 }
 
 func (r *AIStoreReconciler) handleProxyScale(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) error {
@@ -177,20 +185,6 @@ func (r *AIStoreReconciler) handleProxyScale(ctx context.Context, ais *aisv1.AIS
 
 	_, err := r.k8sClient.UpdateStatefulSetReplicas(ctx, proxy.StatefulSetNSName(ais), desiredReplicas)
 	return err
-}
-
-func (*AIStoreReconciler) waitForProxyReplicasReady(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) ctrl.Result {
-	desired := ais.GetProxySize()
-	if ss.Status.ReadyReplicas == desired && ss.Status.Replicas == desired {
-		return ctrl.Result{}
-	}
-
-	logf.FromContext(ctx).Info("Waiting for proxy StatefulSet to reach desired replicas",
-		"ready", ss.Status.ReadyReplicas,
-		"replicas", ss.Status.Replicas,
-		"desired", desired)
-
-	return ctrl.Result{RequeueAfter: proxyStartupInterval}
 }
 
 func (r *AIStoreReconciler) syncProxyPodSpec(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) (updated bool, err error) {
