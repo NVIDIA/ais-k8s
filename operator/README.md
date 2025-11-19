@@ -31,13 +31,34 @@ However, for more advanced deployments it's recommended to follow [cert-manager 
 ### Configure Operator TLS and mTLS
 
 The operator communicates with the deployed AIS clusters over the AIS API.
-Today, by default, if the AIS cluster is using HTTPS the operator will not verify the certificate. 
-Certificate verification can be enabled by setting `OPERATOR_SKIP_VERIFY_CRT` to `False` in the operator deployment yaml (kustomize generated from [config/default/manager_env_patch.yaml](config/default/manager_env_patch.yaml))
+By default, if the AIS cluster is using HTTPS the operator will not verify the certificate (`OPERATOR_SKIP_VERIFY_CRT=True`).
 
-If your AIS cluster uses an untrusted CA, you can configure trust for verification by creating a configMap `ais-operator-ais-ca` in the operator namespace before starting the operator pod.
-This will automatically mount to `/etc/ais/ca` and add any `.crt` or `.pem` files as trusted CA certificates.
+#### Enabling TLS Certificate Verification
 
-**Note for trust-manager/cert-manager clusters**: If you're using cert-manager with trust-manager and want to use the automatically distributed CA bundle (e.g., `lepton-ca-bundle`), you can create a simple kustomize patch to override the ConfigMap name. For example:
+To enable certificate verification for AIS cluster connections, set the environment variable:
+
+```yaml
+controllerManager:
+  manager:
+    env:
+      operatorSkipVerifyCrt: "False"  # Enable certificate verification
+```
+
+For kustomize deployments, modify [config/default/manager_env_patch.yaml](config/default/manager_env_patch.yaml).
+
+#### Configuring Custom CA Certificates for AIS Clusters (Optional)
+
+If your AIS cluster uses an untrusted CA (not in the system trust store), you need to provide the CA certificate. Configure this using Helm chart values:
+
+```yaml
+controllerManager:
+  manager:
+    aisCAConfigmapName: my-ca-bundle  # Name of ConfigMap with CA certificates
+```
+
+The ConfigMap should contain `.crt` or `.pem` files with your CA certificates. The operator will automatically mount it to `/etc/ais/ca`.
+
+For kustomize-based deployments, you can apply a patch to override the ConfigMap name:
 
 ```yaml
 # config/overlays/custom/manager_ca_patch.yaml
@@ -50,45 +71,36 @@ spec:
   template:
     spec:
       volumes:
-        - name: ais-ca  # or authn-ca for AuthN
+        - name: ais-ca
           configMap:
-            name: lepton-ca-bundle  # Override with your trust-manager bundle name
+            name: my-ca-bundle  # Your CA bundle ConfigMap name
             optional: true
 ```
 
-#### AuthN TLS Configuration
+#### Auth Service TLS Configuration
 
-The operator also communicates with AuthN services for authentication. To configure TLS for AuthN connections:
+When using auth services with HTTPS, TLS certificate verification is **enabled automatically**. By default, the operator uses the system CA trust store. 
 
-1. **Create a ConfigMap** with your AuthN CA certificate:
-   ```bash
-   kubectl create configmap ais-operator-authn-ca \
-     --from-file=ca.crt=/path/to/authn-ca.pem \
-     -n ais-operator-system
-   ```
+If your auth service uses an untrusted CA (not in the system trust store), you need to provide the CA certificate using Helm chart values:
 
-   **Note for trust-manager/cert-manager clusters**: If you're using cert-manager with trust-manager and want to use the automatically distributed CA bundle, create a kustomize patch to override the ConfigMap name (see example in the AIS cluster CA section above).
+```yaml
+controllerManager:
+  manager:
+    authCAConfigmapName: my-auth-ca-bundle  # Name of ConfigMap with auth service CA certificates
+```
 
-2. **Restart the operator** to pick up the ConfigMap:
-   ```bash
-   kubectl rollout restart deployment/ais-operator-controller-manager \
-     -n ais-operator-system
-   ```
+The ConfigMap should contain `.crt` or `.pem` files with your CA certificates. The operator will automatically mount it to `/etc/ssl/certs/auth-ca` and use it for auth service connections.
 
-3. **Configure the AIStore CR** to use the mounted certificate:
-   ```yaml
-   spec:
-     auth:
-       serviceURL: https://ais-authn.ais:52001
-       tls:
-         caCertPath: /etc/ssl/certs/authn-ca/ca.crt  # Mounted from ConfigMap
-   ```
+**For AIStore CRs**: When using auth with HTTPS URLs, the operator automatically uses the CA bundle configured via `authCAConfigmapName`. You typically don't need to set `spec.auth.tls.caCertPath` in the CR unless you have a custom certificate mount:
 
-The ConfigMap is **optional** - the operator pod starts successfully even if the ConfigMap doesn't exist (using `optional: true` in the volume definition). If you create the ConfigMap after the operator is running, restart the operator deployment to pick it up.
+```yaml
+spec:
+  auth:
+    serviceURL: https://my-auth-service:52001
+    # tls.caCertPath is optional - operator uses its configured CA bundle by default
+```
 
-**Note**: If you update an existing ConfigMap, the changes automatically propagate to running pods within ~60 seconds (kubelet sync), and the operator will use the new certificates after the cache TTL expires (default 6 hours).
-
-**Performance Note**: TLS configurations are cached for 6 hours by default to avoid repeated disk I/O. This can be adjusted via environment variable:
+**Note**: TLS configurations are cached for 6 hours by default to avoid repeated disk I/O. If you update an existing ConfigMap, changes propagate to running pods within ~60 seconds (kubelet sync), and the operator will use new certificates after the cache TTL expires. This can be adjusted via environment variable:
 
 ```yaml
 env:

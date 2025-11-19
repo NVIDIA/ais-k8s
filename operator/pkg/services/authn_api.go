@@ -41,6 +41,7 @@ const (
 	// Token exchange defaults
 	DefaultTokenPath             = "/var/run/secrets/kubernetes.io/serviceaccount/token" //nolint:gosec // This is a file path, not a credential
 	DefaultTokenExchangeEndpoint = "/token"
+	DefaultAuthCACertPath        = "/etc/ssl/certs/auth-ca/ca.crt"
 
 	// RFC 8693 OAuth 2.0 Token Exchange constants
 	RFC8693GrantType           = "urn:ietf:params:oauth:grant-type:token-exchange"
@@ -247,10 +248,17 @@ func getTLSConfigWithCache(ctx context.Context, mu *sync.RWMutex, cachedConfig *
 
 	// Create new TLS config
 	var caCertPaths []string
-	if caCertPath != "" {
+	if caCertPath == "" {
+		// Add a CA at the default path to the trusted list if and only if:
+		// 1. no CA cert is provided from config
+		// 2. the default CA cert path exists (mounted from an optional ConfigMap)
+		if _, err := os.Stat(DefaultAuthCACertPath); err == nil {
+			caCertPaths = []string{DefaultAuthCACertPath}
+		}
+	} else {
 		caCertPaths = []string{caCertPath}
 	}
-	logger.V(1).Info("Creating new TLS config", "caCertPath", caCertPath)
+
 	tlsConfig, err := truststore.NewTLSConfig(logger.WithName("truststore"), truststore.Config{
 		CACertPaths: caCertPaths,
 	})

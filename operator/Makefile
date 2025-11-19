@@ -193,6 +193,7 @@ build-installer: require-img manifests generate kustomize ## Generate a consolid
 build-installer-helm: require-img require-version helm helmify build-installer
 	mkdir -p dist/ais-operator
 	$(HELMIFY) -image-pull-secrets -f dist/ais-operator.yaml dist/ais-operator
+	./scripts/post_helmify_fix.sh dist/ais-operator
 	$(HELM) package dist/ais-operator -d ../pages/charts/ --version $(HELM_CHART_VERSION) --app-version $(HELM_CHART_VERSION)
 	$(HELM) repo index --url $(PAGES) ../pages/charts --merge ../pages/charts/index.yaml
 

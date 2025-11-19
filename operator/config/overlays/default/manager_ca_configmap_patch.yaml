@@ -15,5 +15,8 @@ spec:
       volumes:
         - name: ais-ca
           configMap:
-            name: ais-operator-ais-ca
+            # Placeholder replaced during Helm chart build with {{ .Values.controllerManager.manager.aisCAConfigmapName }}
+            # Default value: ais-operator-ais-ca
+            # Can be overridden in Helm values to use trust-manager bundles
+            name: AIS_CA_CONFIGMAP_PLACEHOLDER
             optional: true

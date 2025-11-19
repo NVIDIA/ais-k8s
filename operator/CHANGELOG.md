@@ -9,16 +9,18 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 ---
 
 ## Unreleased
+
 - OIDC issuer CA configuration via `spec.issuerCAConfigMap` for automatic certificate mounting and `auth.oidc.issuer_ca_bundle` configuration
 
 ### Added
 
 - Auth
-  - TLS support for operator-to-AuthN communication with `spec.auth.tls.caCertPath` configuration
+  - TLS support for operator-to-auth service communication with `spec.auth.tls.caCertPath` configuration 
+  - Fallback to default CA bundle path (`/etc/ssl/certs/auth-ca/ca.crt`) when `spec.auth.tls.caCertPath` is not configured
   - TLS config caching (6 hour TTL) to minimize disk I/O when loading CA certificates
   - `truststore` package for CA certificate loading and TLS configuration management
   - TLS certificate verification for the auth service can be disabled via `spec.auth.tls.insecureSkipVerify` (not recommended for production)
-  - Operator mounts `ais-operator-authn-ca` ConfigMap to `/etc/ssl/certs/authn-ca` for AuthN CA certificates
+  - Operator mounts `ais-operator-auth-ca` ConfigMap to `/etc/ssl/certs/auth-ca` for Auth CA certificates when `authCAConfigmapName` is specified in the helm chart
 - Autoscaling cluster size can now be limited by `spec.proxySpec.autoScale.sizeLimit` and `spec.targetSpec.autoScale.sizeLimit`
 
 ### Changed
@@ -27,6 +29,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
   - TLS configuration only applied for HTTPS URLs; HTTP connections skip
   - Return errors on TLS failures instead of silently falling back to insecure connections
   - Operator uses required audiences from AIStore cluster's `spec.configToUpdate.auth.required_claims.aud` to requests tokens with matching audiences during token exchange
+  - Configurable Helm values (`authCAConfigmapName` and `aisCAConfigmapName`) for auth service and AIStore custom CA bundle configmaps
 - Fixed a bug where resuming from shutdown state would become stuck on target scale up due to failing API calls
 - Build: `mockgen` now installed to `LOCALBIN` with versioned suffix to prevent version mismatches that cause unnecessary diffs in generated mock files
 

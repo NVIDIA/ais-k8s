@@ -245,7 +245,16 @@ var _ = Describe("AuthSpecConfig", func() {
 		It("should return empty string when no TLS config", func() {
 			spec := &aisv1.AuthSpec{}
 			config := &AuthSpecConfig{spec: spec}
+			Expect(config.GetCACertPath()).To(Equal(""))
+		})
 
+		It("should return empty string TLS config exists but CACertPath is empty", func() {
+			spec := &aisv1.AuthSpec{
+				TLS: &aisv1.AuthTLSConfig{
+					InsecureSkipVerify: false,
+				},
+			}
+			config := &AuthSpecConfig{spec: spec}
 			Expect(config.GetCACertPath()).To(Equal(""))
 		})
 	})

@@ -78,10 +78,12 @@ func (c *AIStoreClient) HasValidBaseParams(ctx context.Context, ais *aisv1.AISto
 	// verify if the URL's protocol matches the expected protocol (HTTPS or HTTP)
 	httpsCheck := cos.IsHTTPS(c.params.URL) == ais.UseHTTPS()
 
-	// Check if the token and AuthN secret are correctly aligned:
-	// - Valid if both are either set or both are unset
-	authNCheck := (c.params.Token == "" && ais.Spec.AuthNSecretName == nil) ||
-		(c.params.Token != "" && ais.Spec.AuthNSecretName != nil)
+	// Check if the token and AuthN configuration are correctly aligned:
+	// - If Auth or AuthNSecretName is configured, token should be present
+	// - If neither is configured, token should be empty
+	hasAuthConfig := ais.Spec.Auth != nil || ais.Spec.AuthNSecretName != nil
+	authNCheck := (c.params.Token == "" && !hasAuthConfig) ||
+		(c.params.Token != "" && hasAuthConfig)
 
 	return httpsCheck && authNCheck
 }

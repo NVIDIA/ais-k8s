@@ -9,14 +9,15 @@ spec:
       containers:
         - name: manager
           volumeMounts:
-            - name: authn-ca
-              mountPath: /etc/ssl/certs/authn-ca
+            - name: auth-ca
+              mountPath: /etc/ssl/certs/auth-ca
               readOnly: true
       volumes:
-        - name: authn-ca
+        - name: auth-ca
           configMap:
-            # ConfigMap name can be overridden via kustomize patches
-            # Default: ais-operator-authn-ca (for general use)
-            name: ais-operator-authn-ca
+            # Placeholder replaced during Helm chart build with {{ .Values.controllerManager.manager.authCAConfigmapName }}
+            # Default value: ais-operator-auth-ca
+            # Can be overridden in Helm values to use trust-manager bundles
+            name: AUTH_CA_CONFIGMAP_PLACEHOLDER
             optional: true
 
