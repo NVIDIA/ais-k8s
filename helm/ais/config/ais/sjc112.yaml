@@ -1,0 +1,36 @@
+cluster: ais
+mpathInfo:
+  storageClass: "ais-local-storage"
+  size: 5.8Ti
+  paths:
+    - /ais/nvme0n1
+    - /ais/nvme1n1
+    - /ais/nvme2n1
+    - /ais/nvme3n1
+    - /ais/nvme4n1
+    - /ais/nvme5n1
+    - /ais/nvme6n1
+    - /ais/nvme7n1
+    - /ais/nvme8n1
+    - /ais/nvme9n1
+    - /ais/nvme10n1
+    - /ais/nvme11n1
+    - /ais/nvme12n1
+    - /ais/nvme13n1
+    - /ais/nvme14n1
+    - /ais/nvme15n1
+size: 3
+protocol: https
+https:
+  skipVerifyCert: false
+  tlsSecret: "tls-certs"
+nodeImage:
+  tag: v4.0
+initImage:
+  tag: v4.0
+logSidecarImage:
+  tag: v1.1
+configToUpdate:
+  backend:
+    aws: {}
+stateStorageClass: "local-path"

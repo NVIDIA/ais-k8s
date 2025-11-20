@@ -36,6 +36,17 @@ environments:
       labelNodes:
         enabled: false
     kubeContext: sjc11
+  sjc112:
+    values:
+      - https:
+          enabled: true
+        cloudSecrets:
+          enabled: false
+        createPV:
+          enabled: true
+        labelNodes:
+          enabled: false
+    kubeContext: sjc112
   oci-iad:
     values: 
     - https:
