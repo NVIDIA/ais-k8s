@@ -14,6 +14,8 @@ certificate:
     # used for registration of targets 
     - "ais-proxy"
     - "ais-target"
+    # consistent url for client pod
+    - "ais-proxy.ais.svc.cluster.local"
     # used for intra cluster communication
     - "*.ais-proxy.ais.svc.cluster.local"
     - "*.ais-target.ais.svc.cluster.local"
