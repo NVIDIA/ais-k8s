@@ -585,13 +585,13 @@ var _ = Describe("GetRequiredAudiences", func() {
 		Expect(audiences).To(BeNil())
 	})
 
-	It("should return nil when Aud slice is empty", func() {
+	It("should return nil when Aud slice is nil", func() {
 		ais := &aisv1.AIStore{
 			Spec: aisv1.AIStoreSpec{
 				ConfigToUpdate: &aisv1.ConfigToUpdate{
 					Auth: &aisv1.AuthConfToUpdate{
 						RequiredClaims: &aisv1.RequiredClaimsConfToUpdate{
-							Aud: []string{},
+							Aud: nil,
 						},
 					},
 				},
@@ -602,6 +602,24 @@ var _ = Describe("GetRequiredAudiences", func() {
 		Expect(audiences).To(BeNil())
 	})
 
+	It("should return empty slice when Aud slice is empty", func() {
+		var emptyAud []string
+		ais := &aisv1.AIStore{
+			Spec: aisv1.AIStoreSpec{
+				ConfigToUpdate: &aisv1.ConfigToUpdate{
+					Auth: &aisv1.AuthConfToUpdate{
+						RequiredClaims: &aisv1.RequiredClaimsConfToUpdate{
+							Aud: &emptyAud,
+						},
+					},
+				},
+			},
+		}
+
+		audiences := ais.GetRequiredAudiences()
+		Expect(audiences).To(Equal(emptyAud))
+	})
+
 	It("should return single audience when one is configured", func() {
 		expectedAudience := "namespace/cluster-name"
 		ais := &aisv1.AIStore{
@@ -609,7 +627,7 @@ var _ = Describe("GetRequiredAudiences", func() {
 				ConfigToUpdate: &aisv1.ConfigToUpdate{
 					Auth: &aisv1.AuthConfToUpdate{
 						RequiredClaims: &aisv1.RequiredClaimsConfToUpdate{
-							Aud: []string{expectedAudience},
+							Aud: &[]string{expectedAudience},
 						},
 					},
 				},
@@ -632,7 +650,7 @@ var _ = Describe("GetRequiredAudiences", func() {
 				ConfigToUpdate: &aisv1.ConfigToUpdate{
 					Auth: &aisv1.AuthConfToUpdate{
 						RequiredClaims: &aisv1.RequiredClaimsConfToUpdate{
-							Aud: expectedAudiences,
+							Aud: &expectedAudiences,
 						},
 					},
 				},

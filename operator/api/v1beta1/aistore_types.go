@@ -724,10 +724,10 @@ func (ais *AIStore) GetRequiredAudiences() []string {
 	if ais.Spec.ConfigToUpdate == nil ||
 		ais.Spec.ConfigToUpdate.Auth == nil ||
 		ais.Spec.ConfigToUpdate.Auth.RequiredClaims == nil ||
-		len(ais.Spec.ConfigToUpdate.Auth.RequiredClaims.Aud) == 0 {
+		ais.Spec.ConfigToUpdate.Auth.RequiredClaims.Aud == nil {
 		return nil
 	}
-	return ais.Spec.ConfigToUpdate.Auth.RequiredClaims.Aud
+	return *ais.Spec.ConfigToUpdate.Auth.RequiredClaims.Aud
 }
 
 // +kubebuilder:object:root=true

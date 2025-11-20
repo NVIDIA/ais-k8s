@@ -187,12 +187,12 @@ type (
 	}
 
 	AuthSignatureConfToUpdate struct {
-		Key    string `json:"key,omitempty"`
-		Method string `json:"method,omitempty"`
+		Key    *string `json:"key,omitempty"`
+		Method *string `json:"method,omitempty"`
 	}
 
 	RequiredClaimsConfToUpdate struct {
-		Aud []string `json:"aud,omitempty"`
+		Aud *[]string `json:"aud,omitempty"`
 	}
 
 	OIDCConfToUpdate struct {
