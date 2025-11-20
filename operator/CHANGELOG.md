@@ -33,6 +33,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 - Fixed a bug where resuming from shutdown state would become stuck on target scale up due to failing API calls
 - Build: `mockgen` now installed to `LOCALBIN` with versioned suffix to prevent version mismatches that cause unnecessary diffs in generated mock files
 - Use a common statefulset ready check for better enforcement of proxy rollout before starting target rollout
+- Removed deprecation notice for `hostPathPrefix` option, with `stateStorageClass` still recommended for easier host cleanup
 
 ### Deprecated
 

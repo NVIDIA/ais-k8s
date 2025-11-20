@@ -193,7 +193,7 @@
     },
     "hostpathPrefix": {
       "type": "string",
-      "description": "DEPRECATED. Path on node for pod hostPath volumes. Use stateStorageClass if possible.",
+      "description": "Path on node for pod hostPath volumes. Use stateStorageClass if possible.",
       "examples": ["/etc/ais"]
     },
     "stateStorageClass": {

@@ -107,7 +107,7 @@ var _ = Describe("Statefulset Target Volumes and Mounts", Label("short"), func()
 		It("should return no VolumeClaimTemplates but with volume mounts", func() {
 			specCopy := aisSpec.DeepCopy()
 			specCopy.Spec.StateStorageClass = nil
-			specCopy.Spec.HostpathPrefix = apc.Ptr("/node/data") //nolint:staticcheck // SA1019 This is allowed for testing and for use with autoScaling
+			specCopy.Spec.HostpathPrefix = apc.Ptr("/node/data")
 			specCopy.Spec.TargetSpec.Mounts = []aisv1.Mount{
 				{
 					Path:        "/node/data",

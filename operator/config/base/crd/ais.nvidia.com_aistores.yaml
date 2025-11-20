@@ -565,7 +565,7 @@ spec:
                 type: object
               hostpathPrefix:
                 description: |-
-                  Deprecated: use StateStorageClass
+                  StateStorageClass recommended if possible
                   See docs/state_storage.md
                   Path on host used for state
                 type: string

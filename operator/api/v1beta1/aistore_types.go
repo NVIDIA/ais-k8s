@@ -171,7 +171,7 @@ type AIStoreSpec struct {
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:Optional
 	LogSidecarImage *string `json:"logSidecarImage"`
-	// Deprecated: use StateStorageClass
+	// StateStorageClass recommended if possible
 	// See docs/state_storage.md
 	// Path on host used for state
 	// +optional
