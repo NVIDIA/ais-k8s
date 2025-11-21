@@ -61,5 +61,10 @@ kubectl wait --for=condition=Ready --timeout=180s keycloak/keycloak-server -n ke
 USER=$(kubectl get secret -n keycloak keycloak-server-initial-admin -o jsonpath='{.data.username}' | base64 --decode)
 PASS=$(kubectl get secret -n keycloak keycloak-server-initial-admin -o jsonpath='{.data.password}' | base64 --decode)
 
+echo ""
 echo "Initial user: ${USER}"
 echo "Initial password: ${PASS}"
+echo ""
+echo "Port forward https through Traefik 'kubectl port-forward -n traefik service/traefik 8443:443'"
+echo "Add the keycloak hostname to your hosts, e.g. 127.0.0.1  keycloak.local"
+echo "curl -k https://keycloak.local:8443/realms/aistore"

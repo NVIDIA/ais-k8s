@@ -7,5 +7,6 @@ releases:
     namespace: cnpg-database
     chart: cnpg/cluster
     createNamespace: true
+    wait: true
     values:
       - values.yaml

@@ -40,7 +40,7 @@ Get the password for the `app` user created in a secret by the CNPG installation
 1. Install Keycloak 
     1. Check [Keycloak's documentation](https://www.keycloak.org/operator/basic-deployment) for manifest options
     1. [Sample manifest](./manifests/certificate.yaml)
-1. Log in. In my case: 
+1. Log in. 
     1. Find the external IP from your ingress controller
     1. If necessary, SSH tunnel to that IP on any of your k8s nodes
     1.  `ssh -L 8443:192.168.1.240:443 <your node hostname>`

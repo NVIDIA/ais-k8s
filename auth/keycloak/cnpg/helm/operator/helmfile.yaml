@@ -7,3 +7,4 @@ releases:
     namespace: cnpg-system
     chart: cnpg/cloudnative-pg
     createNamespace: true
+    wait: true

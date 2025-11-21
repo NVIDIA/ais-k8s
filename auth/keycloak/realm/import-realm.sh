@@ -7,13 +7,13 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 set -e
 
-REALM_JSON="${REALM_JSON:-${1:-$SCRIPT_DIR/ais-realm.json}}"
+REALM_JSON="${REALM_JSON:-${1:-$SCRIPT_DIR/aistore-realm.json}}"
 REALM_NAME="${REALM_NAME:-${2:-aistore-realm}}"
 KEYCLOAK_NAMESPACE="${KEYCLOAK_NAMESPACE:-${3:-keycloak}}"
 KEYCLOAK_CR="${4:-keycloak-server}"
 
 # Convert JSON to YAML and indent as needed
-YAML_DATA=$(yq -p=json -o=yaml "$REALM_JSON" | sed 's/^/    /')
+YAML_DATA=$(yq --input-format=json --output-format=yaml '.' "$REALM_JSON" | sed 's/^/    /')
 
 REALM_IMPORT_YAML=$(cat <<EOF
 apiVersion: k8s.keycloak.org/v2alpha1
