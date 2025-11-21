@@ -44,11 +44,18 @@ in_env && /^    [a-zA-Z]/ && !/^      / {
 
 echo "Post-helmify: Replacing CA ConfigMap placeholders in $TEMPLATE_FILE"
 
+# Detect OS and set sed options accordingly
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    SED_INPLACE=(-i '')
+else
+    SED_INPLACE=(-i)
+fi
+
 # Replace AUTH_CA_CONFIGMAP_PLACEHOLDER with Helm template variable
-sed -i 's/AUTH_CA_CONFIGMAP_PLACEHOLDER/{{ .Values.controllerManager.manager.authCAConfigmapName }}/g' "$TEMPLATE_FILE"
+sed "${SED_INPLACE[@]}" 's/AUTH_CA_CONFIGMAP_PLACEHOLDER/{{ .Values.controllerManager.manager.authCAConfigmapName }}/g' "$TEMPLATE_FILE"
 
 # Replace AIS_CA_CONFIGMAP_PLACEHOLDER with Helm template variable
-sed -i 's/AIS_CA_CONFIGMAP_PLACEHOLDER/{{ .Values.controllerManager.manager.aisCAConfigmapName }}/g' "$TEMPLATE_FILE"
+sed "${SED_INPLACE[@]}" 's/AIS_CA_CONFIGMAP_PLACEHOLDER/{{ .Values.controllerManager.manager.aisCAConfigmapName }}/g' "$TEMPLATE_FILE"
 
 echo "Post-helmify: CA ConfigMap configuration completed successfully"
 
