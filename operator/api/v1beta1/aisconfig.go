@@ -184,22 +184,25 @@ type (
 		Signature      *AuthSignatureConfToUpdate  `json:"signature,omitempty"`
 		RequiredClaims *RequiredClaimsConfToUpdate `json:"required_claims,omitempty"`
 		OIDC           *OIDCConfToUpdate           `json:"oidc,omitempty"`
+		ClusterKey     *ClusterKeyConfToUpdate     `json:"cluster_key,omitempty"`
 	}
-
 	AuthSignatureConfToUpdate struct {
 		Key    *string `json:"key,omitempty"`
 		Method *string `json:"method,omitempty"`
 	}
-
 	RequiredClaimsConfToUpdate struct {
 		Aud *[]string `json:"aud,omitempty"`
 	}
-
 	OIDCConfToUpdate struct {
 		AllowedIssuers *[]string `json:"allowed_iss,omitempty"`
 		IssuerCA       *string   `json:"issuer_ca_bundle,omitempty"`
 	}
-
+	ClusterKeyConfToUpdate struct {
+		Enabled       *bool     `json:"enabled,omitempty"`
+		TTL           *Duration `json:"ttl,omitempty"`
+		NonceWindow   *Duration `json:"nonce_window,omitempty"`
+		RotationGrace *Duration `json:"rotation_grace,omitempty"`
+	}
 	KeepaliveTrackerConfToUpdate struct {
 		Interval *Duration `json:"interval,omitempty"`
 		Name     *string   `json:"name,omitempty"`

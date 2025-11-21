@@ -146,6 +146,17 @@ spec:
                 properties:
                   auth:
                     properties:
+                      cluster_key:
+                        properties:
+                          enabled:
+                            type: boolean
+                          nonce_window:
+                            type: string
+                          rotation_grace:
+                            type: string
+                          ttl:
+                            type: string
+                        type: object
                       enabled:
                         type: boolean
                       oidc:

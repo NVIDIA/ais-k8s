@@ -15,6 +15,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 ### Added
 
 - Auth
+  - Support for new AIS config options under `configToUpdate.auth.cluster_key` for configuring target validation of proxy-signed requests
   - TLS support for operator-to-auth service communication with `spec.auth.tls.caCertPath` configuration 
   - Fallback to default CA bundle path (`/etc/ssl/certs/auth-ca/ca.crt`) when `spec.auth.tls.caCertPath` is not configured
   - TLS config caching (6 hour TTL) to minimize disk I/O when loading CA certificates
