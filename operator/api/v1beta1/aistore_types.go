@@ -274,6 +274,11 @@ type AIStoreSpec struct {
 
 	// EnableExternalLB, if set, enables external access to AIS cluster using LoadBalancer service
 	EnableExternalLB bool `json:"enableExternalLB"`
+
+	// EnableNodeNameHost - Use K8s Node name DNS resolution instead of IP addresses as the hostname for public endpoints
+	// Useful for using wildcards on Node DNS names when creating TLS certificates
+	// +optional
+	EnableNodeNameHost *bool `json:"enableNodeNameHost,omitempty"`
 }
 
 // AIStoreStatus defines the observed state of AIStore
@@ -372,7 +377,7 @@ type DaemonSpec struct {
 	// Tolerations - list of tolerations for AIS Daemon pod
 	// +optional
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
-	// HostPort - host port to use for hostnetworking
+	// HostPort - Port to bind directly to a specific port on the host
 	// +optional
 	HostPort *int32 `json:"hostPort,omitempty"`
 }
@@ -548,6 +553,10 @@ func (ais *AIStore) GetDiscoveryProxyURL() string {
 	svcSuffix := ais.getControlSvcSuffix()
 	// Example: http://ais-proxy.ais.svc.cluster.local:51080
 	return fmt.Sprintf("%s://%s.%s.%s", ais.getScheme(), svcName, ais.Namespace, svcSuffix)
+}
+
+func (ais *AIStore) EnableNodeNameHost() bool {
+	return ais.Spec.EnableNodeNameHost != nil && *ais.Spec.EnableNodeNameHost
 }
 
 func (ais *AIStore) getScheme() string {

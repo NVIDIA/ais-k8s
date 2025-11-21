@@ -10,6 +10,10 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ## Unreleased
 
+### Added
+
+- Add `enableNodeNameHost` to allow using K8s node hostnames for public interface. Uses K8s environment `spec.nodeName` instead of `status.hostIP` if enabled.
+
 ### Changed
 
 - Fixed a bug where an empty `net.http.client_auth_tls` in AIS spec would cause an exception if TLS enabled

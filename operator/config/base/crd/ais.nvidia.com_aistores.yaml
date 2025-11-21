@@ -565,6 +565,11 @@ spec:
                 description: EnableExternalLB, if set, enables external access to
                   AIS cluster using LoadBalancer service
                 type: boolean
+              enableNodeNameHost:
+                description: |-
+                  EnableNodeNameHost - Use K8s Node name DNS resolution instead of IP addresses as the hostname for public endpoints
+                  Useful for using wildcards on Node DNS names when creating TLS certificates
+                type: boolean
               gcpSecretName:
                 description: Secret name containing GCP config and credentials
                 type: string
@@ -1926,7 +1931,8 @@ spec:
                       type: object
                     type: array
                   hostPort:
-                    description: HostPort - host port to use for hostnetworking
+                    description: HostPort - Port to bind directly to a specific port
+                      on the host
                     format: int32
                     type: integer
                   labels:
@@ -3627,7 +3633,8 @@ spec:
                       for multihoming)
                     type: boolean
                   hostPort:
-                    description: HostPort - host port to use for hostnetworking
+                    description: HostPort - Port to bind directly to a specific port
+                      on the host
                     format: int32
                     type: integer
                   labels:

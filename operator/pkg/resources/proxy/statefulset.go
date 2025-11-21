@@ -140,16 +140,17 @@ func NewInitContainerEnv(ais *aisv1.AIStore) (initEnv []corev1.EnvVar) {
 	initEnv = cmn.CommonInitEnv(ais)
 	initEnv = append(initEnv, cmn.EnvFromValue(cmn.EnvServiceName, headlessSVCName(ais.Name)))
 	if ais.Spec.ProxySpec.HostPort != nil {
-		initEnv = append(initEnv, cmn.EnvFromFieldPath(cmn.EnvPublicHostname, "status.hostIP"))
+		if ais.EnableNodeNameHost() {
+			initEnv = append(initEnv, cmn.EnvFromFieldPath(cmn.EnvPublicHostname, "spec.nodeName"))
+		} else {
+			initEnv = append(initEnv, cmn.EnvFromFieldPath(cmn.EnvPublicHostname, "status.hostIP"))
+		}
 	}
 	return
 }
 
 func NewAISContainerEnv(ais *aisv1.AIStore) []corev1.EnvVar {
 	baseEnv := cmn.CommonEnv()
-	if ais.Spec.ProxySpec.HostPort != nil {
-		baseEnv = append(baseEnv, cmn.EnvFromFieldPath(cmn.EnvPublicHostname, "status.hostIP"))
-	}
 	if ais.Spec.AuthNSecretName != nil {
 		baseEnv = append(baseEnv, cmn.EnvFromSecret(aisenv.AisAuthSecretKey, *ais.Spec.AuthNSecretName, cmn.EnvAuthNSecretKey))
 	}
