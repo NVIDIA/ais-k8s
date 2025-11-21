@@ -19,8 +19,26 @@ Next use the CSR to generate a self-signed key and certificate.
 Now we can run the keycloak docker image with `start-dev`, provide our config, and automatically import our AIS realm.
 Note this command expects to be run from this directory, modify as needed. 
 
+
+### Optional Data Persistence
+
+If you want data persistence: 
+
+- Use [recreate-volumes.sh](./recreate-volumes.sh)
+- OR
+  - Manually create a local `db` directory for data persistence. 
+  - Give it access for the keycloak process in the docker container to write:  `sudo chown -R 1000:1000 $(pwd)/db`
+
+This will mount keycloak's development server file-based database into a local `db` directory for data persistence between runs. 
+
+### Run Container
+
+Remove the volume mount for `db` if not allowing persistence.
+Optionally use [docker-keycloak.sh](./docker-keycloak.sh) or manually run the command below.  
+
 ```bash
 docker run --rm --name keycloak \
+   -v $(pwd)/db:/opt/keycloak/data/h2 \
    -v $(pwd)/../realm/aistore-realm.json:/opt/keycloak/data/import/aistore-realm.json \
    -v $(pwd)/server.crt.pem:/opt/keycloak/conf/server.crt.pem:ro \
    -v $(pwd)/server.key.pem:/opt/keycloak/conf/server.key.pem:ro \
@@ -77,4 +95,25 @@ The public key can be fetched from keycloak
       "method": "rsa",
    }
 }
+```
+
+## Updating the AIStore Realm
+
+For development purposes to update the realm: 
+Run the above commands to start Keycloak with persistence. 
+Modify the realm to the desired state, then shutdown. 
+
+- Use [recreate-volumes.sh](./recreate-volumes.sh)
+- OR
+  - Manually create a local directory `exports` for the destination.
+  - Give it access for the keycloak process in the docker container to write: `sudo chown -R 1000:1000 $(pwd)/exports`
+
+Run this command to use the keycloak script to output the modified realm including users:
+
+```bash 
+docker run --rm \
+  -v $(pwd)/db:/opt/keycloak/data/h2 \
+  -v $(pwd)/exports:/opt/keycloak/data/export \
+  quay.io/keycloak/keycloak:latest \
+  export --dir /opt/keycloak/data/export --realm aistore --users realm_file
 ```

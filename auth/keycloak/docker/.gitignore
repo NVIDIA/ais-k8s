@@ -2,3 +2,6 @@
 *.csr
 # Allow our sample.env in this dir
 !.env
+# Ignore keycloak volumes
+db
+exports

@@ -54,4 +54,4 @@ Get the password for the `app` user created in a secret by the CNPG installation
         > Note: If you re-used a db that already has this user, the k8s secrets may not contain the password.
 1. Import the aistore prebuilt realm
     1. We provide a script to follow the [Keycloak docs](https://www.keycloak.org/operator/realm-import) and automate importing from any exported realm JSON file. 
-    1. Run `./realm/import-realm.sh` to import a default AIS realm with some sample roles. 
+    1. Run `./realm/import-realm.sh` to import a default **development** AIS realm with some sample roles and a default admin user. See the [main readme](./README.md#aistore-realm) for details.  

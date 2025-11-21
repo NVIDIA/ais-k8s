@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -e
 
+#### DO NOT USE FOR PRODUCTION ####
+
 # This script
 # 1. Creates a kind cluster
 # 2. Installs all necessary prerequisites for keycloak
@@ -51,6 +53,10 @@ kubectl create secret -n keycloak generic keycloak-db-secret --from-literal=user
 
 # Manifest
 kubectl apply -f manifests/keycloak.yaml
+until kubectl get keycloak keycloak-server -n keycloak; do
+  echo "Waiting for keycloak-server custom resource to exist..."
+  sleep 5
+done
 echo "Waiting for keycloak to be ready (takes some time)..."
 kubectl wait --for=condition=Ready --timeout=180s keycloak/keycloak-server -n keycloak
 
@@ -62,8 +68,8 @@ USER=$(kubectl get secret -n keycloak keycloak-server-initial-admin -o jsonpath=
 PASS=$(kubectl get secret -n keycloak keycloak-server-initial-admin -o jsonpath='{.data.password}' | base64 --decode)
 
 echo ""
-echo "Initial user: ${USER}"
-echo "Initial password: ${PASS}"
+echo "Initial admin user: ${USER}"
+echo "Initial admin password: ${PASS}"
 echo ""
 echo "Port forward https through Traefik 'kubectl port-forward -n traefik service/traefik 8443:443'"
 echo "Add the keycloak hostname to your hosts, e.g. 127.0.0.1  keycloak.local"

@@ -61,4 +61,15 @@ Example token claim format:
 Here we provide what's needed to get started with Keycloak for AIS authentication. 
 See the [Keycloak quickstarts repo](https://github.com/keycloak/keycloak-quickstarts) for some other installation options.
 
-Follow the [installation guide](./INSTALLATION.md) to get started. 
+Follow the [installation guide](./INSTALLATION.md) for instructions to get a sample deployment running on an existing cluster.
+
+To create an non-production automated deployment on a local KinD cluster, see [test-cluster.sh](./test-cluster.sh).
+
+## AIStore Realm
+
+> As shipped, this is ONLY for development usage. If using this realm for **ANY** production purpose, you **MUST** update the password for the `ais-admin` user. 
+
+The AIStore Realm is auto-imported in both the Docker and KinD deployment automation.
+
+This realm comes by default with a client `AIStore` and an admin user `ais-admin` with password `admin-pass`.
+This user contains the `admin` claim and any tokens fetched by this user will have full admin access to any AIS cluster that trusts this issuer. 
