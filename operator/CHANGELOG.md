@@ -8,9 +8,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ---
 
-## Unreleased
-
-- OIDC issuer CA configuration via `spec.issuerCAConfigMap` for automatic certificate mounting and `auth.oidc.issuer_ca_bundle` configuration
+## v2.9.0
 
 ### Added
 
@@ -22,6 +20,8 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
   - `truststore` package for CA certificate loading and TLS configuration management
   - TLS certificate verification for the auth service can be disabled via `spec.auth.tls.insecureSkipVerify` (not recommended for production)
   - Operator mounts `ais-operator-auth-ca` ConfigMap to `/etc/ssl/certs/auth-ca` for Auth CA certificates when `authCAConfigmapName` is specified in the helm chart
+  - OIDC issuer CA configuration via `spec.issuerCAConfigMap` for automatic certificate mounting and `auth.oidc.issuer_ca_bundle` configuration
+
 - Autoscaling cluster size can now be limited by `spec.proxySpec.autoScale.sizeLimit` and `spec.targetSpec.autoScale.sizeLimit`
 
 ### Changed
