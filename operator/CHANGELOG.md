@@ -8,6 +8,12 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ---
 
+## Unreleased
+
+### Changed
+
+- Fixed a bug where an empty `net.http.client_auth_tls` in AIS spec would cause an exception if TLS enabled
+
 ## v2.9.0
 
 ### Added

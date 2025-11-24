@@ -5,6 +5,7 @@
 package v1beta1
 
 import (
+	"crypto/tls"
 	"fmt"
 	"strings"
 
@@ -576,6 +577,16 @@ func (ais *AIStore) ShouldBeShutdown() bool {
 
 func (ais *AIStore) UseHostNetwork() bool {
 	return ais.Spec.TargetSpec.HostNetwork != nil && *ais.Spec.TargetSpec.HostNetwork
+}
+
+func (ais *AIStore) ShouldIncludeClientCert() bool {
+	if ais.Spec.ConfigToUpdate == nil ||
+		ais.Spec.ConfigToUpdate.Net == nil ||
+		ais.Spec.ConfigToUpdate.Net.HTTP == nil ||
+		ais.Spec.ConfigToUpdate.Net.HTTP.ClientAuthTLS == nil {
+		return false
+	}
+	return tls.ClientAuthType(*ais.Spec.ConfigToUpdate.Net.HTTP.ClientAuthTLS) > tls.NoClientCert
 }
 
 func (ais *AIStore) IsFullyAutoScaling() bool {

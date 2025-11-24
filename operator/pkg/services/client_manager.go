@@ -216,7 +216,7 @@ func configureCAVerification(ctx context.Context, tlsConf *tls.Config, tlsDir st
 }
 
 func addClientCertIfRequested(ais *aisv1.AIStore, tlsConf *tls.Config, tlsDir string) {
-	if tls.ClientAuthType(*ais.Spec.ConfigToUpdate.Net.HTTP.ClientAuthTLS) < tls.RequestClientCert {
+	if !ais.ShouldIncludeClientCert() {
 		return
 	}
 	certPath := filepath.Join(tlsDir, ClientCertFile)
