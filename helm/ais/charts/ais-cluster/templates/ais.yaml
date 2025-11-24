@@ -150,7 +150,8 @@ spec:
   auth:
     {{- toYaml .Values.auth | nindent 4 }}
   {{- end }}
-  enableExternalLB: false
+  enableExternalLB: {{ .Values.enableExternalLB }}
+  enableNodeNameHost: {{ .Values.enableNodeNameHost }}
   {{- if .Values.multihome }}
   {{- with .Values.multihome.hostnameMap }}
   hostnameMap: {{ toJson . }}

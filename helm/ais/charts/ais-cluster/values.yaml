@@ -2,7 +2,7 @@ cluster: ais
 # size:
 protocol: http
 imagePullSecrets:
-  # - name:
+# - name:
 nodeImage:
   name: aistorage/aisnode
   tag: v3.31
@@ -25,6 +25,8 @@ clusterDomain:
 stateStorageClass:
 authNSecretName:
 auth:
+enableExternalLB:
+enableNodeNameHost:
 logsDir:
 proxySpec:
   tolerations:

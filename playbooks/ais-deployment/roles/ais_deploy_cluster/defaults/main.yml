@@ -1,5 +1,5 @@
-init_image: aistorage/ais-init:v3.30
-node_image: aistorage/aisnode:v3.30
+init_image: aistorage/ais-init:v4.0
+node_image: aistorage/aisnode:v4.0
 logs_image: aistorage/ais-logs:v1.1
 
 # Cloud
@@ -30,6 +30,13 @@ logs_dir: "/var/log/ais"
 
 # if true, the AIS Daemon pods for target are created in the host's network namespace (used for multihoming)
 host_network: false
+
+# Allows the AIS deployment outside kubernetes cluster via target load balancers
+# NOTE: For external access to work, the kubernetes cluster should have the capability to create LoadBalancer services with valid external IP.
+# For local testing, use `minikube tunnel` or `cloud-provider-kind`
+enable_external_lb: false
+# Use the K8s node names as hostnames instead of node IPs
+enable_node_name_host: false
 
 # Storage class for dynamically provisioning state volumes
 # See docs/state_storage.md

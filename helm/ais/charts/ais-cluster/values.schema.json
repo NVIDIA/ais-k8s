@@ -192,12 +192,12 @@
       "examples": [false]
     },
     "hostpathPrefix": {
-      "type": "string",
+      "type": ["string", "null"],
       "description": "Path on node for pod hostPath volumes. Use stateStorageClass if possible.",
       "examples": ["/etc/ais"]
     },
     "stateStorageClass": {
-      "type": "string",
+      "type": ["string", "null"],
       "description": "StorageClass for dynamically provisioning state/config volumes.",
       "examples": ["local-path"]
     },
@@ -259,6 +259,16 @@
           }
         }
       }
+    },
+    "enableExternalLB": {
+      "type": ["boolean", "null"],
+      "description": "Creates individual LoadBalancer services for each AIS target.",
+      "examples": [true, false]
+    },
+    "enableNodeNameHost": {
+      "type": ["boolean", "null"],
+      "description": "Uses the K8s node name as the host name for communication over the public interface instead of host IPs.",
+      "examples": [true, false]
     },
     "logsDir": {
       "type": ["string", "null"],
