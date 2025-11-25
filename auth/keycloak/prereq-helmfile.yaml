@@ -32,6 +32,14 @@ releases:
     set:
       - name: installCRDs
         value: true
+    wait: true
+        
+  - name: trust-manager
+    chart: jetstack/trust-manager
+    namespace: cert-manager
+    wait: true
+    needs: 
+      - cert-manager
 
   - name: traefik
     chart: traefik/traefik

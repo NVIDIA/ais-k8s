@@ -1,0 +1,16 @@
+apiVersion: trust.cert-manager.io/v1alpha1
+kind: Bundle
+metadata:
+  name: aistore.nvidia.com
+  namespace: cert-manager
+spec:
+  sources:
+    - secret:
+        name: ca-root-secret # default value for cluster issuer helm chart, update as needed
+        key: tls.crt
+  target:
+    namespaceSelector:
+      matchLabels:
+        ais-trust: "true"
+    configMap:
+      key: ca.crt

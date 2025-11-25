@@ -47,6 +47,7 @@ environments:
     - envFile: keycloak
     - authnCM:
         enabled: false
+        env: default
     - createCert:
         enabled: false
 

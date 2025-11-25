@@ -16,16 +16,31 @@ https:
   skipVerifyCert: false
   tlsSecret: "tls-certs"
 nodeImage:
-  tag: v4.0
+  tag: v4.1-rc1
 initImage:
-  tag: v4.0
+  tag: v4.1-rc1
 logSidecarImage:
   tag: v1.1
 configToUpdate:
   backend:
     aws: {}
-auth: 
-  serviceURL: "https://keycloak-server-service.keycloak.svc.cluster.local:8543"
+  auth:
+    enabled: true
+    oidc:
+      allowed_iss: [ "https://keycloak-server-service.keycloak.svc.cluster.local:8543/realms/aistore" ]
+
+# Sets auth.oidc.issuer_ca_bundle above with an automatic mount-point for AIS to trust the issuer
+issuerCAConfigMap: aistore.nvidia.com
+
+# Used by the operator to fetch tokens for this specific cluster from the Keycloak Issuer
+auth:
+  serviceURL: "https://keycloak-server-service.keycloak.svc.cluster.local:8543/realms/aistore/protocol/openid-connect/token"
   usernamePassword:
     secretName: ais-admin-secret
+    loginConf:
+      clientID: "AIStore"
+  tls:
+    # Trust bundle is defined by authCAConfigmapName, mounted at default mountpath 
+    insecureSkipVerify: false
 stateStorageClass: "openebs-hostpath"
+cleanupMetadata: true
