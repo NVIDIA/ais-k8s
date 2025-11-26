@@ -8,6 +8,12 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ---
 
+## v2.9.2
+
+### Changed
+
+- Avoid checking for removed env var `AIS_PUBLIC_HOSTNAME` for AIS container that would cause rollout on upgrade
+
 ## v2.9.1
 
 ### Added

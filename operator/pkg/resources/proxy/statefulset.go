@@ -104,7 +104,7 @@ func proxyPodSpec(ais *aisv1.AIStore) *corev1.PodSpec {
 		},
 		Containers: []corev1.Container{
 			{
-				Name:            "ais-node",
+				Name:            cmn.AISContainerName,
 				Image:           ais.Spec.NodeImage,
 				ImagePullPolicy: corev1.PullAlways,
 				Command:         []string{"aisnode"},

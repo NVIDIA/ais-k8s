@@ -30,7 +30,7 @@ func shouldUpdatePodTemplate(desired, current *corev1.PodTemplateSpec) (bool, st
 		if daemon.desiredContainer.Image != daemon.currentContainer.Image {
 			return true, fmt.Sprintf("updating image for %q container", daemon.desiredContainer.Name)
 		}
-		if !equality.Semantic.DeepEqual(daemon.desiredContainer.Env, daemon.currentContainer.Env) {
+		if shouldUpdateEnv(daemon.desiredContainer.Name, daemon.desiredContainer.Env, daemon.currentContainer.Env) {
 			return true, fmt.Sprintf("updating env variables for %q container", daemon.desiredContainer.Name)
 		}
 		if shouldUpdateResources(&daemon.desiredContainer.Resources, &daemon.currentContainer.Resources) {
@@ -73,6 +73,26 @@ func shouldUpdateResources(desired, current *corev1.ResourceRequirements) bool {
 	desFiltered := desired.DeepCopy()
 	delete(desFiltered.Requests, corev1.ResourceEphemeralStorage)
 	return !equality.Semantic.DeepEqual(desFiltered, current)
+}
+
+// Ignore removed "cmn.EnvPublicHostname" removed from AIS container in v2.9.1 to avoid rollout
+// TODO: Remove in next major release
+func shouldUpdateEnv(name string, desired, current []corev1.EnvVar) bool {
+	// Only avoid the env var sync for AIS containers
+	if name != cmn.AISContainerName {
+		return !equality.Semantic.DeepEqual(desired, current)
+	}
+	// Deep copy a list of env vars but ignore cmn.EnvPublicHostname
+	normalize := func(envs []corev1.EnvVar) []corev1.EnvVar {
+		out := make([]corev1.EnvVar, 0, len(envs))
+		for _, e := range envs {
+			if e.Name != cmn.EnvPublicHostname {
+				out = append(out, e)
+			}
+		}
+		return out
+	}
+	return !equality.Semantic.DeepEqual(normalize(desired), normalize(current))
 }
 
 func shouldUpdateAnnotations(desired, current map[string]string) bool {

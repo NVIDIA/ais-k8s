@@ -18,6 +18,7 @@ import (
 )
 
 const (
+	AISContainerName        = "ais-node"
 	LabelApp                = "app"
 	LabelComponent          = "component"
 	LabelPrefix             = "app.kubernetes.io/"
