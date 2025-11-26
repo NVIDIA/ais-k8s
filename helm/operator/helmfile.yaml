@@ -2,41 +2,42 @@ environments:
   default:
     values:
     - envFile: default
-    - createCert:
-        enabled: false
-  authn:
-    values:
-    - envFile: authn
-    - authn:
+    - authnCM:
         enabled: true
+        env: default
     - createCert:
         enabled: false
   sjc4-1000:
     values:
       - envFile: default
+      - authnCM:
+          enabled: true
+          env: default
       - createCert:
           enabled: true
     kubeContext: sjc4-1000
   sjc11:
     values: 
-    - envFile: authn
-    - authn:
+    - envFile: default
+    - authnCM:
         enabled: true
+        env: default
     - createCert:
         enabled: true
     kubeContext: sjc11
   sjc4-dev:
-    values: 
-    - envFile: authn
-    - authn:
+    values:
+    - envFile: default
+    - authnCM:
         enabled: true
+        env: default
     - createCert:
         enabled: true
     kubeContext: sjc4-dev
   keycloak: 
     values: 
     - envFile: keycloak
-    - authn:
+    - authnCM:
         enabled: false
     - createCert:
         enabled: false
@@ -60,16 +61,16 @@ releases:
     namespace: ais-operator-system
     createNamespace: true
     chart: authn-cm
-    condition: authn.enabled
+    condition: authnCM.enabled
     version: 0.1.0
     values:
-      - "./config/authn-cm/{{ .Environment.Name }}.yaml"
+      - "./config/authn-cm/{{ .Values.authnCM.env }}.yaml"
 
   - name: ais-operator
     namespace: ais-operator-system
     createNamespace: true
     chart: aistore/ais-operator
-    version: 2.9.0
+    version: 2.9.1
     values:
       - "./config/operator/{{ .Values.envFile }}.yaml.gotmpl"
     hooks:

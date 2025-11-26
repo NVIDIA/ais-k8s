@@ -10,3 +10,5 @@ config:
     # Default credentials secret name for an authN deployment
     secretName: ais-authn-su-creds
     secretNamespace: ais
+    # Skip verification until we switch to spec-based config and provide a CA cert mount
+    insecureSkipVerify: true
