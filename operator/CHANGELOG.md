@@ -24,6 +24,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 ### Added
 
 - Add `enableNodeNameHost` to allow using K8s node hostnames for public interface. Uses K8s environment `spec.nodeName` instead of `status.hostIP` if enabled.
+- Add support for OAuth compatible 3rd party auth services with password-based login. Set `auth.serviceURL` to the token login endpoint and configure `auth.usernamePassword.loginConf.clientID`
 
 ### Changed
 

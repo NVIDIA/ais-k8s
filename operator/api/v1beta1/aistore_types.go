@@ -131,14 +131,28 @@ type AuthTLSConfig struct {
 
 // UsernamePasswordAuth defines authentication using static username/password credentials
 type UsernamePasswordAuth struct {
-	// SecretName is the name of the secret containing AuthN admin credentials (SU-NAME and SU-PASS)
+	// SecretName is the name of the secret containing auth service admin credentials (SU-NAME and SU-PASS)
 	// +kubebuilder:validation:MinLength=1
 	SecretName string `json:"secretName"`
 
-	// SecretNamespace is the namespace of the secret containing AuthN admin credentials
+	// SecretNamespace is the namespace of the secret containing auth service admin credentials
 	// If not specified, defaults to the AIStore cluster namespace
 	// +optional
 	SecretNamespace *string `json:"secretNamespace,omitempty"`
+
+	// LoginConf contains details for OAuth 2.0 compliant password-based login
+	// If not set, the operator will log in using the native AIStore AuthN service API
+	// +optional
+	LoginConf *AuthServerLoginConf `json:"loginConf,omitempty"`
+}
+
+// AuthServerLoginConf defines fields used for getting a token from any OAuth 2.0 service
+type AuthServerLoginConf struct {
+	// Client ID for the auth service, used when fetching a token
+	ClientID string `json:"clientID"`
+	// Scope to pass when fetching a token from the configured auth service
+	// +optional
+	Scope *string `json:"scope,omitempty"`
 }
 
 // TokenExchangeAuth defines authentication using RFC 8693 OAuth 2.0 Token Exchange

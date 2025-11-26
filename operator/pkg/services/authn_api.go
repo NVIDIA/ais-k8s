@@ -28,10 +28,12 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-// AuthN constants
 const (
-	OperatorNamespace      = "OPERATOR_NAMESPACE"
+	OperatorNamespace = "OPERATOR_NAMESPACE"
+
+	// Auth service API defaults
 	DefaultAuthNServiceURL = "http://ais-authn.ais:52001"
+	DefaultAuthCACertPath  = "/etc/ssl/certs/auth-ca/ca.crt"
 
 	// Deprecated: Use spec.auth to configure token access
 	AuthNConfigMapVar  = "AIS_AUTHN_CM"
@@ -41,7 +43,6 @@ const (
 	// Token exchange defaults
 	DefaultTokenPath             = "/var/run/secrets/kubernetes.io/serviceaccount/token" //nolint:gosec // This is a file path, not a credential
 	DefaultTokenExchangeEndpoint = "/token"
-	DefaultAuthCACertPath        = "/etc/ssl/certs/auth-ca/ca.crt"
 
 	// RFC 8693 OAuth 2.0 Token Exchange constants
 	RFC8693GrantType           = "urn:ietf:params:oauth:grant-type:token-exchange"
@@ -80,6 +81,7 @@ type (
 		IsTokenExchange() bool
 		GetTokenPath() string
 		GetTokenExchangeEndpoint() string
+		GetOAuthLoginConf() *aisv1.AuthServerLoginConf
 		GetSecretName() string
 		GetSecretNamespace() string
 		GetCACertPath() string
@@ -116,6 +118,19 @@ type (
 		tlsCreated time.Time
 		tlsMu      sync.RWMutex
 	}
+
+	// RFC 8693 Section 2.2 - Response format (REQUIRED fields only)
+	oauthTokenResponse struct {
+		AccessToken string `json:"access_token"`         // REQUIRED
+		TokenType   string `json:"token_type"`           // REQUIRED
+		ExpiresIn   int    `json:"expires_in,omitempty"` // Not required by RFC but needed for token expiration
+	}
+
+	tokenExchangeResponse struct {
+		oauthTokenResponse
+		IssuedTokenType string `json:"issued_token_type"` // REQUIRED
+		Token           string `json:"token"`             // Legacy: backward compatibility
+	}
 )
 
 func NewAuthNClient(k8sClient *aisclient.K8sClient) *AuthNClient {
@@ -143,6 +158,11 @@ func (c *AuthNConfigMapConfig) GetTokenExchangeEndpoint() string {
 
 func (c *AuthNConfigMapConfig) GetSecretName() string {
 	return c.SecretName
+}
+
+func (*AuthNConfigMapConfig) GetOAuthLoginConf() *aisv1.AuthServerLoginConf {
+	// Not supported through configmap
+	return nil
 }
 
 func (c *AuthNConfigMapConfig) GetSecretNamespace() string {
@@ -186,6 +206,13 @@ func (c *AuthSpecConfig) GetTokenExchangeEndpoint() string {
 		return *c.spec.TokenExchange.TokenExchangeEndpoint
 	}
 	return DefaultTokenExchangeEndpoint
+}
+
+func (c *AuthSpecConfig) GetOAuthLoginConf() *aisv1.AuthServerLoginConf {
+	if c.spec.UsernamePassword == nil {
+		return nil
+	}
+	return c.spec.UsernamePassword.LoginConf
 }
 
 func (c *AuthSpecConfig) GetSecretName() string {
@@ -281,34 +308,28 @@ func getTLSConfigWithCache(ctx context.Context, mu *sync.RWMutex, cachedConfig *
 
 // getAdminToken Gets an admin token for the given cluster using token exchange or configured credentials secret
 func (c *AuthNClient) getAdminToken(ctx context.Context, ais *aisv1.AIStore) (*TokenInfo, error) {
-	authnConf, err := c.getAuthConfig(ctx, ais)
-	if err != nil || authnConf == nil {
+	authConf, err := c.getAuthConfig(ctx, ais)
+	if err != nil || authConf == nil {
 		return nil, err
+	}
+
+	baseParams, err := newAuthBaseParams(ctx, authConf)
+	if err != nil {
+		logf.FromContext(ctx).Error(err, "Failed to create auth service base params")
+		return nil, fmt.Errorf("failed to create auth service base params: %w", err)
 	}
 
 	// Token exchange mode
-	if authnConf.IsTokenExchange() {
-		return c.getTokenViaExchange(ctx, ais, authnConf)
+	if authConf.IsTokenExchange() {
+		return c.getTokenViaExchange(ctx, baseParams, ais, authConf)
 	}
-
-	// Username/password mode (existing)
-	if authnConf.GetSecretName() == "" {
-		return nil, nil
-	}
-	secretData, err := c.getSecretData(ctx, authnConf.GetSecretNamespace(), authnConf.GetSecretName())
-	if err != nil || secretData == nil {
-		return nil, err
-	}
-	baseParams, err := newAuthNBaseParams(ctx, authnConf)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create AuthN base params: %w", err)
-	}
-	return getTokenFromAuthN(ctx, baseParams, secretData)
+	// Username/password mode
+	return c.getTokenViaPassword(ctx, baseParams, authConf)
 }
 
-// getAuthConfig Gets the AuthN configuration from the CRD first, falls back to ConfigMap
+// getAuthConfig Gets the auth service configuration from the CRD first, falls back to ConfigMap
 func (c *AuthNClient) getAuthConfig(ctx context.Context, ais *aisv1.AIStore) (AuthConfig, error) {
-	// First, check if AuthN configuration is in the CRD spec
+	// First, check if auth configuration is in the CRD spec
 	if ais.Spec.Auth != nil {
 		return c.getAuthConfigFromCRD(ctx, ais)
 	}
@@ -317,14 +338,14 @@ func (c *AuthNClient) getAuthConfig(ctx context.Context, ais *aisv1.AIStore) (Au
 	return c.getAuthConfigFromConfigMap(ctx, ais)
 }
 
-// getAuthConfigFromCRD extracts AuthN configuration from the AIStore CRD spec
+// getAuthConfigFromCRD extracts auth configuration from the AIStore CRD spec
 func (*AuthNClient) getAuthConfigFromCRD(ctx context.Context, ais *aisv1.AIStore) (AuthConfig, error) {
 	logger := logf.FromContext(ctx)
 	spec := ais.Spec.Auth
 
 	// Validate that exactly one auth method is configured
 	if spec.TokenExchange == nil && spec.UsernamePassword == nil {
-		return nil, fmt.Errorf("invalid AuthN configuration: exactly one of usernamePassword or tokenExchange must be specified")
+		return nil, fmt.Errorf("invalid auth service configuration: exactly one of usernamePassword or tokenExchange must be specified")
 	}
 
 	config := &AuthSpecConfig{
@@ -332,7 +353,7 @@ func (*AuthNClient) getAuthConfigFromCRD(ctx context.Context, ais *aisv1.AIStore
 		namespace: ais.Namespace,
 	}
 
-	logger.Info("Using AuthN configuration from CRD",
+	logger.Info("Using auth service configuration from CRD",
 		"serviceURL", config.GetServiceURL(),
 		"tokenExchange", config.IsTokenExchange())
 
@@ -353,7 +374,7 @@ func (c *AuthNClient) getAuthConfigFromConfigMap(ctx context.Context, ais *aisv1
 		return nil, nil
 	}
 	cm, err := c.k8sClient.GetConfigMap(ctx, types.NamespacedName{Name: cmName, Namespace: cmNs})
-	// If the config map doesn't exist we haven't configured the operator to use authN at all
+	// If the config map doesn't exist we haven't configured the operator to use auth at all
 	if err != nil && apierrors.IsNotFound(err) {
 		return nil, nil
 	}
@@ -387,13 +408,74 @@ func (c *AuthNClient) getSecretData(ctx context.Context, namespace, secretName s
 	// Look up the secret credentials and use them to obtain a token
 	secret, err := c.k8sClient.GetSecret(ctx, types.NamespacedName{Name: secretName, Namespace: namespace})
 	if err != nil {
-		logger.Error(err, fmt.Sprintf("Failed to get AuthN credentials secret %s in namespace %s", secretName, namespace))
+		logger.Error(err, fmt.Sprintf("Failed to get auth credentials secret %s in namespace %s", secretName, namespace))
 		return nil, err
 	}
 	if secret == nil || len(secret.Data) == 0 {
-		return nil, fmt.Errorf("AuthN Secret %s in namespace %s has no data", secretName, namespace)
+		return nil, fmt.Errorf("auth Secret %s in namespace %s has no data", secretName, namespace)
 	}
 	return secret.Data, nil
+}
+
+func (c *AuthNClient) getTokenViaPassword(ctx context.Context, bp *api.BaseParams, authConf AuthConfig) (*TokenInfo, error) {
+	if authConf.GetSecretName() == "" {
+		return nil, nil
+	}
+	secretData, err := c.getSecretData(ctx, authConf.GetSecretNamespace(), authConf.GetSecretName())
+	if err != nil || secretData == nil {
+		return nil, err
+	}
+	oauthConf := authConf.GetOAuthLoginConf()
+	if oauthConf == nil {
+		// Use AIS authN service if no OAuth configuration
+		return getTokenFromAuthN(ctx, bp, secretData)
+	}
+	return getTokenFromOAuth(ctx, bp, secretData, oauthConf)
+}
+
+// getTokenFromOAuth retrieves an admin token from an OAuth standard issuer using the username and password from the provided secret data
+func getTokenFromOAuth(ctx context.Context, params *api.BaseParams, secretData map[string][]byte, oauthConf *aisv1.AuthServerLoginConf) (*TokenInfo, error) {
+	user := string(secretData[AuthNSecretRefName])
+	// Prepare form values; Scope is optional, omit if nil
+	form := url.Values{}
+	form.Set("grant_type", "password")
+	form.Set("client_id", oauthConf.ClientID)
+	form.Set("username", user)
+	form.Set("password", string(secretData[AuthNSecretRefPass]))
+	if oauthConf.Scope != nil {
+		form.Set("scope", *oauthConf.Scope)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, params.URL, strings.NewReader(form.Encode()))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create OAuth login request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("User-Agent", params.UA)
+
+	resp, err := params.Client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send OAuth login request: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("OAuth login failed: %s", string(bodyBytes))
+	}
+
+	var tokenResp oauthTokenResponse
+	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
+		return nil, fmt.Errorf("failed to decode OAuth token response: %w", err)
+	}
+	if !strings.EqualFold(tokenResp.TokenType, "bearer") {
+		return nil, fmt.Errorf("unexpected token_type: %s", tokenResp.TokenType)
+	}
+	logf.FromContext(ctx).Info(fmt.Sprintf("Successfully fetched token for user %q from auth service", user))
+	expiresAt := time.Now().Add(time.Duration(tokenResp.ExpiresIn) * time.Second)
+	return &TokenInfo{
+		Token:     tokenResp.AccessToken,
+		ExpiresAt: expiresAt,
+	}, nil
 }
 
 // getTokenFromAuthN retrieves an admin token from AuthN using the username and password from the provided secret data
@@ -415,7 +497,7 @@ func getTokenFromAuthN(ctx context.Context, params *api.BaseParams, secretData m
 	}, nil
 }
 
-func newAuthNBaseParams(ctx context.Context, conf AuthConfig) (*api.BaseParams, error) {
+func newAuthBaseParams(ctx context.Context, conf AuthConfig) (*api.BaseParams, error) {
 	logger := logf.FromContext(ctx)
 
 	transportArgs := cmn.TransportArgs{
@@ -430,13 +512,13 @@ func newAuthNBaseParams(ctx context.Context, conf AuthConfig) (*api.BaseParams, 
 	if strings.HasPrefix(serviceURL, "https://") {
 		tlsConfig, err := conf.GetTLSConfig(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get TLS config for Auth service: %w", err)
+			return nil, fmt.Errorf("failed to get TLS config for auth service: %w", err)
 		}
 
 		transport.TLSClientConfig = tlsConfig
 	} else {
 		// HTTP connection - no TLS config needed
-		logger.V(1).Info("Using HTTP (non-TLS) connection to Auth service", "url", serviceURL)
+		logger.V(1).Info("Using HTTP (non-TLS) connection to auth service", "url", serviceURL)
 	}
 
 	return &api.BaseParams{
@@ -482,8 +564,8 @@ func getTLSConfigCacheTTL(ctx context.Context) time.Duration {
 	return tlsConfigCacheTTL
 }
 
-// getTokenViaExchange reads a token from filesystem and exchanges it with AuthN for an AIS token
-func (*AuthNClient) getTokenViaExchange(ctx context.Context, ais *aisv1.AIStore, conf AuthConfig) (*TokenInfo, error) {
+// getTokenViaExchange reads a token from filesystem and exchanges it with the configured auth service for an AIS token
+func (*AuthNClient) getTokenViaExchange(ctx context.Context, bp *api.BaseParams, ais *aisv1.AIStore, conf AuthConfig) (*TokenInfo, error) {
 	logger := logf.FromContext(ctx)
 
 	tokenPath := conf.GetTokenPath()
@@ -495,23 +577,17 @@ func (*AuthNClient) getTokenViaExchange(ctx context.Context, ais *aisv1.AIStore,
 		return nil, fmt.Errorf("failed to read token from %s: %w", tokenPath, err)
 	}
 
-	baseParams, err := newAuthNBaseParams(ctx, conf)
-	if err != nil {
-		logger.Error(err, "Failed to create AuthN base params")
-		return nil, fmt.Errorf("failed to create AuthN base params: %w", err)
-	}
-
 	// Get all audiences from the AIStore cluster's required claims configuration
 	// If not configured, we pass an empty slice (don't request audiences if cluster doesn't require them)
 	audiences := ais.GetRequiredAudiences()
 
-	tokenInfo, err := exchangeTokenWithAuthN(ctx, baseParams, sourceToken, endpoint, audiences)
+	tokenInfo, err := exchangeTokenWithAuthSvc(ctx, bp, sourceToken, endpoint, audiences)
 	if err != nil {
-		logger.Error(err, "Failed to exchange token with AuthN", "audiences", audiences)
+		logger.Error(err, "Failed to exchange token with auth service", "audiences", audiences)
 		return nil, err
 	}
 
-	logger.Info("Successfully exchanged token with AuthN", "tokenPath", tokenPath, "audiences", audiences)
+	logger.Info("Successfully exchanged token with auth service", "tokenPath", tokenPath, "audiences", audiences)
 	return tokenInfo, nil
 }
 
@@ -528,10 +604,10 @@ func readTokenFromFile(path string) (string, error) {
 	return token, nil
 }
 
-// exchangeTokenWithAuthN exchanges a source token (e.g., K8s SA token) for an AIS JWT token
+// exchangeTokenWithAuthSvc exchanges a source token (e.g., K8s SA token) for an AIS JWT token
 // Implements RFC 8693 OAuth 2.0 Token Exchange specification
 // See: https://datatracker.ietf.org/doc/html/rfc8693
-func exchangeTokenWithAuthN(ctx context.Context, params *api.BaseParams, sourceToken, endpoint string, audiences []string) (*TokenInfo, error) {
+func exchangeTokenWithAuthSvc(ctx context.Context, params *api.BaseParams, sourceToken, endpoint string, audiences []string) (*TokenInfo, error) {
 	logger := logf.FromContext(ctx)
 
 	// RFC 8693 Section 2.1 - Request format (form-encoded)
@@ -548,7 +624,10 @@ func exchangeTokenWithAuthN(ctx context.Context, params *api.BaseParams, sourceT
 		}
 	}
 
-	requestURL := params.URL + endpoint
+	requestURL, err := url.JoinPath(params.URL, endpoint)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create exchange request URL: %w", err)
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, requestURL, strings.NewReader(formData.Encode()))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create exchange request: %w", err)
@@ -567,15 +646,7 @@ func exchangeTokenWithAuthN(ctx context.Context, params *api.BaseParams, sourceT
 		return nil, fmt.Errorf("token exchange failed with status %d: %s", resp.StatusCode, string(body))
 	}
 
-	// RFC 8693 Section 2.2 - Response format (REQUIRED fields only)
-	var result struct {
-		AccessToken     string `json:"access_token"`         // REQUIRED
-		IssuedTokenType string `json:"issued_token_type"`    // REQUIRED
-		TokenType       string `json:"token_type"`           // REQUIRED
-		ExpiresIn       int    `json:"expires_in,omitempty"` // Not required by RFC but needed for token expiration
-		Token           string `json:"token"`                // Legacy: backward compatibility
-	}
-
+	var result tokenExchangeResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, fmt.Errorf("failed to decode exchange response: %w", err)
 	}

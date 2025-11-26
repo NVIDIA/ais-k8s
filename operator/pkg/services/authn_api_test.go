@@ -41,7 +41,7 @@ var _ = Describe("AuthN Base Params", func() {
 				serviceURL: "http://ais-authn.ais:52001",
 			}
 
-			baseParams, err := newAuthNBaseParams(ctx, conf)
+			baseParams, err := newAuthBaseParams(ctx, conf)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(baseParams).NotTo(BeNil())
 
@@ -60,7 +60,7 @@ var _ = Describe("AuthN Base Params", func() {
 				serviceURL: "https://ais-authn.ais:52001",
 			}
 
-			baseParams, err := newAuthNBaseParams(ctx, conf)
+			baseParams, err := newAuthBaseParams(ctx, conf)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(baseParams).NotTo(BeNil())
 
@@ -79,7 +79,7 @@ var _ = Describe("AuthN Base Params", func() {
 				serviceURL: "https://ais-authn.ais",
 			}
 
-			baseParams, err := newAuthNBaseParams(ctx, conf)
+			baseParams, err := newAuthBaseParams(ctx, conf)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(baseParams).NotTo(BeNil())
 
@@ -98,7 +98,7 @@ var _ = Describe("AuthN Base Params", func() {
 				serviceURL: "http://ais-authn.ais",
 			}
 
-			baseParams, err := newAuthNBaseParams(ctx, conf)
+			baseParams, err := newAuthBaseParams(ctx, conf)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(baseParams).NotTo(BeNil())
 
@@ -131,7 +131,7 @@ var _ = Describe("AuthN Base Params", func() {
 				caCertPath: caCertPath,
 			}
 
-			baseParams, err := newAuthNBaseParams(ctx, conf)
+			baseParams, err := newAuthBaseParams(ctx, conf)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(baseParams).NotTo(BeNil())
 		})
@@ -142,7 +142,7 @@ var _ = Describe("AuthN Base Params", func() {
 				caCertPath: "/nonexistent/ca.crt",
 			}
 
-			baseParams, err := newAuthNBaseParams(ctx, conf)
+			baseParams, err := newAuthBaseParams(ctx, conf)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(baseParams).NotTo(BeNil())
 		})
@@ -153,7 +153,7 @@ var _ = Describe("AuthN Base Params", func() {
 				caCertPath: "",
 			}
 
-			baseParams, err := newAuthNBaseParams(ctx, conf)
+			baseParams, err := newAuthBaseParams(ctx, conf)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(baseParams).NotTo(BeNil())
 		})
@@ -164,7 +164,7 @@ var _ = Describe("AuthN Base Params", func() {
 				caCertPath: caCertPath,
 			}
 
-			baseParams, err := newAuthNBaseParams(ctx, conf)
+			baseParams, err := newAuthBaseParams(ctx, conf)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(baseParams).NotTo(BeNil())
 		})
@@ -177,7 +177,7 @@ var _ = Describe("AuthN Base Params", func() {
 				insecureSkipVerify: false,
 			}
 
-			baseParams, err := newAuthNBaseParams(ctx, conf)
+			baseParams, err := newAuthBaseParams(ctx, conf)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(baseParams).NotTo(BeNil())
 			Expect(baseParams.URL).To(Equal("https://ais-authn.ais:52001"))
@@ -189,7 +189,7 @@ var _ = Describe("AuthN Base Params", func() {
 				insecureSkipVerify: true,
 			}
 
-			baseParams, err := newAuthNBaseParams(ctx, conf)
+			baseParams, err := newAuthBaseParams(ctx, conf)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(baseParams).NotTo(BeNil())
 			Expect(baseParams.URL).To(Equal("https://ais-authn.ais:52001"))
@@ -201,7 +201,7 @@ var _ = Describe("AuthN Base Params", func() {
 				insecureSkipVerify: true,
 			}
 
-			baseParams, err := newAuthNBaseParams(ctx, conf)
+			baseParams, err := newAuthBaseParams(ctx, conf)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(baseParams).NotTo(BeNil())
 			Expect(baseParams.URL).To(Equal("http://ais-authn.ais:52001"))
@@ -449,6 +449,10 @@ func (m *mockAuthConfig) GetTokenExchangeEndpoint() string {
 		return DefaultTokenExchangeEndpoint
 	}
 	return m.tokenExchangeEP
+}
+
+func (*mockAuthConfig) GetOAuthLoginConf() *aisv1.AuthServerLoginConf {
+	return nil
 }
 
 func (m *mockAuthConfig) GetSecretName() string {

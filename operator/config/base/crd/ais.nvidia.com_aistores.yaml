@@ -101,14 +101,30 @@ spec:
                     description: UsernamePassword authentication configuration using
                       static credentials
                     properties:
+                      loginConf:
+                        description: |-
+                          LoginConf contains details for OAuth 2.0 compliant password-based login
+                          If not set, the operator will log in using the native AIStore AuthN service API
+                        properties:
+                          clientID:
+                            description: Client ID for the auth service, used when
+                              fetching a token
+                            type: string
+                          scope:
+                            description: Scope to pass when fetching a token from
+                              the configured auth service
+                            type: string
+                        required:
+                        - clientID
+                        type: object
                       secretName:
                         description: SecretName is the name of the secret containing
-                          AuthN admin credentials (SU-NAME and SU-PASS)
+                          auth service admin credentials (SU-NAME and SU-PASS)
                         minLength: 1
                         type: string
                       secretNamespace:
                         description: |-
-                          SecretNamespace is the namespace of the secret containing AuthN admin credentials
+                          SecretNamespace is the namespace of the secret containing auth service admin credentials
                           If not specified, defaults to the AIStore cluster namespace
                         type: string
                     required:
