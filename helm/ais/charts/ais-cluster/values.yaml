@@ -25,8 +25,7 @@ clusterDomain:
 stateStorageClass:
 authNSecretName:
 auth:
-enableExternalLB:
-enableNodeNameHost:
+enableExternalLB: false
 logsDir:
 proxySpec:
   tolerations:

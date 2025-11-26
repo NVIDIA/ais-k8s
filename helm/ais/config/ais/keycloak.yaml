@@ -1,0 +1,31 @@
+cluster: ais
+mpathInfo:
+  storageClass: "ais-local-storage"
+  size: 5.8Ti
+  # Apply shared label to run on one physical disk (for development/testing)
+  mounts:
+    - path: /ais/1
+      label: shared
+    - path: /ais/2
+      label: shared
+    - path: /ais/3
+      label: shared
+size: 3
+protocol: https
+https:
+  skipVerifyCert: false
+  tlsSecret: "tls-certs"
+nodeImage:
+  tag: v4.0
+initImage:
+  tag: v4.0
+logSidecarImage:
+  tag: v1.1
+configToUpdate:
+  backend:
+    aws: {}
+auth: 
+  serviceURL: "https://keycloak-server-service.keycloak.svc.cluster.local:8543"
+  usernamePassword:
+    secretName: ais-admin-secret
+stateStorageClass: "openebs-hostpath"

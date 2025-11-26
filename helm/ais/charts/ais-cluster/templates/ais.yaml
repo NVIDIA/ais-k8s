@@ -108,13 +108,16 @@ spec:
       {{- end }}
     mounts:
     {{- $mpath := .Values.mpathInfo }}
-    {{- range $mpath.paths }}
-      - path: {{ . }}
+    {{- range $mpath.mounts }}
+      - path: {{ .path }}
         size: {{ $mpath.size }}
         storageClass: {{ $mpath.storageClass }}
+        {{- if .label }}
+        label: {{ .label }}
+        {{- end }}
         selector:
           matchLabels:
-            mpath: pv-{{ . | replace "/" "-" | trimPrefix "-" }}
+            mpath: pv-{{ .path | replace "/" "-" | trimPrefix "-" }}
     {{- end }}
     {{- if .Values.targetSpec.resources }}
     resources:

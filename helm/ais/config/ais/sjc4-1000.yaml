@@ -2,10 +2,10 @@ cluster: ais
 mpathInfo:
   storageClass: "ais-local-storage"
   size: 5.8Ti
-  paths:
-    - "/ais/nvme0n1"
-    - "/ais/nvme1n1"
-    - "/ais/nvme2n1"
+  mounts:
+    - path: "/ais/nvme0n1"
+    - path: "/ais/nvme1n1"
+    - path: "/ais/nvme2n1"
 size: 3
 protocol: https
 https:

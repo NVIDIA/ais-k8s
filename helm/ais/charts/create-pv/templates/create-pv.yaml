@@ -3,19 +3,20 @@
 {{- $mpathInfo := .Values.mpathInfo -}}
 {{- $storageClass := $mpathInfo.storageClass -}}
 {{- $mpathSize := $mpathInfo.size -}}
-{{- $paths := $mpathInfo.paths -}}
+{{- $mounts := $mpathInfo.mounts -}}
 {{- $nodes := .Values.nodes -}}
 
+# Create hostPath PersistentVolumes for all provided mounts on all provided nodes
 {{- range $nodeIndex, $node := $nodes }}
-  {{- range $mpathIndex, $mpath := $paths }}
+  {{- range $mountIndex, $mount := $mounts }}
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: {{ $node }}-pv-{{ $mpath | replace "/" "-" | trimPrefix "-" }}
+  name: {{ $node }}-pv-{{ $mount.path | replace "/" "-" | trimPrefix "-" }}
   labels:
     type: local
     cluster: {{ $cluster }}
-    mpath: pv-{{ $mpath | replace "/" "-" | trimPrefix "-" }}
+    mpath: pv-{{ $mount.path | replace "/" "-" | trimPrefix "-" }}
 spec:
   storageClassName: {{ $storageClass }}
   capacity:
@@ -23,9 +24,9 @@ spec:
   accessModes:
     - ReadWriteOnce
   hostPath:
-    path: {{ $mpath }}
+    path: {{ $mount.path }}
   claimRef:
-    name: {{ $cluster }}-{{ $mpath | replace "/" "-" | trimPrefix "-" }}-{{ $cluster }}-target-{{ $nodeIndex }}
+    name: {{ $cluster }}-{{ $mount.path | replace "/" "-" | trimPrefix "-" }}-{{ $cluster }}-target-{{ $nodeIndex }}
     namespace: {{ $.Values.namespace }}
   nodeAffinity:
     required:

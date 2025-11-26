@@ -261,7 +261,7 @@
       }
     },
     "enableExternalLB": {
-      "type": ["boolean", "null"],
+      "type": ["boolean"],
       "description": "Creates individual LoadBalancer services for each AIS target.",
       "examples": [true, false]
     },

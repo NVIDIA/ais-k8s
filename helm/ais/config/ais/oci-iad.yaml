@@ -2,19 +2,19 @@ cluster: ais
 mpathInfo:
   storageClass: "ais-local-storage"
   size: 6.2Ti
-  paths:
-    - /ais/nvme0n1
-    - /ais/nvme1n1
-    - /ais/nvme2n1
-    - /ais/nvme3n1
-    - /ais/nvme4n1
-    - /ais/nvme5n1
-    - /ais/nvme6n1
-    - /ais/nvme7n1
-    - /ais/nvme8n1
-    - /ais/nvme9n1
-    - /ais/nvme10n1
-    - /ais/nvme11n1
+  mounts:
+    - path: /ais/nvme0n1
+    - path: /ais/nvme1n1
+    - path: /ais/nvme2n1
+    - path: /ais/nvme3n1
+    - path: /ais/nvme4n1
+    - path: /ais/nvme5n1
+    - path: /ais/nvme6n1
+    - path: /ais/nvme7n1
+    - path: /ais/nvme8n1
+    - path: /ais/nvme9n1
+    - path: /ais/nvme10n1
+    - path: /ais/nvme11n1
 size: 16
 protocol: http
 imagePullSecrets:

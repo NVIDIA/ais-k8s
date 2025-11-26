@@ -2,12 +2,12 @@ cluster: ais
 mpathInfo:
   storageClass: "ais-local-storage"
   size: 930Gi
-  paths:
-    - /ais/vdc
-    - /ais/vdd
-    - /ais/vde
-    - /ais/vdf
-    - /ais/vdg
+  mounts:
+    - path: /ais/vdc
+    - path: /ais/vdd
+    - path: /ais/vde
+    - path: /ais/vdf
+    - path: /ais/vdg
 size: 3
 protocol: http
 https:

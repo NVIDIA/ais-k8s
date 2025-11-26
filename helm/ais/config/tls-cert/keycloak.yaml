@@ -1,0 +1,31 @@
+certificate:
+  duration: 8760h # 1 year
+  renewBefore: 720h # 30 days
+  subject:
+    organizations:
+      - NVIDIA Corporation
+    organizationalUnits:
+      - NGC Storage
+    countries:
+      - US
+  dnsNames:
+    # used for readiness and liveness check
+    - "localhost" 
+    # used for registration of targets 
+    - "ais-proxy"
+    - "ais-target"
+    # Node names for direct communication
+    - "keycloak-test-worker"
+    - "keycloak-test-worker2"
+    - "keycloak-test-worker3"
+    # consistent url for client pod
+    - "ais-proxy.ais.svc.cluster.local"
+    # used for intra cluster communication
+    - "*.ais-proxy.ais.svc.cluster.local"
+    - "*.ais-target.ais.svc.cluster.local"
+    # used for ais-operator communication
+    - "ais-proxy.ais"
+  emailAddress: ais@exchange.nvidia.com
+  issuerRef:
+    name: ca-issuer
+    kind: ClusterIssuer

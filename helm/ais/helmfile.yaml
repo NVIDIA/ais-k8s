@@ -125,6 +125,17 @@ environments:
       labelNodes:
         enabled: false
     kubeContext: neb-fin-test
+  keycloak:
+    values:
+    - https:
+        enabled: true
+      cloudSecrets:
+        enabled: false
+      createPV:
+        enabled: true
+      labelNodes:
+        enabled: true
+    kubeContext: kind-keycloak-test
 ---
 
 releases:

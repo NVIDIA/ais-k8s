@@ -2,17 +2,17 @@ cluster: ais
 mpathInfo:
   storageClass: "ais-local-storage"
   size: 9.1Ti
-  paths:
-    - "/ais/sda"
-    - "/ais/sdb"
-    - "/ais/sdc"
-    - "/ais/sdd"
-    - "/ais/sde"
-    - "/ais/sdf"
-    - "/ais/sdg"
-    - "/ais/sdh"
-    - "/ais/sdi"
-    - "/ais/sdj"
+  mounts:
+    - path: "/ais/sda"
+    - path: "/ais/sdb"
+    - path: "/ais/sdc"
+    - path: "/ais/sdd"
+    - path: "/ais/sde"
+    - path: "/ais/sdf"
+    - path: "/ais/sdg"
+    - path: "/ais/sdh"
+    - path: "/ais/sdi"
+    - path: "/ais/sdj"
 size: 3
 protocol: https
 https:
