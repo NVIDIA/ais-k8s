@@ -31,6 +31,12 @@ logSidecarImage:
 cloud:
   awsSecretName: "aws-creds"
 configToUpdate:
+  auth:
+    enabled: true
+    cluster_key:
+      enabled: true
+    signature:
+      method: hmac
   memsys:
     min_free: 8GiB
     to_gc: 8GiB
@@ -41,7 +47,15 @@ configToUpdate:
       idle_conns: 2048
       idle_conns_per_host: 128
 stateStorageClass: "local-path"
-authNSecretName: "jwt-signing-key"
+authNSecretName: "ais-authn-jwt-signing-key"
+
+auth: 
+  serviceURL: "https://ais-authn.ais:52001"
+  usernamePassword:
+    secretName: ais-authn-su-creds
+    secretNamespace: ais
+  tls:
+    insecureSkipVerify: true
 
 proxySpec:
   tolerations: []

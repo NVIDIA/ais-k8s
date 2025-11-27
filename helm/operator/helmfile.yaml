@@ -7,6 +7,14 @@ environments:
         env: default
     - createCert:
         enabled: false
+  oci-ord: 
+    values:
+    - envFile: default
+    - authnCM:
+        enabled: false
+        env: default
+    - createCert:
+        enabled: false
   sjc4-1000:
     values:
       - envFile: default
