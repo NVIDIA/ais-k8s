@@ -7,6 +7,11 @@ Note: Changes to Helm charts, Ansible playbooks, and other deployment tools are 
 We structure this changelog in accordance with [Keep a Changelog](https://keepachangelog.com/) guidelines, and this project follows [Semantic Versioning](https://semver.org/).
 
 ---
+## v2.9.3
+
+### Changed
+
+- Updated dependencies including AIS to latest `v4.1-rc1` commit to include latest `cluster_key` config
 
 ## v2.9.2
 
