@@ -19,10 +19,11 @@ spec:
     httpEnabled: true
     httpPort: 8180
     httpsPort: 8543
+    tlsSecret: keycloak-tls
   hostname: 
-    hostname: keycloak.local
+    # Sets up Keycloak server to be internally accessible by K8s service
+    hostname: keycloak-server-service.keycloak.svc.cluster.local
   ingress:
     enabled: true
-    tlsSecret: keycloak-tls
   proxy:
     headers: xforwarded # double check your reverse proxy sets and overwrites the X-Forwarded-* headers

@@ -54,16 +54,24 @@ Check your connection
 curl --cacert server.crt.pem https://localhost:8443/realms/aistore
 ```
 
+## Create an admin user
+
+When first deployed, the AIStore realm does not include any users, which must exist to fetch tokens. 
+You can create AIS users manually or use our utility Python script to create `ais-admin` (update args as needed): 
+
+```bash
+../scripts/prepare_cluster.sh https://localhost:8443 admin admin ./server.crt.pem
+```
+
 ## Getting a Token
 
-As of now, the AIStore realm does not include any users, which must exist to fetch tokens. 
 Once created, a token can be fetched from the above service with a curl command like the following:
 
 ```bash
 curl -k \
   -d "client_id=AIStore" \
   -d "username=ais-admin" \
-  -d "password=password" \
+  -d "password=<your password>" \
   -d "grant_type=password" \
   "https://localhost:8443/realms/aistore/protocol/openid-connect/token" | jq -r ".access_token"
 ```

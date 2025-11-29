@@ -9,6 +9,7 @@ set -e
 # 3. Installs keycloak
 # 4. Imports AIS realm
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLUSTER_NAME="keycloak-test"
 
 if kind get clusters | grep -qw "${CLUSTER_NAME}"; then
@@ -60,12 +61,25 @@ done
 echo "Waiting for keycloak to be ready (takes some time)..."
 kubectl wait --for=condition=Ready --timeout=180s keycloak/keycloak-server -n keycloak
 
+# TODO: Run this only when necessary
 # Run import realm job
 ./realm/import-realm.sh
 
 # Print initial temp admin credentials
 USER=$(kubectl get secret -n keycloak keycloak-server-initial-admin -o jsonpath='{.data.username}' | base64 --decode)
 PASS=$(kubectl get secret -n keycloak keycloak-server-initial-admin -o jsonpath='{.data.password}' | base64 --decode)
+
+# Start a port forward and kill at the end of the script
+kubectl port-forward -n keycloak service/keycloak-server-service 8543:8543 >/dev/null 2>&1 &
+pid=$!
+trap "kill $pid" EXIT
+
+# Get ca.crt for trust from the issuer
+CA_FILE=$SCRIPT_DIR/scripts/ca.crt
+kubectl get secret ca-root-secret -n cert-manager -o "jsonpath={.data['ca\.crt']}" | base64 -d > "$CA_FILE"
+# Create an ais-admin user
+KEYCLOAK_HOST="https://keycloak-server-service.keycloak.svc.cluster.local:8543"
+"$SCRIPT_DIR/scripts/prepare_cluster.sh" "$KEYCLOAK_HOST" "$USER" "$PASS" "$CA_FILE"
 
 echo ""
 echo "Initial admin user: ${USER}"

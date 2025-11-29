@@ -67,9 +67,38 @@ To create an non-production automated deployment on a local KinD cluster, see [t
 
 ## AIStore Realm
 
-> As shipped, this is ONLY for development usage. If using this realm for **ANY** production purpose, you **MUST** update the password for the `ais-admin` user. 
-
 The AIStore Realm is auto-imported in both the Docker and KinD deployment automation.
 
-This realm comes by default with a client `AIStore` and an admin user `ais-admin` with password `admin-pass`.
-This user contains the `admin` claim and any tokens fetched by this user will have full admin access to any AIS cluster that trusts this issuer. 
+This realm comes by default with a client `AIStore` and a default admin role that can be assigned to users. 
+Additional attributes can be added to match the JWT claim format described above. 
+
+## Using test-cluster.sh
+
+This provided script will set up a local KinD cluster along with a simple Keycloak deployment including all prerequisites and an AIStore realm. 
+
+By default this deployment is set up for cluster-internal access.
+You can use kubectl port-forward to expose the service on your local machine outside K8s: 
+
+```bash
+kubectl port-forward -n keycloak service/keycloak-server-service 8543:8543
+```
+
+Your request URL must match the hostname defined in [the keycloak manifest](./manifests/keycloak.yaml). 
+Modify your etc/hosts file to route your request to the port on your local machine mapped above to the internal service.
+For example: 
+
+```bash
+ cat /etc/hosts
+127.0.0.1       localhost keycloak-server-service.keycloak.svc.cluster.local
+```
+
+Now you can get a token from the service running inside K8s on your machine:
+
+```bash
+curl -k \
+  -d "client_id=AIStore" \
+  -d "username=ais-admin" \
+  -d "password=<your password>" \
+  -d "grant_type=password" \
+  "https://keycloak-server-service.keycloak.svc.cluster.local:8543/realms/aistore/protocol/openid-connect/token" | jq -r ".access_token"
+```
