@@ -1,5 +1,0 @@
-# Nodes to create PVs on -- other values will be pulled from the ais config
-nodes: 
-  - keycloak-test-worker
-  - keycloak-test-worker2
-  - keycloak-test-worker3

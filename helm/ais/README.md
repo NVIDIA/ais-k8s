@@ -7,21 +7,21 @@ For details on the values accepted by the AIS chart, see the [values schema](./c
 We use helmfile to manage values files for different deployments as well as to automate running scripts for various administrative purposes.
 See the [cluster management section](#cluster-management) before enabling any of the additional values in the helmfile. 
 
-## Cluster management
+## Cluster Management
 
-Important: Add a values file for your environment matching the format <env>.yaml to [the cluster-setup config directory](./config/cluster-setup/). 
-See the [README](./config/cluster-setup/README.md) for instructions.
-These values will be used for the additional scripts specified for the environment in helmfile. 
+### Node Labeling
 
-### Node labeling
+The [label-nodes.sh](./scripts/label-nodes.sh) convenience script labels nodes with `nvidia.com/ais-proxy=<cluster>` and `nvidia.com/ais-target=<cluster>`.
+These labels are used for scheduling via `nodeSelector` and by `create-pvs.sh` to discover target nodes.
 
-The provided helmfile will run the [label-nodes.sh](./scripts/label-nodes.sh) if the value is set for the environment: `labelNodes.enabled: true`.
-This script will read the nodes from the [cluster-setup config file](./config/cluster-setup/) and use `kubectl` to label them with our default labels: `nvidia.com/ais-proxy=<cluster>` and `nvidia.com/ais-target=<cluster>` . 
+```bash
+./scripts/label-nodes.sh <cluster> <node1,node2,...|--all>
+``` 
 
 ### PV Creation
 
-The provided helmfile will run the [create-pvs.sh](./scripts/create-pvs.sh) if the value is set for the environment: `createPV: true`.
-This will use `helm` to template using the provided values files and `kubectl` to create HostPath persistent volumes for each of the mount-paths for every target in the cluster.
+The provided helmfile will run the [create-pvs.sh](./scripts/create-pvs.sh) if the value is set for the environment: `createPV.enabled: true`.
+This queries for labeled target nodes and creates HostPath persistent volumes for each mount-path on every labeled target.
 
 If you want to use an existing set of PVs, set `createPV.enabled: false`.
 You can also change the `storageClass` option to instruct AIS target pods to mount a different existing storage class.
