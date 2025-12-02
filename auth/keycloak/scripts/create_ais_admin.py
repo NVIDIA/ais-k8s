@@ -134,6 +134,18 @@ def create_realm_user(admin, realm, user):
         print(f"Failed to create user '{user}': {e}", file=sys.stderr)
         sys.exit(1)
 
+def join_admin_group(admin, realm, user):
+    group_name = "Admin Users"
+    user_id = admin.get_user_id(user)
+    group = admin.get_group_by_path(f"/{group_name}")
+    group_id = group["id"]
+    try:
+        admin.group_user_add(user_id=user_id, group_id=group_id)
+        print(f"User '{user}' added to group '{group_name}' in realm '{realm}'")
+    except Exception as e:
+        print(f"Failed to add '{user}' to group '{group_name}': {e}", file=sys.stderr)
+        sys.exit(1)
+
 
 def main():
     args = parse_args()
@@ -143,6 +155,7 @@ def main():
     exists = check_user_existence(admin, realm, user)
     if not exists:
         create_realm_user(admin, realm, user)
+    join_admin_group(admin, realm, user)
 
 
 if __name__ == "__main__":
