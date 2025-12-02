@@ -1,117 +1,143 @@
-environments: 
+environments:
   default:
     values:
-    - https:
-        enabled: false
-      # Only controls secret creation, update AIS config "cloud" to use
-      cloudSecrets:
-        enabled: false
-      # Whether to create PVs for target nodes based on values
-      createPV:
-        enabled: false
-  sjc4-1000:
-    values:
-    - https:
-        enabled: true
-      cloudSecrets:
-        enabled: false
-      createPV:
-        enabled: true
-    kubeContext: sjc4-1000
-  sjc11:
-    values: 
-    - https:
-        enabled: true
-      cloudSecrets:
-        enabled: false
-      createPV:
-        enabled: true
-    kubeContext: sjc11
-  sjc112:
-    values:
-      - https:
-          enabled: true
+      - valuesPath: ./config/ais/default.yaml
+        https:
+          enabled: false
         cloudSecrets:
           enabled: false
         createPV:
           enabled: true
-    kubeContext: sjc112
-  oci-iad:
-    values: 
-    - https:
-        enabled: false
-      cloudSecrets:
-        enabled: false
-      createPV:
-        enabled: false
-    kubeContext: oci-iad
-  oci-iad-test:
-    values: 
-    - https:
-        enabled: false
-      cloudSecrets:
-        enabled: false
-      createPV:
-        enabled: true
-    kubeContext: oci-iad-test
-  sjc4-dev:
-    values: 
-    - https:
-        enabled: true
-      cloudSecrets:
-        enabled: false
-      createPV:
-        enabled: true
-    kubeContext: sjc4-dev
-  oci-ord:
-    values: 
-    - https:
-        enabled: false
-      cloudSecrets:
-        enabled: false
-      createPV:
-        enabled: false
-    kubeContext: oci-ord
-  oci-kratos:
-    values: 
-    - https:
-        enabled: false
-      cloudSecrets:
-        enabled: false
-      createPV:
-        enabled: false
-    kubeContext: oci-kratos
-  neb-fin:
-    values: 
-    - https:
-        # Values used to template before deploying AuthN 
-        enabled: false
-      cloudSecrets:
-        enabled: false
-      createPV:
-        enabled: false
-    kubeContext: neb-fin
-  neb-fin-test:
-    values: 
-    - https:
-        enabled: false
-      cloudSecrets:
-        enabled: false
-      createPV:
-        enabled: false
-    kubeContext: neb-fin-test
+
   keycloak:
-    values:
-    - https:
-        enabled: true
-      cloudSecrets:
-        enabled: false
-      createPV:
-        enabled: true
     kubeContext: kind-keycloak-test
+    values:
+      - valuesPath: ./config/ais/keycloak.yaml
+        https:
+          enabled: true
+          valuesPath: ./config/tls-cert/keycloak.yaml
+        cloudSecrets:
+          enabled: false
+        createPV:
+          enabled: true
+
+  sjc4-dev:
+    kubeContext: sjc4-dev
+    values:
+      - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/ais/config/ais/sjc4-dev.yaml?ref=main"
+        https:
+          enabled: true
+          valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/ais/config/tls-cert/sjc4-dev.yaml?ref=main"
+        cloudSecrets:
+          enabled: false
+        createPV:
+          enabled: true
+
+  sjc4-1000:
+    kubeContext: sjc4-1000
+    values:
+      - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/ais/config/ais/sjc4-1000.yaml?ref=main"
+        https:
+          enabled: true
+          valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/ais/config/tls-cert/sjc4-1000.yaml?ref=main"
+        cloudSecrets:
+          enabled: false
+        createPV:
+          enabled: true
+
+  sjc11:
+    kubeContext: sjc11
+    values:
+      - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/ais/config/ais/sjc11.yaml?ref=main"
+        https:
+          enabled: true
+          valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/ais/config/tls-cert/sjc11.yaml?ref=main"
+        cloudSecrets:
+          enabled: false
+          valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/ais/config/cloud/sjc11.yaml.gotmpl?ref=main"
+        createPV:
+          enabled: true
+
+  sjc112:
+    kubeContext: sjc112
+    values:
+      - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/ais/config/ais/sjc112.yaml?ref=main"
+        https:
+          enabled: true
+          valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/ais/config/tls-cert/sjc112.yaml?ref=main"
+        cloudSecrets:
+          enabled: false
+        createPV:
+          enabled: true
+
+  oci-iad:
+    kubeContext: oci-iad
+    values:
+      - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/ais/config/ais/oci-iad.yaml?ref=main"
+        https:
+          enabled: false
+        cloudSecrets:
+          enabled: false
+        createPV:
+          enabled: false
+
+  oci-iad-test:
+    kubeContext: oci-iad-test
+    values:
+      - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/ais/config/ais/oci-iad-test.yaml?ref=main"
+        https:
+          enabled: false
+        cloudSecrets:
+          enabled: false
+        createPV:
+          enabled: true
+
+  oci-ord:
+    kubeContext: oci-ord
+    values:
+      - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/ais/config/ais/oci-ord.yaml?ref=main"
+        https:
+          enabled: false
+        cloudSecrets:
+          enabled: false
+        createPV:
+          enabled: false
+
+  oci-kratos:
+    kubeContext: oci-kratos
+    values:
+      - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/ais/config/ais/oci-kratos.yaml?ref=main"
+        https:
+          enabled: false
+        cloudSecrets:
+          enabled: false
+        createPV:
+          enabled: false
+
+  neb-fin:
+    kubeContext: neb-fin
+    values:
+      - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/ais/config/ais/neb-fin.yaml?ref=main"
+        https:
+          enabled: false
+        cloudSecrets:
+          enabled: false
+        createPV:
+          enabled: false
+
+  neb-fin-test:
+    kubeContext: neb-fin-test
+    values:
+      - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/ais/config/ais/neb-fin-test.yaml?ref=main"
+        https:
+          enabled: false
+        cloudSecrets:
+          enabled: false
+        createPV:
+          enabled: false
+
 ---
 releases:
-  # Acquires a tls cert from the specified issuer and stores in a secret for AIS
   - name: ais-tls-cert
     namespace: ais
     createNamespace: true
@@ -119,10 +145,9 @@ releases:
     version: 0.1.0
     condition: https.enabled
     values:
-      - "./config/tls-cert/{{ .Environment.Name }}.yaml"
-      - "./config/ais/{{ .Environment.Name }}.yaml"
+      - "{{ .Environment.Values.https | get \"valuesPath\" \"\" }}"
+      - "{{ .Environment.Values.valuesPath }}"
 
-  # Sets up cloud secrets for AIS pods to mount and use for accessing remote backends
   - name: ais-cloud-secrets
     namespace: ais
     createNamespace: true
@@ -130,8 +155,8 @@ releases:
     version: 0.1.0
     condition: cloudSecrets.enabled
     values:
-      - "./config/cloud/{{ .Environment.Name }}.yaml.gotmpl"
-      - "./config/ais/{{ .Environment.Name }}.yaml"
+      - "{{ .Environment.Values.cloudSecrets | get \"valuesPath\" \"\" }}"
+      - "{{ .Environment.Values.valuesPath }}"
 
   - name: ais-create-pv
     namespace: ais
@@ -140,12 +165,12 @@ releases:
     version: 0.1.0
     condition: createPV.enabled
     values:
-      - "./config/ais/{{ .Environment.Name }}.yaml"
-
+      - "{{ .Environment.Values.valuesPath }}"
+      
   - name: ais-cluster
     namespace: ais
     createNamespace: true
     chart: charts/ais-cluster
     version: 0.4.0
     values:
-      - "./config/ais/{{ .Environment.Name }}.yaml"
+      - "{{ .Environment.Values.valuesPath }}"
