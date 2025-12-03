@@ -115,6 +115,11 @@ func (r *AIStoreReconciler) handleTargetState(ctx context.Context, ais *aisv1.AI
 			if err != nil {
 				return
 			}
+			// Refresh StatefulSet after updating replicas
+			ss, err = r.k8sClient.GetStatefulSet(ctx, target.StatefulSetNSName(ais))
+			if err != nil {
+				return
+			}
 		}
 	}
 	// Start the target scaling process by updating services and contacting the AIS API
