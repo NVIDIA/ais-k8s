@@ -15,6 +15,7 @@ import (
 	aiscmn "github.com/NVIDIA/aistore/cmn"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	aisclient "github.com/ais-operator/pkg/client"
+	"github.com/ais-operator/pkg/resources/adminclient"
 	"github.com/ais-operator/pkg/resources/cmn"
 	"github.com/ais-operator/pkg/resources/proxy"
 	"github.com/ais-operator/pkg/resources/statsd"
@@ -464,14 +465,20 @@ func (r *AIStoreReconciler) reconcileResources(ctx context.Context, ais *aisv1.A
 
 	// 2. Deploy statsd ConfigMap. Required by both proxies and targets.
 	statsDCM := statsd.NewStatsDCM(ais)
-	if err = r.k8sClient.CreateOrUpdateResource(ctx, ais, statsDCM); err != nil {
+	if _, err = r.k8sClient.CreateOrUpdateResource(ctx, ais, statsDCM); err != nil {
 		r.recordError(ctx, ais, err, "Failed to deploy StatsD ConfigMap")
 		return err
 	}
 
 	// 3. Deploy global cluster ConfigMap.
-	if err = r.k8sClient.CreateOrUpdateResource(ctx, ais, globalCM); err != nil {
+	if _, err = r.k8sClient.CreateOrUpdateResource(ctx, ais, globalCM); err != nil {
 		r.recordError(ctx, ais, err, "Failed to deploy global cluster ConfigMap")
+		return err
+	}
+
+	// 4. Deploy admin client if enabled.
+	if err = r.reconcileAdminClient(ctx, ais); err != nil {
+		r.recordError(ctx, ais, err, "Failed to reconcile admin client")
 		return err
 	}
 
@@ -718,21 +725,21 @@ func calcRestartConfigAnnotation(annot string, conf *aiscmn.ConfigToSet) (string
 func (r *AIStoreReconciler) createOrUpdateRBACResources(ctx context.Context, ais *aisv1.AIStore) (err error) {
 	// 1. Create service account if not exists
 	sa := cmn.NewAISServiceAccount(ais)
-	if err = r.k8sClient.CreateOrUpdateResource(ctx, nil, sa); err != nil {
+	if _, err = r.k8sClient.CreateOrUpdateResource(ctx, nil, sa); err != nil {
 		r.recordError(ctx, ais, err, "Failed to create ServiceAccount")
 		return
 	}
 
 	// 2. Create AIS Role
 	role := cmn.NewAISRBACRole(ais)
-	if err = r.k8sClient.CreateOrUpdateResource(ctx, nil, role); err != nil {
+	if _, err = r.k8sClient.CreateOrUpdateResource(ctx, nil, role); err != nil {
 		r.recordError(ctx, ais, err, "Failed to create Role")
 		return
 	}
 
 	// 3. Create binding for the Role
 	rb := cmn.NewAISRBACRoleBinding(ais)
-	if err = r.k8sClient.CreateOrUpdateResource(ctx, nil, rb); err != nil {
+	if _, err = r.k8sClient.CreateOrUpdateResource(ctx, nil, rb); err != nil {
 		r.recordError(ctx, ais, err, "Failed to create RoleBinding")
 		return
 	}
@@ -748,6 +755,32 @@ func (r *AIStoreReconciler) createOrUpdateRBACResources(ctx context.Context, ais
 	}
 
 	return
+}
+
+// reconcileAdminClient handles creating, updating, or deleting the admin client deployment
+func (r *AIStoreReconciler) reconcileAdminClient(ctx context.Context, ais *aisv1.AIStore) error {
+	logger := logf.FromContext(ctx)
+	if ais.AdminClientEnabled() {
+		// Create or update the client deployment
+		clientDeploy := adminclient.NewClientDeployment(ais)
+		changed, err := r.k8sClient.CreateOrUpdateResource(ctx, ais, clientDeploy)
+		if err != nil {
+			return err
+		}
+		if changed {
+			logger.Info("Reconciled admin client deployment", "name", ais.AdminClientName())
+		}
+		return nil
+	}
+	// Delete the client deployment if it exists
+	deleted, err := r.k8sClient.DeleteDeploymentIfExists(ctx, adminclient.DeploymentNSName(ais))
+	if err != nil {
+		return err
+	}
+	if deleted {
+		logger.Info("Deleted admin client deployment", "name", ais.AdminClientName())
+	}
+	return nil
 }
 
 func (r *AIStoreReconciler) disableRebalance(ctx context.Context, ais *aisv1.AIStore, reason aisv1.ClusterConditionReason, msg string) error {

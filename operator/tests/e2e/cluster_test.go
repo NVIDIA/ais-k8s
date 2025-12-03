@@ -32,6 +32,28 @@ var _ = Describe("Run Controller", func() {
 				cc := newClientCluster(ctx, AISTestContext, WorkerCtx.K8sClient, cluArgs)
 				cc.createAndDestroyCluster(cc.waitForResources, cc.waitForResourceDeletion)
 			})
+
+			It("Should deploy admin client when enabled", func(ctx context.Context) {
+				cluArgs.EnableAdminClient = true
+				cc := newClientCluster(ctx, AISTestContext, WorkerCtx.K8sClient, cluArgs)
+				cc.createAndDestroyCluster(cc.verifyAdminClientExists, cc.verifyAdminClientDeleted)
+			})
+
+			It("Should allow toggling admin client on running cluster", func(ctx context.Context) {
+				cc := newClientCluster(ctx, AISTestContext, WorkerCtx.K8sClient, cluArgs)
+				defer func() {
+					cc.printLogs()
+					cc.destroyAndCleanup()
+				}()
+				cc.create()
+				cc.waitForResources()
+
+				cc.enableAdminClient()
+				cc.verifyAdminClientExists()
+
+				cc.disableAdminClient()
+				cc.verifyAdminClientDeleted()
+			})
 		})
 
 		Context("with externalLB", func() {

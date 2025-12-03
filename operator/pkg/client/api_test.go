@@ -58,7 +58,7 @@ var _ = Describe("K8sClient", func() {
 		})
 
 		It("should create an object if not exists", func() {
-			err := k8sClient.CreateOrUpdateResource(ctx, ais, &corev1.ConfigMap{
+			_, err := k8sClient.CreateOrUpdateResource(ctx, ais, &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-configmap",
 					Namespace: ns.GetName(),
@@ -76,7 +76,7 @@ var _ = Describe("K8sClient", func() {
 				},
 				Data: map[string]string{"hello": "from-aistore"},
 			}
-			err := k8sClient.CreateOrUpdateResource(ctx, ais, cm)
+			_, err := k8sClient.CreateOrUpdateResource(ctx, ais, cm)
 			Expect(err).NotTo(HaveOccurred())
 
 			updatedCM := &corev1.ConfigMap{
@@ -86,7 +86,7 @@ var _ = Describe("K8sClient", func() {
 				},
 				Data: map[string]string{"hello": "from-aistore-updated"},
 			}
-			err = k8sClient.CreateOrUpdateResource(ctx, ais, updatedCM)
+			_, err = k8sClient.CreateOrUpdateResource(ctx, ais, updatedCM)
 			Expect(err).NotTo(HaveOccurred())
 
 			fetchCM := &corev1.ConfigMap{}
@@ -103,10 +103,10 @@ var _ = Describe("K8sClient", func() {
 				},
 				Data: map[string]string{"hello": "from-aistore"},
 			}
-			err := k8sClient.CreateOrUpdateResource(ctx, ais, cm.DeepCopy())
+			_, err := k8sClient.CreateOrUpdateResource(ctx, ais, cm.DeepCopy())
 			Expect(err).NotTo(HaveOccurred())
 
-			err = k8sClient.CreateOrUpdateResource(ctx, ais, cm.DeepCopy())
+			_, err = k8sClient.CreateOrUpdateResource(ctx, ais, cm.DeepCopy())
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -125,7 +125,7 @@ var _ = Describe("K8sClient", func() {
 				},
 			}
 			newRes := podObj.DeepCopy()
-			err := k8sClient.CreateOrUpdateResource(ctx, ais, newRes)
+			_, err := k8sClient.CreateOrUpdateResource(ctx, ais, newRes)
 			Expect(err).NotTo(HaveOccurred())
 
 			podWithStatus := podObj.DeepCopy()
@@ -135,7 +135,7 @@ var _ = Describe("K8sClient", func() {
 			err = c.Status().Update(ctx, podWithStatus)
 			Expect(err).NotTo(HaveOccurred())
 
-			err = k8sClient.CreateOrUpdateResource(ctx, ais, podObj)
+			_, err = k8sClient.CreateOrUpdateResource(ctx, ais, podObj)
 			Expect(err).NotTo(HaveOccurred())
 		})
 	})

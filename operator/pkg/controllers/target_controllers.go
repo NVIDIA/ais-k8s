@@ -33,14 +33,14 @@ func (r *AIStoreReconciler) ensureTargetPrereqs(ctx context.Context, ais *aisv1.
 		return
 	}
 
-	if err = r.k8sClient.CreateOrUpdateResource(ctx, ais, cm); err != nil {
+	if _, err = r.k8sClient.CreateOrUpdateResource(ctx, ais, cm); err != nil {
 		r.recordError(ctx, ais, err, "Failed to deploy target ConfigMap")
 		return
 	}
 
 	// 2. Deploy services
 	svc := target.NewTargetHeadlessSvc(ais)
-	if err = r.k8sClient.CreateOrUpdateResource(ctx, ais, svc); err != nil {
+	if _, err = r.k8sClient.CreateOrUpdateResource(ctx, ais, svc); err != nil {
 		r.recordError(ctx, ais, err, "Failed to deploy target SVC")
 		return
 	}
@@ -425,7 +425,7 @@ func (r *AIStoreReconciler) enableTargetExternalService(ctx context.Context,
 	targetSVCList := target.NewLoadBalancerSVCList(ais)
 	// 1. Try creating a LoadBalancer service for each target pod
 	for _, svc := range targetSVCList {
-		err := r.k8sClient.CreateOrUpdateResource(ctx, ais, svc)
+		_, err := r.k8sClient.CreateOrUpdateResource(ctx, ais, svc)
 		if err != nil {
 			return err
 		}

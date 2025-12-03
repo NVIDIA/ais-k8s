@@ -242,6 +242,27 @@ func checkSSExists(ctx context.Context, client *aisclient.K8sClient, name types.
 	return true
 }
 
+func checkDeploymentExists(ctx context.Context, client *aisclient.K8sClient, name types.NamespacedName) bool {
+	_, err := client.GetDeployment(ctx, name)
+	if apierrors.IsNotFound(err) {
+		return false
+	}
+	Expect(err).To(BeNil())
+	return true
+}
+
+func EventuallyDeploymentExists(
+	ctx context.Context,
+	client *aisclient.K8sClient,
+	name types.NamespacedName,
+	be OmegaMatcher,
+	intervals ...interface{},
+) {
+	Eventually(func() bool {
+		return checkDeploymentExists(ctx, client, name)
+	}, intervals...).Should(be)
+}
+
 func EventuallyPodsIsSize(
 	ctx context.Context,
 	client *aisclient.K8sClient,

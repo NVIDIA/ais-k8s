@@ -177,6 +177,69 @@ type TokenExchangeAuth struct {
 	TokenExchangeEndpoint *string `json:"tokenExchangeEndpoint,omitempty"`
 }
 
+// AdminClientSpec defines the optional admin client
+type AdminClientSpec struct {
+	// Enabled controls whether the admin client deployment is created.
+	// When AdminClient is specified without this field, it defaults to true.
+	// Set to false to disable the admin client while preserving other configuration.
+	// +optional
+	Enabled *bool `json:"enabled,omitempty"`
+
+	// Image is the container image for the admin client
+	// Defaults to "aistorage/ais-util:latest"
+	// +optional
+	Image *string `json:"image,omitempty"`
+
+	// ImagePullPolicy for the admin client container
+	// +optional
+	ImagePullPolicy *corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
+
+	// Resources for the admin client container
+	// +optional
+	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
+
+	// Annotations to apply to the admin client
+	// +optional
+	Annotations map[string]string `json:"annotations,omitempty"`
+
+	// Labels to apply to the admin client in addition to the default labels
+	// +optional
+	Labels map[string]string `json:"labels,omitempty"`
+
+	// NodeSelector for admin client scheduling
+	// +optional
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+
+	// Affinity scheduling rules for the admin client
+	// +optional
+	Affinity *corev1.Affinity `json:"affinity,omitempty"`
+
+	// Tolerations for the admin client
+	// +optional
+	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
+
+	// Env allows specifying additional environment variables for the admin client container
+	// +optional
+	Env []corev1.EnvVar `json:"env,omitempty"`
+
+	// CAConfigMap specifies the ConfigMap containing the CA bundle for TLS trust
+	// When specified, the ConfigMap is mounted and AIS_CLIENT_CA is set
+	// +optional
+	CAConfigMap *CAConfigMapRef `json:"caConfigMap,omitempty"`
+}
+
+// CAConfigMapRef references a ConfigMap containing a CA certificate bundle
+type CAConfigMapRef struct {
+	// Name of the ConfigMap containing the CA bundle
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+
+	// Key within the ConfigMap containing the CA certificate bundle in PEM format
+	// Defaults to "trust-bundle.pem"
+	// +optional
+	Key *string `json:"key,omitempty"`
+}
+
 // AIStoreSpec defines the desired state of AIStore
 // +kubebuilder:validation:XValidation:rule="(has(self.targetSpec.size) && has(self.proxySpec.size)) || has(self.size)",message="Invalid cluster size, it is either not specified or value is not valid"
 type AIStoreSpec struct {
@@ -307,6 +370,11 @@ type AIStoreSpec struct {
 	// +kubebuilder:default:=IP
 	// +optional
 	PublicNetDNSMode *PubNetDNSMode `json:"publicNetDNSMode,omitempty"`
+
+	// AdminClient specifies the optional admin client deployment
+	// The deployment is automatically configured to connect to this AIS cluster
+	// +optional
+	AdminClient *AdminClientSpec `json:"adminClient,omitempty"`
 }
 
 // AIStoreStatus defines the observed state of AIStore
@@ -698,6 +766,20 @@ func (ais *AIStore) ShouldCleanupMetadata() bool {
 
 func (ais *AIStore) AllowTargetSharedNodes() bool {
 	return ais.Spec.TargetSpec.DisablePodAntiAffinity != nil && *ais.Spec.TargetSpec.DisablePodAntiAffinity
+}
+
+// AdminClientEnabled returns true if the admin client should be deployed
+func (ais *AIStore) AdminClientEnabled() bool {
+	if ais.Spec.AdminClient == nil {
+		return false
+	}
+	// Enabled defaults to true when AdminClient is specified
+	return ais.Spec.AdminClient.Enabled == nil || *ais.Spec.AdminClient.Enabled
+}
+
+// AdminClientName returns the name for the admin client deployment
+func (ais *AIStore) AdminClientName() string {
+	return ais.Name + "-client"
 }
 
 func (s *AIStoreSpec) hasAWSBackend() bool {

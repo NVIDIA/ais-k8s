@@ -106,6 +106,10 @@ func (c *K8sClient) GetStatefulSet(ctx context.Context, name types.NamespacedNam
 	return getResource[*appsv1.StatefulSet](c.client, ctx, name)
 }
 
+func (c *K8sClient) GetDeployment(ctx context.Context, name types.NamespacedName) (*appsv1.Deployment, error) {
+	return getResource[*appsv1.Deployment](c.client, ctx, name)
+}
+
 func (c *K8sClient) GetService(ctx context.Context, name types.NamespacedName) (*corev1.Service, error) {
 	return getResource[*corev1.Service](c.client, ctx, name)
 }
@@ -256,26 +260,26 @@ func (c *K8sClient) CreateResourceIfNotExists(ctx context.Context, owner *aisv1.
 	return
 }
 
-func (c *K8sClient) CreateOrUpdateResource(ctx context.Context, owner *aisv1.AIStore, res client.Object) (err error) {
+func (c *K8sClient) CreateOrUpdateResource(ctx context.Context, owner *aisv1.AIStore, res client.Object) (changed bool, err error) {
 	exists, err := c.CreateResourceIfNotExists(ctx, owner, res)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	if !exists {
-		// resource create for first time
-		return nil
+		// resource created for first time
+		return true, nil
 	}
 
 	key := client.ObjectKeyFromObject(res)
 	existingObj := res.DeepCopyObject().(client.Object)
 	if err := c.client.Get(ctx, key, existingObj); err != nil {
-		return err
+		return false, err
 	}
 	if equality.Semantic.DeepDerivative(res, existingObj) {
-		return nil
+		return false, nil
 	}
-	return c.client.Update(ctx, res)
+	return true, c.client.Update(ctx, res)
 }
 
 func (c *K8sClient) CheckIfNamespaceExists(ctx context.Context, name string) (exists bool, err error) {
@@ -382,6 +386,10 @@ func (c *K8sClient) deleteAllPVCsIfExist(ctx context.Context, pvcs *corev1.Persi
 
 func (c *K8sClient) DeleteStatefulSetIfExists(ctx context.Context, name types.NamespacedName) (existed bool, err error) {
 	return deleteResourceIfExists[*appsv1.StatefulSet](c, ctx, name)
+}
+
+func (c *K8sClient) DeleteDeploymentIfExists(ctx context.Context, name types.NamespacedName) (existed bool, err error) {
+	return deleteResourceIfExists[*appsv1.Deployment](c, ctx, name)
 }
 
 func (c *K8sClient) DeleteConfigMapIfExists(ctx context.Context, name types.NamespacedName) (existed bool, err error) {

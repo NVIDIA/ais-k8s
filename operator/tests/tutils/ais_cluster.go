@@ -44,6 +44,7 @@ type (
 		LogSidecarImage           string
 		DisableTargetAntiAffinity bool
 		EnableExternalLB          bool
+		EnableAdminClient         bool
 		ShutdownCluster           bool
 		CleanupMetadata           bool
 		CleanupData               bool
@@ -203,6 +204,10 @@ func newAISClusterCR(args *ClusterSpecArgs, mounts []aisv1.Mount) *aisv1.AIStore
 
 	if args.ProxySize != 0 {
 		spec.ProxySpec.Size = &args.ProxySize
+	}
+
+	if args.EnableAdminClient {
+		spec.AdminClient = &aisv1.AdminClientSpec{}
 	}
 
 	cluster := &aisv1.AIStore{

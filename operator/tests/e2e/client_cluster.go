@@ -17,6 +17,7 @@ import (
 	aistutils "github.com/NVIDIA/aistore/tools"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	aisclient "github.com/ais-operator/pkg/client"
+	"github.com/ais-operator/pkg/resources/adminclient"
 	"github.com/ais-operator/pkg/resources/proxy"
 	"github.com/ais-operator/pkg/resources/target"
 	"github.com/ais-operator/tests/tutils"
@@ -310,6 +311,33 @@ func (cc *clientCluster) waitForResources() {
 func (cc *clientCluster) waitForResourceDeletion() {
 	tutils.CheckResExistence(cc.ctx, cc.cluster, cc.aisCtx, cc.k8sClient, false /*exists*/)
 	tutils.CheckPVCDoesNotExist(cc.ctx, cc.cluster, cc.aisCtx, cc.k8sClient)
+}
+
+func (cc *clientCluster) enableAdminClient() {
+	cc.fetchLatestCluster()
+	if cc.cluster.Spec.AdminClient != nil {
+		cc.cluster.Spec.AdminClient.Enabled = aisapc.Ptr(true)
+	} else {
+		cc.cluster.Spec.AdminClient = &aisv1.AdminClientSpec{Enabled: aisapc.Ptr(true)}
+	}
+	Expect(cc.k8sClient.Update(cc.ctx, cc.cluster)).To(Succeed())
+}
+
+func (cc *clientCluster) disableAdminClient() {
+	cc.fetchLatestCluster()
+	if cc.cluster.Spec.AdminClient == nil {
+		return
+	}
+	cc.cluster.Spec.AdminClient.Enabled = aisapc.Ptr(false)
+	Expect(cc.k8sClient.Update(cc.ctx, cc.cluster)).To(Succeed())
+}
+
+func (cc *clientCluster) verifyAdminClientExists() {
+	tutils.EventuallyDeploymentExists(cc.ctx, cc.k8sClient, adminclient.DeploymentNSName(cc.cluster), BeTrue(), clusterReadyTimeout, clusterReadyRetryInterval)
+}
+
+func (cc *clientCluster) verifyAdminClientDeleted() {
+	tutils.EventuallyDeploymentExists(cc.ctx, cc.k8sClient, adminclient.DeploymentNSName(cc.cluster), BeFalse(), clusterDestroyTimeout, clusterDestroyInterval)
 }
 
 func (cc *clientCluster) verifyPodImages() {

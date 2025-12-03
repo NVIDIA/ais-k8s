@@ -10,6 +10,7 @@ import (
 	"time"
 
 	aisv1 "github.com/ais-operator/api/v1beta1"
+	"github.com/ais-operator/pkg/resources/adminclient"
 	"github.com/ais-operator/pkg/resources/cmn"
 	"github.com/ais-operator/pkg/resources/proxy"
 	"github.com/ais-operator/pkg/resources/statsd"
@@ -26,6 +27,7 @@ func (r *AIStoreReconciler) cleanup(ctx context.Context, ais *aisv1.AIStore) (up
 	updated, err = cmn.AnyFunc(
 		func() (bool, error) { return r.cleanupTarget(ctx, ais) },
 		func() (bool, error) { return r.cleanupProxy(ctx, ais) },
+		func() (bool, error) { return r.cleanupAdminClient(ctx, ais) },
 		func() (bool, error) { return r.k8sClient.DeleteConfigMapIfExists(ctx, statsd.ConfigMapNSName(ais)) },
 		func() (bool, error) { return r.cleanupRBAC(ctx, ais) },
 		func() (bool, error) { return r.cleanupPVC(ctx, ais) },
@@ -157,4 +159,8 @@ func (r *AIStoreReconciler) cleanupRBAC(ctx context.Context, ais *aisv1.AIStore)
 			return r.k8sClient.DeleteResourceIfExists(ctx, sa)
 		},
 	)
+}
+
+func (r *AIStoreReconciler) cleanupAdminClient(ctx context.Context, ais *aisv1.AIStore) (bool, error) {
+	return r.k8sClient.DeleteDeploymentIfExists(ctx, adminclient.DeploymentNSName(ais))
 }
