@@ -7,7 +7,7 @@ Note: Changes to Helm charts, Ansible playbooks, and other deployment tools are 
 We structure this changelog in accordance with [Keep a Changelog](https://keepachangelog.com/) guidelines, and this project follows [Semantic Versioning](https://semver.org/).
 
 ---
-## Unreleased
+## v2.10.0
 
 ### Added
 
@@ -17,7 +17,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ### Changed
 
-- Deprecated `enableNodeNameHost` added in v2.9.1 in favor of `publicNetDNSMode == Node`
+- Deprecate `enableNodeNameHost` added in v2.9.1 in favor of `publicNetDNSMode == Node`
 
 ## v2.9.3
 
