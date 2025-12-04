@@ -18,6 +18,7 @@ import (
 )
 
 const (
+	InitContainerName       = "populate-env"
 	AISContainerName        = "ais-node"
 	LabelApp                = "app"
 	LabelComponent          = "component"

@@ -86,6 +86,15 @@ const (
 	aisAzureURL          = "AIS_AZURE_URL"
 )
 
+// PubNetDNSMode defines allowed values for publicNetDNSMode spec option
+type PubNetDNSMode string
+
+const (
+	PubNetDNSModeIP   PubNetDNSMode = "IP"
+	PubNetDNSModeNode PubNetDNSMode = "Node"
+	PubNetDNSModePod  PubNetDNSMode = "Pod"
+)
+
 // NOTE: json tags are required. Any new fields you add must have json tags for the fields to be serialized.
 // IMPORTANT: Run "make" to regenerate code after modifying this file
 
@@ -289,10 +298,21 @@ type AIStoreSpec struct {
 	// EnableExternalLB, if set, enables external access to AIS cluster using LoadBalancer service
 	EnableExternalLB bool `json:"enableExternalLB"`
 
+	// Deprecated: Use PublicNetDNSMode with "Node" option
 	// EnableNodeNameHost - Use K8s Node name DNS resolution instead of IP addresses as the hostname for public endpoints
 	// Useful for using wildcards on Node DNS names when creating TLS certificates
 	// +optional
 	EnableNodeNameHost *bool `json:"enableNodeNameHost,omitempty"`
+
+	// PublicNetDNSMode Defines the public network DNS name to use with hostPort.
+	// Defaults to 'IP' to use the host IP.
+	// Other options include:
+	//  'Node' to use the K8s node DNS name
+	//  'Pod' to use the pod DNS name (resolves to host IP when used with host networking)
+	// +kubebuilder:validation:Enum=IP;Node;Pod
+	// +kubebuilder:default:=IP
+	// +optional
+	PublicNetDNSMode *PubNetDNSMode `json:"publicNetDNSMode,omitempty"`
 }
 
 // AIStoreStatus defines the observed state of AIStore
@@ -569,8 +589,14 @@ func (ais *AIStore) GetDiscoveryProxyURL() string {
 	return fmt.Sprintf("%s://%s.%s.%s", ais.getScheme(), svcName, ais.Namespace, svcSuffix)
 }
 
-func (ais *AIStore) EnableNodeNameHost() bool {
-	return ais.Spec.EnableNodeNameHost != nil && *ais.Spec.EnableNodeNameHost
+func (ais *AIStore) UseNodeNameForPublicNet() bool {
+	if ais.Spec.EnableNodeNameHost != nil && *ais.Spec.EnableNodeNameHost {
+		return true
+	}
+	if ais.Spec.PublicNetDNSMode != nil && *ais.Spec.PublicNetDNSMode == PubNetDNSModeNode {
+		return true
+	}
+	return false
 }
 
 func (ais *AIStore) getScheme() string {

@@ -7,6 +7,18 @@ Note: Changes to Helm charts, Ansible playbooks, and other deployment tools are 
 We structure this changelog in accordance with [Keep a Changelog](https://keepachangelog.com/) guidelines, and this project follows [Semantic Versioning](https://semver.org/).
 
 ---
+## Unreleased
+
+### Added
+
+- Add support for OAuth compatible 3rd party auth services with password-based login. Set `auth.serviceURL` to the token login endpoint and configure `auth.usernamePassword.loginConf.clientID`
+- Add `publicNetDNSMode` option. Supports `IP`, `Node`, or `Pod` values to determine what AIS uses for public network DNS. `IP` is the current default and matches existing deployments. `Pod` can be used with host networking to use pod DNS to resolve the host IP, allowing for more granular TLS certificates.
+- Add `HOST_IPS` env var to init containers with field ref `status.hostIPs`. Used for future init containers to use to determine public host based on other options without an explicit variable from the operator.
+
+### Changed
+
+- Deprecated `enableNodeNameHost` added in v2.9.1 in favor of `publicNetDNSMode == Node`
+
 ## v2.9.3
 
 ### Changed
@@ -24,7 +36,6 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 ### Added
 
 - Add `enableNodeNameHost` to allow using K8s node hostnames for public interface. Uses K8s environment `spec.nodeName` instead of `status.hostIP` if enabled.
-- Add support for OAuth compatible 3rd party auth services with password-based login. Set `auth.serviceURL` to the token login endpoint and configure `auth.usernamePassword.loginConf.clientID`
 
 ### Changed
 

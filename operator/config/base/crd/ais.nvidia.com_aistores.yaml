@@ -583,6 +583,7 @@ spec:
                 type: boolean
               enableNodeNameHost:
                 description: |-
+                  Deprecated: Use PublicNetDNSMode with "Node" option
                   EnableNodeNameHost - Use K8s Node name DNS resolution instead of IP addresses as the hostname for public endpoints
                   Useful for using wildcards on Node DNS names when creating TLS certificates
                 type: boolean
@@ -2331,6 +2332,19 @@ spec:
                 - portPublic
                 - servicePort
                 type: object
+              publicNetDNSMode:
+                default: IP
+                description: |-
+                  PublicNetDNSMode Defines the public network DNS name to use with hostPort.
+                  Defaults to 'IP' to use the host IP.
+                  Other options include:
+                   'Node' to use the K8s node DNS name
+                   'Pod' to use the pod DNS name (resolves to host IP when used with host networking)
+                enum:
+                - IP
+                - Node
+                - Pod
+                type: string
               shutdownCluster:
                 description: |-
                   ShutdownCluster can be set true if the desired state of the cluster is shutdown with a future restart expected

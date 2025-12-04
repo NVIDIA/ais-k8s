@@ -89,7 +89,7 @@ func targetPodSpec(ais *aisv1.AIStore) *corev1.PodSpec {
 	spec := &corev1.PodSpec{
 		InitContainers: []corev1.Container{
 			{
-				Name:            "populate-env",
+				Name:            cmn.InitContainerName,
 				Image:           ais.Spec.InitImage,
 				ImagePullPolicy: corev1.PullAlways,
 				Env:             NewInitContainerEnv(ais),
@@ -138,7 +138,7 @@ func NewInitContainerEnv(ais *aisv1.AIStore) (initEnv []corev1.EnvVar) {
 	initEnv = cmn.CommonInitEnv(ais)
 	initEnv = append(initEnv, cmn.EnvFromValue(cmn.EnvServiceName, headlessSVCName(ais.Name)))
 	if ais.Spec.TargetSpec.HostPort != nil {
-		if ais.EnableNodeNameHost() {
+		if ais.UseNodeNameForPublicNet() {
 			initEnv = append(initEnv, cmn.EnvFromFieldPath(cmn.EnvPublicHostname, "spec.nodeName"))
 		} else {
 			initEnv = append(initEnv, cmn.EnvFromFieldPath(cmn.EnvPublicHostname, "status.hostIP"))

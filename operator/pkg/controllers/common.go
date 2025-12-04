@@ -15,6 +15,14 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 )
 
+type SyncMode int
+
+const (
+	SyncModeIgnoreNone = iota
+	SyncModeIgnoreRemovedEnv
+	SyncModeIgnoreAddedEnv
+)
+
 func shouldUpdatePodTemplate(desired, current *corev1.PodTemplateSpec) (bool, string) {
 	if len(desired.Spec.Containers) != len(current.Spec.Containers) {
 		return true, "updating desired containers"
@@ -76,23 +84,73 @@ func shouldUpdateResources(desired, current *corev1.ResourceRequirements) bool {
 }
 
 // Ignore removed "cmn.EnvPublicHostname" removed from AIS container in v2.9.1 to avoid rollout
-// TODO: Remove in next major release
+// TODO: Update in next major release to remove backwards compatible env var changes
 func shouldUpdateEnv(name string, desired, current []corev1.EnvVar) bool {
-	// Only avoid the env var sync for AIS containers
-	if name != cmn.AISContainerName {
+	var ignored map[string]struct{}
+	switch name {
+	case cmn.AISContainerName:
+		ignored = map[string]struct{}{cmn.EnvPublicHostname: {}}
+		// Compare but don't sync if the only change is removing this env
+		return compareEnvWithIgnored(desired, current, ignored, SyncModeIgnoreRemovedEnv)
+	case cmn.InitContainerName:
+		ignored = map[string]struct{}{cmn.EnvPublicDNSMode: {}, cmn.EnvHostIPS: {}}
+		// Compare but don't sync if the only change is adding this env
+		return compareEnvWithIgnored(desired, current, ignored, SyncModeIgnoreAddedEnv)
+	default:
 		return !equality.Semantic.DeepEqual(desired, current)
 	}
-	// Deep copy a list of env vars but ignore cmn.EnvPublicHostname
-	normalize := func(envs []corev1.EnvVar) []corev1.EnvVar {
-		out := make([]corev1.EnvVar, 0, len(envs))
-		for _, e := range envs {
-			if e.Name != cmn.EnvPublicHostname {
-				out = append(out, e)
+}
+
+// Compares the given slices of EnvVars and return true if there are changes to sync
+// Ignores any that are solely added or removed depending on the provided mode
+// Still sync on modifications of ignored variables that are present in both slices
+func compareEnvWithIgnored(des, cur []corev1.EnvVar, ignored map[string]struct{}, mode SyncMode) bool {
+	// convert to map for lookup
+	desired := envSliceToMap(des)
+	current := envSliceToMap(cur)
+
+	// Deep copy a map of env vars but ignore those in the ignored set
+	normalize := func(envMap map[string]string) map[string]string {
+		out := make(map[string]string, len(envMap))
+		for k, v := range envMap {
+			if _, ok := ignored[k]; !ok {
+				out[k] = v
 			}
 		}
 		return out
 	}
-	return !equality.Semantic.DeepEqual(normalize(desired), normalize(current))
+	// This checks if there are any changes to any other env vars besides those ignored.
+	// If there are, we need to sync so return true
+	// If ignoring removals, we remove from current but not des for comparison
+	if !equality.Semantic.DeepEqual(normalize(desired), normalize(current)) {
+		return true
+	}
+	// At this point the only changes that can be left are the ignored variables
+	for env := range ignored {
+		desVal, desOk := desired[env]
+		curVal, curOk := current[env]
+		// If ignoring removals and the env does not exist in desired, skip this env
+		if mode == SyncModeIgnoreRemovedEnv && !desOk {
+			continue
+		}
+		// If ignoring additions and the env does not exist in current, skip this env
+		if mode == SyncModeIgnoreAddedEnv && !curOk {
+			continue
+		}
+		// Sync if values are different
+		if desVal != curVal {
+			return true
+		}
+	}
+	return false
+}
+
+func envSliceToMap(envs []corev1.EnvVar) map[string]string {
+	m := make(map[string]string, len(envs))
+	for _, e := range envs {
+		m[e.Name] = e.Value
+	}
+	return m
 }
 
 func shouldUpdateAnnotations(desired, current map[string]string) bool {
