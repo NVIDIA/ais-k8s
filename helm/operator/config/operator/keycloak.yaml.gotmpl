@@ -2,8 +2,8 @@ controllerManager:
   manager:
     env:
       operatorSkipVerifyCrt: "false"
-    # In Operator namespace
-    authCAConfigmapName: aistore.nvidia.com 
-    # In AIS namespace
+    # Trust bundle for requests to Auth services
+    authCAConfigmapName: aistore.nvidia.com
+    # Trust bundle for requests to AIS API
     aisCAConfigmapName: aistore.nvidia.com
     
