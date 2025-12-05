@@ -45,6 +45,15 @@ configToUpdate:
       idle_conns_per_host: 128
 stateStorageClass: "local-path"
 authNSecretName: ais-authn-jwt-signing-key
+
+auth: 
+  serviceURL: https://ais-authn.ais:52001
+  usernamePassword:
+    secretName: ais-authn-su-creds
+    secretNamespace: ais
+  tls:
+    insecureSkipVerify: true
+
 targetSpec:
   annotations:
     nvault.nvidia.com/agent-auto-config: 'true'
