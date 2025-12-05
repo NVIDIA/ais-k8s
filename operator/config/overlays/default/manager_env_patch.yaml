@@ -15,6 +15,3 @@ spec:
               fieldPath: metadata.namespace
         - name: OPERATOR_SKIP_VERIFY_CRT
           value: "True"
-        # Env for AuthN (if it's running in the same k8s cluster)
-        - name: AIS_AUTHN_CM
-          value: "ais-operator-authn" # Operator will dynamically load this CM to determine authN config per each cluster

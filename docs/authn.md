@@ -31,9 +31,6 @@ The best way to deploy authN is to use our [provided Helm chart](../helm/authn/R
      - This service facilitates internal communication between the AuthN server and other pods, including the AIS-Operator, within the cluster.
 - **AuthN Deployment**  
    - This runs the AuthN pod and connects it with the other resources.
-- **Operator AuthN ConfigMap**
-  - To enable communication between the AIS K8s Operator and an AuthN-enabled AIS cluster, the operator must have access to AuthN server details and credentials.
-  - [See the ConfigMap Helm Chart Docs](../helm/operator/authn-cm/README.md) for more details on creating this ConfigMap.
 
 ## How Components Interact with AuthN
 
@@ -52,34 +49,16 @@ The operator supports two authentication modes:
 
 #### Username/Password Authentication
 
-AIS Operator logs in as an admin user using the username and password specified for each cluster in a configured secret.
-To allow for each cluster to configure its own admin credentials location, the operator now reads the location of this secret from AIS spec.
+AIS Operator can log in as an admin user using the username and password specified for each cluster in a configured secret.
+To allow for each cluster to configure its own admin credentials location, the operator reads the location of this secret from AIS spec.
 
-> With the new `auth` field in the AIS spec, defining the location of the admin credentials secret via ConfigMap is **deprecated** and will be **REMOVED** in a future release.
-
-Previously, the location of the secret was defined with the `AIS_AUTHN_CM` environment variable and a ConfigMap mounted to the operator.
-The operator would look up config values in that ConfigMap by the cluster's `namespace`-`name`.
-
-For the equivalent behavior, specify the location of the admin credentials secret directly in spec with
- `spec.auth.usernamePassword.secretName` and  `spec.auth.usernamePassword.secretName`. 
-
-An example of this `usernamePassword` config in an AIS spec can be seen in the [provided config examples](../operator/config/samples/aistore_with_authn_in_crd.yaml)
+Specify the location of the admin credentials secret directly in the AIS spec for each cluster.
+For examples of `auth.usernamePassword` see the auth section in the [provided config examples](../operator/config/samples/aistore_with_authn_in_crd.yaml).
 
 #### Token Exchange Authentication
 
-The operator can exchange a token from the filesystem (e.g., Kubernetes service account token or OIDC token) with the authentication service for an AIS JWT token. This eliminates the need to store admin credentials.
-
-**ConfigMap Example:**
-```json
-{
-  "tls": false,
-  "host": "ais-authn.ais",
-  "port": "52001",
-  "useTokenExchange": true,
-  "tokenPath": "/var/run/secrets/tokens/oidc-token",
-  "tokenExchangeEndpoint": "/token"
-}
-```
+The operator also supports exchanging a token from the filesystem (e.g., Kubernetes service account token or OIDC token) with the authentication service for an AIS JWT token.
+This eliminates the need to store static admin credentials.
 
 Defaults:
 - `tokenPath`: `/var/run/secrets/kubernetes.io/serviceaccount/token`
@@ -100,7 +79,7 @@ volumes:
 
 This mode requires the authentication service to support a token exchange endpoint (default: `/token`).
 
-For configuring token exchange in the AIS spec see `tokenExchange` in the [provided config examples](../operator/config/samples/aistore_with_authn_in_crd.yaml)
+For configuring token exchange in the AIS spec see `auth.tokenExchange` in the [provided config examples](../operator/config/samples/aistore_with_authn_in_crd.yaml)
 
 ### AIStore Cluster
 
@@ -139,7 +118,7 @@ This will automatically redeploy the AuthN server with the updated settings.
 
 We strongly recommend using the [AuthN Helm chart](../helm/authn/README.md) for this process.
 
-This will also require an update to the ConfigMap used for the operator. 
+This will also require an update to the `auth.serviceURL` used for the operator. 
 See [AIS Operator section above](#ais-operator)
 
 ## Disabling AuthN in an Existing AIStore Deployment

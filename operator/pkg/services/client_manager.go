@@ -99,7 +99,7 @@ func (m *AISClientManager) GetClient(ctx context.Context,
 		return
 	}
 
-	// Attempt to get an authN token from the secret mapped for this cluster in the configmap
+	// Attempt to get an authN token using the spec.auth field
 	tokenInfo, err := m.authN.getAdminToken(ctx, ais)
 	if err != nil {
 		logger.Error(err, "Failed to get admin token for AuthN")

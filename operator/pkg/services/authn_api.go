@@ -23,20 +23,15 @@ import (
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	aisclient "github.com/ais-operator/pkg/client"
 	"github.com/ais-operator/pkg/truststore"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const (
-	OperatorNamespace = "OPERATOR_NAMESPACE"
-
 	// Auth service API defaults
 	DefaultAuthNServiceURL = "http://ais-authn.ais:52001"
 	DefaultAuthCACertPath  = "/etc/ssl/certs/auth-ca/ca.crt"
 
-	// Deprecated: Use spec.auth to configure token access
-	AuthNConfigMapVar  = "AIS_AUTHN_CM"
 	AuthNSecretRefName = "SU-NAME"
 	AuthNSecretRefPass = "SU-PASS"
 
@@ -89,26 +84,6 @@ type (
 		GetTLSConfig(ctx context.Context) (*tls.Config, error)
 	}
 
-	// Deprecated: AuthNConfigMapConfig is the legacy ConfigMap-based configuration
-	AuthNConfigMapConfig struct {
-		TLS             bool   `json:"tls"`
-		Host            string `json:"host"`
-		Port            string `json:"port"`
-		SecretNamespace string `json:"secretNamespace"`
-		SecretName      string `json:"secretName"`
-		// Token exchange fields
-		UseTokenExchange      bool   `json:"useTokenExchange"`
-		TokenPath             string `json:"tokenPath"`
-		TokenExchangeEndpoint string `json:"tokenExchangeEndpoint"`
-		// TLS configuration fields
-		CACertPath         string `json:"caCertPath,omitempty"`
-		InsecureSkipVerify bool   `json:"insecureSkipVerify,omitempty"`
-		// TLS config caching
-		tlsConfig  *tls.Config
-		tlsCreated time.Time
-		tlsMu      sync.RWMutex
-	}
-
 	// AuthSpecConfig wraps the CRD AuthSpec configuration
 	AuthSpecConfig struct {
 		spec      *aisv1.AuthSpec
@@ -137,48 +112,6 @@ func NewAuthNClient(k8sClient *aisclient.K8sClient) *AuthNClient {
 	return &AuthNClient{
 		k8sClient: k8sClient,
 	}
-}
-
-// AuthNConfigMapConfig implements AuthConfig interface
-func (c *AuthNConfigMapConfig) GetServiceURL() string {
-	return createAPIURL(c.TLS, c.Host, c.Port)
-}
-
-func (c *AuthNConfigMapConfig) IsTokenExchange() bool {
-	return c.UseTokenExchange
-}
-
-func (c *AuthNConfigMapConfig) GetTokenPath() string {
-	return c.TokenPath
-}
-
-func (c *AuthNConfigMapConfig) GetTokenExchangeEndpoint() string {
-	return c.TokenExchangeEndpoint
-}
-
-func (c *AuthNConfigMapConfig) GetSecretName() string {
-	return c.SecretName
-}
-
-func (*AuthNConfigMapConfig) GetOAuthLoginConf() *aisv1.AuthServerLoginConf {
-	// Not supported through configmap
-	return nil
-}
-
-func (c *AuthNConfigMapConfig) GetSecretNamespace() string {
-	return c.SecretNamespace
-}
-
-func (c *AuthNConfigMapConfig) GetCACertPath() string {
-	return c.CACertPath
-}
-
-func (c *AuthNConfigMapConfig) GetInsecureSkipVerify() bool {
-	return c.InsecureSkipVerify
-}
-
-func (c *AuthNConfigMapConfig) GetTLSConfig(ctx context.Context) (*tls.Config, error) {
-	return getTLSConfigWithCache(ctx, &c.tlsMu, &c.tlsConfig, &c.tlsCreated, c.GetCACertPath(), c.GetInsecureSkipVerify())
 }
 
 // AuthSpecConfig implements AuthConfig interface
@@ -248,7 +181,6 @@ func (c *AuthSpecConfig) GetTLSConfig(ctx context.Context) (*tls.Config, error) 
 }
 
 // getTLSConfigWithCache is a helper function that implements the TLS config caching logic
-// shared by both AuthNConfigMapConfig and AuthSpecConfig
 func getTLSConfigWithCache(ctx context.Context, mu *sync.RWMutex, cachedConfig **tls.Config, cachedTime *time.Time, caCertPath string, insecureSkipVerify bool) (*tls.Config, error) {
 	logger := logf.FromContext(ctx)
 	cacheTTL := getTLSConfigCacheTTL(ctx)
@@ -308,7 +240,10 @@ func getTLSConfigWithCache(ctx context.Context, mu *sync.RWMutex, cachedConfig *
 
 // getAdminToken Gets an admin token for the given cluster using token exchange or configured credentials secret
 func (c *AuthNClient) getAdminToken(ctx context.Context, ais *aisv1.AIStore) (*TokenInfo, error) {
-	authConf, err := c.getAuthConfig(ctx, ais)
+	if ais.Spec.Auth == nil {
+		return nil, nil
+	}
+	authConf, err := c.getAuthConfigFromCRD(ctx, ais)
 	if err != nil || authConf == nil {
 		return nil, err
 	}
@@ -325,17 +260,6 @@ func (c *AuthNClient) getAdminToken(ctx context.Context, ais *aisv1.AIStore) (*T
 	}
 	// Username/password mode
 	return c.getTokenViaPassword(ctx, baseParams, authConf)
-}
-
-// getAuthConfig Gets the auth service configuration from the CRD first, falls back to ConfigMap
-func (c *AuthNClient) getAuthConfig(ctx context.Context, ais *aisv1.AIStore) (AuthConfig, error) {
-	// First, check if auth configuration is in the CRD spec
-	if ais.Spec.Auth != nil {
-		return c.getAuthConfigFromCRD(ctx, ais)
-	}
-
-	// Fall back to ConfigMap for backward compatibility
-	return c.getAuthConfigFromConfigMap(ctx, ais)
 }
 
 // getAuthConfigFromCRD extracts auth configuration from the AIStore CRD spec
@@ -358,48 +282,6 @@ func (*AuthNClient) getAuthConfigFromCRD(ctx context.Context, ais *aisv1.AIStore
 		"tokenExchange", config.IsTokenExchange())
 
 	return config, nil
-}
-
-// Deprecated: getAuthConfigFromConfigMap Gets the data from the configmap defined by `AIS_AUTHN_CM` (legacy)
-func (c *AuthNClient) getAuthConfigFromConfigMap(ctx context.Context, ais *aisv1.AIStore) (AuthConfig, error) {
-	logger := logf.FromContext(ctx)
-	// Get the authN credentials secret name for this cluster, if it exists
-	cmName, found := os.LookupEnv(AuthNConfigMapVar)
-	if !found {
-		return nil, nil
-	}
-	cmNs, found := os.LookupEnv(OperatorNamespace)
-	if !found {
-		logger.Info("OPERATOR_NAMESPACE environment variable not set, failed to find a ConfigMap for AuthN")
-		return nil, nil
-	}
-	cm, err := c.k8sClient.GetConfigMap(ctx, types.NamespacedName{Name: cmName, Namespace: cmNs})
-	// If the config map doesn't exist we haven't configured the operator to use auth at all
-	if err != nil && apierrors.IsNotFound(err) {
-		return nil, nil
-	}
-	if err != nil {
-		logger.Error(err, fmt.Sprintf("Failed to get AuthN ConfigMap %s in namespace %s", cmName, cmNs))
-		return nil, err
-	}
-	if cm == nil || cm.Data == nil {
-		return nil, fmt.Errorf("AuthN ConfigMap %s in namespace %s has no data", cmName, cmNs)
-	}
-	key := ais.Namespace + "-" + ais.Name
-	confJSON, ok := cm.Data[key]
-	if !ok {
-		return nil, nil
-	}
-	var conf *AuthNConfigMapConfig
-	if err = json.Unmarshal([]byte(confJSON), &conf); err != nil {
-		logger.Error(err, fmt.Sprintf("Failed to unmarshal entry for cluster %s in AuthN ConfigMap %s in namespace %s", key, cmName, cmNs))
-		return nil, err
-	}
-	logger.Info("Using AuthN configuration from ConfigMap (DEPRECATED - consider migrating to CRD spec.auth)",
-		"configMap", cmName,
-		"cluster", key)
-
-	return conf, nil
 }
 
 // getSecretData Get the secret data from the specified secret name and namespace

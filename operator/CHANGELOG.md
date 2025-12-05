@@ -7,6 +7,15 @@ Note: Changes to Helm charts, Ansible playbooks, and other deployment tools are 
 We structure this changelog in accordance with [Keep a Changelog](https://keepachangelog.com/) guidelines, and this project follows [Semantic Versioning](https://semver.org/).
 
 ---
+
+## Unreleased
+
+
+### Removed
+
+- `AIS_AUTHN_CM` operator deployment environment variable and kustomize patch
+- All references to deprecated ConfigMap-based cluster authentication info for the operator. Use the `auth` option from spec.
+
 ## v2.10.0
 
 ### Added

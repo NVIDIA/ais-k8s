@@ -302,69 +302,6 @@ var _ = Describe("AuthSpecConfig", func() {
 	})
 })
 
-var _ = Describe("AuthNConfigMapConfig", func() {
-	Describe("GetServiceURL", func() {
-		It("should return HTTPS URL when TLS is enabled", func() {
-			config := &AuthNConfigMapConfig{
-				TLS:  true,
-				Host: "ais-authn.ais",
-				Port: "52001",
-			}
-
-			Expect(config.GetServiceURL()).To(Equal("https://ais-authn.ais:52001"))
-		})
-
-		It("should return HTTP URL when TLS is disabled", func() {
-			config := &AuthNConfigMapConfig{
-				TLS:  false,
-				Host: "ais-authn.ais",
-				Port: "52001",
-			}
-
-			Expect(config.GetServiceURL()).To(Equal("http://ais-authn.ais:52001"))
-		})
-	})
-
-	Describe("GetCACertPath", func() {
-		It("should return configured path", func() {
-			path := "/etc/ssl/certs/ca.crt"
-			config := &AuthNConfigMapConfig{
-				CACertPath: path,
-			}
-
-			Expect(config.GetCACertPath()).To(Equal(path))
-		})
-
-		It("should return empty string for empty path", func() {
-			config := &AuthNConfigMapConfig{
-				CACertPath: "",
-			}
-
-			Expect(config.GetCACertPath()).To(Equal(""))
-		})
-	})
-
-	Describe("GetInsecureSkipVerify", func() {
-		It("should return configured value", func() {
-			config := &AuthNConfigMapConfig{
-				InsecureSkipVerify: true,
-			}
-
-			Expect(config.GetInsecureSkipVerify()).To(BeTrue())
-		})
-	})
-
-	Describe("IsTokenExchange", func() {
-		It("should return configured value", func() {
-			config := &AuthNConfigMapConfig{
-				UseTokenExchange: true,
-			}
-
-			Expect(config.IsTokenExchange()).To(BeTrue())
-		})
-	})
-})
-
 var _ = Describe("ReadTokenFromFile", func() {
 	var tmpDir string
 
