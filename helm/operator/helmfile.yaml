@@ -7,6 +7,14 @@ environments:
         env: default
     - createCert:
         enabled: false
+  oci-iad: 
+    values:
+    - envFile: default
+    - authnCM:
+        enabled: false
+        env: default
+    - createCert:
+        enabled: false
   oci-ord: 
     values:
     - envFile: default
@@ -79,7 +87,7 @@ releases:
     namespace: ais-operator-system
     createNamespace: true
     chart: aistore/ais-operator
-    version: 2.9.3
+    version: 2.10.0
     values:
       - "./config/operator/{{ .Values.envFile }}.yaml.gotmpl"
     hooks:
