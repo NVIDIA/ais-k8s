@@ -2,60 +2,39 @@ environments:
   default:
     values:
     - envFile: default
-    - authnCM:
-        enabled: true
-        env: default
     - createCert:
         enabled: false
   oci-iad: 
     values:
     - envFile: default
-    - authnCM:
-        enabled: false
-        env: default
     - createCert:
         enabled: false
   oci-ord: 
     values:
     - envFile: default
-    - authnCM:
-        enabled: false
-        env: default
     - createCert:
         enabled: false
   sjc4-1000:
     values:
       - envFile: default
-      - authnCM:
-          enabled: true
-          env: default
       - createCert:
           enabled: true
     kubeContext: sjc4-1000
   sjc11:
     values: 
     - envFile: default
-    - authnCM:
-        enabled: true
-        env: default
     - createCert:
         enabled: true
     kubeContext: sjc11
   sjc4-dev:
     values:
     - envFile: default
-    - authnCM:
-        enabled: true
-        env: default
     - createCert:
         enabled: true
     kubeContext: sjc4-dev
   keycloak: 
     values: 
     - envFile: keycloak
-    - authnCM:
-        enabled: false
-        env: default
     - createCert:
         enabled: false
 
@@ -73,15 +52,6 @@ releases:
     version: 0.1.0
     values:
       - "./config/tls-cert/{{ .Environment.Name }}.yaml"
-
-  - name: operator-authn-cm
-    namespace: ais-operator-system
-    createNamespace: true
-    chart: authn-cm
-    condition: authnCM.enabled
-    version: 0.1.0
-    values:
-      - "./config/authn-cm/{{ .Values.authnCM.env }}.yaml"
 
   - name: ais-operator
     namespace: ais-operator-system
