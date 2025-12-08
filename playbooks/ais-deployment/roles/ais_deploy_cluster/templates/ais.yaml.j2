@@ -110,7 +110,6 @@ spec:
   authNSecretName: {{ authn_secret_name }}
 {% endif %}
   enableExternalLB: {{ enable_external_lb }}
-  enableNodeNameHost: {{ enable_node_name_host }}
 {% if (hostname_map is defined) and (hostname_map != "") %}
   hostnameMap: {{ hostname_map }}
 {% endif %}

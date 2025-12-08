@@ -34,4 +34,3 @@ configToUpdate:
   backend:
     aws: {}
 stateStorageClass: "local-path"
-enableNodeNameHost: true

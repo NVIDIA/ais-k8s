@@ -581,12 +581,6 @@ spec:
                 description: EnableExternalLB, if set, enables external access to
                   AIS cluster using LoadBalancer service
                 type: boolean
-              enableNodeNameHost:
-                description: |-
-                  Deprecated: Use PublicNetDNSMode with "Node" option
-                  EnableNodeNameHost - Use K8s Node name DNS resolution instead of IP addresses as the hostname for public endpoints
-                  Useful for using wildcards on Node DNS names when creating TLS certificates
-                type: boolean
               gcpSecretName:
                 description: Secret name containing GCP config and credentials
                 type: string

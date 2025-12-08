@@ -191,11 +191,6 @@ func (in *AIStoreSpec) DeepCopyInto(out *AIStoreSpec) {
 		*out = make([]v1.LocalObjectReference, len(*in))
 		copy(*out, *in)
 	}
-	if in.EnableNodeNameHost != nil {
-		in, out := &in.EnableNodeNameHost, &out.EnableNodeNameHost
-		*out = new(bool)
-		**out = **in
-	}
 	if in.PublicNetDNSMode != nil {
 		in, out := &in.PublicNetDNSMode, &out.PublicNetDNSMode
 		*out = new(PubNetDNSMode)

@@ -29,13 +29,6 @@ spec:
         # Tells AIS to allow disk sharing between these mountpaths
         label: "disk1"
 
-    # DEPRECATED: Use a common label for each mountpath in 'mounts' above
-    # In certain environments (e.g. minikube), storage volumes attached to AIS targets may not have associated block devices.
-    # Alternatively, AIS targets may "see" multiple mountpath directories sharing a single given block device.
-    # In both of those cases, set allowSharedNoDisks = true (but note that this setting is **not recommended** for production).
-    allowSharedNoDisks: false
-
-
   nodeImage: "aistorage/aisnode:v3.25"
   initImage: "aistorage/ais-init:v3.25"
   hostpathPrefix: "/etc/ais"

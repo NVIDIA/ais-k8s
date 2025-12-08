@@ -79,7 +79,6 @@ spec:
 
   targetSpec:
     size: 2
-    allowSharedNoDisks: false
     servicePort: 51081
     portPublic: 51081
     portIntraControl: 51082

@@ -15,6 +15,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 - `AIS_AUTHN_CM` operator deployment environment variable and kustomize patch
 - All references to deprecated ConfigMap-based cluster authentication info for the operator. Use the `auth` option from spec.
+- Deprecated option `enableNodeNameHost`. Use `publicNetDNSMode: Node` for equivalent behavior.
 
 ## v2.10.0
 

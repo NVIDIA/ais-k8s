@@ -298,12 +298,6 @@ type AIStoreSpec struct {
 	// EnableExternalLB, if set, enables external access to AIS cluster using LoadBalancer service
 	EnableExternalLB bool `json:"enableExternalLB"`
 
-	// Deprecated: Use PublicNetDNSMode with "Node" option
-	// EnableNodeNameHost - Use K8s Node name DNS resolution instead of IP addresses as the hostname for public endpoints
-	// Useful for using wildcards on Node DNS names when creating TLS certificates
-	// +optional
-	EnableNodeNameHost *bool `json:"enableNodeNameHost,omitempty"`
-
 	// PublicNetDNSMode Defines the public network DNS name to use with hostPort.
 	// Defaults to 'IP' to use the host IP.
 	// Other options include:
@@ -590,9 +584,6 @@ func (ais *AIStore) GetDiscoveryProxyURL() string {
 }
 
 func (ais *AIStore) UseNodeNameForPublicNet() bool {
-	if ais.Spec.EnableNodeNameHost != nil && *ais.Spec.EnableNodeNameHost {
-		return true
-	}
 	if ais.Spec.PublicNetDNSMode != nil && *ais.Spec.PublicNetDNSMode == PubNetDNSModeNode {
 		return true
 	}

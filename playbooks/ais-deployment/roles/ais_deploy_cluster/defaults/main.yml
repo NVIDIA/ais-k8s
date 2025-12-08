@@ -35,8 +35,6 @@ host_network: false
 # NOTE: For external access to work, the kubernetes cluster should have the capability to create LoadBalancer services with valid external IP.
 # For local testing, use `minikube tunnel` or `cloud-provider-kind`
 enable_external_lb: false
-# Use the K8s node names as hostnames instead of node IPs
-enable_node_name_host: false
 
 # Storage class for dynamically provisioning state volumes
 # See docs/state_storage.md
