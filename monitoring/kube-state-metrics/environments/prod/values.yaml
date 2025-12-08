@@ -4,6 +4,7 @@ metricAllowlist:
   - kube_statefulset_replicas
   - kube_statefulset_status_replicas
   - kube_statefulset_status_replicas_ready
+  - kube_pod_container_info
   - kube_pod_status_phase
   - kube_resourcequota
   - kube_pod_container_status_restarts_total
