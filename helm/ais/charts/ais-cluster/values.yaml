@@ -26,6 +26,7 @@ stateStorageClass:
 authNSecretName:
 auth:
 enableExternalLB: false
+publicNetDNSMode:
 logsDir:
 proxySpec:
   tolerations:

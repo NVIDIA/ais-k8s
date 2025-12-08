@@ -154,7 +154,7 @@ spec:
     {{- toYaml .Values.auth | nindent 4 }}
   {{- end }}
   enableExternalLB: {{ .Values.enableExternalLB }}
-  enableNodeNameHost: {{ .Values.enableNodeNameHost }}
+  publicNetDNSMode: {{ .Values.publicNetDNSMode }}
   {{- if .Values.multihome }}
   {{- with .Values.multihome.hostnameMap }}
   hostnameMap: {{ toJson . }}

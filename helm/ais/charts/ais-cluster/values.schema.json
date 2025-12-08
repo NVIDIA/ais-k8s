@@ -265,10 +265,10 @@
       "description": "Creates individual LoadBalancer services for each AIS target.",
       "examples": [true, false]
     },
-    "enableNodeNameHost": {
-      "type": ["boolean", "null"],
-      "description": "Uses the K8s node name as the host name for communication over the public interface instead of host IPs.",
-      "examples": [true, false]
+    "publicNetDNSMode": {
+      "type": ["string", "null"],
+      "description": "Defines the public network DNS name to use with hostPort. Defaults to 'IP' to use the host IP.",
+      "enum": ["IP", "Node", "Pod", null]
     },
     "logsDir": {
       "type": ["string", "null"],
