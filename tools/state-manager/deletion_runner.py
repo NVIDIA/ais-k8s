@@ -6,11 +6,15 @@ from typing import List
 
 from ais_metadata import AISMetadata
 
+# Metadata types that only exist on proxy state PVCs
+# All proxy state metadata is included in backup/restore
+PROXY_ONLY_MD = {AISMetadata.rmd}
 
 class DeletionRunner(object):
     def __init__(self, manager, pod_config, metadata: List[AISMetadata]):
         self.manager = manager
         self.pod_config = pod_config
+        self.proxy_only = all(md in PROXY_ONLY_MD for md in metadata)
         self.pod_config.exec_cmd = self.get_deletion_cmd(metadata)
 
     @staticmethod
@@ -29,7 +33,7 @@ class DeletionRunner(object):
                 sys.exit(1)
             else:
                 print("Proceeding with deletion.")
-        pvcs = self.manager.find_pvcs()
+        pvcs = self.manager.find_pvcs(proxy_only=self.proxy_only)
         print("Deploying deletion pods")
         self.manager.create_pods(self.pod_config, pvcs)
         self.manager.wait_for_pods_status(self.pod_config)

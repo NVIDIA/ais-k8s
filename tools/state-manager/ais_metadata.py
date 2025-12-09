@@ -9,6 +9,7 @@ class AISMetadata(Enum):
     smap = ".ais.smap"
     conf = ".ais.conf"
     bmd = ".ais.bmd"
+    rmd = ".ais.rmd"
     override = ".ais.override_config"
     all = ".ais.*"
 

@@ -16,7 +16,9 @@ class K8sManager:
         self.k8s_client = self.init_k8s_client(kube_context)
         self.cluster_ns = cluster_ns
         self.cluster_name = cluster_name
-        self.ais_label_selector = f"app.kubernetes.io/component in (proxy,target),app.kubernetes.io/name={self.cluster_name}"
+        name_selector = f"app.kubernetes.io/name={self.cluster_name}"
+        self.ais_label_selector = f"app.kubernetes.io/component in (proxy,target),{name_selector}"
+        self.proxy_label_selector = f"app.kubernetes.io/component=proxy,{name_selector}"
 
     @staticmethod
     def init_k8s_client(kube_context) -> client.CoreV1Api:
@@ -105,19 +107,23 @@ class K8sManager:
             )
             print(resp)
 
-    def find_pvcs(self):
+    def find_pvcs(self, proxy_only=False):
+        label_selector = self.proxy_label_selector if proxy_only else self.ais_label_selector
         pvc_list = self.k8s_client.list_namespaced_persistent_volume_claim(
-            namespace=self.cluster_ns, label_selector=self.ais_label_selector
+            namespace=self.cluster_ns, label_selector=label_selector
         )
-        # Filter out target storage PVCs
-        pvc_names = [
-            pvc.metadata.name
-            for pvc in pvc_list.items
-            if pvc.spec.storage_class_name != "ais-local-storage"
-        ]
+        if proxy_only:
+            pvc_names = [pvc.metadata.name for pvc in pvc_list.items]
+        else:
+            # Filter out target data PVCs
+            pvc_names = [
+                pvc.metadata.name
+                for pvc in pvc_list.items
+                if pvc.spec.storage_class_name != "ais-local-storage"
+            ]
 
         if not pvc_names:
-            print(f"No PVCs found matching label selector {self.ais_label_selector}")
+            print(f"No PVCs found matching label selector {label_selector}")
         print("Found pvcs: ", pvc_names)
         return pvc_names
 
