@@ -9,7 +9,7 @@ metadata:
   labels:
     app.kubernetes.io/name: {{ .Values.cluster }}
   name: {{ .Values.cluster }}-proxy-lb
-  namespace: {{ .Release.namespace }}
+  namespace: {{ .Release.Namespace }}
 spec:
   ports:
   - name: pub

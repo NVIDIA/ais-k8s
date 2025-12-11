@@ -2,7 +2,7 @@ apiVersion: ais.nvidia.com/v1beta1
 kind: AIStore
 metadata:
   name: {{ .Values.cluster }}
-  namespace: {{ .Release.namespace }}
+  namespace: {{ .Release.Namespace }}
 spec:
   size: {{ .Values.size }}
   configToUpdate:
