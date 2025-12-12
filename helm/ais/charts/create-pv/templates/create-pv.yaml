@@ -4,11 +4,20 @@
 {{- $storageClass := $mpathInfo.storageClass -}}
 {{- $mpathSize := $mpathInfo.size -}}
 {{- $mounts := $mpathInfo.mounts -}}
-{{- $nodes := .Values.nodes -}}
+{{- $namespace := .Release.Namespace -}}
 
-# Create hostPath PersistentVolumes for all provided mounts on all provided nodes
+# Create hostPath PersistentVolumes for all provided mounts on all nodes with the label nvidia.com/ais-target=<cluster>
+{{- $allNodes := (lookup "v1" "Node" "" "").items | default list -}}
+{{- $nodes := list -}}
+{{- range $allNodes -}}
+  {{- $labelValue := index .metadata.labels "nvidia.com/ais-target" | default "" -}}
+  {{- if eq $labelValue $cluster -}}
+    {{- $nodes = append $nodes .metadata.name -}}
+  {{- end -}}
+{{- end -}}
 {{- range $nodeIndex, $node := $nodes }}
   {{- range $mountIndex, $mount := $mounts }}
+---
 apiVersion: v1
 kind: PersistentVolume
 metadata:
@@ -27,7 +36,7 @@ spec:
     path: {{ $mount.path }}
   claimRef:
     name: {{ $cluster }}-{{ $mount.path | replace "/" "-" | trimPrefix "-" }}-{{ $cluster }}-target-{{ $nodeIndex }}
-    namespace: {{ $.Values.namespace }}
+    namespace: {{ $namespace }}
   nodeAffinity:
     required:
       nodeSelectorTerms:
@@ -36,6 +45,5 @@ spec:
           operator: In
           values:
           - {{ $node }}
----
   {{- end }}
 {{- end }}

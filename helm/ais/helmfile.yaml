@@ -6,7 +6,7 @@ environments:
       # Only controls secret creation, update AIS config "cloud" to use
       cloudSecrets:
         enabled: false
-      # Whether to run hooks to create and delete PVs based on values
+      # Whether to create PVs for target nodes based on values
       createPV:
         enabled: false
       localPathProvisioner:
@@ -167,6 +167,15 @@ releases:
       - "./config/cloud/{{ .Environment.Name }}.yaml.gotmpl"
       - "./config/ais/{{ .Environment.Name }}.yaml"
 
+  - name: ais-create-pv
+    namespace: ais
+    createNamespace: true
+    chart: charts/create-pv
+    version: 0.1.0
+    condition: createPV.enabled
+    values:
+      - "./config/ais/{{ .Environment.Name }}.yaml"
+
   - name: ais-cluster
     namespace: ais
     createNamespace: true
@@ -174,13 +183,3 @@ releases:
     version: 0.4.0
     values:
       - "./config/ais/{{ .Environment.Name }}.yaml"
-    hooks:
-      # Create persistent volumes if requested by this env
-      - events: ["presync"]
-        showlogs: true
-        command: "./scripts/create-pvs.sh"
-        args:
-          - '{{ .Environment.Values.createPV.enabled }}'
-          - './config/ais/{{ .Environment.Name }}.yaml'
-          - '{{ (fromYaml (readFile (print "./config/ais/" .Environment.Name ".yaml"))).cluster }}'
-          - '{{ .Release.Namespace }}'

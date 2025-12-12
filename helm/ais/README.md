@@ -12,7 +12,7 @@ See the [cluster management section](#cluster-management) before enabling any of
 ### Node Labeling
 
 The [label-nodes.sh](./scripts/label-nodes.sh) convenience script labels nodes with `nvidia.com/ais-proxy=<cluster>` and `nvidia.com/ais-target=<cluster>`.
-These labels are used for scheduling via `nodeSelector` and by `create-pvs.sh` to discover target nodes.
+These labels are used for scheduling via `nodeSelector` and by the `ais-create-pv` chart to discover target nodes.
 
 ```bash
 ./scripts/label-nodes.sh <cluster> <node1,node2,...|--all>
@@ -20,8 +20,8 @@ These labels are used for scheduling via `nodeSelector` and by `create-pvs.sh` t
 
 ### PV Creation
 
-The provided helmfile will run the [create-pvs.sh](./scripts/create-pvs.sh) if the value is set for the environment: `createPV.enabled: true`.
-This queries for labeled target nodes and creates HostPath persistent volumes for each mount-path on every labeled target.
+The provided helmfile includes the [ais-create-pv](./charts/create-pv/) release, enabled by setting `createPV.enabled: true` for the environment.
+This chart queries for labeled target nodes and creates host path PVs for each mount-path on every labeled target.
 
 If you want to use an existing set of PVs, set `createPV.enabled: false`.
 You can also change the `storageClass` option to instruct AIS target pods to mount a different existing storage class.
@@ -90,5 +90,6 @@ helmfile destroy --environment <your-env>
 |------------------------------------------------------------|---------------------------------------------------------------------------------------|
 | [ais-cloud-secrets](./charts/cloud-secrets/) | Create k8s secrets from local files for cloud backends                                |
 | [ais-cluster](./charts/ais-cluster/)         | Create an AIS cluster resource, with the expectation the operator is already deployed |
+| [ais-create-pv](./charts/create-pv/)         | Create HostPath PersistentVolumes for labeled target nodes                            |
 | [tls-cert](./charts/tls-cert/)               | Create a cert-manager certificate                                                     |
                                                           
