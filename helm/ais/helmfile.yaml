@@ -9,6 +9,8 @@ environments:
       # Whether to run hooks to create and delete PVs based on values
       createPV:
         enabled: false
+      localPathProvisioner:
+        enabled: false
   sjc4-1000:
     values:
     - https:
@@ -17,6 +19,8 @@ environments:
         enabled: false
       createPV:
         enabled: true
+      localPathProvisioner:
+        enabled: false
     kubeContext: sjc4-1000
   sjc11:
     values: 
@@ -26,6 +30,8 @@ environments:
         enabled: false
       createPV:
         enabled: true
+      localPathProvisioner:
+        enabled: false
     kubeContext: sjc11
   sjc112:
     values:
@@ -35,6 +41,8 @@ environments:
           enabled: false
         createPV:
           enabled: true
+        localPathProvisioner:
+          enabled: false
     kubeContext: sjc112
   oci-iad:
     values: 
@@ -43,6 +51,8 @@ environments:
       cloudSecrets:
         enabled: false
       createPV:
+        enabled: false
+      localPathProvisioner:
         enabled: false
     kubeContext: oci-iad
   oci-iad-test:
@@ -53,6 +63,8 @@ environments:
         enabled: false
       createPV:
         enabled: true
+      localPathProvisioner:
+        enabled: false
     kubeContext: oci-iad-test
   sjc4-dev:
     values: 
@@ -62,6 +74,8 @@ environments:
         enabled: false
       createPV:
         enabled: true
+      localPathProvisioner:
+        enabled: false
     kubeContext: sjc4-dev
   oci-ord:
     values: 
@@ -71,6 +85,8 @@ environments:
         enabled: false
       createPV:
         enabled: false
+      localPathProvisioner:
+        enabled: false
     kubeContext: oci-ord
   oci-kratos:
     values: 
@@ -79,6 +95,8 @@ environments:
       cloudSecrets:
         enabled: false
       createPV:
+        enabled: false
+      localPathProvisioner:
         enabled: false
     kubeContext: oci-kratos
   neb-fin:
@@ -90,6 +108,8 @@ environments:
         enabled: false
       createPV:
         enabled: false
+      localPathProvisioner:
+        enabled: false
     kubeContext: neb-fin
   neb-fin-test:
     values: 
@@ -98,6 +118,8 @@ environments:
       cloudSecrets:
         enabled: false
       createPV:
+        enabled: false
+      localPathProvisioner:
         enabled: false
     kubeContext: neb-fin-test
   keycloak:
@@ -108,10 +130,21 @@ environments:
         enabled: false
       createPV:
         enabled: true
+      localPathProvisioner:
+        enabled: false
     kubeContext: kind-keycloak-test
 ---
+repositories:
+  - name: local-path-provisioner
+    url: git+https://github.com/rancher/local-path-provisioner@deploy/chart?ref=v0.0.32
 
 releases:
+  - name: local-path-provisioner
+    namespace: local-path-storage
+    createNamespace: true
+    chart: local-path-provisioner/local-path-provisioner
+    condition: localPathProvisioner.enabled
+
   # Acquires a tls cert from the specified issuer and stores in a secret for AIS
   - name: ais-tls-cert
     namespace: ais
@@ -142,14 +175,6 @@ releases:
     values:
       - "./config/ais/{{ .Environment.Name }}.yaml"
     hooks:
-      # Install pre-req local-path-provisioner to the cluster
-      - events: ["presync"]
-        showlogs: true
-        command: "kubectl"
-        args:
-          - "apply"
-          - "-f"
-          - "https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.31/deploy/local-path-storage.yaml"
       # Create persistent volumes if requested by this env
       - events: ["presync"]
         showlogs: true
