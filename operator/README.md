@@ -152,6 +152,37 @@ aistore-sample-proxy-0                                1/1     Running   0       
 aistore-sample-target-0                               1/1     Running   0          2m21s
 ```
 
+### Deploying an admin client
+
+The operator can optionally deploy an admin client pre-configured with the cluster endpoint.
+The default [image](https://hub.docker.com/r/aistorage/ais-util) includes the AIStore [CLI](https://github.com/NVIDIA/aistore/blob/main/docs/cli.md) and [Python SDK](https://pypi.org/project/aistore/), as well as [aisloader](https://github.com/NVIDIA/aistore/blob/main/docs/aisloader.md).
+
+```yaml
+spec:
+  adminClient: {}
+```
+
+For TLS-enabled clusters, provide a CA bundle via ConfigMap:
+
+```yaml
+spec:
+  adminClient:
+    caConfigMap:
+      name: my-ca-bundle
+```
+
+Open a shell in the client:
+
+```console
+$ kubectl exec -it -n ais deploy/aistore-sample-client -- /bin/bash
+```
+
+Or, run a one-off command:
+
+```console
+$ kubectl exec -it -n ais deploy/aistore-sample-client -- ais show cluster
+```
+
 ### Enabling external access
 
 This section discusses AIStore accessibility by external clients - the clients **outside the Kubernetes cluster**.
