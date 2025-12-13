@@ -18,9 +18,9 @@ https:
 imagePullSecrets:
   - name: regcred
 nodeImage:
-  tag: v4.0-fuse
+  tag: v4.1
 initImage:
-  tag: v4.0
+  tag: v4.1
 logSidecarImage:
   tag: v1.1
 cloud:
