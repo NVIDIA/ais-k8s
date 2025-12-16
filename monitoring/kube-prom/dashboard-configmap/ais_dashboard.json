@@ -1132,7 +1132,7 @@
       },
       "gridPos": {
         "h": 2,
-        "w": 12,
+        "w": 6,
         "x": 0,
         "y": 7
       },
@@ -1195,9 +1195,9 @@
       },
       "gridPos": {
         "h": 2,
-        "w": 12,
-        "x": 0,
-        "y": 9
+        "w": 6,
+        "x": 6,
+        "y": 7
       },
       "id": 201,
       "options": {
@@ -1238,7 +1238,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 11
+        "y": 9
       },
       "id": 89,
       "panels": [],
@@ -1295,7 +1295,7 @@
         "h": 4,
         "w": 3,
         "x": 0,
-        "y": 12
+        "y": 10
       },
       "id": 38,
       "options": {
@@ -1383,7 +1383,7 @@
         "h": 4,
         "w": 3,
         "x": 3,
-        "y": 12
+        "y": 10
       },
       "id": 42,
       "options": {
@@ -1461,7 +1461,7 @@
         "h": 4,
         "w": 3,
         "x": 6,
-        "y": 12
+        "y": 10
       },
       "id": 44,
       "options": {
@@ -1556,7 +1556,7 @@
         "h": 2,
         "w": 3,
         "x": 9,
-        "y": 12
+        "y": 10
       },
       "id": 53,
       "maxDataPoints": 100,
@@ -1641,7 +1641,7 @@
         "h": 2,
         "w": 3,
         "x": 13,
-        "y": 12
+        "y": 10
       },
       "id": 99,
       "maxDataPoints": 100,
@@ -1726,7 +1726,7 @@
         "h": 2,
         "w": 3,
         "x": 9,
-        "y": 14
+        "y": 12
       },
       "id": 55,
       "maxDataPoints": 100,
@@ -1771,7 +1771,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 16
+        "y": 14
       },
       "id": 105,
       "panels": [],
@@ -1851,7 +1851,7 @@
         "h": 12,
         "w": 12,
         "x": 0,
-        "y": 17
+        "y": 15
       },
       "id": 115,
       "options": {
@@ -1968,7 +1968,7 @@
         "h": 12,
         "w": 12,
         "x": 12,
-        "y": 17
+        "y": 15
       },
       "id": 116,
       "options": {
@@ -2087,7 +2087,7 @@
         "h": 12,
         "w": 12,
         "x": 0,
-        "y": 29
+        "y": 27
       },
       "id": 131,
       "options": {
@@ -2199,7 +2199,7 @@
         "h": 12,
         "w": 12,
         "x": 12,
-        "y": 29
+        "y": 27
       },
       "id": 132,
       "options": {
@@ -2315,7 +2315,7 @@
         "h": 12,
         "w": 12,
         "x": 0,
-        "y": 41
+        "y": 39
       },
       "id": 121,
       "options": {
@@ -2427,7 +2427,7 @@
         "h": 12,
         "w": 12,
         "x": 12,
-        "y": 41
+        "y": 39
       },
       "id": 122,
       "options": {
@@ -2566,7 +2566,7 @@
         "h": 12,
         "w": 12,
         "x": 0,
-        "y": 53
+        "y": 51
       },
       "id": 117,
       "options": {
@@ -2681,7 +2681,7 @@
         "h": 12,
         "w": 12,
         "x": 12,
-        "y": 53
+        "y": 51
       },
       "id": 118,
       "options": {
@@ -2796,7 +2796,7 @@
         "h": 12,
         "w": 12,
         "x": 0,
-        "y": 65
+        "y": 63
       },
       "id": 106,
       "options": {
@@ -2911,7 +2911,7 @@
         "h": 12,
         "w": 12,
         "x": 12,
-        "y": 65
+        "y": 63
       },
       "id": 110,
       "options": {
@@ -3026,7 +3026,7 @@
         "h": 12,
         "w": 12,
         "x": 0,
-        "y": 77
+        "y": 75
       },
       "id": 109,
       "options": {
@@ -3137,7 +3137,7 @@
         "h": 12,
         "w": 12,
         "x": 12,
-        "y": 77
+        "y": 75
       },
       "id": 114,
       "options": {
@@ -3256,7 +3256,7 @@
         "h": 12,
         "w": 12,
         "x": 0,
-        "y": 89
+        "y": 87
       },
       "id": 103,
       "options": {
@@ -3392,7 +3392,7 @@
         "h": 12,
         "w": 12,
         "x": 12,
-        "y": 89
+        "y": 87
       },
       "id": 120,
       "options": {
@@ -3469,7 +3469,7 @@
         "defaults": {
           "color": {
             "fixedColor": "light-green",
-            "mode": "fixed"
+            "mode": "palette-classic"
           },
           "custom": {
             "axisBorderShow": false,
@@ -3507,7 +3507,6 @@
               "mode": "off"
             }
           },
-          "displayName": "GET Throughput",
           "links": [],
           "mappings": [],
           "min": 0,
@@ -3532,7 +3531,7 @@
         "h": 12,
         "w": 12,
         "x": 0,
-        "y": 101
+        "y": 99
       },
       "id": 134,
       "options": {
@@ -3562,21 +3561,34 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "sum(rate(ais_target_getbatch_obj_bytes{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval]))",
+          "expr": "sum(rate(ais_target_getbatch_obj_bytes{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval]) + rate(ais_target_getbatch_file_bytes{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval]))",
           "format": "time_series",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "interval": "",
           "intervalFactor": 1,
-          "legendFormat": "__auto",
+          "legendFormat": "GetBatch Throughput",
           "range": true,
           "refId": "A",
           "step": 240,
           "useBackend": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${metricsSource}"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(ais_target_get_bytes{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval]))",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "Get Throughput",
+          "range": true,
+          "refId": "B"
         }
       ],
-      "title": "Total GetBatch Throughput",
+      "title": "GetBatch vs Get Throughput",
       "type": "timeseries"
     },
     {
@@ -3585,7 +3597,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 113
+        "y": 111
       },
       "id": 138,
       "panels": [],
@@ -3621,7 +3633,7 @@
         "h": 3,
         "w": 3,
         "x": 0,
-        "y": 114
+        "y": 112
       },
       "id": 108,
       "maxDataPoints": 100,
@@ -3691,7 +3703,7 @@
         "h": 3,
         "w": 3,
         "x": 4,
-        "y": 114
+        "y": 112
       },
       "id": 124,
       "maxDataPoints": 100,
@@ -3761,7 +3773,7 @@
         "h": 3,
         "w": 3,
         "x": 8,
-        "y": 114
+        "y": 112
       },
       "id": 119,
       "maxDataPoints": 100,
@@ -3829,9 +3841,9 @@
       },
       "gridPos": {
         "h": 3,
-        "w": 3,
+        "w": 6,
         "x": 12,
-        "y": 114
+        "y": 112
       },
       "id": 135,
       "maxDataPoints": 100,
@@ -3901,7 +3913,7 @@
         "h": 3,
         "w": 3,
         "x": 0,
-        "y": 117
+        "y": 115
       },
       "id": 123,
       "maxDataPoints": 100,
@@ -3971,7 +3983,7 @@
         "h": 3,
         "w": 3,
         "x": 4,
-        "y": 117
+        "y": 115
       },
       "id": 125,
       "maxDataPoints": 100,
@@ -4041,7 +4053,7 @@
         "h": 3,
         "w": 3,
         "x": 8,
-        "y": 117
+        "y": 115
       },
       "id": 107,
       "maxDataPoints": 100,
@@ -4111,7 +4123,7 @@
         "h": 3,
         "w": 3,
         "x": 12,
-        "y": 117
+        "y": 115
       },
       "id": 136,
       "maxDataPoints": 100,
@@ -4157,6 +4169,76 @@
         "type": "prometheus",
         "uid": "${metricsSource}"
       },
+      "description": "Total cumulative size (bytes) of archived files extracted from shards\n",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": 0
+              }
+            ]
+          },
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 3,
+        "x": 15,
+        "y": 115
+      },
+      "id": 202,
+      "maxDataPoints": 100,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.1.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${metricsSource}"
+          },
+          "editorMode": "code",
+          "expr": "sum(ais_target_getbatch_file_bytes{node_id=~\"$target\", cluster=~\"${cluster}\"})",
+          "format": "time_series",
+          "intervalFactor": 2,
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A",
+          "step": 1800
+        }
+      ],
+      "title": "GetBatch: Total Archived Size",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${metricsSource}"
+      },
       "description": "Total number of whole objects retrieved and delivered via output archive",
       "fieldConfig": {
         "defaults": {
@@ -4181,7 +4263,7 @@
         "h": 3,
         "w": 3,
         "x": 12,
-        "y": 120
+        "y": 118
       },
       "id": 137,
       "maxDataPoints": 100,
@@ -4223,12 +4305,82 @@
       "type": "stat"
     },
     {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${metricsSource}"
+      },
+      "description": "Total number of files extracted from shards and delivered via output archive",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": 0
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 3,
+        "x": 15,
+        "y": 118
+      },
+      "id": 203,
+      "maxDataPoints": 100,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.1.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${metricsSource}"
+          },
+          "editorMode": "code",
+          "expr": "sum(ais_target_getbatch_file_count{node_id=~\"$target\", cluster=~\"${cluster}\"})",
+          "format": "time_series",
+          "intervalFactor": 2,
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A",
+          "step": 1800
+        }
+      ],
+      "title": "GetBatch: Total Files Extracted",
+      "type": "stat"
+    },
+    {
       "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 123
+        "y": 121
       },
       "id": 102,
       "panels": [],
@@ -4303,7 +4455,7 @@
         "h": 12,
         "w": 12,
         "x": 0,
-        "y": 124
+        "y": 122
       },
       "id": 104,
       "options": {
@@ -4349,7 +4501,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 136
+        "y": 134
       },
       "id": 65,
       "panels": [],
@@ -4437,7 +4589,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 137
+        "y": 135
       },
       "id": 72,
       "options": {
@@ -4553,7 +4705,7 @@
         "h": 12,
         "w": 12,
         "x": 12,
-        "y": 137
+        "y": 135
       },
       "id": 101,
       "options": {
@@ -4656,7 +4808,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 145
+        "y": 143
       },
       "id": 77,
       "options": {
@@ -4757,7 +4909,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 149
+        "y": 147
       },
       "id": 75,
       "options": {
@@ -4798,7 +4950,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 157
+        "y": 155
       },
       "id": 69,
       "panels": [],
@@ -4895,7 +5047,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 158
+        "y": 156
       },
       "id": 30,
       "options": {
@@ -5100,7 +5252,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 158
+        "y": 156
       },
       "id": 133,
       "options": {
@@ -5167,7 +5319,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 166
+        "y": 164
       },
       "id": 67,
       "panels": [],
@@ -5241,7 +5393,7 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 167
+        "y": 165
       },
       "id": 81,
       "options": {
@@ -5540,5 +5692,5 @@
   "timezone": "",
   "title": "AIStore Dashboard",
   "uid": null,
-  "version": null
+  "version": 19
 }
