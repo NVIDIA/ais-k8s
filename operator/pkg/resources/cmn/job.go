@@ -35,6 +35,7 @@ func NewCleanupJob(ais *aisv1.AIStore, nodeName string) *batchv1.Job {
 					Affinity:      createNodeAffinitySpec(nodeName),
 					Containers:    createContainerSpec(hostpathPrefix),
 					Volumes:       createVolumeSpec(hostpathPrefix),
+					Tolerations:   ais.GetAllTolerations(),
 					RestartPolicy: corev1.RestartPolicyNever,
 				},
 			},

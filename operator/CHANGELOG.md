@@ -14,6 +14,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 - `spec.adminClient` option to deploy an AIS admin client auto-configured to connect to the cluster.
   - Supports custom CA trust via `caConfigMap` for TLS-enabled clusters.
+- Host cleanup jobs use all tolerations provided to proxy and target pods.
 
 ### Removed
 

@@ -764,6 +764,31 @@ func (ais *AIStore) ShouldCleanupMetadata() bool {
 	return ais.Spec.CleanupMetadata != nil && *ais.Spec.CleanupMetadata
 }
 
+// GetAllTolerations returns tolerations for all proxy and target pods
+func (ais *AIStore) GetAllTolerations() []corev1.Toleration {
+	return mergeTolerationsUnique(ais.Spec.ProxySpec.Tolerations, ais.Spec.TargetSpec.Tolerations)
+}
+
+func mergeTolerationsUnique(a, b []corev1.Toleration) []corev1.Toleration {
+	out := make([]corev1.Toleration, 0, len(a)+len(b))
+	out = append(out, a...)
+
+	for i := range b {
+		tb := &b[i]
+		exists := false
+		for j := range out {
+			if out[j].MatchToleration(tb) {
+				exists = true
+				break
+			}
+		}
+		if !exists {
+			out = append(out, *tb)
+		}
+	}
+	return out
+}
+
 func (ais *AIStore) AllowTargetSharedNodes() bool {
 	return ais.Spec.TargetSpec.DisablePodAntiAffinity != nil && *ais.Spec.TargetSpec.DisablePodAntiAffinity
 }
