@@ -1,3 +1,13 @@
+{{- /* Validate stateStorageClass exists (requires cluster access; skipped during templating) */ -}}
+{{- if .Values.stateStorageClass }}
+{{- $hasClusterAccess := (lookup "v1" "Node" "" "").items }}
+{{- if $hasClusterAccess }}
+{{- $sc := lookup "storage.k8s.io/v1" "StorageClass" "" .Values.stateStorageClass }}
+{{- if empty $sc }}
+{{- fail (printf "StorageClass '%s' (stateStorageClass) not found. Please ensure the StorageClass exists before deploying." .Values.stateStorageClass) }}
+{{- end }}
+{{- end }}
+{{- end }}
 apiVersion: ais.nvidia.com/v1beta1
 kind: AIStore
 metadata:
