@@ -165,3 +165,7 @@ spec:
   {{- end }}
   logsDir: {{ .Values.logsDir }}
   clusterDomain: {{ .Values.clusterDomain }}
+  {{- with .Values.adminClient }}
+  adminClient:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}

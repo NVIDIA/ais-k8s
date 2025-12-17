@@ -448,6 +448,100 @@
         }
       },
       "required": ["enabled", "port"]
+    },
+    "adminClient": {
+      "type": ["object", "null"],
+      "description": "Optional admin client deployment. Deploys pre-configured with the cluster endpoint, CLI, Python SDK, and aisloader.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Controls whether the admin client deployment is created. Defaults to true when adminClient is specified.",
+          "default": true,
+          "examples": [true, false]
+        },
+        "image": {
+          "type": "string",
+          "description": "Container image for the admin client.",
+          "examples": ["aistorage/ais-util:latest"]
+        },
+        "imagePullPolicy": {
+          "type": "string",
+          "description": "Image pull policy for the admin client container.",
+          "enum": ["Always", "IfNotPresent", "Never"],
+          "examples": ["IfNotPresent"]
+        },
+        "resources": {
+          "type": "object",
+          "description": "Resource requests/limits for the admin client container.",
+          "examples": [
+            {
+              "requests": { "cpu": "100m", "memory": "128Mi" },
+              "limits": { "cpu": "500m", "memory": "512Mi" }
+            }
+          ]
+        },
+        "annotations": {
+          "type": "object",
+          "description": "Annotations to apply to the admin client pod.",
+          "additionalProperties": { "type": "string" }
+        },
+        "labels": {
+          "type": "object",
+          "description": "Labels to apply to the admin client pod in addition to defaults.",
+          "additionalProperties": { "type": "string" }
+        },
+        "nodeSelector": {
+          "type": "object",
+          "description": "Node selector for admin client scheduling.",
+          "additionalProperties": { "type": "string" },
+          "examples": [{ "node-role": "admin" }]
+        },
+        "affinity": {
+          "type": "object",
+          "description": "Affinity scheduling rules for the admin client."
+        },
+        "tolerations": {
+          "type": "array",
+          "description": "Tolerations for the admin client pod.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": { "type": "string" },
+              "operator": { "type": "string" },
+              "value": { "type": "string" },
+              "effect": { "type": "string" },
+              "tolerationSeconds": { "type": "integer" }
+            }
+          }
+        },
+        "env": {
+          "type": "array",
+          "description": "Additional environment variables for the admin client container.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "value": { "type": "string" }
+            }
+          }
+        },
+        "caConfigMap": {
+          "type": "object",
+          "description": "ConfigMap containing the CA bundle for TLS trust. When specified, the ConfigMap is mounted and AIS_CLIENT_CA is set.",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Name of the ConfigMap containing the CA bundle."
+            },
+            "key": {
+              "type": "string",
+              "description": "Key within the ConfigMap containing the CA certificate bundle in PEM format.",
+              "default": "trust-bundle.pem"
+            }
+          },
+          "required": ["name"]
+        }
+      }
     }
   },
   "required": ["cluster", "size", "protocol", "nodeImage", "initImage", "shutdownCluster", "cleanupData", "cleanupMetadata"]

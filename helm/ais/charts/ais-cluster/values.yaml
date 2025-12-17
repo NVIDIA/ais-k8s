@@ -55,3 +55,6 @@ proxyLB:
   port: 51080
   annotations:
     prometheus.io/scrape: "true"
+
+adminClient:
+  enabled: false
