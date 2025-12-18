@@ -75,7 +75,8 @@ discovery.kubernetes "ais_proxy_pods" {
   }
   selectors {
     role = "pod"
-    label = "app=ais,component=proxy" 
+    label = "app=ais,component=proxy"
+    field = "spec.nodeName=" + coalesce(sys.env("HOSTNAME"), constants.hostname)
   }
 }
 
@@ -86,7 +87,8 @@ discovery.kubernetes "ais_target_pods" {
   }
   selectors {
     role = "pod"
-    label = "app=ais,component=target" 
+    label = "app=ais,component=target"
+    field = "spec.nodeName=" + coalesce(sys.env("HOSTNAME"), constants.hostname)
   }
 }
 
