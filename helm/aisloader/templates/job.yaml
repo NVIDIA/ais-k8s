@@ -1,0 +1,80 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    app.kubernetes.io/name: aisloader
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  completions: {{ .Values.replicas }}
+  parallelism: {{ .Values.replicas }}
+  completionMode: Indexed
+  backoffLimit: {{ .Values.job.backoffLimit }}
+  ttlSecondsAfterFinished: {{ .Values.job.ttlSecondsAfterFinished }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: aisloader
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app: {{ .Release.Name }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      restartPolicy: Never
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: aisloader
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              aisloader -loaderid=$JOB_COMPLETION_INDEX -loadernum={{ .Values.replicas }}{{- range $key, $val := .Values.params }} -{{ $key }}={{ $val }}{{- end }} -json -quiet -stats-output=/tmp/stats.json >/dev/null
+              cat /tmp/stats.json
+          env:
+            - name: AIS_ENDPOINT
+              value: {{ .Values.ais.endpoint | quote }}
+            {{- if .Values.ais.caConfigMap }}
+            - name: AIS_CLIENT_CA
+              value: /etc/ais-ca/{{ .Values.ais.bundleFile }}
+            {{- end }}
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if .Values.ais.caConfigMap }}
+          volumeMounts:
+            - name: ais-ca
+              mountPath: /etc/ais-ca
+              readOnly: true
+          {{- end }}
+      {{- if .Values.ais.caConfigMap }}
+      volumes:
+        - name: ais-ca
+          configMap:
+            name: {{ .Values.ais.caConfigMap }}
+            optional: true
+            items:
+              - key: {{ .Values.ais.bundleFile }}
+                path: {{ .Values.ais.bundleFile }}
+      {{- end }}

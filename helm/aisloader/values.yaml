@@ -1,0 +1,49 @@
+# Number of loader pods - set to match the number of (labeled) client nodes
+replicas: 5
+
+image:
+  repository: aistorage/ais-util
+  tag: latest
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+ais:
+  endpoint: https://ais-proxy.ais.svc.cluster.local:51080
+  caConfigMap: aistore.nvidia.com
+  bundleFile: trust-bundle.pem
+
+job:
+  ttlSecondsAfterFinished: 86400
+  backoffLimit: 0
+
+nodeSelector: {}
+tolerations: []
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchLabels:
+            app.kubernetes.io/name: aisloader
+        topologyKey: kubernetes.io/hostname
+
+podLabels: {}
+podAnnotations: {}
+
+resources:
+  limits:
+    cpu: 8
+    memory: 8Gi
+  requests:
+    cpu: 4
+    memory: 4Gi
+
+# See: https://github.com/NVIDIA/aistore/blob/main/docs/aisloader.md
+params:
+  bucket: "ais://bench"
+  duration: "10m"
+  pctput: 100
+  numworkers: 64
+  minsize: "1MB"
+  maxsize: "1MB"
+  cleanup: false

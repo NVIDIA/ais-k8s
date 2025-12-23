@@ -1,0 +1,5 @@
+releases:
+  - name: aisloader
+    namespace: ais
+    createNamespace: true
+    chart: ./
