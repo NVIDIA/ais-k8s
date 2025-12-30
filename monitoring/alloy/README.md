@@ -54,3 +54,11 @@ To force a config reload to test a config update, simply make an API call to thi
 ```bash
 curl -X POST http://localhost:12345/-/reload
 ```
+
+To view the full config as created in the ConfigMap: 
+
+```bash
+kubectl get configmap alloy-config \
+  -n monitoring \
+  -o "jsonpath={.data['config\\.alloy']}" > alloy-config.yaml
+```

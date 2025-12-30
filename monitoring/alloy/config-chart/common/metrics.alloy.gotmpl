@@ -2,9 +2,7 @@ livedebugging {
   enabled = true
 }
 
-{{- if and .Values.remote .Values.mimir }}
-
-{{- if .Values.mimir.remoteEndpoint }}
+{{- if and .Values.remote .Values.mimir .Values.mimir.remoteEndpoint}}
 otelcol.receiver.prometheus "remote_receiver_import" {
   output {
     metrics = [otelcol.processor.attributes.remote_insert_label.input]
@@ -17,26 +15,25 @@ otelcol.exporter.otlphttp "remote_metrics_export" {
     endpoint = "{{ .Values.mimir.remoteEndpoint }}"
   }
 }
-{{- end }}
 
 prometheus.relabel "remote_metrics" {
   forward_to = [
-    {{- if .Values.mimir.remoteEndpoint }}
     otelcol.receiver.prometheus.remote_receiver_import.receiver,
-    {{- end }}
   ]
 }
+{{- end }}
 
 prometheus.relabel "all_metrics" {
   forward_to = [
     {{- if and .Values.prometheus .Values.prometheus.localGateway }}
     otelcol.receiver.prometheus.local_receiver_import.receiver,
     {{- end }}
+    {{- if and .Values.remote .Values.mimir .Values.mimir.remoteEndpoint}}
     prometheus.relabel.remote_metrics.receiver,
+    {{- end }}
   ]
 }
 
-{{- end }}
 
 
 {{- if and .Values.prometheus .Values.prometheus.localGateway }}
@@ -177,7 +174,7 @@ prometheus.relabel "cadvisor" {
     action = "labeldrop"
     regex = "container_label_.*"
   }
-  forward_to = [prometheus.relabel.redirect.receiver]
+  forward_to = [prometheus.relabel.all_metrics.receiver]
 }
 
 prometheus.scrape "aistore" {
@@ -203,5 +200,21 @@ prometheus.relabel "aistore" {
     regex = "(.+)"
     replacement = "aggregated"
   }
-  forward_to = [prometheus.relabel.redirect.receiver]
+  forward_to = [prometheus.relabel.all_metrics.receiver]
+}
+
+prometheus.relabel "node_exporter" {
+  forward_to = [prometheus.relabel.all_metrics.receiver]
+  rule {
+    action = "replace"
+    target_label = "job"
+    replacement = "node-exporter"
+  }
+}
+
+prometheus.scrape "kube_state_metrics" {
+  targets = discovery.relabel.kube_state_metrics.output
+  job_name = "kube-state-metrics"
+  scrape_interval = "30s"
+  forward_to = [prometheus.relabel.all_metrics.receiver]
 }

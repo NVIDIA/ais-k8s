@@ -1,25 +1,19 @@
-{{- if and .Values.remote .Values.loki }}
-
-{{- if .Values.loki.remoteEndpoint }}
-otelcol.receiver.loki "remote_loki_receiver" {
-  output {
-    logs = [otelcol.exporter.otlphttp.remote_logs_export.input]
-  }
-}
+{{- if and .Values.remote .Values.loki .Values.loki.remoteEndpoint }}
 otelcol.exporter.otlphttp "remote_logs_export" {
   client {
     auth = otelcol.auth.oauth2.azure_oidc.handler
     endpoint = "{{ .Values.loki.remoteEndpoint }}"
   }
 }
-{{- end }}
+
+otelcol.receiver.loki "remote_loki_receiver" {
+  output {
+    logs = [otelcol.exporter.otlphttp.remote_logs_export.input]
+  }
+}
 
 loki.relabel "remote" {
-  forward_to = [
-    {{- if .Values.loki.remoteEndpoint }}
-    otelcol.receiver.loki.remote_loki_receiver.receiver,
-    {{- end }}
-  ]
+  forward_to = [otelcol.receiver.loki.remote_loki_receiver.receiver]
   rule {
     action = "keep"
     source_labels = ["app"]
@@ -31,18 +25,29 @@ loki.relabel "remote" {
     replacement = "{{ .Values.remote.label }}"
   }
 }
+{{- end }}
+
+{{- if .Values.loki.localGateway }}
+loki.write "local" {
+  endpoint {
+    url = {{ .Values.loki.localGateway | quote }}
+  }
+  external_labels = {
+    cluster = "local",
+  }
+}
+{{- end }}
 
 loki.relabel "all_logs" {
   forward_to = [
     {{- if .Values.loki.localGateway }}
     loki.write.local.receiver,
     {{- end }}
-    {{- if .Values.loki.remoteEndpoint }}
+    {{- if and .Values.remote .Values.loki .Values.loki.remoteEndpoint }}
     loki.relabel.remote.receiver,
     {{- end }}
   ]
 }
-{{- end }}
 
 loki.process "ais_extract_level" {
   stage.match {
@@ -59,7 +64,7 @@ loki.process "ais_extract_level" {
     }
   }
 
-  forward_to = [ loki.relabel.ais_map_level.receiver ]
+  forward_to = [loki.relabel.ais_map_level.receiver]
 }
 
 loki.relabel "ais_map_level" {
@@ -87,26 +92,8 @@ loki.relabel "ais_map_level" {
     replacement   = "error"
   }
 
-  forward_to = [
-    {{- if .Values.loki.localGateway }}
-    loki.write.local.receiver,
-    {{- end }}
-    {{- if .Values.loki.remoteEndpoint }}
-    loki.relabel.remote.receiver,
-    {{- end }}
-  ]
+  forward_to = [loki.relabel.all_logs.receiver]
 }
-
-{{- if .Values.loki.localGateway }}
-loki.write "local" {
-  endpoint {
-    url = {{ .Values.loki.localGateway | quote }}
-  }
-  external_labels = {
-    cluster = "local",
-  }
-}
-{{- end }}
 
 discovery.kubernetes "pod" {
   role = "pod"
@@ -183,4 +170,9 @@ discovery.relabel "pod_logs" {
     regex = "^(\\S+):\\/\\/.+$"
     replacement = "$1"
   }
+}
+
+loki.source.kubernetes "pod_logs" {
+  targets    = discovery.relabel.pod_logs.output
+  forward_to = [loki.process.ais_extract_level.receiver]
 }

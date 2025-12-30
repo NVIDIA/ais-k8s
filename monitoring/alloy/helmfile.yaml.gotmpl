@@ -15,7 +15,6 @@ releases:
     chart: ./config-chart  # Local chart for configmap
     createNamespace: true
     values:
-      - environment: {{ .Environment.Name }}
       - ./environments/{{ .Environment.Name }}/values.yaml.gotmpl
 
   - name: alloy
