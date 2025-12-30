@@ -4,6 +4,13 @@ environments:
     - envFile: default
     - createCert:
         enabled: false
+        valuesPath: ./config/tls-cert/default.yaml
+  keycloak: 
+    values: 
+    - envFile: keycloak
+    - createCert:
+        enabled: false
+        valuesPath: ./config/tls-cert/keycloak.yaml
   oci-iad: 
     values:
     - envFile: default
@@ -19,24 +26,22 @@ environments:
       - envFile: default
       - createCert:
           enabled: true
+          valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/operator/config/tls-cert/sjc4-1000.yaml?ref=main"
     kubeContext: sjc4-1000
   sjc11:
     values: 
     - envFile: default
     - createCert:
         enabled: true
+        valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/operator/config/tls-cert/sjc11.yaml?ref=main"
     kubeContext: sjc11
   sjc4-dev:
     values:
     - envFile: default
     - createCert:
         enabled: true
+        valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/operator/config/tls-cert/sjc4-dev.yaml?ref=main"
     kubeContext: sjc4-dev
-  keycloak: 
-    values: 
-    - envFile: keycloak
-    - createCert:
-        enabled: false
 
 ---
 repositories:
@@ -51,7 +56,7 @@ releases:
     condition: createCert.enabled
     version: 0.1.0
     values:
-      - "./config/tls-cert/{{ .Environment.Name }}.yaml"
+      - "{{ .Environment.Values.createCert | get \"valuesPath\" \"\" }}"
 
   - name: ais-operator
     namespace: ais-operator-system
