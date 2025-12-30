@@ -1,29 +1,43 @@
 environments:
   default:
     values:
-      - envFile: default
+      - valuesPath: "./config/authn/default.yaml.gotmpl"
+        https:
+          valuesPath: "./config/authn/cert/default.yaml"
   tls:
     values:
-      - envFile: tls
+      - valuesPath: "./config/authn/tls.yaml.gotmpl"
+        https:
+          valuesPath: "./config/authn/cert/tls.yaml"
   neb-fin: 
     values: 
-      - envFile: nvidia
+      - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/nvidia.yaml.gotmpl?ref=main"
+        https:
+          valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/cert/neb-fin.yaml?ref=main"
     kubeContext: neb-fin
   oci-kratos:
     values:
-      - envFile: oci
+      - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/oci.yaml.gotmpl?ref=main"
+        https:
+          valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/cert/oci-kratos.yaml?ref=main"
     kubeContext: oci-kratos
   oci-ord:
     values:
-      - envFile: oci
+      - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/oci.yaml.gotmpl?ref=main"
+        https:
+          valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/cert/oci-ord.yaml?ref=main"
     kubeContext: oci-ord
   oci-iad:
     values:
-      - envFile: oci
+      - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/oci.yaml.gotmpl?ref=main"
+        https:
+          valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/cert/oci-iad.yaml?ref=main"
     kubeContext: oci-iad
   sjc4-dev:
     values:
-      - envFile: nvidia
+      - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/nvidia.yaml.gotmpl?ref=main"
+        https:
+          valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/cert/sjc4-dev.yaml?ref=main"
     kubeContext: sjc4-dev
 ---
 releases:
@@ -34,5 +48,5 @@ releases:
     version: 0.1.0
     values:
       - "./charts/authn/values.yaml.gotmpl"
-      - "./config/authn/{{ .Values.envFile }}.yaml.gotmpl"
-      - "./config/authn/cert/{{ .Environment.Name }}.yaml"
+      - "{{ .Environment.Values.valuesPath }}"
+      - "{{ .Environment.Values.https.valuesPath }}"

@@ -1,5 +1,0 @@
-tls: 
-  certificate:
-    ipAddresses: 
-    dnsNames:
-      - "authn.asr.iad.oci.aistore.nvidia.com"
