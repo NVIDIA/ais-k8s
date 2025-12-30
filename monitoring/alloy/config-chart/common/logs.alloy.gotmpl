@@ -1,99 +1,43 @@
-{{- if and .Values.remote .Values.loki .Values.loki.remoteEndpoint }}
+{{- if and .Values.remote .Values.logs .Values.logs.remoteEndpoint }}
 otelcol.exporter.otlphttp "remote_logs_export" {
   client {
     auth = otelcol.auth.oauth2.azure_oidc.handler
-    endpoint = "{{ .Values.loki.remoteEndpoint }}"
+    endpoint = "{{ .Values.logs.remoteEndpoint }}"
   }
 }
 
-otelcol.receiver.loki "remote_loki_receiver" {
+// To reduce network traffic, only send specific logs to remote
+otelcol.processor.filter "remote_logs_only" {
+  logs {
+    log_record = [
+      `not (attributes["service.namespace"] == "ais" or
+       attributes["service.namespace"] == "kube-system" or
+       attributes["service.namespace"] == "monitoring" or
+       attributes["service.namespace"] == "ais-operator-system")`,
+    ]
+  }
+
   output {
     logs = [otelcol.exporter.otlphttp.remote_logs_export.input]
   }
 }
-
-loki.relabel "remote" {
-  forward_to = [otelcol.receiver.loki.remote_loki_receiver.receiver]
-  rule {
-    action = "keep"
-    source_labels = ["app"]
-    regex = "ais"
-  }
-  rule {
-    action = "replace"
-    target_label = "cluster"
-    replacement = "{{ .Values.remote.label }}"
-  }
-}
 {{- end }}
 
-{{- if .Values.loki.localGateway }}
+{{- if .Values.logs.localGateway }}
+
+otelcol.exporter.loki "local_loki" {
+  attributes_to_labels = ["cluster", "service.name", "service.namespace", "k8s.pod.name"]
+  forward_to = [loki.write.local.receiver]
+}
+
 loki.write "local" {
   endpoint {
-    url = {{ .Values.loki.localGateway | quote }}
-  }
-  external_labels = {
-    cluster = "local",
+    url = {{ .Values.logs.localGateway | quote }}
   }
 }
 {{- end }}
 
-loki.relabel "all_logs" {
-  forward_to = [
-    {{- if .Values.loki.localGateway }}
-    loki.write.local.receiver,
-    {{- end }}
-    {{- if and .Values.remote .Values.loki .Values.loki.remoteEndpoint }}
-    loki.relabel.remote.receiver,
-    {{- end }}
-  ]
-}
-
-loki.process "ais_extract_level" {
-  stage.match {
-    selector = "{namespace=\"ais\", app=\"ais\"}"
-
-    // Extract first non-space character (i.e. I/W/E)
-    stage.regex {
-      expression = "^[ \\t]*(?P<level>[IWE])\\b"
-    }
-
-    // Promote extracted level to a label
-    stage.labels {
-      values = { level = "level" }
-    }
-  }
-
-  forward_to = [loki.relabel.ais_map_level.receiver]
-}
-
-loki.relabel "ais_map_level" {
-  rule {
-    action        = "replace"
-    source_labels = ["level"]
-    regex         = "^I$"
-    target_label  = "level"
-    replacement   = "info"
-  }
-
-  rule {
-    action        = "replace"
-    source_labels = ["level"]
-    regex         = "^W$"
-    target_label  = "level"
-    replacement   = "warn"
-  }
-
-  rule {
-    action        = "replace"
-    source_labels = ["level"]
-    regex         = "^E$"
-    target_label  = "level"
-    replacement   = "error"
-  }
-
-  forward_to = [loki.relabel.all_logs.receiver]
-}
+// Ingest logs from K8s pods on the same node as this alloy pod
 
 discovery.kubernetes "pod" {
   role = "pod"
@@ -103,76 +47,287 @@ discovery.kubernetes "pod" {
   }
 }
 
+// Convert discovery labels from attributes to loki labels which will later become OTLP attributes
+
 discovery.relabel "pod_logs" {
   targets = discovery.kubernetes.pod.targets
 
-  // Label creation - "namespace" field from "__meta_kubernetes_namespace"
+  // K8s attributes
   rule {
     source_labels = ["__meta_kubernetes_namespace"]
-    action = "replace"
-    target_label = "namespace"
+    target_label  = "k8s_namespace_name"
+    action        = "replace"
   }
-
-  // Label creation - "pod" field from "__meta_kubernetes_pod_name"
   rule {
     source_labels = ["__meta_kubernetes_pod_name"]
-    action = "replace"
-    target_label = "pod"
+    target_label  = "k8s_pod_name"
+    action        = "replace"
   }
-
-  // Label creation - "container" field from "__meta_kubernetes_pod_container_name"
   rule {
     source_labels = ["__meta_kubernetes_pod_container_name"]
-    action = "replace"
-    target_label = "container"
+    target_label  = "k8s_container_name"
+    action        = "replace"
+  }
+  rule {
+    source_labels = ["__meta_kubernetes_pod_controller_kind"]
+    target_label  = "k8s_controller_kind"
+    action        = "replace"
+  }
+  rule {
+    source_labels = ["__meta_kubernetes_pod_controller_name"]
+    target_label  = "k8s_controller_name"
+    action        = "replace"
   }
 
-  // Label creation -  "app" field from "__meta_kubernetes_pod_label_app_kubernetes_io_name" -- preferred label
+  // Service attributes
+  rule {
+    source_labels = ["__meta_kubernetes_namespace"]
+    target_label  = "service_namespace"
+    action        = "replace"
+  }
   rule {
     source_labels = ["__meta_kubernetes_pod_label_app_kubernetes_io_name"]
-    action = "replace"
-    target_label = "app"
+    target_label  = "service_name"
+    action        = "replace"
   }
 
-  // Label creation - As fallback set "app" field from "__meta_kubernetes_pod_label_app" if the "app" label exists
+  // Additional backwards compatible metadata
   rule {
-    source_labels = ["__meta_kubernetes_pod_label_app"]
-    action = "replace"
-    target_label = "app"
-    regex = "(.+)"
+    source_labels = ["__meta_kubernetes_pod_label_app_kubernetes_io_component"]
+    target_label  = "component"
+    action        = "replace"
+  }
+  rule {
+    source_labels = ["__meta_kubernetes_pod_node_name"]
+    target_label  = "host_name"
+    action        = "replace"
   }
 
-  // Label creation -  "job" field from "__meta_kubernetes_namespace" and "__meta_kubernetes_pod_container_name"
-  // Concatenate values __meta_kubernetes_namespace/__meta_kubernetes_pod_container_name
+  // Non-indexed metadata
   rule {
-    source_labels = ["__meta_kubernetes_namespace", "__meta_kubernetes_pod_container_name"]
-    action = "replace"
-    target_label = "job"
-    separator = "/"
-    replacement = "$1"
+    source_labels = ["__meta_kubernetes_pod_container_image"]
+    target_label  = "k8s_container_image"
+    action        = "replace"
   }
-
-  // Label creation - "container" field from "__meta_kubernetes_pod_uid" and "__meta_kubernetes_pod_container_name"
-  // Concatenate values __meta_kubernetes_pod_uid/__meta_kubernetes_pod_container_name.log
   rule {
-    source_labels = ["__meta_kubernetes_pod_uid", "__meta_kubernetes_pod_container_name"]
-    action = "replace"
-    target_label = "__path__"
-    separator = "/"
-    replacement = "/var/log/pods/*$1/*.log"
+    source_labels = ["__meta_kubernetes_pod_container_port_number"]
+    target_label  = "k8s_container_port"
+    action        = "replace"
   }
-
-  // Label creation -  "container_runtime" field from "__meta_kubernetes_pod_container_id"
   rule {
-    source_labels = ["__meta_kubernetes_pod_container_id"]
-    action = "replace"
-    target_label = "container_runtime"
-    regex = "^(\\S+):\\/\\/.+$"
-    replacement = "$1"
+    source_labels = ["__meta_kubernetes_pod_phase"]
+    target_label  = "k8s_pod_phase"
+    action        = "replace"
+  }
+  rule {
+    source_labels = ["__meta_kubernetes_pod_ready"]
+    target_label  = "k8s_pod_ready"
+    action        = "replace"
   }
 }
 
-loki.source.kubernetes "pod_logs" {
+
+// Use Loki source from the discovery targets then convert to OTLP logs 
+
+loki.source.kubernetes "loki_pod_logs" {
   targets    = discovery.relabel.pod_logs.output
-  forward_to = [loki.process.ais_extract_level.receiver]
+  forward_to = [otelcol.receiver.loki.pod_logs.receiver]
+}
+
+otelcol.receiver.loki "pod_logs" {
+  output {
+    logs = [otelcol.processor.resourcedetection.logs_cloud.input]
+  }
+}
+
+// Process log labels in OTLP format
+
+// Inject attributes from the node (can be extended for discovery in different environments)
+
+otelcol.processor.resourcedetection "logs_cloud" {
+  detectors = ["env"]
+  output {
+    logs = [otelcol.processor.attributes.convert_attr.input]
+  }
+}
+
+// Convert Loki attributes to indexed attributes in OTLP format 
+
+otelcol.processor.attributes "convert_attr" {
+  action {
+    key            = "k8s.namespace.name"
+    action         = "upsert"
+    from_attribute = "k8s_namespace_name"
+  }
+  action {
+    key = "k8s_namespace_name"
+    action = "delete"
+  }
+  action {
+    key            = "k8s.pod.name"
+    action         = "upsert"
+    from_attribute = "k8s_pod_name"
+  }
+  action {
+    key = "k8s_pod_name"
+    action = "delete"
+  }
+  action {
+    key            = "k8s.container.name"
+    action         = "upsert"
+    from_attribute = "k8s_container_name"
+  }
+  action {
+    key = "k8s_container_name"
+    action = "delete"
+  }
+  action {
+    key            = "service.namespace"
+    action         = "upsert"
+    from_attribute = "service_namespace"
+  }
+  action {
+    key = "service_namespace"
+    action = "delete"
+  }
+  action {
+    key            = "service.name"
+    action         = "upsert"
+    from_attribute = "service_name"
+  }
+  action {
+    key = "service_name"
+    action = "delete"
+  }
+  action {
+    key            = "host.name"
+    action         = "upsert"
+    from_attribute = "host_name"
+  }
+  action {
+    key = "host_name"
+    action = "delete"
+  }
+  action {
+    key            = "k8s.container.image"
+    action         = "upsert"
+    from_attribute = "k8s_container_image"
+  }
+  action {
+    key = "k8s_container_image"
+    action = "delete"
+  }
+  action {
+    key            = "k8s.container.port"
+    action         = "upsert"
+    from_attribute = "k8s_container_port"
+  }
+  action {
+    key = "k8s_container_port"
+    action = "delete"
+  }
+  action {
+    key            = "k8s.pod.phase"
+    action         = "upsert"
+    from_attribute = "k8s_pod_phase"
+  }
+  action {
+    key = "k8s_pod_phase"
+    action = "delete"
+  }
+  action {
+    key            = "k8s.pod.ready"
+    action         = "upsert"
+    from_attribute = "k8s_pod_ready"
+  }
+  action {
+    key = "k8s_pod_ready"
+    action = "delete"
+  }
+
+  output {
+    logs = [otelcol.processor.attributes.insert_cluster_attr.input]
+  }
+}
+
+// Set "cluster" label to explicit remote label or fallback to "local"
+
+otelcol.processor.attributes "insert_cluster_attr" {
+  action {
+    key    = "cluster"
+    action = "upsert"
+    {{- if and .Values.remote .Values.remote.label }}
+    value  = "{{ .Values.remote.label }}"
+    {{- else }}
+    value = "local"
+    {{- end }}
+  }
+
+  output {
+    logs = [otelcol.processor.transform.k8s_workload_from_controller.input]
+  }
+}
+
+// Set specifically indexed k8s attributes from the controller metadata
+
+otelcol.processor.transform "k8s_workload_from_controller" {
+  log_statements {
+    context = "resource"
+    statements = [
+      `set(attributes["k8s.replicaset.name"], attributes["k8s_controller_name"])
+         where attributes["k8s_controller_kind"] == "ReplicaSet"`,
+
+      `set(attributes["k8s.deployment.name"], attributes["k8s_controller_name"])
+         where attributes["k8s_controller_kind"] == "Deployment"`,
+
+      `set(attributes["k8s.statefulset.name"], attributes["k8s_controller_name"])
+         where attributes["k8s_controller_kind"] == "StatefulSet"`,
+
+      `set(attributes["k8s.daemonset.name"], attributes["k8s_controller_name"])
+         where attributes["k8s_controller_kind"] == "DaemonSet"`,
+
+      `set(attributes["k8s.cronjob.name"], attributes["k8s_controller_name"])
+         where attributes["k8s_controller_kind"] == "CronJob"`,
+
+      `set(attributes["k8s.job.name"], attributes["k8s_controller_name"])
+         where attributes["k8s_controller_kind"] == "Job"`,
+    ]
+  }
+
+  output {
+    logs = [otelcol.processor.transform.ais_extract_level.input]
+  }
+}
+
+// Extract level from the body and promote it as metadata for filtering
+
+otelcol.processor.transform "ais_extract_level" {   
+  // Need "log" context to use IsMatch on the body
+  log_statements {
+    context = "log"
+    statements = [
+      // INFO
+      `set(severity_text, "INFO") where attributes["service.namespace"] == "ais" and attributes["service.name"] == "ais" and IsMatch(body, "^[ \t]*I\\b.*")`,
+      `set(severity_number, 9)      where attributes["service.namespace"] == "ais" and attributes["service.name"] == "ais" and IsMatch(body, "^[ \t]*I\\b.*")`,
+
+      // WARN
+      `set(severity_text, "WARN")   where attributes["service.namespace"] == "ais" and attributes["service.name"] == "ais" and IsMatch(body, "^[ \t]*W\\b.*")`,
+      `set(severity_number, 13)     where attributes["service.namespace"] == "ais" and attributes["service.name"] == "ais" and IsMatch(body, "^[ \t]*W\\b.*")`,
+
+      // ERROR
+      `set(severity_text, "ERROR")  where attributes["service.namespace"] == "ais" and attributes["service.name"] == "ais" and IsMatch(body, "^[ \t]*E\\b.*")`,
+      `set(severity_number, 17)     where attributes["service.namespace"] == "ais" and attributes["service.name"] == "ais" and IsMatch(body, "^[ \t]*E\\b.*")`,
+    ]
+  }
+
+  output {
+    logs = [
+      {{- if .Values.logs.localGateway }}
+      otelcol.exporter.loki.local_loki.receiver,
+      {{- end }}
+      {{- if and .Values.remote .Values.logs .Values.logs.remoteEndpoint }}
+      otelcol.processor.filter.remote_logs_only.input,
+      {{- end }}
+    ]
+  }
 }
