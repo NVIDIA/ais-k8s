@@ -11,7 +11,7 @@ Values available to override are provided in the [chart values](./charts/authn/v
 
 ### Set up your environment config
 
-We provide 3 environment types for deployment and reference. 
+We provide 2 reference environment types for deployment: `default` and `tls`.
 
 You can override the variables for these environments in the Helmfile command or create a new environment with its own config values template. 
 
@@ -24,7 +24,6 @@ Note the `tls` environment expects an existing certificate secret.
 
 If the `createCert` value is set to true, a cert-manager certificate resource will be created that will output to this secret.
 
-The `nvidia` and `oci` environments include values for configuring a certificate resource to create this certificate secret. 
 Note the valid IP addresses and DNS names for the certificate must be provided as a value for these environments. 
 To provide deployment-specific values, add the environment values to the [cert values file](./config/authn/cert)
 

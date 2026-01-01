@@ -55,16 +55,16 @@ To configure backend provider secrets managed by helm, set the value `cloudSecre
 
 Then, add a configuration values file in the [config/cloud](./config/cloud/) directory to populate the variables used by the [cloud-secrets templates](./charts/cloud-secrets/templates/).
 
-Add references to the local files you want to use. Example for sjc11 (be sure to update your paths correctly):
+Add references to the local files you want to use. See the following example (be sure to update paths if necessary):
   ```yaml
   aws_config: |-
-  {{ readFile (printf "%s/.aws/sjc11/config" (env "HOME")) | indent 2 }}
+  {{ readFile (printf "%s/.aws/config" (env "HOME")) | indent 2 }}
 
   aws_credentials: |-
-  {{ readFile (printf "%s/.aws/sjc11/credentials" (env "HOME")) | indent 2 }}
+  {{ readFile (printf "%s/.aws/credentials" (env "HOME")) | indent 2 }}
 
   gcp_json: |-
-  {{ readFile (printf "%s/.gcp/sjc11/gcp.json" (env "HOME")) | indent 2 }}
+  {{ readFile (printf "%s/.gcp/gcp.json" (env "HOME")) | indent 2 }}
   ```
 
 
