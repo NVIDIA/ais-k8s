@@ -10,10 +10,10 @@ otelcol.exporter.otlphttp "remote_logs_export" {
 otelcol.processor.filter "remote_logs_only" {
   logs {
     log_record = [
-      `not (attributes["service.namespace"] == "ais" or
-       attributes["service.namespace"] == "kube-system" or
-       attributes["service.namespace"] == "monitoring" or
-       attributes["service.namespace"] == "ais-operator-system")`,
+      `not (resource.attributes["service.namespace"] == "ais" or
+       resource.attributes["service.namespace"] == "kube-system" or
+       resource.attributes["service.namespace"] == "monitoring" or
+       resource.attributes["service.namespace"] == "ais-operator-system")`,
     ]
   }
 
@@ -147,120 +147,81 @@ otelcol.receiver.loki "pod_logs" {
 otelcol.processor.resourcedetection "logs_cloud" {
   detectors = ["env"]
   output {
-    logs = [otelcol.processor.attributes.convert_attr.input]
+    logs = [otelcol.processor.transform.convert_attr.input]
   }
 }
 
-// Convert Loki attributes to indexed attributes in OTLP format 
+// Convert Loki attributes to indexed resource attributes in OTLP format 
 
-otelcol.processor.attributes "convert_attr" {
-  action {
-    key            = "k8s.namespace.name"
-    action         = "upsert"
-    from_attribute = "k8s_namespace_name"
-  }
-  action {
-    key = "k8s_namespace_name"
-    action = "delete"
-  }
-  action {
-    key            = "k8s.pod.name"
-    action         = "upsert"
-    from_attribute = "k8s_pod_name"
-  }
-  action {
-    key = "k8s_pod_name"
-    action = "delete"
-  }
-  action {
-    key            = "k8s.container.name"
-    action         = "upsert"
-    from_attribute = "k8s_container_name"
-  }
-  action {
-    key = "k8s_container_name"
-    action = "delete"
-  }
-  action {
-    key            = "service.namespace"
-    action         = "upsert"
-    from_attribute = "service_namespace"
-  }
-  action {
-    key = "service_namespace"
-    action = "delete"
-  }
-  action {
-    key            = "service.name"
-    action         = "upsert"
-    from_attribute = "service_name"
-  }
-  action {
-    key = "service_name"
-    action = "delete"
-  }
-  action {
-    key            = "host.name"
-    action         = "upsert"
-    from_attribute = "host_name"
-  }
-  action {
-    key = "host_name"
-    action = "delete"
-  }
-  action {
-    key            = "k8s.container.image"
-    action         = "upsert"
-    from_attribute = "k8s_container_image"
-  }
-  action {
-    key = "k8s_container_image"
-    action = "delete"
-  }
-  action {
-    key            = "k8s.container.port"
-    action         = "upsert"
-    from_attribute = "k8s_container_port"
-  }
-  action {
-    key = "k8s_container_port"
-    action = "delete"
-  }
-  action {
-    key            = "k8s.pod.phase"
-    action         = "upsert"
-    from_attribute = "k8s_pod_phase"
-  }
-  action {
-    key = "k8s_pod_phase"
-    action = "delete"
-  }
-  action {
-    key            = "k8s.pod.ready"
-    action         = "upsert"
-    from_attribute = "k8s_pod_ready"
-  }
-  action {
-    key = "k8s_pod_ready"
-    action = "delete"
+otelcol.processor.transform "convert_attr" {
+  log_statements {
+    context = "log"
+
+    statements = [
+      // k8s namespace
+      "set(resource.attributes[\"k8s.namespace.name\"], attributes[\"k8s_namespace_name\"])",
+      "delete_key(attributes, \"k8s_namespace_name\")",
+
+      // k8s pod
+      "set(resource.attributes[\"k8s.pod.name\"], attributes[\"k8s_pod_name\"])",
+      "delete_key(attributes, \"k8s_pod_name\")",
+
+      // k8s container
+      "set(resource.attributes[\"k8s.container.name\"], attributes[\"k8s_container_name\"])",
+      "delete_key(attributes, \"k8s_container_name\")",
+      "set(resource.attributes[\"k8s.container.image\"], attributes[\"k8s_container_image\"])",
+      "delete_key(attributes, \"k8s_container_image\")",
+      "set(resource.attributes[\"k8s.container.port\"], attributes[\"k8s_container_port\"])",
+      "delete_key(attributes, \"k8s_container_port\")",
+
+      // service*
+      "set(resource.attributes[\"service.namespace\"], attributes[\"service_namespace\"])",
+      "delete_key(attributes, \"service_namespace\")",
+      "set(resource.attributes[\"service.name\"], attributes[\"service_name\"])",
+      "delete_key(attributes, \"service_name\")",
+      "set(resource.attributes[\"service.instance.id\"], attributes[\"instance\"])",
+      "delete_key(attributes, \"instance\")",
+
+      // host
+      "set(resource.attributes[\"host.name\"], attributes[\"host_name\"])",
+      "delete_key(attributes, \"host_name\")",
+
+      // pod state
+      "set(resource.attributes[\"k8s.pod.phase\"], attributes[\"k8s_pod_phase\"])",
+      "delete_key(attributes, \"k8s_pod_phase\")",
+      "set(resource.attributes[\"k8s.pod.ready\"], attributes[\"k8s_pod_ready\"])",
+      "delete_key(attributes, \"k8s_pod_ready\")",
+
+      //job
+      "set(resource.attributes[\"k8s.job.name\"], attributes[\"job\"])",
+      "delete_key(attributes, \"job\")",
+
+      //component
+      "set(resource.attributes[\"component\"], attributes[\"component\"])",
+      "delete_key(attributes, \"component\")",
+
+
+    ]
   }
 
   output {
-    logs = [otelcol.processor.attributes.insert_cluster_attr.input]
+    logs = [otelcol.processor.transform.insert_cluster_attr.input]
   }
 }
 
-// Set "cluster" label to explicit remote label or fallback to "local"
+// Set "cluster" resource attribute to explicit remote label or fallback to "local"
 
-otelcol.processor.attributes "insert_cluster_attr" {
-  action {
-    key    = "cluster"
-    action = "upsert"
+otelcol.processor.transform "insert_cluster_attr" {
+  log_statements {
+    context = "resource"
+
+    statements = [
     {{- if and .Values.remote .Values.remote.label }}
-    value  = "{{ .Values.remote.label }}"
+      "set(attributes[\"cluster\"], \"{{ .Values.remote.label }}\")",
     {{- else }}
-    value = "local"
+      "set(attributes[\"cluster\"], \"local\")",
     {{- end }}
+    ]
   }
 
   output {
@@ -268,28 +229,58 @@ otelcol.processor.attributes "insert_cluster_attr" {
   }
 }
 
-// Set specifically indexed k8s attributes from the controller metadata
+// Set specifically indexed resource attributes from the controller metadata
 
 otelcol.processor.transform "k8s_workload_from_controller" {
   log_statements {
-    context = "resource"
+    context = "log"
     statements = [
-      `set(attributes["k8s.replicaset.name"], attributes["k8s_controller_name"])
+      // ReplicaSet
+      `set(resource.attributes["k8s.replicaset.name"], attributes["k8s_controller_name"])
+         where attributes["k8s_controller_kind"] == "ReplicaSet"`,
+      `delete_key(attributes, "k8s_controller_name")
+         where attributes["k8s_controller_kind"] == "ReplicaSet"`,
+      `delete_key(attributes, "k8s_controller_kind")
          where attributes["k8s_controller_kind"] == "ReplicaSet"`,
 
-      `set(attributes["k8s.deployment.name"], attributes["k8s_controller_name"])
+      // Deployment
+      `set(resource.attributes["k8s.deployment.name"], attributes["k8s_controller_name"])
+         where attributes["k8s_controller_kind"] == "Deployment"`,
+      `delete_key(attributes, "k8s_controller_name")
+         where attributes["k8s_controller_kind"] == "Deployment"`,
+      `delete_key(attributes, "k8s_controller_kind")
          where attributes["k8s_controller_kind"] == "Deployment"`,
 
-      `set(attributes["k8s.statefulset.name"], attributes["k8s_controller_name"])
+      // StatefulSet
+      `set(resource.attributes["k8s.statefulset.name"], attributes["k8s_controller_name"])
+         where attributes["k8s_controller_kind"] == "StatefulSet"`,
+      `delete_key(attributes, "k8s_controller_name")
+         where attributes["k8s_controller_kind"] == "StatefulSet"`,
+      `delete_key(attributes, "k8s_controller_kind")
          where attributes["k8s_controller_kind"] == "StatefulSet"`,
 
-      `set(attributes["k8s.daemonset.name"], attributes["k8s_controller_name"])
+      // DaemonSet
+      `set(resource.attributes["k8s.daemonset.name"], attributes["k8s_controller_name"])
+         where attributes["k8s_controller_kind"] == "DaemonSet"`,
+      `delete_key(attributes, "k8s_controller_name")
+         where attributes["k8s_controller_kind"] == "DaemonSet"`,
+      `delete_key(attributes, "k8s_controller_kind")
          where attributes["k8s_controller_kind"] == "DaemonSet"`,
 
-      `set(attributes["k8s.cronjob.name"], attributes["k8s_controller_name"])
+      // CronJob
+      `set(resource.attributes["k8s.cronjob.name"], attributes["k8s_controller_name"])
+         where attributes["k8s_controller_kind"] == "CronJob"`,
+      `delete_key(attributes, "k8s_controller_name")
+         where attributes["k8s_controller_kind"] == "CronJob"`,
+      `delete_key(attributes, "k8s_controller_kind")
          where attributes["k8s_controller_kind"] == "CronJob"`,
 
-      `set(attributes["k8s.job.name"], attributes["k8s_controller_name"])
+      // Job
+      `set(resource.attributes["k8s.job.name"], attributes["k8s_controller_name"])
+         where attributes["k8s_controller_kind"] == "Job"`,
+      `delete_key(attributes, "k8s_controller_name")
+         where attributes["k8s_controller_kind"] == "Job"`,
+      `delete_key(attributes, "k8s_controller_kind")
          where attributes["k8s_controller_kind"] == "Job"`,
     ]
   }
@@ -299,6 +290,7 @@ otelcol.processor.transform "k8s_workload_from_controller" {
   }
 }
 
+
 // Extract level from the body and promote it as metadata for filtering
 
 otelcol.processor.transform "ais_extract_level" {   
@@ -307,16 +299,29 @@ otelcol.processor.transform "ais_extract_level" {
     context = "log"
     statements = [
       // INFO
-      `set(severity_text, "INFO") where attributes["service.namespace"] == "ais" and attributes["service.name"] == "ais" and IsMatch(body, "^[ \t]*I\\b.*")`,
-      `set(severity_number, 9)      where attributes["service.namespace"] == "ais" and attributes["service.name"] == "ais" and IsMatch(body, "^[ \t]*I\\b.*")`,
+      `set(severity_text, "INFO") where resource.attributes["service.namespace"] == "ais" and resource.attributes["service.name"] == "ais" and IsMatch(body, "^[ \t]*I\\b.*")`,
+      `set(severity_number, 9) where resource.attributes["service.namespace"] == "ais" and resource.attributes["service.name"] == "ais" and IsMatch(body, "^[ \t]*I\\b.*")`,
 
       // WARN
-      `set(severity_text, "WARN")   where attributes["service.namespace"] == "ais" and attributes["service.name"] == "ais" and IsMatch(body, "^[ \t]*W\\b.*")`,
-      `set(severity_number, 13)     where attributes["service.namespace"] == "ais" and attributes["service.name"] == "ais" and IsMatch(body, "^[ \t]*W\\b.*")`,
+      `set(severity_text, "WARN") where resource.attributes["service.namespace"] == "ais" and resource.attributes["service.name"] == "ais" and IsMatch(body, "^[ \t]*W\\b.*")`,
+      `set(severity_number, 13) where resource.attributes["service.namespace"] == "ais" and resource.attributes["service.name"] == "ais" and IsMatch(body, "^[ \t]*W\\b.*")`,
 
       // ERROR
-      `set(severity_text, "ERROR")  where attributes["service.namespace"] == "ais" and attributes["service.name"] == "ais" and IsMatch(body, "^[ \t]*E\\b.*")`,
-      `set(severity_number, 17)     where attributes["service.namespace"] == "ais" and attributes["service.name"] == "ais" and IsMatch(body, "^[ \t]*E\\b.*")`,
+      `set(severity_text, "ERROR") where resource.attributes["service.namespace"] == "ais" and resource.attributes["service.name"] == "ais" and IsMatch(body, "^[ \t]*E\\b.*")`,
+      `set(severity_number, 17) where resource.attributes["service.namespace"] == "ais" and resource.attributes["service.name"] == "ais" and IsMatch(body, "^[ \t]*E\\b.*")`,
+    ]
+  }
+
+  output {
+    logs = [otelcol.processor.transform.drop_loki_labels.input]
+  }
+}
+
+otelcol.processor.transform "drop_loki_labels" {
+  log_statements {
+    context = "log"
+    statements = [
+      "delete_key(attributes, \"loki.attribute.labels\")",
     ]
   }
 
