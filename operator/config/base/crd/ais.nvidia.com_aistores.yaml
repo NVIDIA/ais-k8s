@@ -4977,6 +4977,29 @@ spec:
                     description: NodeSelector -  which must match a node's labels
                       for the AIS Daemon pod to be scheduled on that node.
                     type: object
+                  pdb:
+                    description: |-
+                      PodDisruptionBudget specifies the PDB configuration for target pods.
+                      When enabled, a PodDisruptionBudget is created to protect target pods from voluntary evictions
+                      during node drain or cluster scale-down operations by cloud providers.
+                    properties:
+                      enabled:
+                        description: |-
+                          Enabled controls whether a PodDisruptionBudget is created for target pods.
+                          When true, the operator will create and manage a PDB for the target StatefulSet.
+                          Defaults to false if not specified.
+                        type: boolean
+                      maxUnavailable:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        description: |-
+                          MaxUnavailable specifies the maximum number of target pods that can be unavailable
+                          during voluntary disruptions. It can be represented as an absolute number (e.g. 1)
+                          or a percentage (e.g. "10%"). Setting to 0 prevents any voluntary evictions.
+                          Defaults to 0 if not specified.
+                        x-kubernetes-int-or-string: true
+                    type: object
                   portIntraControl:
                     anyOf:
                     - type: integer

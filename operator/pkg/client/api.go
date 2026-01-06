@@ -1,6 +1,6 @@
 // Package client contains wrapper for k8s client
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2026, NVIDIA CORPORATION. All rights reserved.
  */
 package client
 
@@ -16,6 +16,7 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
+	policyv1 "k8s.io/api/policy/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -279,6 +280,7 @@ func (c *K8sClient) CreateOrUpdateResource(ctx context.Context, owner *aisv1.AIS
 	if equality.Semantic.DeepDerivative(res, existingObj) {
 		return false, nil
 	}
+	res.SetResourceVersion(existingObj.GetResourceVersion())
 	return true, c.client.Update(ctx, res)
 }
 
@@ -398,6 +400,14 @@ func (c *K8sClient) DeleteConfigMapIfExists(ctx context.Context, name types.Name
 
 func (c *K8sClient) DeletePodIfExists(ctx context.Context, name types.NamespacedName) (existed bool, err error) {
 	return deleteResourceIfExists[*corev1.Pod](c, ctx, name)
+}
+
+func (c *K8sClient) GetPDB(ctx context.Context, name types.NamespacedName) (*policyv1.PodDisruptionBudget, error) {
+	return getResource[*policyv1.PodDisruptionBudget](c.client, ctx, name)
+}
+
+func (c *K8sClient) DeletePDBIfExists(ctx context.Context, name types.NamespacedName) (existed bool, err error) {
+	return deleteResourceIfExists[*policyv1.PodDisruptionBudget](c, ctx, name)
 }
 
 func (c *K8sClient) GetReadyPod(ctx context.Context, name types.NamespacedName) (pod *corev1.Pod, err error) {

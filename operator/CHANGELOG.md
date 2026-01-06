@@ -14,6 +14,10 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 - Updated helm chart generation scripts to use new `helm` overlay for better templating.  
 
+### Added
+
+- `spec.targetSpec.pdb` option to configure a PodDisruptionBudget for target pods.
+
 ## v2.11.0
 
 ### Added

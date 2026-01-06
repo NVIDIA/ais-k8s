@@ -1,6 +1,6 @@
 // Package contains declaration of AIS Kubernetes Custom Resource Definitions
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2026, NVIDIA CORPORATION. All rights reserved.
  */
 
 package v1beta1
@@ -205,6 +205,7 @@ func (aisw *AIStoreWebhook) validateUpdate(ctx context.Context, prev, ais *AISto
 	prev.Spec.TargetSpec.Resources = ais.Spec.TargetSpec.Resources
 	prev.Spec.TargetSpec.SecurityContext = ais.Spec.TargetSpec.SecurityContext
 	prev.Spec.TargetSpec.AutoScaleConf = ais.Spec.TargetSpec.AutoScaleConf
+	prev.Spec.TargetSpec.PodDisruptionBudget = ais.Spec.TargetSpec.PodDisruptionBudget
 	if !equality.Semantic.DeepEqual(ais.Spec.TargetSpec, prev.Spec.TargetSpec) {
 		diff := deep.Equal(ais.Spec.TargetSpec, prev.Spec.TargetSpec)
 		webhooklog.Info(fmt.Sprintf("Differences found in target spec: [%s]", strings.Join(diff, ", ")))

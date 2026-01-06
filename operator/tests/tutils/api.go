@@ -251,6 +251,27 @@ func checkDeploymentExists(ctx context.Context, client *aisclient.K8sClient, nam
 	return true
 }
 
+func checkPDBExists(ctx context.Context, client *aisclient.K8sClient, name types.NamespacedName) bool {
+	_, err := client.GetPDB(ctx, name)
+	if apierrors.IsNotFound(err) {
+		return false
+	}
+	Expect(err).To(BeNil())
+	return true
+}
+
+func EventuallyPDBExists(
+	ctx context.Context,
+	client *aisclient.K8sClient,
+	name types.NamespacedName,
+	be OmegaMatcher,
+	intervals ...interface{},
+) {
+	Eventually(func() bool {
+		return checkPDBExists(ctx, client, name)
+	}, intervals...).Should(be)
+}
+
 func EventuallyDeploymentExists(
 	ctx context.Context,
 	client *aisclient.K8sClient,

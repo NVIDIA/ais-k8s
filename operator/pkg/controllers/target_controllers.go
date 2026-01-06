@@ -1,6 +1,6 @@
 // Package controllers contains k8s controller logic for AIS cluster
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2026, NVIDIA CORPORATION. All rights reserved.
  */
 package controllers
 
@@ -64,8 +64,36 @@ func (r *AIStoreReconciler) initTargets(ctx context.Context, ais *aisv1.AIStore)
 	return
 }
 
+// reconcileTargetPDB handles creating, updating, or deleting the target PDB
+func (r *AIStoreReconciler) reconcileTargetPDB(ctx context.Context, ais *aisv1.AIStore) error {
+	logger := logf.FromContext(ctx)
+	if ais.TargetPDBEnabled() {
+		pdb := target.NewTargetPDB(ais)
+		changed, err := r.k8sClient.CreateOrUpdateResource(ctx, ais, pdb)
+		if err != nil {
+			return err
+		}
+		if changed {
+			maxUnavailable := ais.GetTargetPDBMaxUnavailable()
+			logger.Info("Reconciled target PDB", "name", pdb.Name, "maxUnavailable", maxUnavailable.String())
+		}
+		return nil
+	}
+	// PDB not enabled, delete if exists
+	pdbName := target.PDBNSName(ais)
+	deleted, err := r.k8sClient.DeletePDBIfExists(ctx, pdbName)
+	if err != nil {
+		return err
+	}
+	if deleted {
+		logger.Info("Deleted target PDB", "name", pdbName.Name)
+	}
+	return nil
+}
+
 func (r *AIStoreReconciler) cleanupTarget(ctx context.Context, ais *aisv1.AIStore) (updated bool, err error) {
 	return cmn.AnyFunc(
+		func() (bool, error) { return r.k8sClient.DeletePDBIfExists(ctx, target.PDBNSName(ais)) },
 		func() (bool, error) { return r.cleanupTargetSS(ctx, ais) },
 		func() (bool, error) { return r.k8sClient.DeleteServiceIfExists(ctx, target.HeadlessSVCNSName(ais)) },
 		func() (bool, error) {
@@ -91,6 +119,11 @@ func (r *AIStoreReconciler) handleTargetState(ctx context.Context, ais *aisv1.AI
 		if k8serrors.IsNotFound(err) {
 			result, err = r.initTargets(ctx, ais)
 		}
+		return
+	}
+
+	if err = r.reconcileTargetPDB(ctx, ais); err != nil {
+		r.recordError(ctx, ais, err, "Failed to sync target PDB")
 		return
 	}
 

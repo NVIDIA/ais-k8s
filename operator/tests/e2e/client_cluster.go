@@ -340,6 +340,30 @@ func (cc *clientCluster) verifyAdminClientDeleted() {
 	tutils.EventuallyDeploymentExists(cc.ctx, cc.k8sClient, adminclient.DeploymentNSName(cc.cluster), BeFalse(), clusterDestroyTimeout, clusterDestroyInterval)
 }
 
+func (cc *clientCluster) enableTargetPDB() {
+	cc.fetchLatestCluster()
+	if cc.cluster.Spec.TargetSpec.PodDisruptionBudget != nil {
+		cc.cluster.Spec.TargetSpec.PodDisruptionBudget.Enabled = true
+	} else {
+		cc.cluster.Spec.TargetSpec.PodDisruptionBudget = &aisv1.PDBSpec{Enabled: true}
+	}
+	Expect(cc.k8sClient.Update(cc.ctx, cc.cluster)).To(Succeed())
+}
+
+func (cc *clientCluster) verifyTargetPDBExists() {
+	tutils.EventuallyPDBExists(cc.ctx, cc.k8sClient, target.PDBNSName(cc.cluster), BeTrue(), clusterReadyTimeout, clusterReadyRetryInterval)
+}
+
+func (cc *clientCluster) disableTargetPDB() {
+	cc.fetchLatestCluster()
+	cc.cluster.Spec.TargetSpec.PodDisruptionBudget.Enabled = false
+	Expect(cc.k8sClient.Update(cc.ctx, cc.cluster)).To(Succeed())
+}
+
+func (cc *clientCluster) verifyTargetPDBDeleted() {
+	tutils.EventuallyPDBExists(cc.ctx, cc.k8sClient, target.PDBNSName(cc.cluster), BeFalse(), clusterDestroyTimeout, clusterDestroyInterval)
+}
+
 func (cc *clientCluster) verifyPodImages() {
 	By("Verifying pod images match cluster spec")
 	cc.fetchLatestCluster()

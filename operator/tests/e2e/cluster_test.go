@@ -54,6 +54,22 @@ var _ = Describe("Run Controller", func() {
 				cc.disableAdminClient()
 				cc.verifyAdminClientDeleted()
 			})
+
+			It("Should allow toggling target PDB on running cluster", func(ctx context.Context) {
+				cc := newClientCluster(ctx, AISTestContext, WorkerCtx.K8sClient, cluArgs)
+				defer func() {
+					cc.printLogs()
+					cc.destroyAndCleanup()
+				}()
+				cc.create()
+				cc.waitForResources()
+
+				cc.enableTargetPDB()
+				cc.verifyTargetPDBExists()
+
+				cc.disableTargetPDB()
+				cc.verifyTargetPDBDeleted()
+			})
 		})
 
 		Context("with externalLB", func() {
@@ -138,6 +154,21 @@ var _ = Describe("Run Controller", func() {
 			Expect(err).To(BeNil())
 			Expect(len(jobs)).To(BeZero())
 		})
+
+		It("Should successfully upgrade cluster with target PDB enabled", func(ctx context.Context) {
+			cluArgs.NodeImage = AISTestContext.PreviousNodeImage
+			cluArgs.InitImage = AISTestContext.PreviousInitImage
+			cluArgs.Size = 2
+			cluArgs.EnableTargetPDB = true
+			cc := newClientCluster(ctx, AISTestContext, WorkerCtx.K8sClient, cluArgs)
+			defer func() {
+				_ = cc.printLogs()
+				cc.destroyAndCleanup()
+			}()
+			cc.create()
+			cc.verifyTargetPDBExists()
+			cc.patchImagesToCurrent()
+		})
 	})
 
 	Context("Scale existing cluster", func() {
@@ -186,6 +217,30 @@ var _ = Describe("Run Controller", func() {
 				cluArgs.EnableExternalLB = true
 				cc := newClientCluster(ctx, AISTestContext, WorkerCtx.K8sClient, cluArgs)
 				scaleDownCluster := func() {
+					cc.scale(false, -1)
+				}
+				cc.createAndDestroyCluster(scaleDownCluster, nil)
+			})
+		})
+
+		Context("with target PDB", func() {
+			It("Should be able to scale-up existing cluster", func(ctx context.Context) {
+				cluArgs.EnableTargetPDB = true
+				cluArgs.MaxTargets = 2
+				cc := newClientCluster(ctx, AISTestContext, WorkerCtx.K8sClient, cluArgs)
+				scaleUpCluster := func() {
+					cc.verifyTargetPDBExists()
+					cc.scale(false, 1)
+				}
+				cc.createAndDestroyCluster(scaleUpCluster, nil)
+			})
+
+			It("Should be able to scale-down existing cluster", func(ctx context.Context) {
+				cluArgs.Size = 2
+				cluArgs.EnableTargetPDB = true
+				cc := newClientCluster(ctx, AISTestContext, WorkerCtx.K8sClient, cluArgs)
+				scaleDownCluster := func() {
+					cc.verifyTargetPDBExists()
 					cc.scale(false, -1)
 				}
 				cc.createAndDestroyCluster(scaleDownCluster, nil)

@@ -45,6 +45,7 @@ type (
 		DisableTargetAntiAffinity bool
 		EnableExternalLB          bool
 		EnableAdminClient         bool
+		EnableTargetPDB           bool
 		ShutdownCluster           bool
 		CleanupMetadata           bool
 		CleanupData               bool
@@ -208,6 +209,10 @@ func newAISClusterCR(args *ClusterSpecArgs, mounts []aisv1.Mount) *aisv1.AIStore
 
 	if args.EnableAdminClient {
 		spec.AdminClient = &aisv1.AdminClientSpec{}
+	}
+
+	if args.EnableTargetPDB {
+		spec.TargetSpec.PodDisruptionBudget = &aisv1.PDBSpec{Enabled: true}
 	}
 
 	cluster := &aisv1.AIStore{

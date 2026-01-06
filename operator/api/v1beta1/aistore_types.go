@@ -1,6 +1,6 @@
 // Package v1beta1 contains declaration of AIS Kubernetes Custom Resource Definitions
 /*
- * Copyright (c) 2021-2025, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2026, NVIDIA CORPORATION. All rights reserved.
  */
 package v1beta1
 
@@ -488,6 +488,28 @@ type TargetSpec struct {
 	// hostNetwork - if set to true, the AIS Daemon pods for target are created in the host's network namespace (used for multihoming)
 	// +optional
 	HostNetwork *bool `json:"hostNetwork,omitempty"`
+
+	// PodDisruptionBudget specifies the PDB configuration for target pods.
+	// When enabled, a PodDisruptionBudget is created to protect target pods from voluntary evictions
+	// during node drain or cluster scale-down operations by cloud providers.
+	// +optional
+	PodDisruptionBudget *PDBSpec `json:"pdb,omitempty"`
+}
+
+// PDBSpec defines the PodDisruptionBudget configuration for target pods
+type PDBSpec struct {
+	// Enabled controls whether a PodDisruptionBudget is created for target pods.
+	// When true, the operator will create and manage a PDB for the target StatefulSet.
+	// Defaults to false if not specified.
+	// +optional
+	Enabled bool `json:"enabled,omitempty"`
+
+	// MaxUnavailable specifies the maximum number of target pods that can be unavailable
+	// during voluntary disruptions. It can be represented as an absolute number (e.g. 1)
+	// or a percentage (e.g. "10%"). Setting to 0 prevents any voluntary evictions.
+	// Defaults to 0 if not specified.
+	// +optional
+	MaxUnavailable *intstr.IntOrString `json:"maxUnavailable,omitempty"`
 }
 
 type Mount struct {
@@ -791,6 +813,19 @@ func mergeTolerationsUnique(a, b []corev1.Toleration) []corev1.Toleration {
 
 func (ais *AIStore) AllowTargetSharedNodes() bool {
 	return ais.Spec.TargetSpec.DisablePodAntiAffinity != nil && *ais.Spec.TargetSpec.DisablePodAntiAffinity
+}
+
+func (ais *AIStore) TargetPDBEnabled() bool {
+	pdb := ais.Spec.TargetSpec.PodDisruptionBudget
+	return pdb != nil && pdb.Enabled
+}
+
+func (ais *AIStore) GetTargetPDBMaxUnavailable() intstr.IntOrString {
+	pdb := ais.Spec.TargetSpec.PodDisruptionBudget
+	if pdb != nil && pdb.MaxUnavailable != nil {
+		return *pdb.MaxUnavailable
+	}
+	return intstr.FromInt32(0)
 }
 
 // AdminClientEnabled returns true if the admin client should be deployed
