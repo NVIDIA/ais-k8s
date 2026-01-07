@@ -30,11 +30,17 @@ jobs:
         IMG="${{ env.AISOPERATOR_IMAGE }}:${{ env.VERSION }}" make docker-build docker-push
         IMG="${{ env.AISOPERATOR_IMAGE }}:latest" make docker-build docker-push
         popd
-  
-    - name: Make operator yaml file and helm chart
+
+    - name: Make operator manifest
       run: |
         pushd $GITHUB_WORKSPACE/operator
-        VERSION="${{ env.VERSION }}" IMG="${{ env.AISOPERATOR_IMAGE }}:${{ env.VERSION }}" make build-installer-helm
+        VERSION="${{ env.VERSION }}" IMG="${{ env.AISOPERATOR_IMAGE }}:${{ env.VERSION }}" make build-installer
+        popd
+
+    - name: Make helm chart
+      run: |
+        pushd $GITHUB_WORKSPACE/operator
+        VERSION="${{ env.VERSION }}" IMG="${{ env.AISOPERATOR_IMAGE }}:${{ env.VERSION }}" make package-chart
         popd
 
     - name: Release

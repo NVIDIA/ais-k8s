@@ -1,0 +1,15 @@
+controllerManager:
+  manager:
+    # Optional ConfigMap names for CA certificates -- operator falls back to system CAs if not present
+    # Override these values to use different ConfigMap names (e.g., from trust-manager)
+    # For operator->AIStore cluster TLS verification
+    aisCAConfigmapName: ais-operator-ais-ca
+    # For operator->auth service TLS verification
+    authCAConfigmapName: ais-operator-auth-ca
+
+  # Annotations for the operator pods (optional)
+  podAnnotations: {}
+
+# Must be present for the Helmify helper to correctly default
+serviceAccount: 
+  create: false

@@ -8,6 +8,12 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ---
 
+## Unreleased
+
+### Changed
+
+- Updated helm chart generation scripts to use new `helm` overlay for better templating.  
+
 ## v2.11.0
 
 ### Added

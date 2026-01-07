@@ -9,11 +9,12 @@ spec:
       containers:
         - name: manager
           volumeMounts:
-            - name: auth-ca
-              mountPath: /etc/ssl/certs/auth-ca
+            - name: ais-ca
+              mountPath: /etc/ais/ca
               readOnly: true
       volumes:
-        - name: auth-ca
+        - name: ais-ca
           configMap:
-            name: ais-operator-auth-ca
+            # Can be overridden in Helm values to use trust-manager bundles
+            name: "{{ .Values.controllerManager.manager.aisCAConfigmapName }}"
             optional: true

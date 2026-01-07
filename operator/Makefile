@@ -190,15 +190,23 @@ build-installer: require-img manifests generate kustomize ## Generate a consolid
 	$(KUSTOMIZE) build config/overlays/default > dist/ais-operator.yaml
 
 .PHONY: build-installer-helm
-build-installer-helm: require-img require-version helm helmify build-installer
-	mkdir -p dist/ais-operator
-	$(HELMIFY) -image-pull-secrets -f dist/ais-operator.yaml dist/ais-operator
-	./scripts/post_helmify_fix.sh dist/ais-operator
+build-installer-helm: require-img require-version manifests generate kustomize helm helmify yq
+	mkdir -p dist/helmify/
+	cd config/overlays/default && $(KUSTOMIZE) edit set image controller=${IMG}
+	$(KUSTOMIZE) build config/overlays/helm > dist/helmify/ais-operator.yaml
+	$(HELMIFY) -image-pull-secrets -f dist/helmify/ais-operator.yaml dist/ais-operator
+	./scripts/patch_helm_template.sh dist/ais-operator/templates/ais-operator.yaml
+	# Helmify does not auto-detect all kustomize-added or patched values fields, so merge extras here
+	$(YQ) -i '. *= load("helm/extra-values.yaml")' dist/ais-operator/values.yaml
+
+
+.PHONY: package-chart
+package-chart: build-installer-helm
 	$(HELM) package dist/ais-operator -d ../pages/charts/ --version $(HELM_CHART_VERSION) --app-version $(HELM_CHART_VERSION)
 	$(HELM) repo index --url $(PAGES) ../pages/charts --merge ../pages/charts/index.yaml
 
 .PHONY: release
-release: build-installer-helm
+release: package-chart
 	git add ../pages/charts config/overlays/default/kustomization.yaml
 	git commit -s -m "operator: Release version $(VERSION)"
 
@@ -246,15 +254,18 @@ HELMIFY = $(LOCALBIN)/helmify
 HELM = $(LOCALBIN)/helm
 KIND ?= $(LOCALBIN)/kind
 CLOUD_PROVIDER_KIND ?= $(LOCALBIN)/cloud-provider-kind
+YQ ?= $(LOCALBIN)/yq
 
 ## Tool Versions
 HELM_VERSION ?= v3.16.2
+HELMIFY_VERSION ?= v0.4.18
 KUSTOMIZE_VERSION ?= v5.6.0
 CONTROLLER_TOOLS_VERSION ?= v0.17.3
 ENVTEST_VERSION ?= release-0.18
 MOCKGEN_VERSION ?= v0.4.0
 KIND_VERSION ?= v0.27.0
 CLOUD_PROVIDER_KIND_VERSION ?= v0.6.0
+YQ_VERSION ?= v4.44.3
 
 # Lint
 GOLANGCI_LINT_INSTALLER = https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh
@@ -291,7 +302,7 @@ helm:
 .PHONY: helmify
 helmify: $(HELMIFY)
 $(HELMIFY): $(LOCALBIN)
-	./scripts/go_install_tool.sh $(HELMIFY) github.com/arttor/helmify/cmd/helmify latest
+	./scripts/go_install_tool.sh $(HELMIFY) github.com/arttor/helmify/cmd/helmify $(HELMIFY_VERSION)
 
 .PHONY: mockgen
 mockgen: $(MOCKGEN) ## Download mockgen locally if necessary.
@@ -308,3 +319,8 @@ $(KIND): $(LOCALBIN)
 cloud-provider-kind: $(CLOUD_PROVIDER_KIND)
 $(CLOUD_PROVIDER_KIND): $(LOCALBIN)
 	./scripts/go_install_tool.sh $(CLOUD_PROVIDER_KIND) sigs.k8s.io/cloud-provider-kind $(CLOUD_PROVIDER_KIND_VERSION)
+
+.PHONY: yq
+yq: $(YQ) ## Download yq locally if necessary.
+$(YQ): $(LOCALBIN)
+	./scripts/go_install_tool.sh $(YQ) github.com/mikefarah/yq/v4 $(YQ_VERSION)

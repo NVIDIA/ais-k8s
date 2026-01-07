@@ -15,5 +15,5 @@ spec:
       volumes:
         - name: auth-ca
           configMap:
-            name: ais-operator-auth-ca
+            name: "{{ .Values.controllerManager.manager.authCAConfigmapName }}"
             optional: true
