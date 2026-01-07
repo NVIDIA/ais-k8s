@@ -1,5 +1,10 @@
 releases:
+  - name: aisloader-graphite
+    namespace: ais
+    createNamespace: true
+    chart: ./charts/graphite
+
   - name: aisloader
     namespace: ais
     createNamespace: true
-    chart: ./
+    chart: ./charts/benchmark

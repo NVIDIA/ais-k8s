@@ -1,22 +1,33 @@
 # AIS Loader
 
-This chart creates an [indexed job](https://kubernetes.io/blog/2021/04/19/introducing-indexed-jobs/) with *N* parallel pods. Each pod:
+Helm charts for running coordinated [aisloader](https://github.com/NVIDIA/aistore/blob/main/docs/aisloader.md) benchmarks in Kubernetes.
 
-1. Gets a unique index (0 to N-1) via `JOB_COMPLETION_INDEX`
-2. Runs `aisloader` with `-loaderid=$INDEX -loadernum=N` for coordinated object naming
-3. Outputs JSON stats to stdout (captured in pod logs)
+This Helmfile manages two independent releases:
 
-By default, anti-affinity ensures **one loader per node**. Set `replicas` to match your desired benchmark node count.
+| Release              | Description                                                                                                           |
+|----------------------|-----------------------------------------------------------------------------------------------------------------------|
+| `aisloader`          | Benchmark job ([indexed job](https://kubernetes.io/blog/2021/04/19/introducing-indexed-jobs/) with *N* parallel pods) |
+| `aisloader-graphite` | Optional metrics visualization ([Graphite](https://graphiteapp.org/) + [StatsD](https://github.com/statsd/statsd))    |
+
+Each release can be managed separately using `-l name=<release>`.
 
 ## Usage
 
 ```bash
-$ helmfile sync --set replicas=3 --set params.bucket=ais://bench --set params.duration=1m --set params.pctput=100
-
+$ helmfile sync -l name=aisloader --set replicas=3 --set params.duration=5m
 $ kubectl wait --for=condition=complete job/aisloader -n ais
 ```
 
+Jobs are immutable. To re-run a benchmark, destroy the previous one first:
+
+```bash
+$ helmfile destroy -l name=aisloader
+$ helmfile sync -l name=aisloader --set replicas=3 --set params.duration=5m
+```
+
 ## Collect Results
+
+Each pod outputs JSON stats to `stdout`. Collect and consolidate them:
 
 ```bash
 $ mkdir -p results
@@ -48,9 +59,29 @@ Total Errors:                    0
 ================================================================================
 ```
 
+## Metrics
+
+Optionally, install Graphite for real-time metrics visualization:
+
+```bash
+$ helmfile sync -l name=aisloader-graphite
+```
+
+Then run benchmarks with `graphite.enabled=true` to send metrics:
+
+```bash
+$ helmfile sync -l name=aisloader --set graphite.enabled=true --set replicas=3 --set params.duration=5m
+```
+
+Access the Graphite dashboard:
+
+```bash
+$ kubectl port-forward svc/aisloader-graphite 8080:80 -n ais
+```
+
 ## Cleanup
 
-Jobs auto-delete after configured TTL (default is 24h). To delete immediately:
+To uninstall everything:
 
 ```bash
 $ helmfile destroy

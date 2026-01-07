@@ -1,0 +1,21 @@
+image:
+  repository: graphiteapp/graphite-statsd
+  tag: latest
+  pullPolicy: IfNotPresent
+
+persistence:
+  enabled: true
+  size: 10Gi
+  storageClass: "local-path"
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 1
+    memory: 1Gi
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

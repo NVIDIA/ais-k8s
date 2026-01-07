@@ -1,4 +1,4 @@
-# Number of loader pods - set to match the number of (labeled) client nodes
+# Number of loader/benchmark pods
 replicas: 5
 
 image:
@@ -14,7 +14,7 @@ ais:
   bundleFile: trust-bundle.pem
 
 job:
-  ttlSecondsAfterFinished: 86400
+  ttlSecondsAfterFinished: 86400  # 24 hours
   backoffLimit: 0
 
 nodeSelector: {}
@@ -38,7 +38,11 @@ resources:
     cpu: 4
     memory: 4Gi
 
-# See: https://github.com/NVIDIA/aistore/blob/main/docs/aisloader.md
+# Enable to send metrics to Graphite service
+graphite:
+  enabled: false
+
+# See https://github.com/NVIDIA/aistore/blob/main/docs/aisloader.md for all available parameters
 params:
   bucket: "ais://bench"
   duration: "10m"

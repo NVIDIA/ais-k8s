@@ -1,0 +1,5 @@
+releases:
+  - name: aisloader-graphite
+    namespace: ais
+    createNamespace: true
+    chart: ./

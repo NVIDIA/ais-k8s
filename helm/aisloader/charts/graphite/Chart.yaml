@@ -1,0 +1,6 @@
+apiVersion: v2
+name: graphite
+description: Graphite with StatsD for metrics
+type: application
+version: 0.1.0
+appVersion: "1.0"

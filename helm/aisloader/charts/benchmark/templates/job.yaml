@@ -49,7 +49,7 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             - |
-              aisloader -loaderid=$JOB_COMPLETION_INDEX -loadernum={{ .Values.replicas }}{{- range $key, $val := .Values.params }} -{{ $key }}={{ $val }}{{- end }} -json -quiet -stats-output=/tmp/stats.json >/dev/null
+              aisloader -loaderid=$JOB_COMPLETION_INDEX -loadernum={{ .Values.replicas }}{{- range $key, $val := .Values.params }} -{{ $key }}={{ $val }}{{- end }}{{- if .Values.graphite.enabled }} -statsdip=aisloader-graphite -statsdport=8125{{- end }} -json -quiet -stats-output=/tmp/stats.json >/dev/null
               cat /tmp/stats.json
           env:
             - name: AIS_ENDPOINT

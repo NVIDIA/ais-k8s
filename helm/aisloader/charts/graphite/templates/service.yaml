@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    app.kubernetes.io/name: graphite
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+      protocol: TCP
+    - name: statsd
+      port: 8125
+      targetPort: 8125
+      protocol: UDP
+  selector:
+    app.kubernetes.io/name: graphite
+    app.kubernetes.io/instance: {{ .Release.Name }}
