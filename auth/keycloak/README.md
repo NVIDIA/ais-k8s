@@ -1,14 +1,12 @@
 # AIStore Keycloak Integration
 
-> This is currently in an alpha testing state. Breaking changes should be expected. 
-
-This directory contains instructions and reference installation for setting up an instance of [Keycloak](https://www.keycloak.org/) to authenticate with AIStore. 
+This directory contains instructions and reference installation for setting up an instance of [Keycloak](https://www.keycloak.org/) for AIStore authenticatication. 
 
 See the [Keycloak quickstarts repo](https://github.com/keycloak/keycloak-quickstarts) for some other installation options.
 
 Follow the [installation guide](./INSTALLATION.md) for instructions to get a sample deployment running on an existing cluster.
 
-To create an non-production automated deployment on a local KinD cluster, see [test-cluster.sh](./test-cluster.sh).
+To create a non-production, automated deployment on a local KinD cluster, see [test-cluster.sh](./test-cluster.sh).
 
 ## AIStore Realm
 

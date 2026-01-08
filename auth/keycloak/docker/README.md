@@ -16,9 +16,8 @@ Next use the CSR to generate a self-signed key and certificate.
 
 ## Running the Keycloak Container
 
-Now we can run the keycloak docker image with `start-dev`, provide our config, and automatically import our AIS realm.
+Run [docker-keycloak.sh](./docker-keycloak.sh) to start the keycloak docker image, provide our config, and automatically import our AIS realm.
 Note this command expects to be run from this directory, modify as needed. 
-
 
 ### Optional Data Persistence
 
