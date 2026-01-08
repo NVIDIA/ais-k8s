@@ -11,11 +11,9 @@ The [values.yaml](./values.yaml) can be modified to deploy any docker image and 
 
 Run `helmfile sync` from this directory to apply (or helm install manually).
 
-## Running without CA Trust
+## Running without TLS
 
-If your AIS cluster does NOT use TLS or if you don't need a mounted CA to trust, you'll need to run `unset AIS_CLIENT_CA` before using the AIS tools.
-
-This prevents them from trying to load the non-existent CA trust bundle inside the pod. 
+If your AIS cluster does NOT use TLS, omit `ais.caConfigMap` and use `http://` in `ais.endpoint`.
 
 ## Trust Manager Config
 
@@ -31,4 +29,4 @@ Run this command to open a shell in the pod:
 
 `kubectl exec -n ais -it deploy/ais-client -- /bin/bash`
 
-The environment will be pre-configured to use AIS CLI commands with certificate trust. 
+The environment will be pre-configured to use AIS CLI commands. 

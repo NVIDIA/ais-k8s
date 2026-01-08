@@ -11,26 +11,54 @@ spec:
     metadata:
       labels:
         app: {{ .Release.Name }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
     spec:
       serviceAccountName: {{ .Values.serviceAccount.name }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
       nodeSelector:
-        {{- toYaml .Values.nodeSelector | nindent 8 }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: ais-client
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command: [ "sleep", "infinity" ]
+          {{- with .Values.resources }}
           resources:
-            {{- toYaml .Values.resources | nindent 12 }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           env:
             - name: AIS_ENDPOINT
               value: {{ .Values.ais.endpoint | quote }}
+            {{- if .Values.ais.caConfigMap }}
             - name: AIS_CLIENT_CA
               value: /etc/ais-ca/{{ .Values.ais.bundleFile }}
+            {{- end }}
+          {{- if .Values.ais.caConfigMap }}
           volumeMounts:
             - name: ais-ca
               mountPath: /etc/ais-ca
               readOnly: true
+          {{- end }}
+      {{- if .Values.ais.caConfigMap }}
       volumes:
         - name: ais-ca
           configMap:
@@ -39,3 +67,4 @@ spec:
             items:
               - key: {{ .Values.ais.bundleFile }}
                 path: {{ .Values.ais.bundleFile }}
+      {{- end }}

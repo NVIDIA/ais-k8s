@@ -3,13 +3,15 @@ image:
   tag: latest
   pullPolicy: IfNotPresent
 
+imagePullSecrets: []
+
 serviceAccount:
   create: true
   name: ais-client
 
 ais:
   endpoint: https://ais-proxy.ais.svc.cluster.local:51080
-  caConfigMap : aistore.nvidia.com
+  caConfigMap: aistore.nvidia.com
   bundleFile: trust-bundle.pem
 
 resources:
@@ -20,4 +22,9 @@ resources:
     cpu: 2
     memory: 2Gi
 
-nodeSelector:
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+podLabels: {}
+podAnnotations: {}
