@@ -21,7 +21,7 @@ releases:
     namespace: monitoring
     createNamespace: true
     chart: grafana/alloy
-    version: 0.10.1
+    version: 1.5.2
     values:
       - ./base-alloy-values.yaml.gotmpl
       - ./environments/{{ .Environment.Name }}/alloy-values.yaml

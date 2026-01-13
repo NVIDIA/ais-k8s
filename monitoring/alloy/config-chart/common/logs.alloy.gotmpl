@@ -313,6 +313,22 @@ otelcol.processor.transform "ais_extract_level" {
   }
 
   output {
+    logs = [otelcol.processor.filter.drop_coredns.input]
+  }
+}
+
+otelcol.processor.filter "drop_coredns" {
+  logs {
+    log_record = [
+      `not (
+        resource.attributes["service.namespace"] == "kube-system" and
+        resource.attributes["service.name"] == "coredns" and
+        IsMatch(body, "No files matching import glob pattern")
+       )`,
+    ]
+  }
+
+  output {
     logs = [otelcol.processor.transform.drop_loki_labels.input]
   }
 }
@@ -325,6 +341,12 @@ otelcol.processor.transform "drop_loki_labels" {
     ]
   }
 
+  output {
+    logs = [otelcol.processor.batch.default.input]
+  }
+}
+
+otelcol.processor.batch "default" {
   output {
     logs = [
       {{- if .Values.logs.localGateway }}
