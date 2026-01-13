@@ -1,6 +1,6 @@
 // Package proxy contains k8s resources required for deploying AIS proxy daemons
 /*
- * Copyright (c) 2021-2025, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2026, NVIDIA CORPORATION. All rights reserved.
  */
 package proxy
 
@@ -113,7 +113,7 @@ func proxyPodSpec(ais *aisv1.AIStore) *corev1.PodSpec {
 				Ports:           cmn.NewDaemonPorts(&ais.Spec.ProxySpec),
 				Resources:       *cmn.NewResourceReq(ais, &ais.Spec.ProxySpec.Resources),
 				SecurityContext: ais.Spec.ProxySpec.ContainerSecurity,
-				VolumeMounts:    cmn.NewAISVolumeMounts(ais, aisapc.Proxy),
+				VolumeMounts:    newVolumeMounts(ais),
 				StartupProbe:    cmn.NewStartupProbe(ais, aisapc.Proxy),
 				LivenessProbe:   cmn.NewLivenessProbe(ais, aisapc.Proxy),
 				ReadinessProbe:  cmn.NewReadinessProbe(ais, aisapc.Proxy),
@@ -127,7 +127,7 @@ func proxyPodSpec(ais *aisv1.AIStore) *corev1.PodSpec {
 		//
 		// See: https://github.com/kubernetes/kubernetes/blob/fa03b93d25a5a22d4f91e4c44f66fc69a6f69a35/pkg/apis/core/v1/defaults.go#L215-L236
 		SecurityContext: cmn.ValueOrDefault(ais.Spec.ProxySpec.SecurityContext, &corev1.PodSecurityContext{}),
-		Volumes:         cmn.NewAISVolumes(ais, aisapc.Proxy),
+		Volumes:         newVolumes(ais),
 		Tolerations:     ais.Spec.ProxySpec.Tolerations,
 	}
 	if ais.Spec.LogSidecarImage != nil {

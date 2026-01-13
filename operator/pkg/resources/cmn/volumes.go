@@ -1,6 +1,6 @@
 // Package cmn provides utilities for common AIS cluster resources
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2026, NVIDIA CORPORATION. All rights reserved.
  */
 package cmn
 
@@ -13,7 +13,7 @@ import (
 	"github.com/ais-operator/pkg/resources/statsd"
 	csiapis "github.com/cert-manager/csi-driver/pkg/apis"
 	csiapisv1 "github.com/cert-manager/csi-driver/pkg/apis/v1alpha1"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -27,43 +27,33 @@ const (
 	StatsDDir         = "/var/statsd_config"
 	InitGlobalConfDir = "/var/global_config"
 
-	// Container mount locations for cloud provider configs
-	DefaultGCPDir = "/var/gcp"
-	DefaultAWSDir = "/root/.aws"
-	DefaultOCIDir = "/root/.oci"
-
 	// Other container mount locations
-	certsDir         = "/var/certs"
-	tracesDir        = "/var/traces"
-	OIDCCAMountPath  = "/etc/ais/oidc-ca"
-	OIDCCAFileName   = "ca.crt"
-	oidcCAVolumeName = "oidc-ca"
+	certsDir        = "/var/certs"
+	tracesDir       = "/var/traces"
+	OIDCCAFileName  = "ca.crt"
+	OIDCCAMountPath = "/etc/ais/oidc-ca"
 
 	hostnameMapFileName = "hostname_map.json"
 	AISGlobalConfigName = "ais.json"
 	AISLocalConfigName  = "ais_local.json"
-	AISDataPVC          = "target_pvcs.json"
 
 	StatsDVolume         = "statsd-config"
 	configTemplateVolume = "config-template"
 	configVolume         = "config-mount"
 	configGlobalVolume   = "config-global"
 	stateVolume          = "state-mount"
-	awsSecretVolume      = "aws-creds"
-	gcpSecretVolume      = "gcp-creds" //nolint:gosec // This is not really credential.
-	ociSecretVolume      = "oci-creds"
 	tlsSecretVolume      = "tls-certs"
 	tracingSecretVolume  = "tracing-token"
 	logsVolume           = "logs-dir"
 )
 
-func NewAISVolumes(ais *v1beta1.AIStore, daeType string) []v1.Volume {
-	volumes := []v1.Volume{
+func NewAISVolumes(ais *v1beta1.AIStore, daeType string) []corev1.Volume {
+	volumes := []corev1.Volume{
 		{
 			Name: configTemplateVolume,
-			VolumeSource: v1.VolumeSource{
-				ConfigMap: &v1.ConfigMapVolumeSource{
-					LocalObjectReference: v1.LocalObjectReference{
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
 						Name: AISConfigMapName(ais, daeType),
 					},
 				},
@@ -71,15 +61,15 @@ func NewAISVolumes(ais *v1beta1.AIStore, daeType string) []v1.Volume {
 		},
 		{
 			Name: configVolume,
-			VolumeSource: v1.VolumeSource{
-				EmptyDir: &v1.EmptyDirVolumeSource{},
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
 			},
 		},
 		{
 			Name: configGlobalVolume,
-			VolumeSource: v1.VolumeSource{
-				ConfigMap: &v1.ConfigMapVolumeSource{
-					LocalObjectReference: v1.LocalObjectReference{
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
 						Name: globalConfigMapName(ais),
 					},
 				},
@@ -87,9 +77,9 @@ func NewAISVolumes(ais *v1beta1.AIStore, daeType string) []v1.Volume {
 		},
 		{
 			Name: StatsDVolume,
-			VolumeSource: v1.VolumeSource{
-				ConfigMap: &v1.ConfigMapVolumeSource{
-					LocalObjectReference: v1.LocalObjectReference{
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
 						Name: statsd.ConfigMapName(ais),
 					},
 				},
@@ -100,14 +90,14 @@ func NewAISVolumes(ais *v1beta1.AIStore, daeType string) []v1.Volume {
 
 	// Only create hostpath volumes if no storage class is provided for state
 	if ais.Spec.StateStorageClass == nil {
-		hostpathVolumes := []v1.Volume{
+		hostpathVolumes := []corev1.Volume{
 			{
 				Name: stateVolume,
-				VolumeSource: v1.VolumeSource{
-					HostPath: &v1.HostPathVolumeSource{
+				VolumeSource: corev1.VolumeSource{
+					HostPath: &corev1.HostPathVolumeSource{
 						//nolint:all
 						Path: path.Join(*ais.Spec.HostpathPrefix, ais.Namespace, ais.Name, daeType),
-						Type: aisapc.Ptr(v1.HostPathDirectoryOrCreate),
+						Type: aisapc.Ptr(corev1.HostPathDirectoryOrCreate),
 					},
 				},
 			},
@@ -115,30 +105,12 @@ func NewAISVolumes(ais *v1beta1.AIStore, daeType string) []v1.Volume {
 		volumes = append(volumes, hostpathVolumes...)
 	}
 
-	if daeType == aisapc.Target {
-		volumes = append(volumes, newCloudVolumes(ais)...)
-
-		for _, mnt := range ais.Spec.TargetSpec.Mounts {
-			if mnt.IsHostPath() {
-				volumes = append(volumes, v1.Volume{
-					Name: mnt.GetMountName(ais.Name),
-					VolumeSource: v1.VolumeSource{
-						HostPath: &v1.HostPathVolumeSource{
-							Path: path.Join(mnt.Path, ais.Namespace, ais.Name, daeType),
-							Type: aisapc.Ptr(v1.HostPathDirectoryOrCreate),
-						},
-					},
-				})
-			}
-		}
-	}
-
 	if ais.Spec.TLSCertManagerIssuerName != nil {
 		name := ais.Name + "-" + daeType
-		volumes = append(volumes, v1.Volume{
+		volumes = append(volumes, corev1.Volume{
 			Name: tlsSecretVolume,
-			VolumeSource: v1.VolumeSource{
-				CSI: &v1.CSIVolumeSource{
+			VolumeSource: corev1.VolumeSource{
+				CSI: &corev1.CSIVolumeSource{
 					Driver: csiapis.GroupName,
 					VolumeAttributes: map[string]string{
 						csiapisv1.IssuerNameKey: *ais.Spec.TLSCertManagerIssuerName,
@@ -157,10 +129,10 @@ func NewAISVolumes(ais *v1beta1.AIStore, daeType string) []v1.Volume {
 			},
 		})
 	} else if ais.Spec.TLSSecretName != nil {
-		volumes = append(volumes, v1.Volume{
+		volumes = append(volumes, corev1.Volume{
 			Name: tlsSecretVolume,
-			VolumeSource: v1.VolumeSource{
-				Secret: &v1.SecretVolumeSource{
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
 					SecretName: *ais.Spec.TLSSecretName,
 				},
 			},
@@ -168,77 +140,41 @@ func NewAISVolumes(ais *v1beta1.AIStore, daeType string) []v1.Volume {
 	}
 
 	if ais.Spec.TracingTokenSecretName != nil {
-		volumes = append(volumes, v1.Volume{
+		volumes = append(volumes, corev1.Volume{
 			Name: tracingSecretVolume,
-			VolumeSource: v1.VolumeSource{
-				Secret: &v1.SecretVolumeSource{
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
 					SecretName: *ais.Spec.TracingTokenSecretName,
 				},
 			},
 		})
 	}
-
-	// Add OIDC CA volume for proxies only
-	if daeType == aisapc.Proxy && ais.Spec.IssuerCAConfigMap != nil {
-		volumes = append(volumes, NewOIDCCAVolume(*ais.Spec.IssuerCAConfigMap))
-	}
-
 	return volumes
 }
 
-func newCloudVolumes(ais *v1beta1.AIStore) []v1.Volume {
-	var volumes []v1.Volume
-
-	type cloudSecret struct {
-		namePtr    *string
-		volumeName string
-	}
-
-	secrets := []cloudSecret{
-		{ais.Spec.AWSSecretName, awsSecretVolume},
-		{ais.Spec.GCPSecretName, gcpSecretVolume},
-		{ais.Spec.OCISecretName, ociSecretVolume},
-	}
-
-	for _, secret := range secrets {
-		if secret.namePtr != nil {
-			volumes = append(volumes, v1.Volume{
-				Name: secret.volumeName,
-				VolumeSource: v1.VolumeSource{
-					Secret: &v1.SecretVolumeSource{
-						SecretName: *secret.namePtr,
-					},
-				},
-			})
-		}
-	}
-
-	return volumes
-}
-
-func newLogsVolume(ais *v1beta1.AIStore, daeType string) v1.Volume {
+func newLogsVolume(ais *v1beta1.AIStore, daeType string) corev1.Volume {
 	if ais.Spec.LogsDirectory != "" {
-		return v1.Volume{
+		return corev1.Volume{
 			Name: logsVolume,
-			VolumeSource: v1.VolumeSource{
-				HostPath: &v1.HostPathVolumeSource{
+			VolumeSource: corev1.VolumeSource{
+				HostPath: &corev1.HostPathVolumeSource{
 					Path: path.Join(ais.Spec.LogsDirectory, ais.Namespace, ais.Name, daeType),
-					Type: aisapc.Ptr(v1.HostPathDirectoryOrCreate),
+					Type: aisapc.Ptr(corev1.HostPathDirectoryOrCreate),
 				},
 			},
 		}
 	}
-	return v1.Volume{
+	return corev1.Volume{
 		Name: logsVolume,
-		VolumeSource: v1.VolumeSource{
-			EmptyDir: &v1.EmptyDirVolumeSource{},
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
 		},
 	}
 }
 
-func NewAISVolumeMounts(ais *v1beta1.AIStore, daeType string) []v1.VolumeMount {
+func NewAISVolumeMounts(ais *v1beta1.AIStore, daeType string) []corev1.VolumeMount {
 	spec := &ais.Spec
-	volumeMounts := []v1.VolumeMount{
+	volumeMounts := []corev1.VolumeMount{
 		{
 			Name:      configVolume,
 			MountPath: AisConfigDir,
@@ -252,7 +188,7 @@ func NewAISVolumeMounts(ais *v1beta1.AIStore, daeType string) []v1.VolumeMount {
 
 	if spec.StateStorageClass != nil {
 		volumeName := getStatePVCName(ais)
-		dynamicMounts := []v1.VolumeMount{
+		dynamicMounts := []corev1.VolumeMount{
 			{
 				Name:      volumeName,
 				MountPath: StateDir,
@@ -261,7 +197,7 @@ func NewAISVolumeMounts(ais *v1beta1.AIStore, daeType string) []v1.VolumeMount {
 		volumeMounts = append(volumeMounts, dynamicMounts...)
 	} else {
 		hostMountSubPath := getHostMountSubPath(daeType)
-		hostMounts := []v1.VolumeMount{
+		hostMounts := []corev1.VolumeMount{
 			{
 				Name:        stateVolume,
 				MountPath:   StateDir,
@@ -271,64 +207,33 @@ func NewAISVolumeMounts(ais *v1beta1.AIStore, daeType string) []v1.VolumeMount {
 		volumeMounts = append(volumeMounts, hostMounts...)
 	}
 
-	if daeType == aisapc.Target {
-		volumeMounts = appendCloudVolumeMounts(spec, volumeMounts)
-	}
-
 	if spec.TLSCertManagerIssuerName != nil || spec.TLSSecretName != nil {
-		volumeMounts = appendSimpleReadOnlyMount(volumeMounts, tlsSecretVolume, certsDir)
+		volumeMounts = AppendSimpleReadOnlyMount(volumeMounts, tlsSecretVolume, certsDir)
 	}
 	if spec.TracingTokenSecretName != nil {
-		volumeMounts = appendSimpleReadOnlyMount(volumeMounts, tracingSecretVolume, tracesDir)
+		volumeMounts = AppendSimpleReadOnlyMount(volumeMounts, tracingSecretVolume, tracesDir)
 	}
-
-	// Add OIDC CA volume mount for proxies only
-	if daeType == aisapc.Proxy && spec.IssuerCAConfigMap != nil {
-		volumeMounts = append(volumeMounts, NewOIDCCAVolumeMount())
-	}
-
 	return volumeMounts
 }
 
-func appendCloudVolumeMounts(spec *v1beta1.AIStoreSpec, mounts []v1.VolumeMount) []v1.VolumeMount {
-	type cloudConfig struct {
-		secretName *string
-		defaultDir string
-		volumeName string
-	}
-
-	configs := []cloudConfig{
-		{spec.AWSSecretName, DefaultAWSDir, awsSecretVolume},
-		{spec.GCPSecretName, DefaultGCPDir, gcpSecretVolume},
-		{spec.OCISecretName, DefaultOCIDir, ociSecretVolume},
-	}
-
-	for _, cfg := range configs {
-		if cfg.secretName != nil {
-			mounts = appendSimpleReadOnlyMount(mounts, cfg.volumeName, cfg.defaultDir)
-		}
-	}
-	return mounts
-}
-
-func appendSimpleReadOnlyMount(mounts []v1.VolumeMount, name, mountPath string) []v1.VolumeMount {
-	return append(mounts, v1.VolumeMount{
+func AppendSimpleReadOnlyMount(mounts []corev1.VolumeMount, name, mountPath string) []corev1.VolumeMount {
+	return append(mounts, corev1.VolumeMount{
 		Name:      name,
 		ReadOnly:  true,
 		MountPath: mountPath,
 	})
 }
 
-func newLogsVolumeMount(daeType string) v1.VolumeMount {
-	return v1.VolumeMount{
+func newLogsVolumeMount(daeType string) corev1.VolumeMount {
+	return corev1.VolumeMount{
 		Name:        logsVolume,
 		MountPath:   LogsDir,
 		SubPathExpr: getHostMountSubPath(daeType),
 	}
 }
 
-func NewInitVolumeMounts() []v1.VolumeMount {
-	volumeMounts := []v1.VolumeMount{
+func NewInitVolumeMounts() []corev1.VolumeMount {
+	volumeMounts := []corev1.VolumeMount{
 		{
 			Name:      configTemplateVolume,
 			MountPath: InitConfTemplateDir,
@@ -351,27 +256,4 @@ func getHostMountSubPath(daeType string) string {
 		return "$(MY_POD)"
 	}
 	return ""
-}
-
-// NewOIDCCAVolume creates a volume for OIDC issuer CA certificates
-func NewOIDCCAVolume(configMapName string) v1.Volume {
-	return v1.Volume{
-		Name: oidcCAVolumeName,
-		VolumeSource: v1.VolumeSource{
-			ConfigMap: &v1.ConfigMapVolumeSource{
-				LocalObjectReference: v1.LocalObjectReference{
-					Name: configMapName,
-				},
-			},
-		},
-	}
-}
-
-// NewOIDCCAVolumeMount creates a volume mount for OIDC issuer CA certificates
-func NewOIDCCAVolumeMount() v1.VolumeMount {
-	return v1.VolumeMount{
-		Name:      oidcCAVolumeName,
-		MountPath: OIDCCAMountPath,
-		ReadOnly:  true,
-	}
 }

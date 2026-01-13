@@ -1,22 +1,18 @@
 // Package target contains k8s resources required for deploying AIS target daemons
 /*
- * Copyright (c) 2021-2025, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2026, NVIDIA CORPORATION. All rights reserved.
  */
 package target
 
 import (
-	"log"
 	"maps"
 	"path/filepath"
-	"strings"
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	"github.com/ais-operator/pkg/resources/cmn"
-	"gopkg.in/inf.v0"
 	apiv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -109,7 +105,7 @@ func targetPodSpec(ais *aisv1.AIStore) *corev1.PodSpec {
 				Ports:           cmn.NewDaemonPorts(&ais.Spec.TargetSpec.DaemonSpec),
 				Resources:       *cmn.NewResourceReq(ais, &ais.Spec.TargetSpec.Resources),
 				SecurityContext: ais.Spec.TargetSpec.ContainerSecurity,
-				VolumeMounts:    volumeMounts(ais),
+				VolumeMounts:    newVolumeMounts(ais),
 				StartupProbe:    cmn.NewStartupProbe(ais, aisapc.Target),
 				LivenessProbe:   cmn.NewLivenessProbe(ais, aisapc.Target),
 				ReadinessProbe:  cmn.NewReadinessProbe(ais, aisapc.Target),
@@ -125,7 +121,7 @@ func targetPodSpec(ais *aisv1.AIStore) *corev1.PodSpec {
 		SecurityContext: cmn.ValueOrDefault(ais.Spec.TargetSpec.SecurityContext, &corev1.PodSecurityContext{}),
 		Affinity:        createTargetAffinity(ais, BasicLabels(ais)),
 		NodeSelector:    ais.Spec.TargetSpec.NodeSelector,
-		Volumes:         cmn.NewAISVolumes(ais, aisapc.Target),
+		Volumes:         newVolumes(ais),
 		Tolerations:     ais.Spec.TargetSpec.Tolerations,
 	}
 	if ais.Spec.LogSidecarImage != nil {
@@ -153,74 +149,14 @@ func NewInitContainerEnv(ais *aisv1.AIStore) (initEnv []corev1.EnvVar) {
 func NewAISContainerEnv(ais *aisv1.AIStore) []corev1.EnvVar {
 	baseEnv := cmn.CommonEnv()
 	if ais.Spec.HasGCPBackend() {
-		baseEnv = append(baseEnv, cmn.EnvFromValue(cmn.EnvGoogleCreds, filepath.Join(cmn.DefaultGCPDir, "gcp.json")))
+		baseEnv = append(baseEnv, cmn.EnvFromValue(cmn.EnvGoogleCreds, filepath.Join(DefaultGCPDir, DefaultGCPConfig)))
 	}
 	if ais.Spec.HasOCIBackend() {
 		baseEnv = append(baseEnv,
-			cmn.EnvFromValue(cmn.EnvOCIConfig, filepath.Join(cmn.DefaultOCIDir, "config")),
+			cmn.EnvFromValue(cmn.EnvOCIConfig, filepath.Join(DefaultOCIDir, DefaultOCIConfig)),
 		)
 	}
 	return cmn.MergeEnvVars(baseEnv, ais.Spec.TargetSpec.Env)
-}
-
-func getVolumeMountName(ais *aisv1.AIStore, mount *aisv1.Mount) string {
-	return ais.Name + strings.ReplaceAll(mount.Path, "/", "-")
-}
-
-func volumeMounts(ais *aisv1.AIStore) []corev1.VolumeMount {
-	vols := cmn.NewAISVolumeMounts(ais, aisapc.Target)
-	for _, mnt := range ais.Spec.TargetSpec.Mounts {
-		vols = append(vols, corev1.VolumeMount{
-			Name:      mnt.GetMountName(ais.Name),
-			MountPath: mnt.Path,
-		})
-	}
-	return vols
-}
-
-func defineDataPVCs(ais *aisv1.AIStore) []corev1.PersistentVolumeClaim {
-	pvcs := make([]corev1.PersistentVolumeClaim, 0, len(ais.Spec.TargetSpec.Mounts))
-	for _, res := range ais.Spec.TargetSpec.Mounts {
-		if res.IsHostPath() {
-			continue
-		}
-		decSize := res.Size.AsDec()
-		// Round down and get the unscaled int size
-		roundedBytes, ok := decSize.Round(decSize, 0, inf.RoundDown).Unscaled()
-		var size resource.Quantity
-		if ok {
-			size = *resource.NewQuantity(roundedBytes, res.Size.Format)
-		} else {
-			log.Printf("Could not convert %s to a whole byte number. Creating PVC without size spec\n", res.Size.String())
-			size = resource.Quantity{}
-		}
-		pvcs = append(pvcs, corev1.PersistentVolumeClaim{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: getVolumeMountName(ais, &res),
-			},
-			Spec: corev1.PersistentVolumeClaimSpec{
-				AccessModes: []corev1.PersistentVolumeAccessMode{
-					corev1.ReadWriteOnce,
-				},
-				Resources: corev1.VolumeResourceRequirements{
-					Requests: corev1.ResourceList{corev1.ResourceStorage: size},
-				},
-				StorageClassName: res.StorageClass,
-				Selector:         res.Selector,
-			},
-		})
-	}
-	return pvcs
-}
-
-func targetPVC(ais *aisv1.AIStore) []corev1.PersistentVolumeClaim {
-	pvcs := defineDataPVCs(ais)
-	if ais.Spec.StateStorageClass != nil {
-		if statePVC := cmn.DefineStatePVC(ais, ais.Spec.StateStorageClass); statePVC != nil {
-			pvcs = append(pvcs, *statePVC)
-		}
-	}
-	return pvcs
 }
 
 func createTargetAffinity(ais *aisv1.AIStore, basicLabels map[string]string) *corev1.Affinity {
