@@ -12,7 +12,8 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ### Changed
 
-- Updated helm chart generation scripts to use new `helm` overlay for better templating.  
+- Updated helm chart generation scripts to use new `helm` overlay for better templating.
+- Operator now correctly detects endpoint changes in AIS clusters and recreates the client when the URL (including ports) changes.  
 
 ### Added
 

@@ -394,5 +394,31 @@ var _ = Describe("Run Controller", func() {
 			By("Validate objects from previous cluster still exist")
 			tutils.ObjectsShouldExist(cc.getBaseParams(), bck, names...)
 		})
+
+		It("Should detect port change when cluster is redeployed with different port", func(ctx context.Context) {
+			cluArgs.CleanupMetadata = false
+			By("Deploy initial cluster with default ports")
+			cc := newClientCluster(ctx, AISTestContext, WorkerCtx.K8sClient, cluArgs)
+			defer func() {
+				_ = cc.printLogs()
+				// Ensure final cleanup has CleanupMetadata enabled
+				cluArgs.CleanupMetadata = true
+				cc.destroyAndCleanup()
+			}()
+			cc.create()
+			initialURL := cc.getProxyURL()
+
+			By("Re-deploy cluster with different port")
+			cc.destroyClusterOnly()
+			cc.cluster = tutils.NewAISClusterNoPV(cluArgs)
+			cc.applyDefaultHostPortOffset(cluArgs)
+			cc.applyHostPortOffset(int32(5))
+			cc.createCluster(cc.getTimeout(), clusterCreateInterval)
+			cc.waitForReadyCluster()
+
+			newURL := cc.getProxyURL()
+			Expect(newURL).NotTo(Equal(initialURL))
+			cc.initClientAccess()
+		})
 	})
 })

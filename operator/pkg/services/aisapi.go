@@ -38,7 +38,7 @@ type (
 		SetPrimaryProxy(newPrimaryID, newPrimaryURL string, force bool) error
 		ShutdownCluster() error
 		StartMaintenance(actValue *apc.ActValRmNode) (string, error)
-		HasValidBaseParams(context context.Context, ais *aisv1.AIStore) bool
+		HasValidBaseParams(context context.Context, ais *aisv1.AIStore, expectedURL string) bool
 	}
 
 	AIStoreClient struct {
@@ -51,8 +51,12 @@ type (
 )
 
 // HasValidBaseParams checks if the client has valid params for the given AIS cluster configuration
-func (c *AIStoreClient) HasValidBaseParams(ctx context.Context, ais *aisv1.AIStore) bool {
+func (c *AIStoreClient) HasValidBaseParams(ctx context.Context, ais *aisv1.AIStore, expectedURL string) bool {
 	if c.params == nil {
+		return false
+	}
+	// Check if the URL has changed
+	if c.params.URL != expectedURL {
 		return false
 	}
 	// Check for an apiMode change in spec

@@ -71,10 +71,11 @@ func TestTokenExpirationBackwardCompatibility(t *testing.T) {
 			}
 
 			// Set params to non-nil to test expiration logic
-			client.params = buildBaseParams("http://test:8080", "", nil)
+			testURL := "http://test:8080"
+			client.params = buildBaseParams(testURL, "", nil)
 
 			// Check validity
-			isValid := client.HasValidBaseParams(ctx, ais)
+			isValid := client.HasValidBaseParams(ctx, ais, testURL)
 
 			if isValid != tt.shouldBeValid {
 				t.Errorf("%s: expected valid=%v, got valid=%v. %s",

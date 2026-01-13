@@ -88,15 +88,15 @@ func (m *AISClientManager) GetClient(ctx context.Context,
 		}
 	}
 
-	// Check if the client params are valid
-	if exists && client.HasValidBaseParams(ctx, ais) {
-		return
-	}
-
 	url, err := m.getAISAPIEndpoint(ctx, ais)
 	if err != nil {
 		logger.Error(err, "Failed to get AIS API parameters")
 		return
+	}
+
+	// Check if the client params are valid
+	if exists && client.HasValidBaseParams(ctx, ais, url) {
+		return client, nil
 	}
 
 	// Attempt to get an authN token using the spec.auth field
