@@ -319,12 +319,9 @@ otelcol.processor.transform "ais_extract_level" {
 
 otelcol.processor.filter "drop_coredns" {
   logs {
-    log_record = [
-      `not (
-        resource.attributes["service.namespace"] == "kube-system" and
-        resource.attributes["service.name"] == "coredns" and
-        IsMatch(body, "No files matching import glob pattern")
-       )`,
+    log_record = [`resource.attributes["service.namespace"] == "kube-system" and
+        resource.attributes["k8s.container.name"] == "coredns" and
+        IsMatch(body, "No files matching import glob pattern")`,
     ]
   }
 
