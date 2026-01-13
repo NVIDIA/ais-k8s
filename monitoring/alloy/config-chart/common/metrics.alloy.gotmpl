@@ -1,69 +1,8 @@
-livedebugging {
-  enabled = true
-}
-
-{{- if and .Values.remote .Values.mimir .Values.mimir.remoteEndpoint}}
-otelcol.receiver.prometheus "remote_receiver_import" {
+otelcol.receiver.prometheus "all_metrics" {
   output {
-    metrics = [otelcol.processor.attributes.remote_insert_label.input]
+    metrics = [otelcol.processor.transform.insert_cluster_attr.input]
   }
 }
-
-otelcol.exporter.otlphttp "remote_metrics_export" {
-  client {
-    auth = otelcol.auth.oauth2.azure_oidc.handler
-    endpoint = "{{ .Values.mimir.remoteEndpoint }}"
-  }
-}
-
-prometheus.relabel "remote_metrics" {
-  forward_to = [
-    otelcol.receiver.prometheus.remote_receiver_import.receiver,
-  ]
-}
-{{- end }}
-
-prometheus.relabel "all_metrics" {
-  forward_to = [
-    {{- if and .Values.prometheus .Values.prometheus.localGateway }}
-    otelcol.receiver.prometheus.local_receiver_import.receiver,
-    {{- end }}
-    {{- if and .Values.remote .Values.mimir .Values.mimir.remoteEndpoint}}
-    prometheus.relabel.remote_metrics.receiver,
-    {{- end }}
-  ]
-}
-
-
-
-{{- if and .Values.prometheus .Values.prometheus.localGateway }}
-
-otelcol.receiver.prometheus "local_receiver_import" {
-  output {
-    metrics = [otelcol.processor.attributes.local_insert_label.input]
-  }
-}
-
-otelcol.processor.attributes "local_insert_label" {  
-  action {
-    key = "cluster"
-    value = "local"
-    action = "insert"
-  }
-  output {
-    metrics = [otelcol.exporter.otlphttp.local_metrics_export.input]
-  }
-}
-
-otelcol.exporter.otlphttp "local_metrics_export" {
-  client {
-    endpoint = "{{ .Values.prometheus.localGateway }}"
-    tls {
-      insecure = true
-    }
-  }
-}
-{{- end }}
 
 discovery.kubernetes "ais_proxy_pods" {
   role = "pod"
@@ -174,7 +113,7 @@ prometheus.relabel "cadvisor" {
     action = "labeldrop"
     regex = "container_label_.*"
   }
-  forward_to = [prometheus.relabel.all_metrics.receiver]
+  forward_to = [otelcol.receiver.prometheus.all_metrics.receiver]
 }
 
 prometheus.scrape "aistore" {
@@ -200,21 +139,21 @@ prometheus.relabel "aistore" {
     regex = "(.+)"
     replacement = "aggregated"
   }
-  forward_to = [prometheus.relabel.all_metrics.receiver]
+  forward_to = [otelcol.receiver.prometheus.all_metrics.receiver]
 }
 
 prometheus.relabel "node_exporter" {
-  forward_to = [prometheus.relabel.all_metrics.receiver]
   rule {
     action = "replace"
     target_label = "job"
     replacement = "node-exporter"
   }
+  forward_to = [otelcol.receiver.prometheus.all_metrics.receiver]
 }
 
 prometheus.scrape "kube_state_metrics" {
   targets = discovery.relabel.kube_state_metrics.output
   job_name = "kube-state-metrics"
   scrape_interval = "30s"
-  forward_to = [prometheus.relabel.all_metrics.receiver]
+  forward_to = [otelcol.receiver.prometheus.all_metrics.receiver]
 }

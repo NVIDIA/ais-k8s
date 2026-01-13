@@ -1,3 +1,7 @@
+livedebugging {
+  enabled = true
+}
+
 {{- if .Values.remote }}
 
 remote.kubernetes.secret "azure_oidc" {
@@ -12,15 +16,119 @@ otelcol.auth.oauth2 "azure_oidc" {
   token_url = convert.nonsensitive(remote.kubernetes.secret.azure_oidc.data.azure_token_url)
 }
 
-otelcol.processor.attributes "remote_insert_label" {  
-  action {
-    key = "cluster"
-    value = "{{ .Values.remote.label }}"
-    action = "insert"
-  }
+otelcol.processor.batch "remote" {
   output {
-    metrics = [otelcol.exporter.otlphttp.remote_metrics_export.input]
+    logs = [otelcol.exporter.otlphttp.remote_export.input]
+    metrics = [otelcol.exporter.otlphttp.remote_export.input]
   }
 }
 
+otelcol.exporter.otlphttp "remote_export" {
+  client {
+    auth = otelcol.auth.oauth2.azure_oidc.handler
+    endpoint = "{{ .Values.remote.endpoint }} "
+  }
+  {{- if and .Values.logs .Values.logs.remoteEndpoint }}
+  logs_endpoint = "{{ .Values.logs.remoteEndpoint }}"
+  {{- end }}
+  {{- if and .Values.mimir .Values.mimir.remoteEndpoint }}
+  metrics_endpoint = "{{ .Values.mimir.remoteEndpoint }}"
+  {{- end }}
+}
+
 {{- end }}
+
+// Set "cluster" resource attribute to explicit remote label or fallback to "local"
+
+otelcol.processor.transform "insert_cluster_attr" {
+  log_statements {
+    context = "resource"
+
+    statements = [
+    {{- if and .Values.remote .Values.remote.label }}
+      "set(attributes[\"cluster\"], \"{{ .Values.remote.label }}\")",
+    {{- else }}
+      "set(attributes[\"cluster\"], \"local\")",
+    {{- end }}
+    ]
+  }
+
+  metric_statements {
+    context = "resource"
+
+    statements = [
+    {{- if and .Values.remote .Values.remote.label }}
+      "set(attributes[\"cluster\"], \"{{ .Values.remote.label }}\")",
+    {{- else }}
+      "set(attributes[\"cluster\"], \"local\")",
+    {{- end }}
+    ]
+  }
+
+  output {
+    metrics = [otelcol.processor.transform.cluster_label.input]
+    logs = [otelcol.processor.transform.aggregate.input]
+  }
+}
+
+// Upgrade resource attribute for "cluster" label to a metric label
+
+otelcol.processor.transform "cluster_label" {
+  metric_statements {
+    context = "datapoint"
+    statements = [
+      `set(attributes["cluster"], resource.attributes["cluster"])`,
+    ]
+  }
+
+  output {
+    metrics = [otelcol.processor.transform.aggregate.input]
+  }
+}
+
+// No-op transform to send logs and metrics to either one batch processor or both before batching
+
+otelcol.processor.transform "aggregate" {
+  output {
+    logs = [
+      {{- if and .Values.remote .Values.logs .Values.logs.remoteEndpoint }}
+      otelcol.processor.filter.remote_logs_only.input,
+      {{- end }}
+      {{- if and .Values.logs .Values.logs.localGateway }}
+      otelcol.processor.batch.local.input
+      {{- end}}
+    ]
+    metrics = [
+      {{- if and .Values.remote .Values.mimir .Values.mimir.remoteEndpoint }}
+      otelcol.processor.batch.remote.input,
+      {{- end }}
+      {{- if and .Values.prometheus .Values.prometheus.localGateway }}
+      otelcol.processor.batch.local.input
+      {{- end}}
+    ]
+  }
+}
+
+otelcol.processor.batch "local" {
+  output {
+    logs = [otelcol.exporter.otlphttp.local_export.input]
+    metrics = [otelcol.exporter.otlphttp.local_export.input]
+  }
+}
+
+// Must override endpoint with specific service endpoints for logs and metrics
+
+otelcol.exporter.otlphttp "local_export" {
+  client {
+    endpoint = "http://localhost"
+    tls {
+      insecure = true
+    }
+  }
+  {{- if and .Values.logs .Values.logs.localGateway }}
+  logs_endpoint = "{{ .Values.logs.localGateway }}"
+  {{- end }}
+  {{- if and .Values.prometheus .Values.prometheus.localGateway }}
+  metrics_endpoint = "{{ .Values.prometheus.localGateway }}"
+  {{- end }}
+}

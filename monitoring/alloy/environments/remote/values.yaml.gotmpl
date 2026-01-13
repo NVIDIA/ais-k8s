@@ -5,7 +5,8 @@ logs:
 mimir:
   remoteEndpoint: {{ env "MIMIR_ENDPOINT_PANOPTES" }}
 
-remote: 
+remote:
+  endpoint: {{ env "ENDPOINT_PANOPTES" }}
   label: {{ requiredEnv "CLUSTER_LABEL" }}
   secret: {{ requiredEnv "REMOTE_AUTH_SECRET" }}
   scope: {{ requiredEnv "REMOTE_AUTH_SCOPE" }}
