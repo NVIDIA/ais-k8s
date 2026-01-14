@@ -751,7 +751,9 @@ func (m *Mount) IsHostPath() bool {
 	return m.UseHostPath != nil && *m.UseHostPath
 }
 
-func (m *Mount) GetMountName(aisName string) string {
+// GetPVCName returns the associated PVC name we expect to mount for a given MountPath
+// This must follow the same convention as our existing automation for PVC creation
+func (m *Mount) GetPVCName(aisName string) string {
 	return aisName + strings.ReplaceAll(m.Path, "/", "-")
 }
 

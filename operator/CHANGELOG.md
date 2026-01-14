@@ -14,6 +14,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 - Updated helm chart generation scripts to use new `helm` overlay for better templating.
 - Operator now correctly detects endpoint changes in AIS clusters and recreates the client when the URL (including ports) changes.  
+- Removed limitations on path length for HostPath volume mounts by using a constant, indexed volume name for HostPath volumes within pods
 
 ### Added
 

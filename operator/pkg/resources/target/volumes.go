@@ -5,6 +5,7 @@
 package target
 
 import (
+	"fmt"
 	"log"
 	"path"
 
@@ -31,6 +32,8 @@ const (
 	DefaultOCIDir    = "/root/.oci"
 	DefaultOCIConfig = "config"
 )
+
+const hostMountPrefix = "host-data-mount"
 
 func newVolumes(ais *aisv1.AIStore) []corev1.Volume {
 	volumes := cmn.NewAISVolumes(ais, aisapc.Target)
@@ -69,13 +72,13 @@ func appendCloudVolumes(ais *aisv1.AIStore, volumes []corev1.Volume) []corev1.Vo
 
 func appendHostPathDataVolumes(ais *aisv1.AIStore, volumes []corev1.Volume) []corev1.Volume {
 	mounts := ais.Spec.TargetSpec.Mounts
-	for _, mnt := range mounts {
+	for i, mnt := range mounts {
 		// Only creating new volumes for HostPath mounts
 		if !mnt.IsHostPath() {
 			continue
 		}
 		volumes = append(volumes, corev1.Volume{
-			Name: mnt.GetMountName(ais.Name),
+			Name: getHostPathVolumeName(i),
 			VolumeSource: corev1.VolumeSource{
 				HostPath: &corev1.HostPathVolumeSource{
 					Path: path.Join(mnt.Path, ais.Namespace, ais.Name, aisapc.Target),
@@ -103,9 +106,14 @@ func defineDataPVCs(ais *aisv1.AIStore) []corev1.PersistentVolumeClaim {
 			log.Printf("Could not convert %s to a whole byte number. Creating PVC without size spec\n", mnt.Size.String())
 			size = resource.Quantity{}
 		}
+		// For backwards compatibility, this PVC naming convention must stay the same
+		// When used in a Statefulset volume claim template, the actual PVC created will be:
+		//   <pvcTemplateName>-<statefulsetName>-<ordinal>
+		// The path /ais/nvme0n1 with a cluster named `ais` will produce a PVC for pod ais-target-0:
+		//   ais-ais-nvme0n1-ais-target-0
 		pvcs = append(pvcs, corev1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: mnt.GetMountName(ais.Name),
+				Name: mnt.GetPVCName(ais.Name),
 			},
 			Spec: corev1.PersistentVolumeClaimSpec{
 				AccessModes: []corev1.PersistentVolumeAccessMode{
@@ -161,11 +169,24 @@ func appendCloudVolumeMounts(spec *aisv1.AIStoreSpec, mounts []corev1.VolumeMoun
 }
 
 func appendDataVolumeMounts(ais *aisv1.AIStore, vm []corev1.VolumeMount) []corev1.VolumeMount {
-	for _, mnt := range ais.Spec.TargetSpec.Mounts {
+	for i, mnt := range ais.Spec.TargetSpec.Mounts {
+		var name string
+		if mnt.IsHostPath() {
+			name = getHostPathVolumeName(i)
+		} else {
+			name = mnt.GetPVCName(ais.Name)
+		}
 		vm = append(vm, corev1.VolumeMount{
-			Name:      mnt.GetMountName(ais.Name),
+			Name:      name,
 			MountPath: mnt.Path,
 		})
 	}
 	return vm
+}
+
+// getHostPathVolumeName returns a consistent Volume name identifier for HostPath mounts
+// This avoids any limitations on the total length of the Volume name
+// Since HostPath Volumes are defined local to the pod, there is no constraint of cross-pod or cross-cluster uniqueness
+func getHostPathVolumeName(index int) string {
+	return fmt.Sprintf("%s-%d", hostMountPrefix, index)
 }
