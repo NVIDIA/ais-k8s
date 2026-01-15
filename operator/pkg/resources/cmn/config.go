@@ -1,6 +1,6 @@
 // Package cmn provides utilities for common AIS cluster resources
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2026, NVIDIA CORPORATION. All rights reserved.
  */
 package cmn
 
@@ -58,6 +58,18 @@ func GenerateConfigToSet(ais *aisv1.AIStore) (*aiscmn.ConfigToSet, error) {
 		// Deep copy to avoid modifying the spec itself
 		specConfig = ais.Spec.ConfigToUpdate.DeepCopy()
 	}
+	if ais.Spec.TLSCertificate != nil || ais.Spec.TLSSecretName != nil || ais.Spec.TLSCertManagerIssuerName != nil {
+		if specConfig.Net == nil {
+			specConfig.Net = &aisv1.NetConfToUpdate{}
+		}
+		if specConfig.Net.HTTP == nil {
+			specConfig.Net.HTTP = &aisv1.HTTPConfToUpdate{}
+		}
+		specConfig.Net.HTTP.Certificate = aisapc.Ptr(filepath.Join(certsDir, TLSCertFileName))
+		specConfig.Net.HTTP.CertKey = aisapc.Ptr(filepath.Join(certsDir, TLSKeyFileName))
+		specConfig.Net.HTTP.ClientCA = aisapc.Ptr(filepath.Join(certsDir, TLSCAFileName))
+	}
+
 	// Override rebalance if the cluster is not ready for it (starting up, scaling, upgrading)
 	if ais.IsConditionTrue(aisv1.ConditionReadyRebalance) {
 		// If not provided, reset to default

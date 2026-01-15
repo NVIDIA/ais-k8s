@@ -46,6 +46,8 @@ type (
 		EnableExternalLB          bool
 		EnableAdminClient         bool
 		EnableTargetPDB           bool
+		TLSIssuerName             string
+		TLSIssuerKind             string
 		ShutdownCluster           bool
 		CleanupMetadata           bool
 		CleanupData               bool
@@ -213,6 +215,19 @@ func newAISClusterCR(args *ClusterSpecArgs, mounts []aisv1.Mount) *aisv1.AIStore
 
 	if args.EnableTargetPDB {
 		spec.TargetSpec.PodDisruptionBudget = &aisv1.PDBSpec{Enabled: true}
+	}
+
+	if args.TLSIssuerName != "" {
+		issuerKind := args.TLSIssuerKind
+		if issuerKind == "" {
+			issuerKind = "ClusterIssuer"
+		}
+		spec.TLSCertificate = &aisv1.TLSCertificateSpec{
+			IssuerRef: aisv1.CertIssuerRef{
+				Name: args.TLSIssuerName,
+				Kind: issuerKind,
+			},
+		}
 	}
 
 	cluster := &aisv1.AIStore{

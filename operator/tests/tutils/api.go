@@ -97,6 +97,16 @@ func CheckResExistence(ctx context.Context, cluster *aisv1.AIStore, aisCtx *AIST
 				condition, timeout, interval)
 		}
 	}
+
+	// 5. Check for TLS certificate (optional)
+	if cluster.Spec.TLSCertificate != nil {
+		EventuallyResourceExists(ctx, k8sClient, cmn.NewCertificate(cluster), condition, intervals...)
+		secretNSName := types.NamespacedName{
+			Name:      cmn.CertificateSecretName(cluster),
+			Namespace: cluster.Namespace,
+		}
+		EventuallySecretExists(ctx, k8sClient, secretNSName, condition, intervals...)
+	}
 }
 
 // DestroyCluster - Deletes the AISCluster resource, and waits for the resource to be cleaned up.
@@ -599,4 +609,22 @@ func ObjectsShouldExist(params aisapi.BaseParams, bck aiscmn.Bck, objectsNames .
 		_, err := aisapi.GetObject(params, bck, objName, nil)
 		Expect(err).NotTo(HaveOccurred())
 	}
+}
+
+func checkSecretExists(ctx context.Context, client *aisclient.K8sClient, name types.NamespacedName) bool {
+	secret := &corev1.Secret{}
+	err := client.Get(ctx, name, secret)
+	if apierrors.IsNotFound(err) {
+		return false
+	}
+	Expect(err).To(BeNil())
+	return true
+}
+
+func EventuallySecretExists(ctx context.Context, client *aisclient.K8sClient, name types.NamespacedName,
+	be OmegaMatcher, intervals ...interface{},
+) {
+	Eventually(func() bool {
+		return checkSecretExists(ctx, client, name)
+	}, intervals...).Should(be)
 }

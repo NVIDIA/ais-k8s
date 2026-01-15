@@ -18,6 +18,9 @@ KIND_K8S_VERSION ?= v1.33.0
 # LPP_VERSION refers to the version of local-path-provisioner to be used for operator testing.
 LPP_VERSION ?= v0.0.31
 
+# CERT_MANAGER_VERSION refers to the version of cert-manager to be used for operator testing.
+CERT_MANAGER_VERSION ?= v1.19.2
+
 SCRIPTS_DIR = ./scripts
 TESTS_DIR = ./tests
 
@@ -98,9 +101,9 @@ test: manifests generate envtest ## Run tests.
 	@[[ $$(command -v ginkgo) ]] || go install github.com/onsi/ginkgo/v2/ginkgo
 	@KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" ginkgo --vv --skip-package e2e --coverprofile cover.out ./...
 
-test-e2e-bootstrap: lpp-setup lb-setup
+test-e2e-bootstrap: lpp-setup lb-setup cert-manager-setup
 
-test-e2e-teardown: lpp-teardown lb-teardown
+test-e2e-teardown: cert-manager-teardown lpp-teardown lb-teardown
 
 test-e2e: manifests generate envtest
 	@KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" $(SHELL) "$(SCRIPTS_DIR)/test.sh" $(E2E_MODE)
@@ -116,18 +119,28 @@ kind-setup: kind
 kind-teardown: kind
 	$(KIND) delete cluster --name $(KIND_CLUSTER_NAME)
 
-.PHONY: lpp-setup lpp-teardown lb-setup lb-teardown
+.PHONY: lpp-setup lpp-teardown
 lpp-setup:
 	$(KUBECTL) apply -f "https://raw.githubusercontent.com/rancher/local-path-provisioner/$(LPP_VERSION)/deploy/local-path-storage.yaml"
 
 lpp-teardown:
 	-$(KUBECTL) delete -f "https://raw.githubusercontent.com/rancher/local-path-provisioner/$(LPP_VERSION)/deploy/local-path-storage.yaml" --ignore-not-found
 
+.PHONY: lb-setup lb-teardown
 lb-setup: cloud-provider-kind
 	@$(SHELL) $(SCRIPTS_DIR)/cloud-provider-kind.sh start $(CLOUD_PROVIDER_KIND) $(LOCALBIN)
 
 lb-teardown:
 	@$(SHELL) $(SCRIPTS_DIR)/cloud-provider-kind.sh stop $(CLOUD_PROVIDER_KIND) $(LOCALBIN)
+
+.PHONY: cert-manager-setup cert-manager-teardown
+cert-manager-setup:
+	$(KUBECTL) apply -f "https://github.com/cert-manager/cert-manager/releases/download/$(CERT_MANAGER_VERSION)/cert-manager.yaml"
+	@echo "Waiting for cert-manager to be ready..."
+	$(KUBECTL) wait --for=condition=available --timeout=180s -n cert-manager deployment -l app.kubernetes.io/instance=cert-manager
+
+cert-manager-teardown:
+	-$(KUBECTL) delete -f "https://github.com/cert-manager/cert-manager/releases/download/$(CERT_MANAGER_VERSION)/cert-manager.yaml" --ignore-not-found
 
 .PHONY: lint
 lint: golangci-lint ## Run golangci-lint linter

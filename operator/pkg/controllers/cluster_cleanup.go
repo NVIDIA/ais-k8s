@@ -31,6 +31,7 @@ func (r *AIStoreReconciler) cleanup(ctx context.Context, ais *aisv1.AIStore) (up
 		func() (bool, error) { return r.k8sClient.DeleteConfigMapIfExists(ctx, statsd.ConfigMapNSName(ais)) },
 		func() (bool, error) { return r.cleanupRBAC(ctx, ais) },
 		func() (bool, error) { return r.cleanupPVC(ctx, ais) },
+		func() (bool, error) { return r.cleanupTLS(ctx, ais) },
 	)
 	if updated && ais.ShouldCleanupMetadata() {
 		err = r.createCleanupJobs(ctx, ais, nodeNames)
@@ -163,4 +164,9 @@ func (r *AIStoreReconciler) cleanupRBAC(ctx context.Context, ais *aisv1.AIStore)
 
 func (r *AIStoreReconciler) cleanupAdminClient(ctx context.Context, ais *aisv1.AIStore) (bool, error) {
 	return r.k8sClient.DeleteDeploymentIfExists(ctx, adminclient.DeploymentNSName(ais))
+}
+
+func (r *AIStoreReconciler) cleanupTLS(ctx context.Context, ais *aisv1.AIStore) (bool, error) {
+	// Delete the Certificate resource; cert-manager may or may not clean up the Secret
+	return cmn.DeleteCertificateIfExists(ctx, r.k8sClient, ais)
 }

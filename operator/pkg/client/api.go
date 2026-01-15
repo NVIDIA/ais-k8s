@@ -20,6 +20,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -298,7 +299,7 @@ func (c *K8sClient) DeleteResIfExistsWithGracePeriod(ctx context.Context, obj cl
 
 func allowObjNotFound(obj client.Object, err error) (bool, error) {
 	if err != nil {
-		if apierrors.IsNotFound(err) {
+		if apierrors.IsNotFound(err) || meta.IsNoMatchError(err) {
 			return false, nil
 		}
 		err = fmt.Errorf("failed to delete %s: %q (namespace %q); err %v", obj.GetObjectKind(), obj.GetName(), obj.GetNamespace(), err)
@@ -308,15 +309,15 @@ func allowObjNotFound(obj client.Object, err error) (bool, error) {
 }
 
 func (c *K8sClient) DeleteClusterRoleIfExists(ctx context.Context, name types.NamespacedName) (existed bool, err error) {
-	return deleteResourceIfExists[*rbacv1.ClusterRole](c, ctx, name)
+	return DeleteResourceIfExists[*rbacv1.ClusterRole](c, ctx, name)
 }
 
 func (c *K8sClient) DeleteCRBindingIfExists(ctx context.Context, name types.NamespacedName) (existed bool, err error) {
-	return deleteResourceIfExists[*rbacv1.ClusterRoleBinding](c, ctx, name)
+	return DeleteResourceIfExists[*rbacv1.ClusterRoleBinding](c, ctx, name)
 }
 
 func (c *K8sClient) DeleteServiceIfExists(ctx context.Context, name types.NamespacedName) (existed bool, err error) {
-	return deleteResourceIfExists[*corev1.Service](c, ctx, name)
+	return DeleteResourceIfExists[*corev1.Service](c, ctx, name)
 }
 
 func (c *K8sClient) DeleteAllServicesIfExist(ctx context.Context, namespace string, labels client.MatchingLabels) (anyExisted bool, err error) {
@@ -372,19 +373,19 @@ func (c *K8sClient) deleteAllPVCsIfExist(ctx context.Context, pvcs *corev1.Persi
 }
 
 func (c *K8sClient) DeleteStatefulSetIfExists(ctx context.Context, name types.NamespacedName) (existed bool, err error) {
-	return deleteResourceIfExists[*appsv1.StatefulSet](c, ctx, name)
+	return DeleteResourceIfExists[*appsv1.StatefulSet](c, ctx, name)
 }
 
 func (c *K8sClient) DeleteDeploymentIfExists(ctx context.Context, name types.NamespacedName) (existed bool, err error) {
-	return deleteResourceIfExists[*appsv1.Deployment](c, ctx, name)
+	return DeleteResourceIfExists[*appsv1.Deployment](c, ctx, name)
 }
 
 func (c *K8sClient) DeleteConfigMapIfExists(ctx context.Context, name types.NamespacedName) (existed bool, err error) {
-	return deleteResourceIfExists[*corev1.ConfigMap](c, ctx, name)
+	return DeleteResourceIfExists[*corev1.ConfigMap](c, ctx, name)
 }
 
 func (c *K8sClient) DeletePodIfExists(ctx context.Context, name types.NamespacedName) (existed bool, err error) {
-	return deleteResourceIfExists[*corev1.Pod](c, ctx, name)
+	return DeleteResourceIfExists[*corev1.Pod](c, ctx, name)
 }
 
 func (c *K8sClient) GetPDB(ctx context.Context, name types.NamespacedName) (*policyv1.PodDisruptionBudget, error) {
@@ -392,7 +393,7 @@ func (c *K8sClient) GetPDB(ctx context.Context, name types.NamespacedName) (*pol
 }
 
 func (c *K8sClient) DeletePDBIfExists(ctx context.Context, name types.NamespacedName) (existed bool, err error) {
-	return deleteResourceIfExists[*policyv1.PodDisruptionBudget](c, ctx, name)
+	return DeleteResourceIfExists[*policyv1.PodDisruptionBudget](c, ctx, name)
 }
 
 func (c *K8sClient) GetReadyPod(ctx context.Context, name types.NamespacedName) (pod *corev1.Pod, err error) {
@@ -415,7 +416,7 @@ func getResource[T client.Object](c client.Client, ctx context.Context, name typ
 	return rv, err
 }
 
-func deleteResourceIfExists[T client.Object](c *K8sClient, ctx context.Context, name types.NamespacedName) (existed bool, err error) { //nolint:revive // This is special case where it is just better to pass client first instead of context.
+func DeleteResourceIfExists[T client.Object](c *K8sClient, ctx context.Context, name types.NamespacedName) (existed bool, err error) { //nolint:revive // This is special case where it is just better to pass client first instead of context.
 	var r T
 	rv := reflect.New(reflect.TypeOf(r).Elem()).Interface().(T)
 	rv.SetName(name.Name)

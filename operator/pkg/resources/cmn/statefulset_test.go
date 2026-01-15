@@ -9,10 +9,12 @@ import (
 	"path"
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
+	aisv1 "github.com/ais-operator/api/v1beta1"
 	nadv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var _ = Describe("Statefulset", Label("short"), func() {
@@ -141,4 +143,44 @@ var _ = Describe("Statefulset", Label("short"), func() {
 			},
 		),
 	)
+
+	Describe("getTLSVolume", func() {
+		DescribeTable("should return correct volume type",
+			func(spec aisv1.AIStoreSpec, expectCSI, expectSecret bool) {
+				ais := &aisv1.AIStore{
+					ObjectMeta: metav1.ObjectMeta{Name: "test-cluster", Namespace: "test-ns"},
+					Spec:       spec,
+				}
+				vol := getTLSVolume(ais, aisapc.Proxy)
+
+				if !expectCSI && !expectSecret {
+					Expect(vol).To(BeNil())
+					return
+				}
+
+				Expect(vol).ToNot(BeNil())
+				Expect(vol.Name).To(Equal(tlsSecretVolume))
+
+				if expectCSI {
+					Expect(vol.CSI).ToNot(BeNil())
+					Expect(vol.CSI.Driver).To(Equal("csi.cert-manager.io"))
+				}
+				if expectSecret {
+					Expect(vol.Secret).ToNot(BeNil())
+				}
+			},
+			Entry("no TLS configured", aisv1.AIStoreSpec{}, false, false),
+			Entry("TLSCertificate", aisv1.AIStoreSpec{
+				TLSCertificate: &aisv1.TLSCertificateSpec{
+					IssuerRef: aisv1.CertIssuerRef{Name: "test-issuer"},
+				},
+			}, false, true),
+			Entry("TLSSecretName", aisv1.AIStoreSpec{
+				TLSSecretName: aisapc.Ptr("my-tls-secret"),
+			}, false, true),
+			Entry("TLSCertManagerIssuerName", aisv1.AIStoreSpec{
+				TLSCertManagerIssuerName: aisapc.Ptr("my-issuer"),
+			}, true, false),
+		)
+	})
 })

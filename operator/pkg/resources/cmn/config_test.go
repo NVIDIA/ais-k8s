@@ -60,6 +60,43 @@ var _ = Describe("Config", Label("short"), func() {
 		})
 	})
 	Describe("Generate config override", func() {
+		DescribeTable("should auto-configure TLS paths",
+			func(spec aisv1.AIStoreSpec) {
+				ais := &aisv1.AIStore{
+					ObjectMeta: metav1.ObjectMeta{Name: "test-cluster", Namespace: "test-ns"},
+					Spec:       spec,
+				}
+				conf, err := GenerateConfigToSet(ais)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(conf.Net).ToNot(BeNil())
+				Expect(conf.Net.HTTP).ToNot(BeNil())
+				Expect(*conf.Net.HTTP.Certificate).To(Equal("/var/certs/tls.crt"))
+				Expect(*conf.Net.HTTP.CertKey).To(Equal("/var/certs/tls.key"))
+				Expect(*conf.Net.HTTP.ClientCA).To(Equal("/var/certs/ca.crt"))
+			},
+			Entry("TLSCertificate", aisv1.AIStoreSpec{
+				TLSCertificate: &aisv1.TLSCertificateSpec{
+					IssuerRef: aisv1.CertIssuerRef{Name: "test-issuer"},
+				},
+			}),
+			Entry("TLSSecretName", aisv1.AIStoreSpec{
+				TLSSecretName: aisapc.Ptr("my-tls-secret"),
+			}),
+			Entry("TLSCertManagerIssuerName", aisv1.AIStoreSpec{
+				TLSCertManagerIssuerName: aisapc.Ptr("my-issuer"),
+			}),
+		)
+
+		It("should not set TLS paths when no TLS option is configured", func() {
+			ais := &aisv1.AIStore{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-cluster", Namespace: "test-ns"},
+				Spec:       aisv1.AIStoreSpec{},
+			}
+			conf, err := GenerateConfigToSet(ais)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(conf.Net).To(BeNil())
+		})
+
 		It("should generate initial config without an error", func() {
 			const (
 				clusterName = "ais-cluster"

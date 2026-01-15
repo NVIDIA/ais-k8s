@@ -1,6 +1,6 @@
 // Package controllers contains k8s controller logic for AIS cluster
 /*
- * Copyright (c) 2021-2025, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2026, NVIDIA CORPORATION. All rights reserved.
  */
 package controllers
 
@@ -91,6 +91,7 @@ func NewAISReconcilerFromMgr(mgr manager.Manager, aisClientTLSOpts services.AISC
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles;clusterrolebindings,verbs=delete
 // +kubebuilder:rbac:groups=policy,resources=poddisruptionbudgets,verbs=get;list;watch;create;patch;update;delete
 // +kubebuilder:rbac:groups=batch,resources=jobs,verbs=list;watch;delete
+// +kubebuilder:rbac:groups=cert-manager.io,resources=certificates,verbs=get;list;watch;create;update;delete
 // +kubebuilder:rbac:groups=discovery.k8s.io,resources=endpointslices,verbs=get;list;watch
 // +kubebuilder:rbac:groups=storage.k8s.io,resources=storageclasses,verbs=get;list;watch
 
@@ -477,20 +478,26 @@ func (r *AIStoreReconciler) reconcileResources(ctx context.Context, ais *aisv1.A
 		return err
 	}
 
-	// 2. Deploy statsd ConfigMap. Required by both proxies and targets.
+	// 2. Reconcile TLS certificate if configured.
+	if err = r.reconcileTLSCertificate(ctx, ais); err != nil {
+		r.recordError(ctx, ais, err, "Failed to reconcile TLS certificate")
+		return err
+	}
+
+	// 3. Deploy statsd ConfigMap. Required by both proxies and targets.
 	statsDCM := statsd.NewStatsDCM(ais)
 	if _, err = r.k8sClient.CreateOrUpdateResource(ctx, ais, statsDCM); err != nil {
 		r.recordError(ctx, ais, err, "Failed to deploy StatsD ConfigMap")
 		return err
 	}
 
-	// 3. Deploy global cluster ConfigMap.
+	// 4. Deploy global cluster ConfigMap.
 	if _, err = r.k8sClient.CreateOrUpdateResource(ctx, ais, globalCM); err != nil {
 		r.recordError(ctx, ais, err, "Failed to deploy global cluster ConfigMap")
 		return err
 	}
 
-	// 4. Deploy admin client if enabled.
+	// 5. Deploy admin client if enabled.
 	if err = r.reconcileAdminClient(ctx, ais); err != nil {
 		r.recordError(ctx, ais, err, "Failed to reconcile admin client")
 		return err
@@ -769,6 +776,25 @@ func (r *AIStoreReconciler) createOrUpdateRBACResources(ctx context.Context, ais
 	}
 
 	return
+}
+
+func (r *AIStoreReconciler) reconcileTLSCertificate(ctx context.Context, ais *aisv1.AIStore) error {
+	logger := logf.FromContext(ctx)
+	if ais.Spec.TLSCertificate != nil {
+		// Create or update the Certificate
+		cert := cmn.NewCertificate(ais)
+		changed, err := r.k8sClient.CreateOrUpdateResource(ctx, ais, cert)
+		if err != nil {
+			return err
+		}
+		if changed {
+			logger.Info("Reconciled TLS certificate", "name", cert.GetName())
+		}
+		return nil
+	}
+	// Delete Certificate if it exists
+	_, err := cmn.DeleteCertificateIfExists(ctx, r.k8sClient, ais)
+	return err
 }
 
 // reconcileAdminClient handles creating, updating, or deleting the admin client deployment

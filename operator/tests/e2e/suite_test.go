@@ -18,6 +18,7 @@ import (
 	"github.com/ais-operator/pkg/controllers"
 	"github.com/ais-operator/pkg/services"
 	"github.com/ais-operator/tests/tutils"
+	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -78,6 +79,7 @@ var _ = SynchronizedBeforeSuite(
 
 		Expect(scheme.AddToScheme(scheme.Scheme)).To(Succeed())
 		Expect(aisv1.AddToScheme(scheme.Scheme)).To(Succeed())
+		Expect(certmanagerv1.AddToScheme(scheme.Scheme)).To(Succeed())
 
 		// Cache K8s client and AISTestContext for "run only once" cleanup on process #1
 		K8sClient, err = tutils.GetK8sClient()
@@ -102,6 +104,7 @@ var _ = SynchronizedBeforeSuite(
 		By("Bootstrapping per-process test environment")
 		Expect(scheme.AddToScheme(scheme.Scheme)).To(Succeed())
 		Expect(aisv1.AddToScheme(scheme.Scheme)).To(Succeed())
+		Expect(certmanagerv1.AddToScheme(scheme.Scheme)).To(Succeed())
 
 		// Deserialize AISTestContext from process #1
 		err := json.Unmarshal(data, &AISTestContext)

@@ -15,8 +15,10 @@ import (
 	aistutils "github.com/NVIDIA/aistore/tools"
 	aisxact "github.com/NVIDIA/aistore/xact"
 	"github.com/ais-operator/tests/tutils"
+	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var _ = Describe("Run Controller", func() {
@@ -88,6 +90,34 @@ var _ = Describe("Run Controller", func() {
 				cc := newClientCluster(ctx, AISTestContext, WorkerCtx.K8sClient, cluArgs)
 				cc.createAndDestroyCluster(cc.waitForResources, cc.waitForResourceDeletion)
 			})
+		})
+	})
+
+	Context("TLS Certificate", func() {
+		It("Should create Certificate and Secret via cert-manager", func(ctx context.Context) {
+			issuer := &certmanagerv1.Issuer{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-selfsigned-issuer",
+					Namespace: cluArgs.Namespace,
+				},
+				Spec: certmanagerv1.IssuerSpec{
+					IssuerConfig: certmanagerv1.IssuerConfig{
+						SelfSigned: &certmanagerv1.SelfSignedIssuer{},
+					},
+				},
+			}
+			_, err := WorkerCtx.K8sClient.CreateResourceIfNotExists(ctx, nil, issuer)
+			Expect(err).To(BeNil())
+
+			cluArgs.TLSIssuerName = issuer.Name
+			cluArgs.TLSIssuerKind = "Issuer"
+			cc := newClientCluster(ctx, AISTestContext, WorkerCtx.K8sClient, cluArgs)
+			defer func() {
+				Expect(cc.printLogs()).To(Succeed())
+				cc.destroyAndCleanup()
+			}()
+			cc.create()
+			cc.waitForResources()
 		})
 	})
 

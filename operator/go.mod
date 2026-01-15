@@ -4,6 +4,7 @@ go 1.25.0
 
 require (
 	github.com/NVIDIA/aistore v1.4.2
+	github.com/cert-manager/cert-manager v1.19.2
 	github.com/cert-manager/csi-driver v0.11.1
 	github.com/go-logr/logr v1.4.3
 	github.com/go-test/deep v1.1.1
@@ -130,6 +131,7 @@ require (
 	k8s.io/metrics v0.34.2 // indirect
 	k8s.io/utils v0.0.0-20251002143259-bc988d571ff4 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.34.0 // indirect
+	sigs.k8s.io/gateway-api v1.4.0 // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.1 // indirect

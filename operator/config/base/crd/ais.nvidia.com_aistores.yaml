@@ -5373,6 +5373,44 @@ spec:
                 description: Name of Cert Manager CSI Issuer used for getting the
                   cert/key
                 type: string
+              tlsCertificate:
+                description: TLSCertificate configures automatic TLS certificate generation
+                  via cert-manager
+                properties:
+                  additionalDNSNames:
+                    description: AdditionalDNSNames are extra DNS names to include
+                      in the certificate
+                    items:
+                      type: string
+                    type: array
+                  duration:
+                    description: 'Duration is the lifetime of the certificate (default:
+                      8760h = 1 year)'
+                    type: string
+                  issuerRef:
+                    description: IssuerRef references a cert-manager Issuer or ClusterIssuer
+                    properties:
+                      kind:
+                        default: ClusterIssuer
+                        description: Kind of the issuer (Issuer or ClusterIssuer)
+                        enum:
+                        - Issuer
+                        - ClusterIssuer
+                        type: string
+                      name:
+                        description: Name of the cert-manager Issuer or ClusterIssuer
+                        minLength: 1
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  renewBefore:
+                    description: 'RenewBefore is when to start renewing (default:
+                      720h = 30 days before expiry)'
+                    type: string
+                required:
+                - issuerRef
+                type: object
               tlsSecretName:
                 description: Secret name containing TLS cert/key
                 type: string
@@ -5390,6 +5428,10 @@ spec:
             - message: Invalid cluster size, it is either not specified or value is
                 not valid
               rule: (has(self.targetSpec.size) && has(self.proxySpec.size)) || has(self.size)
+            - message: 'specify only one: tlsCertificate, tlsCertManagerIssuerName,
+                or tlsSecretName'
+              rule: '[has(self.tlsCertificate), has(self.tlsCertManagerIssuerName),
+                has(self.tlsSecretName)].filter(x, x).size() <= 1'
           status:
             description: AIStoreStatus defines the observed state of AIStore
             properties:

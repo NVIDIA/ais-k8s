@@ -240,8 +240,40 @@ type CAConfigMapRef struct {
 	Key *string `json:"key,omitempty"`
 }
 
+// TLSCertificateSpec configures automatic TLS certificate generation via cert-manager
+type TLSCertificateSpec struct {
+	// IssuerRef references a cert-manager Issuer or ClusterIssuer
+	IssuerRef CertIssuerRef `json:"issuerRef"`
+
+	// AdditionalDNSNames are extra DNS names to include in the certificate
+	// +optional
+	AdditionalDNSNames []string `json:"additionalDNSNames,omitempty"`
+
+	// Duration is the lifetime of the certificate (default: 8760h = 1 year)
+	// +optional
+	Duration *metav1.Duration `json:"duration,omitempty"`
+
+	// RenewBefore is when to start renewing (default: 720h = 30 days before expiry)
+	// +optional
+	RenewBefore *metav1.Duration `json:"renewBefore,omitempty"`
+}
+
+// CertIssuerRef references a cert-manager Issuer or ClusterIssuer
+type CertIssuerRef struct {
+	// Name of the cert-manager Issuer or ClusterIssuer
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+
+	// Kind of the issuer (Issuer or ClusterIssuer)
+	// +kubebuilder:validation:Enum=Issuer;ClusterIssuer
+	// +kubebuilder:default:=ClusterIssuer
+	// +optional
+	Kind string `json:"kind,omitempty"`
+}
+
 // AIStoreSpec defines the desired state of AIStore
 // +kubebuilder:validation:XValidation:rule="(has(self.targetSpec.size) && has(self.proxySpec.size)) || has(self.size)",message="Invalid cluster size, it is either not specified or value is not valid"
+// +kubebuilder:validation:XValidation:rule="[has(self.tlsCertificate), has(self.tlsCertManagerIssuerName), has(self.tlsSecretName)].filter(x, x).size() <= 1",message="specify only one: tlsCertificate, tlsCertManagerIssuerName, or tlsSecretName"
 type AIStoreSpec struct {
 	// Size of the cluster i.e. number of proxies and number of targets.
 	// This can be changed by specifying size in either `proxySpec` or `targetSpec`.
@@ -331,6 +363,10 @@ type AIStoreSpec struct {
 	// Logs directory on host to store AIS logs
 	// +optional
 	LogsDirectory string `json:"logsDir,omitempty"`
+
+	// TLSCertificate configures automatic TLS certificate generation via cert-manager
+	// +optional
+	TLSCertificate *TLSCertificateSpec `json:"tlsCertificate,omitempty"`
 
 	// Secret name containing TLS cert/key
 	// +optional
