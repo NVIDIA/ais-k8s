@@ -19,9 +19,9 @@ https:
 # "standard" is the default storageClass in KinD
 stateStorageClass: standard
 nodeImage:
-  tag: v4.1
+  tag: v4.2
 initImage:
-  tag: v4.1
+  tag: v4.2
 logSidecarImage:
   tag: v1.1
 # See cloud-provider-kind or similar for LoadBalancer support

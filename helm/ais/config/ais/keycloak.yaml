@@ -16,9 +16,9 @@ https:
   skipVerifyCert: false
   tlsSecret: "tls-certs"
 nodeImage:
-  tag: v4.1-rc1
+  tag: v4.2
 initImage:
-  tag: v4.1-rc1
+  tag: v4.2
 logSidecarImage:
   tag: v1.1
 configToUpdate:

@@ -1,5 +1,5 @@
-init_image: aistorage/ais-init:v4.1
-node_image: aistorage/aisnode:v4.1
+init_image: aistorage/ais-init:v4.2
+node_image: aistorage/aisnode:v4.2
 logs_image: aistorage/ais-logs:v1.1
 
 # Cloud

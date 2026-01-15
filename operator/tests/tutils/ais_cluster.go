@@ -22,8 +22,8 @@ import (
 )
 
 const (
-	DefaultNodeImage     = "aistorage/aisnode:v4.2-rc2"
-	DefaultInitImage     = "aistorage/ais-init:v4.2-rc2"
+	DefaultNodeImage     = "aistorage/aisnode:v4.2"
+	DefaultInitImage     = "aistorage/ais-init:v4.2"
 	DefaultLogsImage     = "aistorage/ais-logs:v1.1"
 	DefaultPrevNodeImage = "aistorage/aisnode:v4.1"
 	DefaultPrevInitImage = "aistorage/ais-init:v4.1"
