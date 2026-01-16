@@ -24,6 +24,10 @@ spec:
     spec:
       securityContext:
         runAsUser: 65532
+        runAsNonRoot: true
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - command:
         - /manager
@@ -33,6 +37,9 @@ spec:
         name: manager
         securityContext:
           allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
         volumeMounts:
           - name: operator-tls
             mountPath: /etc/operator/tls

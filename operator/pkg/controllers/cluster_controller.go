@@ -78,7 +78,20 @@ func NewAISReconcilerFromMgr(mgr manager.Manager, aisClientTLSOpts services.AISC
 // +kubebuilder:rbac:groups=ais.nvidia.com,resources=aistores,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=ais.nvidia.com,resources=aistores/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=ais.nvidia.com,resources=aistores/finalizers,verbs=update
-// +kubebuilder:rbac:groups=*,resources=*,verbs=*
+// +kubebuilder:rbac:groups=apps,resources=statefulsets;deployments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=services;configmaps,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list
+// +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch;delete
+// +kubebuilder:rbac:groups="",resources=pods/log,verbs=get
+// +kubebuilder:rbac:groups="",resources=nodes,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
+// +kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=create;update;delete
+// +kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=list;delete
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles;rolebindings,verbs=create;update;delete
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles;clusterrolebindings,verbs=delete
+// +kubebuilder:rbac:groups=policy,resources=poddisruptionbudgets,verbs=create;get;patch;update;delete
+// +kubebuilder:rbac:groups=batch,resources=jobs,verbs=list
+// +kubebuilder:rbac:groups=discovery.k8s.io,resources=endpointslices,verbs=get;list
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.

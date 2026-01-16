@@ -12,6 +12,8 @@ import (
 	. "github.com/onsi/gomega"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -102,13 +104,24 @@ func CleanPVHostPath(ctx context.Context, k8sClient *aisclient.K8sClient, storag
 	}
 }
 
+func checkIfNamespaceExists(ctx context.Context, k8sClient *aisclient.K8sClient, name string) (exists bool, err error) {
+	ns := &corev1.Namespace{}
+	err = k8sClient.Get(ctx, types.NamespacedName{Name: name}, ns)
+	if err == nil {
+		exists = true
+	} else if apierrors.IsNotFound(err) {
+		err = nil
+	}
+	return exists, err
+}
+
 func CleanNamespace(ctx context.Context, k8sClient *aisclient.K8sClient, testNS *corev1.Namespace, timeout time.Duration) {
 	_, err := k8sClient.DeleteResourceIfExists(ctx, testNS)
 	Expect(err).NotTo(HaveOccurred())
 
 	// Wait for namespace to be deleted
 	Eventually(func() bool {
-		exists, checkErr := k8sClient.CheckIfNamespaceExists(ctx, testNS.Name)
+		exists, checkErr := checkIfNamespaceExists(ctx, k8sClient, testNS.Name)
 		if checkErr != nil {
 			Fail(fmt.Sprintf("Failed to check namespace %s existence; err %v\n", testNS.Name, checkErr))
 		}

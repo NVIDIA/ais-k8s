@@ -135,10 +135,6 @@ func (c *K8sClient) GetPod(ctx context.Context, name types.NamespacedName) (*cor
 	return getResource[*corev1.Pod](c.client, ctx, name)
 }
 
-func (c *K8sClient) GetRole(ctx context.Context, name types.NamespacedName) (*rbacv1.Role, error) {
-	return getResource[*rbacv1.Role](c.client, ctx, name)
-}
-
 func (c *K8sClient) Status() client.StatusWriter { return c.client.Status() }
 
 // listPodsAndUpdateNodeNames lists pods based on the provided label selector and updates the uniqueNodeNames map with the node names of those pods
@@ -282,17 +278,6 @@ func (c *K8sClient) CreateOrUpdateResource(ctx context.Context, owner *aisv1.AIS
 	}
 	res.SetResourceVersion(existingObj.GetResourceVersion())
 	return true, c.client.Update(ctx, res)
-}
-
-func (c *K8sClient) CheckIfNamespaceExists(ctx context.Context, name string) (exists bool, err error) {
-	ns := &corev1.Namespace{}
-	err = c.client.Get(ctx, types.NamespacedName{Name: name}, ns)
-	if err == nil {
-		exists = true
-	} else if apierrors.IsNotFound(err) {
-		err = nil
-	}
-	return exists, err
 }
 
 /////////////////////////////////
