@@ -1003,7 +1003,7 @@ func (r *AIStoreReconciler) checkAISClusterReady(ctx context.Context, ais *aisv1
 		return
 	}
 
-	if ais.Status.ClusterID == "" {
+	if ais.Status.ClusterID != smap.UUID {
 		ais.Status.ClusterID = smap.UUID
 		if err = r.patchStatus(ctx, ais); err != nil {
 			logger.Error(err, "Failed to update cluster ID")
