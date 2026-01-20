@@ -1,15 +1,18 @@
 #
-# Mount the set of ais_devices on the set of hosts ais_hosts (variables to
-# be specified on cmdline). Assumes the filesystems have already been created
-# and are in fstab.
+# Mount the set of ais_devices on the set of hosts ais_hosts. 
+# Adds the resulting mounts to fstab.
+# Assumes the filesystems have already been created.
 #
 ---
 - hosts: "{{ ais_hosts }}"
+  become: true
   vars_files:
     - "vars/ais_datafs.yml"
 
   gather_facts: true
   roles:
+    - role: validate_devices
     - role: ais_datafs
-      ais_fs_mount: true
+      vars: 
+        ais_fs_mount: true
 

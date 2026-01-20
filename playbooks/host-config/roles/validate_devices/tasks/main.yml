@@ -1,0 +1,96 @@
+# Validate that the requested AIS devices exist on the system and display info and warnings as needed before destructive operations
+
+- name: Check if ais_devices is present
+  fail:
+    msg: "Variable 'ais_devices' not found! Add it in `ais-k8s/playbooks/host-config/vars/ais_datafs.yml` or pass it as an env variable"
+  when:
+    - ais_devices is undefined or (ais_devices | default([]) | length == 0)
+
+- name: Get list of available block devices
+  set_fact:
+    available_devices: "{{ ansible_devices.keys() | list }}"
+
+- name: Check if requested devices exist
+  fail:
+    msg: |
+      Device '/dev/{{ item }}' does not exist on host '{{ inventory_hostname }}'.
+      
+      Requested devices: {{ ais_devices | join(', ') }}
+      Available block devices: {{ available_devices | join(', ') }}
+      
+      Please verify the device names are correct. Note that device names may vary
+      (e.g., 'sda' vs 'nvme0n1' vs 'vda').
+  when: item not in ansible_devices.keys()
+  loop: "{{ ais_devices }}"
+
+- name: Display device information for validation
+  debug:
+    msg: "/dev/{{ item }} - Size: {{ ansible_devices[item].size | default('unknown') }}, Model: {{ ansible_devices[item].model | default('unknown') }}, Partitions: {{ (ansible_devices[item].partitions | default({}) | dict2items | map(attribute='key') | list | join(', ')) if (ansible_devices[item].partitions | default({}) | length > 0) else 'none' }}"
+  loop: "{{ ais_devices }}"
+  when: item in ansible_devices.keys()
+  loop_control:
+    label: "/dev/{{ item }}"
+
+- name: Set fact for device mounts
+  set_fact:
+    device_mounts: "{{ device_mounts | default({}) | combine({item: (ansible_mounts | selectattr('device', 'match', '/dev/' + item + '.*') | list)}) }}"
+  loop: "{{ ais_devices }}"
+  when: ansible_mounts is defined
+
+- name: Build list of mounted devices
+  set_fact:
+    mounted_device_list: "{{ mounted_device_list | default([]) + [mounted_line] }}"
+  vars:
+    mounted_line: >-
+      /dev/{{ item.key }} mounted at: {{ item.value | map(attribute='mount') | join(', ') }}
+      ({{ item.value[0].fstype }})
+  loop: "{{ device_mounts | dict2items }}"
+  when:
+    - check_mounts | default(false) | bool
+    - ansible_mounts is defined
+    - item.value | length > 0
+
+- name: Prompt for all device unmounts
+  pause:
+    prompt: |
+      WARNING: The following devices are currently mounted:
+
+      {% for line in mounted_device_list %}
+      {{ line }}
+      {% endfor %}
+
+      Proceeding will unmount them. 
+      Type 'yes' to continue, or anything else to abort.
+  register: unmount_confirm
+  when:
+    - mounted_device_list is defined
+    - mounted_device_list | length > 0
+    
+- name: Verify unmount confirmation
+  fail:
+    msg: "Playbook aborted by user. No changes made."
+  when:
+  - mounted_device_list is defined
+  - mounted_device_list | length > 0
+  - check_mounts | default(false) | bool
+  - unmount_confirm.user_input | default('no') | lower != 'yes'
+
+- name: Prompt for format confirmation after validation
+  pause:
+    prompt: |
+      WARNING: The following devices will be formatted with XFS:
+      {% for device in ais_devices %}
+      - /dev/{{ device }}
+      {% endfor %}
+      
+      This will DESTROY all data on these devices.
+      Type 'yes' to confirm, or 'no' to abort.
+  register: format_confirm
+  when: prompt_for_format | default('false') | bool
+
+- name: Verify format confirmation
+  fail:
+    msg: "Playbook aborted by user. No changes made."
+  when: 
+  - prompt_for_format | default('false') | bool
+  - format_confirm.user_input | default('no') | lower != 'yes'

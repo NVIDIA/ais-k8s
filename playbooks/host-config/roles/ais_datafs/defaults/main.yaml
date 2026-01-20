@@ -1,0 +1,3 @@
+ais_fs_mount_options: nofail,noatime,nodiratime,logbufs=8,logbsize=256k,largeio,inode64,swalloc,allocsize=131072k
+mpath_prefix: /ais
+fstype: xfs

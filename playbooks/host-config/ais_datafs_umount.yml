@@ -4,10 +4,15 @@
 #
 ---
 - hosts: "{{ ais_hosts }}"
+  become: true
   vars_files:
     - "vars/ais_datafs.yml"
 
   gather_facts: true
   roles:
+    - role: validate_devices
+      vars: 
+        check_mounts: true
     - role: ais_datafs
-      ais_fs_umount: true
+      vars: 
+        ais_fs_umount: true

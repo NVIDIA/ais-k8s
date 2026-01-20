@@ -1,38 +1,32 @@
-- name: set mount options
-  set_fact:
-    ais_fs_mount_options: nofail,noatime,nodiratime,logbufs=8,logbsize=256k,largeio,inode64,swalloc,allocsize=131072k
-
 - name: umount
   mount:
     src: "/dev/{{ item }}"
-    path: "/ais/{{ item }}"
+    path: "{{ mpath_prefix }}/{{ item }}"
     state: unmounted
-    fstype: xfs
+    fstype: "{{ fstype }}"
     opts: "{{ ais_fs_mount_options }}"
   with_items:
     - "{{ ais_devices }}"
   when:
-    - ais_fs_umount is defined
-    - ais_fs_umount
+    - ais_fs_umount | default(false)
 
 - name: umount and remove from fstab
   mount:
     src: "/dev/{{ item }}"
-    path: "/ais/{{ item }}"
+    path: "{{ mpath_prefix }}/{{ item }}"
     state: absent
-    fstype: xfs
+    fstype: "{{ fstype }}"
     opts: "{{ ais_fs_mount_options }}"
   with_items:
     - "{{ ais_devices }}"
   when:
-    - ais_fs_umount_purge is defined
-    - ais_fs_umount_purge
+    - ais_fs_umount_purge | default(false)
 
 - name: mkfs
   filesystem:
     dev: "/dev/{{ item }}"
     force: yes
-    fstype: xfs
+    fstype: "{{ fstype }}"
     opts:
   with_items:
     - "{{ ais_devices }}"
@@ -43,24 +37,22 @@
 - name: mount and populate fstab
   mount:
     src: "/dev/{{ item }}"
-    path: "/ais/{{ item }}"
+    path: "{{ mpath_prefix }}/{{ item }}"
     state: mounted
-    fstype: xfs
+    fstype: "{{ fstype }}"
     opts: "{{ ais_fs_mount_options }}"
   with_items:
     - "{{ ais_devices }}"
   when:
-    - ais_fs_mount is defined
-    - ais_fs_mount
+    - ais_fs_mount | default(false)
 
 - name: chown and chmod ais dir
   file:
-    path: "/ais/{{ item }}"
+    path: "{{ mpath_prefix }}/{{ item }}"
     state: directory
     mode: 0750
     owner: root
   with_items:
     - "{{ ais_devices }}"
   when:
-    - ais_fs_mount is defined
-    - ais_fs_mount
+    - ais_fs_mount | default(false)
