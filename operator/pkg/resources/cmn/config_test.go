@@ -1,6 +1,6 @@
 // Package cmn provides utilities for common AIS cluster resources
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2024-2026, NVIDIA CORPORATION. All rights reserved.
  */
 package cmn
 
@@ -40,23 +40,23 @@ var _ = Describe("Config", Label("short"), func() {
 
 			toSet, err := toUpdate.Convert()
 			Expect(err).ToNot(HaveOccurred())
-			cfg := &aiscmn.ClusterConfig{}
-			err = cfg.Apply(toSet, aisapc.Cluster)
+			var clusterCfg aiscmn.ClusterConfig
+			err = aiscmn.CopyProps(toSet, &clusterCfg, aisapc.Cluster)
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(cfg.Space.CleanupWM).To(BeEquivalentTo(10))
-			Expect(cfg.Space.LowWM).To(BeEquivalentTo(20))
-			Expect(cfg.Space.HighWM).To(BeEquivalentTo(30))
-			Expect(cfg.Space.OOS).To(BeEquivalentTo(40))
+			Expect(clusterCfg.Space.CleanupWM).To(BeEquivalentTo(10))
+			Expect(clusterCfg.Space.LowWM).To(BeEquivalentTo(20))
+			Expect(clusterCfg.Space.HighWM).To(BeEquivalentTo(30))
+			Expect(clusterCfg.Space.OOS).To(BeEquivalentTo(40))
 
-			Expect(cfg.LRU.Enabled).To(BeEquivalentTo(true))
-			Expect(cfg.LRU.DontEvictTime).To(BeEquivalentTo(10))
+			Expect(clusterCfg.LRU.Enabled).To(BeEquivalentTo(true))
+			Expect(clusterCfg.LRU.DontEvictTime).To(BeEquivalentTo(10))
 
-			Expect(cfg.Features).To(BeEquivalentTo(2568))
+			Expect(clusterCfg.Features).To(BeEquivalentTo(2568))
 
-			Expect(cfg.Tracing.Enabled).To(BeTrue())
-			Expect(cfg.Tracing.ExporterAuth.TokenHeader).To(Equal("token-header"))
-			Expect(cfg.Tracing.ExporterAuth.TokenFile).To(Equal("token-file"))
+			Expect(clusterCfg.Tracing.Enabled).To(BeTrue())
+			Expect(clusterCfg.Tracing.ExporterAuth.TokenHeader).To(Equal("token-header"))
+			Expect(clusterCfg.Tracing.ExporterAuth.TokenFile).To(Equal("token-file"))
 		})
 	})
 	Describe("Generate config override", func() {
