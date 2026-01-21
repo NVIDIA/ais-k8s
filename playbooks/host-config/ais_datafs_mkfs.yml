@@ -4,7 +4,7 @@
 # See docs/ais_datafs.md for explanation and example usage
 #
 ---
-- name: Confirm and proceed with filesystem creation
+- name: Create filesystems and mount for AIS data
   hosts: "{{ ais_hosts }}"
   gather_facts: true
   become: true
@@ -20,8 +20,9 @@
         prompt_for_format: True
 
   roles:
-    - role: ais_datafs
+    - role: datafs_umount
+      vars: 
+        purge_fstab: true
+    - role: datafs_mount
       vars:
-        ais_fs_umount_purge: true
-        ais_fs_losedata: "danger_danger"
-        ais_fs_mount: true
+        ais_mkfs: true

@@ -5,14 +5,16 @@
 #
 ---
 - hosts: "{{ ais_hosts }}"
+  gather_facts: true
   become: true
   vars_files:
     - "vars/ais_datafs.yml"
 
-  gather_facts: true
+  pre_tasks:
+    - name: Validate devices
+      include_role:
+        name: validate_devices
+
   roles:
-    - role: validate_devices
-    - role: ais_datafs
-      vars: 
-        ais_fs_mount: true
+    - role: datafs_mount
 

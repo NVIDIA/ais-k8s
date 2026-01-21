@@ -1,0 +1,7 @@
+- block:
+    - name: umount (with optional fstab removal)
+      ansible.posix.mount:
+        path: "{{ mpath_prefix }}/{{ item }}"
+        state: "{{ purge_fstab | default(false) | bool | ternary('absent', 'unmounted') }}"
+      loop: "{{ ais_devices }}"
+  when: ais_devices is defined

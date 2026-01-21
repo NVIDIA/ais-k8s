@@ -62,7 +62,7 @@ ansible-playbook -i hosts.ini ais_datafs_mkfs.yml -e ais_hosts=ais -e check_moun
 
 Some utility playbooks that aren't usually needed:
 
-- `ais_datafs_mount` will mount filesystems if they're already in `/etc/fstab`
-- `ais_datafs_umount` will umount filesystems
+- `ais_datafs_mount` will mount filesystems that are already created
+- `ais_datafs_umount` will umount filesystems.
 - `ais_datafs_umount_purge` will both umount and remove any `/etc/fstab` entries.
 

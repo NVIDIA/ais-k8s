@@ -1,18 +1,22 @@
 #
-# Unmount the set of ais_devices on the set of hosts ais_hosts (variables to
-# be specified on cmdline), and remove their fstab entries.
+# Unmount the set of ais_devices on the set of hosts ais_hosts.
+# Remove their fstab entries.
 #
 ---
 - hosts: "{{ ais_hosts }}"
+  gather_facts: true
   become: true
   vars_files:
     - "vars/ais_datafs.yml"
 
-  gather_facts: true
-  roles:
-    - role: validate_devices
+  pre_tasks:
+    - name: Validate devices
+      include_role:
+        name: validate_devices
       vars:
         check_mounts: true
-    - role: ais_datafs
+
+  roles:
+    - role: datafs_umount
       vars: 
-        ais_fs_umount_purge: true
+        purge_fstab: true
