@@ -1,15 +1,12 @@
 - name: Run mkfs for all ais_devices
-  filesystem:
-    dev: "/dev/{{ item }}"
-    force: yes
-    fstype: "{{ fstype }}"
-  with_items:
-    - "{{ ais_devices }}"
-  when:
-    - ais_mkfs | default(false) | bool
-    
+  ansible.builtin.script: mkfs.sh
+  environment: 
+    DEVICES: "{{ ais_devices | join(' ') }}"
+    FSTYPE: "{{ fstype }}"
+  when: ais_mkfs | default(false) | bool
+
 - name: Get UUID for filesystems
-  shell: blkid -s UUID -o value "/dev/{{ item }}"
+  ansible.builtin.shell: blkid -s UUID -o value "/dev/{{ item }}"
   register: device_uuids
   loop: "{{ ais_devices }}"
   failed_when: false
@@ -32,17 +29,15 @@
     state: mounted
     fstype: "{{ fstype }}"
     opts: "{{ ais_fs_mount_options }}"
-  with_items:
-    - "{{ ais_devices }}"
+  loop: "{{ ais_devices }}"
   when:
     - device_uuid_map is defined
     - device_uuid_map[item] is defined
 
 - name: Run chown and chmod on all new mountpaths
-  file:
+  ansible.builtin.file:
     path: "{{ mpath_prefix }}/{{ item }}"
     state: directory
     mode: 0750
     owner: root
-  with_items:
-    - "{{ ais_devices }}"
+  loop: "{{ ais_devices }}"
