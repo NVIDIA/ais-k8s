@@ -28,6 +28,7 @@ rules:
   - ""
   resources:
   - nodes
+  - secrets
   verbs:
   - get
   - list
@@ -39,6 +40,7 @@ rules:
   verbs:
   - delete
   - list
+  - watch
 - apiGroups:
   - ""
   resources:
@@ -57,18 +59,14 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - secrets
-  verbs:
-  - get
-  - list
-- apiGroups:
-  - ""
-  resources:
   - serviceaccounts
   verbs:
   - create
   - delete
+  - get
+  - list
   - update
+  - watch
 - apiGroups:
   - ais.nvidia.com
   resources:
@@ -113,7 +111,9 @@ rules:
   resources:
   - jobs
   verbs:
+  - delete
   - list
+  - watch
 - apiGroups:
   - discovery.k8s.io
   resources:
@@ -121,6 +121,7 @@ rules:
   verbs:
   - get
   - list
+  - watch
 - apiGroups:
   - policy
   resources:
@@ -129,8 +130,10 @@ rules:
   - create
   - delete
   - get
+  - list
   - patch
   - update
+  - watch
 - apiGroups:
   - rbac.authorization.k8s.io
   resources:
@@ -146,4 +149,7 @@ rules:
   verbs:
   - create
   - delete
+  - get
+  - list
   - update
+  - watch

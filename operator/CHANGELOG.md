@@ -8,7 +8,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ---
 
-## v2.12.0
+## v2.12.1
 
 ### Changed
 
