@@ -71,6 +71,17 @@ environments:
         createPV:
           enabled: true
 
+  ais-qa:
+    values:
+      - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/ais/config/ais/ais-qa.yaml?ref=main"
+        https:
+          enabled: true
+          valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/ais/config/tls-cert/ais-qa.yaml?ref=main"
+        cloudSecrets:
+          enabled: false
+        createPV:
+          enabled: true
+
   oci-iad:
     kubeContext: oci-iad
     values:
