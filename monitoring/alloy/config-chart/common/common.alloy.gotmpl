@@ -95,7 +95,7 @@ otelcol.processor.transform "aggregate" {
       otelcol.processor.filter.remote_logs_only.input,
       {{- end }}
       {{- if and .Values.logs .Values.logs.localGateway }}
-      otelcol.processor.batch.local.input
+      otelcol.processor.batch.local.input,
       {{- end}}
     ]
     metrics = [
@@ -103,7 +103,7 @@ otelcol.processor.transform "aggregate" {
       otelcol.processor.batch.remote.input,
       {{- end }}
       {{- if and .Values.prometheus .Values.prometheus.localGateway }}
-      otelcol.processor.batch.local.input
+      otelcol.processor.batch.local.input,
       {{- end}}
     ]
   }
