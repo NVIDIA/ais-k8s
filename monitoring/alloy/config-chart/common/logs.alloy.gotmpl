@@ -1,4 +1,4 @@
-{{- if and .Values.remote .Values.logs .Values.logs.remoteEndpoint }}
+{{- if and .Values.remote (or .Values.remote.logsEndpoint .Values.remote.endpoint) }}
 
 // To reduce network traffic, only send specific logs to remote
 otelcol.processor.filter "remote_logs_only" {

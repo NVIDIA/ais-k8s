@@ -1,12 +1,11 @@
-logs:
-  remoteEndpoint: {{ env "LOKI_ENDPOINT_PANOPTES" }}
-  localGateway:
-
-mimir:
-  remoteEndpoint: {{ env "MIMIR_ENDPOINT_PANOPTES" }}
+scrape:
+  https: {{ default "false" (env "SCRAPE_HTTPS") }}
 
 remote:
-  endpoint: {{ env "ENDPOINT_PANOPTES" }}
+  endpoint: {{ env "REMOTE_ENDPOINT" }}
+  metricsEndpoint: {{ env "METRICS_ENDPOINT" }}
+  logsEndpoint: {{ env "LOGS_ENDPOINT" }}
   label: {{ requiredEnv "CLUSTER_LABEL" }}
   secret: {{ requiredEnv "REMOTE_AUTH_SECRET" }}
-  scope: {{ requiredEnv "REMOTE_AUTH_SCOPE" }}
+  scope: {{ env "REMOTE_AUTH_SCOPE" }}
+  auth_type: {{ env "REMOTE_AUTH_TYPE" }}

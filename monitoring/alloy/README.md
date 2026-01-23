@@ -18,11 +18,12 @@ The values for the alloy deployment itself are provided as a base `base-alloy-va
 
 The `config-chart` defines the base components used by multiple environments in [config-chart/common](./config-chart/common/). Environment specific configurations can be found in [config-chart/environments](./config-chart/environments/) (currently prod, local, and remote). 
 This allows for deploying alloy configs with different components for each environment. 
-Currently, local only writes to the local prometheus/loki, remote only writes to an environment-configured remote write location, and prod writes to both.  
+Currently, local only writes to the local prometheus/loki, remote only writes to an environment-configured remote write location, and prod writes to both, but only if env vars are set to write locally.  
 
 # Authentication
 
-For our panoptes remote write targets, you'll need to authenticate with our vault secrets. Follow the [instructions in the vault directory](../vault/README.md) and reference the Gitlab wiki to set up a secret in your target k8s cluster. 
+For remote writes, you'll need to authenticate with a secret.
+Follow the [instructions in the vault directory](../vault/README.md) and reference the Gitlab wiki to set up a secret in your target k8s cluster. 
 
 # Usage
 
@@ -33,10 +34,6 @@ For our panoptes remote write targets, you'll need to authenticate with our vaul
 ## Sync a new environment
 
 `set -a; . ../oci-iad.env ; set +a; helmfile -e prod sync`
-
-## Sync a new environment with scraping for an HTTPS AIS cluster
-
-`set -a; . ../oci-iad.env ; set +a; helmfile -e prod --set https=true sync`
 
 
 # Debugging

@@ -1,5 +1,7 @@
-logs:
-  localGateway: http://loki-gateway.monitoring.svc.cluster.local/loki/api/v1/push
+scrape:
+  https: {{ default "false" (env "SCRAPE_HTTPS") }}
 
-prometheus:
-  localGateway: http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090/api/v1/otlp/
+local:
+  endpoint: {{ env "LOCAL_ENDPOINT" }}
+  logsEndpoint: {{ default "http://loki-gateway.monitoring.svc.cluster.local/loki/api/v1/push" (env "LOCAL_LOGS_ENDPOINT") }}
+  metricsEndpoint: {{ default "http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090/api/v1/otlp/" (env "LOCAL_METRICS_ENDPOINT") }}

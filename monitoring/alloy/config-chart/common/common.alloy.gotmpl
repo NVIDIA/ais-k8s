@@ -4,17 +4,19 @@ livedebugging {
 
 {{- if .Values.remote }}
 
-remote.kubernetes.secret "azure_oidc" {
+remote.kubernetes.secret "export" {
   namespace = "monitoring"
   name = "{{ .Values.remote.secret }}"
 }
 
+{{- if or (not .Values.remote.auth_type) (ne .Values.remote.auth_type "mtls") }}
 otelcol.auth.oauth2 "azure_oidc" {
-  client_id = convert.nonsensitive(remote.kubernetes.secret.azure_oidc.data.azure_app_client_id)
-  client_secret = remote.kubernetes.secret.azure_oidc.data.azure_app_client_secret
+  client_id = convert.nonsensitive(remote.kubernetes.secret.export.data.azure_app_client_id)
+  client_secret = remote.kubernetes.secret.export.data.azure_app_client_secret
   scopes = ["{{ .Values.remote.scope}}"]
-  token_url = convert.nonsensitive(remote.kubernetes.secret.azure_oidc.data.azure_token_url)
+  token_url = convert.nonsensitive(remote.kubernetes.secret.export.data.azure_token_url)
 }
+{{- end }}
 
 otelcol.processor.batch "remote" {
   output {
@@ -25,14 +27,26 @@ otelcol.processor.batch "remote" {
 
 otelcol.exporter.otlphttp "remote_export" {
   client {
+    endpoint = "{{ .Values.remote.endpoint }}"
+    
+    {{- if or (not .Values.remote.auth_type) (ne .Values.remote.auth_type "mtls") }}
     auth = otelcol.auth.oauth2.azure_oidc.handler
-    endpoint = "{{ .Values.remote.endpoint }} "
+    {{- else }}
+    tls {
+      ca_pem   = convert.nonsensitive(remote.kubernetes.secret.export.data["ca.crt"])
+      cert_pem = convert.nonsensitive(remote.kubernetes.secret.export.data["tls.crt"])
+      key_pem  = remote.kubernetes.secret.export.data["tls.key"]
+      insecure = false
+      insecure_skip_verify = false
+      reload_interval = "10m"
+    }
+    {{- end }}
   }
-  {{- if and .Values.logs .Values.logs.remoteEndpoint }}
-  logs_endpoint = "{{ .Values.logs.remoteEndpoint }}"
+  {{- if .Values.remote.logsEndpoint }}
+  logs_endpoint = "{{ .Values.remote.logsEndpoint }}"
   {{- end }}
-  {{- if and .Values.mimir .Values.mimir.remoteEndpoint }}
-  metrics_endpoint = "{{ .Values.mimir.remoteEndpoint }}"
+  {{- if .Values.remote.metricsEndpoint }}
+  metrics_endpoint = "{{ .Values.remote.metricsEndpoint }}"
   {{- end }}
 }
 
@@ -91,24 +105,25 @@ otelcol.processor.transform "cluster_label" {
 otelcol.processor.transform "aggregate" {
   output {
     logs = [
-      {{- if and .Values.remote .Values.logs .Values.logs.remoteEndpoint }}
+      {{- if and .Values.remote (or .Values.remote.logsEndpoint .Values.remote.endpoint) }}
       otelcol.processor.filter.remote_logs_only.input,
       {{- end }}
-      {{- if and .Values.logs .Values.logs.localGateway }}
+      {{- if and .Values.local (or .Values.local.logsEndpoint .Values.local.endpoint) }}
       otelcol.processor.batch.local.input,
       {{- end}}
     ]
     metrics = [
-      {{- if and .Values.remote .Values.mimir .Values.mimir.remoteEndpoint }}
+      {{- if and .Values.remote (or .Values.remote.metricsEndpoint .Values.remote.endpoint) }}
       otelcol.processor.batch.remote.input,
       {{- end }}
-      {{- if and .Values.prometheus .Values.prometheus.localGateway }}
+      {{- if and .Values.local (or .Values.local.metricsEndpoint .Values.local.endpoint) }}
       otelcol.processor.batch.local.input,
       {{- end}}
     ]
   }
 }
 
+{{- if and .Values.local (or .Values.local.logsEndpoint .Values.local.metricsEndpoint .Values.local.endpoint) }}
 otelcol.processor.batch "local" {
   output {
     logs = [otelcol.exporter.otlphttp.local_export.input]
@@ -120,15 +135,17 @@ otelcol.processor.batch "local" {
 
 otelcol.exporter.otlphttp "local_export" {
   client {
-    endpoint = "http://localhost"
+    endpoint =  "{{ .Values.local.endpoint }}"
     tls {
       insecure = true
     }
   }
-  {{- if and .Values.logs .Values.logs.localGateway }}
-  logs_endpoint = "{{ .Values.logs.localGateway }}"
+  {{- if .Values.local.logsEndpoint }}
+  logs_endpoint = "{{ .Values.local.logsEndpoint }}"
   {{- end }}
-  {{- if and .Values.prometheus .Values.prometheus.localGateway }}
-  metrics_endpoint = "{{ .Values.prometheus.localGateway }}"
+  {{- if .Values.local.metricsEndpoint }}
+  metrics_endpoint = "{{ .Values.local.metricsEndpoint }}"
   {{- end }}
 }
+
+{{- end }}

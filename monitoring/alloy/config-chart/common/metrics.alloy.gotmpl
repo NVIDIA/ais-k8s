@@ -122,7 +122,7 @@ prometheus.scrape "aistore" {
   job_name = "aistore"
   scrape_interval = "30s"
   metrics_path = "/metrics"
-  {{- if .Values.https }}
+  {{- if and .Values.scrape (eq (printf "%v" .Values.scrape.https) "true") }}
   scheme = "https"
   tls_config {
     insecure_skip_verify = true
