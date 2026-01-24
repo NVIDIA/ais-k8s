@@ -1,4 +1,4 @@
-{{- $runtime := requiredEnv "CONTAINER_RUNTIME" -}}
+{{- $runtime := .Environment.Values.container_runtime -}}
 
 alloy:
   configMap:

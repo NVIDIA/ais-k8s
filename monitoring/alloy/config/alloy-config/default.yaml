@@ -1,0 +1,22 @@
+# Whether to scrape an HTTP or HTTPS AIS endpoints
+scrape:
+  https: "true"
+
+local:
+  metricsEndpoint: "http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090/api/v1/otlp/"
+  logsEndpoint: "http://loki-gateway.monitoring.svc.cluster.local/loki/api/v1/push"
+
+remote:
+  # Set for common OLTP endpoint
+  endpoint: 
+  # These override the common endpoint for their respective signals
+  metricsEndpoint: 
+  logsEndpoint: 
+  # Applied as "cluster" resource attribute, defaults to "local"
+  label: "default-cluster"
+  # Used for OTLP exporter client
+  secret: 
+  # Applied when using oAuth
+  scope: 
+  # Options: Defaults to oAuth, set to mtls to override
+  auth_type: 

@@ -1,0 +1,50 @@
+environments:
+  default: 
+    values: 
+      - valuesPath: "./config/alloy-config/default.yaml"
+        container_runtime: containerd
+  oci-ord: 
+    values:
+      - valuesPath:  "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git//helm/monitoring/alloy/config/@oci-ord.yaml?ref=main"
+        container_runtime: crio
+  oci-iad:
+    values:
+      - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git//helm/monitoring/alloy/config/@oci-iad.yaml?ref=main"
+        container_runtime: crio
+  neb-fin: 
+    values:
+      - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git//helm/monitoring/alloy/config/@neb-fin.yaml?ref=main"
+        container_runtime: containerd
+  sjc112: 
+    values:
+      - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git//helm/monitoring/alloy/config/@sjc112.yaml?ref=main"
+        container_runtime: containerd
+  ais-qa:
+    values:
+      - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git//helm/monitoring/alloy/config/@ais-qa.yaml?ref=main"
+        container_runtime: containerd
+--- 
+
+repositories:
+  - name: grafana
+    url: https://grafana.github.io/helm-charts
+
+releases:
+  - name: alloy-config
+    namespace: monitoring
+    chart: charts/alloy-config  # Local chart for configmap
+    version: 0.1.0
+    createNamespace: true
+    values:
+      - "{{ .Environment.Values.valuesPath }}"
+
+  - name: alloy
+    namespace: monitoring
+    createNamespace: true
+    chart: grafana/alloy
+    version: 1.5.2
+    values:
+      - ./config/alloy/default.yaml.gotmpl
+
+    needs:
+      - alloy-config

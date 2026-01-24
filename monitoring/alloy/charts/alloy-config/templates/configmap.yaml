@@ -5,4 +5,4 @@ metadata:
   namespace: monitoring
 data:
   config.alloy: |-
-{{ tpl (.Files.Get "common/config.alloy.gotmpl") . | indent 4 }}
+{{ tpl (.Files.Get "data/config.alloy.gotmpl") . | indent 4 }}

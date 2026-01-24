@@ -7,18 +7,19 @@
 # Config
 
 We deploy two charts for alloy:
-1. [config-chart](./config-chart/) -- A simple locally-managed chart to deploy a configmap containing Alloy config files
+1. [alloy-config](./charts/alloy-config/) -- A simple locally-managed chart to deploy a ConfigMap containing Alloy config files
 1. The actual [Alloy chart](https://github.com/grafana/alloy/tree/main/operations/helm/charts/alloy) provided by Grafana
 
-Today we expect all environment specific changes to come through the environment variables. 
+The default values template for the alloy deployment itself can be found in [config/alloy/](./config/alloy/).
+The full list of available helm values can be found [here](https://github.com/grafana/alloy/blob/main/operations/helm/charts/alloy/values.yaml).
 
-The values for the alloy deployment itself are provided as a base `base-alloy-values.yaml.gotmpl` with overrides available for each environment in `environments/<env>/alloy-values.yaml`. The full list of available helm values can be found [here](https://github.com/grafana/alloy/blob/main/operations/helm/charts/alloy/values.yaml).
+> **Note:** Currently, the only configurable option in the default values is the container runtime, which customizes some specific volume mounts the alloy container reads for cAdvisor metrics. Accepted values: `docker` | `crio` | `containerd`.
 
-> **Note:** Container runtime–specific configurations (for cAdvisor metrics) are controlled via the `CONTAINER_RUNTIME` environment variable (accepted: `docker` | `crio` | `containerd`).
+The alloy-config chart contains the alloy specification for a full pipeline to scrape logs and metrics depending on the values provided.
+See the values for the [default environment](./config/alloy-config/default.yaml) for explanation of some options. 
+Components will be created as needed depending on which local or remote exporter values are set. 
 
-The `config-chart` defines the base components used by multiple environments in [config-chart/common](./config-chart/common/). Environment specific configurations can be found in [config-chart/environments](./config-chart/environments/) (currently prod, local, and remote). 
-This allows for deploying alloy configs with different components for each environment. 
-Currently, local only writes to the local prometheus/loki, remote only writes to an environment-configured remote write location, and prod writes to both, but only if env vars are set to write locally.  
+For internal deployment values, see the `ais-infra` repo.
 
 # Authentication
 
@@ -29,12 +30,11 @@ Follow the [instructions in the vault directory](../vault/README.md) and referen
 
 ## Template a new environment
 
-`set -a; . ../oci-iad.env ; set +a; helmfile -e prod template`
+`helmfile -e ais-qa template`
 
 ## Sync a new environment
 
-`set -a; . ../oci-iad.env ; set +a; helmfile -e prod sync`
-
+`helmfile -e ais-qa sync`
 
 # Debugging
 
