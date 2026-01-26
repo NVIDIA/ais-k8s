@@ -11,7 +11,6 @@ environments:
           enabled: true
 
   keycloak:
-    kubeContext: kind-keycloak-test
     values:
       - valuesPath: ./config/ais/keycloak.yaml
         https:
@@ -23,7 +22,6 @@ environments:
           enabled: true
 
   sjc4-dev:
-    kubeContext: sjc4-dev
     values:
       - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/ais/config/ais/sjc4-dev.yaml?ref=main"
         https:
@@ -35,7 +33,6 @@ environments:
           enabled: true
 
   sjc4-1000:
-    kubeContext: sjc4-1000
     values:
       - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/ais/config/ais/sjc4-1000.yaml?ref=main"
         https:
@@ -47,7 +44,6 @@ environments:
           enabled: true
 
   sjc11:
-    kubeContext: sjc11
     values:
       - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/ais/config/ais/sjc11.yaml?ref=main"
         https:
@@ -60,7 +56,6 @@ environments:
           enabled: true
 
   sjc112:
-    kubeContext: sjc112
     values:
       - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/ais/config/ais/sjc112.yaml?ref=main"
         https:
@@ -83,7 +78,6 @@ environments:
           enabled: true
 
   oci-iad:
-    kubeContext: oci-iad
     values:
       - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/ais/config/ais/oci-iad.yaml?ref=main"
         https:
@@ -94,7 +88,6 @@ environments:
           enabled: false
 
   oci-iad-test:
-    kubeContext: oci-iad-test
     values:
       - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/ais/config/ais/oci-iad-test.yaml?ref=main"
         https:
@@ -105,7 +98,6 @@ environments:
           enabled: true
 
   oci-ord:
-    kubeContext: oci-ord
     values:
       - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/ais/config/ais/oci-ord.yaml?ref=main"
         https:
@@ -116,7 +108,6 @@ environments:
           enabled: false
 
   oci-kratos:
-    kubeContext: oci-kratos
     values:
       - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/ais/config/ais/oci-kratos.yaml?ref=main"
         https:
@@ -127,7 +118,6 @@ environments:
           enabled: false
 
   neb-fin:
-    kubeContext: neb-fin
     values:
       - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/ais/config/ais/neb-fin.yaml?ref=main"
         https:
@@ -138,7 +128,6 @@ environments:
           enabled: false
 
   neb-fin-test:
-    kubeContext: neb-fin-test
     values:
       - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/ais/config/ais/neb-fin-test.yaml?ref=main"
         https:
@@ -149,6 +138,14 @@ environments:
           enabled: false
 
 ---
+hooks:
+  - events: ["prepare"]
+    showlogs: true
+    command: bash
+    args:
+      - ../confirm.sh
+      - "{{ .Environment.Name }}"
+
 releases:
   - name: ais-tls-cert
     namespace: ais
@@ -178,7 +175,7 @@ releases:
     condition: createPV.enabled
     values:
       - "{{ .Environment.Values.valuesPath }}"
-      
+
   - name: ais-cluster
     namespace: ais
     createNamespace: true

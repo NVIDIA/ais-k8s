@@ -14,32 +14,36 @@ environments:
       - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/nvidia.yaml.gotmpl?ref=main"
         https:
           valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/cert/neb-fin.yaml?ref=main"
-    kubeContext: neb-fin
   oci-kratos:
     values:
       - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/oci.yaml.gotmpl?ref=main"
         https:
           valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/cert/oci-kratos.yaml?ref=main"
-    kubeContext: oci-kratos
   oci-ord:
     values:
       - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/oci.yaml.gotmpl?ref=main"
         https:
           valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/cert/oci-ord.yaml?ref=main"
-    kubeContext: oci-ord
   oci-iad:
     values:
       - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/oci.yaml.gotmpl?ref=main"
         https:
           valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/cert/oci-iad.yaml?ref=main"
-    kubeContext: oci-iad
   sjc4-dev:
     values:
       - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/nvidia.yaml.gotmpl?ref=main"
         https:
           valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/cert/sjc4-dev.yaml?ref=main"
-    kubeContext: sjc4-dev
+
 ---
+hooks:
+  - events: ["prepare"]
+    showlogs: true
+    command: bash
+    args:
+      - ../confirm.sh
+      - "{{ .Environment.Name }}"
+
 releases:
   - name: ais-authn
     namespace: ais

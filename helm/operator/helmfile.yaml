@@ -27,27 +27,33 @@ environments:
       - createCert:
           enabled: true
           valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/operator/config/tls-cert/sjc4-1000.yaml?ref=main"
-    kubeContext: sjc4-1000
   sjc11:
     values: 
     - envFile: default
     - createCert:
         enabled: true
         valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/operator/config/tls-cert/sjc11.yaml?ref=main"
-    kubeContext: sjc11
   sjc4-dev:
     values:
     - envFile: default
     - createCert:
         enabled: true
         valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/operator/config/tls-cert/sjc4-dev.yaml?ref=main"
-    kubeContext: sjc4-dev
 
 ---
 repositories:
   - name: aistore
     url: https://nvidia.github.io/ais-k8s/charts/
+
 ---
+hooks:
+  - events: ["prepare"]
+    showlogs: true
+    command: bash
+    args:
+      - ../confirm.sh
+      - "{{ .Environment.Name }}"
+
 releases:    
   - name: operator-tls-cert
     namespace: ais-operator-system
@@ -68,6 +74,5 @@ releases:
     hooks:
       - events: ["presync"]
         showlogs: true
-        command: "bash"
-        args:
-          - "./check_cert_manager.sh"
+        command: bash
+        args: ["./check_cert_manager.sh"]
