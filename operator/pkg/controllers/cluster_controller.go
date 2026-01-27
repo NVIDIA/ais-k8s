@@ -90,7 +90,7 @@ func NewAISReconcilerFromMgr(mgr manager.Manager, aisClientTLSOpts services.AISC
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles;rolebindings,verbs=get;list;watch;create;update;delete
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles;clusterrolebindings,verbs=delete
 // +kubebuilder:rbac:groups=policy,resources=poddisruptionbudgets,verbs=get;list;watch;create;patch;update;delete
-// +kubebuilder:rbac:groups=batch,resources=jobs,verbs=list;watch;delete
+// +kubebuilder:rbac:groups=batch,resources=jobs,verbs=create;list;watch;delete
 // +kubebuilder:rbac:groups=cert-manager.io,resources=certificates,verbs=get;list;watch;create;update;delete
 // +kubebuilder:rbac:groups=discovery.k8s.io,resources=endpointslices,verbs=get;list;watch
 // +kubebuilder:rbac:groups=storage.k8s.io,resources=storageclasses,verbs=get;list;watch

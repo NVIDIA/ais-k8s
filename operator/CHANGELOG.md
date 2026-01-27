@@ -13,6 +13,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 ### Changed
 
 - TLS options (`tlsCertificate`, `tlsSecretName`, `tlsCertManagerIssuerName`) now automatically set AIS TLS config to use auto-mounted certificates at `/var/certs`.
+- Fixed a missing RBAC rule for job creation, required to run host path cleanup jobs. 
 
 ### Added
 
