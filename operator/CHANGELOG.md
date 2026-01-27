@@ -8,11 +8,20 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ---
 
-## v2.12.2
+## Unreleased
 
 ### Changed
 
 - TLS options (`tlsCertificate`, `tlsSecretName`, `tlsCertManagerIssuerName`) now automatically set AIS TLS config to use auto-mounted certificates at `/var/certs`.
+
+### Added
+
+- `spec.tlsCertificate` option to generate TLS certificates via cert-manager.
+
+## v2.12.2
+
+### Changed
+
 - Updated helm chart generation scripts to use new `helm` overlay for better templating.
 - Operator now correctly detects endpoint changes in AIS clusters and recreates the client when the URL (including ports) changes.  
 - Removed limitations on path length for HostPath volume mounts by using a constant, indexed volume name for HostPath volumes within pods.
@@ -23,7 +32,6 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ### Added
 
-- `spec.tlsCertificate` option to generate TLS certificates via cert-manager.
 - `spec.targetSpec.pdb` option to configure a PodDisruptionBudget for target pods.
 
 ## v2.11.0
