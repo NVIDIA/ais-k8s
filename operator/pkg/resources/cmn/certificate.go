@@ -42,17 +42,22 @@ func CertificateNSName(ais *aisv1.AIStore) types.NamespacedName {
 }
 
 func NewCertificate(ais *aisv1.AIStore) *certmanagerv1.Certificate {
-	issuerKind := ais.Spec.TLSCertificate.IssuerRef.Kind
+	certConfig := ais.GetTLSCertificate()
+	if certConfig == nil {
+		return nil
+	}
+
+	issuerKind := certConfig.IssuerRef.Kind
 	if issuerKind == "" {
 		issuerKind = "ClusterIssuer"
 	}
 	duration := defaultCertDuration
-	if ais.Spec.TLSCertificate.Duration != nil {
-		duration = ais.Spec.TLSCertificate.Duration.Duration
+	if certConfig.Duration != nil {
+		duration = certConfig.Duration.Duration
 	}
 	renewBefore := defaultCertRenewBefore
-	if ais.Spec.TLSCertificate.RenewBefore != nil {
-		renewBefore = ais.Spec.TLSCertificate.RenewBefore.Duration
+	if certConfig.RenewBefore != nil {
+		renewBefore = certConfig.RenewBefore.Duration
 	}
 
 	// Build DNS names and IP addresses
@@ -74,7 +79,7 @@ func NewCertificate(ais *aisv1.AIStore) *certmanagerv1.Certificate {
 			DNSNames:    dnsNames,
 			IPAddresses: ipAddresses,
 			IssuerRef: cmmeta.ObjectReference{
-				Name:  ais.Spec.TLSCertificate.IssuerRef.Name,
+				Name:  certConfig.IssuerRef.Name,
 				Kind:  issuerKind,
 				Group: "cert-manager.io",
 			},
@@ -129,7 +134,9 @@ func buildCertificateSANs(ais *aisv1.AIStore) (dnsNames, ipAddresses []string) {
 	}
 
 	// Add user-specified additional DNS names
-	dnsNames = append(dnsNames, ais.Spec.TLSCertificate.AdditionalDNSNames...)
+	if certConfig := ais.GetTLSCertificate(); certConfig != nil {
+		dnsNames = append(dnsNames, certConfig.AdditionalDNSNames...)
+	}
 
 	return dnsNames, ipAddresses
 }

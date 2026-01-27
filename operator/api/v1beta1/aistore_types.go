@@ -240,9 +240,31 @@ type CAConfigMapRef struct {
 	Key *string `json:"key,omitempty"`
 }
 
-// TLSCertificateSpec configures automatic TLS certificate generation via cert-manager
-type TLSCertificateSpec struct {
-	// IssuerRef references a cert-manager Issuer or ClusterIssuer
+// TLSCertificateMode defines the certificate delivery mechanism
+type TLSCertificateMode string
+
+const (
+	// TLSCertificateModeSecret uses a shared Secret mounted to all pods
+	TLSCertificateModeSecret TLSCertificateMode = "secret"
+	// TLSCertificateModeCSI uses cert-manager CSI driver for per-pod certificates
+	TLSCertificateModeCSI TLSCertificateMode = "csi"
+)
+
+// TLSSpec configures TLS certificate provisioning
+// +kubebuilder:validation:XValidation:rule="[has(self.secretName), has(self.certificate)].filter(x, x).size() <= 1",message="specify only one: secretName or certificate"
+type TLSSpec struct {
+	// SecretName references an existing TLS secret
+	// +optional
+	SecretName *string `json:"secretName,omitempty"`
+
+	// Certificate configures cert-manager certificate generation
+	// +optional
+	Certificate *TLSCertificateConfig `json:"certificate,omitempty"`
+}
+
+// TLSCertificateConfig configures cert-manager certificate generation
+type TLSCertificateConfig struct {
+	// IssuerRef references a cert-manager issuer
 	IssuerRef CertIssuerRef `json:"issuerRef"`
 
 	// AdditionalDNSNames are extra DNS names to include in the certificate
@@ -256,15 +278,21 @@ type TLSCertificateSpec struct {
 	// RenewBefore is when to start renewing (default: 720h = 30 days before expiry)
 	// +optional
 	RenewBefore *metav1.Duration `json:"renewBefore,omitempty"`
+
+	// Mode specifies how certificates are delivered: "secret" (default) or "csi"
+	// +kubebuilder:validation:Enum=secret;csi
+	// +kubebuilder:default:=secret
+	// +optional
+	Mode TLSCertificateMode `json:"mode,omitempty"`
 }
 
 // CertIssuerRef references a cert-manager Issuer or ClusterIssuer
 type CertIssuerRef struct {
-	// Name of the cert-manager Issuer or ClusterIssuer
+	// Name of the issuer
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
 
-	// Kind of the issuer (Issuer or ClusterIssuer)
+	// Kind is Issuer or ClusterIssuer (default: ClusterIssuer)
 	// +kubebuilder:validation:Enum=Issuer;ClusterIssuer
 	// +kubebuilder:default:=ClusterIssuer
 	// +optional
@@ -273,7 +301,7 @@ type CertIssuerRef struct {
 
 // AIStoreSpec defines the desired state of AIStore
 // +kubebuilder:validation:XValidation:rule="(has(self.targetSpec.size) && has(self.proxySpec.size)) || has(self.size)",message="Invalid cluster size, it is either not specified or value is not valid"
-// +kubebuilder:validation:XValidation:rule="[has(self.tlsCertificate), has(self.tlsCertManagerIssuerName), has(self.tlsSecretName)].filter(x, x).size() <= 1",message="specify only one: tlsCertificate, tlsCertManagerIssuerName, or tlsSecretName"
+// +kubebuilder:validation:XValidation:rule="[has(self.tls), has(self.tlsCertificate), has(self.tlsCertManagerIssuerName), has(self.tlsSecretName)].filter(x, x).size() <= 1",message="specify only one TLS option: tls, tlsCertificate, tlsCertManagerIssuerName, or tlsSecretName"
 type AIStoreSpec struct {
 	// Size of the cluster i.e. number of proxies and number of targets.
 	// This can be changed by specifying size in either `proxySpec` or `targetSpec`.
@@ -364,18 +392,22 @@ type AIStoreSpec struct {
 	// +optional
 	LogsDirectory string `json:"logsDir,omitempty"`
 
-	// TLSCertificate configures automatic TLS certificate generation via cert-manager
+	// TLS configures TLS certificate provisioning
 	// +optional
-	TLSCertificate *TLSCertificateSpec `json:"tlsCertificate,omitempty"`
+	TLS *TLSSpec `json:"tls,omitempty"`
 
-	// Secret name containing TLS cert/key
+	// Deprecated: Use spec.tls.certificate instead
+	// +optional
+	TLSCertificate *TLSCertificateConfig `json:"tlsCertificate,omitempty"`
+
+	// Deprecated: Use spec.tls.secretName instead
 	// +optional
 	TLSSecretName *string `json:"tlsSecretName,omitempty"`
 
 	// Secret name containing OTEL trace-exporter token.
 	TracingTokenSecretName *string `json:"tracingTokenSecretName,omitempty"`
 
-	// Name of Cert Manager CSI Issuer used for getting the cert/key
+	// Deprecated: Use spec.tls.certificate with mode: csi instead
 	// +optional
 	TLSCertManagerIssuerName *string `json:"tlsCertManagerIssuerName,omitempty"`
 
@@ -945,6 +977,74 @@ func (s *AIStoreSpec) HasCloudBackend() bool {
 
 func (ais *AIStore) UseHTTPS() bool {
 	return ais.Spec.ConfigToUpdate != nil && ais.Spec.ConfigToUpdate.Net != nil && ais.Spec.ConfigToUpdate.Net.HTTP != nil && ais.Spec.ConfigToUpdate.Net.HTTP.UseHTTPS != nil && *ais.Spec.ConfigToUpdate.Net.HTTP.UseHTTPS
+}
+
+func (ais *AIStore) GetTLSSpec() *TLSSpec {
+	// New field to take precedence
+	if ais.Spec.TLS != nil {
+		return ais.Spec.TLS
+	}
+	// Handle deprecated fields
+	if ais.Spec.TLSSecretName != nil {
+		return &TLSSpec{SecretName: ais.Spec.TLSSecretName}
+	}
+	if ais.Spec.TLSCertificate != nil {
+		return &TLSSpec{Certificate: ais.Spec.TLSCertificate}
+	}
+	if ais.Spec.TLSCertManagerIssuerName != nil {
+		return &TLSSpec{
+			Certificate: &TLSCertificateConfig{
+				IssuerRef: CertIssuerRef{Name: *ais.Spec.TLSCertManagerIssuerName},
+				Mode:      TLSCertificateModeCSI,
+			},
+		}
+	}
+	return nil
+}
+
+// HasTLSEnabled returns true if any TLS configuration is specified
+func (ais *AIStore) HasTLSEnabled() bool {
+	return ais.GetTLSSpec() != nil
+}
+
+// GetTLSCertificate returns the TLS certificate config if present
+func (ais *AIStore) GetTLSCertificate() *TLSCertificateConfig {
+	tlsSpec := ais.GetTLSSpec()
+	if tlsSpec != nil {
+		return tlsSpec.Certificate
+	}
+	return nil
+}
+
+func (ais *AIStore) UseTLSSecret() bool {
+	tlsSpec := ais.GetTLSSpec()
+	return tlsSpec != nil && tlsSpec.SecretName != nil && *tlsSpec.SecretName != ""
+}
+
+func (ais *AIStore) UseTLSCertificate() bool {
+	certConfig := ais.GetTLSCertificate()
+	if certConfig == nil {
+		return false
+	}
+	return certConfig.Mode != TLSCertificateModeCSI
+}
+
+func (ais *AIStore) UseTLSCSI() bool {
+	certConfig := ais.GetTLSCertificate()
+	if certConfig == nil {
+		return false
+	}
+	return certConfig.Mode == TLSCertificateModeCSI
+}
+
+func (ais *AIStore) GetTLSSecretName() string {
+	if ais.UseTLSSecret() {
+		return *ais.GetTLSSpec().SecretName
+	}
+	if ais.UseTLSCertificate() {
+		return fmt.Sprintf("%s-tls", ais.Name)
+	}
+	return ""
 }
 
 func (ais *AIStore) GetAPIMode() string {

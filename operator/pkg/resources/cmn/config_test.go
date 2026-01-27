@@ -74,16 +74,40 @@ var _ = Describe("Config", Label("short"), func() {
 				Expect(*conf.Net.HTTP.CertKey).To(Equal("/var/certs/tls.key"))
 				Expect(*conf.Net.HTTP.ClientCA).To(Equal("/var/certs/ca.crt"))
 			},
-			Entry("TLSCertificate", aisv1.AIStoreSpec{
-				TLSCertificate: &aisv1.TLSCertificateSpec{
+			// Deprecated: Use spec.tls.certificate with mode secret instead
+			Entry("spec.tlsCertificate", aisv1.AIStoreSpec{
+				TLSCertificate: &aisv1.TLSCertificateConfig{
 					IssuerRef: aisv1.CertIssuerRef{Name: "test-issuer"},
 				},
 			}),
-			Entry("TLSSecretName", aisv1.AIStoreSpec{
+			// Deprecated: Use spec.tls.secretName instead
+			Entry("spec.tlsSecretName", aisv1.AIStoreSpec{
 				TLSSecretName: aisapc.Ptr("my-tls-secret"),
 			}),
-			Entry("TLSCertManagerIssuerName", aisv1.AIStoreSpec{
+			// Deprecated: Use spec.tls.certificate with mode csi instead
+			Entry("spec.tlsCertManagerIssuerName", aisv1.AIStoreSpec{
 				TLSCertManagerIssuerName: aisapc.Ptr("my-issuer"),
+			}),
+			Entry("spec.tls.secretName", aisv1.AIStoreSpec{
+				TLS: &aisv1.TLSSpec{
+					SecretName: aisapc.Ptr("my-tls-secret"),
+				},
+			}),
+			Entry("spec.tls.certificate (secret mode)", aisv1.AIStoreSpec{
+				TLS: &aisv1.TLSSpec{
+					Certificate: &aisv1.TLSCertificateConfig{
+						IssuerRef: aisv1.CertIssuerRef{Name: "test-issuer"},
+						Mode:      aisv1.TLSCertificateModeSecret,
+					},
+				},
+			}),
+			Entry("spec.tls.certificate (csi mode)", aisv1.AIStoreSpec{
+				TLS: &aisv1.TLSSpec{
+					Certificate: &aisv1.TLSCertificateConfig{
+						IssuerRef: aisv1.CertIssuerRef{Name: "test-issuer"},
+						Mode:      aisv1.TLSCertificateModeCSI,
+					},
+				},
 			}),
 		)
 

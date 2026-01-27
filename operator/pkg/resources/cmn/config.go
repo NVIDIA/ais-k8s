@@ -58,7 +58,7 @@ func GenerateConfigToSet(ais *aisv1.AIStore) (*aiscmn.ConfigToSet, error) {
 		// Deep copy to avoid modifying the spec itself
 		specConfig = ais.Spec.ConfigToUpdate.DeepCopy()
 	}
-	if ais.Spec.TLSCertificate != nil || ais.Spec.TLSSecretName != nil || ais.Spec.TLSCertManagerIssuerName != nil {
+	if ais.HasTLSEnabled() {
 		if specConfig.Net == nil {
 			specConfig.Net = &aisv1.NetConfToUpdate{}
 		}

@@ -780,9 +780,8 @@ func (r *AIStoreReconciler) createOrUpdateRBACResources(ctx context.Context, ais
 
 func (r *AIStoreReconciler) reconcileTLSCertificate(ctx context.Context, ais *aisv1.AIStore) error {
 	logger := logf.FromContext(ctx)
-	if ais.Spec.TLSCertificate != nil {
-		// Create or update the Certificate
-		cert := cmn.NewCertificate(ais)
+	// Create or update the Certificate if configured
+	if cert := cmn.NewCertificate(ais); cert != nil {
 		changed, err := r.k8sClient.CreateOrUpdateResource(ctx, ais, cert)
 		if err != nil {
 			return err

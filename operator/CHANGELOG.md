@@ -14,6 +14,18 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 - Updated all tool versions and minor dependencies
 
+### Added
+
+- `spec.tls` option to consolidate TLS configuration under a single field.
+  - `tls.secretName` for using an existing Kubernetes TLS secret.
+  - `tls.certificate` for cert-manager managed certificates with `mode: secret` (Certificate CR) or `mode: csi` (CSI driver).
+
+### Deprecated
+
+- `spec.tlsCertificate` - use `spec.tls.certificate` instead.
+- `spec.tlsSecretName` - use `spec.tls.secretName` instead.
+- `spec.tlsCertManagerIssuerName` - use `spec.tls.certificate` with `mode: csi` instead.
+
 ## v2.13.0
 
 ### Changed

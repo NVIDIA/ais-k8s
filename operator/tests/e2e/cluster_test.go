@@ -109,8 +109,10 @@ var _ = Describe("Run Controller", func() {
 			_, err := WorkerCtx.K8sClient.CreateResourceIfNotExists(ctx, nil, issuer)
 			Expect(err).To(BeNil())
 
-			cluArgs.TLSIssuerName = issuer.Name
-			cluArgs.TLSIssuerKind = "Issuer"
+			cluArgs.TLS = &tutils.TLSArgs{
+				IssuerName: issuer.Name,
+				IssuerKind: "Issuer",
+			}
 			cc := newClientCluster(ctx, AISTestContext, WorkerCtx.K8sClient, cluArgs)
 			defer func() {
 				Expect(cc.printLogs()).To(Succeed())

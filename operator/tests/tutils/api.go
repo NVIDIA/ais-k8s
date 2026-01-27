@@ -99,7 +99,7 @@ func CheckResExistence(ctx context.Context, cluster *aisv1.AIStore, aisCtx *AIST
 	}
 
 	// 5. Check for TLS certificate (optional)
-	if cluster.Spec.TLSCertificate != nil {
+	if cluster.UseTLSCertificate() {
 		EventuallyResourceExists(ctx, k8sClient, cmn.NewCertificate(cluster), condition, intervals...)
 		secretNSName := types.NamespacedName{
 			Name:      cmn.CertificateSecretName(cluster),

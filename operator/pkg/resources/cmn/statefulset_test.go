@@ -197,16 +197,47 @@ var _ = Describe("Statefulset", Label("short"), func() {
 				}
 			},
 			Entry("no TLS configured", aisv1.AIStoreSpec{}, false, false),
+			// Deprecated: Use spec.tls.certificate instead
 			Entry("TLSCertificate", aisv1.AIStoreSpec{
-				TLSCertificate: &aisv1.TLSCertificateSpec{
+				TLSCertificate: &aisv1.TLSCertificateConfig{
 					IssuerRef: aisv1.CertIssuerRef{Name: "test-issuer"},
 				},
 			}, false, true),
+			// Deprecated: Use spec.tls.secretName instead
 			Entry("TLSSecretName", aisv1.AIStoreSpec{
 				TLSSecretName: aisapc.Ptr("my-tls-secret"),
 			}, false, true),
+			// Deprecated: Use spec.tls.certificate with mode: csi instead
 			Entry("TLSCertManagerIssuerName", aisv1.AIStoreSpec{
 				TLSCertManagerIssuerName: aisapc.Ptr("my-issuer"),
+			}, true, false),
+			Entry("spec.tls.secretName", aisv1.AIStoreSpec{
+				TLS: &aisv1.TLSSpec{
+					SecretName: aisapc.Ptr("my-tls-secret"),
+				},
+			}, false, true),
+			Entry("spec.tls.certificate (secret mode, explicit)", aisv1.AIStoreSpec{
+				TLS: &aisv1.TLSSpec{
+					Certificate: &aisv1.TLSCertificateConfig{
+						IssuerRef: aisv1.CertIssuerRef{Name: "test-issuer"},
+						Mode:      aisv1.TLSCertificateModeSecret,
+					},
+				},
+			}, false, true),
+			Entry("spec.tls.certificate (secret mode, default)", aisv1.AIStoreSpec{
+				TLS: &aisv1.TLSSpec{
+					Certificate: &aisv1.TLSCertificateConfig{
+						IssuerRef: aisv1.CertIssuerRef{Name: "test-issuer"},
+					},
+				},
+			}, false, true),
+			Entry("spec.tls.certificate (csi mode)", aisv1.AIStoreSpec{
+				TLS: &aisv1.TLSSpec{
+					Certificate: &aisv1.TLSCertificateConfig{
+						IssuerRef: aisv1.CertIssuerRef{Name: "test-issuer"},
+						Mode:      aisv1.TLSCertificateModeCSI,
+					},
+				},
 			}, true, false),
 		)
 	})

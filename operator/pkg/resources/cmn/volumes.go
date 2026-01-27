@@ -5,6 +5,7 @@
 package cmn
 
 import (
+	"fmt"
 	"path"
 	"strings"
 
@@ -147,47 +148,55 @@ func newLogsVolume(ais *v1beta1.AIStore, daeType string) corev1.Volume {
 
 // getTLSVolume returns the appropriate TLS volume based on cluster configuration.
 func getTLSVolume(ais *v1beta1.AIStore, daeType string) *corev1.Volume {
-	if ais.Spec.TLSCertManagerIssuerName != nil {
-		name := ais.Name + "-" + daeType
-		return &corev1.Volume{
-			Name: tlsSecretVolume,
-			VolumeSource: corev1.VolumeSource{
-				CSI: &corev1.CSIVolumeSource{
-					Driver: csiapis.GroupName,
-					VolumeAttributes: map[string]string{
-						csiapisv1.IssuerNameKey: *ais.Spec.TLSCertManagerIssuerName,
-						csiapisv1.CommonNameKey: name + ".${POD_NAMESPACE}",
-						csiapisv1.DNSNamesKey: strings.Join(
-							[]string{
-								"${POD_NAME}.${POD_NAMESPACE}.svc." + ais.GetClusterDomain(),
-								name + ".${POD_NAMESPACE}.svc." + ais.GetClusterDomain(),
-								name + ".${POD_NAMESPACE}.svc",
-								name,
-							},
-							","),
-					},
-					ReadOnly: aisapc.Ptr(true),
-				},
-			},
-		}
-	}
+	var source corev1.VolumeSource
 
-	var secretName string
 	switch {
-	case ais.Spec.TLSCertificate != nil:
-		secretName = CertificateSecretName(ais)
-	case ais.Spec.TLSSecretName != nil:
-		secretName = *ais.Spec.TLSSecretName
+	case ais.UseTLSCSI():
+		source = getTLSCSIVolumeSource(ais, daeType)
+	case ais.UseTLSCertificate(), ais.UseTLSSecret():
+		source = getTLSSecretVolumeSource(ais)
 	default:
 		return nil
 	}
 
 	return &corev1.Volume{
-		Name: tlsSecretVolume,
-		VolumeSource: corev1.VolumeSource{
-			Secret: &corev1.SecretVolumeSource{
-				SecretName: secretName,
-			},
+		Name:         tlsSecretVolume,
+		VolumeSource: source,
+	}
+}
+
+func getTLSCSIVolumeSource(ais *v1beta1.AIStore, daeType string) corev1.VolumeSource {
+	certConfig := ais.GetTLSCertificate()
+	if certConfig == nil {
+		return corev1.VolumeSource{}
+	}
+	name := ais.Name + "-" + daeType
+	issuerRef := certConfig.IssuerRef
+	dnsNames, _ := buildCertificateSANs(ais)
+
+	attrs := map[string]string{
+		csiapisv1.IssuerNameKey: issuerRef.Name,
+		csiapisv1.CommonNameKey: fmt.Sprintf("%s.%s", name, ais.Namespace),
+		csiapisv1.DNSNamesKey:   strings.Join(dnsNames, ","),
+	}
+
+	if issuerRef.Kind != "" {
+		attrs[csiapisv1.IssuerKindKey] = issuerRef.Kind
+	}
+
+	return corev1.VolumeSource{
+		CSI: &corev1.CSIVolumeSource{
+			Driver:           csiapis.GroupName,
+			VolumeAttributes: attrs,
+			ReadOnly:         aisapc.Ptr(true),
+		},
+	}
+}
+
+func getTLSSecretVolumeSource(ais *v1beta1.AIStore) corev1.VolumeSource {
+	return corev1.VolumeSource{
+		Secret: &corev1.SecretVolumeSource{
+			SecretName: ais.GetTLSSecretName(),
 		},
 	}
 }
@@ -227,7 +236,7 @@ func NewAISVolumeMounts(ais *v1beta1.AIStore, daeType string) []corev1.VolumeMou
 		volumeMounts = append(volumeMounts, hostMounts...)
 	}
 
-	if spec.TLSCertificate != nil || spec.TLSCertManagerIssuerName != nil || spec.TLSSecretName != nil {
+	if ais.HasTLSEnabled() {
 		volumeMounts = AppendSimpleReadOnlyMount(volumeMounts, tlsSecretVolume, certsDir)
 	}
 	if spec.TracingTokenSecretName != nil {

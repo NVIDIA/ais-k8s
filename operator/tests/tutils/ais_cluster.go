@@ -1,6 +1,6 @@
 // Package tutils provides utilities for running AIS operator tests
 /*
- * Copyright (c) 2021-2025, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2026, NVIDIA CORPORATION. All rights reserved.
  */
 package tutils
 
@@ -46,8 +46,7 @@ type (
 		EnableExternalLB          bool
 		EnableAdminClient         bool
 		EnableTargetPDB           bool
-		TLSIssuerName             string
-		TLSIssuerKind             string
+		TLS                       *TLSArgs
 		ShutdownCluster           bool
 		CleanupMetadata           bool
 		CleanupData               bool
@@ -56,6 +55,13 @@ type (
 		MaxTargets int32
 		// Where to mount the hostpath storage for actual storage PVs
 		StorageHostPath string
+	}
+
+	TLSArgs struct {
+		SecretName string
+		IssuerName string
+		IssuerKind string
+		Mode       string
 	}
 )
 
@@ -217,17 +223,8 @@ func newAISClusterCR(args *ClusterSpecArgs, mounts []aisv1.Mount) *aisv1.AIStore
 		spec.TargetSpec.PodDisruptionBudget = &aisv1.PDBSpec{Enabled: true}
 	}
 
-	if args.TLSIssuerName != "" {
-		issuerKind := args.TLSIssuerKind
-		if issuerKind == "" {
-			issuerKind = "ClusterIssuer"
-		}
-		spec.TLSCertificate = &aisv1.TLSCertificateSpec{
-			IssuerRef: aisv1.CertIssuerRef{
-				Name: args.TLSIssuerName,
-				Kind: issuerKind,
-			},
-		}
+	if args.TLS != nil {
+		spec.TLS = buildTLSSpec(args.TLS)
 	}
 
 	cluster := &aisv1.AIStore{
@@ -238,4 +235,29 @@ func newAISClusterCR(args *ClusterSpecArgs, mounts []aisv1.Mount) *aisv1.AIStore
 		Spec: spec,
 	}
 	return cluster
+}
+
+func buildTLSSpec(args *TLSArgs) *aisv1.TLSSpec {
+	// Use existing secret
+	if args.SecretName != "" {
+		return &aisv1.TLSSpec{SecretName: &args.SecretName}
+	}
+	// Use cert-manager
+	kind := args.IssuerKind
+	if kind == "" {
+		kind = "ClusterIssuer"
+	}
+	mode := aisv1.TLSCertificateModeSecret
+	if args.Mode == "csi" {
+		mode = aisv1.TLSCertificateModeCSI
+	}
+	return &aisv1.TLSSpec{
+		Certificate: &aisv1.TLSCertificateConfig{
+			IssuerRef: aisv1.CertIssuerRef{
+				Name: args.IssuerName,
+				Kind: kind,
+			},
+			Mode: mode,
+		},
+	}
 }
