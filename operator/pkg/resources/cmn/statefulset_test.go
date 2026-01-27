@@ -14,15 +14,16 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var _ = Describe("Statefulset", Label("short"), func() {
 	Describe("Log Sidecar", func() {
-		DescribeTable("should create log container spec",
+		DescribeTable("should create log container spec without resources",
 			func(daeType string) {
 				sidecarImage := "testImage"
-				cSpec := NewLogSidecar(sidecarImage, daeType)
+				cSpec := NewLogSidecar(sidecarImage, daeType, nil)
 
 				Expect(cSpec.Name).To(BeEquivalentTo("ais-logs"))
 				Expect(cSpec.ImagePullPolicy).To(BeEquivalentTo(corev1.PullIfNotPresent))
@@ -30,6 +31,32 @@ var _ = Describe("Statefulset", Label("short"), func() {
 
 				Expect(cSpec.VolumeMounts).To(HaveLen(1))
 				Expect(cSpec.VolumeMounts[0]).To(BeEquivalentTo(newLogsVolumeMount(daeType)))
+				Expect(cSpec.Resources.Requests).To(BeNil())
+				Expect(cSpec.Resources.Limits).To(BeNil())
+			},
+			Entry("for proxy", aisapc.Proxy),
+			Entry("for target", aisapc.Target),
+		)
+
+		DescribeTable("should create log container spec with resources",
+			func(daeType string) {
+				sidecarImage := "testImage"
+				resources := &corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceMemory: resource.MustParse("64Mi"),
+						corev1.ResourceCPU:    resource.MustParse("50m"),
+					},
+					Limits: corev1.ResourceList{
+						corev1.ResourceMemory: resource.MustParse("64Mi"),
+						corev1.ResourceCPU:    resource.MustParse("50m"),
+					},
+				}
+				cSpec := NewLogSidecar(sidecarImage, daeType, resources)
+
+				Expect(cSpec.Name).To(BeEquivalentTo("ais-logs"))
+				Expect(cSpec.ImagePullPolicy).To(BeEquivalentTo(corev1.PullIfNotPresent))
+				Expect(cSpec.Resources.Requests).To(Equal(resources.Requests))
+				Expect(cSpec.Resources.Limits).To(Equal(resources.Limits))
 			},
 			Entry("for proxy", aisapc.Proxy),
 			Entry("for target", aisapc.Target),

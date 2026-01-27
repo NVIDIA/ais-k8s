@@ -411,6 +411,18 @@ type AIStoreSpec struct {
 	// The deployment is automatically configured to connect to this AIS cluster
 	// +optional
 	AdminClient *AdminClientSpec `json:"adminClient,omitempty"`
+
+	// PriorityClassName specifies the priority class name for AIS daemon pods (proxy and target).
+	// Setting a high priority class prevents pods from being evicted during node pressure events.
+	// See: https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/
+	// +optional
+	PriorityClassName *string `json:"priorityClassName,omitempty"`
+
+	// LogSidecarResources specifies resource requirements for the ais-logs sidecar container.
+	// Setting requests equal to limits gives the pod Guaranteed QoS, protecting it from eviction.
+	// If not specified, the sidecar runs with no resource constraints (BestEffort for that container).
+	// +optional
+	LogSidecarResources *corev1.ResourceRequirements `json:"logSidecarResources,omitempty"`
 }
 
 // AIStoreStatus defines the observed state of AIStore
