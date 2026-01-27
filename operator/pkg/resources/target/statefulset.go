@@ -124,8 +124,12 @@ func targetPodSpec(ais *aisv1.AIStore) *corev1.PodSpec {
 		Volumes:         newVolumes(ais),
 		Tolerations:     ais.Spec.TargetSpec.Tolerations,
 	}
+	// Apply priority class if specified to prevent eviction during node pressure
+	if ais.Spec.PriorityClassName != nil {
+		spec.PriorityClassName = *ais.Spec.PriorityClassName
+	}
 	if ais.Spec.LogSidecarImage != nil {
-		spec.Containers = append(spec.Containers, cmn.NewLogSidecar(*ais.Spec.LogSidecarImage, aisapc.Target))
+		spec.Containers = append(spec.Containers, cmn.NewLogSidecar(*ais.Spec.LogSidecarImage, aisapc.Target, ais.Spec.LogSidecarResources))
 	}
 	return spec
 }

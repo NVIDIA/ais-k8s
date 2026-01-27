@@ -130,8 +130,12 @@ func proxyPodSpec(ais *aisv1.AIStore) *corev1.PodSpec {
 		Volumes:         newVolumes(ais),
 		Tolerations:     ais.Spec.ProxySpec.Tolerations,
 	}
+	// Apply priority class if specified to prevent eviction during node pressure
+	if ais.Spec.PriorityClassName != nil {
+		spec.PriorityClassName = *ais.Spec.PriorityClassName
+	}
 	if ais.Spec.LogSidecarImage != nil {
-		spec.Containers = append(spec.Containers, cmn.NewLogSidecar(*ais.Spec.LogSidecarImage, aisapc.Proxy))
+		spec.Containers = append(spec.Containers, cmn.NewLogSidecar(*ais.Spec.LogSidecarImage, aisapc.Proxy, ais.Spec.LogSidecarResources))
 	}
 	return spec
 }
