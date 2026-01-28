@@ -315,12 +315,13 @@ func (cc *clientCluster) waitForResourceDeletion() {
 
 func (cc *clientCluster) enableAdminClient() {
 	cc.fetchLatestCluster()
+	patch := clientpkg.MergeFrom(cc.cluster.DeepCopy())
 	if cc.cluster.Spec.AdminClient != nil {
 		cc.cluster.Spec.AdminClient.Enabled = aisapc.Ptr(true)
 	} else {
 		cc.cluster.Spec.AdminClient = &aisv1.AdminClientSpec{Enabled: aisapc.Ptr(true)}
 	}
-	Expect(cc.k8sClient.Update(cc.ctx, cc.cluster)).To(Succeed())
+	Expect(cc.k8sClient.Patch(cc.ctx, cc.cluster, patch)).To(Succeed())
 }
 
 func (cc *clientCluster) disableAdminClient() {
@@ -328,8 +329,9 @@ func (cc *clientCluster) disableAdminClient() {
 	if cc.cluster.Spec.AdminClient == nil {
 		return
 	}
+	patch := clientpkg.MergeFrom(cc.cluster.DeepCopy())
 	cc.cluster.Spec.AdminClient.Enabled = aisapc.Ptr(false)
-	Expect(cc.k8sClient.Update(cc.ctx, cc.cluster)).To(Succeed())
+	Expect(cc.k8sClient.Patch(cc.ctx, cc.cluster, patch)).To(Succeed())
 }
 
 func (cc *clientCluster) verifyAdminClientExists() {
@@ -342,12 +344,13 @@ func (cc *clientCluster) verifyAdminClientDeleted() {
 
 func (cc *clientCluster) enableTargetPDB() {
 	cc.fetchLatestCluster()
+	patch := clientpkg.MergeFrom(cc.cluster.DeepCopy())
 	if cc.cluster.Spec.TargetSpec.PodDisruptionBudget != nil {
 		cc.cluster.Spec.TargetSpec.PodDisruptionBudget.Enabled = true
 	} else {
 		cc.cluster.Spec.TargetSpec.PodDisruptionBudget = &aisv1.PDBSpec{Enabled: true}
 	}
-	Expect(cc.k8sClient.Update(cc.ctx, cc.cluster)).To(Succeed())
+	Expect(cc.k8sClient.Patch(cc.ctx, cc.cluster, patch)).To(Succeed())
 }
 
 func (cc *clientCluster) verifyTargetPDBExists() {
@@ -356,8 +359,9 @@ func (cc *clientCluster) verifyTargetPDBExists() {
 
 func (cc *clientCluster) disableTargetPDB() {
 	cc.fetchLatestCluster()
+	patch := clientpkg.MergeFrom(cc.cluster.DeepCopy())
 	cc.cluster.Spec.TargetSpec.PodDisruptionBudget.Enabled = false
-	Expect(cc.k8sClient.Update(cc.ctx, cc.cluster)).To(Succeed())
+	Expect(cc.k8sClient.Patch(cc.ctx, cc.cluster, patch)).To(Succeed())
 }
 
 func (cc *clientCluster) verifyTargetPDBDeleted() {
