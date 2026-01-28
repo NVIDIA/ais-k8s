@@ -156,5 +156,5 @@ patches:
 # - path: webhook/aistores_conversion_webhook_patch.yaml
 images:
 - name: controller
-  newName: aistorage/ais-operator
-  newTag: v2.12.2
+  newName: aaronnw/ais-operator
+  newTag: v2.12.2-rbac

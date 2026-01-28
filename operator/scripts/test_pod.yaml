@@ -3,13 +3,12 @@ kind: Pod
 metadata:
   name: operator-test-pod
 spec:
+  serviceAccountName: ais-operator-controller-manager
   restartPolicy: Never
   containers:
     - name: operator-test
       image: operator-test
       imagePullPolicy: Never
-      securityContext:
-        privileged: true
       env:
         - name: TEST_E2E_MODE
           value: "${TEST_E2E_MODE}"

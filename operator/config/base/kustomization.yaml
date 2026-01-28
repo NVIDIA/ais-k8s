@@ -1,6 +1,9 @@
 resources:
 - crd/
 - rbac/
+- rbac-ais/
+# This can be omitted if not using auth to protect the /metrics endpoint.
+- rbac-metrics/
 - manager/
 # [METRICS] Expose the controller manager metrics service.
 - metrics_service.yaml

@@ -1,0 +1,3 @@
+resources:
+- aistore_editor_role.yaml
+- aistore_viewer_role.yaml

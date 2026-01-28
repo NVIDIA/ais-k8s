@@ -18,6 +18,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 ### Added
 
 - `spec.tlsCertificate` option to generate TLS certificates via cert-manager.
+- Operator deployments will now create a ServiceAccount `ais-operator-controller-manager` and bind only that ServiceAccount to the `ais-operator-manager-role` ClusterRole. 
 
 ## v2.12.2
 

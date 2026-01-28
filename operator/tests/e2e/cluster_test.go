@@ -115,6 +115,8 @@ var _ = Describe("Run Controller", func() {
 			defer func() {
 				Expect(cc.printLogs()).To(Succeed())
 				cc.destroyAndCleanup()
+				_, err := WorkerCtx.K8sClient.DeleteResourceIfExists(ctx, issuer)
+				Expect(err).To(BeNil())
 			}()
 			cc.create()
 			cc.waitForResources()

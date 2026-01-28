@@ -4,11 +4,10 @@
 
 set -euo pipefail
 
-IMAGE_NAME="operator-test"
 TEST_POD_NAME="operator-test-pod"
 
 # Apply RBAC permissions needed for the test pod
-kubectl apply -f scripts/rbac.yaml
+kubectl apply -k config/overlays/test
 
 # Load the cached test image archive into the KinD cluster
 kind load image-archive /operator-test.tar --name "${KIND_CLUSTER_NAME}"

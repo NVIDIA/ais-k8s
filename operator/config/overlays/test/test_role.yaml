@@ -1,0 +1,19 @@
+# Additional RBAC for e2e tests - applied dynamically by test scripts
+# These permissions are not needed by the operator itself
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: test-role
+rules:
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["create", "delete", "get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["persistentvolumes"]
+    verbs: ["create", "delete", "get", "list", "watch"]
+  - apiGroups: ["apiextensions.k8s.io"]
+    resources: ["customresourcedefinitions"]
+    verbs: ["get", "create", "update", "patch", "delete", "list", "watch"]
+  - apiGroups: ["cert-manager.io"]
+    resources: ["issuers"]
+    verbs: ["get", "create", "delete"]

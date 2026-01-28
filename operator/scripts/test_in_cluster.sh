@@ -9,12 +9,14 @@ TEST_POD_NAME="operator-test-pod"
 
 cleanup() {
   kubectl delete pod "${TEST_POD_NAME}" --ignore-not-found
-  kubectl delete -f scripts/rbac.yaml --ignore-not-found
+  # Only delete test-specific RBAC, not the base resources
+  kubectl delete clusterrolebinding ais-operator-test-rolebinding --ignore-not-found
+  kubectl delete clusterrole ais-operator-test-role --ignore-not-found
 }
 trap cleanup EXIT
 
 # Apply RBAC permissions needed for the test pod
-kubectl apply -f scripts/rbac.yaml
+kubectl apply -k config/overlays/test
 
 # Build test image and load it into the local KinD cluster
 docker build -t "${IMAGE_NAME}" -f tests/test.dockerfile .
