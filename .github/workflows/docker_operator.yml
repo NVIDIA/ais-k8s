@@ -1,15 +1,26 @@
 name: Docker Image -- Operator
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'operator/api/**'
+      - 'operator/cmd/**'
+      - 'operator/pkg/**'
+      - 'operator/Dockerfile'
+      - 'operator/go.mod'
+      - 'operator/go.sum'
+      - 'operator/Makefile'
   workflow_dispatch:
     inputs:
       image_tag:
         description: 'Operator image tag'
         required: true
-        default: 'latest'
-
+        type: string
 env:
   AISOPERATOR_IMAGE: 'aistorage/ais-operator'
+  IMAGE_TAG: ${{ github.event_name == 'push' && 'dev' || inputs.image_tag }}
 
 jobs:
   docker:
@@ -26,8 +37,8 @@ jobs:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-    - name: aisoperator image
+    - name: Build and push 'aistorage/ais-operator' image
       run: |
         pushd $GITHUB_WORKSPACE/operator
-        IMG="${{ env.AISOPERATOR_IMAGE }}:${{ inputs.image_tag }}" make docker-build docker-push
+        IMG="${{ env.AISOPERATOR_IMAGE }}:${{ env.IMAGE_TAG }}" make docker-build docker-push
         popd
