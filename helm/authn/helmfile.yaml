@@ -39,10 +39,12 @@ environments:
 hooks:
   - events: ["prepare"]
     showlogs: true
+    command: helmfile
+    args: ["cache", "clear"]
+  - events: ["prepare"]
+    showlogs: true
     command: bash
-    args:
-      - ../confirm.sh
-      - "{{ .Environment.Name }}"
+    args: ["../confirm.sh", "{{ .Environment.Name }}"]
 
 releases:
   - name: ais-authn
