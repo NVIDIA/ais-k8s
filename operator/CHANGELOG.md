@@ -8,7 +8,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ---
 
-## Unreleased
+## v2.13.0
 
 ### Changed
 
@@ -20,6 +20,8 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 - `spec.tlsCertificate` option to generate TLS certificates via cert-manager.
 - Operator deployments will now create a ServiceAccount `ais-operator-controller-manager` and bind only that ServiceAccount to the `ais-operator-manager-role` ClusterRole. 
+- `priorityClassName` spec option to set a priority class for AIS pods
+- `logSidecarResources` spec option to set K8s resource options for the logging sidecar
 
 ## v2.12.2
 
