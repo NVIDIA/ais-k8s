@@ -1389,6 +1389,15 @@ spec:
                 type: string
               configToUpdate:
                 properties:
+                  arch:
+                    properties:
+                      bundle_multiplier:
+                        type: integer
+                      burst_buffer:
+                        type: integer
+                      compression:
+                        type: string
+                    type: object
                   auth:
                     properties:
                       cluster_key:
@@ -1451,6 +1460,20 @@ spec:
                       validate_warm_get:
                         type: boolean
                     type: object
+                  chunks:
+                    properties:
+                      checkpoint_every:
+                        type: integer
+                      chunk_size:
+                        type: string
+                      flags:
+                        format: int64
+                        type: integer
+                      max_monolithic_size:
+                        type: string
+                      objsize_limit:
+                        type: string
+                    type: object
                   client:
                     properties:
                       client_long_timeout:
@@ -1475,10 +1498,14 @@ spec:
                         type: string
                       iostat_time_short:
                         type: string
+                      iostat_time_smooth:
+                        type: string
                     type: object
                   distributed_sort:
                     properties:
                       bundle_multiplier:
+                        type: integer
+                      burst_buffer:
                         type: integer
                       call_timeout:
                         type: string
@@ -1505,6 +1532,8 @@ spec:
                   ec:
                     properties:
                       bundle_multiplier:
+                        type: integer
+                      burst_buffer:
                         type: integer
                       compression:
                         type: string
@@ -1535,8 +1564,27 @@ spec:
                       test_files:
                         type: integer
                     type: object
+                  get_batch:
+                    properties:
+                      bundle_multiplier:
+                        type: integer
+                      burst_buffer:
+                        type: integer
+                      compression:
+                        type: string
+                      max_gfn:
+                        type: integer
+                      max_soft_errs:
+                        type: integer
+                      max_wait:
+                        type: string
+                      warmup_workers:
+                        type: integer
+                    type: object
                   keepalivetracker:
                     properties:
+                      num_retries:
+                        type: integer
                       proxy:
                         properties:
                           factor:
@@ -1575,6 +1623,9 @@ spec:
                     type: object
                   lru:
                     properties:
+                      batch_size:
+                        format: int64
+                        type: integer
                       capacity_upd_time:
                         type: string
                       dont_evict_time:
@@ -1692,6 +1743,8 @@ spec:
                     properties:
                       bundle_multiplier:
                         type: integer
+                      burst_buffer:
+                        type: integer
                       compression:
                         type: string
                       dest_retry_time:
@@ -1706,11 +1759,16 @@ spec:
                     type: object
                   space:
                     properties:
+                      batch_size:
+                        format: int64
+                        type: integer
                       cleanupwm:
                         format: int64
                         maximum: 100
                         minimum: 0
                         type: integer
+                      dont_cleanup_time:
+                        type: string
                       highwm:
                         format: int64
                         maximum: 100
@@ -1731,18 +1789,35 @@ spec:
                     properties:
                       bundle_multiplier:
                         type: integer
+                      burst_buffer:
+                        type: integer
+                      compression:
+                        type: string
+                    type: object
+                  tco:
+                    properties:
+                      bundle_multiplier:
+                        type: integer
+                      burst_buffer:
+                        type: integer
                       compression:
                         type: string
                     type: object
                   timeout:
                     properties:
+                      cold_get_conflict:
+                        type: string
                       cplane_operation:
+                        type: string
+                      ec_streams_time:
                         type: string
                       join_startup_time:
                         type: string
                       max_host_busy:
                         type: string
                       max_keepalive:
+                        type: string
+                      object_md:
                         type: string
                       send_file_time:
                         type: string

@@ -13,13 +13,14 @@ import (
 // NOTE: `*ToUpdate` structures are duplicates of `*ToUpdate` structs from AIStore main repository.
 // For custom types used in CRDs, `kubebuilder` auto-generates the `DeepCopyInto` method,
 // which isn't possible for types from external packages.
-// IMPORTANT: Run "make" to regenerate code after modifying this file
+// IMPORTANT: Run "make generate" and "make manifests" to regenerate code after modifying this file
 
 type (
 	ConfigToUpdate struct {
 		Backend     *map[string]Empty        `json:"backend,omitempty"`
 		Mirror      *MirrorConfToUpdate      `json:"mirror,omitempty"`
 		EC          *ECConfToUpdate          `json:"ec,omitempty"`
+		GetBatch    *GetBatchConfToUpdate    `json:"get_batch,omitempty"`
 		Log         *LogConfToUpdate         `json:"log,omitempty"`
 		Periodic    *PeriodConfToUpdate      `json:"periodic,omitempty"`
 		Tracing     *TracingConfToUpdate     `json:"tracing,omitempty"`
@@ -34,6 +35,7 @@ type (
 		Versioning  *VersionConfToUpdate     `json:"versioning,omitempty"`
 		Net         *NetConfToUpdate         `json:"net,omitempty"`
 		FSHC        *FSHCConfToUpdate        `json:"fshc,omitempty"`
+		Chunks      *ChunksConfToUpdate      `json:"chunks,omitempty"`
 		Auth        *AuthConfToUpdate        `json:"auth,omitempty"`
 		Keepalive   *KeepaliveConfToUpdate   `json:"keepalivetracker,omitempty"`
 		Downloader  *DownloaderConfToUpdate  `json:"downloader,omitempty"`
@@ -41,10 +43,17 @@ type (
 		Transport   *TransportConfToUpdate   `json:"transport,omitempty"`
 		Memsys      *MemsysConfToUpdate      `json:"memsys,omitempty"`
 		TCB         *TCBConfToUpdate         `json:"tcb,omitempty"`
+		TCO         *TCOConfToUpdate         `json:"tco,omitempty"`
+		Arch        *ArchConfToUpdate        `json:"arch,omitempty"`
 		WritePolicy *WritePolicyConfToUpdate `json:"write_policy,omitempty"`
 		Proxy       *ProxyConfToUpdate       `json:"proxy,omitempty"`
 		RateLimit   *RateLimitConfToUpdate   `json:"rate_limit,omitempty"`
 		Features    *string                  `json:"features,omitempty"`
+	}
+	XactConfToUpdate struct {
+		Compression *string `json:"compression,omitempty"`
+		SbundleMult *int    `json:"bundle_multiplier,omitempty"`
+		Burst       *int    `json:"burst_buffer,omitempty"`
 	}
 	MirrorConfToUpdate struct {
 		Enabled *bool  `json:"enabled,omitempty"`
@@ -52,13 +61,19 @@ type (
 		Burst   *int   `json:"burst_buffer,omitempty"`
 	}
 	ECConfToUpdate struct {
-		ObjSizeLimit *int64  `json:"objsize_limit,omitempty"`
-		Compression  *string `json:"compression,omitempty"`
-		SbundleMult  *int    `json:"bundle_multiplier,omitempty"`
-		DataSlices   *int    `json:"data_slices,omitempty"`
-		ParitySlices *int    `json:"parity_slices,omitempty"`
-		Enabled      *bool   `json:"enabled,omitempty"`
-		DiskOnly     *bool   `json:"disk_only,omitempty"`
+		XactConfToUpdate `json:",inline"`
+		ObjSizeLimit     *int64 `json:"objsize_limit,omitempty"`
+		DataSlices       *int   `json:"data_slices,omitempty"`
+		ParitySlices     *int   `json:"parity_slices,omitempty"`
+		Enabled          *bool  `json:"enabled,omitempty"`
+		DiskOnly         *bool  `json:"disk_only,omitempty"`
+	}
+	GetBatchConfToUpdate struct {
+		XactConfToUpdate `json:",inline"`
+		MaxWait          *Duration `json:"max_wait,omitempty"`
+		NumWarmupWorkers *int      `json:"warmup_workers,omitempty"`
+		MaxSoftErrs      *int      `json:"max_soft_errs,omitempty"`
+		MaxGFN           *int      `json:"max_gfn,omitempty"`
 	}
 	LogConfToUpdate struct {
 		Level     *aiscos.LogLevel `json:"level,omitempty"`
@@ -95,6 +110,9 @@ type (
 		Startup         *Duration `json:"startup_time,omitempty"`
 		JoinAtStartup   *Duration `json:"join_startup_time,omitempty"`
 		SendFile        *Duration `json:"send_file_time,omitempty"`
+		EcStreams       *Duration `json:"ec_streams_time,omitempty"`
+		ObjectMD        *Duration `json:"object_md,omitempty"`
+		ColdGetConflict *Duration `json:"cold_get_conflict,omitempty"`
 	}
 	ClientConfToUpdate struct {
 		Timeout        *Duration `json:"client_timeout,omitempty"`
@@ -119,25 +137,28 @@ type (
 		HighWM *int64 `json:"highwm,omitempty"`
 		//+kubebuilder:validation:Minimum=0
 		//+kubebuilder:validation:Maximum=100
-		OOS *int64 `json:"out_of_space,omitempty"`
+		OOS             *int64    `json:"out_of_space,omitempty"`
+		BatchSize       int64     `json:"batch_size,omitempty"`
+		DontCleanupTime *Duration `json:"dont_cleanup_time,omitempty"`
 	}
 	LRUConfToUpdate struct {
 		Enabled         *bool     `json:"enabled,omitempty"`
 		DontEvictTime   *Duration `json:"dont_evict_time,omitempty"`
 		CapacityUpdTime *Duration `json:"capacity_upd_time,omitempty"`
+		BatchSize       *int64    `json:"batch_size,omitempty"`
 	}
 	DiskConfToUpdate struct {
-		DiskUtilLowWM   *int64    `json:"disk_util_low_wm,omitempty"`
-		DiskUtilHighWM  *int64    `json:"disk_util_high_wm,omitempty"`
-		DiskUtilMaxWM   *int64    `json:"disk_util_max_wm,omitempty"`
-		IostatTimeLong  *Duration `json:"iostat_time_long,omitempty"`
-		IostatTimeShort *Duration `json:"iostat_time_short,omitempty"`
+		DiskUtilLowWM    *int64    `json:"disk_util_low_wm,omitempty"`
+		DiskUtilHighWM   *int64    `json:"disk_util_high_wm,omitempty"`
+		DiskUtilMaxWM    *int64    `json:"disk_util_max_wm,omitempty"`
+		IostatTimeLong   *Duration `json:"iostat_time_long,omitempty"`
+		IostatTimeShort  *Duration `json:"iostat_time_short,omitempty"`
+		IostatTimeSmooth *Duration `json:"iostat_time_smooth,omitempty"`
 	}
 	RebalanceConfToUpdate struct {
-		Enabled       *bool     `json:"enabled,omitempty"`
-		DestRetryTime *Duration `json:"dest_retry_time,omitempty"`
-		Compression   *string   `json:"compression,omitempty"`
-		SbundleMult   *int      `json:"bundle_multiplier,omitempty"`
+		XactConfToUpdate `json:",inline"`
+		Enabled          *bool     `json:"enabled,omitempty"`
+		DestRetryTime    *Duration `json:"dest_retry_time,omitempty"`
 	}
 	ResilverConfToUpdate struct {
 		Enabled *bool `json:"enabled,omitempty"` // true=auto-resilver | manual resilvering
@@ -157,6 +178,7 @@ type (
 	NetConfToUpdate struct {
 		HTTP *HTTPConfToUpdate `json:"http,omitempty"`
 	}
+
 	HTTPConfToUpdate struct {
 		Certificate         *string   `json:"server_crt,omitempty"`
 		CertKey             *string   `json:"server_key,omitempty"`
@@ -178,6 +200,13 @@ type (
 		IOErrs        *int      `json:"io_err_limit,omitempty"`
 		IOErrTime     *Duration `json:"io_err_time,omitempty"`
 		Enabled       *bool     `json:"enabled,omitempty"`
+	}
+	ChunksConfToUpdate struct {
+		ObjSizeLimit      *SizeIEC `json:"objsize_limit,omitempty"`
+		MaxMonolithicSize *SizeIEC `json:"max_monolithic_size,omitempty"`
+		ChunkSize         *SizeIEC `json:"chunk_size,omitempty"`
+		CheckpointEvery   int      `json:"checkpoint_every,omitempty"`
+		Flags             uint64   `json:"flags,omitempty"`
 	}
 	AuthConfToUpdate struct {
 		Enabled        *bool                       `json:"enabled,omitempty"`
@@ -211,12 +240,14 @@ type (
 	KeepaliveConfToUpdate struct {
 		Proxy       *KeepaliveTrackerConfToUpdate `json:"proxy,omitempty"`
 		Target      *KeepaliveTrackerConfToUpdate `json:"target,omitempty"`
+		NumRetries  *int                          `json:"num_retries,omitempty"`
 		RetryFactor *uint8                        `json:"retry_factor,omitempty"`
 	}
 	DownloaderConfToUpdate struct {
 		Timeout *Duration `json:"timeout,omitempty"`
 	}
 	DSortConfToUpdate struct {
+		XactConfToUpdate    `json:",inline"`
 		DuplicatedRecords   *string   `json:"duplicated_records,omitempty"`
 		MissingShards       *string   `json:"missing_shards,omitempty"`
 		EKMMalformedLine    *string   `json:"ekm_malformed_line,omitempty"`
@@ -224,8 +255,6 @@ type (
 		DefaultMaxMemUsage  *string   `json:"default_max_mem_usage,omitempty"`
 		CallTimeout         *Duration `json:"call_timeout,omitempty"`
 		DSorterMemThreshold *string   `json:"dsorter_mem_threshold,omitempty"`
-		Compression         *string   `json:"compression,omitempty"`
-		SbundleMult         *int      `json:"bundle_multiplier,omitempty"`
 	}
 	TransportConfToUpdate struct {
 		MaxHeaderSize    *int      `json:"max_header,omitempty" list:"readonly"`
@@ -244,8 +273,13 @@ type (
 		MinPctFree     *int      `json:"min_pct_free,omitempty" list:"readonly"`
 	}
 	TCBConfToUpdate struct {
-		Compression *string `json:"compression,omitempty"`
-		SbundleMult *int    `json:"bundle_multiplier,omitempty"`
+		XactConfToUpdate `json:",inline"`
+	}
+	TCOConfToUpdate struct {
+		XactConfToUpdate `json:",inline"`
+	}
+	ArchConfToUpdate struct {
+		XactConfToUpdate `json:",inline"`
 	}
 	WritePolicyConfToUpdate struct {
 		Data *string `json:"data,omitempty"`
