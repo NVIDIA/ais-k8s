@@ -36,22 +36,22 @@ spec:
       {{- end }}
     {{- end }}
   proxySpec:
+    {{- with .Values.proxySpec.annotations }}
     annotations:
-      {{- with .Values.proxySpec.annotations }}
       {{- toYaml . | nindent 6 }}
-      {{- end }}
+    {{- end }}
+    {{- with .Values.proxySpec.labels }}
     labels:
-      {{- with .Values.proxySpec.labels }}
       {{- toYaml . | nindent 6 }}
-      {{- end }}
+    {{- end }}
+    {{- with .Values.proxySpec.tolerations }}
     tolerations:
-      {{- with .Values.proxySpec.tolerations }}
       {{- toYaml . | nindent 6 }}
-      {{- end }}
+    {{- end }}
+    {{- with .Values.proxySpec.env }}
     env:
-      {{- with .Values.proxySpec.env }}
       {{- toYaml . | nindent 6 }}
-      {{- end }}
+    {{- end }}
     {{- if .Values.proxySpec.size }}
     size: {{ .Values.proxySpec.size }}
     {{- end }}
@@ -77,22 +77,22 @@ spec:
       {{- toYaml .Values.proxySpec.resources | nindent 6 }}
     {{- end }}
   targetSpec:
+    {{- with .Values.targetSpec.annotations }}
     annotations:
-      {{- with .Values.targetSpec.annotations }}
       {{- toYaml . | nindent 6 }}
-      {{- end }}
+    {{- end }}
+    {{- with .Values.targetSpec.labels }}
     labels:
-      {{- with .Values.targetSpec.labels }}
       {{- toYaml . | nindent 6 }}
-      {{- end }}
+    {{- end }}
+    {{- with .Values.targetSpec.tolerations }}
     tolerations:
-      {{- with .Values.targetSpec.tolerations }}
       {{- toYaml . | nindent 6 }}
-      {{- end }}
+    {{- end }}
+    {{- with .Values.targetSpec.env }}
     env:
-      {{- with .Values.targetSpec.env }}
       {{- toYaml . | nindent 6 }}
-      {{- end }}
+    {{- end }}
     {{- if .Values.targetSpec.size }}
     size: {{ .Values.targetSpec.size }}
     {{- end }}
@@ -144,9 +144,15 @@ spec:
   logSidecarImage: "{{ .Values.logSidecarImage.name }}:{{ .Values.logSidecarImage.tag }}"
   {{- end }}
   {{- end }}
-  hostpathPrefix: {{ .Values.hostpathPrefix }}
-  stateStorageClass: {{ .Values.stateStorageClass }}
-  apiMode: {{ .Values.apiMode }}
+  {{- with .Values.hostpathPrefix }}
+  hostpathPrefix: {{ . }}
+  {{- end }}
+  {{- with .Values.stateStorageClass }}
+  stateStorageClass: {{ . }}
+  {{- end }}
+  {{- with .Values.apiMode }}
+  apiMode: {{ . }}
+  {{- end }}
   shutdownCluster: {{ .Values.shutdownCluster }}
   cleanupMetadata: {{ .Values.cleanupMetadata }}
   cleanupData: {{ .Values.cleanupData }}
@@ -154,17 +160,27 @@ spec:
   tlsSecretName: {{ .Values.https.tlsSecret }}
   {{- end }}
   {{- if .Values.cloud }}
-  awsSecretName: {{ .Values.cloud.awsSecretName }}
-  gcpSecretName: {{ .Values.cloud.gcpSecretName }}
-  ociSecretName: {{ .Values.cloud.ociSecretName }}
+  {{- with .Values.cloud.awsSecretName }}
+  awsSecretName: {{ . }}
   {{- end }}
-  authNSecretName: {{ .Values.authNSecretName }}
+  {{- with .Values.cloud.gcpSecretName }}
+  gcpSecretName: {{ . }}
+  {{- end }}
+  {{- with .Values.cloud.ociSecretName }}
+  ociSecretName: {{ . }}
+  {{- end }}
+  {{- end }}
+  {{- with .Values.authNSecretName }}
+  authNSecretName: {{ . }}
+  {{- end }}
   {{- if .Values.auth }}
   auth:
     {{- toYaml .Values.auth | nindent 4 }}
   {{- end }}
   enableExternalLB: {{ .Values.enableExternalLB }}
-  publicNetDNSMode: {{ .Values.publicNetDNSMode }}
+  {{- with .Values.publicNetDNSMode }}
+  publicNetDNSMode: {{ . }}
+  {{- end }}
   {{- if .Values.multihome }}
   {{- with .Values.multihome.hostnameMap }}
   hostnameMap: {{ toJson . }}
@@ -173,8 +189,12 @@ spec:
   networkAttachment: "{{ .Values.multihome.networkAttachment }}"
   {{- end }}
   {{- end }}
-  logsDir: {{ .Values.logsDir }}
-  clusterDomain: {{ .Values.clusterDomain }}
+  {{- with .Values.logsDir }}
+  logsDir: {{ . }}
+  {{- end }}
+  {{- with .Values.clusterDomain }}
+  clusterDomain: {{ . }}
+  {{- end }}
   {{- with .Values.adminClient }}
   adminClient:
     {{- toYaml . | nindent 4 }}
