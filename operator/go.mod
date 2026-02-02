@@ -4,7 +4,7 @@ go 1.25.0
 
 require (
 	github.com/NVIDIA/aistore v1.4.2
-	github.com/cert-manager/cert-manager v1.19.2
+	github.com/cert-manager/cert-manager v1.19.3
 	github.com/cert-manager/csi-driver v0.11.1
 	github.com/go-logr/logr v1.4.3
 	github.com/go-test/deep v1.1.1
