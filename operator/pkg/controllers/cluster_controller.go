@@ -88,12 +88,12 @@ func NewAISReconcilerFromMgr(mgr manager.Manager, aisClientTLSOpts services.AISC
 // +kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;list;watch;create;update;delete
 // +kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=list;watch;delete
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles;rolebindings,verbs=get;list;watch;create;update;delete
-// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles;clusterrolebindings,verbs=delete
 // +kubebuilder:rbac:groups=policy,resources=poddisruptionbudgets,verbs=get;list;watch;create;patch;update;delete
 // +kubebuilder:rbac:groups=batch,resources=jobs,verbs=create;list;watch;delete
 // +kubebuilder:rbac:groups=cert-manager.io,resources=certificates,verbs=get;list;watch;create;update;delete
 // +kubebuilder:rbac:groups=discovery.k8s.io,resources=endpointslices,verbs=get;list;watch
 // +kubebuilder:rbac:groups=storage.k8s.io,resources=storageclasses,verbs=get;list;watch
+// +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -764,17 +764,6 @@ func (r *AIStoreReconciler) createOrUpdateRBACResources(ctx context.Context, ais
 		r.recordError(ctx, ais, err, "Failed to create RoleBinding")
 		return
 	}
-
-	// Delete any previously created cluster roles and bindings for this cluster
-	crbName := types.NamespacedName{Namespace: ais.Namespace, Name: cmn.ClusterRoleBindingName(ais)}
-	if _, err = r.k8sClient.DeleteCRBindingIfExists(ctx, crbName); err != nil {
-		r.recordError(ctx, ais, err, "Failed to delete ClusterRoleBinding")
-	}
-	crName := types.NamespacedName{Namespace: ais.Namespace, Name: cmn.ClusterRoleName(ais)}
-	if _, err = r.k8sClient.DeleteClusterRoleIfExists(ctx, crName); err != nil {
-		r.recordError(ctx, ais, err, "Failed to delete ClusterRole")
-	}
-
 	return
 }
 

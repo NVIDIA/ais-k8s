@@ -12,6 +12,20 @@ TEMPLATES_TARGET_DIR="${SCRIPT_DIR}/ais-operator/templates"
 TEMPLATES_SOURCE_DIR="${SCRIPT_DIR}/replacements/templates"
 SNIPPETS_SOURCE_DIR="${SCRIPT_DIR}/replacements/snippets"
 
+# Helper to apply gomplate to a template with a snippet
+apply_snippet() {
+  local snippet="$1"
+  local tmpl="$2"
+  local target="$3"
+
+  if [ -f "$snippet" ] && [ -f "$tmpl" ] && [ -f "$target" ]; then
+    AIS_TARGET_TEMPLATE="$target" \
+    AIS_SNIPPET="$snippet" \
+    ${GOMPLATE} -f "$tmpl" -o "${target}.tmp"
+    mv "${target}.tmp" "$target"
+  fi
+}
+
 # Merge values.yaml replacements into the target values.yaml
 if [ -f "$VALUES_OVERRIDE" ]; then
     echo "Merging values from $VALUES_OVERRIDE into $VALUES_TARGET"
@@ -23,24 +37,17 @@ fi
 POD_ANNOTATIONS_SNIPPET="${SNIPPETS_SOURCE_DIR}/pod_annotations.tpl"
 POD_ANNOTATIONS_TMPL="${TEMPLATES_SOURCE_DIR}/replace_pod_annotations.gotmpl"
 DEPLOY_TEMPLATE="${TEMPLATES_TARGET_DIR}/deployment.yaml"
+apply_snippet "$POD_ANNOTATIONS_SNIPPET" "$POD_ANNOTATIONS_TMPL" "$DEPLOY_TEMPLATE"
 
-if [ -f "$POD_ANNOTATIONS_SNIPPET" ] && [ -f "$POD_ANNOTATIONS_TMPL" ] && [ -f "$DEPLOY_TEMPLATE" ]; then
-  AIS_TARGET_TEMPLATE="$DEPLOY_TEMPLATE" \
-  AIS_SNIPPET="$POD_ANNOTATIONS_SNIPPET" \
-  ${GOMPLATE} -f "$POD_ANNOTATIONS_TMPL" -o "${DEPLOY_TEMPLATE}.tmp"
-  mv "${DEPLOY_TEMPLATE}.tmp" "$DEPLOY_TEMPLATE"
-fi
+# Replace manager arg template with additional optional ones via gomplate
+MANAGER_ARGS_SNIPPET="${SNIPPETS_SOURCE_DIR}/manager_args.tpl"
+MANAGER_ARGS_TMPL="${TEMPLATES_SOURCE_DIR}/replace_manager_args.gotmpl"
+apply_snippet "$MANAGER_ARGS_SNIPPET" "$MANAGER_ARGS_TMPL" "$DEPLOY_TEMPLATE"
 
-# Wrap manager-rbac.yaml with cluster role conditional via gomplate
-CLUSTER_ROLE_SNIPPET="${SNIPPETS_SOURCE_DIR}/cluster_role_option.tpl"
-CLUSTER_ROLE_TMPL="${TEMPLATES_SOURCE_DIR}/add_cluster_role_option.gotmpl"
+# Wrap the ClusterRoleBinding in manager-rbac.yaml with a conditional via gomplate
+CLUSTER_ROLE_SNIPPET="${SNIPPETS_SOURCE_DIR}/cluster_rolebinding_option.tpl"
+CLUSTER_ROLE_TMPL="${TEMPLATES_SOURCE_DIR}/add_cluster_rolebinding_option.gotmpl"
 RBAC_TEMPLATE="${TEMPLATES_TARGET_DIR}/manager-rbac.yaml"
-
-if [ -f "$CLUSTER_ROLE_SNIPPET" ] && [ -f "$CLUSTER_ROLE_TMPL" ] && [ -f "$RBAC_TEMPLATE" ]; then
-  AIS_TARGET_TEMPLATE="$RBAC_TEMPLATE" \
-  AIS_SNIPPET="$CLUSTER_ROLE_SNIPPET" \
-  ${GOMPLATE} -f "$CLUSTER_ROLE_TMPL" -o "${RBAC_TEMPLATE}.tmp"
-  mv "${RBAC_TEMPLATE}.tmp" "$RBAC_TEMPLATE"
-fi
+apply_snippet "$CLUSTER_ROLE_SNIPPET" "$CLUSTER_ROLE_TMPL" "$RBAC_TEMPLATE"
 
 echo "Replacements applied successfully"

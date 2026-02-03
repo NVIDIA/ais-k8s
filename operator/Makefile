@@ -210,7 +210,7 @@ build-installer-helm: require-img require-version manifests generate kustomize h
 	$(KUSTOMIZE) build config/overlays/helm | $(HELMIFY) -image-pull-secrets dist/ais-operator
 	# Copy generated templates and values into persisted chart
 	cp dist/ais-operator/values.yaml helm/ais-operator/values.yaml
-	cp dist/ais-operator/templates/* helm/ais-operator/templates
+	cp dist/ais-operator/templates/*.yaml helm/ais-operator/templates
 	# Merge extra values and persisted templates over the top of the generated files
 	./helm/apply_replacements.sh
 

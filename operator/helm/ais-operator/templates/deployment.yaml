@@ -16,13 +16,16 @@ spec:
       labels:
         control-plane: controller-manager
       {{- include "ais-operator.selectorLabels" . | nindent 8 }}
+      {{- with .Values.controllerManager.podAnnotations }}
       annotations:
-        {{- with .Values.controllerManager.podAnnotations }}
         {{- toYaml . | nindent 8 }}
-        {{- end }}
+      {{- end }}
     spec:
       containers:
       - args: {{- toYaml .Values.controllerManager.manager.args | nindent 8 }}
+        {{- if .Values.namespaceScope }}
+        - {{ include "ais-operator.watchNamespaces" . | quote }}
+        {{- end }}
         command:
         - /manager
         env:

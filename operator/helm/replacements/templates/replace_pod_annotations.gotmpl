@@ -1,3 +1,3 @@
 {{- $tmpl := file.Read (getenv "AIS_TARGET_TEMPLATE") -}}
 {{- $snippet := file.Read (getenv "AIS_SNIPPET") -}}
-{{- strings.ReplaceAll "__HELM_POD_ANNOTATIONS__: placeholder" $snippet $tmpl -}}
+{{- regexp.ReplaceLiteral `(?m)^.*\n.*__HELM_POD_ANNOTATIONS__.*\n` $snippet $tmpl -}}

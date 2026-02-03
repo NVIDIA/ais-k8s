@@ -1,6 +1,6 @@
 // Package main contains logic for managing AIS operator manager
 /*
- * Copyright (c) 2021-2025, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2026, NVIDIA CORPORATION. All rights reserved.
  */
 package main
 
@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	"github.com/ais-operator/pkg/controllers"
@@ -21,6 +22,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/certwatcher"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
@@ -46,6 +48,7 @@ func init() {
 }
 
 func main() {
+	var watchNamespaces string
 	var metricsAddr string
 	var metricsCertPath, metricsCertName, metricsCertKey string
 	var webhookCertPath, webhookCertName, webhookCertKey string
@@ -55,6 +58,7 @@ func main() {
 	var probeAddr string
 	var secureMetrics bool
 	var tlsOpts []func(*tls.Config)
+	flag.StringVar(&watchNamespaces, "watch-namespaces", "", "Comma-separated list of namespaces to watch for reconciling AIS resources. Watches all if not provided.")
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -147,7 +151,7 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+	mgrOptions := ctrl.Options{
 		Client: client.Options{
 			Cache: &client.CacheOptions{
 				// Disabling cache for Pods since `controller-runtime` is implicitly
@@ -162,7 +166,11 @@ func main() {
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "60c23797.nvidia.com",
-	})
+	}
+
+	restrictNamespaces(watchNamespaces, &mgrOptions)
+
+	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), mgrOptions)
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
@@ -221,5 +229,24 @@ func main() {
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
+	}
+}
+
+// If namespace arg is provided, update config options to restrict which namespaces the manager watches
+func restrictNamespaces(rawNs string, mgrOptions *ctrl.Options) {
+	if rawNs == "" {
+		return
+	}
+	namespaces := strings.Split(rawNs, ",")
+	namespaceConfigs := make(map[string]cache.Config, len(namespaces))
+	for _, ns := range namespaces {
+		ns = strings.TrimSpace(ns)
+		if ns != "" {
+			namespaceConfigs[ns] = cache.Config{}
+		}
+	}
+	if len(namespaceConfigs) > 0 {
+		setupLog.Info("Watching specific namespaces", "namespaces", namespaces)
+		mgrOptions.Cache.DefaultNamespaces = namespaceConfigs
 	}
 }

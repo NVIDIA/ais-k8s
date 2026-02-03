@@ -10,7 +10,7 @@ controllerManager:
   # Annotations for the operator pods (optional)
   podAnnotations: {}
 
-# WIP, not currently implemented
+# Supported only in versions >= 2.14.0
 # List of namespaces to watch
 # If provided, the chart will only provision roles for the operator restricted to these namespaces
 namespaceScope: []

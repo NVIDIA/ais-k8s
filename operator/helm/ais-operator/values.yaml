@@ -56,7 +56,7 @@ webhookService:
     - port: 443
       targetPort: 9443
   type: ClusterIP
-# WIP, not currently implemented
+# Supported only in versions >= 2.14.0
 # List of namespaces to watch
 # If provided, the chart will only provision roles for the operator restricted to these namespaces
 namespaceScope: []

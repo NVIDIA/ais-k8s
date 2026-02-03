@@ -19,16 +19,6 @@ func roleBindingName(ais *aisv1.AIStore) string {
 	return ais.Name + "-rb"
 }
 
-// ClusterRole is cluster scoped, so to ensure uniqueness we
-// use both namespace and AIS CR name to generate a unique ClusterRole name.
-func ClusterRoleName(ais *aisv1.AIStore) string {
-	return ais.Namespace + "-" + ais.Name + "-cr"
-}
-
-func ClusterRoleBindingName(ais *aisv1.AIStore) string {
-	return ais.Namespace + "-" + ais.Name + "-crb"
-}
-
 func ServiceAccountName(ais *aisv1.AIStore) string {
 	return ais.Name + "-sa"
 }

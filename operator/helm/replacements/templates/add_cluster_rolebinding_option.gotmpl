@@ -1,0 +1,7 @@
+{{- $tmpl := file.Read (getenv "AIS_TARGET_TEMPLATE") -}}
+{{- $snippet := file.Read (getenv "AIS_SNIPPET") -}}
+{{- $endBlock := "{{- end }}" -}}
+{{- $find := "---\napiVersion: rbac.authorization.k8s.io/v1\nkind: ClusterRoleBinding" -}}
+{{- $replace := print "---\n" $snippet -}}
+{{- $result := strings.ReplaceAll $find $replace $tmpl -}}
+{{- print $result "\n" $endBlock -}}

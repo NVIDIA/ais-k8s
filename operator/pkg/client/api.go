@@ -17,7 +17,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
 	policyv1 "k8s.io/api/policy/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -306,14 +305,6 @@ func allowObjNotFound(obj client.Object, err error) (bool, error) {
 		return false, err
 	}
 	return true, nil
-}
-
-func (c *K8sClient) DeleteClusterRoleIfExists(ctx context.Context, name types.NamespacedName) (existed bool, err error) {
-	return DeleteResourceIfExists[*rbacv1.ClusterRole](c, ctx, name)
-}
-
-func (c *K8sClient) DeleteCRBindingIfExists(ctx context.Context, name types.NamespacedName) (existed bool, err error) {
-	return DeleteResourceIfExists[*rbacv1.ClusterRoleBinding](c, ctx, name)
 }
 
 func (c *K8sClient) DeleteServiceIfExists(ctx context.Context, name types.NamespacedName) (existed bool, err error) {

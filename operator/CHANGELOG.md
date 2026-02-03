@@ -15,9 +15,15 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 - Helm chart will now be persistent in the repository at `operator/helm` and allow additional customization and overrides of manifests
 - Updated all tool versions and minor dependencies
 - Updated target pod rollout strategy to search for lowest pod ordinal not on new revision instead of relying on `UpdatedReplicas`
+- Removed cleanup code for legacy cluster-specific ClusterRoles and ClusterRoleBindings
 
 ### Added
 
+- `namespaceScope` helm value takes an optional list of namespaces the operator can access and watch
+  - Disables the ClusterRoleBinding for the operator ServiceAccount to the ClusterRole
+  - Templates a RoleBinding for each namespace provided to the operator ServiceAccount
+  - Templates a ClusterRole and binding for specific cluster-wide resource watches (nodes, storage classes)
+  - Adds the list of namespaces as a comma-separated arg `--watch-namespaces` to the manager command to restrict watched namespaces 
 - `spec.tls` option to consolidate TLS configuration under a single field.
   - `tls.secretName` for using an existing Kubernetes TLS secret.
   - `tls.certificate` for cert-manager managed certificates with `mode: secret` (Certificate CR) or `mode: csi` (CSI driver).

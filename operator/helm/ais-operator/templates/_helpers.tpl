@@ -63,3 +63,12 @@ Create the name of the service account to use
 {{- end }}
 {{- end }}
 {{- end }}
+
+{{/*
+Join values from namespaceScope value for use in args
+*/}}
+{{- define "ais-operator.watchNamespaces" -}}
+{{- if .Values.namespaceScope -}}
+--watch-namespaces={{ join "," .Values.namespaceScope }}
+{{- end -}}
+{{- end -}}

@@ -1,4 +1,3 @@
 {{- $tmpl := file.Read (getenv "AIS_TARGET_TEMPLATE") -}}
 {{- $snippet := file.Read (getenv "AIS_SNIPPET") -}}
-{{- $endBlock := "{{- end }}" -}}
-{{- print $snippet "\n" $tmpl "\n" $endBlock -}}
+{{- strings.ReplaceAll "{{- toYaml .Values.controllerManager.manager.args | nindent 8 }}" $snippet $tmpl -}}
