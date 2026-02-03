@@ -40,7 +40,7 @@ hooks:
   - events: ["prepare"]
     showlogs: true
     command: helmfile
-    args: ["cache", "clear"]
+    args: ["cache", "cleanup"]
   - events: ["prepare"]
     showlogs: true
     command: bash

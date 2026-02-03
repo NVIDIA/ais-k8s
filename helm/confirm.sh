@@ -1,6 +1,8 @@
 #!/bin/bash
 set -e
 
+if [ "$SKIP_CONFIRM" = "true" ]; then exit 0; fi
+
 readonly BOLD='\033[1m'
 readonly RED='\033[31m'
 readonly RESET='\033[0m'
