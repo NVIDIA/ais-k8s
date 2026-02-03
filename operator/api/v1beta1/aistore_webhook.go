@@ -16,12 +16,10 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
@@ -36,7 +34,7 @@ type AIStoreWebhook struct {
 // change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
 // +kubebuilder:webhook:path=/validate-ais-nvidia-com-v1beta1-aistore,mutating=false,failurePolicy=fail,sideEffects=None,groups=ais.nvidia.com,resources=aistores,verbs=create;update,versions=v1beta1,name=vaistore.kb.io,admissionReviewVersions={v1,v1beta1}
 
-var _ webhook.CustomValidator = &AIStoreWebhook{}
+var _ admission.Validator[*AIStore] = &AIStoreWebhook{}
 
 func (ais *AIStore) validateSize() (admission.Warnings, error) {
 	if ais.Spec.ProxySpec.Size != nil && *ais.Spec.ProxySpec.Size <= 0 && !ais.IsProxyAutoScaling() {
@@ -115,17 +113,12 @@ func (ais *AIStore) validateServiceSpec() (admission.Warnings, error) {
 }
 
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type.
-func (aisw *AIStoreWebhook) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	ais, ok := obj.(*AIStore)
-	if !ok {
-		return nil, fmt.Errorf("failed to convert runtime.Object to AIStore")
-	}
-
+func (aisw *AIStoreWebhook) ValidateCreate(ctx context.Context, ais *AIStore) (admission.Warnings, error) {
 	webhooklog.WithValues("name", ais.Name, "namespace", ais.Namespace).Info("Validate create")
-	return aisw.validateCreate(ctx, ais)
+	return aisw.validateSpec(ctx, ais)
 }
 
-func (aisw *AIStoreWebhook) validateCreate(ctx context.Context, ais *AIStore) (admission.Warnings, error) {
+func (aisw *AIStoreWebhook) validateSpec(ctx context.Context, ais *AIStore) (admission.Warnings, error) {
 	return ais.ValidateSpec(ctx,
 		func() (admission.Warnings, error) {
 			return aisw.verifyNodesAvailable(ctx, ais, aisapc.Proxy)
@@ -162,26 +155,37 @@ func (ais *AIStore) ValidateSpec(_ context.Context, extraValidations ...func() (
 }
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type.
-func (aisw *AIStoreWebhook) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	prev, ok := oldObj.(*AIStore)
-	if !ok {
-		return nil, fmt.Errorf("failed to convert runtime.Object to AIStore")
-	}
-	ais, ok := newObj.(*AIStore)
-	if !ok {
-		return nil, fmt.Errorf("failed to convert runtime.Object to AIStore")
-	}
-
+func (aisw *AIStoreWebhook) ValidateUpdate(ctx context.Context, prev, ais *AIStore) (admission.Warnings, error) {
 	webhooklog.WithValues("name", ais.Name, "namespace", ais.Namespace).Info("Validate update")
-	return aisw.validateUpdate(ctx, prev, ais)
-}
-
-func (aisw *AIStoreWebhook) validateUpdate(ctx context.Context, prev, ais *AIStore) (warnings admission.Warnings, err error) {
-	if warnings, err = aisw.validateCreate(ctx, ais); err != nil {
+	warnings, err := aisw.validateSpec(ctx, ais)
+	if err != nil {
 		return warnings, err
 	}
 
 	// TODO: better validation, maybe using AIS IterFields?
+	err = validateProxyUpdate(prev, ais)
+	if err != nil {
+		return warnings, err
+	}
+	// same
+	err = validateTargetUpdate(prev, ais)
+	if err != nil {
+		return warnings, err
+	}
+
+	if ais.Spec.EnableExternalLB != prev.Spec.EnableExternalLB {
+		return warnings, errCannotUpdateSpec("enableExternalLB")
+	}
+
+	if ais.Spec.HostpathPrefix != nil && prev.Spec.HostpathPrefix != nil {
+		if *ais.Spec.HostpathPrefix != *prev.Spec.HostpathPrefix {
+			return warnings, errCannotUpdateSpec("hostpathPrefix")
+		}
+	}
+	return warnings, nil
+}
+
+func validateProxyUpdate(prev, ais *AIStore) error {
 	// users can update size for scaling up or down
 	prev.Spec.ProxySpec.Size = ais.Spec.ProxySpec.Size
 	prev.Spec.ProxySpec.Annotations = ais.Spec.ProxySpec.Annotations
@@ -194,10 +198,12 @@ func (aisw *AIStoreWebhook) validateUpdate(ctx context.Context, prev, ais *AISto
 		diff := deep.Equal(ais.Spec.ProxySpec, prev.Spec.ProxySpec)
 		webhooklog.Info(fmt.Sprintf("Differences found in proxy spec: [%s]", strings.Join(diff, ", ")))
 		// TODO: For now, just error if proxy specs are updated. Eventually, this should be implemented.
-		return warnings, errCannotUpdateSpec("proxySpec", diff...)
+		return errCannotUpdateSpec("proxySpec", diff...)
 	}
+	return nil
+}
 
-	// same
+func validateTargetUpdate(prev, ais *AIStore) error {
 	prev.Spec.TargetSpec.Size = ais.Spec.TargetSpec.Size
 	prev.Spec.TargetSpec.Annotations = ais.Spec.TargetSpec.Annotations
 	prev.Spec.TargetSpec.Labels = ais.Spec.TargetSpec.Labels
@@ -210,29 +216,13 @@ func (aisw *AIStoreWebhook) validateUpdate(ctx context.Context, prev, ais *AISto
 		diff := deep.Equal(ais.Spec.TargetSpec, prev.Spec.TargetSpec)
 		webhooklog.Info(fmt.Sprintf("Differences found in target spec: [%s]", strings.Join(diff, ", ")))
 		// TODO: For now, just error if target specs are updated. Eventually, this should be implemented.
-		return warnings, errCannotUpdateSpec("targetSpec", diff...)
+		return errCannotUpdateSpec("targetSpec", diff...)
 	}
-
-	if ais.Spec.EnableExternalLB != prev.Spec.EnableExternalLB {
-		return warnings, errCannotUpdateSpec("enableExternalLB")
-	}
-
-	if ais.Spec.HostpathPrefix != nil && prev.Spec.HostpathPrefix != nil {
-		if *ais.Spec.HostpathPrefix != *prev.Spec.HostpathPrefix {
-			return warnings, errCannotUpdateSpec("hostpathPrefix")
-		}
-	}
-
-	return
+	return nil
 }
 
 // ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type.
-func (*AIStoreWebhook) ValidateDelete(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
-	ais, ok := obj.(*AIStore)
-	if !ok {
-		return nil, fmt.Errorf("failed to convert runtime.Object to AIStore")
-	}
-
+func (*AIStoreWebhook) ValidateDelete(_ context.Context, ais *AIStore) (admission.Warnings, error) {
 	webhooklog.WithValues("name", ais.Name, "namespace", ais.Namespace).Info("Validate delete")
 	return nil, nil
 }

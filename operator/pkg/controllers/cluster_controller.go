@@ -28,7 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	k8sclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -54,12 +54,12 @@ type (
 	AIStoreReconciler struct {
 		k8sClient     *aisclient.K8sClient
 		log           logr.Logger
-		recorder      record.EventRecorder
+		recorder      events.EventRecorder
 		clientManager services.AISClientManagerInterface
 	}
 )
 
-func NewAISReconciler(c *aisclient.K8sClient, recorder record.EventRecorder, logger logr.Logger, clientManager services.AISClientManagerInterface) *AIStoreReconciler {
+func NewAISReconciler(c *aisclient.K8sClient, recorder events.EventRecorder, logger logr.Logger, clientManager services.AISClientManagerInterface) *AIStoreReconciler {
 	return &AIStoreReconciler{
 		k8sClient:     c,
 		log:           logger,
@@ -70,7 +70,7 @@ func NewAISReconciler(c *aisclient.K8sClient, recorder record.EventRecorder, log
 
 func NewAISReconcilerFromMgr(mgr manager.Manager, aisClientTLSOpts services.AISClientTLSOpts, logger logr.Logger) *AIStoreReconciler {
 	c := aisclient.NewClientFromMgr(mgr)
-	recorder := mgr.GetEventRecorderFor("ais-controller")
+	recorder := mgr.GetEventRecorder("ais-controller")
 	clientManager := services.NewAISClientManager(c, aisClientTLSOpts)
 	return NewAISReconciler(c, recorder, logger, clientManager)
 }
@@ -131,7 +131,7 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-		r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonDeleted, "Decommissioning...")
+		r.recorder.Eventf(ais, nil, corev1.EventTypeNormal, EventReasonDeleted, ActionStartDecommission, "Decommissioning...")
 	}
 
 	if ais.ShouldStartShutdown() {
@@ -145,7 +145,7 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-		r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonUpdated, "Shutting down...")
+		r.recorder.Eventf(ais, nil, corev1.EventTypeNormal, EventReasonUpdated, ActionStartShutdown, "Shutting down...")
 	}
 
 	switch {
@@ -204,7 +204,7 @@ func (r *AIStoreReconciler) determineAutoScaleStatus(ctx context.Context, ais *a
 		for i := range nodes.Items {
 			node := nodes.Items[i]
 
-			if !toleratesTaints(ais.Spec.TargetSpec.Tolerations, &node) {
+			if !toleratesTaints(ctx, ais.Spec.TargetSpec.Tolerations, &node) {
 				continue
 			}
 			targetNodes = append(targetNodes, node.Name)
@@ -224,7 +224,7 @@ func (r *AIStoreReconciler) determineAutoScaleStatus(ctx context.Context, ais *a
 		for i := range nodes.Items {
 			node := nodes.Items[i]
 
-			if !toleratesTaints(ais.Spec.ProxySpec.Tolerations, &node) {
+			if !toleratesTaints(ctx, ais.Spec.ProxySpec.Tolerations, &node) {
 				continue
 			}
 			proxyNodes = append(proxyNodes, node.Name)
@@ -237,14 +237,14 @@ func (r *AIStoreReconciler) determineAutoScaleStatus(ctx context.Context, ais *a
 	return r.updateAutoScaleStatus(ctx, ais, autoScaleStatus)
 }
 
-func toleratesTaints(tolerations []corev1.Toleration, node *corev1.Node) bool {
+func toleratesTaints(ctx context.Context, tolerations []corev1.Toleration, node *corev1.Node) bool {
 	for _, taint := range node.Spec.Taints {
 		if taint.Effect != corev1.TaintEffectNoSchedule && taint.Effect != corev1.TaintEffectNoExecute {
 			continue
 		}
 		isTolerated := false
 		for _, toleration := range tolerations {
-			if toleration.ToleratesTaint(&taint) {
+			if toleration.ToleratesTaint(logf.FromContext(ctx), &taint, true) {
 				isTolerated = true
 				break
 			}
@@ -308,7 +308,7 @@ func (r *AIStoreReconciler) shutdownCluster(ctx context.Context, ais *aisv1.AISt
 		return reconcile.Result{}, err
 	}
 	logger.Info("AIS cluster shutdown completed")
-	r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonShutdownCompleted, "Shutdown completed")
+	r.recorder.Eventf(ais, nil, corev1.EventTypeNormal, EventReasonShutdownCompleted, ActionFinishShutdown, "Shutdown completed")
 	return reconcile.Result{}, nil
 }
 
@@ -327,7 +327,7 @@ func (r *AIStoreReconciler) decommissionCluster(ctx context.Context, ais *aisv1.
 		return reconcile.Result{}, err
 	}
 	logger.Info("AIS cluster decommission completed")
-	r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonDecommissionCompleted, "Decommission completed")
+	r.recorder.Eventf(ais, nil, corev1.EventTypeNormal, EventReasonDecommissionCompleted, ActionDelete, "Decommission completed")
 	return reconcile.Result{}, nil
 }
 
@@ -534,13 +534,13 @@ func (r *AIStoreReconciler) ensurePrereqs(ctx context.Context, ais *aisv1.AIStor
 			if !ais.HasState(aisv1.ClusterInitializingLBService) && !ais.HasState(aisv1.ClusterPendingLBService) {
 				err = r.updateStatusWithState(ctx, ais, aisv1.ClusterInitializingLBService)
 				if err == nil {
-					r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonInitialized, "Successfully initialized LoadBalancer service")
+					r.recorder.Eventf(ais, nil, corev1.EventTypeNormal, EventReasonInitialized, ActionInitProxyLB, "Successfully initialized LoadBalancer service")
 				}
 			} else {
 				err = r.updateStatusWithState(ctx, ais, aisv1.ClusterPendingLBService)
 				if err == nil {
 					r.recorder.Eventf(
-						ais, corev1.EventTypeNormal, EventReasonWaiting,
+						ais, nil, corev1.EventTypeNormal, EventReasonWaiting, ActionWaitForProxyLB,
 						"Waiting for LoadBalancer service to be ready; proxy ready=%t, target ready=%t", proxyReady, targetReady,
 					)
 				}
@@ -581,7 +581,7 @@ func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore
 		return
 	}
 
-	r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonCreated, "Successfully created AIS cluster")
+	r.recorder.Eventf(ais, nil, corev1.EventTypeNormal, EventReasonCreated, ActionCreate, "Successfully created AIS cluster")
 	return
 }
 
@@ -996,7 +996,7 @@ func (*AIStoreReconciler) nodeMatchesSelector(node *corev1.Node, selector map[st
 func (r *AIStoreReconciler) handleSuccessfulReconcile(ctx context.Context, ais *aisv1.AIStore) (err error) {
 	var needsUpdate bool
 	if !ais.IsConditionTrue(aisv1.ConditionReady) {
-		r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonReady, "Successfully reconciled AIStore cluster")
+		r.recorder.Eventf(ais, nil, corev1.EventTypeNormal, EventReasonReady, ActionReconcile, "Successfully reconciled AIStore cluster")
 		ais.SetCondition(aisv1.ConditionReady)
 		needsUpdate = true
 	}
@@ -1056,5 +1056,6 @@ func (r *AIStoreReconciler) checkAISClusterReady(ctx context.Context, ais *aisv1
 
 func (r *AIStoreReconciler) recordError(ctx context.Context, ais *aisv1.AIStore, err error, msg string) {
 	logf.FromContext(ctx).Error(err, msg)
-	r.recorder.Eventf(ais, corev1.EventTypeWarning, EventReasonFailed, "%s, err: %v", msg, err)
+	note := fmt.Sprintf("%s, err: %v", msg, err)
+	r.recorder.Eventf(ais, nil, corev1.EventTypeWarning, EventReasonFailed, ActionReconcile, note)
 }

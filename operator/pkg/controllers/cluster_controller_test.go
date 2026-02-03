@@ -34,7 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/rand"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -69,7 +69,7 @@ var _ = Describe("AIStoreController", func() {
 			clientManager := mocks.NewMockAISClientManagerInterface(mockCtrl)
 			clientManager.EXPECT().GetClient(gomock.Any(), gomock.Any()).Return(apiClient, nil).AnyTimes()
 
-			r = NewAISReconciler(tmpClient, &record.FakeRecorder{}, ctrl.Log, clientManager)
+			r = NewAISReconciler(tmpClient, &events.FakeRecorder{}, ctrl.Log, clientManager)
 		})
 
 		Describe("Reconcile", func() {
@@ -934,7 +934,7 @@ func Test_toleratesTaints(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := toleratesTaints(tt.args.tolerations, tt.args.node); got != tt.want {
+			if got := toleratesTaints(t.Context(), tt.args.tolerations, tt.args.node); got != tt.want {
 				t.Errorf("toleratesTaints() = %v, want %v", got, tt.want)
 			}
 		})

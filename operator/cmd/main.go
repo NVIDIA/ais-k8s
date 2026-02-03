@@ -180,8 +180,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	err = ctrl.NewWebhookManagedBy(mgr).
-		For(&aisv1.AIStore{}).
+	err = ctrl.NewWebhookManagedBy(mgr, &aisv1.AIStore{}).
 		WithValidator(&aisv1.AIStoreWebhook{
 			Client: mgr.GetClient(),
 		}).

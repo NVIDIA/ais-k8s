@@ -1,10 +1,10 @@
 // Package controllers contains k8s controller logic for AIS cluster
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2026, NVIDIA CORPORATION. All rights reserved.
  */
 package controllers
 
-// Reason's to be used by event recorder
+// Reasons to be used by event recorder
 const (
 	EventReasonInitialized           = "Initialized"
 	EventReasonFailed                = "Failed"
@@ -16,4 +16,18 @@ const (
 	EventReasonDecommissionCompleted = "DecommissionCompleted"
 	EventReasonDeleted               = "CRDeleted"
 	EventReasonUpdated               = "CRUpdated"
+)
+
+// Actions to be used in events
+const (
+	ActionStartDecommission = "Decommissioning"
+	ActionStartShutdown     = "StartShutdown"
+	ActionFinishShutdown    = "FinishShutdown"
+	ActionCreate            = "Create"
+	ActionDelete            = "Delete"
+	ActionReconcile         = "Reconciled"
+	ActionInitProxyLB       = "InitProxyLB"
+	ActionWaitForProxyLB    = "WaitingForProxyLB"
+	ActionInitTargets       = "InitTargets"
+	ActionInitProxies       = "InitProxies"
 )

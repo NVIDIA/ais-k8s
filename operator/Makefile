@@ -10,16 +10,16 @@ REPO = https://github.com/NVIDIA/ais-k8s
 PAGES = https://NVIDIA.github.io/ais-k8s/charts
 
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
-ENVTEST_K8S_VERSION = 1.25.0
+ENVTEST_K8S_VERSION = 1.33.0
 
 # KIND_K8S_VERSION refers to the version of container images for nodes that are being created during cluster setup.
 KIND_K8S_VERSION ?= v1.33.0
 
 # LPP_VERSION refers to the version of local-path-provisioner to be used for operator testing.
-LPP_VERSION ?= v0.0.31
+LPP_VERSION ?= v0.0.34
 
 # CERT_MANAGER_VERSION refers to the version of cert-manager to be used for operator testing.
-CERT_MANAGER_VERSION ?= v1.19.2
+CERT_MANAGER_VERSION ?= v1.19.3
 
 SCRIPTS_DIR = ./scripts
 TESTS_DIR = ./tests
@@ -270,19 +270,19 @@ CLOUD_PROVIDER_KIND ?= $(LOCALBIN)/cloud-provider-kind
 YQ ?= $(LOCALBIN)/yq
 
 ## Tool Versions
-HELM_VERSION ?= v3.16.2
-HELMIFY_VERSION ?= v0.4.18
-KUSTOMIZE_VERSION ?= v5.6.0
-CONTROLLER_TOOLS_VERSION ?= v0.17.3
-ENVTEST_VERSION ?= release-0.18
-MOCKGEN_VERSION ?= v0.4.0
-KIND_VERSION ?= v0.27.0
-CLOUD_PROVIDER_KIND_VERSION ?= v0.6.0
-YQ_VERSION ?= v4.44.3
+HELM_VERSION ?= v3.20.0
+HELMIFY_VERSION ?= v0.4.19
+KUSTOMIZE_VERSION ?= v5.8.0
+CONTROLLER_TOOLS_VERSION ?= v0.20.0
+ENVTEST_VERSION ?= release-0.23
+MOCKGEN_VERSION ?= v0.6.0
+KIND_VERSION ?= v0.31.0
+CLOUD_PROVIDER_KIND_VERSION ?= v0.10.0
+YQ_VERSION ?= v4.52.2
 
 # Lint
 GOLANGCI_LINT_INSTALLER = https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh
-GOLANGCI_LINT_VERSION ?= v2.6.1
+GOLANGCI_LINT_VERSION ?= v2.8.0
 
 .PHONY: kustomize
 kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary.

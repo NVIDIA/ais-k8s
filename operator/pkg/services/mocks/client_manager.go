@@ -22,6 +22,7 @@ import (
 type MockAISClientManagerInterface struct {
 	ctrl     *gomock.Controller
 	recorder *MockAISClientManagerInterfaceMockRecorder
+	isgomock struct{}
 }
 
 // MockAISClientManagerInterfaceMockRecorder is the mock recorder for MockAISClientManagerInterface.

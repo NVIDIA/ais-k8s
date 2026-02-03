@@ -8,6 +8,12 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ---
 
+## Unreleased
+
+### Changed
+
+- Updated all tool versions and minor dependencies
+
 ## v2.13.0
 
 ### Changed

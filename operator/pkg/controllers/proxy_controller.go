@@ -73,7 +73,7 @@ func (r *AIStoreReconciler) initProxies(ctx context.Context, ais *aisv1.AIStore)
 	_, err = r.k8sClient.GetReadyPod(ctx, proxy.DefaultPrimaryNSName(ais))
 	if err != nil {
 		logger.Info("Waiting for primary proxy to come up", "err", err.Error())
-		r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonWaiting, "Waiting for primary proxy to come up")
+		r.recorder.Eventf(ais, ss, corev1.EventTypeNormal, EventReasonWaiting, ActionInitProxies, "Waiting for primary proxy to come up")
 		return ctrl.Result{RequeueAfter: proxyStartupInterval}, nil
 	}
 
@@ -86,7 +86,7 @@ func (r *AIStoreReconciler) initProxies(ctx context.Context, ais *aisv1.AIStore)
 	if changed {
 		msg := "Successfully initialized proxy nodes"
 		logger.Info(msg)
-		r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonInitialized, msg)
+		r.recorder.Eventf(ais, ss, corev1.EventTypeNormal, EventReasonInitialized, ActionInitProxies, msg)
 	}
 
 	// Check whether proxy service has resolvable endpoints.
@@ -111,7 +111,7 @@ func (r *AIStoreReconciler) checkProxySvcEndpoints(ctx context.Context, ais *ais
 		}
 	}
 	logger.Info("No ready endpoints available")
-	r.recorder.Event(ais, corev1.EventTypeNormal, EventReasonWaiting, "Waiting for proxy service to have registered endpoints")
+	r.recorder.Eventf(ais, endpoints, corev1.EventTypeNormal, EventReasonWaiting, ActionInitProxies, "Waiting for proxy service to have registered endpoints")
 	return ctrl.Result{RequeueAfter: proxyDNSInterval}, nil
 }
 

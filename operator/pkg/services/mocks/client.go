@@ -24,6 +24,7 @@ import (
 type MockAIStoreClientInterface struct {
 	ctrl     *gomock.Controller
 	recorder *MockAIStoreClientInterfaceMockRecorder
+	isgomock struct{}
 }
 
 // MockAIStoreClientInterfaceMockRecorder is the mock recorder for MockAIStoreClientInterface.
@@ -88,17 +89,17 @@ func (mr *MockAIStoreClientInterfaceMockRecorder) GetClusterMap() *gomock.Call {
 }
 
 // HasValidBaseParams mocks base method.
-func (m *MockAIStoreClientInterface) HasValidBaseParams(context context.Context, ais *v1beta1.AIStore, expectedURL string) bool {
+func (m *MockAIStoreClientInterface) HasValidBaseParams(arg0 context.Context, ais *v1beta1.AIStore, expectedURL string) bool {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "HasValidBaseParams", context, ais, expectedURL)
+	ret := m.ctrl.Call(m, "HasValidBaseParams", arg0, ais, expectedURL)
 	ret0, _ := ret[0].(bool)
 	return ret0
 }
 
 // HasValidBaseParams indicates an expected call of HasValidBaseParams.
-func (mr *MockAIStoreClientInterfaceMockRecorder) HasValidBaseParams(context, ais, expectedURL any) *gomock.Call {
+func (mr *MockAIStoreClientInterfaceMockRecorder) HasValidBaseParams(arg0, ais, expectedURL any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasValidBaseParams", reflect.TypeOf((*MockAIStoreClientInterface)(nil).HasValidBaseParams), context, ais, expectedURL)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasValidBaseParams", reflect.TypeOf((*MockAIStoreClientInterface)(nil).HasValidBaseParams), arg0, ais, expectedURL)
 }
 
 // Health mocks base method.
