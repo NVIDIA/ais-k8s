@@ -10,6 +10,14 @@ imagePullSecrets: []
 
 ais:
   endpoint: https://ais-proxy.ais.svc.cluster.local:51080
+
+authn:
+  enabled: true
+  serviceURL: https://ais-authn.ais:52001
+  secretName: ais-authn-su-creds
+
+tls:
+  insecureSkipVerify: true
   caConfigMap: aistore.nvidia.com
   bundleFile: trust-bundle.pem
 

@@ -42,6 +42,48 @@ spec:
       affinity:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- if .Values.authn.enabled }}
+      initContainers:
+        - name: fetch-authn-token
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["ais", "auth", "login"]
+          args:
+            - "$(AUTHN_USERNAME)"
+            - "-p"
+            - "$(AUTHN_PASSWORD)"
+            - "--file"
+            - "/tmp/authn/token"
+          env:
+            - name: AIS_AUTHN_URL
+              value: {{ .Values.authn.serviceURL | quote }}
+            {{- if .Values.tls.insecureSkipVerify }}
+            - name: AIS_SKIP_VERIFY_CRT
+              value: "true"
+            {{- end }}
+            {{- if .Values.tls.caConfigMap }}
+            - name: AIS_CLIENT_CA
+              value: /etc/ais-ca/{{ .Values.tls.bundleFile }}
+            {{- end }}
+            - name: AUTHN_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.authn.secretName }}
+                  key: SU-NAME
+            - name: AUTHN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.authn.secretName }}
+                  key: SU-PASS
+          volumeMounts:
+            - name: authn-token
+              mountPath: /tmp/authn
+            {{- if .Values.tls.caConfigMap }}
+            - name: ais-ca
+              mountPath: /etc/ais-ca
+              readOnly: true
+            {{- end }}
+      {{- end }}
       containers:
         - name: aisloader
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
@@ -54,27 +96,48 @@ spec:
           env:
             - name: AIS_ENDPOINT
               value: {{ .Values.ais.endpoint | quote }}
-            {{- if .Values.ais.caConfigMap }}
+            {{- if .Values.tls.insecureSkipVerify }}
+            - name: AIS_SKIP_VERIFY_CRT
+              value: "true"
+            {{- end }}
+            {{- if .Values.tls.caConfigMap }}
             - name: AIS_CLIENT_CA
-              value: /etc/ais-ca/{{ .Values.ais.bundleFile }}
+              value: /etc/ais-ca/{{ .Values.tls.bundleFile }}
+            {{- end }}
+            {{- if .Values.authn.enabled }}
+            - name: AIS_AUTHN_TOKEN_FILE
+              value: /tmp/authn/token
             {{- end }}
           {{- with .Values.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- if .Values.ais.caConfigMap }}
+          {{- if or .Values.tls.caConfigMap .Values.authn.enabled }}
           volumeMounts:
+            {{- if .Values.tls.caConfigMap }}
             - name: ais-ca
               mountPath: /etc/ais-ca
               readOnly: true
+            {{- end }}
+            {{- if .Values.authn.enabled }}
+            - name: authn-token
+              mountPath: /tmp/authn
+              readOnly: true
+            {{- end }}
           {{- end }}
-      {{- if .Values.ais.caConfigMap }}
+      {{- if or .Values.tls.caConfigMap .Values.authn.enabled }}
       volumes:
+        {{- if .Values.tls.caConfigMap }}
         - name: ais-ca
           configMap:
-            name: {{ .Values.ais.caConfigMap }}
+            name: {{ .Values.tls.caConfigMap }}
             optional: true
             items:
-              - key: {{ .Values.ais.bundleFile }}
-                path: {{ .Values.ais.bundleFile }}
+              - key: {{ .Values.tls.bundleFile }}
+                path: {{ .Values.tls.bundleFile }}
+        {{- end }}
+        {{- if .Values.authn.enabled }}
+        - name: authn-token
+          emptyDir: {}
+        {{- end }}
       {{- end }}
