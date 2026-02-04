@@ -186,15 +186,15 @@ func (r *AIStoreReconciler) resolveStatefulSetScaling(ctx context.Context, ais *
 	currentSize := *current.Spec.Replicas
 	// Scaling up
 	if expectedSize > currentSize {
-		// If we have an existing cluster, make sure it's ready and disable rebalance before adding multiple targets
+		// If we have an existing cluster, check health and disable rebalance before adding multiple targets
 		if expectedSize > currentSize+1 && currentSize > 0 {
-			ready, err := r.checkAISClusterReady(ctx, ais)
+			apiClient, err := r.clientManager.GetClient(ctx, ais)
 			if err != nil {
 				return err
 			}
-			if !ready {
-				logger.Info("Waiting for cluster readiness before scaling")
-				return fmt.Errorf("cannot disable rebalance before target scaling, cluster not ready")
+			if err = apiClient.Health(true /*readyToRebalance*/); err != nil {
+				logger.Info("Waiting for cluster to be healthy before scaling")
+				return fmt.Errorf("cannot disable rebalance before target scaling, cluster not healthy")
 			}
 			logger.Info("Disabling rebalance before target scale-up of > 1 new nodes")
 			err = r.disableRebalance(ctx, ais, aisv1.ReasonScaling, "Disabled due to target scale-up")
