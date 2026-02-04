@@ -48,23 +48,43 @@ spec:
           env:
             - name: AIS_ENDPOINT
               value: {{ .Values.ais.endpoint | quote }}
-            {{- if .Values.ais.caConfigMap }}
-            - name: AIS_CLIENT_CA
-              value: /etc/ais-ca/{{ .Values.ais.bundleFile }}
+            {{- if .Values.tls.insecureSkipVerify }}
+            - name: AIS_SKIP_VERIFY_CRT
+              value: "true"
             {{- end }}
-          {{- if .Values.ais.caConfigMap }}
+            {{- if .Values.tls.caConfigMap }}
+            - name: AIS_CLIENT_CA
+              value: /etc/ais-ca/{{ .Values.tls.bundleFile }}
+            {{- end }}
+            {{- if .Values.authn.enabled }}
+            - name: AIS_AUTHN_URL
+              value: {{ .Values.authn.serviceURL | quote }}
+            {{- if .Values.authn.secretName }}
+            - name: AIS_AUTHN_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.authn.secretName }}
+                  key: SU-NAME
+            - name: AIS_AUTHN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.authn.secretName }}
+                  key: SU-PASS
+            {{- end }}
+            {{- end }}
+          {{- if .Values.tls.caConfigMap }}
           volumeMounts:
             - name: ais-ca
               mountPath: /etc/ais-ca
               readOnly: true
           {{- end }}
-      {{- if .Values.ais.caConfigMap }}
+      {{- if .Values.tls.caConfigMap }}
       volumes:
         - name: ais-ca
           configMap:
-            name: {{ .Values.ais.caConfigMap }}
+            name: {{ .Values.tls.caConfigMap }}
             optional: true
             items:
-              - key: {{ .Values.ais.bundleFile }}
-                path: {{ .Values.ais.bundleFile }}
+              - key: {{ .Values.tls.bundleFile }}
+                path: {{ .Values.tls.bundleFile }}
       {{- end }}
