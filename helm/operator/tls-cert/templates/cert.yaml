@@ -11,6 +11,8 @@ spec:
   renewBefore: {{ .Values.spec.renewBefore }}
   usages:
     - client auth
+  {{- if .Values.spec.subject }}
+  {{- if or .Values.spec.subject.organizations .Values.spec.subject.organizationalUnits .Values.spec.subject.countries }}
   subject:
     organizations: 
       {{- range .Values.spec.subject.organizations }}
@@ -24,6 +26,8 @@ spec:
       {{- range .Values.spec.subject.countries }}
       - {{ . }}
       {{- end }}
+  {{- end }}
+  {{- end}}
   dnsNames:
     {{- range .Values.spec.dnsNames }}
     - "{{ . }}"

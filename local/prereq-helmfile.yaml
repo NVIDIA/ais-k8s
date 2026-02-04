@@ -1,0 +1,42 @@
+repositories:
+  - name: openebs
+    url: https://openebs.github.io/charts
+  - name: jetstack
+    url: https://charts.jetstack.io
+  - name: traefik
+    url: https://helm.traefik.io/traefik
+
+releases:
+  - name: openebs
+    namespace: openebs
+    createNamespace: true
+    chart: openebs/openebs
+    set:
+      - name: engines.local.lvm.enabled
+        value: false
+      - name: engines.local.zfs.enabled
+        value: false
+      - name: engines.replicated.mayastor.enabled
+        value: false
+      - name: alloy.enabled
+        value: false
+      - name: loki.enabled
+        value: false
+      - name: minio.enabled
+        value: false
+
+  - name: cert-manager
+    chart: jetstack/cert-manager
+    namespace: cert-manager
+    createNamespace: true
+    set:
+      - name: installCRDs
+        value: true
+    wait: true
+        
+  - name: trust-manager
+    chart: jetstack/trust-manager
+    namespace: cert-manager
+    wait: true
+    needs: 
+      - cert-manager

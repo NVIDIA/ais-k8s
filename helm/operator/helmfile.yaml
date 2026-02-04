@@ -5,6 +5,12 @@ environments:
     - createCert:
         enabled: false
         valuesPath: ./config/tls-cert/default.yaml
+  local:
+    values:
+      - envFile: local
+      - createCert:
+          enabled: true
+          valuesPath: ./config/tls-cert/local.yaml
   keycloak: 
     values: 
     - envFile: keycloak

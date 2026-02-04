@@ -11,6 +11,8 @@ spec:
   renewBefore: {{ .Values.certificate.renewBefore }}
   usages:
     - server auth
+  {{- if .Values.certificate.subject }}
+  {{- if or .Values.certificate.subject.organizations .Values.certificate.subject.organizationalUnits .Values.certificate.subject.countries }}
   subject:
     organizations: 
       {{- range .Values.certificate.subject.organizations }}
@@ -24,6 +26,8 @@ spec:
       {{- range .Values.certificate.subject.countries }}
       - {{ . }}
       {{- end }}
+  {{- end }}
+  {{- end }}
   dnsNames:
     {{- range .Values.certificate.dnsNames }}
     - "{{ . }}"

@@ -10,6 +10,17 @@ environments:
         createPV:
           enabled: true
 
+  local:
+    values:
+      - valuesPath: ./config/ais/local.yaml
+        https:
+          enabled: true
+          valuesPath: ./config/tls-cert/local.yaml
+        cloudSecrets:
+          enabled: false
+        createPV:
+          enabled: true
+
   keycloak:
     values:
       - valuesPath: ./config/ais/keycloak.yaml

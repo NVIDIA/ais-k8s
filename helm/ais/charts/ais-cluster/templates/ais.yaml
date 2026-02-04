@@ -17,7 +17,8 @@ spec:
   size: {{ .Values.size }}
   configToUpdate:
     {{- if eq .Values.protocol "https" }}
-      {{- $userHTTP := (dig "net" "http" dict .Values.configToUpdate) }}
+      {{- $baseConfig := default (dict) .Values.configToUpdate }}
+      {{- $userHTTP := (dig "net" "http" dict $baseConfig) }}
       {{- $httpsDefaults := dict
           "server_crt" "/var/certs/tls.crt"
           "server_key" "/var/certs/tls.key"
@@ -27,9 +28,9 @@ spec:
           "client_auth_tls" 0
       }}
       {{- $mergedHTTP := merge $httpsDefaults $userHTTP }}
-      {{- $userNet := (dig "net" dict .Values.configToUpdate) }}
+      {{- $userNet := (dig "net" dict $baseConfig) }}
       {{- $mergedNet := merge (dict "http" $mergedHTTP) $userNet }}
-      {{- toYaml (merge (dict "net" $mergedNet) (omit .Values.configToUpdate "net")) | nindent 4 }}
+      {{- toYaml (merge (dict "net" $mergedNet) (omit $baseConfig "net")) | nindent 4 }}
     {{- else }}
       {{- with .Values.configToUpdate }}
       {{- toYaml . | nindent 4 }}

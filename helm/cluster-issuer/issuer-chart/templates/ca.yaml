@@ -21,10 +21,20 @@ spec:
     algorithm: {{ .Values.caCertificate.privateKey.algorithm }}
     encoding: {{ .Values.caCertificate.privateKey.encoding }}
     size: {{ .Values.caCertificate.privateKey.size }}
+  {{- if .Values.caCertificate.subject }}
+  {{- if or .Values.caCertificate.subject.organizations .Values.caCertificate.subject.organizationalUnits .Values.caCertificate.subject.countries }}
   subject:
-    organizations: {{ .Values.caCertificate.subject.organizations }}
-    organizationalUnits: {{ .Values.caCertificate.subject.organizationalUnits }}
-    countries: {{ .Values.caCertificate.subject.countries }}
+    {{- with .Values.caCertificate.subject.organizations }}
+    organizations: {{ toYaml . | nindent 4 }}
+    {{- end }}
+    {{- with .Values.caCertificate.subject.organizationalUnits }}
+    organizationalUnits: {{ toYaml . | nindent 4 }}
+    {{- end }}
+    {{- with .Values.caCertificate.subject.countries }}
+    countries: {{ toYaml . | nindent 4 }}
+    {{- end }}
+  {{- end }}
+  {{- end }}
   issuerRef:
     name: {{ .Values.clusterIssuer.name }}
     kind: ClusterIssuer

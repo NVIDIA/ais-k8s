@@ -11,19 +11,10 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLUSTER_NAME="keycloak-test"
+LOCAL_SCRIPT_DIR="${SCRIPT_DIR}/../../local"
 
-if kind get clusters | grep -qw "${CLUSTER_NAME}"; then
-  echo "Cluster ${CLUSTER_NAME} already exists, skipping creation."
-else
-  kind create cluster --config=./kind/config.yaml --name=${CLUSTER_NAME}
-fi
-
-# Verify we are running with the right context
-CURRENT=$(kubectl config current-context)
-if [ "${CURRENT}" != "kind-${CLUSTER_NAME}" ]; then
-  echo "Warning: kubectl context does not match new KinD cluster!"
-  exit 1
-fi
+source "${LOCAL_SCRIPT_DIR}/start-kind.sh"
+create_kind_cluster $CLUSTER_NAME
 
 # Install pre-reqs -- storage class, ingress etc.
 helmfile -f prereq-helmfile.yaml sync

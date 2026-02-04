@@ -1,0 +1,15 @@
+spec:
+  tlsSecret: operator-tls
+  duration: 8760h # 1 year
+  renewBefore: 720h # 30 days
+  dnsNames:
+    - "localhost"
+    - "local-test-worker"
+    - "local-test-worker2"
+    - "local-test-worker3"
+  ipAddresses:
+    - 127.0.0.1
+  emailAddress: ais@exchange.nvidia.com
+  issuerRef:
+    name: ca-issuer
+    kind: ClusterIssuer

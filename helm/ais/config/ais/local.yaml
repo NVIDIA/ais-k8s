@@ -1,0 +1,37 @@
+cluster: ais
+mpathInfo:
+  storageClass: "ais-local-storage"
+  size: 5.8Ti
+  # Apply shared label to run on one physical disk (for development/testing)
+  mounts:
+    - path: /ais/1
+      label: shared
+    - path: /ais/2
+      label: shared
+    - path: /ais/3
+      label: shared
+size: 3
+protocol: https
+https:
+  skipVerifyCert: false
+  tlsSecret: "tls-certs"
+nodeImage:
+  tag: v4.2
+initImage:
+  tag: v4.2
+logSidecarImage:
+  tag: v1.1
+adminClient:
+  enabled: true
+  # Use trust manager bundle for client
+  caConfigMap:
+    name: aistore.nvidia.com
+    key: ca.crt
+proxyLB:
+  enabled: true
+# Allows DNS to be based solely on node name, not IP
+publicNetDNSMode: Node
+
+
+stateStorageClass: "openebs-hostpath"
+cleanupMetadata: true

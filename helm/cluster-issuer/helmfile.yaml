@@ -1,4 +1,5 @@
-environments: 
+environments:
+  local: {}
   sjc11:
     kubeContext: sjc11
 ---

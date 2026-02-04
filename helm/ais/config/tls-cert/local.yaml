@@ -8,9 +8,9 @@ certificate:
     - "ais-proxy"
     - "ais-target"
     # Node names for direct communication
-    - "keycloak-test-worker"
-    - "keycloak-test-worker2"
-    - "keycloak-test-worker3"
+    - "local-test-worker"
+    - "local-test-worker2"
+    - "local-test-worker3"
     # consistent url for client pod
     - "ais-proxy.ais.svc.cluster.local"
     # used for intra cluster communication

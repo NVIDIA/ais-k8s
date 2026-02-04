@@ -1,0 +1,17 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+  - role: control-plane
+  - role: worker
+    # Mount to support openEBS local volumes
+    extraMounts:
+      - hostPath: /run/udev
+        containerPath: /run/udev
+  - role: worker
+    extraMounts:
+      - hostPath: /run/udev
+        containerPath: /run/udev
+  - role: worker
+    extraMounts:
+      - hostPath: /run/udev
+        containerPath: /run/udev
