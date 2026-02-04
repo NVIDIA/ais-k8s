@@ -1,7 +1,0 @@
-resources:
-- monitor.yaml
-patches:
-- path: monitor_tls_patch.yaml
-  target:
-    kind: ServiceMonitor
-    name: controller-manager-metrics-monitor

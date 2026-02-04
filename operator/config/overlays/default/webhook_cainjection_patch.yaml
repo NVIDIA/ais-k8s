@@ -1,8 +1,7 @@
-# This patch add annotation to admission webhook config and
-# CERTIFICATE_NAMESPACE_PLACEHOLDER/CERTIFICATE_NAME_PLACEHOLDER will be substituted by kustomize.
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
   name: validating-webhook-configuration
   annotations:
+    # Placeholders replaced via kustomize replacements with the serving-cert namespace/name
     cert-manager.io/inject-ca-from: CERTIFICATE_NAMESPACE_PLACEHOLDER/CERTIFICATE_NAME_PLACEHOLDER

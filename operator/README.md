@@ -44,11 +44,12 @@ controllerManager:
       operatorSkipVerifyCrt: "False"  # Enable certificate verification
 ```
 
-For kustomize deployments, modify [config/default/manager_env_patch.yaml](config/default/manager_env_patch.yaml).
+For kustomize deployments, modify [config/overlays/default/manager_env_patch.yaml](config/overlays/default/manager_env_patch.yaml).
 
 #### Configuring Custom CA Certificates for AIS Clusters (Optional)
 
-If your AIS cluster uses an untrusted CA (not in the system trust store), you need to provide the CA certificate. Configure this using Helm chart values:
+If your AIS cluster uses an untrusted CA (not in the system trust store), you need to provide the CA certificate.
+Configure this using Helm chart values:
 
 ```yaml
 controllerManager:
@@ -58,7 +59,8 @@ controllerManager:
 
 The ConfigMap should contain `.crt` or `.pem` files with your CA certificates. The operator will automatically mount it to `/etc/ais/ca`.
 
-For kustomize-based deployments, you can apply a patch to override the ConfigMap name:
+For kustomize-based deployments, you can apply a patch to override the ConfigMap name. 
+See [manager_ca_configmap_patch.yaml](config/overlays/default/manager_ca_configmap_patch.yaml) for reference and the example below:
 
 ```yaml
 # config/overlays/custom/manager_ca_patch.yaml
@@ -70,6 +72,12 @@ metadata:
 spec:
   template:
     spec:
+      containers:
+        - name: manager
+          volumeMounts:
+            - name: ais-ca
+              mountPath: /etc/ais/ca
+              readOnly: true
       volumes:
         - name: ais-ca
           configMap:
@@ -125,11 +133,14 @@ See the linked [certificates diagram](../docs/diagrams/certificates.jpg) for a v
 
 ### Deploy AIS Operator
 
-First, install the AIS CRD
+First, install the AIS CRD:
+
 ```console
 make install
 ```
-Then run the deployment. This will apply the [default kustomization](./config/default/kustomization.yaml) configuration. 
+
+Then run the deployment with `make deploy`.
+This will apply the [default kustomization](./config/overlays/default/kustomization.yaml) configuration. 
 ```console
 $ IMG=aistorage/ais-operator:latest make deploy
 ```
@@ -200,7 +211,7 @@ External access relies on the K8s capability to assign an external IP (or hostna
 Update your AIS spec as follows:
 
 ```yaml
-# config/samples/ais_v1beta1_sample.yaml
+# config/samples/ais_v1beta1_aistore.yaml
 apiVersion: ais.nvidia.com/v1beta1
 kind: AIStore
 metadata:
@@ -233,7 +244,7 @@ This will result in target pod errors such as `has no disks` or `filesystem shar
 To deploy AIStore cluster in such K8s environments, set a shared label for each mountpath as follows:
 
 ```yaml
-# config/samples/ais_v1beta1_sample.yaml
+# config/samples/ais_v1beta1_aistore.yaml
 apiVersion: ais.nvidia.com/v1beta1
 kind: AIStore
 metadata:
@@ -284,7 +295,7 @@ In other words, if AIS custom resource spec has a `size` greater than the number
 However, this constraint can be relaxed for local testing using the `disablePodAntiAffinity` property as follows:
 
 ```yaml
-# config/samples/ais_v1beta1_sample.yaml
+# config/samples/ais_v1beta1_aistore.yaml
 apiVersion: ais.nvidia.com/v1beta1
 kind: AIStore
 metadata:
@@ -322,7 +333,7 @@ kubectl create secret -n ais-operator-system generic gcp-creds \
 Once the secrets are created, update the AIS config yaml to reference the secrets:
 
 ```yaml
-# config/samples/ais_v1beta1_sample.yaml
+# config/samples/ais_v1beta1_aistore.yaml
 apiVersion: ais.nvidia.com/v1beta1
 kind: AIStore
 metadata:
@@ -414,7 +425,7 @@ We use the following commands to achieve this:
 $ # Updating the auto-generated code.
 $ make generate
 $
-$ # Updating the YAML manifests under `config/`.
+$ # Updating the YAML base manifests in `config/base`.
 $ make manifests
 ```
 

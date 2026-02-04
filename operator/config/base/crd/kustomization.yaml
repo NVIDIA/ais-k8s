@@ -1,5 +1,2 @@
 resources:
 - ais.nvidia.com_aistores.yaml
-
-configurations:
-- kustomizeconfig.yaml
