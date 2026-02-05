@@ -5,6 +5,8 @@ HELM_CHART_VERSION := $(shell echo $(VERSION) | sed 's/^v//')
 BUILD_VERSION_BASE = $(if $(VERSION),$(VERSION),$(DEFAULT_VERSION))
 BUILD_VERSION = $(BUILD_VERSION_BASE)+$(shell git rev-parse --short HEAD)
 BUILD_TIME = $(shell date +%FT%T%z)
+OS = $(shell go env GOOS)
+ARCH = $(shell go env GOARCH)
 
 REPO = https://github.com/NVIDIA/ais-k8s
 PAGES = https://NVIDIA.github.io/ais-k8s/charts
@@ -260,6 +262,7 @@ $(LOCALBIN):
 ## Tool Binaries
 KUBECTL ?= kubectl
 KUSTOMIZE ?= $(LOCALBIN)/kustomize-$(KUSTOMIZE_VERSION)
+KUBEBUILDER ?= $(LOCALBIN)/kubebuilder-$(KUBEBUILDER_VERSION)
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen-$(CONTROLLER_TOOLS_VERSION)
 ENVTEST ?= $(LOCALBIN)/setup-envtest-$(ENVTEST_VERSION)
 MOCKGEN ?= $(LOCALBIN)/mockgen-$(MOCKGEN_VERSION)
@@ -273,6 +276,7 @@ YQ ?= $(LOCALBIN)/yq
 HELM_VERSION ?= v3.20.0
 HELMIFY_VERSION ?= v0.4.19
 KUSTOMIZE_VERSION ?= v5.8.0
+KUBEBUILDER_VERSION ?= v4.11.1
 CONTROLLER_TOOLS_VERSION ?= v0.20.0
 ENVTEST_VERSION ?= release-0.23
 MOCKGEN_VERSION ?= v0.6.0
@@ -307,6 +311,12 @@ golangci-lint: ## Download golangci-lint to GOPATH/bin if necessary.
 		curl -sSfL $(GOLANGCI_LINT_INSTALLER) | sh -s -- -b $(GOPATH)/bin $(GOLANGCI_LINT_VERSION); \
 	}
 	@echo "Using golangci-lint: $$(command -v golangci-lint)"
+
+.PHONY: kubebuilder
+kubebuilder: $(KUBEBUILDER) ## Download kubebuilder locally if necessary.
+$(KUBEBUILDER): $(LOCALBIN)
+	curl -L -o kubebuilder https://github.com/kubernetes-sigs/kubebuilder/releases/download/$(KUBEBUILDER_VERSION)/kubebuilder_$(OS)_$(ARCH)
+	chmod +x kubebuilder && mv kubebuilder $(KUBEBUILDER)
 
 .PHONY: helm
 helm:
