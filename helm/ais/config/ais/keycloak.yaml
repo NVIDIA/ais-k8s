@@ -12,9 +12,9 @@ mpathInfo:
       label: shared
 size: 3
 protocol: https
-https:
+tls:
   skipVerifyCert: false
-  tlsSecret: "tls-certs"
+  secretName: "tls-certs"
 nodeImage:
   tag: v4.2
 initImage:

@@ -32,9 +32,9 @@ To deploy with TLS enabled, simply set the following values in your **AIS** char
 
 ```
 protocol: https
-https:
+tls:
     skipVerifyCert: false // optional
-    tlsSecret: "tls-certs" // Required only if using secret mount. Mounts to /var/certs
+    secretName: "tls-certs" // Required only if using secret mount. Mounts to /var/certs
 ```
 
 This will update the AIS config and mount the secret if provided (read below for creating).

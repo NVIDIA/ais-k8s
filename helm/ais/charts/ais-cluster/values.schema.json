@@ -60,19 +60,72 @@
       "enum": ["http", "https"],
       "examples": ["http"]
     },
-    "https": {
+    "tlsSecretName": {
+      "type": ["string", "null"],
+      "description": "Deprecated: Maps to spec.tlsSecretName for older operators < v2.14.0 w/o support for spec.tls",
+      "examples": ["tls-certs"]
+    },
+    "tls": {
       "type": "object",
-      "description": "HTTPS configuration options (only applies if protocol is https).",
+      "description": "TLS configuration options (only applies if protocol is https). Specify only one of: secretName or certificate.",
       "properties": {
         "skipVerifyCert": {
           "type": "boolean",
           "description": "Skip TLS certificate verification (useful for self-signed certs in testing).",
           "examples": [true]
         },
-        "tlsSecret": {
+        "secretName": {
           "type": "string",
-          "description": "Name of the Kubernetes secret containing TLS cert/key.",
+          "description": "Name of an existing Kubernetes secret containing TLS cert/key.",
           "examples": ["tls-certs"]
+        },
+        "certificate": {
+          "type": "object",
+          "description": "Operator-managed cert-manager Certificate CR configuration.",
+          "properties": {
+            "issuerRef": {
+              "type": "object",
+              "description": "Reference to a cert-manager Issuer or ClusterIssuer.",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Name of the cert-manager Issuer or ClusterIssuer.",
+                  "examples": ["selfsigned-issuer", "ca-issuer"]
+                },
+                "kind": {
+                  "type": "string",
+                  "description": "Kind of the issuer.",
+                  "enum": ["Issuer", "ClusterIssuer"],
+                  "default": "ClusterIssuer"
+                }
+              },
+              "required": ["name"]
+            },
+            "mode": {
+              "type": "string",
+              "description": "Certificate delivery mode: 'secret' (shared secret) or 'csi' (per-pod certificates via CSI driver). Defaults to 'secret'.",
+              "enum": ["secret", "csi"],
+              "default": "secret",
+              "examples": ["secret", "csi"]
+            },
+            "additionalDNSNames": {
+              "type": "array",
+              "description": "Extra DNS names to include in the certificate.",
+              "items": { "type": "string" },
+              "examples": [["ais-1.example.com", "ais-2.example.com"]]
+            },
+            "duration": {
+              "type": "string",
+              "description": "Certificate lifetime (default: 8760h = 1 year).",
+              "examples": ["8760h", "2160h"]
+            },
+            "renewBefore": {
+              "type": "string",
+              "description": "When to start renewing (default: 720h = 30 days before expiry).",
+              "examples": ["720h", "168h"]
+            }
+          },
+          "required": ["issuerRef"]
         }
       }
     },

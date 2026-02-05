@@ -29,7 +29,7 @@ spec:
           "server_crt" "/var/certs/tls.crt"
           "server_key" "/var/certs/tls.key"
           "use_https" true
-          "skip_verify" .Values.https.skipVerifyCert
+          "skip_verify" .Values.tls.skipVerifyCert
           "client_ca_tls" "/var/certs/ca.crt"
           "client_auth_tls" 0
       }}
@@ -164,7 +164,36 @@ spec:
   cleanupMetadata: {{ .Values.cleanupMetadata }}
   cleanupData: {{ .Values.cleanupData }}
   {{- if eq .Values.protocol "https" }}
-  tlsSecretName: {{ .Values.https.tlsSecret }}
+  {{- with .Values.tlsSecretName }}
+  tlsSecretName: {{ . }}
+  {{- end }}
+  {{- if or .Values.tls.secretName .Values.tls.certificate }}
+  tls:
+    {{- with .Values.tls.secretName }}
+    secretName: {{ . }}
+    {{- end }}
+    {{- if .Values.tls.certificate }}
+    certificate:
+      issuerRef:
+        name: {{ .Values.tls.certificate.issuerRef.name }}
+        {{- if .Values.tls.certificate.issuerRef.kind }}
+        kind: {{ .Values.tls.certificate.issuerRef.kind }}
+        {{- end }}
+      {{- if .Values.tls.certificate.additionalDNSNames }}
+      additionalDNSNames:
+        {{- toYaml .Values.tls.certificate.additionalDNSNames | nindent 8 }}
+      {{- end }}
+      {{- if .Values.tls.certificate.duration }}
+      duration: {{ .Values.tls.certificate.duration }}
+      {{- end }}
+      {{- if .Values.tls.certificate.renewBefore }}
+      renewBefore: {{ .Values.tls.certificate.renewBefore }}
+      {{- end }}
+      {{- if .Values.tls.certificate.mode }}
+      mode: {{ .Values.tls.certificate.mode }}
+      {{- end }}
+    {{- end }}
+  {{- end }}
   {{- end }}
   {{- if .Values.cloud }}
   {{- with .Values.cloud.awsSecretName }}

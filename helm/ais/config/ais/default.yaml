@@ -13,9 +13,12 @@ mpathInfo:
       label: shared
 size: 3
 protocol: https
-https:
-  tlsSecret: tls-certs
+tls:
   skipVerifyCert: false
+  certificate:
+    issuerRef:
+      name: ca-issuer
+      kind: ClusterIssuer
 # "standard" is the default storageClass in KinD
 stateStorageClass: standard
 nodeImage:

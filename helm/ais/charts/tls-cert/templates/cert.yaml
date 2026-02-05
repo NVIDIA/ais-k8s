@@ -5,7 +5,7 @@ metadata:
   name: ais-server-cert
   namespace: {{ .Release.Namespace }}
 spec:
-  secretName: {{ .Values.https.tlsSecret }}
+  secretName: {{ .Values.tls.secretName }}
   isCA: false
   duration: {{ .Values.certificate.duration }}
   renewBefore: {{ .Values.certificate.renewBefore }}
