@@ -13,6 +13,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 ### Changed
 
 - Updated all tool versions and minor dependencies
+- Updated target pod rollout strategy to search for lowest pod ordinal not on new revision instead of relying on `UpdatedReplicas`
 
 ### Added
 

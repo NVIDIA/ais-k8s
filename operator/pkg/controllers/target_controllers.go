@@ -314,64 +314,71 @@ func (r *AIStoreReconciler) syncTargetPodSpec(ctx context.Context, ais *aisv1.AI
 	return false, nil
 }
 
-func (r *AIStoreReconciler) isPodReady(ctx context.Context, ais *aisv1.AIStore, podIndex int32) (ready bool, err error) {
-	pod, err := r.k8sClient.GetPod(ctx, types.NamespacedName{
-		Name:      target.PodName(ais, podIndex),
-		Namespace: ais.Namespace,
-	})
+func isPodActive(pod *corev1.Pod) bool {
+	return pod != nil && pod.DeletionTimestamp == nil
+}
 
-	if err != nil || pod.DeletionTimestamp != nil {
-		return false, err
+func isPodReady(pod *corev1.Pod) bool {
+	if !isPodActive(pod) {
+		return false
 	}
-
 	for _, condition := range pod.Status.Conditions {
 		if condition.Type == corev1.PodReady && condition.Status == corev1.ConditionTrue {
-			return true, nil
+			return true
 		}
 	}
-
-	return false, nil
+	return false
 }
 
 func (r *AIStoreReconciler) findPodNeedingUpdate(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) string {
 	logger := logf.FromContext(ctx).WithValues("statefulset", ss.Name)
-
-	// The next pod index is simply the count of updated replicas
-	nextPodIndex := ss.Status.UpdatedReplicas
-	if nextPodIndex >= *ss.Spec.Replicas {
+	podList, err := r.k8sClient.ListPods(ctx, ais, target.RequiredPodLabels(ais))
+	if err != nil {
+		logger.Error(err, "Failed to list target pods")
 		return ""
 	}
+	podMap := make(map[string]*corev1.Pod, len(podList.Items))
+	for i := range podList.Items {
+		pod := &podList.Items[i]
+		podMap[pod.Name] = pod
+	}
 
-	// Before processing the next pod, ensure the previous pod (if any) is ready
-	// to ensure only one pod is in a non-ready state at a time (for high availability)
-	if nextPodIndex > 0 {
-		if ready, err := r.isPodReady(ctx, ais, nextPodIndex-1); err != nil || !ready {
-			logger.Info("Waiting for previous pod to be ready", "pod", target.PodName(ais, nextPodIndex-1))
+	for i := range int(*ss.Spec.Replicas) {
+		idx := int32(i)
+		// For HA, previous pod MUST be ready before proceeding
+		if idx > 0 {
+			prevName := target.PodName(ais, idx-1)
+			if !isPodReady(podMap[prevName]) {
+				logger.Info("Waiting for previous pod to be ready before proceeding with rollout", "pod", prevName)
+				return ""
+			}
+		}
+
+		podName := target.PodName(ais, idx)
+		pod := podMap[podName]
+		// Do not block on current pod being ready (need to be able to rollback/fix a bad upgrade)
+		if !isPodActive(pod) {
+			logger.Info("Pod doesn't exist or is being deleted, waiting", "pod", podName)
 			return ""
 		}
-	}
 
-	podName := target.PodName(ais, nextPodIndex)
-	pod, err := r.k8sClient.GetPod(ctx, types.NamespacedName{
-		Name:      podName,
-		Namespace: ais.Namespace,
-	})
-
-	// Wait if pod doesn't exist or is being deleted
-	if err != nil || pod.DeletionTimestamp != nil {
-		if err != nil {
-			logger.Info("Pod doesn't exist or is being deleted, waiting", "pod", podName)
+		// Proceed to checking next pod if current pod is up-to-date
+		podRevision := pod.Labels["controller-revision-hash"]
+		if podRevision == ss.Status.UpdateRevision {
+			continue
 		}
-		return ""
+
+		logger.Info(
+			"Found pod needing update",
+			"pod", podName,
+			"currentRevision", podRevision,
+			"targetRevision", ss.Status.UpdateRevision,
+		)
+
+		return podName
 	}
 
-	podRevision := pod.Labels["controller-revision-hash"]
-	if podRevision == ss.Status.UpdateRevision {
-		return ""
-	}
-
-	logger.Info("Found pod needing update", "pod", podName, "currentRevision", podRevision, "targetRevision", ss.Status.UpdateRevision)
-	return podName
+	return ""
 }
 
 func (r *AIStoreReconciler) handleTargetRollout(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) (ctrl.Result, error) {
