@@ -17,6 +17,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
+// 0x0644 -- Set to explicitly define file permissions as the K8s default and avoid diff causing rollout
+var DefaultMode = int32(420)
+
 const (
 	// StateDir Container-internal location of configs and current state of the aisnode
 	StateDir = "/etc/ais"
@@ -60,6 +63,7 @@ func NewAISVolumes(ais *v1beta1.AIStore, daeType string) []corev1.Volume {
 					LocalObjectReference: corev1.LocalObjectReference{
 						Name: AISConfigMapName(ais, daeType),
 					},
+					DefaultMode: &DefaultMode,
 				},
 			},
 		},
@@ -76,6 +80,7 @@ func NewAISVolumes(ais *v1beta1.AIStore, daeType string) []corev1.Volume {
 					LocalObjectReference: corev1.LocalObjectReference{
 						Name: globalConfigMapName(ais),
 					},
+					DefaultMode: &DefaultMode,
 				},
 			},
 		},
@@ -86,6 +91,7 @@ func NewAISVolumes(ais *v1beta1.AIStore, daeType string) []corev1.Volume {
 					LocalObjectReference: corev1.LocalObjectReference{
 						Name: statsd.ConfigMapName(ais),
 					},
+					DefaultMode: &DefaultMode,
 				},
 			},
 		},
@@ -118,7 +124,8 @@ func NewAISVolumes(ais *v1beta1.AIStore, daeType string) []corev1.Volume {
 			Name: tracingSecretVolume,
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName: *ais.Spec.TracingTokenSecretName,
+					SecretName:  *ais.Spec.TracingTokenSecretName,
+					DefaultMode: &DefaultMode,
 				},
 			},
 		})
@@ -196,7 +203,8 @@ func getTLSCSIVolumeSource(ais *v1beta1.AIStore, daeType string) corev1.VolumeSo
 func getTLSSecretVolumeSource(ais *v1beta1.AIStore) corev1.VolumeSource {
 	return corev1.VolumeSource{
 		Secret: &corev1.SecretVolumeSource{
-			SecretName: ais.GetTLSSecretName(),
+			SecretName:  ais.GetTLSSecretName(),
+			DefaultMode: &DefaultMode,
 		},
 	}
 }

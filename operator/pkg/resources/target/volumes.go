@@ -60,7 +60,8 @@ func appendCloudVolumes(ais *aisv1.AIStore, volumes []corev1.Volume) []corev1.Vo
 				Name: secret.volumeName,
 				VolumeSource: corev1.VolumeSource{
 					Secret: &corev1.SecretVolumeSource{
-						SecretName: *secret.namePtr,
+						SecretName:  *secret.namePtr,
+						DefaultMode: &cmn.DefaultMode,
 					},
 				},
 			})
