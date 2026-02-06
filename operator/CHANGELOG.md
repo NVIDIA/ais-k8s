@@ -12,6 +12,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ### Changed
 
+- Helm chart will now be persistent in the repository at `operator/helm` and allow additional customization and overrides of manifests
 - Updated all tool versions and minor dependencies
 - Updated target pod rollout strategy to search for lowest pod ordinal not on new revision instead of relying on `UpdatedReplicas`
 

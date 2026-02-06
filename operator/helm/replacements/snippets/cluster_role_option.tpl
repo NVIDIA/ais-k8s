@@ -1,0 +1,1 @@
+{{- if not .Values.namespaceScope }}

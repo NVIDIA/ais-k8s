@@ -10,6 +10,7 @@ controllerManager:
   # Annotations for the operator pods (optional)
   podAnnotations: {}
 
-# Must be present for the Helmify helper to correctly default
-serviceAccount: 
-  create: false
+# WIP, not currently implemented
+# List of namespaces to watch
+# If provided, the chart will only provision roles for the operator restricted to these namespaces
+namespaceScope: []

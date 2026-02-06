@@ -1,0 +1,25 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "ais-operator.fullname" . }}-aistore-editor-role
+  labels:
+  {{- include "ais-operator.labels" . | nindent 4 }}
+rules:
+- apiGroups:
+  - ais.nvidia.com
+  resources:
+  - aistores
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ais.nvidia.com
+  resources:
+  - aistores/status
+  verbs:
+  - get

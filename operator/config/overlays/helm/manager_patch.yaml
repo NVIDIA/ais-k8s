@@ -5,6 +5,9 @@ metadata:
   namespace: system
 spec:
   template:
+    metadata:
+      annotations:
+        __HELM_POD_ANNOTATIONS__: placeholder
     spec:
       containers:
         - name: manager
@@ -12,8 +15,16 @@ spec:
             - name: auth-ca
               mountPath: /etc/ssl/certs/auth-ca
               readOnly: true
+            - name: ais-ca
+              mountPath: /etc/ais/ca
+              readOnly: true
       volumes:
         - name: auth-ca
           configMap:
             name: "{{ .Values.controllerManager.manager.authCAConfigmapName }}"
+            optional: true
+        - name: ais-ca
+          configMap:
+            # Can be overridden in Helm values to use trust-manager bundles
+            name: "{{ .Values.controllerManager.manager.aisCAConfigmapName }}"
             optional: true

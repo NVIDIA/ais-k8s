@@ -4,6 +4,4 @@ resources:
   - ../default
 
 patches:
-  - path: manager_annotations_patch.yaml
-  - path: manager_ca_configmap_patch.yaml
-  - path: manager_authn_ca_configmap_patch.yaml
+  - path: manager_patch.yaml

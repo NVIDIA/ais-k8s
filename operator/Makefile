@@ -1,6 +1,6 @@
 DEFAULT_VERSION = 2.1.2
 # Strip off any preceding `v` from version string
-HELM_CHART_VERSION := $(shell echo $(VERSION) | sed 's/^v//')
+HELM_CHART_APP_VERSION := $(shell echo $(VERSION) | sed 's/^v//')
 # Use VERSION if provided
 BUILD_VERSION_BASE = $(if $(VERSION),$(VERSION),$(DEFAULT_VERSION))
 BUILD_VERSION = $(BUILD_VERSION_BASE)+$(shell git rev-parse --short HEAD)
@@ -205,19 +205,18 @@ build-installer: require-img manifests generate kustomize ## Generate a consolid
 	$(KUSTOMIZE) build config/overlays/default > dist/ais-operator.yaml
 
 .PHONY: build-installer-helm
-build-installer-helm: require-img require-version manifests generate kustomize helm helmify yq
-	mkdir -p dist/helmify/
+build-installer-helm: require-img require-version manifests generate kustomize helmify yq gomplate
 	cd config/overlays/default && $(KUSTOMIZE) edit set image controller=${IMG}
-	$(KUSTOMIZE) build config/overlays/helm > dist/helmify/ais-operator.yaml
-	$(HELMIFY) -image-pull-secrets -f dist/helmify/ais-operator.yaml dist/ais-operator
-	./scripts/patch_helm_template.sh dist/ais-operator/templates/ais-operator.yaml
-	# Helmify does not auto-detect all kustomize-added or patched values fields, so merge extras here
-	$(YQ) -i '. *= load("helm/extra-values.yaml")' dist/ais-operator/values.yaml
-
+	$(KUSTOMIZE) build config/overlays/helm | $(HELMIFY) -image-pull-secrets dist/ais-operator
+	# Copy generated templates and values into persisted chart
+	cp dist/ais-operator/values.yaml helm/ais-operator/values.yaml
+	cp dist/ais-operator/templates/* helm/ais-operator/templates
+	# Merge extra values and persisted templates over the top of the generated files
+	./helm/apply_replacements.sh
 
 .PHONY: package-chart
-package-chart: build-installer-helm
-	$(HELM) package dist/ais-operator -d ../pages/charts/ --version $(HELM_CHART_VERSION) --app-version $(HELM_CHART_VERSION)
+package-chart: build-installer-helm helm
+	$(HELM) package helm/ais-operator -d ../pages/charts/ --app-version $(HELM_CHART_APP_VERSION)
 	$(HELM) repo index --url $(PAGES) ../pages/charts --merge ../pages/charts/index.yaml
 
 .PHONY: release
@@ -266,6 +265,7 @@ KUBEBUILDER ?= $(LOCALBIN)/kubebuilder-$(KUBEBUILDER_VERSION)
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen-$(CONTROLLER_TOOLS_VERSION)
 ENVTEST ?= $(LOCALBIN)/setup-envtest-$(ENVTEST_VERSION)
 MOCKGEN ?= $(LOCALBIN)/mockgen-$(MOCKGEN_VERSION)
+GOMPLATE ?= $(LOCALBIN)/gomplate
 HELMIFY = $(LOCALBIN)/helmify
 HELM = $(LOCALBIN)/helm
 KIND ?= $(LOCALBIN)/kind
@@ -273,6 +273,7 @@ CLOUD_PROVIDER_KIND ?= $(LOCALBIN)/cloud-provider-kind
 YQ ?= $(LOCALBIN)/yq
 
 ## Tool Versions
+GOMPLATE_VERSION ?= v5.0.0
 HELM_VERSION ?= v3.20.0
 HELMIFY_VERSION ?= v0.4.19
 KUSTOMIZE_VERSION ?= v5.8.0
@@ -347,3 +348,8 @@ $(CLOUD_PROVIDER_KIND): $(LOCALBIN)
 yq: $(YQ) ## Download yq locally if necessary.
 $(YQ): $(LOCALBIN)
 	./scripts/go_install_tool.sh $(YQ) github.com/mikefarah/yq/v4 $(YQ_VERSION)
+
+.PHONY: gomplate
+gomplate: $(GOMPLATE) ## Download gomplate locally if necessary.
+$(GOMPLATE): $(LOCALBIN)
+	./scripts/go_install_tool.sh $(GOMPLATE) github.com/hairyhenderson/gomplate/v5/cmd/gomplate $(GOMPLATE_VERSION)

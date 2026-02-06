@@ -1,0 +1,62 @@
+controllerManager:
+  manager:
+    args:
+      - --webhook-cert-path=/tmp/k8s-webhook-server/serving-certs
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+    env:
+      operatorSkipVerifyCrt: "True"
+    image:
+      repository: aistorage/ais-operator
+      tag: v2.13.0
+    resources:
+      limits:
+        cpu: 100m
+        memory: 100Mi
+      requests:
+        cpu: 100m
+        memory: 20Mi
+    # Optional ConfigMap names for CA certificates -- operator falls back to system CAs if not present
+    # Override these values to use different ConfigMap names (e.g., from trust-manager)
+    # For operator->AIStore cluster TLS verification
+    aisCAConfigmapName: ais-operator-ais-ca
+    # For operator->auth service TLS verification
+    authCAConfigmapName: ais-operator-auth-ca
+  nodeSelector: {}
+  podSecurityContext:
+    fsGroup: 65532
+    runAsNonRoot: true
+    runAsUser: 65532
+    seccompProfile:
+      type: RuntimeDefault
+  replicas: 1
+  tolerations: []
+  topologySpreadConstraints: []
+  # Annotations for the operator pods (optional)
+  podAnnotations: {}
+imagePullSecrets: []
+kubernetesClusterDomain: cluster.local
+metricsService:
+  ports:
+    - name: https
+      port: 8443
+      protocol: TCP
+      targetPort: 8443
+  type: ClusterIP
+serviceAccount:
+  annotations: {}
+  automount: true
+  create: true
+  name: ""
+webhookService:
+  ports:
+    - port: 443
+      targetPort: 9443
+  type: ClusterIP
+# WIP, not currently implemented
+# List of namespaces to watch
+# If provided, the chart will only provision roles for the operator restricted to these namespaces
+namespaceScope: []
