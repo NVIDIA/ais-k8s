@@ -9,6 +9,20 @@
       "description": "Name of the AIS cluster.",
       "examples": ["ais"]
     },
+    "metadata": {
+      "type": "object",
+      "description": "Metadata for the AIStore CustomResource.",
+      "properties": {
+        "annotations": {
+          "type": "object",
+          "description": "Annotations to attach to the AIStore CR.",
+          "additionalProperties": { "type": "string" },
+          "examples": [
+            { "sample-key": "sample-value" }
+          ]
+        }
+      }
+    },
     "size": {
       "type": "integer",
       "description": "Number of nodes in the AIS cluster.",

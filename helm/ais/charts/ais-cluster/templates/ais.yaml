@@ -13,6 +13,12 @@ kind: AIStore
 metadata:
   name: {{ .Values.cluster }}
   namespace: {{ .Release.Namespace }}
+  {{- if .Values.metadata }}
+  {{- with .Values.metadata.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- end }}
 spec:
   size: {{ .Values.size }}
   configToUpdate:
