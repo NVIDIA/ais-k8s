@@ -169,13 +169,15 @@ func defineMounts(args *ClusterSpecArgs) []aisv1.Mount {
 
 func newAISClusterCR(args *ClusterSpecArgs, mounts []aisv1.Mount) *aisv1.AIStore {
 	spec := aisv1.AIStoreSpec{
-		Size:              &args.Size,
-		ShutdownCluster:   aisapc.Ptr(args.ShutdownCluster),
-		CleanupMetadata:   aisapc.Ptr(args.CleanupMetadata),
-		CleanupData:       aisapc.Ptr(args.CleanupData),
-		NodeImage:         args.NodeImage,
-		InitImage:         args.InitImage,
-		LogSidecarImage:   aisapc.Ptr(args.LogSidecarImage),
+		Size:            &args.Size,
+		ShutdownCluster: aisapc.Ptr(args.ShutdownCluster),
+		CleanupMetadata: aisapc.Ptr(args.CleanupMetadata),
+		CleanupData:     aisapc.Ptr(args.CleanupData),
+		NodeImage:       args.NodeImage,
+		InitImage:       args.InitImage,
+		LogSidecar: &aisv1.LogSidecarSpec{
+			Image: args.LogSidecarImage,
+		},
 		StateStorageClass: aisapc.Ptr("local-path"),
 		EnableExternalLB:  args.EnableExternalLB,
 		ProxySpec: aisv1.DaemonSpec{

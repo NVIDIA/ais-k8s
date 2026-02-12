@@ -19,6 +19,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ### Added
 
+- `spec.logSidecar` option to consolidate log sidecar configuration
 - `namespaceScope` helm value takes an optional list of namespaces the operator can access and watch
   - Disables the ClusterRoleBinding for the operator ServiceAccount to the ClusterRole
   - Templates a RoleBinding for each namespace provided to the operator ServiceAccount
@@ -33,6 +34,8 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 - `spec.tlsCertificate` - use `spec.tls.certificate` instead.
 - `spec.tlsSecretName` - use `spec.tls.secretName` instead.
 - `spec.tlsCertManagerIssuerName` - use `spec.tls.certificate` with `mode: csi` instead.
+- `spec.logSidecarResources` - use `spec.logSidecar.resources` instead.
+- `spec.logSidecarImage` - use `spec.logSidecar.image` instead.
 
 ### Removed
 

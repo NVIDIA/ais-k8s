@@ -47,19 +47,18 @@ func PrepareAnnotations(annotations map[string]string, netAttachment, restartHas
 	return newAnnotations
 }
 
-// NewLogSidecar Defines a container that mounts the location of AIS info logs.
-// If resources is non-nil, it will be applied to the container to enable resource limits.
-func NewLogSidecar(image, daeType string, resources *corev1.ResourceRequirements) corev1.Container {
+// NewLogSidecar Defines a container that mounts the location of AIS info logs
+func NewLogSidecar(ais *aisv1.AIStore, daeType string) corev1.Container {
 	logFile := filepath.Join(LogsDir, fmt.Sprintf("ais%s.INFO", daeType))
 	container := corev1.Container{
 		Name:            "ais-logs",
-		Image:           image,
+		Image:           ais.GetLogSidecarImage(),
 		ImagePullPolicy: corev1.PullIfNotPresent,
 		Args:            []string{logFile},
 		VolumeMounts:    []corev1.VolumeMount{newLogsVolumeMount(daeType)},
 		Env:             []corev1.EnvVar{EnvFromFieldPath(EnvPodName, "metadata.name")},
 	}
-	if resources != nil {
+	if resources := ais.GetLogSidecarResources(); resources != nil {
 		container.Resources = *resources
 	}
 	return container

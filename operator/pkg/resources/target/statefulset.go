@@ -128,8 +128,8 @@ func targetPodSpec(ais *aisv1.AIStore) *corev1.PodSpec {
 	if ais.Spec.PriorityClassName != nil {
 		spec.PriorityClassName = *ais.Spec.PriorityClassName
 	}
-	if ais.Spec.LogSidecarImage != nil {
-		spec.Containers = append(spec.Containers, cmn.NewLogSidecar(*ais.Spec.LogSidecarImage, aisapc.Target, ais.Spec.LogSidecarResources))
+	if ais.GetLogSidecarImage() != "" {
+		spec.Containers = append(spec.Containers, cmn.NewLogSidecar(ais, aisapc.Target))
 	}
 	return spec
 }

@@ -1,6 +1,6 @@
 // Package cmn provides utilities for common AIS cluster resources
 /*
- * Copyright (c) 2025, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2025-2026, NVIDIA CORPORATION. All rights reserved.
  */
 package cmn
 
@@ -20,46 +20,64 @@ import (
 
 var _ = Describe("Statefulset", Label("short"), func() {
 	Describe("Log Sidecar", func() {
-		DescribeTable("should create log container spec without resources",
-			func(daeType string) {
-				sidecarImage := "testImage"
-				cSpec := NewLogSidecar(sidecarImage, daeType, nil)
+		DescribeTable("should create log container spec with proper image and resources",
+			func(daeType string, withResources bool, oldFmt bool) {
+				var (
+					imageName = "testImage"
+					resources *corev1.ResourceRequirements
+				)
+				ais := &aisv1.AIStore{Spec: aisv1.AIStoreSpec{}}
+				if withResources {
+					resources = &corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceMemory: resource.MustParse("64Mi"),
+							corev1.ResourceCPU:    resource.MustParse("50m"),
+						},
+						Limits: corev1.ResourceList{
+							corev1.ResourceMemory: resource.MustParse("64Mi"),
+							corev1.ResourceCPU:    resource.MustParse("50m"),
+						},
+					}
+				}
+				if oldFmt {
+					//nolint // testing backwards-compat for deprecated field
+					ais.Spec.LogSidecarImage = &imageName
+					if withResources {
+						//nolint // testing backwards-compat for deprecated field
+						ais.Spec.LogSidecarResources = resources
+					}
+				} else {
+					ais.Spec.LogSidecar = &aisv1.LogSidecarSpec{Image: imageName}
+					if withResources {
+						ais.Spec.LogSidecar.Resources = resources
+					}
+				}
 
-				Expect(cSpec.Name).To(BeEquivalentTo("ais-logs"))
+				cSpec := NewLogSidecar(ais, daeType)
+
+				Expect(cSpec.Name).To(Equal("ais-logs"))
+				Expect(cSpec.Image).To(Equal(imageName))
 				Expect(cSpec.ImagePullPolicy).To(BeEquivalentTo(corev1.PullIfNotPresent))
-				Expect(cSpec.Args).To(BeEquivalentTo([]string{fmt.Sprintf(LogsDir+"/ais%s.INFO", daeType)}))
+				Expect(cSpec.Args).To(Equal([]string{fmt.Sprintf(LogsDir+"/ais%s.INFO", daeType)}))
 
 				Expect(cSpec.VolumeMounts).To(HaveLen(1))
 				Expect(cSpec.VolumeMounts[0]).To(BeEquivalentTo(newLogsVolumeMount(daeType)))
-				Expect(cSpec.Resources.Requests).To(BeNil())
-				Expect(cSpec.Resources.Limits).To(BeNil())
-			},
-			Entry("for proxy", aisapc.Proxy),
-			Entry("for target", aisapc.Target),
-		)
-
-		DescribeTable("should create log container spec with resources",
-			func(daeType string) {
-				sidecarImage := "testImage"
-				resources := &corev1.ResourceRequirements{
-					Requests: corev1.ResourceList{
-						corev1.ResourceMemory: resource.MustParse("64Mi"),
-						corev1.ResourceCPU:    resource.MustParse("50m"),
-					},
-					Limits: corev1.ResourceList{
-						corev1.ResourceMemory: resource.MustParse("64Mi"),
-						corev1.ResourceCPU:    resource.MustParse("50m"),
-					},
+				if withResources {
+					Expect(cSpec.Resources.Requests).To(Equal(resources.Requests))
+					Expect(cSpec.Resources.Limits).To(Equal(resources.Limits))
+				} else {
+					Expect(cSpec.Resources.Requests).To(BeNil())
+					Expect(cSpec.Resources.Limits).To(BeNil())
 				}
-				cSpec := NewLogSidecar(sidecarImage, daeType, resources)
-
-				Expect(cSpec.Name).To(BeEquivalentTo("ais-logs"))
-				Expect(cSpec.ImagePullPolicy).To(BeEquivalentTo(corev1.PullIfNotPresent))
-				Expect(cSpec.Resources.Requests).To(Equal(resources.Requests))
-				Expect(cSpec.Resources.Limits).To(Equal(resources.Limits))
 			},
-			Entry("for proxy", aisapc.Proxy),
-			Entry("for target", aisapc.Target),
+			Entry("for proxy", aisapc.Proxy, false, false),
+			Entry("for proxy, with resources", aisapc.Proxy, true, false),
+			Entry("for proxy, backwards-compatible", aisapc.Proxy, false, true),
+			Entry("for proxy, with resources, backwards-compatible", aisapc.Proxy, true, true),
+			Entry("for target", aisapc.Target, false, false),
+			Entry("for target, with resources", aisapc.Target, true, false),
+			Entry("for target, backwards-compatible", aisapc.Target, false, true),
+			Entry("for target, with resources, backwards-compatible", aisapc.Target, true, true),
 		)
 	})
 

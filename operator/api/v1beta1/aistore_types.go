@@ -314,10 +314,14 @@ type AIStoreSpec struct {
 	// Container image used for `ais-init` container.
 	// +kubebuilder:validation:MinLength=1
 	InitImage string `json:"initImage"`
+	// Deprecated: Use logSidecar.image
 	// Container image used for `ais-logs` container.
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:Optional
 	LogSidecarImage *string `json:"logSidecarImage"`
+	// LogSidecar defines the details for a logging sidecar container deployed within each AIS pod
+	// +kubebuilder:validation:Optional
+	LogSidecar *LogSidecarSpec `json:"logSidecar"`
 	// StateStorageClass recommended if possible
 	// See docs/state_storage.md
 	// Path on host used for state
@@ -450,6 +454,7 @@ type AIStoreSpec struct {
 	// +optional
 	PriorityClassName *string `json:"priorityClassName,omitempty"`
 
+	// Deprecated: Use logSidecar.resources
 	// LogSidecarResources specifies resource requirements for the ais-logs sidecar container.
 	// Setting requests equal to limits gives the pod Guaranteed QoS, protecting it from eviction.
 	// If not specified, the sidecar runs with no resource constraints (BestEffort for that container).
@@ -574,6 +579,21 @@ type TargetSpec struct {
 	// during node drain or cluster scale-down operations by cloud providers.
 	// +optional
 	PodDisruptionBudget *PDBSpec `json:"pdb,omitempty"`
+}
+
+// LogSidecarSpec defines a sidecar container to expose AIS logs to K8s
+// AIS buffers and writes logs to files rather than directly to stdout
+// This sidecar is intended to tail those files in parallel to view via K8s-native tooling
+type LogSidecarSpec struct {
+	// Image defines the image to use for the sidecar container in the AIS pod
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Image string `json:"image"`
+	// Resources specifies resource requirements for the sidecar container in the AIS pod
+	// Setting requests equal to limits gives the pod Guaranteed QoS, protecting it from eviction.
+	// If not specified, the sidecar runs with no resource constraints (BestEffort for that container).
+	// +optional
+	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
 // PDBSpec defines the PodDisruptionBudget configuration for target pods
@@ -825,6 +845,23 @@ func (ais *AIStore) IsProxyAutoScaling() bool {
 		return true
 	}
 	return false
+}
+
+func (ais *AIStore) GetLogSidecarImage() string {
+	if ais.Spec.LogSidecar != nil {
+		return ais.Spec.LogSidecar.Image
+	}
+	if ais.Spec.LogSidecarImage != nil {
+		return *ais.Spec.LogSidecarImage
+	}
+	return ""
+}
+
+func (ais *AIStore) GetLogSidecarResources() *corev1.ResourceRequirements {
+	if ais.Spec.LogSidecar != nil {
+		return ais.Spec.LogSidecar.Resources
+	}
+	return ais.Spec.LogSidecarResources
 }
 
 func (m *Mount) IsHostPath() bool {
