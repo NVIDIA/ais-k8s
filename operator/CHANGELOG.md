@@ -15,7 +15,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 - Helm chart will now be persistent in the repository at `operator/helm` and allow additional customization and overrides of manifests
 - Updated all tool versions and minor dependencies
 - Updated target pod rollout strategy to search for lowest pod ordinal not on new revision instead of relying on `UpdatedReplicas`
-- Removed cleanup code for legacy cluster-specific ClusterRoles and ClusterRoleBindings
+- Fixed a bug where readiness check against target count would deadlock when scaling up by >1 replica
 
 ### Added
 
@@ -33,6 +33,10 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 - `spec.tlsCertificate` - use `spec.tls.certificate` instead.
 - `spec.tlsSecretName` - use `spec.tls.secretName` instead.
 - `spec.tlsCertManagerIssuerName` - use `spec.tls.certificate` with `mode: csi` instead.
+
+### Removed
+
+- Cleanup code for legacy cluster-specific ClusterRoles and ClusterRoleBindings, along with associated permissions
 
 ## v2.13.0
 

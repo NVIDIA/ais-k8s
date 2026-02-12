@@ -3,22 +3,21 @@
 This repository follows an open source model where anyone is allowed and encouraged to contribute.
 However, contributing to AIStore has a few guidelines that must be followed.
 
-
 ## Contribution Workflow
 
 The AIS-K8s repository maintains a contribution structure in which everyone *proposes* changes to the codebase via *pull requests*.
 To contribute to AIStore:
 
-1. [Fork the repository](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request-from-a-fork),
-2. [Create branch for issue](https://docs.github.com/en/issues/tracking-your-work-with-issues/creating-a-branch-for-an-issue),
-3. [Test changes](#testing-changes),
-4. [Format changes](#formatting-changes),
-5. [Commit changes (w/ sign-off)](#signing-off-commits),
-6. [Squash commits](#squashing-changes),
-5. [Create a pull request](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request-from-a-fork).
+1. [Fork the repository](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request-from-a-fork)
+2. [Create a new branch](https://docs.github.com/en/issues/tracking-your-work-with-issues/creating-a-branch-for-an-issue)
+3. [Test changes](#testing-changes)
+4. [Format changes](#formatting-operator-changes)
+5. [Update changelog](#update-changelog)
+6. [Commit changes (w/ sign-off)](#signing-off-commits)
+7. [Squash commits](#squashing-commits)
+8. [Create a pull request](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request-from-a-fork)
 
-
-#### Formatting Operator Changes
+### Formatting Operator Changes
 
 AIStore operator maintains a few formatting rules to ensure a consistent coding style.
 These rules are checked and enforced by `gofmt`, etc.
@@ -37,12 +36,12 @@ $ make fmt-check
 $ make fmt-fix
 ```
 
-#### Testing Operator Changes
+### Testing Operator Changes
 
 Before committing any changes, run the following tests to verify any added changes to the codebase.
 Refer to operator [Development](operator/README.md#development) and [Test](operator/README.md#testing) sections for more details.
 
-#### Signing-Off Commits
+### Signing-Off Commits
 
 All contributors must *sign-off* on each commit.
 This certifies that each contribution is that contributor's original work per the following *Developer Certificate of Origin*[^developer-certificate-of-origin].
@@ -103,7 +102,15 @@ Signed-off-by: Your Name <your@email.com>
 > **Note**: Commits that are not signed-off cannot be accepted or merged.
 
 
-#### Squashing Commits
+### Update Changelog
+
+If a contribution updates the [AIS K8s Operator](./operator/README.md), an associated update should also be made to the [changelog](./operator/CHANGELOG.md) in the same commit.
+
+Changelog entries should be short and focused on user-facing impacts of the change. 
+
+New changes should be placed under the current `Unreleased` section and in the appropriate sub-section (e.g. `Added`, `Changed`, `Deprecated`, `Removed`).
+
+### Squashing Commits
 
 If a pull request contains more than one commit, [squash](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/incorporating-changes-from-a-pull-request/about-pull-request-merges) all commits into one.
 
@@ -114,6 +121,7 @@ git checkout <your-pr-branch>
 git rebase -i HEAD~<# of commits to squash>
 ```
 
+---
 
 ## Raise an Issue
 
