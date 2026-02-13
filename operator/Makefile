@@ -7,6 +7,7 @@ BUILD_VERSION = $(BUILD_VERSION_BASE)+$(shell git rev-parse --short HEAD)
 BUILD_TIME = $(shell date +%FT%T%z)
 OS = $(shell go env GOOS)
 ARCH = $(shell go env GOARCH)
+PODMAN_BUILDPLATFORM := $(OS)/$(ARCH)
 
 REPO = https://github.com/NVIDIA/ais-k8s
 PAGES = https://NVIDIA.github.io/ais-k8s/charts
@@ -47,6 +48,8 @@ export TEST_E2E_MODE ?=
 # scaffolded by default. However, you might want to replace it to use other
 # tools. (i.e. podman)
 CONTAINER_TOOL ?= docker
+# Supported target platforms for which to build container images
+TARGET_PLATFORMS ?= linux/amd64,linux/arm64
 
 # Setting SHELL to bash allows bash commands to be executed by recipes.
 # Options are set to exit when a recipe line exits non-zero or a piped command fails.
@@ -170,33 +173,55 @@ build: manifests generate fmt vet ## Build manager binary.
 run: manifests generate fmt vet ## Run a controller from your host.
 	go run ./cmd/main.go
 
-# If you wish to build the manager image targeting other platforms you can use the --platform flag.
-# (i.e. docker build --platform linux/arm64). However, you must enable docker buildKit for it.
-# More info: https://docs.docker.com/develop/develop-images/build_enhancements/
-.PHONY: docker-build
-docker-build: require-img ## Build docker image with the manager.
-	$(CONTAINER_TOOL) build -t ${IMG} .
+# Native-only build (no manifest, no cross-compile)
+podman-build: require-img
+	podman build \
+		--build-arg BUILDPLATFORM=$(PODMAN_BUILDPLATFORM) \
+		--build-arg BUILD_VERSION=$(BUILD_VERSION) \
+		--build-arg BUILD_TIME=$(BUILD_TIME) \
+		-t $(IMG) \
+		.
 
-.PHONY: docker-push
-docker-push: require-img ## Push docker image with the manager.
-	$(CONTAINER_TOOL) push ${IMG}
+podman-build-multiarch:
+	# Remove any existing manifest with this name so we don't append duplicates
+	podman manifest rm $(IMG) || true
+	# Create a manifest and have podman add each arch to it
+	podman build \
+		--platform $(TARGET_PLATFORMS) \
+		--build-arg BUILDPLATFORM=$(PODMAN_BUILDPLATFORM) \
+		--build-arg BUILD_VERSION=$(BUILD_VERSION) \
+		--build-arg BUILD_TIME=$(BUILD_TIME) \
+		--manifest $(IMG) \
+		.
 
-# PLATFORMS defines the target platforms for the manager image be built to provide support to multiple
-# architectures. (i.e. make docker-buildx IMG=myregistry/mypoperator:0.0.1). To use this option you need to:
-# - be able to use docker buildx. More info: https://docs.docker.com/build/buildx/
-# - have enabled BuildKit. More info: https://docs.docker.com/develop/develop-images/build_enhancements/
-# - be able to push the image to your registry (i.e. if you do not set a valid value via IMG=<myregistry/image:<tag>> then the export will fail)
-# To adequately provide solutions that are compatible with multiple platforms, you should consider using this option.
-PLATFORMS ?= linux/arm64,linux/amd64,linux/s390x,linux/ppc64le
-.PHONY: docker-buildx
-docker-buildx: ## Build and push docker image for the manager for cross-platform support
-	# copy existing Dockerfile and insert --platform=${BUILDPLATFORM} into Dockerfile.cross, and preserve the original Dockerfile
-	sed -e '1 s/\(^FROM\)/FROM --platform=\$$\{BUILDPLATFORM\}/; t' -e ' 1,// s//FROM --platform=\$$\{BUILDPLATFORM\}/' Dockerfile > Dockerfile.cross
-	- $(CONTAINER_TOOL) buildx create --name output-dir-builder
-	$(CONTAINER_TOOL) buildx use output-dir-builder
-	- $(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) --tag ${IMG} -f Dockerfile.cross .
-	- $(CONTAINER_TOOL) buildx rm output-dir-builder
-	rm Dockerfile.cross
+podman-push: require-img
+	@if podman manifest inspect $(IMG) >/dev/null 2>&1; then \
+		echo "Pushing manifest list $(IMG)"; \
+		podman manifest push --all $(IMG) docker://$(IMG); \
+	else \
+		echo "Pushing single image $(IMG)"; \
+		podman push $(IMG) docker://$(IMG); \
+	fi
+
+# Native-only build (no manifest, no cross-compile)
+docker-build: require-img
+	docker build \
+		--build-arg BUILD_VERSION=$(BUILD_VERSION) \
+		--build-arg BUILD_TIME=$(BUILD_TIME) \
+		-t $(IMG) \
+		.
+docker-push: require-img
+	docker push $(IMG)
+
+docker-buildx-push: require-img
+	# Use buildx to get a multi-arch manifest under ${IMG}
+	docker buildx build \
+		--platform $(TARGET_PLATFORMS) \
+		--build-arg BUILD_VERSION=$(BUILD_VERSION) \
+		--build-arg BUILD_TIME=$(BUILD_TIME) \
+		-t $(IMG) \
+		$(foreach tag,$(EXTRA_TAGS),-t $(tag)) \
+		--push .
 
 .PHONY: build-installer
 build-installer: require-img manifests generate kustomize ## Generate a consolidated YAML with CRDs and deployment.

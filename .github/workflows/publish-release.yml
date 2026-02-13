@@ -11,7 +11,7 @@ env:
 
 jobs:
   release:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
     - name: Checkout Repo
       uses: actions/checkout@v6
@@ -27,8 +27,9 @@ jobs:
     - name: Make aisoperator image
       run: |
         pushd $GITHUB_WORKSPACE/operator
-        IMG="${{ env.AISOPERATOR_IMAGE }}:${{ env.VERSION }}" make docker-build docker-push
-        IMG="${{ env.AISOPERATOR_IMAGE }}:latest" make docker-build docker-push
+        IMG="${{ env.AISOPERATOR_IMAGE }}:${{ env.VERSION }}" EXTRA_TAGS="${{ env.AISOPERATOR_IMAGE }}:latest" \
+          make docker-buildx-push
+        IMG="${{ env.AISOPERATOR_IMAGE }}:latest" make docker-buildx-push
         popd
 
     - name: Make operator manifest

@@ -8,6 +8,12 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ---
 
+## Unreleased
+
+### Added
+
+- Native support for arm64 hosts with multi-arch container image build targets 
+
 ## v2.14.0
 
 ### Changed

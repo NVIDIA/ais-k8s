@@ -422,21 +422,40 @@ Any modifications to these type definitions requires updating of the auto-genera
 We use the following commands to achieve this:
 
 ```console
-$ # Updating the auto-generated code.
-$ make generate
-$
-$ # Updating the YAML base manifests in `config/base`.
-$ make manifests
+# Update the auto-generated code
+make generate
+
+# Update the YAML base manifests in `config/base`
+make manifests
+
+# Apply kustomize to the base manifests to generate an installer manifest
+make build-installer
+
+# Apply kustomize, then helmify, then our custom templating
+# This updates the helm chart in operator/helm
+make build-installer-helm
 ```
 
-For building and pushing the operator Docker images, use the following commands:
+For building and pushing the operator container images, use the following commands.
+Currently, `docker` and `podman` are explicitly supported.
+To use a different tool, we expect it to be aliased to one of these commands and compatible with their arguments.
 
 ```console
-$ # Building the Docker image.
-$ IMG=<REPOSITORY>/<IMAGE_TAG> make docker-build
-$
-$ # Pushing the Docker image.
-$ IMG=<REPOSITORY>/<IMAGE_TAG> make docker-push
+# Define an image to build
+export IMG=<REPOSITORY>/<IMAGE_TAG> 
+
+# Build and push the image:
+# For the current platform, with docker
+make docker-build docker-push
+
+# For the current platform, with podman
+make podman-build podman-push
+
+# For $TARGET_PLATFORMS (default linux/amd64, linux/arm64), with docker buildx
+make docker-buildx-push
+
+# For $TARGET_PLATFORMS (default linux/amd64, linux/arm64), with podman
+make podman-build-multiarch podman-push
 ```
 
 ## Testing
