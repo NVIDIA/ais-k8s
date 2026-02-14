@@ -68,6 +68,10 @@ func shouldUpdatePodTemplate(desired, current *corev1.PodTemplateSpec) (bool, st
 		}
 	}
 
+	if desired.Spec.PriorityClassName != current.Spec.PriorityClassName {
+		return true, "updating priority class name"
+	}
+
 	return false, ""
 }
 
@@ -203,6 +207,16 @@ func syncPodTemplate(desired, current *corev1.PodTemplateSpec) (updated bool) {
 
 	if !equality.Semantic.DeepEqual(desired.Spec.SecurityContext, current.Spec.SecurityContext) {
 		current.Spec.SecurityContext = desired.Spec.SecurityContext
+		updated = true
+	}
+
+	if !equality.Semantic.DeepEqual(desired.Spec.Volumes, current.Spec.Volumes) {
+		current.Spec.Volumes = desired.Spec.Volumes
+		updated = true
+	}
+
+	if desired.Spec.PriorityClassName != current.Spec.PriorityClassName {
+		current.Spec.PriorityClassName = desired.Spec.PriorityClassName
 		updated = true
 	}
 
