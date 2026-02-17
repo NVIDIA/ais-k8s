@@ -25,6 +25,7 @@ import (
 	apiv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
@@ -785,10 +786,31 @@ func (r *AIStoreReconciler) reconcileTLSCertificate(ctx context.Context, ais *ai
 	return err
 }
 
-// reconcileAdminClient handles creating, updating, or deleting the admin client deployment
+// reconcileAdminClient handles creating, updating, or deleting the admin client deployment.
+// If a deployment with the expected name already exists but is not owned by this AIStore CR
+// (e.g. deployed via Helm), the operator will skip reconciliation to avoid conflicts.
 func (r *AIStoreReconciler) reconcileAdminClient(ctx context.Context, ais *aisv1.AIStore) error {
 	logger := logf.FromContext(ctx)
-	if ais.AdminClientEnabled() {
+	nsName := adminclient.DeploymentNSName(ais)
+
+	existing, err := r.k8sClient.GetDeployment(ctx, nsName)
+	enabled := ais.AdminClientEnabled()
+	if err != nil {
+		if !k8serrors.IsNotFound(err) {
+			return err
+		}
+		// Do not proceed if does not exist and not enabled (no need to delete)
+		if !enabled {
+			return nil
+		}
+	} else if !metav1.IsControlledBy(existing, ais) {
+		if enabled {
+			logger.Info("Admin client deployment exists but is not managed by this AIStore CR, skipping", "deployment", nsName)
+		}
+		return nil
+	}
+
+	if enabled {
 		// Create or update the client deployment
 		clientDeploy := adminclient.NewClientDeployment(ais)
 		changed, err := r.k8sClient.CreateOrUpdateResource(ctx, ais, clientDeploy)
@@ -796,17 +818,18 @@ func (r *AIStoreReconciler) reconcileAdminClient(ctx context.Context, ais *aisv1
 			return err
 		}
 		if changed {
-			logger.Info("Reconciled admin client deployment", "name", ais.AdminClientName())
+			logger.Info("Reconciled admin client deployment", "name", nsName.Name)
 		}
 		return nil
 	}
-	// Delete the client deployment if it exists
-	deleted, err := r.k8sClient.DeleteDeploymentIfExists(ctx, adminclient.DeploymentNSName(ais))
+
+	// Delete the operator-managed client deployment
+	deleted, err := r.k8sClient.DeleteDeploymentIfExists(ctx, nsName)
 	if err != nil {
 		return err
 	}
 	if deleted {
-		logger.Info("Deleted admin client deployment", "name", ais.AdminClientName())
+		logger.Info("Deleted admin client deployment", "name", nsName.Name)
 	}
 	return nil
 }
