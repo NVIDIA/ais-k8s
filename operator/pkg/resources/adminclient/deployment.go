@@ -113,10 +113,6 @@ func NewClientDeployment(ais *aisv1.AIStore) *appsv1.Deployment {
 	podLabels := selectorLabels(ais)
 	maps.Copy(podLabels, clientSpec.Labels)
 
-	env := []corev1.EnvVar{{Name: aisenv.AisEndpoint, Value: ais.GetIntraClusterURL()}}
-	env = append(env, clientSpec.Env...)
-	env = append(env, caEnvVars(clientSpec.CAConfigMap)...)
-
 	volumes := caVolumes(clientSpec.CAConfigMap)
 	volumeMounts := caVolumeMounts(clientSpec.CAConfigMap)
 
@@ -124,7 +120,7 @@ func NewClientDeployment(ais *aisv1.AIStore) *appsv1.Deployment {
 		Name:         "ais-client",
 		Image:        image,
 		Command:      []string{"sleep", "infinity"},
-		Env:          env,
+		Env:          buildClientEnv(ais),
 		Resources:    clientSpec.Resources,
 		VolumeMounts: volumeMounts,
 	}
@@ -160,4 +156,18 @@ func NewClientDeployment(ais *aisv1.AIStore) *appsv1.Deployment {
 			},
 		},
 	}
+}
+
+func buildClientEnv(ais *aisv1.AIStore) []corev1.EnvVar {
+	clientSpec := ais.Spec.AdminClient
+	base := []corev1.EnvVar{
+		{Name: aisenv.AisEndpoint, Value: ais.GetIntraClusterURL()},
+	}
+	ca := caEnvVars(clientSpec.CAConfigMap)
+
+	env := make([]corev1.EnvVar, 0, len(base)+len(clientSpec.Env)+len(ca))
+	env = append(env, base...)
+	env = append(env, clientSpec.Env...)
+	env = append(env, ca...)
+	return env
 }

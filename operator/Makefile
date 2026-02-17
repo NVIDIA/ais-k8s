@@ -149,11 +149,11 @@ cert-manager-teardown:
 
 .PHONY: lint
 lint: golangci-lint ## Run golangci-lint linter
-	golangci-lint run
+	$(GOLANGCI_LINT) run
 
 .PHONY: lint-fix
 lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
-	golangci-lint run --fix
+	$(GOLANGCI_LINT) run --fix
 
 .PHONY: fmt-check
 fmt-check: ## Check code formatting
@@ -290,6 +290,7 @@ KUBEBUILDER ?= $(LOCALBIN)/kubebuilder-$(KUBEBUILDER_VERSION)
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen-$(CONTROLLER_TOOLS_VERSION)
 ENVTEST ?= $(LOCALBIN)/setup-envtest-$(ENVTEST_VERSION)
 MOCKGEN ?= $(LOCALBIN)/mockgen-$(MOCKGEN_VERSION)
+GOLANGCI_LINT ?= $(LOCALBIN)/golangci-lint-$(GOLANGCI_LINT_VERSION)
 GOMPLATE ?= $(LOCALBIN)/gomplate
 HELMIFY = $(LOCALBIN)/helmify
 HELM = $(LOCALBIN)/helm
@@ -298,6 +299,7 @@ CLOUD_PROVIDER_KIND ?= $(LOCALBIN)/cloud-provider-kind
 YQ ?= $(LOCALBIN)/yq
 
 ## Tool Versions
+GOLANGCI_LINT_VERSION ?= v2.10.1
 GOMPLATE_VERSION ?= v5.0.0
 HELM_VERSION ?= v3.20.0
 HELMIFY_VERSION ?= v0.4.19
@@ -309,10 +311,6 @@ MOCKGEN_VERSION ?= v0.6.0
 KIND_VERSION ?= v0.31.0
 CLOUD_PROVIDER_KIND_VERSION ?= v0.10.0
 YQ_VERSION ?= v4.52.2
-
-# Lint
-GOLANGCI_LINT_INSTALLER = https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh
-GOLANGCI_LINT_VERSION ?= v2.8.0
 
 .PHONY: kustomize
 kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary.
@@ -329,14 +327,15 @@ envtest: $(ENVTEST) ## Download setup-envtest locally if necessary.
 $(ENVTEST): $(LOCALBIN)
 	./scripts/go_install_tool.sh $(ENVTEST) sigs.k8s.io/controller-runtime/tools/setup-envtest $(ENVTEST_VERSION)
 
-
 .PHONY: golangci-lint
-golangci-lint: ## Download golangci-lint to GOPATH/bin if necessary.
-	@command -v golangci-lint >/dev/null 2>&1 || { \
-		echo "golangci-lint not found, installing to $(GOPATH)/bin"; \
-		curl -sSfL $(GOLANGCI_LINT_INSTALLER) | sh -s -- -b $(GOPATH)/bin $(GOLANGCI_LINT_VERSION); \
-	}
-	@echo "Using golangci-lint: $$(command -v golangci-lint)"
+golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
+	@echo "Using golangci-lint: $(GOLANGCI_LINT)"
+
+$(GOLANGCI_LINT): $(LOCALBIN)
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | \
+		sh -s -- -b $(LOCALBIN) $(GOLANGCI_LINT_VERSION)
+	@mv $(LOCALBIN)/golangci-lint $(GOLANGCI_LINT)
+	@ln -sf $(notdir $(GOLANGCI_LINT)) $(LOCALBIN)/golangci-lint
 
 .PHONY: kubebuilder
 kubebuilder: $(KUBEBUILDER) ## Download kubebuilder locally if necessary.

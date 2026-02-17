@@ -96,9 +96,13 @@ type (
 
 	// RFC 8693 Section 2.2 - Response format (REQUIRED fields only)
 	oauthTokenResponse struct {
-		AccessToken string `json:"access_token"`         // REQUIRED
-		TokenType   string `json:"token_type"`           // REQUIRED
-		ExpiresIn   int    `json:"expires_in,omitempty"` // Not required by RFC but needed for token expiration
+		// Required by RFC
+		// #nosec G117 -- Not a secret
+		AccessToken string `json:"access_token"`
+		// Required by RFC
+		TokenType string `json:"token_type"`
+		// Not required by RFC but needed for token expiration
+		ExpiresIn int `json:"expires_in,omitempty"`
 	}
 
 	tokenExchangeResponse struct {
@@ -332,10 +336,7 @@ func getTokenFromOAuth(ctx context.Context, params *api.BaseParams, secretData m
 	if err != nil {
 		return nil, fmt.Errorf("failed to create OAuth login request: %w", err)
 	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("User-Agent", params.UA)
-
-	resp, err := params.Client.Do(req)
+	resp, err := doAuthSvcRequest(req, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send OAuth login request: %w", err)
 	}
@@ -514,10 +515,7 @@ func exchangeTokenWithAuthSvc(ctx context.Context, params *api.BaseParams, sourc
 	if err != nil {
 		return nil, fmt.Errorf("failed to create exchange request: %w", err)
 	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("User-Agent", params.UA)
-
-	resp, err := params.Client.Do(req)
+	resp, err := doAuthSvcRequest(req, params)
 	if err != nil {
 		return nil, fmt.Errorf("token exchange request failed: %w", err)
 	}
@@ -567,4 +565,11 @@ func exchangeTokenWithAuthSvc(ctx context.Context, params *api.BaseParams, sourc
 		Token:     token,
 		ExpiresAt: expiresAt,
 	}, nil
+}
+
+func doAuthSvcRequest(req *http.Request, params *api.BaseParams) (*http.Response, error) {
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("User-Agent", params.UA)
+	// #nosec G704 -- URL comes from trusted operator config, see newAuthBaseParams
+	return params.Client.Do(req)
 }

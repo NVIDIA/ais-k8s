@@ -134,13 +134,19 @@ func (aisw *AIStoreWebhook) validateSpec(ctx context.Context, ais *AIStore) (adm
 
 func (ais *AIStore) ValidateSpec(_ context.Context, extraValidations ...func() (admission.Warnings, error)) (admission.Warnings, error) {
 	var allWarnings admission.Warnings
-
-	validations := []func() (admission.Warnings, error){
+	base := []func() (admission.Warnings, error){
 		ais.validateSize,
 		ais.validateStateStorage,
 		ais.validateAutoScaling,
 		ais.validateServiceSpec,
 	}
+
+	validations := make(
+		[]func() (admission.Warnings, error),
+		0,
+		len(base)+len(extraValidations),
+	)
+	validations = append(validations, base...)
 	validations = append(validations, extraValidations...)
 
 	// Run each validation function, aggregate warnings, exit on error
