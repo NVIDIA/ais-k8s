@@ -1,15 +1,28 @@
 # This file contains the default values for the sysctl settings.
 # These are only suggestions and MUST be tuned per your hosts, as many depend on network speed, memory, etc.  
-# See environments/README.md for details on how to override these values per environment.
+# See ../docs/ais_host_config_sysctl.md for details on how to override these values per environment.
 # Note that any overridden section must override the entire section as ansible does not merge by default. 
 
-# Applied in lexicographic order, tweak if needed override existing conf on your system
-required_sysctl_file: /etc/sysctl.d/100-ais-required.conf
-network_sysctl_file: /etc/sysctl.d/100-ais-network.conf
-vm_sysctl_file: /etc/sysctl.d/100-ais-vm.conf
+# Sysctl will read files from the following directories
+# Files within those directories are applied in lexicographic order
+# /etc/sysctl.d/*.conf
+# /run/sysctl.d/*.conf
+# /usr/local/lib/sysctl.d/*.conf
+# /usr/lib/sysctl.d/*.conf
+# /lib/sysctl.d/*.conf
+# See https://man7.org/linux/man-pages/man8/sysctl.8.html for details
+
+# Used to remove previous applications
+rm_sysctl_dropin_dir: /etc/sysctl.d
+sysctl_dropin_dir: /etc/sysctl.d
+
+# Applied last to override any directives from existing drop-in files
+required_sysctl_file: 99-ais-required.conf
+network_sysctl_file: 99-ais-network.conf
+vm_sysctl_file: 99-ais-vm.conf
 
 #
-# Items to add/tweak in /etc/sysctl.conf.d/ 
+# Items to add/tweak in sysctl drop-in config file
 # The 'default' and 'comment' fields are just for reference.
 #
 # Ensure your system has sufficient memory to handle the increased limits,
