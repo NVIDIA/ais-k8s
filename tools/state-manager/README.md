@@ -12,7 +12,7 @@ It is currently limited to our recommended PVC configurations -- dynamically pro
 
 ## Prerequisites
 
-- `pip install requirements.txt`
+- `pip install -r requirements.txt`
 - Kubectl installed and available in path. 
 - An available kube context to communicate with the desire cluster. 
 
