@@ -67,7 +67,7 @@ The playbook includes various roles and tasks to configure system settings, inst
    server1(host-name) ansible_host=10.49.41.111
    ```
 
-3. **Run the playbook:**
+2. **Run the playbook:**
    ```bash
    ansible-playbook -i inventory.ini os_hardening.yaml
    ```

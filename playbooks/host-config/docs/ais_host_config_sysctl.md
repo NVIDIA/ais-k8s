@@ -37,7 +37,7 @@ ansible-playbook -i hosts.ini ais_host_config_sysctl.yml -e ais_hosts=ais -e env
 ## Tagging Scheme
 
 | Tag              | Description                                                                |
-|------------------|----------------------------------------------------------------------------|--|
+|------------------|----------------------------------------------------------------------------|
 | `sysctlrequired` | Essential TCP tweaks .                                                     |
 | `sysctlnet`      | Networking tuning for 100GigE environments, customizable as per your setup |
 | `sysctlvm`       | Sysctls under `vm` such as memory management                               |

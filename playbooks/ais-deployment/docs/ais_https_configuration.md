@@ -16,7 +16,7 @@ To deploy AIS with HTTPS initially:
 ## Switching an HTTP cluster to HTTPS
 
 We also provide a playbook to transition from HTTP to HTTPS without losing any data in the cluster. 
-First update the TLS variables and create a certficiate as described above. Next, follow the instructions in [switch_protocol](switch_protocol.md) to redeploy the cluster with access to that secret. 
+First update the TLS variables and create a certificate as described above. Next, follow the instructions in [switch_protocol](switch_protocol.md) to redeploy the cluster with access to that secret. 
 
 ## Connecting to the HTTPS cluster
 

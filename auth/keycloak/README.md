@@ -1,6 +1,6 @@
 # AIStore Keycloak Integration
 
-This directory contains instructions and reference installation for setting up an instance of [Keycloak](https://www.keycloak.org/) for AIStore authenticatication. 
+This directory contains instructions and reference installation for setting up an instance of [Keycloak](https://www.keycloak.org/) for AIStore authentication. 
 
 See the [Keycloak quickstarts repo](https://github.com/keycloak/keycloak-quickstarts) for some other installation options.
 

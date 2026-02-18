@@ -6,38 +6,37 @@ This directory contains ansible playbooks for setting up an AIStore cluster in K
 
 1. Ansible installed locally
   See the [Ansible installation guide](https://docs.ansible.com/ansible/latest/installation_guide/intro_installation.html).
-2. Requirements playbook
-  Some of our playbooks require additional ansible collections or additional Python packages on the controller host. From this directory, run
-  ```bash
-  ansible-playbook -i hosts.ini ais-deployment/install_requirements.yml
-  ```
 
 ## Getting Started
 
 The playbooks are broken up into multiple sections, which should be executed in order. 
 
-1. [host-config](./host-config/README.md) playbooks configure system settings on K8s nodes
-2. [cloud](./cloud/README.md) playbooks set up credentials for accessing cloud backends, e.g. s3 and gcp
-3. [ais-deployment](./ais-deployment/README.md) playbooks configure resources in the AIS namespace including the operator and the AIS cluster pods
-4. [security](./security/README.md) contains [`os-hardening` playbook](security/os_hardening.yaml) are used to harden the OS for CISCAT scans. This includes various security measures such as configuring sysctl settings, journald, sshd, and ensuring audit logs and AIDE setup.
+1. [host-config](./host-config/README.md) playbooks configure K8s nodes to optimize the network and storage performance
+2. [cloud](./cloud/README.md) playbooks set up K8s secrets with static credentials for accessing cloud backends, e.g. s3 and gcp
+3. (optional) [security](./security/README.md) contains the [`os-hardening` playbook](security/os_hardening.yaml) to harden the OS for CISCAT scans. This includes various security measures such as configuring sysctl settings, journald, sshd, and ensuring audit logs and AIDE setup.
+4. [**DEPRECATED -- Use [Helm Charts](../helm)**] [ais-deployment](./ais-deployment/README.md) playbooks configure resources in the AIS namespace including the AIStore custom resource, managed by the operator
 
 An example hosts file is provided, [hosts-example.ini](./hosts-example.ini). You will need to set this up with your own hosts before running the playbooks.
 Make sure to specify the `controller` node in the `hosts.ini` file and configure the controller host with `kubectl` access.
 
 ### Quick Setup
 
-Before installing AIS, we recommend configuring the K8s hosts to optimize the network and storage performance. See our [host config playbook documentation](./host-config/README.md) to get started. 
+> **Deprecation Notice**:
+> 
+> Deployment with Ansible Playbooks is no longer actively supported.
+>
+> Refer to the [documentation for recommended deployment options](../docs/README.md#aistore-deployment) 
 
-For a streamlined setup, we offer playbooks for deploying the AIS Operator and cluster with recommended settings:
 
-- To deploy the AIS Cluster:
+Before deploying with the playbook below, the AIS K8s Operator must be installed.
+See the [operator installation docs](../docs/README.md#operator-deployment) for instructions.
+
+To deploy the AIS Cluster:
   ```bash
   ansible-playbook -i hosts.ini ais_deploy.yml -e cluster=ais
   ```
 
 ## Scaling the AIS Cluster
-
-Scaling your AIS cluster to meet changing demands is straightforward, whether you're adding new nodes or adjusting the existing setup.
 
 ### Adding New Nodes to the AIS Cluster
 

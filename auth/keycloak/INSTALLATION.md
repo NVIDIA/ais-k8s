@@ -17,7 +17,7 @@ Keycloak requires a relational DB to persist data and share between instances.
 A list of compatible DBs can be found [here](https://www.keycloak.org/server/db).
 
 For this reference installation, follow the [CloudNativePG](https://cloudnative-pg.io/documentation/current/quickstart/) quickstart guide.
-We have a sample helmfile in for the CNPG operator and cluster as well as some default values in [helm/cnpg/](./helm/cnpg/).
+We have a sample helmfile for the CNPG operator and cluster as well as some default values in [helm/cnpg/](./helm/cnpg/).
 
 This default installation includes an `app` database and user, which we will use for Keycloak.
 If needed, use the superuser and its associated secret to login and create a new user for keycloak.
@@ -39,7 +39,7 @@ Get the password for the `app` user created in a secret by the CNPG installation
     1. [Sample certificate manifest](./manifests/certificate.yaml).
 1. Install Keycloak 
     1. Check [Keycloak's documentation](https://www.keycloak.org/operator/basic-deployment) for manifest options
-    1. [Sample manifest](./manifests/certificate.yaml)
+    1. [Sample manifest](./manifests/keycloak.yaml)
 1. Log in. 
     1. Find the external IP from your ingress controller
     1. If necessary, SSH tunnel to that IP on any of your k8s nodes

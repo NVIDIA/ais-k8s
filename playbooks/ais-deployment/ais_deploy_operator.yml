@@ -1,5 +1,0 @@
----
-- hosts: "controller"
-  gather_facts: false
-  roles:
-    - ais_deploy_operator

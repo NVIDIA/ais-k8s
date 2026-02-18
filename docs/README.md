@@ -29,8 +29,8 @@ This will help you fine-tune your system to meet AIStore's requirements, ensurin
 - **Persistent Volumes**:
   - The AIS Operator does **NOT** format disks or create persistent volumes -- we expect this to be done beforehand as it varies per deployment. 
   - Refer to the [prerequisites doc](./prerequisites.md) for formatting disks.
-  - For creating PVs in Helm deployments see the [Helm README](../helm/README.md#pv-creation) 
-  - For creating PVs in Ansible deployments, the `create_pv` playbook is an optional part of the AIS deployment playbook. Refer to the [AIS playbook docs](../playbooks/ais-deployment/docs/ais_cluster_management.md#2-deploying-aistore) 
+  - For creating PVs in Helm deployments see the [Helm README](../helm/README.md#pv-creation).
+  - See the local [create-pv](../helm/ais/charts/create-pv) Helm Chart for a reference template for creating local PVs.
 
 ## Deployment Steps
 
@@ -40,20 +40,28 @@ This will help you fine-tune your system to meet AIStore's requirements, ensurin
 
 With Kubernetes installed and the nodes properly configured, it's time to deploy the [AIS Operator](../operator/README.md).
 
-- Refer to the [ais_cluster_management](../playbooks/ais-deployment/docs/ais_cluster_management.md) for detailed deployment instructions with Ansible playbooks.
-
 #### Operator Deployment Options:
 
+Choose ONE of the following:
+
 1. **Helm Chart** -- Refer to the [AIS Helm docs](../helm/README.md)
-2. **Ansible Playbook (scripted release yaml)** -- Use the ais_deploy_operator playbook as detailed [here](../playbooks/ais-deployment/docs/ais_cluster_management.md#1-deploying-ais-kubernetes-operator)
-3. **Local build (custom builds, development, and testing)** -- Refer to the [AIS Operator docs](../operator/README.md#deploy-ais-operator)
+2. **Local build (custom builds, development, and testing)** -- Refer to the [AIS Operator docs](../operator/README.md#deploy-ais-operator)
+3. **Default Manifest** -- Apply a specific manifest with default values directly from the GitHub release artifact:
+```console
+export AIS_OPERATOR_VERSION=v2.14.0
+kubectl apply -f https://github.com/NVIDIA/ais-k8s/releases/download/$AIS_OPERATOR_VERSION/ais-operator.yaml
+```
+Wait for the operator to come up as ready: 
 
+```console
+kubectl wait --for=condition=available --timeout=120s deployment/ais-operator-controller-manager -n ais-operator-system
+```
 
-After deployment, use `kubectl` to check the status of the deployed pods:
+Optionally, use `kubectl` to check the status of the deployed pods:
   ```
   $ kubectl get pods -n ais-operator-system
   ```
-  The AIS Operator pod should be in the `Running` state, indicating a successful deployment.
+The AIS Operator pod should be in the `Running` state, indicating a successful deployment.
 
 Once deployed, the AIS Operator will reconcile the state of any deployed AIStore custom resources.
 
@@ -63,17 +71,17 @@ With the AIS Operator deployed, the next step is to configure and deploy an AISt
 Again, there are a few deployment options:
 
 1. **Helm Charts (recommended)** -- See [AIS Helm Charts](../helm/README.md)
-2. **Ansible Playbooks** -- Follow the [guide here](../playbooks/ais-deployment/docs/ais_cluster_management.md#2-deploying-aistore) to use the [`ais_deploy_cluster.yml`](../playbooks/ais-deployment/ais_deploy_cluster.yml) playbook.
+2. **Ansible Playbooks (deprecated)** -- Refer to the [Ansible Playbook docs](../playbooks/ais-deployment/README.md) for details
 3. **Manual resource creation (advanced)**
     - If you want to manage everything yourself, it is possible to create the required namespace, PVs, secrets, and AIStore custom resource separately.
     - The AIS Operator will create all the other K8s resources based on the AIS spec (configmaps, statefulsets, services, pods, etc.).
-    - Reference our [samples](./samples/), [helm template](../helm/ais/charts/ais-cluster/templates/ais.yaml), and commands used in the [ansible playbooks](../playbooks/ais-deployment/).
+    - Reference our [samples](./samples), [helm template](../helm/ais/charts/ais-cluster/templates/ais.yaml), and commands used in the [ansible playbooks](../playbooks/ais-deployment).
 
 **Multihome Deployment**:
   - For a multihome deployment using multiple network interfaces, some extra configuration is required before deploying the cluster.
   - Refer to the [multihome deployment doc](../playbooks/ais-deployment/docs/deploy_with_multihome.md) for details. 
 
-After deployment, verify all AIS pods are in the `Running` stage:
+After deployment, verify all AIS pods are ready and running:
 ```
 $ watch kubectl get pods -n <cluster-namespace>
 ```
@@ -88,36 +96,12 @@ See the [operator docs](../operator/README.md#enabling-external-access) for conf
 
 ## Post-Deployment Steps
 
-### Setting Up a Debugging Pod
+### Client Pod Access
 
-Deploying a debug pod can be useful for troubleshooting and verifying cluster functionality.
-To get started, we provide a simple pod spec, [aisnode_debug.yaml](../manifests/debug/aisnode_debug.yaml).
-This file contains the configuration for a lightweight debug container.
-Deploy it into the `ais` namespace with the following command:
+We currently offer two options for deploying a client Pod within the cluster: 
 
-```bash
-kubectl apply -f https://raw.githubusercontent.com/NVIDIA/ais-k8s/main/manifests/debug/aisnode_debug.yaml
-```
-After the pod is deployed, give it a moment to initialize. Once ready, access the pod using:
-
-```bash
-kubectl -n ais exec -it pods/aisnode-debug -- bash
-```
-
-Inside the debug pod, set up the environment to connect to the AIStore cluster.
-You can do this by setting the `AIS_ENDPOINT` environment variable to the proxy's service address:
-
-```bash
-export AIS_ENDPOINT=http://ais-proxy:51080
-```
-
-The pod comes with the `ais` [CLI (command-line interface)](https://github.com/NVIDIA/aistore/blob/main/docs/cli.md) preinstalled.
-You can utilize the `ais` CLI to interact with your cluster.
-For example, to view the cluster's status, you can run:
-
-```bash
-ais cluster show
-```
+- `adminClient` option in AIS spec will create a managed deployment with a pre-configured pod. See the [operator documentation](../operator/README.md#deploying-an-admin-client).
+- `ais-client` Helm Chart offers an independent chart for configuring the deployment. See the [chart documentation](../helm/ais-client/README.md)
 
 ### Monitoring
 

@@ -222,7 +222,7 @@ spec:
   # enableExternalLB: false
 ```
 
-> NOTE: Currently, external access can be enabled only for new AIS clusters. Updating the `enablingExternalLB` spec for an existing cluster is not yet supported.
+> NOTE: Currently, external access can be enabled only for new AIS clusters. Updating the `enableExternalLB` spec for an existing cluster is not yet supported.
 
 Another important consideration is - the number of external IPs.
 To deploy an AIS cluster of N storage nodes, the K8s cluster will have to assign external IPs to (N + 1) `LoadBalancer` services: one for each storage target plus one more for all the AIS proxies (aka AIS gateways) in that same cluster.
@@ -235,7 +235,7 @@ External access can be tested locally on `minikube` using the following command:
 $ minikube tunnel
 ```
 
-For more information and details on *minikube tunneling*, please see [this link](https://minikube.sigs.K8s.io/docs/commands/tunnel/).
+For more information and details on *minikube tunneling*, please see [this link](https://minikube.sigs.k8s.io/docs/commands/tunnel/).
 
 ### Deploying cluster with shared or no disks
 
@@ -417,8 +417,8 @@ By following these steps, you can deploy AIStore in a Kubernetes environment wit
 
 AIS Operator leverages [operator-sdk](https://github.com/operator-framework/operator-sdk), which provides high-level APIs, scaffolding, and code generation utilities, making the operator development easy.
 
-[operator/api/v1beta1](operator/api/v1beta1), contains `go` definitions for Custom Resource Definitions (CRDs) and Webhooks used by the operator.
-Any modifications to these type definitions requires updating of the auto-generated code ([operator/api/v1beta1/zz_generated.deepcopy.go](operator/api/v1beta1/zz_generated.deepcopy.go)) and the YAML manifests used for deploying operator related K8s resources to the cluster.
+[operator/api/v1beta1](./api/v1beta1), contains `go` definitions for Custom Resource Definitions (CRDs) and Webhooks used by the operator.
+Any modifications to these type definitions requires updating of the auto-generated code ([operator/api/v1beta1/zz_generated.deepcopy.go](./api/v1beta1/zz_generated.deepcopy.go)) and the YAML manifests used for deploying operator related K8s resources to the cluster.
 We use the following commands to achieve this:
 
 ```console

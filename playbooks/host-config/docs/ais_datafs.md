@@ -8,7 +8,7 @@
 This playbook is intended for establishing an initial AIStore cluster and adding additional nodes to an existing cluster.
 
 `ais_datafs_mkfs` performs the following actions on all nodes:
-- Unmounts any existing filesytem at the specified mountpoints
+- Unmounts any existing filesystem at the specified mountpoints
 - Removes any entries for this mountpoint from `/etc/fstab`
 - Creates an `xfs` filesystem for all devices
 - Mounts filesystems and adds entries to `/etc/fstab`

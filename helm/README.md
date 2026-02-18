@@ -1,18 +1,23 @@
 # Helm AIS Deployment
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/aistore)](https://artifacthub.io/packages/search?repo=aistore)
 
-Use Helm to deploy AIStore (AIS) managed by the [AIS operator](../operator/README.md).
-This directory has Helm charts for AIS, AIS operator, and AIS dependencies.
+Helm provides a simple way to deploy AIStore (AIS) managed by the [AIS operator](../operator/README.md).
+This directory contains Helm charts for deploying the following: 
 
-**Before you start:** Ensure that your Kubernetes nodes are properly configured and ready for AIS deployment. 
-The [host-config playbooks](../playbooks/host-config/README.md) provide a good starting point for properly configuring your hosts and formatting drives.
-
-**Alternative:** You can also deploy AIS using [Ansible playbooks](../playbooks/README.md) instead of Helm. 
+| Component                         | Description                                                                                                                                                                                                                        |
+|-----------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [AIS](./ais)                      | Templates an AIStore custom resource for defining a cluster                                                                                                                                                                        |
+| [AIS K8s Operator](./operator)    | Installs the AIStore [CustomResourceDefinition](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/) and deploys the [AIS K8s Operator](../operator/README.md) for reconciling AIStore resources |
+| [AIS authN server](./authn)       | Deploys the beta [AIS Authentication Server](https://github.com/NVIDIA/aistore/blob/main/docs/authn.md)                                                                                                                            |
+| [AIS admin client](./ais-client)  | Creates a Deployment with a client Pod provisioned for AIS cluster access (see `adminClient` in AIStore spec for integrated option)                                                                                                |
+| [AIS Loader](./aisloader)         | Deploys the [aisloader](https://github.com/NVIDIA/aistore/blob/main/docs/aisloader.md) benchmark tool for testing cluster performance                                                                                              |
+| [ClusterIssuer](./cluster-issuer) | Creates a simple [cert-manager SelfSigned ClusterIssuer](https://cert-manager.io/docs/configuration/selfsigned/)                                                                                                                   |
 
 ## Prerequisites
 
 1. [**Local Kubectl configured to access the cluster**](#kubernetes-context)
 1. Kubernetes nodes configured with formatted drives
+   1. The [host-config playbooks](../playbooks/host-config/README.md) provide a good starting point for properly configuring your hosts and formatting drives.
 1. Helm installed locally
     1. Helm-diff plugin: `helm plugin install https://github.com/databus23/helm-diff`
     1. Helmfile: https://github.com/helmfile/helmfile?tab=readme-ov-file
@@ -68,13 +73,12 @@ See the [`authn`](./authn/) directory for instructions on deploying the AuthN se
 3. Create a new environment and update config files for that environment
 4. Install: `helmfile sync -e <your-env>`
 
-> **Note**: Only operator versions >= 1.4.1 work with Helm Chart. For older versions, use [Ansible Playbooks](../playbooks/ais-deployment/docs/ais_cluster_management.md#1-deploying-ais-kubernetes-operator).
+> **Note**: Only operator versions >= 1.4.1 work with Helm Charts.
 
-Check it worked:
+Check the deployment status:
 ```bash 
-kubectl get pods -n ais-operator-system
+kubectl get deployment -n ais-operator-system
 ```
-The pod should be in 'Ready' state.
 
 ### 4. Install AIS
 

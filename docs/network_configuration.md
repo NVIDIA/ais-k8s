@@ -2,8 +2,6 @@
 ### Network configuration:
    1. **Network Interface Settings**:
       - Enable Jumbo Frames, which allows for larger packet sizes, reducing overhead and improving performance.
-      - Enable Multiqueue as it helps in distributing network traffic processing across multiple CPU cores, enhancing network throughput and performance.
-        - The `ethtool` command can be used for this purpose. Instructions are detailed in the [ais_enable_multiqueue playbook](../playbooks/host-config/docs/ais_enable_multiqueue.md).
       - See the [AIS performance doc](https://github.com/NVIDIA/aistore/blob/main/docs/performance.md#network) for more info on network settings.
 
    2. **Intra-cluster and Internet Connectivity**:
