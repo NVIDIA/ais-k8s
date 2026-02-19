@@ -110,14 +110,10 @@ func (r *AIStoreReconciler) cleanupTargetSS(ctx context.Context, ais *aisv1.AISt
 }
 
 func (r *AIStoreReconciler) handleTargetState(ctx context.Context, ais *aisv1.AIStore) (result ctrl.Result, err error) {
-	targetSize := ais.GetTargetSize()
-
-	// Fetch the latest target StatefulSet.
 	ss, err := r.k8sClient.GetStatefulSet(ctx, target.StatefulSetNSName(ais))
-
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			result, err = r.initTargets(ctx, ais)
+			return r.initTargets(ctx, ais)
 		}
 		return
 	}
@@ -127,50 +123,55 @@ func (r *AIStoreReconciler) handleTargetState(ctx context.Context, ais *aisv1.AI
 		return
 	}
 
-	logger := logf.FromContext(ctx).WithValues("statefulset", ss.Name, "status", ss.Status)
+	rolling := isRolloutInProgress(ss)
+	scaling := isScalingInProgress(ss)
+	rolloutNeeded, _ := shouldUpdatePodTemplate(&target.NewTargetSS(ais, ais.GetTargetSize()).Spec.Template, &ss.Spec.Template)
+	scalingNeeded := isScalingNeeded(ss, ais.GetTargetSize())
 
-	updated, err := r.syncTargetPodSpec(ctx, ais, ss)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	if updated {
-		return ctrl.Result{RequeueAfter: targetLongRequeueDelay}, nil
-	}
+	logger := logf.FromContext(ctx).WithValues(
+		"statefulset", ss.Name,
+		"specReplicas", *ss.Spec.Replicas, "statusReplicas", ss.Status.Replicas,
+		"readyReplicas", ss.Status.ReadyReplicas, "desiredSize", ais.GetTargetSize(),
+		"rolling", rolling, "scaling", scaling,
+		"rolloutNeeded", rolloutNeeded, "scalingNeeded", scalingNeeded,
+	)
 
-	if result, err := r.handleTargetRollout(ctx, ais, ss); err != nil || !result.IsZero() {
-		return result, err
-	}
-
-	if ais.HasState(aisv1.ClusterScaling) {
-		// If desired does not match AIS, update the statefulset
-		if *ss.Spec.Replicas != targetSize {
-			err = r.resolveStatefulSetScaling(ctx, ais)
-			if err != nil {
-				return
-			}
-			// Refresh StatefulSet after updating replicas
-			ss, err = r.k8sClient.GetStatefulSet(ctx, target.StatefulSetNSName(ais))
-			if err != nil {
-				return
-			}
+	// Apply template update (blocked by scaling in progress)
+	if rolloutNeeded && !scaling {
+		if updated, err := r.syncTargetPodSpec(ctx, ais, ss); err != nil {
+			return ctrl.Result{}, err
+		} else if updated {
+			return ctrl.Result{RequeueAfter: targetLongRequeueDelay}, nil
 		}
 	}
-	// Start the target scaling process by updating services and contacting the AIS API
-	if *ss.Spec.Replicas != targetSize {
-		err = r.startTargetScaling(ctx, ais, ss)
-		if err != nil {
-			return
+
+	// Apply scaling (blocked by rollout in progress)
+	if scalingNeeded && !rolling {
+		if err = r.startTargetScaling(ctx, ais, ss); err != nil {
+			return ctrl.Result{}, err
 		}
-		// If successful, mark as scaling so future reconciliations will update the SS
-		err = r.updateStatusWithState(ctx, ais, aisv1.ClusterScaling)
-		if err != nil {
-			return
+		if err = r.resolveStatefulSetScaling(ctx, ais); err != nil {
+			return ctrl.Result{}, err
 		}
 		return ctrl.Result{RequeueAfter: targetLongRequeueDelay}, nil
 	}
-	// Requeue if the number of target pods ready does not match the size provided in AIS cluster spec.
+
+	// Drive ongoing rollout
+	if rolling {
+		if res, err := r.handleTargetRollout(ctx, ais, ss); err != nil || !res.IsZero() {
+			return res, err
+		}
+		return ctrl.Result{RequeueAfter: targetLongRequeueDelay}, nil
+	}
+
+	// Drive ongoing scaling
+	if scaling {
+		return ctrl.Result{RequeueAfter: targetLongRequeueDelay}, nil
+	}
+
+	// Wait for readiness
 	if !r.isStatefulSetReady(ais.GetTargetSize(), ss) {
-		logger.Info("Waiting for target statefulset to reach desired replicas", "desired", ss.Spec.Replicas)
+		logger.Info("Waiting for target statefulset to reach desired replicas")
 		return ctrl.Result{RequeueAfter: targetLongRequeueDelay}, nil
 	}
 	return
@@ -205,7 +206,7 @@ func (r *AIStoreReconciler) resolveStatefulSetScaling(ctx context.Context, ais *
 		}
 		logger.Info("Scaling up target statefulset to match AIS cluster spec size", "desiredSize", expectedSize)
 	} else if expectedSize < currentSize {
-		// Don't proceed to update state to ready until we can proceed to statefulset scale-down
+		// Wait for decommission to complete before scaling the StatefulSet down
 		if ready, scaleErr := r.isReadyToScaleDown(ctx, ais, currentSize); scaleErr != nil || !ready {
 			return scaleErr
 		}
@@ -249,6 +250,7 @@ func (r *AIStoreReconciler) startTargetScaling(ctx context.Context, ais *aisv1.A
 		// Current SS has fewer replicas than expected size - scale up.
 		return r.scaleUpLB(ctx, ais)
 	}
+
 	// Otherwise - scale down.
 	err := r.scaleDownLB(ctx, ais, ss)
 	if err != nil {
@@ -274,8 +276,24 @@ func (r *AIStoreReconciler) decommissionTargets(ctx context.Context, ais *aisv1.
 		logger.Info("Attempting to decommission target", "podName", podName)
 		node, err := findAISNodeByPodName(smap.Tmap, podName)
 		if err != nil {
-			logger.Error(err, "Failed to find target node for pod", "podName", podName)
-			continue
+			// If target is not in the cluster map, fetch the pod and inspect state.
+			// Skip decommission if the pod is unschedulable or in CrashLoopBackOff.
+			// Otherwise, wait for the pod to start and register in the cluster map.
+			pod, podErr := r.k8sClient.GetPod(ctx, types.NamespacedName{Name: podName, Namespace: ais.Namespace})
+			switch {
+			case k8serrors.IsNotFound(podErr):
+				logger.Info("Target pod not found, skipping decommission", "podName", podName)
+				continue
+			case podErr != nil:
+				return fmt.Errorf("failed to get pod %s: %w", podName, podErr)
+			case isPodUnschedulable(pod):
+				logger.Info("Target pod is unschedulable, skipping decommission", "podName", podName)
+				continue
+			case isPodInCrashLoopBackOff(pod):
+				logger.Info("Target pod is in CrashLoopBackOff, skipping decommission", "podName", podName)
+				continue
+			}
+			return fmt.Errorf("waiting for target %s to register in smap", podName)
 		}
 		if !smap.InMaintOrDecomm(node.ID()) {
 			logger.Info("Decommissioning target", "nodeID", node.ID())

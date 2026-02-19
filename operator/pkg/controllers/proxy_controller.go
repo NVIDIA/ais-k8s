@@ -134,33 +134,48 @@ func (r *AIStoreReconciler) handleProxyState(ctx context.Context, ais *aisv1.AIS
 		return
 	}
 
-	updated, err := r.syncProxyPodSpec(ctx, ais, ss)
-	if err != nil {
-		return
-	}
-	// Fetch the latest statefulset with any spec updates
-	if updated {
-		ss, err = r.k8sClient.GetStatefulSet(ctx, proxySSName)
-		if err != nil {
-			return
+	rolling := isRolloutInProgress(ss)
+	scaling := isScalingInProgress(ss)
+	rolloutNeeded, _ := shouldUpdatePodTemplate(&proxy.NewProxyStatefulSet(ais, ais.GetProxySize()).Spec.Template, &ss.Spec.Template)
+	scalingNeeded := isScalingNeeded(ss, ais.GetProxySize())
+
+	logger := logf.FromContext(ctx).WithValues(
+		"statefulset", ss.Name,
+		"specReplicas", *ss.Spec.Replicas, "statusReplicas", ss.Status.Replicas,
+		"readyReplicas", ss.Status.ReadyReplicas, "desiredSize", ais.GetProxySize(),
+		"rolling", rolling, "scaling", scaling,
+		"rolloutNeeded", rolloutNeeded, "scalingNeeded", scalingNeeded,
+	)
+
+	// Apply template update (blocked by scaling in progress)
+	if rolloutNeeded && !scaling {
+		if updated, err := r.syncProxyPodSpec(ctx, ais, ss); err != nil {
+			return ctrl.Result{}, err
+		} else if updated {
+			return ctrl.Result{RequeueAfter: proxyStartupInterval}, nil
 		}
 	}
-
-	err = r.handleProxyRollout(ctx, ais, ss)
-	if err != nil {
-		return
+	// Apply scaling (blocked by rollout in progress)
+	if scalingNeeded && !rolling {
+		if err = r.handleProxyScale(ctx, ais, ss); err != nil {
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{RequeueAfter: proxyStartupInterval}, nil
 	}
-	err = r.handleProxyScale(ctx, ais, ss)
-	if err != nil {
-		return
+	// Drive ongoing rollout
+	if rolling {
+		if err = r.handleProxyRollout(ctx, ais, ss); err != nil {
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{RequeueAfter: proxyStartupInterval}, nil
 	}
-
-	// Requeue if the number of proxy pods ready does not match the size provided in AIS cluster spec.
+	// Drive ongoing scaling
+	if scaling {
+		return ctrl.Result{RequeueAfter: proxyStartupInterval}, nil
+	}
+	// Wait for readiness
 	if !r.isStatefulSetReady(ais.GetProxySize(), ss) {
-		logf.FromContext(ctx).Info("Waiting for proxy statefulset to reach desired replicas",
-			"ready", ss.Status.ReadyReplicas,
-			"desired", ss.Spec.Replicas,
-		)
+		logger.Info("Waiting for proxy statefulset to reach desired replicas")
 		return ctrl.Result{RequeueAfter: proxyStartupInterval}, nil
 	}
 	return

@@ -194,7 +194,7 @@ func (cc *clientCluster) patchImagesToBroken() {
 	cc.patchClusterSpecNoWait(newSpec)
 }
 
-func (cc *clientCluster) patchImagesAndScaleDown(factor int32) {
+func (cc *clientCluster) patchImagesAndScale(factor int32) {
 	cc.fetchLatestCluster()
 	newSpec := cc.cluster.Spec.DeepCopy()
 	newSpec.NodeImage = cc.aisCtx.NodeImage

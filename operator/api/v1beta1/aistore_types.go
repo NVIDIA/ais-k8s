@@ -42,8 +42,6 @@ const (
 	ClusterPendingLBService ClusterState = "PendingLoadBalancerService"
 	// ClusterUpgrading signifies the cluster is undergoing an upgrade process.
 	ClusterUpgrading ClusterState = "Upgrading"
-	// ClusterScaling indicates the cluster is adjusting its resources (up or down).
-	ClusterScaling ClusterState = "Scaling"
 	// ClusterShuttingDown means the cluster is in the process of shutting down.
 	ClusterShuttingDown ClusterState = "ShuttingDown"
 	// ClusterShutdown indicates the cluster is fully shut down and not operational.

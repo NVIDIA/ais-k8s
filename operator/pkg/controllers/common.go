@@ -1,6 +1,6 @@
 // Package controllers contains k8s controller logic for AIS cluster
 /*
- * Copyright (c) 2021-2025, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2026, NVIDIA CORPORATION. All rights reserved.
  */
 package controllers
 
@@ -256,6 +256,66 @@ func syncSidecarContainer(desired, current *corev1.PodTemplateSpec) (updated boo
 	}
 	current.Spec.Containers[1] = desired.Spec.Containers[1]
 	return true
+}
+
+// isScalingNeeded returns true if the StatefulSet spec replicas differ from the
+// desired count specified in the CR, indicating a scaling operation should be initiated.
+func isScalingNeeded(ss *appsv1.StatefulSet, desired int32) bool {
+	return *ss.Spec.Replicas != desired
+}
+
+// isRolloutInProgress returns true if a StatefulSet has an active rollout.
+//   - RollingUpdate: K8s only bumps CurrentRevision when all pods are updated AND ready,
+//     so CurrentRevision != UpdateRevision naturally gates on readiness.
+//   - OnDelete: K8s never bumps CurrentRevision. Fall back to checking whether any
+//     existing pods still carry a stale revision via UpdatedReplicas (no readiness guarantee).
+//     Compare against min(Spec, Status) because UpdatedReplicas excludes terminating pods
+//     while Status.Replicas includes them. Using Status.Replicas alone would false-positive
+//     during scale-down (e.g. Updated=2, Status=3 with a terminating pod looks like a rollout).
+//     Using Spec.Replicas alone would false-positive during scale-up (e.g. Updated=2, Spec=4
+//     with new pods starting looks like a rollout).
+func isRolloutInProgress(ss *appsv1.StatefulSet) bool {
+	if ss.Status.UpdateRevision == "" {
+		return false
+	}
+	if ss.Status.CurrentRevision == ss.Status.UpdateRevision {
+		return false
+	}
+	if ss.Spec.UpdateStrategy.Type == appsv1.OnDeleteStatefulSetStrategyType {
+		return ss.Status.UpdatedReplicas < min(*ss.Spec.Replicas, ss.Status.Replicas)
+	}
+	return true
+}
+
+// isScalingInProgress returns true if pods are actively being created or terminated
+// to match the spec replica count. Returns false during a rollout to avoid confusing
+// pod churn during rollout with scaling.
+func isScalingInProgress(ss *appsv1.StatefulSet) bool {
+	if isRolloutInProgress(ss) {
+		return false
+	}
+	return ss.Status.Replicas != *ss.Spec.Replicas
+}
+
+func isPodUnschedulable(pod *corev1.Pod) bool {
+	for _, cond := range pod.Status.Conditions {
+		if cond.Type == corev1.PodScheduled &&
+			cond.Status == corev1.ConditionFalse &&
+			cond.Reason == corev1.PodReasonUnschedulable {
+			return true
+		}
+	}
+	return false
+}
+
+func isPodInCrashLoopBackOff(pod *corev1.Pod) bool {
+	for i := range pod.Status.ContainerStatuses {
+		cs := &pod.Status.ContainerStatuses[i]
+		if cs.State.Waiting != nil && cs.State.Waiting.Reason == "CrashLoopBackOff" {
+			return true
+		}
+	}
+	return false
 }
 
 func (*AIStoreReconciler) isStatefulSetReady(desiredSize int32, ss *appsv1.StatefulSet) bool {

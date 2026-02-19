@@ -1,6 +1,6 @@
 // Package controllers contains k8s controller logic for AIS cluster
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2024-2026, NVIDIA CORPORATION. All rights reserved.
  */
 package controllers
 
@@ -859,9 +859,12 @@ func createStatefulSets(ctx context.Context, c client.Client, ais *aisv1.AIStore
 	reconcileProxy(ctx, ais, r)
 	reconcileTarget(ctx, ais, r)
 
-	By("Ensure that StatefulSets have been created")
-	getStatefulSet(ctx, ais, c, "ais-proxy")
-	getStatefulSet(ctx, ais, c, "ais-target")
+	By("Ensure that StatefulSets have been created and set status replicas to match spec")
+	for _, ssName := range []string{"ais-proxy", "ais-target"} {
+		ss := getStatefulSet(ctx, ais, c, ssName)
+		ss.Status.Replicas = *ss.Spec.Replicas
+		Expect(c.Status().Update(ctx, &ss)).To(Succeed())
+	}
 }
 
 func getStatefulSet(ctx context.Context, ais *aisv1.AIStore, c client.Client, ssName string) (ss appsv1.StatefulSet) {

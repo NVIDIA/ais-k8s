@@ -420,7 +420,24 @@ var _ = Describe("Run Controller", func() {
 			cc.create()
 
 			By("Simultaneously upgrade images and scale down")
-			cc.patchImagesAndScaleDown(-1)
+			cc.patchImagesAndScale(-1)
+			cc.verifyPodImages()
+			cc.verifyPodCounts()
+		})
+
+		It("Upgrade and scale-up in same patch should succeed", func(ctx context.Context) {
+			cluArgs.NodeImage = AISTestContext.PreviousNodeImage
+			cluArgs.InitImage = AISTestContext.PreviousInitImage
+			cluArgs.MaxTargets = 2
+			cc := newClientCluster(ctx, AISTestContext, WorkerCtx.K8sClient, cluArgs)
+			defer func() {
+				_ = cc.printLogs()
+				cc.destroyAndCleanup()
+			}()
+			cc.create()
+
+			By("Simultaneously upgrade images and scale up")
+			cc.patchImagesAndScale(1)
 			cc.verifyPodImages()
 			cc.verifyPodCounts()
 		})
