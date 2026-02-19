@@ -13,9 +13,11 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 ### Changed
 
 - Admin client reconciliation now skips externally-managed deployments (e.g. deployed via Helm) to avoid conflicts
+- AIS primary container securityContext will now be synced from spec
 
 ### Added
 
+- Restricted security context for init and logSidecar containers
 - Native support for arm64 hosts with multi-arch container image build targets 
 
 ## v2.14.0

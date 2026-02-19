@@ -46,18 +46,15 @@ func shouldUpdatePodTemplate(desired, current *corev1.PodTemplateSpec) (bool, st
 		}
 	}
 
+	if update, reason := shouldUpdateSecurityContext(&desired.Spec, &current.Spec); update {
+		return update, reason
+	}
 	if shouldUpdateAnnotations(desired.Annotations, current.Annotations) {
 		return true, "updating annotations"
 	}
 
 	if !equality.Semantic.DeepEqual(desired.Labels, current.Labels) {
 		return true, "updating labels"
-	}
-
-	// Both `desired.Spec.SecurityContext` and `current.Spec.SecurityContext` are
-	// expected to be non-nil here as `SecurityContext` should be set by default.
-	if !equality.Semantic.DeepEqual(desired.Spec.SecurityContext, current.Spec.SecurityContext) {
-		return true, "updating security context"
 	}
 
 	// We already know desired number of containers matches current here,
@@ -68,6 +65,22 @@ func shouldUpdatePodTemplate(desired, current *corev1.PodTemplateSpec) (bool, st
 		}
 	}
 
+	return false, ""
+}
+
+func shouldUpdateSecurityContext(desired, current *corev1.PodSpec) (bool, string) {
+	// Pod-level securityContext
+	// Both `desired.SecurityContext` and `current.SecurityContext` are
+	// expected to be non-nil here as `SecurityContext` should be set by default.
+	if !equality.Semantic.DeepEqual(desired.SecurityContext, current.SecurityContext) {
+		return true, "updating security context for pod"
+	}
+
+	// Only sync securityContext for primary container -- do not restart cluster to add to sidecar or init
+	// TODO: sync on all in next major version
+	if !equality.Semantic.DeepEqual(desired.Containers[0].SecurityContext, current.Containers[0].SecurityContext) {
+		return true, fmt.Sprintf("updating security context for container %s", desired.Containers[0].Name)
+	}
 	return false, ""
 }
 

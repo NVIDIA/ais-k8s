@@ -30,6 +30,19 @@ const (
 	DefaultMiscStorageReq   = int64(128 * aiscos.MiB)
 )
 
+// RestrictedSecurityContext returns a limited security context
+func RestrictedSecurityContext() *corev1.SecurityContext {
+	return &corev1.SecurityContext{
+		// Currently required by init and log sidecar containers as they run with default root user
+		RunAsNonRoot:             aisapc.Ptr(false),
+		ReadOnlyRootFilesystem:   aisapc.Ptr(true),
+		AllowPrivilegeEscalation: aisapc.Ptr(false),
+		Capabilities: &corev1.Capabilities{
+			Drop: []corev1.Capability{"ALL"},
+		},
+	}
+}
+
 func PrepareAnnotations(annotations map[string]string, netAttachment, restartHash *string) map[string]string {
 	newAnnotations := map[string]string{}
 	if netAttachment != nil {
@@ -57,6 +70,7 @@ func NewLogSidecar(ais *aisv1.AIStore, daeType string) corev1.Container {
 		Args:            []string{logFile},
 		VolumeMounts:    []corev1.VolumeMount{newLogsVolumeMount(daeType)},
 		Env:             []corev1.EnvVar{EnvFromFieldPath(EnvPodName, "metadata.name")},
+		SecurityContext: RestrictedSecurityContext(),
 	}
 	if resources := ais.GetLogSidecarResources(); resources != nil {
 		container.Resources = *resources

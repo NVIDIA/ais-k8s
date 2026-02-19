@@ -100,6 +100,7 @@ func proxyPodSpec(ais *aisv1.AIStore) *corev1.PodSpec {
 				Resources:       *cmn.NewInitResourceReq(),
 				Args:            cmn.NewInitContainerArgs(aisapc.Proxy, ais.Spec.HostnameMap),
 				VolumeMounts:    cmn.NewInitVolumeMounts(),
+				SecurityContext: cmn.RestrictedSecurityContext(),
 			},
 		},
 		Containers: []corev1.Container{

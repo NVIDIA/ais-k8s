@@ -396,6 +396,24 @@ var _ = Describe("AIStoreController", func() {
 							g.ExpectWithOffset(1, podTemplate.Spec.Containers[0].Env[0].Name).To(Equal("key"))
 						},
 					),
+					Entry("container security context",
+						func(ais *aisv1.AIStore) {
+							ais.Spec.ProxySpec.ContainerSecurity = &corev1.SecurityContext{
+								RunAsNonRoot:             apc.Ptr(true),
+								AllowPrivilegeEscalation: apc.Ptr(false),
+							}
+							ais.Spec.TargetSpec.ContainerSecurity = &corev1.SecurityContext{
+								RunAsNonRoot:             apc.Ptr(true),
+								AllowPrivilegeEscalation: apc.Ptr(false),
+							}
+						},
+						func(g Gomega, podTemplate corev1.PodTemplateSpec) {
+							g.ExpectWithOffset(1, podTemplate.Spec.Containers[0].SecurityContext).To(Equal(&corev1.SecurityContext{
+								RunAsNonRoot:             apc.Ptr(true),
+								AllowPrivilegeEscalation: apc.Ptr(false),
+							}))
+						},
+					),
 				)
 			})
 
@@ -704,6 +722,51 @@ var _ = Describe("AIStoreController", func() {
 						SecurityContext: &corev1.PodSecurityContext{
 							RunAsUser: apc.Ptr(int64(2000)),
 						},
+					},
+				},
+				true,
+			),
+			Entry("different container security context (empty vs non-empty)",
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers: []corev1.Container{{
+							Image: "test:latest",
+							SecurityContext: &corev1.SecurityContext{
+								RunAsNonRoot: apc.Ptr(true),
+							},
+						}},
+					},
+				},
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers:     []corev1.Container{{Image: "test:latest"}},
+					},
+				},
+				true,
+			),
+			Entry("different container security context (different values)",
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers: []corev1.Container{{
+							Image: "test:latest",
+							SecurityContext: &corev1.SecurityContext{
+								RunAsNonRoot: apc.Ptr(true),
+							},
+						}},
+					},
+				},
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers: []corev1.Container{{
+							Image: "test:latest",
+							SecurityContext: &corev1.SecurityContext{
+								RunAsNonRoot: apc.Ptr(false),
+							},
+						}},
 					},
 				},
 				true,
