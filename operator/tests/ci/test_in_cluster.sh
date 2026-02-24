@@ -5,12 +5,26 @@
 set -euo pipefail
 
 TEST_POD_NAME="operator-test-pod"
+IMAGE_ARCHIVE_TAR="/operator-test.tar"
+IMAGE_ARCHIVE_TARGZ="/operator-test.tar.gz"
 
 # Apply RBAC permissions needed for the test pod
 kubectl apply -k config/overlays/test
 
+# Normalize to an uncompressed .tar at IMAGE_ARCHIVE_TAR
+if [[ -f "${IMAGE_ARCHIVE_TAR}" ]]; then
+  : # nothing to do
+elif [[ -f "${IMAGE_ARCHIVE_TARGZ}" ]]; then
+  echo "Decompressing ${IMAGE_ARCHIVE_TARGZ} to ${IMAGE_ARCHIVE_TAR}"
+  # Overwrite any existing tar without prompting
+  gzip -dc "${IMAGE_ARCHIVE_TARGZ}" > "${IMAGE_ARCHIVE_TAR}"
+else
+  echo "ERROR: Neither ${IMAGE_ARCHIVE_TAR} nor ${IMAGE_ARCHIVE_TARGZ} exists" >&2
+  exit 1
+fi
+
 # Load the cached test image archive into the KinD cluster
-kind load image-archive /operator-test.tar --name "${KIND_CLUSTER_NAME}"
+kind load image-archive "${IMAGE_ARCHIVE_TAR}" --name "${KIND_CLUSTER_NAME}"
 
 # Apply the test pod manifest with environment variable substitution
 envsubst < scripts/test_pod.yaml | kubectl apply -f -
