@@ -8,6 +8,10 @@ TEST_POD_NAME="operator-test-pod"
 IMAGE_ARCHIVE_TAR="/operator-test.tar"
 IMAGE_ARCHIVE_TARGZ="/operator-test.tar.gz"
 
+if [[ -n "${LOCAL_BIN:-}" ]]; then
+  export PATH="${LOCAL_BIN}:${PATH}"
+fi
+
 # Apply RBAC permissions needed for the test pod
 kubectl apply -k config/overlays/test
 
