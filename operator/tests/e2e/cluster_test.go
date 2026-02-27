@@ -408,7 +408,7 @@ var _ = Describe("Run Controller", func() {
 			tutils.ObjectsShouldExist(cc.getBaseParams(), bck, names...)
 		})
 
-		It("Upgrade and scale-down in same patch should succeed", func(ctx context.Context) {
+		It("Upgrade and scale-down in same patch should succeed and retain data", func(ctx context.Context) {
 			cluArgs.NodeImage = AISTestContext.PreviousNodeImage
 			cluArgs.InitImage = AISTestContext.PreviousInitImage
 			cluArgs.Size = 3
@@ -419,10 +419,33 @@ var _ = Describe("Run Controller", func() {
 			}()
 			cc.create()
 
+			By("Create a bucket and put objects")
+			var (
+				bck       = aiscmn.Bck{Name: "TEST_BCK_UPGRADE_SCALE_DOWN", Provider: aisapc.AIS}
+				objPrefix = "test-opr/"
+			)
+			Eventually(func() error { return aisapi.CreateBucket(cc.getBaseParams(), bck, nil) }, 5*time.Second).Should(Succeed())
+			names, failCnt, err := aistutils.PutRandObjs(aistutils.PutObjectsArgs{
+				ProxyURL:  cc.proxyURL,
+				Bck:       bck,
+				ObjPath:   objPrefix,
+				ObjCnt:    10,
+				ObjSize:   10 * cos.KiB,
+				FixedSize: true,
+				CksumType: cos.ChecksumOneXxh,
+				IgnoreErr: false,
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(failCnt).To(Equal(0))
+			tutils.ObjectsShouldExist(cc.getBaseParams(), bck, names...)
+
 			By("Simultaneously upgrade images and scale down")
 			cc.patchImagesAndScale(-1)
 			cc.verifyPodImages()
 			cc.verifyPodCounts()
+
+			By("Validate objects exist after upgrade and scale down")
+			tutils.ObjectsShouldExist(cc.getBaseParams(), bck, names...)
 		})
 
 		It("Upgrade and scale-up in same patch should succeed", func(ctx context.Context) {

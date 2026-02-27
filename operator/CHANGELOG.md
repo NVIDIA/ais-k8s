@@ -12,6 +12,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ### Changed
 
+- Restore rebalance config before decommissioning targets during scale-down, as it may still be disabled from a prior rollout.
 - Separated rollout (pod template updates) and scaling (replica count changes) into explicitly guarded operations that cannot overlap
 - Target decommission now checks pod status when a node is absent from the cluster map, skipping pods that are NotFound, Unschedulable, or in CrashLoopBackOff and waiting for others to register.
 - Replaced `ClusterScaling` CR state with predicates inferred from StatefulSet status fields; reconciliation decisions are no longer driven by CR state

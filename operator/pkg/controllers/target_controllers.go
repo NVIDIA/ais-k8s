@@ -252,6 +252,14 @@ func (r *AIStoreReconciler) startTargetScaling(ctx context.Context, ais *aisv1.A
 	}
 
 	// Otherwise - scale down.
+	// Ensure rebalance is enabled before decommissioning so data can migrate
+	// off the targets being decommissioned.
+	if err := r.enableRebalanceCondition(ctx, ais); err != nil {
+		return err
+	}
+	if err := r.handleConfigState(ctx, ais, true /*force*/); err != nil {
+		return err
+	}
 	err := r.scaleDownLB(ctx, ais, ss)
 	if err != nil {
 		return err
