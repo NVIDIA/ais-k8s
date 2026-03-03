@@ -155,6 +155,16 @@ func (r *AIStoreReconciler) handleProxyState(ctx context.Context, ais *aisv1.AIS
 			return ctrl.Result{RequeueAfter: proxyStartupInterval}, nil
 		}
 	}
+
+	if policyUpdated, policyErr := r.syncProxyPVCRetentionPolicy(ctx, ais, ss); policyErr != nil {
+		return result, policyErr
+	} else if policyUpdated {
+		ss, err = r.k8sClient.GetStatefulSet(ctx, proxySSName)
+		if err != nil {
+			return
+		}
+	}
+
 	// Apply scaling (blocked by rollout in progress)
 	if scalingNeeded && !rolling {
 		if err = r.handleProxyScale(ctx, ais, ss); err != nil {
@@ -239,6 +249,22 @@ func (r *AIStoreReconciler) syncProxyPodSpec(ctx context.Context, ais *aisv1.AIS
 	}
 	logger.Info("Statefulset successfully updated", "reason", reason)
 	return
+}
+
+func (r *AIStoreReconciler) syncProxyPVCRetentionPolicy(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) (updated bool, err error) {
+	desiredPolicy := ais.Spec.ProxySpec.PVCRetentionPolicy
+	if !shouldUpdatePVCRetentionPolicy(desiredPolicy, ss.Spec.PersistentVolumeClaimRetentionPolicy) {
+		return false, nil
+	}
+	logger := logf.FromContext(ctx).WithValues("statefulset", ss.Name)
+	updatedSS := ss.DeepCopy()
+	updatedSS.Spec.PersistentVolumeClaimRetentionPolicy = desiredPolicy
+	patch := client.MergeFrom(ss)
+	if err = r.k8sClient.Patch(ctx, updatedSS, patch); err != nil {
+		return false, err
+	}
+	logger.Info("Updated proxy PVC retention policy")
+	return true, nil
 }
 
 func (r *AIStoreReconciler) handleProxyRollout(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) error {

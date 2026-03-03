@@ -12,6 +12,7 @@ import (
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -143,6 +144,36 @@ var _ = Describe("Statefulset Target Volumes and Mounts", Label("short"), func()
 			Expect(*dataVolume.HostPath.Type).To(Equal(v1.HostPathDirectoryOrCreate))
 
 			Expect(result.Spec.Template.Spec.Containers[0].VolumeMounts).To(HaveLen(5))
+		})
+	})
+
+	Describe("PVCRetentionPolicy", func() {
+		It("should not set PersistentVolumeClaimRetentionPolicy when nil", func() {
+			specCopy := aisSpec.DeepCopy()
+			specCopy.Spec.TargetSpec.Mounts = []aisv1.Mount{{
+				Path:         "/data/test",
+				Size:         size,
+				StorageClass: apc.Ptr("dataStorageClass"),
+			}}
+			result := NewTargetSS(specCopy, *specCopy.Spec.Size)
+			Expect(result.Spec.PersistentVolumeClaimRetentionPolicy).To(BeNil())
+		})
+
+		It("should set PersistentVolumeClaimRetentionPolicy when specified", func() {
+			specCopy := aisSpec.DeepCopy()
+			specCopy.Spec.TargetSpec.Mounts = []aisv1.Mount{{
+				Path:         "/data/test",
+				Size:         size,
+				StorageClass: apc.Ptr("dataStorageClass"),
+			}}
+			specCopy.Spec.TargetSpec.PVCRetentionPolicy = &appsv1.StatefulSetPersistentVolumeClaimRetentionPolicy{
+				WhenDeleted: appsv1.DeletePersistentVolumeClaimRetentionPolicyType,
+				WhenScaled:  appsv1.RetainPersistentVolumeClaimRetentionPolicyType,
+			}
+			result := NewTargetSS(specCopy, *specCopy.Spec.Size)
+			Expect(result.Spec.PersistentVolumeClaimRetentionPolicy).ToNot(BeNil())
+			Expect(result.Spec.PersistentVolumeClaimRetentionPolicy.WhenDeleted).To(Equal(appsv1.DeletePersistentVolumeClaimRetentionPolicyType))
+			Expect(result.Spec.PersistentVolumeClaimRetentionPolicy.WhenScaled).To(Equal(appsv1.RetainPersistentVolumeClaimRetentionPolicyType))
 		})
 	})
 })
