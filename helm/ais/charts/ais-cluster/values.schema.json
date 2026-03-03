@@ -188,6 +188,16 @@
           "type": "string",
           "description": "Tag of log sidecar image.",
           "examples": ["v1.1"]
+        },
+        "resources": {
+          "type": "object",
+          "description": "Resource requests/limits for the log sidecar container.",
+          "examples": [
+            {
+              "requests": { "cpu": "50m", "memory": "64Mi" },
+              "limits": { "cpu": "200m", "memory": "256Mi" }
+            }
+          ]
         }
       }
     },

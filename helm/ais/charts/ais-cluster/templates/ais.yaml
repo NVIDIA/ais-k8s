@@ -148,7 +148,12 @@ spec:
   initImage: "{{ .Values.initImage.name }}:{{ .Values.initImage.tag }}"
   {{- if hasKey .Values "logSidecarImage" }}
   {{- if and (hasKey .Values.logSidecarImage "name") (hasKey .Values.logSidecarImage "tag") }}
-  logSidecarImage: "{{ .Values.logSidecarImage.name }}:{{ .Values.logSidecarImage.tag }}"
+  logSidecar:
+    image: "{{ .Values.logSidecarImage.name }}:{{ .Values.logSidecarImage.tag }}"
+    {{- with .Values.logSidecarImage.resources }}
+    resources:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
   {{- end }}
   {{- end }}
   {{- with .Values.hostpathPrefix }}
