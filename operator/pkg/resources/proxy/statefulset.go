@@ -60,7 +60,7 @@ func NewProxyStatefulSet(ais *aisv1.AIStore, size int32) *apiv1.StatefulSet {
 	maps.Copy(podLabels, basicLabels)
 	maps.Copy(podLabels, ais.Spec.ProxySpec.Labels)
 
-	return &apiv1.StatefulSet{
+	ss := &apiv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ais.ProxyStatefulSetName(),
 			Namespace: ais.Namespace,
@@ -83,6 +83,10 @@ func NewProxyStatefulSet(ais *aisv1.AIStore, size int32) *apiv1.StatefulSet {
 			},
 		},
 	}
+	if ais.Spec.ProxySpec.PersistentVolumeClaimRetentionPolicy != nil {
+		ss.Spec.PersistentVolumeClaimRetentionPolicy = ais.Spec.ProxySpec.PersistentVolumeClaimRetentionPolicy
+	}
+	return ss
 }
 
 /////////////////

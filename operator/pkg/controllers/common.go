@@ -258,6 +258,10 @@ func syncSidecarContainer(desired, current *corev1.PodTemplateSpec) (updated boo
 	return true
 }
 
+func shouldUpdatePVCRetentionPolicy(desired, current *appsv1.StatefulSetPersistentVolumeClaimRetentionPolicy) bool {
+	return !equality.Semantic.DeepEqual(desired, current)
+}
+
 func (*AIStoreReconciler) isStatefulSetReady(desiredSize int32, ss *appsv1.StatefulSet) bool {
 	specReplicas := *ss.Spec.Replicas
 

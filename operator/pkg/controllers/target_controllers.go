@@ -137,6 +137,12 @@ func (r *AIStoreReconciler) handleTargetState(ctx context.Context, ais *aisv1.AI
 		return ctrl.Result{RequeueAfter: targetLongRequeueDelay}, nil
 	}
 
+	if policyUpdated, policyErr := r.syncTargetPVCRetentionPolicy(ctx, ais, ss); policyErr != nil {
+		return ctrl.Result{}, policyErr
+	} else if policyUpdated {
+		return ctrl.Result{RequeueAfter: targetLongRequeueDelay}, nil
+	}
+
 	if result, err := r.handleTargetRollout(ctx, ais, ss); err != nil || !result.IsZero() {
 		return result, err
 	}
@@ -312,6 +318,22 @@ func (r *AIStoreReconciler) syncTargetPodSpec(ctx context.Context, ais *aisv1.AI
 		return true, err
 	}
 	return false, nil
+}
+
+func (r *AIStoreReconciler) syncTargetPVCRetentionPolicy(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) (updated bool, err error) {
+	desiredPolicy := ais.Spec.TargetSpec.PersistentVolumeClaimRetentionPolicy
+	if !shouldUpdatePVCRetentionPolicy(desiredPolicy, ss.Spec.PersistentVolumeClaimRetentionPolicy) {
+		return false, nil
+	}
+	logger := logf.FromContext(ctx).WithValues("statefulset", ss.Name)
+	updatedSS := ss.DeepCopy()
+	updatedSS.Spec.PersistentVolumeClaimRetentionPolicy = desiredPolicy
+	patch := client.MergeFrom(ss)
+	if err = r.k8sClient.Patch(ctx, updatedSS, patch); err != nil {
+		return false, err
+	}
+	logger.Info("Updated target PVC retention policy")
+	return true, nil
 }
 
 func isPodActive(pod *corev1.Pod) bool {

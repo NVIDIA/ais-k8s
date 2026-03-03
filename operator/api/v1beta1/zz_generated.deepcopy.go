@@ -10,6 +10,7 @@ package v1beta1
 
 import (
 	"github.com/NVIDIA/aistore/cmn/cos"
+	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
@@ -1046,6 +1047,11 @@ func (in *DaemonSpec) DeepCopyInto(out *DaemonSpec) {
 	if in.HostPort != nil {
 		in, out := &in.HostPort, &out.HostPort
 		*out = new(int32)
+		**out = **in
+	}
+	if in.PersistentVolumeClaimRetentionPolicy != nil {
+		in, out := &in.PersistentVolumeClaimRetentionPolicy, &out.PersistentVolumeClaimRetentionPolicy
+		*out = new(appsv1.StatefulSetPersistentVolumeClaimRetentionPolicy)
 		**out = **in
 	}
 }

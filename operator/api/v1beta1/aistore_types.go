@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -561,6 +562,12 @@ type DaemonSpec struct {
 	// HostPort - Port to bind directly to a specific port on the host
 	// +optional
 	HostPort *int32 `json:"hostPort,omitempty"`
+
+	// PVCRetentionPolicy defines the PVC retention policy for the StatefulSet.
+	// Controls whether PVCs are retained or deleted when pods are scaled down or the StatefulSet is deleted.
+	// Requires Kubernetes 1.32+.
+	// +optional
+	PersistentVolumeClaimRetentionPolicy *appsv1.StatefulSetPersistentVolumeClaimRetentionPolicy `json:"persistentVolumeClaimRetentionPolicy,omitempty"`
 }
 
 type TargetSpec struct {
