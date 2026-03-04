@@ -32,6 +32,8 @@ While having more memory is advantageous, the process is designed not to deplete
 - **ETL Processes**: For ETL operations, a separate ETL pod is initiated for each target to execute data transformations.
 The intensity of computing resources used depends on the nature of these transformations.
 
+- **Guaranteed QoS**: To achieve [Guaranteed Quality of Service](https://kubernetes.io/docs/tasks/configure-pod-container/quality-service-pod/) for AIS pods, resource requests and limits must be equal for every container in the pod. The operator hard-codes init container resources to 1 CPU and 1Gi memory with equal requests and limits, which represents the bare minimum resource requirement per node. To achieve Guaranteed QoS, all other containers in the pod (main and optional logs sidecar) must also have matching requests and limits.
+
 - **Memory and Disk Utilization**: Adequate memory can reduce disk utilization.
 A larger memory capacity allows for more objects to be stored in [Linux's Page Cache](https://www.thomas-krenn.com/en/wiki/Linux_Page_Cache_Basics).
 This setup can lead to faster GET requests for these objects, as they can be served directly from memory, thereby reducing disk reads and lowering overall disk utilization. 

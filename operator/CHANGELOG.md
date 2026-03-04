@@ -18,6 +18,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 - Replaced `ClusterScaling` CR state with predicates inferred from StatefulSet status fields; reconciliation decisions are no longer driven by CR state
 - Admin client reconciliation now skips externally-managed deployments (e.g. deployed via Helm) to avoid conflicts
 - AIS primary container securityContext will now be synced from spec
+- Init container resources are hard-coded to 1 CPU / 1Gi memory (requests == limits) to support Guaranteed QoS
 
 ### Added
 

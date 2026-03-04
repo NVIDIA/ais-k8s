@@ -104,11 +104,19 @@ func NewAISContainerArgs(targetSize int32, daeType string) []string {
 	return args
 }
 
+// NewInitResourceReq returns fixed resource requirements for the init container.
+// CPU and memory requests/limits are set to equal values (1 CPU, 1Gi memory) to ensure
+// Guaranteed QoS class when the main container also has matching requests and limits.
 func NewInitResourceReq() *corev1.ResourceRequirements {
 	return &corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			// Init uses 3 mounts for templates and the final output -- to be safe, request space for all 3
+			corev1.ResourceCPU:              resource.MustParse("1"),
+			corev1.ResourceMemory:           resource.MustParse("1Gi"),
 			corev1.ResourceEphemeralStorage: *resource.NewQuantity(DefaultConfigStorageReq*3, resource.BinarySI),
+		},
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("1"),
+			corev1.ResourceMemory: resource.MustParse("1Gi"),
 		},
 	}
 }
