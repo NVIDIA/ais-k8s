@@ -1,0 +1,67 @@
+#
+# AIS host configuration — example config file
+#
+# Copy this file, edit it for your environment, and pass it to ais_host_config.sh:
+#   sudo AIS_CONFIG=my-config.yaml bash ais_host_config.sh
+#
+# Every field is optional. Omitted fields use the script defaults.
+# Environment variables override config file values.
+#
+
+# Block devices to format and mount (without /dev/ prefix)
+devices:
+  - nvme1n1
+  - nvme2n1
+  - nvme3n1
+  - nvme4n1
+
+mount_prefix: /ais
+fstype: xfs
+mount_options: "nofail,noatime,logbufs=8,logbsize=256k,swalloc"
+
+# Block device sysfs tuning (applied via udev rule, persists across reboots)
+blkdevtune:
+  pattern: "nvme*"              # shell-style glob: "nvme*", "sd*", "nvme[12]n1"
+  # read_ahead_kb: 128          # 128 is kernel default, adjust as needed
+
+# Kernel sysctl tuning
+#
+# Each sub-key becomes a /etc/sysctl.d/99-ais-<name>.conf drop-in file.
+# Entries are arbitrary sysctl key-value pairs passed through verbatim.
+# Omit a category entirely to skip it; remove the whole "sysctl" key to
+# skip all sysctl configuration.
+sysctl:
+  required:
+    net.core.somaxconn: 65535
+    net.ipv4.tcp_tw_reuse: 1
+    net.ipv4.ip_local_port_range: "2048 65535"
+    net.ipv4.tcp_max_tw_buckets: 1440000
+
+  # Network buffer sizes — adjust per network speed and RTT.
+  # Defaults tuned for 100 Gbps / ~5 ms RTT (BDP ~ 64 MB).
+  net:
+    net.ipv4.ip_forward: 1
+    net.core.optmem_max: 25165824
+    net.core.rmem_max: 134217728
+    net.core.wmem_max: 134217728
+    net.core.netdev_max_backlog: 250000
+    net.ipv4.tcp_mem: "9087424 12116566 18174849"
+    net.ipv4.tcp_wmem: "4096 16384 134217728"
+    net.ipv4.tcp_rmem: "4096 262144 134217728"
+    net.ipv4.tcp_adv_win_scale: 1
+    net.ipv4.tcp_mtu_probing: 2
+    net.ipv4.tcp_slow_start_after_idle: 0
+    net.ipv4.tcp_max_syn_backlog: 100000
+    net.ipv4.tcp_rfc1337: 1
+
+  # VM tuning — adjust per host memory (min_free_kbytes ~0.5-1% of RAM).
+  vm:
+    vm.swappiness: 10
+    vm.min_free_kbytes: 7922082
+    vm.vfs_cache_pressure: 50
+
+# Skip individual steps
+skip:
+  mkfs: false
+  blkdevtune: false
+  sysctl: false
