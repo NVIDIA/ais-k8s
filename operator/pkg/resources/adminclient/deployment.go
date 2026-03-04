@@ -29,6 +29,12 @@ const (
 	ComponentLabelValue = "client"
 	// CAVolumeName is the name of the volume and volume mount for CA certificates
 	CAVolumeName = "ais-ca"
+
+	// DefaultAuthNServiceURL is the default URL for the AuthN service
+	DefaultAuthNServiceURL = "https://ais-authn.ais:52001"
+	// AuthN secret keys
+	authnSecretKeyUsername = "SU-NAME"
+	authnSecretKeyPassword = "SU-PASS"
 )
 
 func DeploymentNSName(ais *aisv1.AIStore) types.NamespacedName {
@@ -158,16 +164,54 @@ func NewClientDeployment(ais *aisv1.AIStore) *appsv1.Deployment {
 	}
 }
 
+// authnEnvVars returns environment variables for AuthN configuration.
+func authnEnvVars(auth *aisv1.AuthSpec) []corev1.EnvVar {
+	if auth == nil || auth.UsernamePassword == nil {
+		return nil
+	}
+	serviceURL := DefaultAuthNServiceURL
+	if auth.ServiceURL != nil {
+		serviceURL = *auth.ServiceURL
+	}
+	return []corev1.EnvVar{
+		{Name: "AIS_AUTHN_URL", Value: serviceURL},
+		{
+			Name: "AIS_AUTHN_USERNAME",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: auth.UsernamePassword.SecretName,
+					},
+					Key: authnSecretKeyUsername,
+				},
+			},
+		},
+		{
+			Name: "AIS_AUTHN_PASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: auth.UsernamePassword.SecretName,
+					},
+					Key: authnSecretKeyPassword,
+				},
+			},
+		},
+	}
+}
+
 func buildClientEnv(ais *aisv1.AIStore) []corev1.EnvVar {
 	clientSpec := ais.Spec.AdminClient
 	base := []corev1.EnvVar{
 		{Name: aisenv.AisEndpoint, Value: ais.GetIntraClusterURL()},
 	}
 	ca := caEnvVars(clientSpec.CAConfigMap)
+	authn := authnEnvVars(ais.Spec.Auth)
 
-	env := make([]corev1.EnvVar, 0, len(base)+len(clientSpec.Env)+len(ca))
+	env := make([]corev1.EnvVar, 0, len(base)+len(clientSpec.Env)+len(ca)+len(authn))
 	env = append(env, base...)
 	env = append(env, clientSpec.Env...)
 	env = append(env, ca...)
+	env = append(env, authn...)
 	return env
 }

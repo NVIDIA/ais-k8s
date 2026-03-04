@@ -182,6 +182,20 @@ spec:
       name: my-ca-bundle
 ```
 
+For clusters with AuthN enabled via `spec.auth.usernamePassword`, the admin client is pre-configured with the AuthN service URL and credentials:
+
+| Environment Variable | Source |
+|---|---|
+| `AIS_AUTHN_URL` | `spec.auth.serviceURL` (default: `http://ais-authn.ais:52001`) |
+| `AIS_AUTHN_USERNAME` | `SU-NAME` key from `spec.auth.usernamePassword.secretName` |
+| `AIS_AUTHN_PASSWORD` | `SU-PASS` key from `spec.auth.usernamePassword.secretName` |
+
+Log in from the client pod:
+
+```bash
+ais auth login "$AIS_AUTHN_USERNAME" -p "$AIS_AUTHN_PASSWORD"
+```
+
 Open a shell in the client:
 
 ```console
