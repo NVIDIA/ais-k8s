@@ -136,6 +136,15 @@ func (r *AIStoreReconciler) handleTargetState(ctx context.Context, ais *aisv1.AI
 		"rolloutNeeded", rolloutNeeded, "scalingNeeded", scalingNeeded,
 	)
 
+	if policyUpdated, policyErr := r.syncTargetPVCRetentionPolicy(ctx, ais, ss); policyErr != nil {
+		return ctrl.Result{}, policyErr
+	} else if policyUpdated {
+		ss, err = r.k8sClient.GetStatefulSet(ctx, target.StatefulSetNSName(ais))
+		if err != nil {
+			return
+		}
+	}
+
 	// Apply template update (blocked by scaling in progress)
 	if rolloutNeeded && !scaling {
 		if updated, err := r.syncTargetPodSpec(ctx, ais, ss); err != nil {
@@ -338,6 +347,22 @@ func (r *AIStoreReconciler) syncTargetPodSpec(ctx context.Context, ais *aisv1.AI
 		return true, err
 	}
 	return false, nil
+}
+
+func (r *AIStoreReconciler) syncTargetPVCRetentionPolicy(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) (updated bool, err error) {
+	desiredPolicy := ais.Spec.TargetSpec.PVCRetentionPolicy
+	if !shouldUpdatePVCRetentionPolicy(desiredPolicy, ss.Spec.PersistentVolumeClaimRetentionPolicy) {
+		return false, nil
+	}
+	logger := logf.FromContext(ctx).WithValues("statefulset", ss.Name)
+	updatedSS := ss.DeepCopy()
+	updatedSS.Spec.PersistentVolumeClaimRetentionPolicy = desiredPolicy
+	patch := client.MergeFrom(ss)
+	if err = r.k8sClient.Patch(ctx, updatedSS, patch); err != nil {
+		return false, err
+	}
+	logger.Info("Updated target PVC retention policy")
+	return true, nil
 }
 
 func isPodActive(pod *corev1.Pod) bool {

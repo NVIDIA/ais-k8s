@@ -822,6 +822,59 @@ var _ = Describe("AIStoreController", func() {
 			),
 		)
 	})
+	Describe("shouldUpdatePVCRetentionPolicy", func() {
+		DescribeTable("should correctly compare PVC retention policy", func(desiredSyncPolicy, currentSyncPolicy *appsv1.StatefulSetPersistentVolumeClaimRetentionPolicy, expectedResult bool) {
+			needsUpdate := shouldUpdatePVCRetentionPolicy(desiredSyncPolicy, currentSyncPolicy)
+			Expect(needsUpdate).To(Equal(expectedResult))
+		},
+			Entry("desired policy nil, current policy nil",
+				nil,
+				nil,
+				false,
+			),
+			Entry("desired policy nil, current policy default value",
+				nil,
+				&appsv1.StatefulSetPersistentVolumeClaimRetentionPolicy{
+					WhenDeleted: appsv1.RetainPersistentVolumeClaimRetentionPolicyType,
+					WhenScaled:  appsv1.RetainPersistentVolumeClaimRetentionPolicyType,
+				},
+				false,
+			),
+			Entry("desired policy set, current policy nil",
+				&appsv1.StatefulSetPersistentVolumeClaimRetentionPolicy{
+					WhenDeleted: appsv1.RetainPersistentVolumeClaimRetentionPolicyType,
+					WhenScaled:  appsv1.DeletePersistentVolumeClaimRetentionPolicyType,
+				},
+				nil,
+				// This case happens if the kubernetes control plane is too old to support StatefulSet PVC retention policies.
+				// We'll still try to set the field in this case, which will cause an error and make it apparent to the user that
+				// they need to update kubernetes.
+				true,
+			),
+			Entry("desired policy == current policy",
+				&appsv1.StatefulSetPersistentVolumeClaimRetentionPolicy{
+					WhenDeleted: appsv1.RetainPersistentVolumeClaimRetentionPolicyType,
+					WhenScaled:  appsv1.DeletePersistentVolumeClaimRetentionPolicyType,
+				},
+				&appsv1.StatefulSetPersistentVolumeClaimRetentionPolicy{
+					WhenDeleted: appsv1.RetainPersistentVolumeClaimRetentionPolicyType,
+					WhenScaled:  appsv1.DeletePersistentVolumeClaimRetentionPolicyType,
+				},
+				false,
+			),
+			Entry("desired policy != current policy",
+				&appsv1.StatefulSetPersistentVolumeClaimRetentionPolicy{
+					WhenDeleted: appsv1.RetainPersistentVolumeClaimRetentionPolicyType,
+					WhenScaled:  appsv1.DeletePersistentVolumeClaimRetentionPolicyType,
+				},
+				&appsv1.StatefulSetPersistentVolumeClaimRetentionPolicy{
+					WhenDeleted: appsv1.DeletePersistentVolumeClaimRetentionPolicyType,
+					WhenScaled:  appsv1.DeletePersistentVolumeClaimRetentionPolicyType,
+				},
+				true,
+			),
+		)
+	})
 })
 
 func statefulSetsImagesLatest(ctx context.Context, c client.Client, ais *aisv1.AIStore) func(g Gomega) {

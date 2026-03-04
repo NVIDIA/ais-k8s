@@ -24,6 +24,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 - Restricted security context for init and logSidecar containers
 - Native support for arm64 hosts with multi-arch container image build targets 
 - Added `operator_state.md` documenting the cluster lifecycle states
+- `spec.proxySpec.pvcRetentionPolicy` and `spec.targetSpec.pvcRetentionPolicy` for configuring retention policies for persistent volume claims.
 
 ## v2.14.0
 

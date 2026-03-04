@@ -52,7 +52,7 @@ func NewTargetSS(ais *aisv1.AIStore, expectedSize int32) *apiv1.StatefulSet {
 	maps.Copy(podLabels, BasicLabels(ais))
 	maps.Copy(podLabels, ais.Spec.TargetSpec.Labels)
 
-	return &apiv1.StatefulSet{
+	ss := &apiv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        statefulSetName(ais),
 			Namespace:   ais.Namespace,
@@ -79,6 +79,10 @@ func NewTargetSS(ais *aisv1.AIStore, expectedSize int32) *apiv1.StatefulSet {
 			},
 		},
 	}
+	if ais.Spec.TargetSpec.PVCRetentionPolicy != nil {
+		ss.Spec.PersistentVolumeClaimRetentionPolicy = ais.Spec.TargetSpec.PVCRetentionPolicy
+	}
+	return ss
 }
 
 func targetPodSpec(ais *aisv1.AIStore) *corev1.PodSpec {

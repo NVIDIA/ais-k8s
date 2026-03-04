@@ -318,6 +318,15 @@ func isPodInCrashLoopBackOff(pod *corev1.Pod) bool {
 	return false
 }
 
+func shouldUpdatePVCRetentionPolicy(desired, current *appsv1.StatefulSetPersistentVolumeClaimRetentionPolicy) bool {
+	// If desired is unset then we want current to be either unset or the default value.
+	if desired == nil {
+		return current != nil && (current.WhenDeleted != appsv1.RetainPersistentVolumeClaimRetentionPolicyType || current.WhenScaled != appsv1.RetainPersistentVolumeClaimRetentionPolicyType)
+	}
+
+	return !equality.Semantic.DeepEqual(desired, current)
+}
+
 func (*AIStoreReconciler) isStatefulSetReady(desiredSize int32, ss *appsv1.StatefulSet) bool {
 	specReplicas := *ss.Spec.Replicas
 
