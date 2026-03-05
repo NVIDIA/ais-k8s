@@ -771,6 +771,62 @@ var _ = Describe("AIStoreController", func() {
 				},
 				true,
 			),
+			Entry("different priority class name",
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers:    []corev1.Container{{Image: "test:latest"}},
+						Containers:        []corev1.Container{{Image: "test:latest"}},
+						PriorityClassName: "test-name-1",
+					},
+				},
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers:    []corev1.Container{{Image: "test:latest"}},
+						Containers:        []corev1.Container{{Image: "test:latest"}},
+						PriorityClassName: "test-name-2",
+					},
+				},
+				true,
+			),
+			Entry("different volumes",
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers:     []corev1.Container{{Image: "test:latest"}},
+						Volumes: []corev1.Volume{
+							{
+								Name: "configmap",
+								VolumeSource: corev1.VolumeSource{
+									ConfigMap: &corev1.ConfigMapVolumeSource{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "name-1",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers:     []corev1.Container{{Image: "test:latest"}},
+						Volumes: []corev1.Volume{
+							{
+								Name: "configmap",
+								VolumeSource: corev1.VolumeSource{
+									ConfigMap: &corev1.ConfigMapVolumeSource{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "name-2",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				true,
+			),
 			Entry("no update needed",
 				&corev1.PodTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
@@ -790,8 +846,21 @@ var _ = Describe("AIStoreController", func() {
 								corev1.ResourceCPU: resource.MustParse("100m"),
 							}},
 						}},
+						PriorityClassName: "priority-class-name",
 						SecurityContext: &corev1.PodSecurityContext{
 							RunAsUser: apc.Ptr(int64(0)),
+						},
+						Volumes: []corev1.Volume{
+							{
+								Name: "configmap",
+								VolumeSource: corev1.VolumeSource{
+									ConfigMap: &corev1.ConfigMapVolumeSource{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "name",
+										},
+									},
+								},
+							},
 						},
 					},
 				},
@@ -813,8 +882,21 @@ var _ = Describe("AIStoreController", func() {
 								corev1.ResourceCPU: resource.MustParse("100m"),
 							}},
 						}},
+						PriorityClassName: "priority-class-name",
 						SecurityContext: &corev1.PodSecurityContext{
 							RunAsUser: apc.Ptr(int64(0)),
+						},
+						Volumes: []corev1.Volume{
+							{
+								Name: "configmap",
+								VolumeSource: corev1.VolumeSource{
+									ConfigMap: &corev1.ConfigMapVolumeSource{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "name",
+										},
+									},
+								},
+							},
 						},
 					},
 				},
