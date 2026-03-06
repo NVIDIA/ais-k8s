@@ -153,7 +153,7 @@ configure_sysctl() {
     fi
 
     local has_sysctl
-    has_sysctl="$(yq -r '.sysctl // empty' "$AIS_CONFIG")"
+    has_sysctl="$(yq -r '(.sysctl | keys)[0] // ""' "$AIS_CONFIG")"
     if [[ -z "$has_sysctl" ]]; then
         log "No sysctl section in config, skipping"
         return 0
