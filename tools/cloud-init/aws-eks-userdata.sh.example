@@ -34,6 +34,8 @@ devices:
   - nvme2n1
   - nvme3n1
   - nvme4n1
+  - nvme5n1
+  - nvme6n1
 
 mount_prefix: /ais
 fstype: xfs
@@ -76,6 +78,8 @@ done
 chmod +x install_deps.sh ais_host_config.sh ais_datafs.sh
 
 bash install_deps.sh
+
+# Use bash with -x to view all startup commands in instance system log
 AIS_CONFIG=/tmp/ais-config.yaml bash ais_host_config.sh
 
 # ── EKS bootstrap (custom AMI only) ────────────────────────────────────────

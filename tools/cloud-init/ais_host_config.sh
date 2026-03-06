@@ -42,7 +42,9 @@ _cfg_set() {
     local var="$1" expr="$2"
     [[ -n "${!var:-}" ]] && return 0
     local val; val="$(_cfg "$expr")"
-    [[ "$val" != "null" && -n "$val" ]] && printf -v "$var" '%s' "$val"
+    if [[ "$val" != "null" && -n "$val" ]]; then
+        printf -v "$var" '%s' "$val"
+    fi
 }
 
 if [[ -n "$AIS_CONFIG" ]]; then
