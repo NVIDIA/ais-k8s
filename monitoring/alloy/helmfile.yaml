@@ -23,6 +23,7 @@ environments:
     values:
       - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git//helm/monitoring/alloy/config/@ais-qa.yaml?ref=main"
         container_runtime: containerd
+        host_network: true
 --- 
 
 repositories:
