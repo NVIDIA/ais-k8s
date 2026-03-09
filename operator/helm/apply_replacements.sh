@@ -2,7 +2,7 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LOCAL_BIN="${SCRIPT_DIR}/../bin"
+LOCAL_BIN="${1:-${SCRIPT_DIR}/../bin}"
 GOMPLATE="${LOCAL_BIN}/gomplate"
 YQ="${LOCAL_BIN}/yq"
 

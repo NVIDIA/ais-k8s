@@ -157,6 +157,17 @@ fmt-check: ## Check code formatting
 fmt-fix: ## Fix code formatting
 	@$(SHELL) "$(SCRIPTS_DIR)/lint.sh" fmt --fix
 
+.PHONY: check-gen
+check-gen: yq
+	$(eval CHART_IMG := $(shell $(YQ) '.images[] | select(.name == "controller") | .newName + ":" + .newTag' config/overlays/default/kustomization.yaml))
+	$(eval CHART_VERSION := $(shell $(YQ) '.version' helm/ais-operator/Chart.yaml))
+	$(MAKE) build-installer-helm IMG=$(CHART_IMG) VERSION=$(CHART_VERSION)
+	@if ! git diff --quiet HEAD -- config/ helm/ais-operator/; then \
+		echo "ERROR: Generated files are out of date. Run 'make build-installer-helm' and commit the changes."; \
+		git diff --stat HEAD -- config/ helm/ais-operator/; \
+		exit 1; \
+	fi
+
 ##@ Build
 
 .PHONY: build
@@ -231,7 +242,7 @@ build-installer-helm: require-img require-version manifests generate kustomize h
 	cp dist/ais-operator/values.yaml helm/ais-operator/values.yaml
 	cp dist/ais-operator/templates/*.yaml helm/ais-operator/templates
 	# Merge extra values and persisted templates over the top of the generated files
-	./helm/apply_replacements.sh
+	./helm/apply_replacements.sh $(LOCAL_BIN)
 
 .PHONY: package-chart
 package-chart: build-installer-helm helm
@@ -325,7 +336,7 @@ LPP_MANIFEST_SRC = $(if $(LPP_MANIFEST),$(LPP_MANIFEST),$(LPP_MANIFEST_URL))
 # Caches all the necessary tools for in-cluster testing and manifests for pre-req installation
 .PHONY: cache-test-deps
 cache-test-deps: $(LOCAL_BIN) $(LOCAL_MANIFESTS)
-	make kind kustomize controller-gen envtest golangci-lint mockgen cloud-provider-kind
+	make kind kustomize controller-gen envtest golangci-lint mockgen cloud-provider-kind yq helmify gomplate
 	curl -sSfL -o $(LOCAL_MANIFESTS)/cert-manager.yaml "$(CERT_MANAGER_MANIFEST_URL)"
 	curl -sSfL -o $(LOCAL_MANIFESTS)/local-path-storage.yaml "$(LPP_MANIFEST_URL)"
 

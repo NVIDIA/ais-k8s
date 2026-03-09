@@ -63,8 +63,7 @@ operator:lint:
     - cd operator
     - make lint
     - make fmt-check
-    - make generate && [[ -z "$(git status -s)" ]] || { echo "You need to run 'make generate'"; exit 1; }
-    - make manifests && [[ -z "$(git status -s)" ]] || { echo "You need to run 'make manifests'"; exit 1; }
+    - make check-gen
 
 operator:build:
   stage: operator:build
