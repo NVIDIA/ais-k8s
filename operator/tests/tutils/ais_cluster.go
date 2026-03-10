@@ -69,26 +69,26 @@ func clusterName() string {
 	return "ais-test-" + strings.ToLower(aiscos.CryptoRandS(6))
 }
 
-func NewClusterSpecArgs(testContext *AISTestContext, namespace string) *ClusterSpecArgs {
+func NewClusterSpecArgs(testCfg *AISTestCfg, namespace string) *ClusterSpecArgs {
 	return &ClusterSpecArgs{
 		Name:                      clusterName(),
 		Namespace:                 namespace,
-		StorageClass:              testContext.StorageClass,
-		StorageHostPath:           testContext.StorageHostPath,
+		StorageClass:              testCfg.StorageClass,
+		StorageHostPath:           testCfg.StorageHostPath,
 		Size:                      1,
-		NodeImage:                 testContext.NodeImage,
-		InitImage:                 testContext.InitImage,
-		LogSidecarImage:           testContext.LogsImage,
-		APIMode:                   testContext.APIMode,
+		NodeImage:                 testCfg.NodeImage,
+		InitImage:                 testCfg.InitImage,
+		LogSidecarImage:           testCfg.LogsImage,
+		APIMode:                   testCfg.APIMode,
 		CleanupMetadata:           true,
 		CleanupData:               true,
 		DisableTargetAntiAffinity: false,
 	}
 }
 
-func NewAISCluster(args *ClusterSpecArgs, client *aisclient.K8sClient) (*aisv1.AIStore, []*corev1.PersistentVolume) {
+func NewAISCluster(ctx context.Context, args *ClusterSpecArgs, client *aisclient.K8sClient) (*aisv1.AIStore, []*corev1.PersistentVolume) {
 	mounts := defineMounts(args)
-	pvs := createStoragePVs(args, client, mounts)
+	pvs := createStoragePVs(ctx, args, client, mounts)
 	return newAISClusterCR(args, mounts), pvs
 }
 
@@ -97,7 +97,7 @@ func NewAISClusterNoPV(args *ClusterSpecArgs) *aisv1.AIStore {
 	return newAISClusterCR(args, mounts)
 }
 
-func createStoragePVs(args *ClusterSpecArgs, client *aisclient.K8sClient, mounts []aisv1.Mount) []*corev1.PersistentVolume {
+func createStoragePVs(ctx context.Context, args *ClusterSpecArgs, client *aisclient.K8sClient, mounts []aisv1.Mount) []*corev1.PersistentVolume {
 	targetNum := int(args.MaxTargets)
 	if targetNum == 0 {
 		if args.TargetSize != 0 {
@@ -109,7 +109,6 @@ func createStoragePVs(args *ClusterSpecArgs, client *aisclient.K8sClient, mounts
 
 	pvs := make([]*corev1.PersistentVolume, 0, len(mounts)*targetNum)
 
-	ctx := context.Background()
 	selector := map[string]string{"ais-node": "true"}
 	nodeList, err := client.ListNodesMatchingSelector(ctx, selector)
 
@@ -134,7 +133,7 @@ func createStoragePVs(args *ClusterSpecArgs, client *aisclient.K8sClient, mounts
 				size:         mount.Size,
 			}
 			// Create required PVs
-			if pv, err := CreatePV(context.Background(), client, &pvData); err == nil {
+			if pv, err := CreatePV(ctx, client, &pvData); err == nil {
 				pvs = append(pvs, pv)
 			}
 		}

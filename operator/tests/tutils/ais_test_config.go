@@ -27,7 +27,7 @@ const (
 	K8sProviderUnknown  = "unknown"
 )
 
-type AISTestContext struct {
+type AISTestCfg struct {
 	K8sProvider       string
 	StorageClass      string
 	StorageHostPath   string
@@ -40,14 +40,14 @@ type AISTestContext struct {
 	APIMode           string
 }
 
-func NewAISTestContext(ctx context.Context, k8sClient *aisclient.K8sClient) (*AISTestContext, error) {
+func NewAISTestCfg(ctx context.Context, k8sClient *aisclient.K8sClient) (*AISTestCfg, error) {
 	k8sProvider, err := initK8sProvider(ctx, k8sClient)
 	if err != nil {
 		return nil, err
 	}
-	return &AISTestContext{
+	return &AISTestCfg{
 		K8sProvider:       k8sProvider,
-		StorageClass:      initStorageClass(k8sClient, k8sProvider),
+		StorageClass:      initStorageClass(ctx, k8sClient, k8sProvider),
 		StorageHostPath:   initStorageHostPath(),
 		NodeImage:         initNodeImage(),
 		InitImage:         initInitImage(),
@@ -97,13 +97,13 @@ func initPrevNodeImage() string {
 	return getOrDefaultEnv(EnvPrevNodeImage, DefaultPrevNodeImage)
 }
 
-func initStorageClass(k8sClient *aisclient.K8sClient, k8sProvider string) string {
+func initStorageClass(ctx context.Context, k8sClient *aisclient.K8sClient, k8sProvider string) string {
 	storageClass := os.Getenv(EnvTestStorageClass)
 	if storageClass == "" && k8sProvider == K8sProviderGKE {
 		storageClass = GKEDefaultStorageClass
 	} else if storageClass == "" {
 		storageClass = "ais-operator-test-storage"
-		CreateAISStorageClass(context.Background(), k8sClient, storageClass)
+		CreateAISStorageClass(ctx, k8sClient, storageClass)
 	}
 	return storageClass
 }
@@ -124,21 +124,21 @@ func getOrDefaultEnv(envVar, defaultVal string) string {
 	return defaultVal
 }
 
-func (c *AISTestContext) GetClusterCreateTimeout() time.Duration {
+func (c *AISTestCfg) GetClusterCreateTimeout() time.Duration {
 	if c.K8sProvider == K8sProviderGKE {
 		return 5 * time.Minute
 	}
 	return 4 * time.Minute
 }
 
-func (c *AISTestContext) GetClusterCreateLongTimeout() time.Duration {
+func (c *AISTestCfg) GetClusterCreateLongTimeout() time.Duration {
 	if c.K8sProvider == K8sProviderGKE {
 		return 8 * time.Minute
 	}
 	return 6 * time.Minute
 }
 
-func (c *AISTestContext) GetLBExistenceTimeout() (timeout, interval time.Duration) {
+func (c *AISTestCfg) GetLBExistenceTimeout() (timeout, interval time.Duration) {
 	if c.K8sProvider == K8sProviderGKE {
 		return 4 * time.Minute, 5 * time.Second
 	}

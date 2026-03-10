@@ -120,13 +120,13 @@ func CleanNamespace(ctx context.Context, k8sClient *aisclient.K8sClient, testNS 
 	Expect(err).NotTo(HaveOccurred())
 
 	// Wait for namespace to be deleted
-	Eventually(func() bool {
+	Eventually(func(ctx context.Context) bool {
 		exists, checkErr := checkIfNamespaceExists(ctx, k8sClient, testNS.Name)
 		if checkErr != nil {
 			Fail(fmt.Sprintf("Failed to check namespace %s existence; err %v\n", testNS.Name, checkErr))
 		}
 		return exists
-	}, timeout).Should(BeFalse())
+	}, timeout).WithContext(ctx).Should(BeFalse())
 }
 
 func GetK8sClient() (*aisclient.K8sClient, error) {

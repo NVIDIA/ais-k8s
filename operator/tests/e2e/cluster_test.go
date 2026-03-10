@@ -26,60 +26,60 @@ var _ = Describe("Run Controller", func() {
 	var cluArgs *tutils.ClusterSpecArgs
 
 	BeforeEach(func() {
-		cluArgs = tutils.NewClusterSpecArgs(AISTestContext, WorkerCtx.TestNSName)
+		cluArgs = tutils.NewClusterSpecArgs(AISTestCfg, WorkerCfg.TestNSName)
 	})
 
 	Context("Deploy and Destroy cluster", func() {
 		Context("without externalLB", func() {
 			It("Should successfully create an AIS Cluster with required K8s objects", func(ctx context.Context) {
-				cc := newClientCluster(ctx, AISTestContext, WorkerCtx.K8sClient, cluArgs)
-				cc.createAndDestroyCluster(cc.waitForResources, cc.waitForResourceDeletion)
+				cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
+				cc.createAndDestroyWithWait(ctx)
 			})
 
 			It("Should deploy admin client when enabled", func(ctx context.Context) {
 				cluArgs.EnableAdminClient = true
-				cc := newClientCluster(ctx, AISTestContext, WorkerCtx.K8sClient, cluArgs)
-				cc.createAndDestroyCluster(cc.verifyAdminClientExists, cc.verifyAdminClientDeleted)
+				cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
+				cc.createAndDestroyCluster(ctx, func() { cc.verifyAdminClientExists(ctx) }, func() { cc.verifyAdminClientDeleted(ctx) })
 			})
 
 			It("Should allow toggling admin client on running cluster", func(ctx context.Context) {
-				cc := newClientCluster(ctx, AISTestContext, WorkerCtx.K8sClient, cluArgs)
+				cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
 				defer func() {
-					cc.printLogs()
+					cc.printLogs(ctx)
 					cc.destroyAndCleanup()
 				}()
-				cc.create()
-				cc.waitForResources()
+				cc.create(ctx)
+				cc.waitForResources(ctx)
 
-				cc.enableAdminClient()
-				cc.verifyAdminClientExists()
+				cc.enableAdminClient(ctx)
+				cc.verifyAdminClientExists(ctx)
 
-				cc.disableAdminClient()
-				cc.verifyAdminClientDeleted()
+				cc.disableAdminClient(ctx)
+				cc.verifyAdminClientDeleted(ctx)
 			})
 
 			It("Should allow toggling target PDB on running cluster", func(ctx context.Context) {
-				cc := newClientCluster(ctx, AISTestContext, WorkerCtx.K8sClient, cluArgs)
+				cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
 				defer func() {
-					cc.printLogs()
+					cc.printLogs(ctx)
 					cc.destroyAndCleanup()
 				}()
-				cc.create()
-				cc.waitForResources()
+				cc.create(ctx)
+				cc.waitForResources(ctx)
 
-				cc.enableTargetPDB()
-				cc.verifyTargetPDBExists()
+				cc.enableTargetPDB(ctx)
+				cc.verifyTargetPDBExists(ctx)
 
-				cc.disableTargetPDB()
-				cc.verifyTargetPDBDeleted()
+				cc.disableTargetPDB(ctx)
+				cc.verifyTargetPDBDeleted(ctx)
 			})
 		})
 
 		Context("with externalLB", func() {
 			It("Should successfully create an AIS Cluster with required K8s objects", func(ctx context.Context) {
 				cluArgs.EnableExternalLB = true
-				cc := newClientCluster(ctx, AISTestContext, WorkerCtx.K8sClient, cluArgs)
-				cc.createAndDestroyCluster(cc.waitForResources, cc.waitForResourceDeletion)
+				cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
+				cc.createAndDestroyWithWait(ctx)
 			})
 			It("Should successfully create a hetero-sized AIS Cluster", func(ctx context.Context) {
 				// If we have multiple targets on the same node we need a way to reach each of them
@@ -88,8 +88,8 @@ var _ = Describe("Run Controller", func() {
 				cluArgs.ProxySize = 1
 				cluArgs.DisableTargetAntiAffinity = true
 				cluArgs.EnableExternalLB = true
-				cc := newClientCluster(ctx, AISTestContext, WorkerCtx.K8sClient, cluArgs)
-				cc.createAndDestroyCluster(cc.waitForResources, cc.waitForResourceDeletion)
+				cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
+				cc.createAndDestroyWithWait(ctx)
 			})
 		})
 	})
@@ -107,127 +107,127 @@ var _ = Describe("Run Controller", func() {
 					},
 				},
 			}
-			_, err := WorkerCtx.K8sClient.CreateResourceIfNotExists(ctx, nil, issuer)
+			_, err := WorkerCfg.K8sClient.CreateResourceIfNotExists(ctx, nil, issuer)
 			Expect(err).To(BeNil())
 
 			cluArgs.TLS = &tutils.TLSArgs{
 				IssuerName: issuer.Name,
 				IssuerKind: "Issuer",
 			}
-			cc := newClientCluster(ctx, AISTestContext, WorkerCtx.K8sClient, cluArgs)
+			cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
 			defer func() {
-				Expect(cc.printLogs()).To(Succeed())
+				Expect(cc.printLogs(ctx)).To(Succeed())
 				cc.destroyAndCleanup()
-				_, err := WorkerCtx.K8sClient.DeleteResourceIfExists(ctx, issuer)
+				_, err := WorkerCfg.K8sClient.DeleteResourceIfExists(ctx, issuer)
 				Expect(err).To(BeNil())
 			}()
-			cc.create()
-			cc.waitForResources()
+			cc.create(ctx)
+			cc.waitForResources(ctx)
 		})
 	})
 
 	Context("Multiple Deployments", func() {
 		// Running multiple clusters in the same cluster
 		It("Should allow running two clusters in the same namespace", func(ctx context.Context) {
-			cc1 := newClientCluster(ctx, AISTestContext, WorkerCtx.K8sClient, cluArgs)
-			cluArgs2 := tutils.NewClusterSpecArgs(AISTestContext, WorkerCtx.TestNSName)
-			cc2 := newClientCluster(ctx, AISTestContext, WorkerCtx.K8sClient, cluArgs2)
+			cc1 := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
+			cluArgs2 := tutils.NewClusterSpecArgs(AISTestCfg, WorkerCfg.TestNSName)
+			cc2 := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs2)
 			cc2.applyHostPortOffset(int32(5))
 			defer func() {
-				Expect(cc1.printLogs()).To(Succeed())
-				Expect(cc2.printLogs()).To(Succeed())
+				Expect(cc1.printLogs(ctx)).To(Succeed())
+				Expect(cc2.printLogs(ctx)).To(Succeed())
 				cc2.destroyAndCleanup()
 				cc1.destroyAndCleanup()
 			}()
 			clusters := []*clientCluster{cc1, cc2}
-			createClusters(clusters)
-			cc1.waitForReadyCluster()
-			cc2.waitForReadyCluster()
+			createClusters(ctx, clusters)
+			cc1.waitForReadyCluster(ctx)
+			cc2.waitForReadyCluster(ctx)
 		})
 
 		It("Should allow two clusters with same name in different namespaces", func(ctx context.Context) {
-			otherCluArgs := tutils.NewClusterSpecArgs(AISTestContext, WorkerCtx.TestNSOtherName)
-			newNS, nsExists := tutils.CreateNSIfNotExists(ctx, WorkerCtx.K8sClient, WorkerCtx.TestNSOtherName)
+			otherCluArgs := tutils.NewClusterSpecArgs(AISTestCfg, WorkerCfg.TestNSOtherName)
+			newNS, nsExists := tutils.CreateNSIfNotExists(ctx, WorkerCfg.K8sClient, WorkerCfg.TestNSOtherName)
 			if !nsExists {
 				defer func() {
-					_, err := WorkerCtx.K8sClient.DeleteResourceIfExists(ctx, newNS)
+					_, err := WorkerCfg.K8sClient.DeleteResourceIfExists(ctx, newNS)
 					Expect(err).To(BeNil())
 				}()
 			}
-			cc1 := newClientCluster(ctx, AISTestContext, WorkerCtx.K8sClient, cluArgs)
-			cc2 := newClientCluster(ctx, AISTestContext, WorkerCtx.K8sClient, otherCluArgs)
+			cc1 := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
+			cc2 := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, otherCluArgs)
 			cc2.applyHostPortOffset(int32(5))
 			defer func() {
-				Expect(cc1.printLogs()).To(Succeed())
-				Expect(cc2.printLogs()).To(Succeed())
+				Expect(cc1.printLogs(ctx)).To(Succeed())
+				Expect(cc2.printLogs(ctx)).To(Succeed())
 				cc2.destroyAndCleanup()
 				cc1.destroyAndCleanup()
 			}()
 			clusters := []*clientCluster{cc1, cc2}
-			createClusters(clusters)
-			cc1.waitForReadyCluster()
-			cc2.waitForReadyCluster()
+			createClusters(ctx, clusters)
+			cc1.waitForReadyCluster(ctx)
+			cc2.waitForReadyCluster(ctx)
 		})
 	})
 
 	Context("Upgrade existing cluster", func() {
 		It("Should upgrade cluster (without rebalance) if aisnode image changes", func(ctx context.Context) {
-			cluArgs.NodeImage = AISTestContext.PreviousNodeImage
-			cluArgs.InitImage = AISTestContext.PreviousInitImage
+			cluArgs.NodeImage = AISTestCfg.PreviousNodeImage
+			cluArgs.InitImage = AISTestCfg.PreviousInitImage
 			cluArgs.Size = 2
-			cc := newClientCluster(ctx, AISTestContext, WorkerCtx.K8sClient, cluArgs)
+			cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
 			defer func() {
-				_ = cc.printLogs()
+				_ = cc.printLogs(ctx)
 				cc.destroyAndCleanup()
 			}()
-			cc.create()
-			cc.patchImagesToCurrent()
-			cc.verifyPodImages()
+			cc.create(ctx)
+			cc.patchImagesToCurrent(ctx)
+			cc.verifyPodImages(ctx)
 
 			// Check we didn't rebalance at all (nothing else should trigger it on this test)
 			args := aisxact.ArgsMsg{Kind: aisapc.ActRebalance}
-			jobs, err := aisapi.GetAllXactionStatus(cc.getBaseParams(), &args)
+			jobs, err := aisapi.GetAllXactionStatus(cc.getBaseParams(ctx), &args)
 			Expect(err).To(BeNil())
 			Expect(len(jobs)).To(BeZero())
 		})
 
 		It("Should successfully upgrade cluster with target PDB enabled", func(ctx context.Context) {
-			cluArgs.NodeImage = AISTestContext.PreviousNodeImage
-			cluArgs.InitImage = AISTestContext.PreviousInitImage
+			cluArgs.NodeImage = AISTestCfg.PreviousNodeImage
+			cluArgs.InitImage = AISTestCfg.PreviousInitImage
 			cluArgs.Size = 2
 			cluArgs.EnableTargetPDB = true
-			cc := newClientCluster(ctx, AISTestContext, WorkerCtx.K8sClient, cluArgs)
+			cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
 			defer func() {
-				_ = cc.printLogs()
+				_ = cc.printLogs(ctx)
 				cc.destroyAndCleanup()
 			}()
-			cc.create()
-			cc.verifyTargetPDBExists()
-			cc.patchImagesToCurrent()
-			cc.verifyPodImages()
+			cc.create(ctx)
+			cc.verifyTargetPDBExists(ctx)
+			cc.patchImagesToCurrent(ctx)
+			cc.verifyPodImages(ctx)
 		})
 
 		It("Should allow reverting a broken upgrade", func(ctx context.Context) {
 			cluArgs.Size = 3
-			cc := newClientCluster(ctx, AISTestContext, WorkerCtx.K8sClient, cluArgs)
+			cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
 			defer func() {
-				_ = cc.printLogs()
+				_ = cc.printLogs(ctx)
 				cc.destroyAndCleanup()
 			}()
-			cc.create()
+			cc.create(ctx)
 
 			By("Upgrade w/ non-existent images")
-			cc.patchImagesToBroken()
+			cc.patchImagesToBroken(ctx)
 
 			By("Wait for highest index proxy pod to be stuck in ImagePullBackOff")
 			stuckPodName := cc.cluster.ProxyStatefulSetName() + "-" + strconv.Itoa(int(cc.cluster.GetProxySize()-1))
-			Eventually(func() bool {
-				return cc.podHasImagePullError(stuckPodName)
-			}, 60*time.Second, 2*time.Second).Should(BeTrue(), "Pod %s should be stuck in ImagePullBackOff", stuckPodName)
+			Eventually(func(ctx context.Context) bool {
+				return cc.podHasImagePullError(ctx, stuckPodName)
+			}, 60*time.Second, 2*time.Second).WithContext(ctx).Should(BeTrue(), "Pod %s should be stuck in ImagePullBackOff", stuckPodName)
 
 			By("Revert and verify cluster recovers")
-			cc.patchImagesToCurrent()
-			cc.verifyPodImages()
+			cc.patchImagesToCurrent(ctx)
+			cc.verifyPodImages(ctx)
 		})
 	})
 
@@ -235,29 +235,20 @@ var _ = Describe("Run Controller", func() {
 		Context("without externalLB", func() {
 			It("Should be able to scale-up existing cluster", func(ctx context.Context) {
 				cluArgs.MaxTargets = 2
-				cc := newClientCluster(ctx, AISTestContext, WorkerCtx.K8sClient, cluArgs)
-				scaleUpCluster := func() {
-					cc.scale(false, 1)
-				}
-				cc.createAndDestroyCluster(scaleUpCluster, nil)
+				cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
+				cc.createAndDestroyCluster(ctx, func() { cc.scale(ctx, false, 1) }, nil)
 			})
 
 			It("Should be able to scale-up targets of existing cluster", func(ctx context.Context) {
 				cluArgs.MaxTargets = 2
-				cc := newClientCluster(ctx, AISTestContext, WorkerCtx.K8sClient, cluArgs)
-				scaleUpCluster := func() {
-					cc.scale(true, 1)
-				}
-				cc.createAndDestroyCluster(scaleUpCluster, nil)
+				cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
+				cc.createAndDestroyCluster(ctx, func() { cc.scale(ctx, true, 1) }, nil)
 			})
 
 			It("Should be able to scale-down existing cluster", func(ctx context.Context) {
 				cluArgs.Size = 2
-				cc := newClientCluster(ctx, AISTestContext, WorkerCtx.K8sClient, cluArgs)
-				scaleDownCluster := func() {
-					cc.scale(false, -1)
-				}
-				cc.createAndDestroyCluster(scaleDownCluster, nil)
+				cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
+				cc.createAndDestroyCluster(ctx, func() { cc.scale(ctx, false, -1) }, nil)
 			})
 
 			It("Should allow reverting a broken scale-up", func(ctx context.Context) {
@@ -265,28 +256,28 @@ var _ = Describe("Run Controller", func() {
 				// Scaling to 2 targets means target-1 has no PV and will be stuck Pending
 				cluArgs.MaxTargets = 1
 				cluArgs.DisableTargetAntiAffinity = true
-				cc := newClientCluster(ctx, AISTestContext, WorkerCtx.K8sClient, cluArgs)
+				cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
 				defer func() {
-					_ = cc.printLogs()
+					_ = cc.printLogs(ctx)
 					cc.destroyAndCleanup()
 				}()
-				cc.create()
+				cc.create(ctx)
 
 				By("Scale up beyond available PVs")
-				cc.attemptScale(false, 1)
+				cc.attemptScale(ctx, false, 1)
 
 				By("Wait for at least one pod to be stuck in Pending")
-				Eventually(func() bool {
-					return cc.hasPendingPods()
-				}, 60*time.Second, 2*time.Second).Should(BeTrue(), "Should have pods stuck in Pending")
+				Eventually(func(ctx context.Context) bool {
+					return cc.hasPendingPods(ctx)
+				}, 60*time.Second, 2*time.Second).WithContext(ctx).Should(BeTrue(), "Should have pods stuck in Pending")
 
 				By("Verify pods stay stuck in Pending state")
-				Consistently(func() bool {
-					return cc.hasPendingPods()
-				}, 10*time.Second, 2*time.Second).Should(BeTrue(), "Pods should remain stuck in Pending")
+				Consistently(func(ctx context.Context) bool {
+					return cc.hasPendingPods(ctx)
+				}, 10*time.Second, 2*time.Second).WithContext(ctx).Should(BeTrue(), "Pods should remain stuck in Pending")
 
 				By("Revert scale back to original size")
-				cc.scale(false, -1)
+				cc.scale(ctx, false, -1)
 			})
 		})
 
@@ -294,21 +285,15 @@ var _ = Describe("Run Controller", func() {
 			It("Should be able to scale-up existing cluster", func(ctx context.Context) {
 				cluArgs.EnableExternalLB = true
 				cluArgs.MaxTargets = 2
-				cc := newClientCluster(ctx, AISTestContext, WorkerCtx.K8sClient, cluArgs)
-				scaleUpCluster := func() {
-					cc.scale(false, 1)
-				}
-				cc.createAndDestroyCluster(scaleUpCluster, nil)
+				cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
+				cc.createAndDestroyCluster(ctx, func() { cc.scale(ctx, false, 1) }, nil)
 			})
 
 			It("Should be able to scale-down existing cluster", func(ctx context.Context) {
 				cluArgs.Size = 2
 				cluArgs.EnableExternalLB = true
-				cc := newClientCluster(ctx, AISTestContext, WorkerCtx.K8sClient, cluArgs)
-				scaleDownCluster := func() {
-					cc.scale(false, -1)
-				}
-				cc.createAndDestroyCluster(scaleDownCluster, nil)
+				cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
+				cc.createAndDestroyCluster(ctx, func() { cc.scale(ctx, false, -1) }, nil)
 			})
 		})
 
@@ -316,40 +301,38 @@ var _ = Describe("Run Controller", func() {
 			It("Should be able to scale-up existing cluster", func(ctx context.Context) {
 				cluArgs.EnableTargetPDB = true
 				cluArgs.MaxTargets = 2
-				cc := newClientCluster(ctx, AISTestContext, WorkerCtx.K8sClient, cluArgs)
-				scaleUpCluster := func() {
-					cc.verifyTargetPDBExists()
-					cc.scale(false, 1)
-				}
-				cc.createAndDestroyCluster(scaleUpCluster, nil)
+				cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
+				cc.createAndDestroyCluster(ctx, func() {
+					cc.verifyTargetPDBExists(ctx)
+					cc.scale(ctx, false, 1)
+				}, nil)
 			})
 
 			It("Should be able to scale-down existing cluster", func(ctx context.Context) {
 				cluArgs.Size = 2
 				cluArgs.EnableTargetPDB = true
-				cc := newClientCluster(ctx, AISTestContext, WorkerCtx.K8sClient, cluArgs)
-				scaleDownCluster := func() {
-					cc.verifyTargetPDBExists()
-					cc.scale(false, -1)
-				}
-				cc.createAndDestroyCluster(scaleDownCluster, nil)
+				cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
+				cc.createAndDestroyCluster(ctx, func() {
+					cc.verifyTargetPDBExists(ctx)
+					cc.scale(ctx, false, -1)
+				}, nil)
 			})
 		})
 	})
 
 	Describe("Data-safety tests", func() {
 		It("Restarting cluster must retain data", func(ctx context.Context) {
-			cc := newClientCluster(ctx, AISTestContext, WorkerCtx.K8sClient, cluArgs)
+			cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
 			defer func() {
-				_ = cc.printLogs()
+				_ = cc.printLogs(ctx)
 				cc.destroyAndCleanup()
 			}()
-			cc.create()
+			cc.create(ctx)
 			// put objects
 			var (
 				bck       = aiscmn.Bck{Name: "TEST_BCK_DATA_SAFETY", Provider: aisapc.AIS}
 				objPrefix = "test-opr/"
-				baseParam = cc.getBaseParams()
+				baseParam = cc.getBaseParams(ctx)
 			)
 			err := aisapi.CreateBucket(baseParam, bck, nil)
 			Expect(err).ShouldNot(HaveOccurred())
@@ -365,26 +348,26 @@ var _ = Describe("Run Controller", func() {
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(failCnt).To(Equal(0))
-			tutils.ObjectsShouldExist(cc.getBaseParams(), bck, names...)
+			tutils.ObjectsShouldExist(cc.getBaseParams(ctx), bck, names...)
 			// Restart cluster
-			cc.restart()
-			tutils.ObjectsShouldExist(cc.getBaseParams(), bck, names...)
+			cc.restart(ctx)
+			tutils.ObjectsShouldExist(cc.getBaseParams(ctx), bck, names...)
 		})
 
 		It("Cluster scale down should ensure data safety", func(ctx context.Context) {
 			By("Deploy new cluster of size 2")
 			cluArgs.Size = 2
-			cc := newClientCluster(ctx, AISTestContext, WorkerCtx.K8sClient, cluArgs)
+			cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
 			defer func() {
-				_ = cc.printLogs()
+				_ = cc.printLogs(ctx)
 				cc.destroyAndCleanup()
 			}()
-			cc.create()
+			cc.create(ctx)
 			By("Create a bucket and put objects")
 			var (
 				bck        = aiscmn.Bck{Name: "TEST_BCK_SCALE_DOWN", Provider: aisapc.AIS}
 				objPrefix  = "test-opr/"
-				baseParams = cc.getBaseParams()
+				baseParams = cc.getBaseParams(ctx)
 			)
 			// TODO: Remove once K8s cluster readiness is tightened to ensure operational readiness.
 			Eventually(func() error { return aisapi.CreateBucket(baseParams, bck, nil) }, 5*time.Second).Should(Succeed())
@@ -403,28 +386,28 @@ var _ = Describe("Run Controller", func() {
 			By("Validate the objects exist")
 			tutils.ObjectsShouldExist(baseParams, bck, names...)
 			By("Scale down cluster to size 1")
-			cc.scale(false, -1)
+			cc.scale(ctx, false, -1)
 			By("Validate objects exist after scaling")
-			tutils.ObjectsShouldExist(cc.getBaseParams(), bck, names...)
+			tutils.ObjectsShouldExist(cc.getBaseParams(ctx), bck, names...)
 		})
 
 		It("Upgrade and scale-down in same patch should succeed and retain data", func(ctx context.Context) {
-			cluArgs.NodeImage = AISTestContext.PreviousNodeImage
-			cluArgs.InitImage = AISTestContext.PreviousInitImage
+			cluArgs.NodeImage = AISTestCfg.PreviousNodeImage
+			cluArgs.InitImage = AISTestCfg.PreviousInitImage
 			cluArgs.Size = 3
-			cc := newClientCluster(ctx, AISTestContext, WorkerCtx.K8sClient, cluArgs)
+			cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
 			defer func() {
-				_ = cc.printLogs()
+				_ = cc.printLogs(ctx)
 				cc.destroyAndCleanup()
 			}()
-			cc.create()
+			cc.create(ctx)
 
 			By("Create a bucket and put objects")
 			var (
 				bck       = aiscmn.Bck{Name: "TEST_BCK_UPGRADE_SCALE_DOWN", Provider: aisapc.AIS}
 				objPrefix = "test-opr/"
 			)
-			Eventually(func() error { return aisapi.CreateBucket(cc.getBaseParams(), bck, nil) }, 5*time.Second).Should(Succeed())
+			Eventually(func(ctx context.Context) error { return aisapi.CreateBucket(cc.getBaseParams(ctx), bck, nil) }, 5*time.Second).WithContext(ctx).Should(Succeed())
 			names, failCnt, err := aistutils.PutRandObjs(aistutils.PutObjectsArgs{
 				ProxyURL:  cc.proxyURL,
 				Bck:       bck,
@@ -437,46 +420,46 @@ var _ = Describe("Run Controller", func() {
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(failCnt).To(Equal(0))
-			tutils.ObjectsShouldExist(cc.getBaseParams(), bck, names...)
+			tutils.ObjectsShouldExist(cc.getBaseParams(ctx), bck, names...)
 
 			By("Simultaneously upgrade images and scale down")
-			cc.patchImagesAndScale(-1)
-			cc.verifyPodImages()
-			cc.verifyPodCounts()
+			cc.patchImagesAndScale(ctx, -1)
+			cc.verifyPodImages(ctx)
+			cc.verifyPodCounts(ctx)
 
 			By("Validate objects exist after upgrade and scale down")
-			tutils.ObjectsShouldExist(cc.getBaseParams(), bck, names...)
+			tutils.ObjectsShouldExist(cc.getBaseParams(ctx), bck, names...)
 		})
 
 		It("Upgrade and scale-up in same patch should succeed", func(ctx context.Context) {
-			cluArgs.NodeImage = AISTestContext.PreviousNodeImage
-			cluArgs.InitImage = AISTestContext.PreviousInitImage
+			cluArgs.NodeImage = AISTestCfg.PreviousNodeImage
+			cluArgs.InitImage = AISTestCfg.PreviousInitImage
 			cluArgs.MaxTargets = 2
-			cc := newClientCluster(ctx, AISTestContext, WorkerCtx.K8sClient, cluArgs)
+			cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
 			defer func() {
-				_ = cc.printLogs()
+				_ = cc.printLogs(ctx)
 				cc.destroyAndCleanup()
 			}()
-			cc.create()
+			cc.create(ctx)
 
 			By("Simultaneously upgrade images and scale up")
-			cc.patchImagesAndScale(1)
-			cc.verifyPodImages()
-			cc.verifyPodCounts()
+			cc.patchImagesAndScale(ctx, 1)
+			cc.verifyPodImages(ctx)
+			cc.verifyPodCounts(ctx)
 		})
 
 		It("Re-deploying with CleanupData should wipe out all data", func(ctx context.Context) {
 			// Default sets CleanupData to true -- wipe when we destroy the cluster
 			By("Deploy with CleanupData true")
-			cc := newClientCluster(ctx, AISTestContext, WorkerCtx.K8sClient, cluArgs)
+			cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
 			defer func() {
-				_ = cc.printLogs()
+				_ = cc.printLogs(ctx)
 				cc.destroyAndCleanup()
 			}()
-			cc.create()
+			cc.create(ctx)
 			By("Create AIS bucket")
 			bck := aiscmn.Bck{Name: "TEST_BCK_CLEANUP", Provider: aisapc.AIS}
-			err := aisapi.CreateBucket(cc.getBaseParams(), bck, nil)
+			err := aisapi.CreateBucket(cc.getBaseParams(ctx), bck, nil)
 			Expect(err).ShouldNot(HaveOccurred())
 			By("Test putting objects")
 			_, failCnt, err := aistutils.PutRandObjs(aistutils.PutObjectsArgs{
@@ -493,29 +476,29 @@ var _ = Describe("Run Controller", func() {
 			Expect(failCnt).To(Equal(0))
 			By("Destroy cluster and delete PVs")
 			cc.destroyAndCleanup()
-			cc.waitForResourceDeletion()
+			cc.waitForResourceDeletion(ctx)
 			By("Create new cluster with new PVs on the same host mount")
 			cluArgs.CleanupMetadata = true
-			cc = newClientCluster(ctx, AISTestContext, WorkerCtx.K8sClient, cluArgs)
-			cc.create()
+			cc = newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
+			cc.create(ctx)
 			// All data including metadata should be deleted -- bucket should not exist in new cluster
 			By("Expect error getting bucket -- all data deleted")
-			_, err = aisapi.HeadBucket(cc.getBaseParams(), bck, true)
+			_, err = aisapi.HeadBucket(cc.getBaseParams(ctx), bck, true)
 			Expect(aiscmn.IsStatusNotFound(err)).To(BeTrue())
 		})
 
 		It("Re-deploying with CleanupMetadata disabled should recover cluster", func(ctx context.Context) {
 			cluArgs.CleanupMetadata = false
 			By("Deploy with cleanupMetadata false")
-			cc := newClientCluster(ctx, AISTestContext, WorkerCtx.K8sClient, cluArgs)
+			cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
 			defer func() {
-				_ = cc.printLogs()
+				_ = cc.printLogs(ctx)
 				cc.destroyAndCleanup()
 			}()
-			cc.create()
+			cc.create(ctx)
 			By("Create AIS bucket")
 			bck := aiscmn.Bck{Name: "TEST_BCK_DECOMM", Provider: aisapc.AIS}
-			err := aisapi.CreateBucket(cc.getBaseParams(), bck, nil)
+			err := aisapi.CreateBucket(cc.getBaseParams(ctx), bck, nil)
 			Expect(err).ShouldNot(HaveOccurred())
 			By("Test putting objects")
 			names, failCnt, err := aistutils.PutRandObjs(aistutils.PutObjectsArgs{
@@ -536,35 +519,35 @@ var _ = Describe("Run Controller", func() {
 			cluArgs.CleanupMetadata = true
 			// Same cluster should recover all the same data and metadata
 			By("Redeploy with cleanupMetadata true")
-			cc.recreate(cluArgs)
+			cc.recreate(ctx, cluArgs)
 			By("Validate objects from previous cluster still exist")
-			tutils.ObjectsShouldExist(cc.getBaseParams(), bck, names...)
+			tutils.ObjectsShouldExist(cc.getBaseParams(ctx), bck, names...)
 		})
 
 		It("Should detect port change when cluster is redeployed with different port", func(ctx context.Context) {
 			cluArgs.CleanupMetadata = false
 			By("Deploy initial cluster with default ports")
-			cc := newClientCluster(ctx, AISTestContext, WorkerCtx.K8sClient, cluArgs)
+			cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
 			defer func() {
-				_ = cc.printLogs()
+				_ = cc.printLogs(ctx)
 				// Ensure final cleanup has CleanupMetadata enabled
 				cluArgs.CleanupMetadata = true
 				cc.destroyAndCleanup()
 			}()
-			cc.create()
-			initialURL := cc.getProxyURL()
+			cc.create(ctx)
+			initialURL := cc.getProxyURL(ctx)
 
 			By("Re-deploy cluster with different port")
 			cc.destroyClusterOnly()
 			cc.cluster = tutils.NewAISClusterNoPV(cluArgs)
 			cc.applyDefaultHostPortOffset(cluArgs)
 			cc.applyHostPortOffset(int32(5))
-			cc.createCluster(cc.getTimeout(), clusterCreateInterval)
-			cc.waitForReadyCluster()
+			cc.createCluster(ctx, cc.getTimeout(), clusterCreateInterval)
+			cc.waitForReadyCluster(ctx)
 
-			newURL := cc.getProxyURL()
+			newURL := cc.getProxyURL(ctx)
 			Expect(newURL).NotTo(Equal(initialURL))
-			cc.initClientAccess()
+			cc.initClientAccess(ctx)
 		})
 	})
 

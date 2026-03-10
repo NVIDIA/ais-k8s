@@ -53,7 +53,7 @@ func checkCRExists(ctx context.Context, client *aisclient.K8sClient, name types.
 	return true
 }
 
-func CheckResExistence(ctx context.Context, cluster *aisv1.AIStore, aisCtx *AISTestContext, k8sClient *aisclient.K8sClient, exists bool, intervals ...interface{}) {
+func CheckResExistence(ctx context.Context, cluster *aisv1.AIStore, aisCfg *AISTestCfg, k8sClient *aisclient.K8sClient, exists bool, intervals ...interface{}) {
 	condition := BeTrue()
 	if !exists {
 		condition = BeFalse()
@@ -91,7 +91,7 @@ func CheckResExistence(ctx context.Context, cluster *aisv1.AIStore, aisCtx *AIST
 	EventuallySSExists(ctx, k8sClient, target.StatefulSetNSName(cluster), condition, intervals...)
 	// 4.4 ExternalLB Service (optional)
 	if cluster.Spec.EnableExternalLB {
-		timeout, interval := aisCtx.GetLBExistenceTimeout()
+		timeout, interval := aisCfg.GetLBExistenceTimeout()
 		for i := range cluster.GetTargetSize() {
 			EventuallyServiceExists(ctx, k8sClient, target.LoadBalancerSVCNSName(cluster, i),
 				condition, timeout, interval)
@@ -126,9 +126,9 @@ func DestroyCluster(ctx context.Context, client *aisclient.K8sClient,
 func EventuallyCRNotExists(ctx context.Context, client *aisclient.K8sClient,
 	cluster *aisv1.AIStore, intervals ...interface{},
 ) {
-	Eventually(func() bool {
+	Eventually(func(ctx context.Context) bool {
 		return checkCRExists(ctx, client, cluster.NamespacedName())
-	}, intervals...).Should(BeFalse())
+	}, intervals...).WithContext(ctx).Should(BeFalse())
 }
 
 func DestroyPV(ctx context.Context, client *aisclient.K8sClient, pvs []*corev1.PersistentVolume) {
@@ -145,9 +145,9 @@ func DestroyPV(ctx context.Context, client *aisclient.K8sClient, pvs []*corev1.P
 		}
 		Expect(err).Should(Succeed())
 	}
-	Eventually(func() bool {
+	Eventually(func(ctx context.Context) bool {
 		return checkPVsExist(ctx, client, pvs)
-	}, pvExistenceInterval).Should(BeFalse())
+	}, pvExistenceInterval).WithContext(ctx).Should(BeFalse())
 }
 
 func checkPVsExist(ctx context.Context, c *aisclient.K8sClient, pvs []*corev1.PersistentVolume) bool {
@@ -170,7 +170,7 @@ func checkPVsExist(ctx context.Context, c *aisclient.K8sClient, pvs []*corev1.Pe
 	return false
 }
 
-func CheckPVCDoesNotExist(ctx context.Context, cluster *aisv1.AIStore, aisCtx *AISTestContext, k8sClient *aisclient.K8sClient) {
+func CheckPVCDoesNotExist(ctx context.Context, cluster *aisv1.AIStore, aisCfg *AISTestCfg, k8sClient *aisclient.K8sClient) {
 	pvcs := &corev1.PersistentVolumeClaimList{}
 	err := k8sClient.List(ctx, pvcs, clientpkg.InNamespace(cluster.Namespace), clientpkg.MatchingLabels(target.BasicLabels(cluster)))
 	if apierrors.IsNotFound(err) {
@@ -180,7 +180,7 @@ func CheckPVCDoesNotExist(ctx context.Context, cluster *aisv1.AIStore, aisCtx *A
 	// Dynamic state volumes can take a while to auto-delete
 	var filteredPVCs []corev1.PersistentVolumeClaim
 	for i := range pvcs.Items {
-		if *pvcs.Items[i].Spec.StorageClassName == aisCtx.StorageClass {
+		if *pvcs.Items[i].Spec.StorageClassName == aisCfg.StorageClass {
 			filteredPVCs = append(filteredPVCs, pvcs.Items[i])
 		}
 	}
@@ -221,9 +221,9 @@ func checkCMExists(ctx context.Context, client *aisclient.K8sClient, name types.
 func EventuallyCMExists(ctx context.Context, client *aisclient.K8sClient, name types.NamespacedName,
 	be OmegaMatcher, intervals ...interface{},
 ) {
-	Eventually(func() bool {
+	Eventually(func(ctx context.Context) bool {
 		return checkCMExists(ctx, client, name)
-	}, intervals...).Should(be)
+	}, intervals...).WithContext(ctx).Should(be)
 }
 
 func checkServiceExists(ctx context.Context, client *aisclient.K8sClient, name types.NamespacedName) bool {
@@ -238,9 +238,9 @@ func checkServiceExists(ctx context.Context, client *aisclient.K8sClient, name t
 func EventuallyServiceExists(ctx context.Context, client *aisclient.K8sClient, name types.NamespacedName,
 	be OmegaMatcher, intervals ...interface{},
 ) {
-	Eventually(func() bool {
+	Eventually(func(ctx context.Context) bool {
 		return checkServiceExists(ctx, client, name)
-	}, intervals...).Should(be)
+	}, intervals...).WithContext(ctx).Should(be)
 }
 
 func checkSSExists(ctx context.Context, client *aisclient.K8sClient, name types.NamespacedName) bool {
@@ -277,9 +277,9 @@ func EventuallyPDBExists(
 	be OmegaMatcher,
 	intervals ...interface{},
 ) {
-	Eventually(func() bool {
+	Eventually(func(ctx context.Context) bool {
 		return checkPDBExists(ctx, client, name)
-	}, intervals...).Should(be)
+	}, intervals...).WithContext(ctx).Should(be)
 }
 
 func EventuallyDeploymentExists(
@@ -289,9 +289,9 @@ func EventuallyDeploymentExists(
 	be OmegaMatcher,
 	intervals ...interface{},
 ) {
-	Eventually(func() bool {
+	Eventually(func(ctx context.Context) bool {
 		return checkDeploymentExists(ctx, client, name)
-	}, intervals...).Should(be)
+	}, intervals...).WithContext(ctx).Should(be)
 }
 
 func EventuallyPodsIsSize(
@@ -302,13 +302,13 @@ func EventuallyPodsIsSize(
 	size int,
 	intervals ...interface{},
 ) {
-	Eventually(func() int {
+	Eventually(func(ctx context.Context) int {
 		podList, err := client.ListPods(ctx, cluster, labels)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to list pods with labels %v; err: %v\n", labels, err)
 		}
 		return len(podList.Items)
-	}, intervals...).Should(Equal(size))
+	}, intervals...).WithContext(ctx).Should(Equal(size))
 }
 
 func EventuallySSExists(
@@ -318,17 +318,17 @@ func EventuallySSExists(
 	be OmegaMatcher,
 	intervals ...interface{},
 ) {
-	Eventually(func() bool {
+	Eventually(func(ctx context.Context) bool {
 		return checkSSExists(ctx, client, name)
-	}, intervals...).Should(be)
+	}, intervals...).WithContext(ctx).Should(be)
 }
 
 func EventuallyResourceExists(ctx context.Context, client *aisclient.K8sClient, obj clientpkg.Object,
 	be OmegaMatcher, intervals ...interface{},
 ) {
-	Eventually(func() bool {
+	Eventually(func(ctx context.Context) bool {
 		return checkResourceExists(ctx, client, obj)
-	}, intervals...).Should(be)
+	}, intervals...).WithContext(ctx).Should(be)
 }
 
 func checkResourceExists(ctx context.Context, client *aisclient.K8sClient, obj clientpkg.Object) bool {
@@ -432,7 +432,7 @@ func GetClusterReadyCondition(ais *aisv1.AIStore) *metav1.Condition {
 }
 
 func WaitForReadyConditionChange(ctx context.Context, k8sClient *aisclient.K8sClient, cluster *aisv1.AIStore, initialGen int64, intervals ...interface{}) {
-	Eventually(func() bool {
+	Eventually(func(ctx context.Context) bool {
 		ais, err := k8sClient.GetAIStoreCR(ctx, cluster.NamespacedName())
 		if err != nil {
 			return true
@@ -442,18 +442,18 @@ func WaitForReadyConditionChange(ctx context.Context, k8sClient *aisclient.K8sCl
 			return true
 		}
 		return cond.ObservedGeneration == initialGen
-	}, intervals...).Should(BeFalse())
+	}, intervals...).WithContext(ctx).Should(BeFalse())
 }
 
 func WaitForClusterToBeReady(ctx context.Context, k8sClient *aisclient.K8sClient, clusterName types.NamespacedName, intervals ...interface{}) {
-	Eventually(func() bool {
+	Eventually(func(ctx context.Context) bool {
 		ais, err := k8sClient.GetAIStoreCR(ctx, clusterName)
 		if err != nil {
 			return false
 		}
 		readyCond := GetClusterReadyCondition(ais)
 		return ais.Status.State == aisv1.ClusterReady && readyCond.Status == metav1.ConditionStatus(corev1.ConditionTrue)
-	}, intervals...).Should(BeTrue())
+	}, intervals...).WithContext(ctx).Should(BeTrue())
 }
 
 func GetAllPVs(ctx context.Context, c *aisclient.K8sClient) (*corev1.PersistentVolumeList, error) {
@@ -593,7 +593,7 @@ func checkJobExists(ctx context.Context, client *aisclient.K8sClient, job *batch
 func EventuallyJobNotExists(ctx context.Context, client *aisclient.K8sClient,
 	job *batchv1.Job, intervals ...interface{},
 ) {
-	Eventually(func() bool {
+	Eventually(func(ctx context.Context) bool {
 		exists, err := checkJobExists(ctx, client, job)
 		if err != nil {
 			fmt.Printf("Error checking job existence: %v", err)
@@ -601,7 +601,7 @@ func EventuallyJobNotExists(ctx context.Context, client *aisclient.K8sClient,
 			return true
 		}
 		return exists
-	}, intervals...).Should(BeFalse())
+	}, intervals...).WithContext(ctx).Should(BeFalse())
 }
 
 func ObjectsShouldExist(params aisapi.BaseParams, bck aiscmn.Bck, objectsNames ...string) {
@@ -624,7 +624,7 @@ func checkSecretExists(ctx context.Context, client *aisclient.K8sClient, name ty
 func EventuallySecretExists(ctx context.Context, client *aisclient.K8sClient, name types.NamespacedName,
 	be OmegaMatcher, intervals ...interface{},
 ) {
-	Eventually(func() bool {
+	Eventually(func(ctx context.Context) bool {
 		return checkSecretExists(ctx, client, name)
-	}, intervals...).Should(be)
+	}, intervals...).WithContext(ctx).Should(be)
 }

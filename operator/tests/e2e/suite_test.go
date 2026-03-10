@@ -33,7 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
-type WorkerContext struct {
+type WorkerConfig struct {
 	K8sClient       *aisclient.K8sClient // Worker namespace-scoped client (from manager)
 	TestNSName      string
 	TestNSOtherName string
@@ -42,11 +42,10 @@ type WorkerContext struct {
 }
 
 var (
-	testCtx        *testing.T
-	testEnv        *envtest.Environment
-	AISTestContext *tutils.AISTestContext // Global test context shared across all workers
-	K8sClient      *aisclient.K8sClient   // Non-namespace-scoped client for global cleanup on process #1
-	WorkerCtx      *WorkerContext         // Worker-specific context
+	testEnv    *envtest.Environment
+	AISTestCfg *tutils.AISTestCfg   // Global test config shared across all workers
+	K8sClient  *aisclient.K8sClient // Non-namespace-scoped client for global cleanup on process #1
+	WorkerCfg  *WorkerConfig        // Worker-specific config
 )
 
 const AfterSuiteTimeout = 90 * time.Second
@@ -55,7 +54,6 @@ const AfterSuiteTimeout = 90 * time.Second
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
-	testCtx = t
 	if testing.Short() {
 		fmt.Fprintf(os.Stdout, "Running tests in short mode")
 	}
@@ -64,9 +62,8 @@ func TestAPIs(t *testing.T) {
 
 var _ = SynchronizedBeforeSuite(
 	// --- Run only once (process #1) ---
-	func() []byte {
+	func(ctx context.Context) []byte {
 		defer GinkgoRecover()
-		ctx := context.Background()
 		logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
 		By("Bootstrapping test environment")
@@ -81,23 +78,23 @@ var _ = SynchronizedBeforeSuite(
 		Expect(aisv1.AddToScheme(scheme.Scheme)).To(Succeed())
 		Expect(certmanagerv1.AddToScheme(scheme.Scheme)).To(Succeed())
 
-		// Cache K8s client and AISTestContext for "run only once" cleanup on process #1
+		// Cache K8s client and AISTestCfg for "run only once" cleanup on process #1
 		K8sClient, err = tutils.GetK8sClient()
 		Expect(err).NotTo(HaveOccurred())
-		AISTestContext, err = tutils.NewAISTestContext(ctx, K8sClient)
+		AISTestCfg, err = tutils.NewAISTestCfg(ctx, K8sClient)
 		Expect(err).NotTo(HaveOccurred())
 
-		if AISTestContext.Ephemeral {
+		if AISTestCfg.Ephemeral {
 			tutils.CleanupOldTestClusters(ctx, K8sClient)
 		}
 
-		// Serialize AISTestContext to pass to all workers
-		data, err := json.Marshal(AISTestContext)
+		// Serialize AISTestCfg to pass to all workers
+		data, err := json.Marshal(AISTestCfg)
 		Expect(err).NotTo(HaveOccurred())
 		return data
 	},
 	// --- Run in every worker ---
-	func(data []byte) {
+	func(ctx context.Context, data []byte) {
 		defer GinkgoRecover()
 		logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
@@ -106,8 +103,8 @@ var _ = SynchronizedBeforeSuite(
 		Expect(aisv1.AddToScheme(scheme.Scheme)).To(Succeed())
 		Expect(certmanagerv1.AddToScheme(scheme.Scheme)).To(Succeed())
 
-		// Deserialize AISTestContext from process #1
-		err := json.Unmarshal(data, &AISTestContext)
+		// Deserialize AISTestCfg from process #1
+		err := json.Unmarshal(data, &AISTestCfg)
 		Expect(err).NotTo(HaveOccurred())
 
 		cfg := ctrl.GetConfigOrDie()
@@ -153,13 +150,12 @@ var _ = SynchronizedBeforeSuite(
 		}()
 
 		// Give some time for client cache to start
-		ctx := context.Background()
 		mgr.GetCache().WaitForCacheSync(ctx)
 
 		workerK8sClient := aisclient.NewClientFromMgr(mgr)
 		testNS, preexistingNS := tutils.CreateNSIfNotExists(ctx, workerK8sClient, workerTestNS)
 
-		WorkerCtx = &WorkerContext{
+		WorkerCfg = &WorkerConfig{
 			K8sClient:       workerK8sClient, // Namespace-scoped client
 			TestNSName:      workerTestNS,
 			TestNSOtherName: workerTestNSOther,
@@ -172,21 +168,21 @@ var _ = SynchronizedBeforeSuite(
 var _ = SynchronizedAfterSuite(
 	// --- Run in every worker ---
 	func() {
-		if !AISTestContext.Ephemeral {
+		if !AISTestCfg.Ephemeral {
 			By("Tearing down worker-specific test namespace")
 			ctx := context.Background()
-			if !WorkerCtx.PreexistingNS && WorkerCtx.TestNS != nil {
-				tutils.CleanNamespace(ctx, WorkerCtx.K8sClient, WorkerCtx.TestNS, AfterSuiteTimeout)
+			if !WorkerCfg.PreexistingNS && WorkerCfg.TestNS != nil {
+				tutils.CleanNamespace(ctx, WorkerCfg.K8sClient, WorkerCfg.TestNS, AfterSuiteTimeout)
 			}
 		}
 	},
 	// --- Run only once ---
 	func() {
-		if !AISTestContext.Ephemeral {
+		if !AISTestCfg.Ephemeral {
 			By("Tearing down the test environment")
 			ctx := context.Background()
 			tutils.CleanupOldTestClusters(ctx, K8sClient)
-			tutils.CleanPVHostPath(ctx, K8sClient, AISTestContext.StorageHostPath)
+			tutils.CleanPVHostPath(ctx, K8sClient, AISTestCfg.StorageHostPath)
 			err := testEnv.Stop()
 			Expect(err).NotTo(HaveOccurred())
 		}
