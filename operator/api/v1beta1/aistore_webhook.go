@@ -132,6 +132,21 @@ func (aisw *AIStoreWebhook) validateSpec(ctx context.Context, ais *AIStore) (adm
 	)
 }
 
+func (ais *AIStore) validateCleanupConfig() (admission.Warnings, error) {
+	if !ais.ShouldCleanupMetadata() {
+		return nil, nil
+	}
+	if ais.Spec.StateStorageClass != nil {
+		return nil, nil
+	}
+	if len(ais.Spec.TargetSpec.NodeSelector) == 0 || len(ais.Spec.ProxySpec.NodeSelector) == 0 {
+		return admission.Warnings{
+			"cleanupMetadata is enabled with hostpath state and empty nodeSelector; host cleanup jobs will run on ALL nodes in the cluster",
+		}, nil
+	}
+	return nil, nil
+}
+
 func (ais *AIStore) ValidateSpec(_ context.Context, extraValidations ...func() (admission.Warnings, error)) (admission.Warnings, error) {
 	var allWarnings admission.Warnings
 	base := []func() (admission.Warnings, error){
@@ -139,6 +154,7 @@ func (ais *AIStore) ValidateSpec(_ context.Context, extraValidations ...func() (
 		ais.validateStateStorage,
 		ais.validateAutoScaling,
 		ais.validateServiceSpec,
+		ais.validateCleanupConfig,
 	}
 
 	validations := make(

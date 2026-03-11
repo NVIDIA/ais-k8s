@@ -301,6 +301,7 @@ type CertIssuerRef struct {
 // AIStoreSpec defines the desired state of AIStore
 // +kubebuilder:validation:XValidation:rule="(has(self.targetSpec.size) && has(self.proxySpec.size)) || has(self.size)",message="Invalid cluster size, it is either not specified or value is not valid"
 // +kubebuilder:validation:XValidation:rule="[has(self.tls), has(self.tlsCertificate), has(self.tlsCertManagerIssuerName), has(self.tlsSecretName)].filter(x, x).size() <= 1",message="specify only one TLS option: tls, tlsCertificate, tlsCertManagerIssuerName, or tlsSecretName"
+// +kubebuilder:validation:XValidation:rule="!has(self.cleanupData) || !self.cleanupData || (has(self.cleanupMetadata) && self.cleanupMetadata)",message="cleanupData requires cleanupMetadata to be enabled"
 type AIStoreSpec struct {
 	// Size of the cluster i.e. number of proxies and number of targets.
 	// This can be changed by specifying size in either `proxySpec` or `targetSpec`.
@@ -363,15 +364,21 @@ type AIStoreSpec struct {
 	ShutdownCluster *bool `json:"shutdownCluster,omitempty"`
 
 	// CleanupMetadata determines whether to clean up cluster and bucket metadata when the cluster is decommissioned.
-	// When enabled, the cluster will fully decommission, removing metadata and optionally deleting user data.
+	// When enabled, the cluster will fully decommission, removing metadata and optionally deleting user data according to the CleanupData option.
 	// When disabled, the operator will call the AIS shutdown API to preserve metadata before deleting other k8s resources.
-	// The metadata stored in the state PVCs will be preserved to be usable in a future AIS deployment.
+	// State cleanup:
+	//  - All state PVCs will be deleted and cleaned up according to the storage class
+	//  - Any state host paths will be cleaned with operator-managed jobs
+	// Data cleanup:
+	//  - Data PVCs will be deleted but data on disk will remain unless specified by CleanupData
+	//  - The reclamation behavior for PVs bound to the PVCs depends on the PVC's reclaim policy, or, if the PV was dynamically provisioned, on the reclaim policy of the associated StorageClass.
 	// +optional
 	CleanupMetadata *bool `json:"cleanupMetadata,omitempty"`
 
-	// CleanupData determines whether to clean up PVCs and user data (including buckets and objects) when the cluster is decommissioned.
-	// The reclamation of PVs linked to the PVCs depends on the PV reclaim policy or the default policy of the associated StorageClass.
-	// This field is relevant only if you are deleting the CR (leading to decommissioning of the cluster).
+	// CleanupData determines whether to clean up user data (including buckets and objects) when the cluster is decommissioned.
+	// This field is relevant only if CleanupMetadata is true when deleting the AIStore CR (leading to decommissioning of the cluster).
+	// If this option is enabled, AIStore itself will delete user data on cluster decommission.
+	// If not enabled, user data cleanup will be left to the PV reclaim policy.
 	// +optional
 	CleanupData *bool `json:"cleanupData,omitempty"`
 

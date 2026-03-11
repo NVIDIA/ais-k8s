@@ -509,6 +509,7 @@ var _ = Describe("Run Controller", func() {
 
 		It("Re-deploying with CleanupMetadata disabled should recover cluster", func(ctx context.Context) {
 			cluArgs.CleanupMetadata = false
+			cluArgs.CleanupData = false
 			By("Deploy with cleanupMetadata false")
 			cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
 			defer func() {
@@ -537,6 +538,7 @@ var _ = Describe("Run Controller", func() {
 			cc.destroyClusterOnly()
 			// Cleanup metadata to remove PVCs so we can destroyAndCleanup PVs at the end
 			cluArgs.CleanupMetadata = true
+			cluArgs.CleanupData = true
 			// Same cluster should recover all the same data and metadata
 			By("Redeploy with cleanupMetadata true")
 			cc.recreate(ctx, cluArgs)
@@ -546,12 +548,14 @@ var _ = Describe("Run Controller", func() {
 
 		It("Should detect port change when cluster is redeployed with different port", func(ctx context.Context) {
 			cluArgs.CleanupMetadata = false
+			cluArgs.CleanupData = false
 			By("Deploy initial cluster with default ports")
 			cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
 			defer func() {
 				cc.printLogs(ctx)
 				// Ensure final cleanup has CleanupMetadata enabled
 				cluArgs.CleanupMetadata = true
+				cluArgs.CleanupData = true
 				cc.destroyAndCleanup()
 			}()
 			cc.create(ctx)

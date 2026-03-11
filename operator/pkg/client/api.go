@@ -10,8 +10,6 @@ import (
 	"reflect"
 
 	aisv1 "github.com/ais-operator/api/v1beta1"
-	"github.com/ais-operator/pkg/resources/proxy"
-	"github.com/ais-operator/pkg/resources/target"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -137,22 +135,6 @@ func (c *K8sClient) GetPod(ctx context.Context, name types.NamespacedName) (*cor
 
 func (c *K8sClient) Status() client.StatusWriter { return c.client.Status() }
 
-// listPodsAndUpdateNodeNames lists pods based on the provided label selector and updates the uniqueNodeNames map with the node names of those pods
-func (c *K8sClient) listPodsAndUpdateNodeNames(ctx context.Context, ais *aisv1.AIStore, labelSelector map[string]string, uniqueNodeNames sets.Set[string]) error {
-	pods, err := c.ListPods(ctx, ais, labelSelector)
-	if err != nil {
-		return err
-	}
-	for i := range pods.Items {
-		pod := &pods.Items[i]
-		// check if the pod is running on a node (not failed or pending)
-		if pod.Spec.NodeName != "" {
-			uniqueNodeNames.Insert(pod.Spec.NodeName)
-		}
-	}
-	return nil
-}
-
 // ListNodesMatchingSelector returns a NodeList matching the given node selector
 func (c *K8sClient) ListNodesMatchingSelector(ctx context.Context, nodeSelector map[string]string) (*corev1.NodeList, error) {
 	nodeList := &corev1.NodeList{}
@@ -161,16 +143,23 @@ func (c *K8sClient) ListNodesMatchingSelector(ctx context.Context, nodeSelector 
 	return nodeList, err
 }
 
-// ListNodesRunningAIS returns a map of unique node names where AIS pods are running
-func (c *K8sClient) ListNodesRunningAIS(ctx context.Context, ais *aisv1.AIStore) ([]string, error) {
-	uniqueNodeNames := sets.New[string]()
-	if err := c.listPodsAndUpdateNodeNames(ctx, ais, proxy.RequiredPodLabels(ais), uniqueNodeNames); err != nil {
-		return nil, err
+// ListNodesMatchingAISSelectors returns the union of node names matching
+// the proxy or target NodeSelector specs. A nil/empty selector matches all nodes.
+func (c *K8sClient) ListNodesMatchingAISSelectors(ctx context.Context, ais *aisv1.AIStore) ([]string, error) {
+	nodeNames := sets.New[string]()
+	for _, selector := range []map[string]string{
+		ais.Spec.TargetSpec.NodeSelector,
+		ais.Spec.ProxySpec.NodeSelector,
+	} {
+		nodes, err := c.ListNodesMatchingSelector(ctx, selector)
+		if err != nil {
+			return nil, err
+		}
+		for i := range nodes.Items {
+			nodeNames.Insert(nodes.Items[i].Name)
+		}
 	}
-	if err := c.listPodsAndUpdateNodeNames(ctx, ais, target.RequiredPodLabels(ais), uniqueNodeNames); err != nil {
-		return nil, err
-	}
-	return uniqueNodeNames.UnsortedList(), nil
+	return nodeNames.UnsortedList(), nil
 }
 
 //////////////////////////////////////

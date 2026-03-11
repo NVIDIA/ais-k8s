@@ -15,6 +15,10 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 - Fixed syncPodTemplate not syncing env var removals when the desired env slice was a prefix of the current, causing rollout loops on config changes such as clearing `authNSecretName`.
 - Invalidate the AIStore API client on authentication failure, not just on failure to acquire initial token.
 - Mount path size is now optional to better support hostPath data mounts.
+- On cluster decommission, data PVCs are now deleted whenever `cleanupMetadata` is enabled, regardless of `cleanupData`.
+    - Clarifies the purpose of `cleanupData` as an API option to AIS for cleaning data on disk.
+    - Use node selectors for host path cleanup jobs rather than querying existing pods by label.
+    - Validate CRD only allows `cleanupData` if `cleanupMetadata` is enabled.
 
 ## v2.15.0
 
