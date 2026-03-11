@@ -29,51 +29,46 @@ var _ = Describe("Run Controller", func() {
 		cluArgs = tutils.NewClusterSpecArgs(AISTestCfg, WorkerCfg.TestNSName)
 	})
 
-	Context("Deploy and Destroy cluster", func() {
-		Context("without externalLB", func() {
-			It("Should successfully create an AIS Cluster with required K8s objects", func(ctx context.Context) {
-				cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
-				cc.createAndDestroyWithWait(ctx)
-			})
+	Context("Deploy and feature toggles", Ordered, func() {
+		var cc *clientCluster
 
-			It("Should deploy admin client when enabled", func(ctx context.Context) {
-				cluArgs.EnableAdminClient = true
-				cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
-				cc.createAndDestroyCluster(ctx, func() { cc.verifyAdminClientExists(ctx) }, func() { cc.verifyAdminClientDeleted(ctx) })
-			})
-
-			It("Should allow toggling admin client on running cluster", func(ctx context.Context) {
-				cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
-				defer func() {
-					cc.printLogs(ctx)
-					cc.destroyAndCleanup()
-				}()
-				cc.create(ctx)
-				cc.waitForResources(ctx)
-
-				cc.enableAdminClient(ctx)
-				cc.verifyAdminClientExists(ctx)
-
-				cc.disableAdminClient(ctx)
-				cc.verifyAdminClientDeleted(ctx)
-			})
-
-			It("Should allow toggling target PDB on running cluster", func(ctx context.Context) {
-				cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
-				defer func() {
-					cc.printLogs(ctx)
-					cc.destroyAndCleanup()
-				}()
-				cc.create(ctx)
-				cc.waitForResources(ctx)
-
-				cc.enableTargetPDB(ctx)
-				cc.verifyTargetPDBExists(ctx)
-
-				cc.disableTargetPDB(ctx)
-				cc.verifyTargetPDBDeleted(ctx)
-			})
+		BeforeAll(func(ctx context.Context) {
+			cc = newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
+			cc.create(ctx)
 		})
+
+		AfterAll(func(ctx context.Context) {
+			cc.printLogs(ctx)
+			cc.destroyAndCleanup()
+			cc.waitForResourceDeletion(ctx)
+		})
+
+		It("Should have all required K8s resources", func(ctx context.Context) {
+			cc.waitForResources(ctx)
+		})
+
+		It("Should deploy admin client when enabled", func(ctx context.Context) {
+			cc.enableAdminClient(ctx)
+			cc.verifyAdminClientExists(ctx)
+		})
+
+		It("Should remove admin client when disabled", func(ctx context.Context) {
+			cc.disableAdminClient(ctx)
+			cc.verifyAdminClientDeleted(ctx)
+		})
+
+		It("Should deploy target PDB when enabled", func(ctx context.Context) {
+			cc.enableTargetPDB(ctx)
+			cc.verifyTargetPDBExists(ctx)
+		})
+
+		It("Should remove target PDB when disabled", func(ctx context.Context) {
+			cc.disableTargetPDB(ctx)
+			cc.verifyTargetPDBDeleted(ctx)
+		})
+	})
+
+	Context("Deploy and Destroy cluster", func() {
 
 		Context("with externalLB", func() {
 			It("Should successfully create an AIS Cluster with required K8s objects", func(ctx context.Context) {
@@ -231,92 +226,117 @@ var _ = Describe("Run Controller", func() {
 		})
 	})
 
-	Context("Scale existing cluster", func() {
-		Context("without externalLB", func() {
-			It("Should be able to scale-up existing cluster", func(ctx context.Context) {
-				cluArgs.MaxTargets = 2
-				cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
-				cc.createAndDestroyCluster(ctx, func() { cc.scale(ctx, false, 1) }, nil)
-			})
+	Context("Scale without LB", Ordered, func() {
+		var cc *clientCluster
 
-			It("Should be able to scale-up targets of existing cluster", func(ctx context.Context) {
-				cluArgs.MaxTargets = 2
-				cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
-				cc.createAndDestroyCluster(ctx, func() { cc.scale(ctx, true, 1) }, nil)
-			})
-
-			It("Should be able to scale-down existing cluster", func(ctx context.Context) {
-				cluArgs.Size = 2
-				cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
-				cc.createAndDestroyCluster(ctx, func() { cc.scale(ctx, false, -1) }, nil)
-			})
-
-			It("Should allow reverting a broken scale-up", func(ctx context.Context) {
-				// MaxTargets=1 means PVs only created for 1 target
-				// Scaling to 2 targets means target-1 has no PV and will be stuck Pending
-				cluArgs.MaxTargets = 1
-				cluArgs.DisableTargetAntiAffinity = true
-				cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
-				defer func() {
-					cc.printLogs(ctx)
-					cc.destroyAndCleanup()
-				}()
-				cc.create(ctx)
-
-				By("Scale up beyond available PVs")
-				cc.attemptScale(ctx, false, 1)
-
-				By("Wait for at least one pod to be stuck in Pending")
-				Eventually(func(ctx context.Context) bool {
-					return cc.hasPendingPods(ctx)
-				}, 60*time.Second, 2*time.Second).WithContext(ctx).Should(BeTrue(), "Should have pods stuck in Pending")
-
-				By("Verify pods stay stuck in Pending state")
-				Consistently(func(ctx context.Context) bool {
-					return cc.hasPendingPods(ctx)
-				}, 10*time.Second, 2*time.Second).WithContext(ctx).Should(BeTrue(), "Pods should remain stuck in Pending")
-
-				By("Revert scale back to original size")
-				cc.scale(ctx, false, -1)
-			})
+		BeforeAll(func(ctx context.Context) {
+			cluArgs.MaxTargets = 2
+			cc = newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
+			cc.create(ctx)
 		})
 
-		Context("with externalLB", func() {
-			It("Should be able to scale-up existing cluster", func(ctx context.Context) {
-				cluArgs.EnableExternalLB = true
-				cluArgs.MaxTargets = 2
-				cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
-				cc.createAndDestroyCluster(ctx, func() { cc.scale(ctx, false, 1) }, nil)
-			})
-
-			It("Should be able to scale-down existing cluster", func(ctx context.Context) {
-				cluArgs.Size = 2
-				cluArgs.EnableExternalLB = true
-				cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
-				cc.createAndDestroyCluster(ctx, func() { cc.scale(ctx, false, -1) }, nil)
-			})
+		AfterAll(func(ctx context.Context) {
+			cc.printLogs(ctx)
+			cc.destroyAndCleanup()
 		})
 
-		Context("with target PDB", func() {
-			It("Should be able to scale-up existing cluster", func(ctx context.Context) {
-				cluArgs.EnableTargetPDB = true
-				cluArgs.MaxTargets = 2
-				cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
-				cc.createAndDestroyCluster(ctx, func() {
-					cc.verifyTargetPDBExists(ctx)
-					cc.scale(ctx, false, 1)
-				}, nil)
-			})
+		It("Should be able to scale-up existing cluster", func(ctx context.Context) {
+			cc.scale(ctx, false, 1)
+		})
 
-			It("Should be able to scale-down existing cluster", func(ctx context.Context) {
-				cluArgs.Size = 2
-				cluArgs.EnableTargetPDB = true
-				cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
-				cc.createAndDestroyCluster(ctx, func() {
-					cc.verifyTargetPDBExists(ctx)
-					cc.scale(ctx, false, -1)
-				}, nil)
-			})
+		It("Should be able to scale-down existing cluster", func(ctx context.Context) {
+			cc.scale(ctx, false, -1)
+		})
+
+		It("Should be able to scale-up targets only", func(ctx context.Context) {
+			cc.scale(ctx, true, 1)
+		})
+
+		It("Should be able to scale-down targets only", func(ctx context.Context) {
+			cc.scale(ctx, true, -1)
+		})
+	})
+
+	Context("Scale with LB", Ordered, func() {
+		var cc *clientCluster
+
+		BeforeAll(func(ctx context.Context) {
+			cluArgs.EnableExternalLB = true
+			cluArgs.MaxTargets = 2
+			cc = newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
+			cc.create(ctx)
+		})
+
+		AfterAll(func(ctx context.Context) {
+			cc.printLogs(ctx)
+			cc.destroyAndCleanup()
+		})
+
+		It("Should be able to scale-up existing cluster", func(ctx context.Context) {
+			cc.scale(ctx, false, 1)
+		})
+
+		It("Should be able to scale-down existing cluster", func(ctx context.Context) {
+			cc.scale(ctx, false, -1)
+		})
+	})
+
+	Context("Scale with PDB", Ordered, func() {
+		var cc *clientCluster
+
+		BeforeAll(func(ctx context.Context) {
+			cluArgs.EnableTargetPDB = true
+			cluArgs.MaxTargets = 2
+			cc = newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
+			cc.create(ctx)
+		})
+
+		AfterAll(func(ctx context.Context) {
+			cc.printLogs(ctx)
+			cc.destroyAndCleanup()
+		})
+
+		It("Should have target PDB", func(ctx context.Context) {
+			cc.verifyTargetPDBExists(ctx)
+		})
+
+		It("Should be able to scale-up existing cluster", func(ctx context.Context) {
+			cc.scale(ctx, false, 1)
+		})
+
+		It("Should be able to scale-down existing cluster", func(ctx context.Context) {
+			cc.scale(ctx, false, -1)
+		})
+	})
+
+	Context("Scale error recovery", func() {
+		It("Should allow reverting a broken scale-up", func(ctx context.Context) {
+			// MaxTargets=1 means PVs only created for 1 target
+			// Scaling to 2 targets means target-1 has no PV and will be stuck Pending
+			cluArgs.MaxTargets = 1
+			cluArgs.DisableTargetAntiAffinity = true
+			cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
+			defer func() {
+				cc.printLogs(ctx)
+				cc.destroyAndCleanup()
+			}()
+			cc.create(ctx)
+
+			By("Scale up targets beyond available PVs")
+			cc.attemptScale(ctx, true, 1)
+
+			By("Wait for target pod to be stuck in Pending")
+			Eventually(func(ctx context.Context) bool {
+				return cc.hasPendingPods(ctx)
+			}, 60*time.Second, 2*time.Second).WithContext(ctx).Should(BeTrue(), "Should have target pod stuck in Pending")
+
+			By("Verify target pod stays stuck in Pending state")
+			Consistently(func(ctx context.Context) bool {
+				return cc.hasPendingPods(ctx)
+			}, 10*time.Second, 2*time.Second).WithContext(ctx).Should(BeTrue(), "Target pod should remain stuck in Pending")
+
+			By("Revert scale back to original size")
+			cc.scale(ctx, true, -1)
 		})
 	})
 
