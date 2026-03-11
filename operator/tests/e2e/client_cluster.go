@@ -26,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/kubernetes"
 	clientpkg "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -129,7 +130,7 @@ func (cc *clientCluster) createWithCallback(ctx context.Context, postCreate func
 
 func (cc *clientCluster) createAndDestroyCluster(ctx context.Context, postCreate, postDestroy func()) {
 	defer func() {
-		Expect(cc.printLogs(ctx)).To(Succeed())
+		cc.printLogs(ctx)
 		cc.destroyCleanupWithCallback(postDestroy)
 	}()
 	cc.createWithCallback(ctx, postCreate)
@@ -472,31 +473,55 @@ func (cc *clientCluster) hasPendingPods(ctx context.Context) bool {
 	return false
 }
 
-func (cc *clientCluster) printLogs(ctx context.Context) (err error) {
+// Print logs from all pods in this cluster
+// On error, make a best-effort attempt to log and continue with other pods
+func (cc *clientCluster) printLogs(ctx context.Context) {
+	clusterName := cc.cluster.Name
 	cs, err := tutils.NewClientset()
 	if err != nil {
-		return fmt.Errorf("error creating clientset: %v", err)
+		_, _ = fmt.Fprintf(os.Stderr, "error creating clientset: %v", err)
+		return
 	}
 
-	clusterName := cc.cluster.Name
 	clusterSelector := map[string]string{"app.kubernetes.io/name": clusterName}
 	podList, err := cc.k8sClient.ListPods(ctx, cc.cluster, clusterSelector)
 	if err != nil {
-		return fmt.Errorf("error listing pods for cluster %s: %v", clusterName, err)
+		_, _ = fmt.Fprintf(os.Stderr, "error listing pods for cluster %s: %v", clusterName, err)
+		return
 	}
 	for i := range podList.Items {
 		pod := &podList.Items[i]
-		opts := &corev1.PodLogOptions{Container: "ais-logs"}
-		req := cs.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, opts)
-		stream, err := req.Stream(ctx)
-		if err != nil {
-			return fmt.Errorf("error opening log stream: %v", err)
-		}
-		defer stream.Close()
 		fmt.Printf("Logs for pod %s in cluster %s:\n", pod.Name, clusterName)
-		if _, err := io.Copy(os.Stdout, stream); err != nil {
-			return fmt.Errorf("error printing logs for pod %s in cluster %s: %v", pod.Name, clusterName, err)
+		err = printPodLogs(ctx, clusterName, cs, pod)
+		if err != nil {
+			_, _ = fmt.Fprintf(os.Stderr,
+				"error printing logs for pod %s in cluster %s: %v\n",
+				pod.Name, clusterName, err)
 		}
+		// Spacer for better visualization in CI logs
+		fmt.Println("---------------------------------------------------")
+	}
+}
+
+func printPodLogs(ctx context.Context, clusterName string, cs *kubernetes.Clientset, pod *corev1.Pod) error {
+	opts := &corev1.PodLogOptions{Container: "ais-logs"}
+	req := cs.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, opts)
+	stream, streamErr := req.Stream(ctx)
+	if streamErr != nil {
+		return fmt.Errorf("error opening log stream: %w", streamErr)
+	}
+	// Ensure this stream is closed before moving to the next pod.
+	defer func() {
+		if cerr := stream.Close(); cerr != nil {
+			// Log close failure; do not change the function’s return value.
+			_, _ = fmt.Fprintf(os.Stderr,
+				"error closing log stream for pod %s in cluster %s: %v\n",
+				pod.Name, clusterName, cerr)
+		}
+	}()
+
+	if _, err := io.Copy(os.Stdout, stream); err != nil {
+		return err
 	}
 	return nil
 }

@@ -116,7 +116,7 @@ var _ = Describe("Run Controller", func() {
 			}
 			cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
 			defer func() {
-				Expect(cc.printLogs(ctx)).To(Succeed())
+				cc.printLogs(ctx)
 				cc.destroyAndCleanup()
 				_, err := WorkerCfg.K8sClient.DeleteResourceIfExists(ctx, issuer)
 				Expect(err).To(BeNil())
@@ -134,8 +134,8 @@ var _ = Describe("Run Controller", func() {
 			cc2 := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs2)
 			cc2.applyHostPortOffset(int32(5))
 			defer func() {
-				Expect(cc1.printLogs(ctx)).To(Succeed())
-				Expect(cc2.printLogs(ctx)).To(Succeed())
+				cc1.printLogs(ctx)
+				cc2.printLogs(ctx)
 				cc2.destroyAndCleanup()
 				cc1.destroyAndCleanup()
 			}()
@@ -158,8 +158,8 @@ var _ = Describe("Run Controller", func() {
 			cc2 := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, otherCluArgs)
 			cc2.applyHostPortOffset(int32(5))
 			defer func() {
-				Expect(cc1.printLogs(ctx)).To(Succeed())
-				Expect(cc2.printLogs(ctx)).To(Succeed())
+				cc1.printLogs(ctx)
+				cc2.printLogs(ctx)
 				cc2.destroyAndCleanup()
 				cc1.destroyAndCleanup()
 			}()
@@ -177,7 +177,7 @@ var _ = Describe("Run Controller", func() {
 			cluArgs.Size = 2
 			cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
 			defer func() {
-				_ = cc.printLogs(ctx)
+				cc.printLogs(ctx)
 				cc.destroyAndCleanup()
 			}()
 			cc.create(ctx)
@@ -198,7 +198,7 @@ var _ = Describe("Run Controller", func() {
 			cluArgs.EnableTargetPDB = true
 			cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
 			defer func() {
-				_ = cc.printLogs(ctx)
+				cc.printLogs(ctx)
 				cc.destroyAndCleanup()
 			}()
 			cc.create(ctx)
@@ -211,7 +211,7 @@ var _ = Describe("Run Controller", func() {
 			cluArgs.Size = 3
 			cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
 			defer func() {
-				_ = cc.printLogs(ctx)
+				cc.printLogs(ctx)
 				cc.destroyAndCleanup()
 			}()
 			cc.create(ctx)
@@ -258,7 +258,7 @@ var _ = Describe("Run Controller", func() {
 				cluArgs.DisableTargetAntiAffinity = true
 				cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
 				defer func() {
-					_ = cc.printLogs(ctx)
+					cc.printLogs(ctx)
 					cc.destroyAndCleanup()
 				}()
 				cc.create(ctx)
@@ -324,7 +324,7 @@ var _ = Describe("Run Controller", func() {
 		It("Restarting cluster must retain data", func(ctx context.Context) {
 			cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
 			defer func() {
-				_ = cc.printLogs(ctx)
+				cc.printLogs(ctx)
 				cc.destroyAndCleanup()
 			}()
 			cc.create(ctx)
@@ -359,7 +359,7 @@ var _ = Describe("Run Controller", func() {
 			cluArgs.Size = 2
 			cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
 			defer func() {
-				_ = cc.printLogs(ctx)
+				cc.printLogs(ctx)
 				cc.destroyAndCleanup()
 			}()
 			cc.create(ctx)
@@ -397,7 +397,7 @@ var _ = Describe("Run Controller", func() {
 			cluArgs.Size = 3
 			cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
 			defer func() {
-				_ = cc.printLogs(ctx)
+				cc.printLogs(ctx)
 				cc.destroyAndCleanup()
 			}()
 			cc.create(ctx)
@@ -437,7 +437,7 @@ var _ = Describe("Run Controller", func() {
 			cluArgs.MaxTargets = 2
 			cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
 			defer func() {
-				_ = cc.printLogs(ctx)
+				cc.printLogs(ctx)
 				cc.destroyAndCleanup()
 			}()
 			cc.create(ctx)
@@ -453,7 +453,7 @@ var _ = Describe("Run Controller", func() {
 			By("Deploy with CleanupData true")
 			cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
 			defer func() {
-				_ = cc.printLogs(ctx)
+				cc.printLogs(ctx)
 				cc.destroyAndCleanup()
 			}()
 			cc.create(ctx)
@@ -492,7 +492,7 @@ var _ = Describe("Run Controller", func() {
 			By("Deploy with cleanupMetadata false")
 			cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
 			defer func() {
-				_ = cc.printLogs(ctx)
+				cc.printLogs(ctx)
 				cc.destroyAndCleanup()
 			}()
 			cc.create(ctx)
@@ -529,7 +529,7 @@ var _ = Describe("Run Controller", func() {
 			By("Deploy initial cluster with default ports")
 			cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
 			defer func() {
-				_ = cc.printLogs(ctx)
+				cc.printLogs(ctx)
 				// Ensure final cleanup has CleanupMetadata enabled
 				cluArgs.CleanupMetadata = true
 				cc.destroyAndCleanup()
