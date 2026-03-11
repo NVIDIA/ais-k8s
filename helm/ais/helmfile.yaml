@@ -148,6 +148,17 @@ environments:
         createPV:
           enabled: false
 
+  aws-east1-eks1-test:
+    values:
+      - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/ais/config/ais/aws-east1-eks1-test.yaml?ref=main"
+        https:
+          enabled: true
+          valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/ais/config/tls-cert/aws-east1-eks1-test.yaml?ref=main"
+        cloudSecrets:
+          enabled: false
+        createPV:
+          enabled: true
+
 ---
 hooks:
   - events: ["prepare"]

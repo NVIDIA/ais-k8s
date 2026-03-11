@@ -45,6 +45,11 @@ environments:
     - createCert:
         enabled: true
         valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/operator/config/tls-cert/sjc4-dev.yaml?ref=main"
+  aws-east1-eks1-test:
+    values:
+      - envFile: default
+      - createCert:
+          enabled: false
 
 ---
 repositories:
