@@ -327,12 +327,12 @@ var _ = Describe("Run Controller", func() {
 
 			By("Wait for target pod to be stuck in Pending")
 			Eventually(func(ctx context.Context) bool {
-				return cc.hasPendingPods(ctx)
+				return cc.hasPendingTargetPods(ctx)
 			}, 60*time.Second, 2*time.Second).WithContext(ctx).Should(BeTrue(), "Should have target pod stuck in Pending")
 
 			By("Verify target pod stays stuck in Pending state")
 			Consistently(func(ctx context.Context) bool {
-				return cc.hasPendingPods(ctx)
+				return cc.hasPendingTargetPods(ctx)
 			}, 10*time.Second, 2*time.Second).WithContext(ctx).Should(BeTrue(), "Target pod should remain stuck in Pending")
 
 			By("Revert scale back to original size")

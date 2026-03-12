@@ -461,9 +461,8 @@ func (cc *clientCluster) verifyPodCounts(ctx context.Context) {
 	Expect(len(targets.Items)).To(Equal(int(cc.cluster.GetTargetSize())))
 }
 
-func (cc *clientCluster) hasPendingPods(ctx context.Context) bool {
-	allLabels := map[string]string{"app.kubernetes.io/name": cc.cluster.Name}
-	podList, err := cc.k8sClient.ListPods(ctx, cc.cluster, allLabels)
+func (cc *clientCluster) hasPendingTargetPods(ctx context.Context) bool {
+	podList, err := cc.k8sClient.ListPods(ctx, cc.cluster, target.BasicLabels(cc.cluster))
 	Expect(err).To(BeNil())
 	for i := range podList.Items {
 		if podList.Items[i].Status.Phase == corev1.PodPending {
