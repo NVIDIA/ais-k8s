@@ -16,7 +16,10 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 - Separated rollout (pod template updates) and scaling (replica count changes) into explicitly guarded operations that cannot overlap
 - Target decommission now checks pod status when a node is absent from the cluster map, skipping pods that are NotFound, Unschedulable, or in CrashLoopBackOff and waiting for others to register.
 - Replaced `ClusterScaling` CR state with predicates inferred from StatefulSet status fields; reconciliation decisions are no longer driven by CR state
-- Admin client reconciliation now skips externally-managed deployments (e.g. deployed via Helm) to avoid conflicts
+- Admin client reconciliation
+  - Skips externally-managed deployments (e.g. deployed via Helm) to avoid conflicts
+  - Uses K8s patch API to avoid update conflicts
+  - Fixed a bug causing API calls every reconcile due to K8s default fields
 
 ### Added
 

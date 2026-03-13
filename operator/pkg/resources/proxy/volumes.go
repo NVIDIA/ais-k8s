@@ -30,7 +30,7 @@ func newOIDCCAVolume(configMapName string) corev1.Volume {
 				LocalObjectReference: corev1.LocalObjectReference{
 					Name: configMapName,
 				},
-				DefaultMode: &cmn.DefaultMode,
+				DefaultMode: &cmn.CMDefaultMode,
 			},
 		},
 	}

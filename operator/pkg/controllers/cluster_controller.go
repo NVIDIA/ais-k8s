@@ -796,14 +796,18 @@ func (r *AIStoreReconciler) reconcileAdminClient(ctx context.Context, ais *aisv1
 	existing, err := r.k8sClient.GetDeployment(ctx, nsName)
 	enabled := ais.AdminClientEnabled()
 	if err != nil {
+		// Continue only if the error is a missing deployment
 		if !k8serrors.IsNotFound(err) {
 			return err
 		}
-		// Do not proceed if does not exist and not enabled (no need to delete)
-		if !enabled {
-			return nil
+		if enabled {
+			return r.createClientDeployment(ctx, ais)
 		}
-	} else if !metav1.IsControlledBy(existing, ais) {
+		// Missing and not enabled: done
+		return nil
+	}
+
+	if !metav1.IsControlledBy(existing, ais) {
 		if enabled {
 			logger.Info("Admin client deployment exists but is not managed by this AIStore CR, skipping", "deployment", nsName)
 		}
@@ -811,20 +815,15 @@ func (r *AIStoreReconciler) reconcileAdminClient(ctx context.Context, ais *aisv1
 	}
 
 	if enabled {
-		// Create or update the client deployment
-		clientDeploy := adminclient.NewClientDeployment(ais)
-		changed, err := r.k8sClient.CreateOrUpdateResource(ctx, ais, clientDeploy)
-		if err != nil {
-			return err
-		}
-		if changed {
-			logger.Info("Reconciled admin client deployment", "name", nsName.Name)
-		}
-		return nil
+		return r.reconcileClientDeployment(ctx, ais, existing)
 	}
+	return r.removeClientDeployment(ctx, &nsName)
+}
 
-	// Delete the operator-managed client deployment
-	deleted, err := r.k8sClient.DeleteDeploymentIfExists(ctx, nsName)
+// Delete the operator-managed client deployment
+func (r *AIStoreReconciler) removeClientDeployment(ctx context.Context, nsName *types.NamespacedName) error {
+	logger := logf.FromContext(ctx)
+	deleted, err := r.k8sClient.DeleteDeploymentIfExists(ctx, *nsName)
 	if err != nil {
 		return err
 	}
@@ -832,6 +831,28 @@ func (r *AIStoreReconciler) reconcileAdminClient(ctx context.Context, ais *aisv1
 		logger.Info("Deleted admin client deployment", "name", nsName.Name)
 	}
 	return nil
+}
+
+func (r *AIStoreReconciler) createClientDeployment(ctx context.Context, ais *aisv1.AIStore) error {
+	clientDeploy := adminclient.NewClientDeployment(ais)
+	if _, createErr := r.k8sClient.CreateOrUpdateResource(ctx, ais, clientDeploy); createErr != nil {
+		return createErr
+	}
+	logf.FromContext(ctx).Info("Created admin client deployment", "name", clientDeploy.Name)
+	return nil
+}
+
+// Reconcile an existing admin client deployment to match the AIS spec
+func (r *AIStoreReconciler) reconcileClientDeployment(ctx context.Context, ais *aisv1.AIStore, existing *apiv1.Deployment) error {
+	desired := adminclient.NewClientDeployment(ais)
+	modified := existing.DeepCopy()
+	changed, reason := adminclient.SyncDeployment(desired, modified)
+	if !changed {
+		return nil
+	}
+	logger := logf.FromContext(ctx)
+	logger.Info("Reconciled admin client deployment", "name", existing.Name, "reason", reason)
+	return r.k8sClient.Patch(ctx, modified, k8sclient.MergeFrom(existing))
 }
 
 func (r *AIStoreReconciler) disableRebalance(ctx context.Context, ais *aisv1.AIStore, reason aisv1.ClusterConditionReason, msg string) error {

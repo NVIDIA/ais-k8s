@@ -7,6 +7,7 @@ package adminclient
 import (
 	"maps"
 	"path/filepath"
+	"strings"
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
 	aisenv "github.com/NVIDIA/aistore/api/env"
@@ -14,6 +15,7 @@ import (
 	"github.com/ais-operator/pkg/resources/cmn"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -66,6 +68,8 @@ func caVolumes(caConfigMap *aisv1.CAConfigMapRef) []corev1.Volume {
 					},
 				},
 				Optional: aisapc.Ptr(true),
+				// Set explicitly to avoid causing rollout on diff
+				DefaultMode: aisapc.Ptr(corev1.ConfigMapVolumeSourceDefaultMode),
 			},
 		},
 	}}
@@ -214,4 +218,73 @@ func buildClientEnv(ais *aisv1.AIStore) []corev1.EnvVar {
 	env = append(env, ca...)
 	env = append(env, authn...)
 	return env
+}
+
+// SyncDeployment takes a desired and current deployment and modifies the current to match, returning a list of reasons
+func SyncDeployment(desired, modified *appsv1.Deployment) (bool, string) {
+	reasons := syncContainerSpec(&desired.Spec.Template.Spec.Containers[0], &modified.Spec.Template.Spec.Containers[0])
+	reasons = append(reasons, syncPodTemplateSpec(&desired.Spec.Template, &modified.Spec.Template)...)
+	if !equality.Semantic.DeepEqual(desired.Labels, modified.Labels) {
+		modified.Labels = desired.Labels
+		reasons = append(reasons, "deployment labels")
+	}
+	if len(reasons) == 0 {
+		return false, ""
+	}
+	return true, strings.Join(reasons, ", ")
+}
+
+func syncContainerSpec(desired, current *corev1.Container) (reasons []string) {
+	if desired.Image != current.Image {
+		current.Image = desired.Image
+		reasons = append(reasons, "image")
+	}
+	// K8s will set default, only reconcile this if set
+	if desired.ImagePullPolicy != "" && desired.ImagePullPolicy != current.ImagePullPolicy {
+		current.ImagePullPolicy = desired.ImagePullPolicy
+		reasons = append(reasons, "imagePullPolicy")
+	}
+	if !equality.Semantic.DeepEqual(desired.Env, current.Env) {
+		current.Env = desired.Env
+		reasons = append(reasons, "env")
+	}
+	if !equality.Semantic.DeepEqual(desired.Resources, current.Resources) {
+		current.Resources = desired.Resources
+		reasons = append(reasons, "resources")
+	}
+	if !equality.Semantic.DeepEqual(desired.VolumeMounts, current.VolumeMounts) {
+		current.VolumeMounts = desired.VolumeMounts
+		reasons = append(reasons, "volumeMounts")
+	}
+	return
+}
+
+func syncPodTemplateSpec(desired, modified *corev1.PodTemplateSpec) (reasons []string) {
+	dSpec := &desired.Spec
+	mSpec := &modified.Spec
+	if !equality.Semantic.DeepEqual(dSpec.Volumes, mSpec.Volumes) {
+		mSpec.Volumes = dSpec.Volumes
+		reasons = append(reasons, "volumes")
+	}
+	if !equality.Semantic.DeepEqual(dSpec.NodeSelector, mSpec.NodeSelector) {
+		mSpec.NodeSelector = dSpec.NodeSelector
+		reasons = append(reasons, "nodeSelector")
+	}
+	if !equality.Semantic.DeepEqual(dSpec.Affinity, mSpec.Affinity) {
+		mSpec.Affinity = dSpec.Affinity
+		reasons = append(reasons, "affinity")
+	}
+	if !equality.Semantic.DeepEqual(dSpec.Tolerations, mSpec.Tolerations) {
+		mSpec.Tolerations = dSpec.Tolerations
+		reasons = append(reasons, "tolerations")
+	}
+	if !equality.Semantic.DeepEqual(desired.Labels, modified.Labels) {
+		modified.Labels = desired.Labels
+		reasons = append(reasons, "pod labels")
+	}
+	if !equality.Semantic.DeepEqual(desired.Annotations, modified.Annotations) {
+		modified.Annotations = desired.Annotations
+		reasons = append(reasons, "annotations")
+	}
+	return
 }

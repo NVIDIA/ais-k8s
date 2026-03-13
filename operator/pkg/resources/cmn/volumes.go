@@ -17,8 +17,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-// 0x0644 -- Set to explicitly define file permissions as the K8s default and avoid diff causing rollout
-var DefaultMode = int32(420)
+// Explicitly define file permissions as the K8s defaults to avoid causing rollout on diff
+var (
+	CMDefaultMode     = corev1.ConfigMapVolumeSourceDefaultMode
+	SecretDefaultMode = corev1.SecretVolumeSourceDefaultMode
+)
 
 const (
 	// StateDir Container-internal location of configs and current state of the aisnode
@@ -63,7 +66,7 @@ func NewAISVolumes(ais *v1beta1.AIStore, daeType string) []corev1.Volume {
 					LocalObjectReference: corev1.LocalObjectReference{
 						Name: AISConfigMapName(ais, daeType),
 					},
-					DefaultMode: &DefaultMode,
+					DefaultMode: &CMDefaultMode,
 				},
 			},
 		},
@@ -80,7 +83,7 @@ func NewAISVolumes(ais *v1beta1.AIStore, daeType string) []corev1.Volume {
 					LocalObjectReference: corev1.LocalObjectReference{
 						Name: globalConfigMapName(ais),
 					},
-					DefaultMode: &DefaultMode,
+					DefaultMode: &CMDefaultMode,
 				},
 			},
 		},
@@ -91,7 +94,7 @@ func NewAISVolumes(ais *v1beta1.AIStore, daeType string) []corev1.Volume {
 					LocalObjectReference: corev1.LocalObjectReference{
 						Name: statsd.ConfigMapName(ais),
 					},
-					DefaultMode: &DefaultMode,
+					DefaultMode: &CMDefaultMode,
 				},
 			},
 		},
@@ -125,7 +128,7 @@ func NewAISVolumes(ais *v1beta1.AIStore, daeType string) []corev1.Volume {
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
 					SecretName:  *ais.Spec.TracingTokenSecretName,
-					DefaultMode: &DefaultMode,
+					DefaultMode: &SecretDefaultMode,
 				},
 			},
 		})
@@ -204,7 +207,7 @@ func getTLSSecretVolumeSource(ais *v1beta1.AIStore) corev1.VolumeSource {
 	return corev1.VolumeSource{
 		Secret: &corev1.SecretVolumeSource{
 			SecretName:  ais.GetTLSSecretName(),
-			DefaultMode: &DefaultMode,
+			DefaultMode: &SecretDefaultMode,
 		},
 	}
 }
