@@ -477,13 +477,13 @@ var _ = Describe("AIStoreController", func() {
 	})
 
 	Describe("shouldUpdatePodTemplate & syncPodTemplate", func() {
-		DescribeTable("should correctly compare pod templates", func(desiredPodTemplate, currentPodTemplate *corev1.PodTemplateSpec, expectedResult bool) {
+		DescribeTable("should correctly compare pod templates", func(desiredPodTemplate, currentPodTemplate *corev1.PodTemplateSpec, expectedTrigger, expectedSync bool) {
 			needsUpdate, _ := shouldUpdatePodTemplate(desiredPodTemplate, currentPodTemplate)
-			Expect(needsUpdate).To(Equal(expectedResult))
+			Expect(needsUpdate).To(Equal(expectedTrigger))
 
 			// Also make sure that when syncing we will correctly update the template.
 			synced := syncPodTemplate(desiredPodTemplate, currentPodTemplate)
-			Expect(synced).To(Equal(expectedResult))
+			Expect(synced).To(Equal(expectedSync))
 			equal := equality.Semantic.DeepEqual(desiredPodTemplate, currentPodTemplate)
 			Expect(equal).To(BeTrue())
 		},
@@ -501,6 +501,7 @@ var _ = Describe("AIStoreController", func() {
 					},
 				},
 				true,
+				true,
 			),
 			Entry("different node image",
 				&corev1.PodTemplateSpec{
@@ -515,6 +516,7 @@ var _ = Describe("AIStoreController", func() {
 						Containers:     []corev1.Container{{Image: "test:old"}},
 					},
 				},
+				true,
 				true,
 			),
 			Entry("different resources (empty vs non-empty)",
@@ -535,6 +537,60 @@ var _ = Describe("AIStoreController", func() {
 						Containers:     []corev1.Container{{Image: "test:latest"}},
 					},
 				},
+				true,
+				true,
+			),
+			Entry("init container: adding resources when current has none does not trigger sync",
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{
+							Image: "test:latest",
+							Resources: corev1.ResourceRequirements{
+								Requests: corev1.ResourceList{
+									corev1.ResourceCPU: resource.MustParse("100m"),
+								},
+							},
+						}},
+						Containers: []corev1.Container{{Image: "test:latest"}},
+					},
+				},
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers:     []corev1.Container{{Image: "test:latest"}},
+					},
+				},
+				false,
+				true,
+			),
+			Entry("init container: changing resources when current has resources triggers sync",
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{
+							Image: "test:latest",
+							Resources: corev1.ResourceRequirements{
+								Requests: corev1.ResourceList{
+									corev1.ResourceCPU: resource.MustParse("200m"),
+								},
+							},
+						}},
+						Containers: []corev1.Container{{Image: "test:latest"}},
+					},
+				},
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{
+							Image: "test:latest",
+							Resources: corev1.ResourceRequirements{
+								Requests: corev1.ResourceList{
+									corev1.ResourceCPU: resource.MustParse("100m"),
+								},
+							},
+						}},
+						Containers: []corev1.Container{{Image: "test:latest"}},
+					},
+				},
+				true,
 				true,
 			),
 			Entry("different resources (different values)",
@@ -561,6 +617,7 @@ var _ = Describe("AIStoreController", func() {
 					},
 				},
 				true,
+				true,
 			),
 			Entry("different resources (different types)",
 				&corev1.PodTemplateSpec{
@@ -585,6 +642,7 @@ var _ = Describe("AIStoreController", func() {
 						}},
 					},
 				},
+				true,
 				true,
 			),
 			Entry("different env",
@@ -622,6 +680,7 @@ var _ = Describe("AIStoreController", func() {
 					},
 				},
 				true,
+				true,
 			),
 			Entry("different annotations", //nolint:dupl // For now it is okay to duplicate, maybe in the future we will fix it.
 				&corev1.PodTemplateSpec{
@@ -653,6 +712,7 @@ var _ = Describe("AIStoreController", func() {
 						}},
 					},
 				},
+				true,
 				true,
 			),
 			Entry("different labels", //nolint:dupl // For now it is okay to duplicate, maybe in the future we will fix it.
@@ -686,6 +746,7 @@ var _ = Describe("AIStoreController", func() {
 					},
 				},
 				true,
+				true,
 			),
 			Entry("different security context (empty vs non-empty)",
 				&corev1.PodTemplateSpec{
@@ -703,6 +764,7 @@ var _ = Describe("AIStoreController", func() {
 						Containers:     []corev1.Container{{Image: "test:latest"}},
 					},
 				},
+				true,
 				true,
 			),
 			Entry("different security context (different values)",
@@ -725,6 +787,7 @@ var _ = Describe("AIStoreController", func() {
 					},
 				},
 				true,
+				true,
 			),
 			Entry("different container security context (empty vs non-empty)",
 				&corev1.PodTemplateSpec{
@@ -744,6 +807,7 @@ var _ = Describe("AIStoreController", func() {
 						Containers:     []corev1.Container{{Image: "test:latest"}},
 					},
 				},
+				true,
 				true,
 			),
 			Entry("different container security context (different values)",
@@ -770,6 +834,7 @@ var _ = Describe("AIStoreController", func() {
 					},
 				},
 				true,
+				true,
 			),
 			Entry("different priority class name",
 				&corev1.PodTemplateSpec{
@@ -786,6 +851,7 @@ var _ = Describe("AIStoreController", func() {
 						PriorityClassName: "test-name-2",
 					},
 				},
+				true,
 				true,
 			),
 			Entry("different volumes",
@@ -825,6 +891,7 @@ var _ = Describe("AIStoreController", func() {
 						},
 					},
 				},
+				true,
 				true,
 			),
 			Entry("no update needed",
@@ -900,6 +967,7 @@ var _ = Describe("AIStoreController", func() {
 						},
 					},
 				},
+				false,
 				false,
 			),
 		)

@@ -23,71 +23,100 @@ const (
 	SyncModeIgnoreAddedEnv
 )
 
+// Given a desired and current pod template spec, determine if we need to trigger a rollout to sync
+// When the actual sync happens, specs will be updated
+// In many cases we do not want every change to cause a restart, so those should be defined here
 func shouldUpdatePodTemplate(desired, current *corev1.PodTemplateSpec) (bool, string) {
+	// Define a series of functions to check
+	// Each function returns whether we should trigger a rollout to sync along with a reason
+	checks := []func(desired, current *corev1.PodTemplateSpec) (bool, string){
+		shouldUpdateContainerList,
+		shouldUpdateInitContainer,
+		shouldUpdatePrimaryContainer,
+		shouldUpdateSecurityContext,
+		shouldUpdateAnnotations,
+		shouldUpdateSidecars,
+		shouldUpdateLabels,
+		shouldUpdateVolumes,
+		shouldUpdatePriorityClass,
+	}
+	return shouldUpdate(desired, current, checks...)
+}
+
+func shouldUpdateInitContainer(desired, current *corev1.PodTemplateSpec) (bool, string) {
+	desiredInit := &desired.Spec.InitContainers[0]
+	currentInit := &current.Spec.InitContainers[0]
+	// TODO: Remove check in next major version (causes cluster restart)
+	// If current doesn't set resources, skip the sync trigger to avoid rollout caused by new defaults
+	skip := currentInit.Resources.Size() == 0
+	return shouldUpdateContainerSpec(desiredInit, currentInit, skip)
+}
+
+func shouldUpdateContainerList(desired, current *corev1.PodTemplateSpec) (bool, string) {
 	if len(desired.Spec.Containers) != len(current.Spec.Containers) {
 		return true, "updating desired containers"
 	}
-
-	for _, daemon := range []struct {
-		desiredContainer *corev1.Container
-		currentContainer *corev1.Container
-	}{
-		{&desired.Spec.InitContainers[0], &current.Spec.InitContainers[0]},
-		{&desired.Spec.Containers[0], &current.Spec.Containers[0]},
-	} {
-		if daemon.desiredContainer.Image != daemon.currentContainer.Image {
-			return true, fmt.Sprintf("updating image for %q container", daemon.desiredContainer.Name)
-		}
-		if shouldUpdateEnv(daemon.desiredContainer.Name, daemon.desiredContainer.Env, daemon.currentContainer.Env) {
-			return true, fmt.Sprintf("updating env variables for %q container", daemon.desiredContainer.Name)
-		}
-		if shouldUpdateResources(&daemon.desiredContainer.Resources, &daemon.currentContainer.Resources) {
-			return true, fmt.Sprintf("updating resource requests/limits for %q container", daemon.desiredContainer.Name)
-		}
-	}
-
-	if update, reason := shouldUpdateSecurityContext(&desired.Spec, &current.Spec); update {
-		return update, reason
-	}
-	if shouldUpdateAnnotations(desired.Annotations, current.Annotations) {
-		return true, "updating annotations"
-	}
-
-	if !equality.Semantic.DeepEqual(desired.Labels, current.Labels) {
-		return true, "updating labels"
-	}
-
-	// We already know desired number of containers matches current here,
-	// so if using sidecar, compare the images of the sidecar container.
-	if len(desired.Spec.Containers) > 1 {
-		if desired.Spec.Containers[1].Image != current.Spec.Containers[1].Image {
-			return true, fmt.Sprintf("updating image for %q container", desired.Spec.Containers[1].Name)
-		}
-	}
-
-	if !equality.Semantic.DeepEqual(desired.Spec.Volumes, current.Spec.Volumes) {
-		return true, "updating volumes"
-	}
-
-	if desired.Spec.PriorityClassName != current.Spec.PriorityClassName {
-		return true, "updating priority class name"
-	}
-
 	return false, ""
 }
 
-func shouldUpdateSecurityContext(desired, current *corev1.PodSpec) (bool, string) {
+func shouldUpdatePrimaryContainer(desired, current *corev1.PodTemplateSpec) (bool, string) {
+	return shouldUpdateContainerSpec(&desired.Spec.Containers[0], &current.Spec.Containers[0], false)
+}
+
+func shouldUpdateSidecars(desired, current *corev1.PodTemplateSpec) (bool, string) {
+	// Assuming 0 is primary container
+	if len(desired.Spec.Containers) <= 1 {
+		return false, ""
+	}
+	currentByName := make(map[string]corev1.Container, len(current.Spec.Containers))
+	for i := range current.Spec.Containers {
+		c := current.Spec.Containers[i]
+		currentByName[c.Name] = c
+	}
+	// compare each desired sidecar to the current one with the same name
+	for i := 1; i < len(desired.Spec.Containers); i++ {
+		d := desired.Spec.Containers[i]
+		c, ok := currentByName[d.Name]
+		// should not happen (Spec.Containers length check previously)
+		// but this means spec differs, so we should sync
+		if !ok {
+			return true, fmt.Sprintf("adding sidecar container: %q", d.Name)
+		}
+		// currently only checking image for triggering rollout
+		if d.Image != c.Image {
+			return true, fmt.Sprintf("updating image for %q container", d.Name)
+		}
+	}
+	return false, ""
+}
+
+func shouldUpdateContainerSpec(desired, current *corev1.Container, skipRes bool) (bool, string) {
+	if desired.Image != current.Image {
+		return true, fmt.Sprintf("updating image for %q container", desired.Name)
+	}
+	if shouldUpdateEnv(desired.Name, desired.Env, current.Env) {
+		return true, fmt.Sprintf("updating env variables for %q container", desired.Name)
+	}
+	if !skipRes && shouldUpdateResources(&desired.Resources, &current.Resources) {
+		return true, fmt.Sprintf("updating resource requests/limits for %q container", desired.Name)
+	}
+	return false, ""
+}
+
+func shouldUpdateSecurityContext(desired, current *corev1.PodTemplateSpec) (bool, string) {
+	desiredSpec := &desired.Spec
+	currentSpec := &current.Spec
 	// Pod-level securityContext
 	// Both `desired.SecurityContext` and `current.SecurityContext` are
 	// expected to be non-nil here as `SecurityContext` should be set by default.
-	if !equality.Semantic.DeepEqual(desired.SecurityContext, current.SecurityContext) {
+	if !equality.Semantic.DeepEqual(desiredSpec.SecurityContext, currentSpec.SecurityContext) {
 		return true, "updating security context for pod"
 	}
 
 	// Only sync securityContext for primary container -- do not restart cluster to add to sidecar or init
 	// TODO: sync on all in next major version
-	if !equality.Semantic.DeepEqual(desired.Containers[0].SecurityContext, current.Containers[0].SecurityContext) {
-		return true, fmt.Sprintf("updating security context for container %s", desired.Containers[0].Name)
+	if !equality.Semantic.DeepEqual(desiredSpec.Containers[0].SecurityContext, currentSpec.Containers[0].SecurityContext) {
+		return true, fmt.Sprintf("updating security context for container %s", desiredSpec.Containers[0].Name)
 	}
 	return false, ""
 }
@@ -174,27 +203,51 @@ func envSliceToMap(envs []corev1.EnvVar) map[string]string {
 	return m
 }
 
-func shouldUpdateAnnotations(desired, current map[string]string) bool {
-	if equality.Semantic.DeepDerivative(desired, current) {
-		return false
+func shouldUpdateAnnotations(desired, current *corev1.PodTemplateSpec) (bool, string) {
+	desiredAnn := desired.Annotations
+	currentAnn := current.Annotations
+	if equality.Semantic.DeepDerivative(desiredAnn, currentAnn) {
+		return false, ""
 	}
-	restartHash, exists := desired[cmn.RestartConfigHashAnnotation]
-	// At this point annotations are not equal -- If the restart hash does not exist trigger sync
+	reason := "updating annotations"
+	restartHash, exists := desiredAnn[cmn.RestartConfigHashAnnotation]
+	// At this point annotations are not equal -- If the restart hash does not exist, trigger sync
 	if !exists {
-		return true
+		return true, reason
 	}
 	// If the hash is different and NOT initial, trigger sync
 	nonInitial := !strings.HasSuffix(restartHash, cmn.RestartConfigHashInitial)
-	if nonInitial && restartHash != current[cmn.RestartConfigHashAnnotation] {
-		return true
+	if nonInitial && restartHash != currentAnn[cmn.RestartConfigHashAnnotation] {
+		return true, "updating annotations due to changed restart config hash"
 	}
 	// Compare the desired to current WITHOUT the restart hash and trigger if not equivalent
 	desiredCopy := make(map[string]string)
-	for k, v := range desired {
+	for k, v := range desiredAnn {
 		desiredCopy[k] = v
 	}
 	delete(desiredCopy, cmn.RestartConfigHashAnnotation)
-	return !equality.Semantic.DeepDerivative(desiredCopy, current)
+	return !equality.Semantic.DeepDerivative(desiredCopy, currentAnn), reason
+}
+
+func shouldUpdateLabels(desired, current *corev1.PodTemplateSpec) (bool, string) {
+	if !equality.Semantic.DeepEqual(desired.Labels, current.Labels) {
+		return true, "updating labels"
+	}
+	return false, ""
+}
+
+func shouldUpdateVolumes(desired, current *corev1.PodTemplateSpec) (bool, string) {
+	if !equality.Semantic.DeepEqual(desired.Spec.Volumes, current.Spec.Volumes) {
+		return true, "updating volumes"
+	}
+	return false, ""
+}
+
+func shouldUpdatePriorityClass(desired, current *corev1.PodTemplateSpec) (bool, string) {
+	if desired.Spec.PriorityClassName != current.Spec.PriorityClassName {
+		return true, "updating priority class name"
+	}
+	return false, ""
 }
 
 func syncPodTemplate(desired, current *corev1.PodTemplateSpec) (updated bool) {
@@ -365,4 +418,14 @@ func (*AIStoreReconciler) isStatefulSetReady(desiredSize int32, ss *appsv1.State
 
 	// To be ready, spec must match status.ReadyReplicas
 	return specReplicas == ss.Status.ReadyReplicas
+}
+
+func shouldUpdate(desired, current *corev1.PodTemplateSpec, funcs ...func(desired, current *corev1.PodTemplateSpec) (bool, string)) (bool, string) {
+	for _, f := range funcs {
+		update, reason := f(desired, current)
+		if update {
+			return update, reason
+		}
+	}
+	return false, ""
 }

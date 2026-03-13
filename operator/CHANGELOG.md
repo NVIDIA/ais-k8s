@@ -17,17 +17,18 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 - Target decommission now checks pod status when a node is absent from the cluster map, skipping pods that are NotFound, Unschedulable, or in CrashLoopBackOff and waiting for others to register.
 - Replaced `ClusterScaling` CR state with predicates inferred from StatefulSet status fields; reconciliation decisions are no longer driven by CR state
 - Admin client reconciliation now skips externally-managed deployments (e.g. deployed via Helm) to avoid conflicts
-- AIS primary container securityContext will now be synced from spec
-- Init container resources are hard-coded to 1 CPU / 1Gi memory (requests == limits) to support Guaranteed QoS
-- Fix reconciliation for volumes and priority class name.
 
 ### Added
 
 - AuthN support for operator-managed admin client when `spec.auth.usernamePassword` is configured
 - Restricted security context for init and logSidecar containers
-- Native support for arm64 hosts with multi-arch container image build targets 
+- Native support for arm64 hosts with multi-arch container image build targets
 - Added `operator_state.md` documenting the cluster lifecycle states
 - `spec.proxySpec.pvcRetentionPolicy` and `spec.targetSpec.pvcRetentionPolicy` for configuring retention policies for persistent volume claims.
+- Default init container resources set to 1 CPU / 1Gi memory (requests == limits) to support Guaranteed QoS
+  - Applied on spec sync to avoid forced rollout
+- Reconciliation for volumes and priority class name.
+- Sync primary container securityContext from spec
 
 ## v2.14.0
 
