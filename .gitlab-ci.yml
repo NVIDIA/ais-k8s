@@ -135,8 +135,8 @@ operator:test:kind:latest:
   stage: operator:test
   extends: .operator_test_kind_template
   variables:
-    AIS_TEST_NODE_IMAGE: "aistorage/aisnode:latest"
-    AIS_TEST_INIT_IMAGE: "aistorage/ais-init:latest"
+    AIS_TEST_NODE_IMAGE: "aistorage/aisnode:dev"
+    AIS_TEST_INIT_IMAGE: "aistorage/ais-init:dev"
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
     - if: $CI_PIPELINE_SOURCE == "schedule"
