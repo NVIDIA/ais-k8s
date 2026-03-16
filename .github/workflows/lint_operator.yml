@@ -1,0 +1,32 @@
+
+name: Lint -- Operator
+
+on:
+  pull_request:
+    paths:
+      - 'operator/**'
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    container:
+      image: aistorage/gitlab-ci:latest
+    defaults:
+      run:
+        working-directory: operator
+    steps:
+      - uses: actions/checkout@v6
+
+      # actions/checkout set-safe-directory config does not persist across
+      # steps in container jobs (https://github.com/actions/checkout/issues/766)
+      - name: Set safe directory
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Lint
+        run: make lint
+
+      - name: Check formatting
+        run: make fmt-check
+
+      - name: Check generated files
+        run: make check-gen
