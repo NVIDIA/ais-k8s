@@ -3,24 +3,44 @@ kind: Deployment
 metadata:
   name: {{ .Release.Name }}-deployment
   namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "authn.labels" . | nindent 4 }}
 spec:
   replicas: 1
   strategy:
     type: Recreate
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ .Release.Name }}
+      {{- include "authn.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ .Release.Name }}
+        {{- include "authn.selectorLabels" . | nindent 8 }}
     spec:
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
-      - name: {{ .Release.Name }}
+      - name: {{ .Chart.Name }}
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
+        {{- with .Values.securityContext }}
+        securityContext:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
         ports:
-        - containerPort: {{ .Values.applicationPort }}
+        - name: http
+          containerPort: {{ .Values.applicationPort }}
+          protocol: TCP
+        {{- if .Values.livenessProbe }}
+        livenessProbe:
+          {{- toYaml .Values.livenessProbe | nindent 10 }}
+        {{- end }}
+        {{- if .Values.readinessProbe }}
+        readinessProbe:
+          {{- toYaml .Values.readinessProbe | nindent 10 }}
+        {{- end }}
         env:
         - name: AIS_AUTHN_SU_NAME
           valueFrom:
@@ -32,11 +52,24 @@ spec:
             secretKeyRef:
               name: {{ .Release.Name }}-su-creds
               key: SU-PASS
+        {{- if eq .Values.signing.method "hmac" }}
         - name: AIS_AUTHN_SECRET_KEY
           valueFrom:
             secretKeyRef:
               name: {{ .Release.Name }}-jwt-signing-key
               key: SIGNING-KEY
+        {{- end }}
+        {{- if and (eq .Values.signing.method "rsa") .Values.signing.privateKeyPass }}
+        - name: AIS_AUTHN_PRIVATE_KEY_PASS
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Release.Name }}-rsa-passphrase
+              key: RSA-PASSPHRASE
+        {{- end }}
+        {{- with .Values.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
         volumeMounts:
         - mountPath: /etc/ais/authn
           name: storage

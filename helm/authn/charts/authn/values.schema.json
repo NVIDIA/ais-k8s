@@ -38,9 +38,88 @@
       },
       "required": ["name", "password"]
     },
-    "jwtSigningKey": {
-      "type": "string",
-      "description": "JWT signing key"
+    "signing": {
+      "type": "object",
+      "description": "JWT signing configuration",
+      "properties": {
+        "method": {
+          "type": "string",
+          "enum": ["rsa","hmac"],
+          "description": "JWT signing method"
+        },
+        "key": {
+          "type": "string",
+          "description": "HMAC signing key (required when method is hmac)"
+        },
+        "rsaKeyBits": {
+          "type": "integer",
+          "minimum": 2048,
+          "default": 2048,
+          "description": "RSA key size in bits (minimum 2048, used when method is rsa)"
+        },
+        "privateKeyPass": {
+          "type": "string",
+          "description": "Optional passphrase for encrypting the RSA private key on disk"
+        }
+      },
+      "required": ["method"],
+      "if": {
+        "properties": { "method": { "const": "hmac" } }
+      },
+      "then": {
+        "properties": {
+          "key": { "type": "string", "minLength": 1 }
+        },
+        "required": ["key"]
+      }
+    },
+    "auth": {
+      "type": "object",
+      "description": "Authentication token configuration",
+      "properties": {
+        "expirationTime": {
+          "type": "string",
+          "default": "24h",
+          "description": "Token expiration time (e.g. 24h, 1h30m). Set to 0 for non-expiring tokens."
+        }
+      }
+    },
+    "net": {
+      "type": "object",
+      "description": "Network configuration",
+      "properties": {
+        "externalURL": {
+          "type": "string",
+          "description": "Externally accessible URL for OIDC discovery (e.g. https://authn.example.com:52001)"
+        }
+      }
+    },
+    "db": {
+      "type": "object",
+      "description": "Database configuration for AuthN persistent storage",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["", "BuntDB"],
+          "default": "",
+          "description": "Database type (empty string defaults to BuntDB)"
+        },
+        "filepath": {
+          "type": "string",
+          "description": "Database file path (defaults to auto-resolved path alongside config)"
+        }
+      }
+    },
+    "timeout": {
+      "type": "object",
+      "description": "HTTP client timeout configuration",
+      "properties": {
+        "defaultTimeout": {
+          "type": "string",
+          "default": "30s",
+          "description": "Default HTTP client timeout (e.g. 30s, 1m)"
+        }
+      }
     },
     "tls": {
       "type": "object",
@@ -80,15 +159,25 @@
         "dir": {
           "type": "string",
           "description": "Log directory path"
+        },
+        "flushInterval": {
+          "type": "string",
+          "description": "Log flush interval (e.g. 10s, 1m)"
         }
       },
       "required": ["level", "dir"]
     },
     "applicationPort": {
       "type": "integer",
+      "minimum": 1024,
+      "maximum": 65535,
+      "description": "Port for AuthN server to listen on (must be >= 1024)"
+    },
+    "servicePort": {
+      "type": "integer",
       "minimum": 1,
       "maximum": 65535,
-      "description": "Port for AuthN server to listen on"
+      "description": "Port exposed by the AuthN ClusterIP service"
     },
     "nodePort": {
       "type": "integer",
@@ -144,7 +233,43 @@
         }
       },
       "required": ["enabled", "size", "hostPath"]
+    },
+    "resources": {
+      "type": "object",
+      "description": "Container resource requests and limits",
+      "properties": {
+        "requests": {
+          "type": "object",
+          "properties": {
+            "cpu": { "type": "string" },
+            "memory": { "type": "string" }
+          }
+        },
+        "limits": {
+          "type": "object",
+          "properties": {
+            "cpu": { "type": "string" },
+            "memory": { "type": "string" }
+          }
+        }
+      }
+    },
+    "podSecurityContext": {
+      "type": "object",
+      "description": "Pod-level security context"
+    },
+    "securityContext": {
+      "type": "object",
+      "description": "Container-level security context"
+    },
+    "livenessProbe": {
+      "type": "object",
+      "description": "Container liveness probe configuration"
+    },
+    "readinessProbe": {
+      "type": "object",
+      "description": "Container readiness probe configuration"
     }
   },
-  "required": ["image", "superuser", "jwtSigningKey", "tls", "log", "applicationPort", "nodePort", "lb", "persistence"]
+  "required": ["image", "superuser", "signing", "auth", "timeout", "tls", "log", "applicationPort", "servicePort", "nodePort", "lb", "persistence"]
 }

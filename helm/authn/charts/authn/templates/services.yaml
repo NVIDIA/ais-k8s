@@ -5,52 +5,57 @@ kind: Service
 metadata:
   name: {{ .Release.Name }}-nodeport
   namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "authn.labels" . | nindent 4 }}
 spec:
+  type: NodePort
   selector:
-    app.kubernetes.io/name: {{ .Release.Name }}
+    {{- include "authn.selectorLabels" . | nindent 4 }}
   ports:
     - protocol: TCP
       port: {{ .Values.servicePort }}
       targetPort: {{ .Values.applicationPort }}
       nodePort: {{ .Values.nodePort }}
-  type: NodePort
 ---
-# Service for the AuthN Server to be accessed by AIS-Operator
+# Headless service for the AuthN Server to be accessed by AIS-Operator
 apiVersion: v1
 kind: Service
 metadata:
   name: {{ .Release.Name }}
   namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "authn.labels" . | nindent 4 }}
 spec:
+  type: ClusterIP
   clusterIP: None
   selector:
-    app.kubernetes.io/name: {{ .Release.Name }}
+    {{- include "authn.selectorLabels" . | nindent 4 }}
   ports:
     - protocol: TCP
       port: {{ .Values.servicePort }}
       targetPort: {{ .Values.applicationPort }}
----
 {{- if .Values.lb.enabled }}
-# Service for external access to AuthN
+---
+# LoadBalancer service for external access to AuthN
 apiVersion: v1
 kind: Service
 metadata:
   name: {{ .Release.Name }}-lb
   namespace: {{ .Release.Namespace }}
-  annotations:
-    {{- with .Values.lb.annotations }}
-    {{- toYaml . | nindent 4 }}
-    {{- end }}
   labels:
-    app.kubernetes.io/name: {{ .Release.Name }}
+    {{- include "authn.labels" . | nindent 4 }}
+  {{- with .Values.lb.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
+  type: LoadBalancer
   selector:
-    app.kubernetes.io/name: {{ .Release.Name }}
+    {{- include "authn.selectorLabels" . | nindent 4 }}
   ports:
     - protocol: TCP
       port: {{ .Values.lb.port }}
       targetPort: {{ .Values.applicationPort }}
-  type: LoadBalancer
   {{- if .Values.lb.clusterIP }}
   clusterIP: {{ .Values.lb.clusterIP }}
   {{- end }}

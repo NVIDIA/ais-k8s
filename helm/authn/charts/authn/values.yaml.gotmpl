@@ -8,7 +8,24 @@ superuser:
   name: "admin"
   password: {{ requiredEnv "AUTHN_ADMIN_PASSWORD" }}
 
-jwtSigningKey: {{ requiredEnv "JWT_SIGNING_KEY" }}
+signing:
+  method: "rsa"
+  key: "{{ env "JWT_SIGNING_KEY" }}"
+  rsaKeyBits: 2048
+  privateKeyPass: "{{ env "AUTHN_RSA_PASSPHRASE" }}"
+
+auth:
+  expirationTime: "24h"
+
+net:
+  externalURL: ""
+
+db:
+  type: ""
+  filepath: ""
+
+timeout:
+  defaultTimeout: "30s"
 
 tls:
   enabled: false
@@ -20,6 +37,7 @@ tls:
 log:
   level: "3"
   dir: "/var/log/ais/authn/"
+  flushInterval: 10s
 
 applicationPort: 52001
 servicePort: 52001
@@ -33,5 +51,15 @@ lb:
 
 persistence:
   enabled: true
-  size: 50Mi
+  size: 256Mi
   hostPath: /etc/ais/authn
+
+resources: {}
+
+podSecurityContext: {}
+
+securityContext: {}
+
+livenessProbe: {}
+
+readinessProbe: {}

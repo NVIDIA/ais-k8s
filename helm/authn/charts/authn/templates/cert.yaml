@@ -1,10 +1,12 @@
-{{- if and .Values.tls.enabled .Values.tls.createCert}}
+{{- if and .Values.tls.enabled .Values.tls.createCert }}
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: {{ .Release.Name }}-server-cert
   namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "authn.labels" . | nindent 4 }}
 spec:
   secretName: {{ .Values.tls.secretName }}
   isCA: false
@@ -13,7 +15,7 @@ spec:
   usages:
     - server auth
   subject:
-    organizations: 
+    organizations:
       {{- range .Values.tls.certificate.subject.organizations }}
       - {{ . }}
       {{- end }}
