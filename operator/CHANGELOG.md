@@ -32,6 +32,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
   - Applied on spec sync to avoid forced rollout
 - Reconciliation for volumes and priority class name.
 - Sync primary container securityContext from spec
+- `spec.proxySpec.probes` and `spec.targetSpec.probes` for configuring health probe timing parameters (liveness, readiness, startup) per daemon role
 
 ## v2.14.0
 

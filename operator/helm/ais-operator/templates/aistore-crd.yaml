@@ -3421,6 +3421,75 @@ spec:
                     - type: integer
                     - type: string
                     x-kubernetes-int-or-string: true
+                  probes:
+                    description: |-
+                      Probes allows overriding the default health probe timing parameters for AIS daemon containers.
+                      HTTP endpoints and ports are managed by the operator and cannot be overridden.
+                    properties:
+                      liveness:
+                        description: Liveness probe overrides
+                        minProperties: 1
+                        properties:
+                          failureThreshold:
+                            format: int32
+                            minimum: 1
+                            type: integer
+                          initialDelaySeconds:
+                            format: int32
+                            minimum: 0
+                            type: integer
+                          periodSeconds:
+                            format: int32
+                            minimum: 1
+                            type: integer
+                          timeoutSeconds:
+                            format: int32
+                            minimum: 1
+                            type: integer
+                        type: object
+                      readiness:
+                        description: Readiness probe overrides
+                        minProperties: 1
+                        properties:
+                          failureThreshold:
+                            format: int32
+                            minimum: 1
+                            type: integer
+                          initialDelaySeconds:
+                            format: int32
+                            minimum: 0
+                            type: integer
+                          periodSeconds:
+                            format: int32
+                            minimum: 1
+                            type: integer
+                          timeoutSeconds:
+                            format: int32
+                            minimum: 1
+                            type: integer
+                        type: object
+                      startup:
+                        description: Startup probe overrides
+                        minProperties: 1
+                        properties:
+                          failureThreshold:
+                            format: int32
+                            minimum: 1
+                            type: integer
+                          initialDelaySeconds:
+                            format: int32
+                            minimum: 0
+                            type: integer
+                          periodSeconds:
+                            format: int32
+                            minimum: 1
+                            type: integer
+                          timeoutSeconds:
+                            format: int32
+                            minimum: 1
+                            type: integer
+                        type: object
+                    type: object
                   pvcRetentionPolicy:
                     description: |-
                       PVCRetentionPolicy defines the PVC retention policy for the StatefulSet.
@@ -5250,6 +5319,75 @@ spec:
                     - type: integer
                     - type: string
                     x-kubernetes-int-or-string: true
+                  probes:
+                    description: |-
+                      Probes allows overriding the default health probe timing parameters for AIS daemon containers.
+                      HTTP endpoints and ports are managed by the operator and cannot be overridden.
+                    properties:
+                      liveness:
+                        description: Liveness probe overrides
+                        minProperties: 1
+                        properties:
+                          failureThreshold:
+                            format: int32
+                            minimum: 1
+                            type: integer
+                          initialDelaySeconds:
+                            format: int32
+                            minimum: 0
+                            type: integer
+                          periodSeconds:
+                            format: int32
+                            minimum: 1
+                            type: integer
+                          timeoutSeconds:
+                            format: int32
+                            minimum: 1
+                            type: integer
+                        type: object
+                      readiness:
+                        description: Readiness probe overrides
+                        minProperties: 1
+                        properties:
+                          failureThreshold:
+                            format: int32
+                            minimum: 1
+                            type: integer
+                          initialDelaySeconds:
+                            format: int32
+                            minimum: 0
+                            type: integer
+                          periodSeconds:
+                            format: int32
+                            minimum: 1
+                            type: integer
+                          timeoutSeconds:
+                            format: int32
+                            minimum: 1
+                            type: integer
+                        type: object
+                      startup:
+                        description: Startup probe overrides
+                        minProperties: 1
+                        properties:
+                          failureThreshold:
+                            format: int32
+                            minimum: 1
+                            type: integer
+                          initialDelaySeconds:
+                            format: int32
+                            minimum: 0
+                            type: integer
+                          periodSeconds:
+                            format: int32
+                            minimum: 1
+                            type: integer
+                          timeoutSeconds:
+                            format: int32
+                            minimum: 1
+                            type: integer
+                        type: object
+                    type: object
                   pvcRetentionPolicy:
                     description: |-
                       PVCRetentionPolicy defines the PVC retention policy for the StatefulSet.

@@ -100,7 +100,16 @@ func shouldUpdateContainerSpec(desired, current *corev1.Container, skipRes bool)
 	if !skipRes && shouldUpdateResources(&desired.Resources, &current.Resources) {
 		return true, fmt.Sprintf("updating resource requests/limits for %q container", desired.Name)
 	}
+	if shouldUpdateProbes(desired, current) {
+		return true, "updating health probes"
+	}
 	return false, ""
+}
+
+func shouldUpdateProbes(desired, current *corev1.Container) bool {
+	return !equality.Semantic.DeepEqual(desired.LivenessProbe, current.LivenessProbe) ||
+		!equality.Semantic.DeepEqual(desired.ReadinessProbe, current.ReadinessProbe) ||
+		!equality.Semantic.DeepEqual(desired.StartupProbe, current.StartupProbe)
 }
 
 func shouldUpdateSecurityContext(desired, current *corev1.PodTemplateSpec) (bool, string) {
