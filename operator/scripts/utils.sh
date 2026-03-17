@@ -1,5 +1,7 @@
 #!/bin/bash
 
+EXTERNAL_SRC_REGEX=".*\(dist\|bin\|mocks\)/.*"
+
 function list_all_go_dirs {
   go list -f '{{.Dir}}' "${OPERATOR_DIR}/..."
 }

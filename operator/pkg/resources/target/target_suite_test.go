@@ -1,3 +1,7 @@
+// Package target contains k8s resources required for deploying AIS target daemons
+/*
+ * Copyright (c) 2025, NVIDIA CORPORATION. All rights reserved.
+ */
 package target
 
 import (

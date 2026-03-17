@@ -1,3 +1,7 @@
+// Package truststore provides certificate trust store management for secure TLS connections
+/*
+ * Copyright (c) 2025, NVIDIA CORPORATION. All rights reserved.
+ */
 package truststore
 
 import (

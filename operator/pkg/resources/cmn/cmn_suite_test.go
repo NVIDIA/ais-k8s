@@ -1,3 +1,7 @@
+// Package cmn provides utilities for common AIS cluster resources
+/*
+ * Copyright (c) 2024, NVIDIA CORPORATION. All rights reserved.
+ */
 package cmn
 
 import (
