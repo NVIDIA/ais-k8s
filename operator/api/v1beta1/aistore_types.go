@@ -566,6 +566,45 @@ type DaemonSpec struct {
 	// Requires Kubernetes 1.32+.
 	// +optional
 	PVCRetentionPolicy *appsv1.StatefulSetPersistentVolumeClaimRetentionPolicy `json:"pvcRetentionPolicy,omitempty"`
+
+	// Probes allows overriding the default health probe timing parameters for AIS daemon containers.
+	// HTTP endpoints and ports are managed by the operator and cannot be overridden.
+	// +optional
+	Probes *ProbeConfSpec `json:"probes,omitempty"`
+}
+
+// ProbeSpec defines optional overrides for Kubernetes probe timing parameters.
+// All fields are optional; unset fields use operator defaults.
+// SuccessThreshold is intentionally omitted: Kubernetes requires it to be 1 for liveness
+// and startup probes, and the default of 1 is appropriate for readiness probes.
+// +kubebuilder:validation:MinProperties=1
+type ProbeSpec struct {
+	// +kubebuilder:validation:Minimum=1
+	// +optional
+	PeriodSeconds *int32 `json:"periodSeconds,omitempty"`
+	// +kubebuilder:validation:Minimum=1
+	// +optional
+	TimeoutSeconds *int32 `json:"timeoutSeconds,omitempty"`
+	// +kubebuilder:validation:Minimum=1
+	// +optional
+	FailureThreshold *int32 `json:"failureThreshold,omitempty"`
+	// +kubebuilder:validation:Minimum=0
+	// +optional
+	InitialDelaySeconds *int32 `json:"initialDelaySeconds,omitempty"`
+}
+
+// ProbeConfSpec defines optional overrides for health probe timing on AIS daemon containers.
+// +kubebuilder:validation:MinProperties=1
+type ProbeConfSpec struct {
+	// Liveness probe overrides
+	// +optional
+	Liveness *ProbeSpec `json:"liveness,omitempty"`
+	// Readiness probe overrides
+	// +optional
+	Readiness *ProbeSpec `json:"readiness,omitempty"`
+	// Startup probe overrides
+	// +optional
+	Startup *ProbeSpec `json:"startup,omitempty"`
 }
 
 type TargetSpec struct {

@@ -201,6 +201,7 @@ func validateProxyUpdate(prev, ais *AIStore) error {
 	prev.Spec.ProxySpec.SecurityContext = ais.Spec.ProxySpec.SecurityContext
 	prev.Spec.ProxySpec.AutoScaleConf = ais.Spec.ProxySpec.AutoScaleConf
 	prev.Spec.ProxySpec.PVCRetentionPolicy = ais.Spec.ProxySpec.PVCRetentionPolicy
+	prev.Spec.ProxySpec.Probes = ais.Spec.ProxySpec.Probes
 	if !equality.Semantic.DeepEqual(ais.Spec.ProxySpec, prev.Spec.ProxySpec) {
 		diff := deep.Equal(ais.Spec.ProxySpec, prev.Spec.ProxySpec)
 		webhooklog.Info(fmt.Sprintf("Differences found in proxy spec: [%s]", strings.Join(diff, ", ")))
@@ -220,6 +221,7 @@ func validateTargetUpdate(prev, ais *AIStore) error {
 	prev.Spec.TargetSpec.AutoScaleConf = ais.Spec.TargetSpec.AutoScaleConf
 	prev.Spec.TargetSpec.PodDisruptionBudget = ais.Spec.TargetSpec.PodDisruptionBudget
 	prev.Spec.TargetSpec.PVCRetentionPolicy = ais.Spec.TargetSpec.PVCRetentionPolicy
+	prev.Spec.TargetSpec.Probes = ais.Spec.TargetSpec.Probes
 	if !equality.Semantic.DeepEqual(ais.Spec.TargetSpec, prev.Spec.TargetSpec) {
 		diff := deep.Equal(ais.Spec.TargetSpec, prev.Spec.TargetSpec)
 		webhooklog.Info(fmt.Sprintf("Differences found in target spec: [%s]", strings.Join(diff, ", ")))

@@ -854,6 +854,98 @@ var _ = Describe("AIStoreController", func() {
 				true,
 				true,
 			),
+			Entry("different liveness probe",
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers: []corev1.Container{{
+							Image: "test:latest",
+							LivenessProbe: &corev1.Probe{
+								InitialDelaySeconds: 120,
+								PeriodSeconds:       10,
+								FailureThreshold:    20,
+								TimeoutSeconds:      5,
+							},
+						}},
+					},
+				},
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers: []corev1.Container{{
+							Image: "test:latest",
+							LivenessProbe: &corev1.Probe{
+								InitialDelaySeconds: 60,
+								PeriodSeconds:       5,
+								FailureThreshold:    10,
+								TimeoutSeconds:      5,
+							},
+						}},
+					},
+				},
+				true,
+				true,
+			),
+			Entry("different readiness probe",
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers: []corev1.Container{{
+							Image: "test:latest",
+							ReadinessProbe: &corev1.Probe{
+								PeriodSeconds:    15,
+								FailureThreshold: 3,
+								TimeoutSeconds:   10,
+							},
+						}},
+					},
+				},
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers: []corev1.Container{{
+							Image: "test:latest",
+							ReadinessProbe: &corev1.Probe{
+								PeriodSeconds:    5,
+								FailureThreshold: 5,
+								TimeoutSeconds:   5,
+							},
+						}},
+					},
+				},
+				true,
+				true,
+			),
+			Entry("different startup probe",
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers: []corev1.Container{{
+							Image: "test:latest",
+							StartupProbe: &corev1.Probe{
+								PeriodSeconds:    10,
+								FailureThreshold: 60,
+								TimeoutSeconds:   5,
+							},
+						}},
+					},
+				},
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers: []corev1.Container{{
+							Image: "test:latest",
+							StartupProbe: &corev1.Probe{
+								PeriodSeconds:    5,
+								FailureThreshold: 30,
+								TimeoutSeconds:   5,
+							},
+						}},
+					},
+				},
+				true,
+				true,
+			),
 			Entry("different volumes",
 				&corev1.PodTemplateSpec{
 					Spec: corev1.PodSpec{
