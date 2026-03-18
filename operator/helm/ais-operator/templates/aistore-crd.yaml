@@ -3425,6 +3425,7 @@ spec:
                     description: |-
                       Probes allows overriding the default health probe timing parameters for AIS daemon containers.
                       HTTP endpoints and ports are managed by the operator and cannot be overridden.
+                    minProperties: 1
                     properties:
                       liveness:
                         description: Liveness probe overrides
@@ -5323,6 +5324,7 @@ spec:
                     description: |-
                       Probes allows overriding the default health probe timing parameters for AIS daemon containers.
                       HTTP endpoints and ports are managed by the operator and cannot be overridden.
+                    minProperties: 1
                     properties:
                       liveness:
                         description: Liveness probe overrides
