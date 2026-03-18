@@ -563,36 +563,6 @@ var _ = Describe("AIStoreController", func() {
 				false,
 				true,
 			),
-			Entry("init container: changing resources when current has resources triggers sync",
-				&corev1.PodTemplateSpec{
-					Spec: corev1.PodSpec{
-						InitContainers: []corev1.Container{{
-							Image: "test:latest",
-							Resources: corev1.ResourceRequirements{
-								Requests: corev1.ResourceList{
-									corev1.ResourceCPU: resource.MustParse("200m"),
-								},
-							},
-						}},
-						Containers: []corev1.Container{{Image: "test:latest"}},
-					},
-				},
-				&corev1.PodTemplateSpec{
-					Spec: corev1.PodSpec{
-						InitContainers: []corev1.Container{{
-							Image: "test:latest",
-							Resources: corev1.ResourceRequirements{
-								Requests: corev1.ResourceList{
-									corev1.ResourceCPU: resource.MustParse("100m"),
-								},
-							},
-						}},
-						Containers: []corev1.Container{{Image: "test:latest"}},
-					},
-				},
-				true,
-				true,
-			),
 			Entry("different resources (different values)",
 				&corev1.PodTemplateSpec{
 					Spec: corev1.PodSpec{

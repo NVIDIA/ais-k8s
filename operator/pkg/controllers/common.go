@@ -46,10 +46,9 @@ func shouldUpdatePodTemplate(desired, current *corev1.PodTemplateSpec) (bool, st
 func shouldUpdateInitContainer(desired, current *corev1.PodTemplateSpec) (bool, string) {
 	desiredInit := &desired.Spec.InitContainers[0]
 	currentInit := &current.Spec.InitContainers[0]
-	// TODO: Remove check in next major version (causes cluster restart)
-	// If current doesn't set resources, skip the sync trigger to avoid rollout caused by new defaults
-	skip := currentInit.Resources.Size() == 0
-	return shouldUpdateContainerSpec(desiredInit, currentInit, skip)
+	// Init container resources are hardcoded operator defaults and not user-specified.
+	// Changes should not trigger a rollout and thus can skip the resource comparison.
+	return shouldUpdateContainerSpec(desiredInit, currentInit, true)
 }
 
 func shouldUpdateContainerList(desired, current *corev1.PodTemplateSpec) (bool, string) {
