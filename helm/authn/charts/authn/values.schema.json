@@ -216,7 +216,7 @@
     },
     "persistence": {
       "type": "object",
-      "description": "Persistence configuration",
+      "description": "Persistence configuration. Supports three modes: (1) hostPath -- creates a hostPath PV and PVC (default), (2) storageClass -- provisions a PV via a StorageClass, (3) pvName -- binds the PVC to an existing PV by name.",
       "properties": {
         "enabled": {
           "type": "boolean",
@@ -229,10 +229,18 @@
         },
         "hostPath": {
           "type": "string",
-          "description": "Host path for persistent storage"
+          "description": "Host path for persistent storage. Used when neither storageClass nor pvName is set."
+        },
+        "storageClass": {
+          "type": "string",
+          "description": "StorageClass for dynamic PV provisioning. When set, only a PVC is defined in this chart. Takes precedence over pvName."
+        },
+        "pvName": {
+          "type": "string",
+          "description": "Name of an existing PersistentVolume to bind the PVC to. When set, only a PVC is defined in this chart. Ignored if storageClass is set."
         }
       },
-      "required": ["enabled", "size", "hostPath"]
+      "required": ["enabled", "size"]
     },
     "resources": {
       "type": "object",

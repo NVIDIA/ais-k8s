@@ -52,7 +52,12 @@ lb:
 persistence:
   enabled: true
   size: 256Mi
+  # hostPath: create a hostPath PV + PVC (default when no storageClass or pvName is set)
   hostPath: /etc/ais/authn
+  # storageClass: create a PVC that will dynamically provision a PV via the given StorageClass
+  storageClass: ""
+  # pvName: create a PVC to use an existing PV by name
+  pvName: ""
 
 resources: {}
 
