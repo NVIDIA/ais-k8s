@@ -1,55 +1,63 @@
-environments: 
+environments:
   default:
     values:
-    - envFile: default
+    - valuesPath: ./config/operator/default.yaml.gotmpl
     - createCert:
         enabled: false
         valuesPath: ./config/tls-cert/default.yaml
   local:
     values:
-      - envFile: local
+      - valuesPath: ./config/operator/local.yaml.gotmpl
       - createCert:
           enabled: true
           valuesPath: ./config/tls-cert/local.yaml
-  keycloak: 
-    values: 
-    - envFile: keycloak
+  keycloak:
+    values:
+    - valuesPath: ./config/operator/keycloak.yaml.gotmpl
     - createCert:
         enabled: false
         valuesPath: ./config/tls-cert/keycloak.yaml
-  oci-iad: 
+  oci-iad:
     values:
-    - envFile: default
+    - valuesPath: ./config/operator/default.yaml.gotmpl
     - createCert:
         enabled: false
-  oci-ord: 
+  oci-ord:
     values:
-    - envFile: default
+    - valuesPath: ./config/operator/default.yaml.gotmpl
     - createCert:
         enabled: false
   sjc4-1000:
     values:
-      - envFile: default
+      - valuesPath: ./config/operator/default.yaml.gotmpl
       - createCert:
           enabled: true
           valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/operator/config/tls-cert/sjc4-1000.yaml?ref=main"
   sjc11:
-    values: 
-    - envFile: default
+    values:
+    - valuesPath: ./config/operator/default.yaml.gotmpl
     - createCert:
         enabled: true
         valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/operator/config/tls-cert/sjc11.yaml?ref=main"
   sjc4-dev:
     values:
-    - envFile: default
+    - valuesPath: ./config/operator/default.yaml.gotmpl
     - createCert:
         enabled: true
         valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/operator/config/tls-cert/sjc4-dev.yaml?ref=main"
+
+  sjc112:
+    values:
+    - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/operator/config/operator/sjc112.yaml?ref=main"
+    - createCert:
+        enabled: true
+        valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/operator/config/tls-cert/sjc112.yaml?ref=main"
+
   aws-east1-eks1-test:
     values:
-      - envFile: default
-      - createCert:
-          enabled: false
+    - valuesPath: ./config/operator/default.yaml.gotmpl
+    - createCert:
+        enabled: false
 
 ---
 repositories:
@@ -67,7 +75,7 @@ hooks:
     command: bash
     args: ["../confirm.sh", "{{ .Environment.Name }}"]
 
-releases:    
+releases:
   - name: operator-tls-cert
     namespace: ais-operator-system
     createNamespace: true
@@ -83,7 +91,7 @@ releases:
     chart: aistore/ais-operator
     version: 2.17.0
     values:
-      - "./config/operator/{{ .Values.envFile }}.yaml.gotmpl"
+      - "{{ .Environment.Values.valuesPath }}"
     hooks:
       - events: ["presync"]
         showlogs: true

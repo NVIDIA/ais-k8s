@@ -35,6 +35,12 @@ environments:
       - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/aws-east1-eks1-test.yaml?ref=main"
         cert:
           valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/cert/aws-east1-eks1-test.yaml?ref=main"
+
+  sjc112:
+    values:
+      - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/nvidia.yaml.gotmpl?ref=main"
+        cert:
+          valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/cert/sjc112.yaml?ref=main"
 ---
 hooks:
   - events: ["prepare"]
