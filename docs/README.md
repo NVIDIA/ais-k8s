@@ -48,7 +48,7 @@ Choose ONE of the following:
 2. **Local build (custom builds, development, and testing)** -- Refer to the [AIS Operator docs](../operator/README.md#deploy-ais-operator)
 3. **Default Manifest** -- Apply a specific manifest with default values directly from the GitHub release artifact:
 ```console
-export AIS_OPERATOR_VERSION=v2.14.0
+export AIS_OPERATOR_VERSION=v2.15.0
 kubectl apply -f https://github.com/NVIDIA/ais-k8s/releases/download/$AIS_OPERATOR_VERSION/ais-operator.yaml
 ```
 Wait for the operator to come up as ready: 
