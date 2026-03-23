@@ -47,14 +47,45 @@ type (
 		mode          string
 		tlsCfg        *tls.Config
 		tokenExpireAt time.Time
+		authFailed    bool
 	}
 )
+
+// IsAuthError returns true if the error is an HTTP 401 or 403 from the AIS API,
+// indicating the token is invalid or has been revoked.
+func IsAuthError(err error) bool {
+	if err == nil {
+		return false
+	}
+	herr, ok := err.(*cmn.ErrHTTP)
+	if !ok {
+		return false
+	}
+	return herr.Status == http.StatusUnauthorized || herr.Status == http.StatusForbidden
+}
+
+// checkAuthErr inspects an error from an AIS API call and marks the client's
+// token as failed if the cluster responded with 401/403. This ensures the next
+// call to GetClient will discard the cached client and fetch a fresh token.
+func (c *AIStoreClient) checkAuthErr(err error) {
+	if IsAuthError(err) {
+		c.authFailed = true
+		logf.FromContext(c.ctx).Info("AIS API returned auth error, token will be refreshed on next reconcile")
+	}
+}
 
 // HasValidBaseParams checks if the client has valid params for the given AIS cluster configuration
 func (c *AIStoreClient) HasValidBaseParams(ctx context.Context, ais *aisv1.AIStore, expectedURL string) bool {
 	if c.params == nil {
 		return false
 	}
+
+	// If a previous API call returned 401/403, force token refresh
+	if c.authFailed {
+		logf.FromContext(ctx).Info("Token previously rejected by AIS (401/403), recreating client")
+		return false
+	}
+
 	// Check if the URL has changed
 	if c.params.URL != expectedURL {
 		return false
@@ -114,35 +145,51 @@ func (c *AIStoreClient) refreshToken(tokenInfo *TokenInfo) {
 }
 
 func (c *AIStoreClient) DecommissionCluster(rmUserData bool) error {
-	return api.DecommissionCluster(*c.params, rmUserData)
+	err := api.DecommissionCluster(*c.params, rmUserData)
+	c.checkAuthErr(err)
+	return err
 }
 
 func (c *AIStoreClient) DecommissionNode(actValue *apc.ActValRmNode) (string, error) {
-	return api.DecommissionNode(*c.params, actValue)
+	xid, err := api.DecommissionNode(*c.params, actValue)
+	c.checkAuthErr(err)
+	return xid, err
 }
 
 func (c *AIStoreClient) GetClusterMap() (smap *meta.Smap, err error) {
-	return api.GetClusterMap(*c.params)
+	smap, err = api.GetClusterMap(*c.params)
+	c.checkAuthErr(err)
+	return
 }
 
 func (c *AIStoreClient) Health(readyToRebalance bool) error {
-	return api.Health(*c.params, readyToRebalance)
+	err := api.Health(*c.params, readyToRebalance)
+	c.checkAuthErr(err)
+	return err
 }
 
 func (c *AIStoreClient) SetClusterConfigUsingMsg(config *cmn.ConfigToSet, transient bool) error {
-	return api.SetClusterConfigUsingMsg(*c.params, config, transient)
+	err := api.SetClusterConfigUsingMsg(*c.params, config, transient)
+	c.checkAuthErr(err)
+	return err
 }
 
 func (c *AIStoreClient) SetPrimaryProxy(newPrimaryID, newPrimaryURL string, force bool) error {
-	return api.SetPrimary(*c.params, newPrimaryID, newPrimaryURL, force)
+	err := api.SetPrimary(*c.params, newPrimaryID, newPrimaryURL, force)
+	c.checkAuthErr(err)
+	return err
 }
 
 func (c *AIStoreClient) ShutdownCluster() error {
-	return api.ShutdownCluster(*c.params)
+	err := api.ShutdownCluster(*c.params)
+	c.checkAuthErr(err)
+	return err
 }
 
 func (c *AIStoreClient) StartMaintenance(actValue *apc.ActValRmNode) (string, error) {
-	return api.StartMaintenance(*c.params, actValue)
+	xid, err := api.StartMaintenance(*c.params, actValue)
+	c.checkAuthErr(err)
+	return xid, err
 }
 
 func NewAIStoreClient(ctx context.Context, url string, tokenInfo *TokenInfo, mode string, tlsCfg *tls.Config) *AIStoreClient {

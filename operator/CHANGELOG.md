@@ -13,6 +13,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 ### Changed
 
 - Fixed syncPodTemplate not syncing env var removals when the desired env slice was a prefix of the current, causing rollout loops on config changes such as clearing `authNSecretName`.
+- Invalidate the AIStore API client on authentication failure, not just on failure to acquire initial token. 
 
 ## v2.15.0
 
