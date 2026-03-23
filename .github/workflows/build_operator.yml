@@ -1,0 +1,24 @@
+name: Build -- Operator
+
+on:
+  pull_request:
+    paths:
+      - 'operator/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: operator
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: operator/go.mod
+          cache-dependency-path: operator/go.sum
+
+      - name: Build
+        run: make build
