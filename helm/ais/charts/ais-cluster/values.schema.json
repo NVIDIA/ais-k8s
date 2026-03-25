@@ -31,11 +31,11 @@
     },
     "mpathInfo": {
       "type": "object",
-      "description": "Mountpath information for AIS storage",
+      "description": "Mountpath information for AIS storage.",
       "properties": {
         "storageClass": {
           "type": "string", 
-          "description": "Storage class defined in K8s cluster, used for AIS mounts",
+          "description": "Storage class defined in K8s cluster, used for AIS mounts.",
           "examples": ["ais-local-storage"]
         },
         "size": {
@@ -43,13 +43,35 @@
           "description": "Size of the storage mount. Must be parsable as a k8s resource.Quantity.",
           "examples": ["5.8Ti"]
         },
-        "paths": {
+        "useHostPath": {
+          "type": "boolean",
+          "description": "Mount storage directly from host paths instead of using PersistentVolumes. When true, storageClass and size are not needed.",
+          "examples": [true]
+        },
+        "mounts": {
           "type": "array",
-          "description": "List of all mountpaths for each target",
+          "description": "List of mountpath entries for each target. Each entry has a 'path' and optional 'label'.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string",
+                "description": "Mountpath directory",
+                "examples": ["/ais/nvme0n1"]
+              },
+              "label": {
+                "type": "string",
+                "description": "Optional label for disk mapping and grouping",
+                "examples": ["shared"]
+              }
+            },
+            "required": ["path"]
+          },
           "examples": [
-            "/ais/nvme0n1",
-            "/ais/nvme1n1",
-            "/ais/nvme2n1"
+            [
+              {"path": "/ais/nvme0n1"},
+              {"path": "/ais/nvme1n1"}
+            ]
           ]
         }
       }
@@ -621,5 +643,5 @@
       }
     }
   },
-  "required": ["cluster", "size", "protocol", "nodeImage", "initImage", "shutdownCluster", "cleanupData", "cleanupMetadata"]
+  "required": ["cluster", "protocol", "nodeImage", "initImage", "shutdownCluster", "cleanupData", "cleanupMetadata"]
 }

@@ -123,6 +123,10 @@ func createStoragePVs(ctx context.Context, args *ClusterSpecArgs, client *aiscli
 			} else {
 				k8sNodeName = nodeList.Items[i].Name
 			}
+			var pvSize resource.Quantity
+			if mount.Size != nil {
+				pvSize = *mount.Size
+			}
 			pvData := PVData{
 				storageClass: args.StorageClass,
 				ns:           args.Namespace,
@@ -130,7 +134,7 @@ func createStoragePVs(ctx context.Context, args *ClusterSpecArgs, client *aiscli
 				mpath:        mount.Path,
 				node:         k8sNodeName,
 				target:       "target-" + strconv.Itoa(i),
-				size:         mount.Size,
+				size:         pvSize,
 			}
 			// Create required PVs
 			if pv, err := CreatePV(ctx, client, &pvData); err == nil {
@@ -148,15 +152,17 @@ func defineMounts(args *ClusterSpecArgs) []aisv1.Mount {
 	} else {
 		storagePrefix = args.StorageHostPath
 	}
+	size1 := resource.MustParse("2Gi")
+	size2 := resource.MustParse("1Gi")
 	mounts := []aisv1.Mount{
 		{
 			Path:         path.Join(storagePrefix, "ais1"),
-			Size:         resource.MustParse("2Gi"),
+			Size:         &size1,
 			StorageClass: &args.StorageClass,
 		},
 		{
 			Path:         path.Join(storagePrefix, "ais2"),
-			Size:         resource.MustParse("1Gi"),
+			Size:         &size2,
 			StorageClass: &args.StorageClass,
 		},
 	}

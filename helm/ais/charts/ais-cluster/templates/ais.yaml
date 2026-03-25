@@ -127,14 +127,24 @@ spec:
     {{- $mpath := .Values.mpathInfo }}
     {{- range $mpath.mounts }}
       - path: {{ .path }}
+        {{- if $mpath.useHostPath }}
+        useHostPath: true
+        {{- else }}
+        {{- if not $mpath.size }}
+        {{- fail "mpathInfo.size is required for non-hostPath mounts" }}
+        {{- end }}
+        {{- if not $mpath.storageClass }}
+        {{- fail "mpathInfo.storageClass is required for non-hostPath mounts" }}
+        {{- end }}
         size: {{ $mpath.size }}
         storageClass: {{ $mpath.storageClass }}
-        {{- if .label }}
-        label: {{ .label }}
-        {{- end }}
         selector:
           matchLabels:
             mpath: pv-{{ .path | replace "/" "-" | trimPrefix "-" }}
+        {{- end }}
+        {{- if .label }}
+        label: {{ .label }}
+        {{- end }}
     {{- end }}
     {{- if .Values.targetSpec.resources }}
     resources:

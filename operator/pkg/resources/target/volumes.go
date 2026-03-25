@@ -6,16 +6,12 @@ package target
 
 import (
 	"fmt"
-	"log"
 	"path"
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	"github.com/ais-operator/pkg/resources/cmn"
-	"gopkg.in/inf.v0"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -91,48 +87,16 @@ func appendHostPathDataVolumes(ais *aisv1.AIStore, volumes []corev1.Volume) []co
 	return volumes
 }
 
-func defineDataPVCs(ais *aisv1.AIStore) []corev1.PersistentVolumeClaim {
+func newTargetPVCs(ais *aisv1.AIStore) []corev1.PersistentVolumeClaim {
+	// Add PVCs for AIS data storage
 	pvcs := make([]corev1.PersistentVolumeClaim, 0, len(ais.Spec.TargetSpec.Mounts))
 	for _, mnt := range ais.Spec.TargetSpec.Mounts {
 		if mnt.IsHostPath() {
 			continue
 		}
-		decSize := mnt.Size.AsDec()
-		// Round down and get the unscaled int size
-		roundedBytes, ok := decSize.Round(decSize, 0, inf.RoundDown).Unscaled()
-		var size resource.Quantity
-		if ok {
-			size = *resource.NewQuantity(roundedBytes, mnt.Size.Format)
-		} else {
-			log.Printf("Could not convert %s to a whole byte number. Creating PVC without size spec\n", mnt.Size.String())
-			size = resource.Quantity{}
-		}
-		// For backwards compatibility, this PVC naming convention must stay the same
-		// When used in a Statefulset volume claim template, the actual PVC created will be:
-		//   <pvcTemplateName>-<statefulsetName>-<ordinal>
-		// The path /ais/nvme0n1 with a cluster named `ais` will produce a PVC for pod ais-target-0:
-		//   ais-ais-nvme0n1-ais-target-0
-		pvcs = append(pvcs, corev1.PersistentVolumeClaim{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: mnt.GetPVCName(ais.Name),
-			},
-			Spec: corev1.PersistentVolumeClaimSpec{
-				AccessModes: []corev1.PersistentVolumeAccessMode{
-					corev1.ReadWriteOnce,
-				},
-				Resources: corev1.VolumeResourceRequirements{
-					Requests: corev1.ResourceList{corev1.ResourceStorage: size},
-				},
-				StorageClassName: mnt.StorageClass,
-				Selector:         mnt.Selector,
-			},
-		})
+		pvcs = append(pvcs, *mnt.BuildPVC(ais.Name))
 	}
-	return pvcs
-}
-
-func targetPVC(ais *aisv1.AIStore) []corev1.PersistentVolumeClaim {
-	pvcs := defineDataPVCs(ais)
+	// If using a storage class for state storage, add PVCs for state
 	if ais.Spec.StateStorageClass != nil {
 		if statePVC := cmn.DefineStatePVC(ais, ais.Spec.StateStorageClass); statePVC != nil {
 			pvcs = append(pvcs, *statePVC)

@@ -106,7 +106,7 @@ var _ = Describe("AIStoreController", func() {
 								},
 							},
 							Mounts: []aisv1.Mount{
-								{Path: "/data", Size: resource.MustParse("10Gi")},
+								{Path: "/data", Size: apc.Ptr(resource.MustParse("10Gi"))},
 							},
 						},
 						HostpathPrefix: apc.Ptr("/ais"),

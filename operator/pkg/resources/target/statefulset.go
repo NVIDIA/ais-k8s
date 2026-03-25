@@ -69,7 +69,7 @@ func NewTargetSS(ais *aisv1.AIStore, expectedSize int32) *apiv1.StatefulSet {
 			UpdateStrategy: apiv1.StatefulSetUpdateStrategy{
 				Type: apiv1.OnDeleteStatefulSetStrategyType,
 			},
-			VolumeClaimTemplates: targetPVC(ais),
+			VolumeClaimTemplates: newTargetPVCs(ais),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels:      podLabels,

@@ -657,8 +657,9 @@ type PDBSpec struct {
 }
 
 type Mount struct {
-	Path string            `json:"path"`
-	Size resource.Quantity `json:"size"`
+	Path string `json:"path"`
+	// +optional
+	Size *resource.Quantity `json:"size,omitempty"`
 	// +optional
 	StorageClass *string `json:"storageClass,omitempty"` // storage class for volume resource
 	// +optional
@@ -916,6 +917,42 @@ func (m *Mount) IsHostPath() bool {
 // This must follow the same convention as our existing automation for PVC creation
 func (m *Mount) GetPVCName(aisName string) string {
 	return aisName + strings.ReplaceAll(m.Path, "/", "-")
+}
+
+// GetPVCResources determines the PVC spec resources field for a given AIS mount
+func (m *Mount) GetPVCResources() *corev1.VolumeResourceRequirements {
+	var reqs corev1.VolumeResourceRequirements
+	if m.Size == nil {
+		return &reqs
+	}
+	// K8s requires whole numbers, so use Value() to round the provided quantity from CRD
+	bytes := m.Size.Value()
+	if bytes > 0 {
+		size := *resource.NewQuantity(bytes, m.Size.Format)
+		reqs.Requests = corev1.ResourceList{corev1.ResourceStorage: size}
+	}
+	return &reqs
+}
+
+func (m *Mount) BuildPVC(aisName string) *corev1.PersistentVolumeClaim {
+	// For backwards compatibility, this PVC naming convention must stay the same
+	// When used in a Statefulset volume claim template, the actual PVC created will be:
+	//   <pvcTemplateName>-<statefulsetName>-<ordinal>
+	// The path /ais/nvme0n1 with a cluster named `ais` will produce a PVC for pod ais-target-0:
+	//   ais-ais-nvme0n1-ais-target-0
+	return &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: m.GetPVCName(aisName),
+		},
+		Spec: corev1.PersistentVolumeClaimSpec{
+			AccessModes: []corev1.PersistentVolumeAccessMode{
+				corev1.ReadWriteOnce,
+			},
+			StorageClassName: m.StorageClass,
+			Selector:         m.Selector,
+			Resources:        *m.GetPVCResources(),
+		},
+	}
 }
 
 func (ais *AIStore) GetTargetDNSPolicy() corev1.DNSPolicy {

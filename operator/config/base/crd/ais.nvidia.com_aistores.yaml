@@ -5282,7 +5282,6 @@ spec:
                           type: boolean
                       required:
                       - path
-                      - size
                       type: object
                     type: array
                   nodeSelector:

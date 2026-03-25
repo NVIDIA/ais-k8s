@@ -47,7 +47,7 @@ var _ = Describe("Statefulset Target Volumes and Mounts", Label("short"), func()
 			specCopy := aisSpec.DeepCopy()
 			specCopy.Spec.TargetSpec.Mounts = []aisv1.Mount{{
 				Path:         "/data/test",
-				Size:         size,
+				Size:         &size,
 				StorageClass: apc.Ptr("dataStorageClass"),
 				Selector:     selector,
 			}}
@@ -71,13 +71,13 @@ var _ = Describe("Statefulset Target Volumes and Mounts", Label("short"), func()
 			specCopy.Spec.TargetSpec.Mounts = []aisv1.Mount{
 				{
 					Path:         "/data/test",
-					Size:         size,
+					Size:         &size,
 					StorageClass: apc.Ptr("dataStorageClass"),
 					Selector:     selector,
 				},
 				{
 					Path:         "/mount/largeDisk",
-					Size:         moreDataSize,
+					Size:         &moreDataSize,
 					StorageClass: apc.Ptr("largeDataStorageClass"),
 					Selector:     selector,
 				},
@@ -110,7 +110,6 @@ var _ = Describe("Statefulset Target Volumes and Mounts", Label("short"), func()
 			testHostMount := []aisv1.Mount{
 				{
 					Path:        hostPathData,
-					Size:        size,
 					UseHostPath: apc.Ptr(true),
 				},
 			}
@@ -152,7 +151,7 @@ var _ = Describe("Statefulset Target Volumes and Mounts", Label("short"), func()
 			specCopy := aisSpec.DeepCopy()
 			specCopy.Spec.TargetSpec.Mounts = []aisv1.Mount{{
 				Path:         "/data/test",
-				Size:         size,
+				Size:         &size,
 				StorageClass: apc.Ptr("dataStorageClass"),
 			}}
 			result := NewTargetSS(specCopy, *specCopy.Spec.Size)
@@ -163,7 +162,7 @@ var _ = Describe("Statefulset Target Volumes and Mounts", Label("short"), func()
 			specCopy := aisSpec.DeepCopy()
 			specCopy.Spec.TargetSpec.Mounts = []aisv1.Mount{{
 				Path:         "/data/test",
-				Size:         size,
+				Size:         &size,
 				StorageClass: apc.Ptr("dataStorageClass"),
 			}}
 			specCopy.Spec.TargetSpec.PVCRetentionPolicy = &appsv1.StatefulSetPersistentVolumeClaimRetentionPolicy{
