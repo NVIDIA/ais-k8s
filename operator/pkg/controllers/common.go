@@ -267,7 +267,10 @@ func syncPodTemplate(desired, current *corev1.PodTemplateSpec) (updated bool) {
 		{&desired.Spec.Containers[0], &current.Spec.Containers[0]},
 	} {
 		if equality.Semantic.DeepDerivative(*daemon.desiredContainer, *daemon.currentContainer) {
-			continue
+			// Account for env var removals with a deep equal check
+			if equality.Semantic.DeepEqual(daemon.desiredContainer.Env, daemon.currentContainer.Env) {
+				continue
+			}
 		}
 		*daemon.currentContainer = *daemon.desiredContainer
 		updated = true

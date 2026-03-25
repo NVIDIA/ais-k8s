@@ -1032,6 +1032,28 @@ var _ = Describe("AIStoreController", func() {
 				false,
 				false,
 			),
+			Entry("env var removed from slice",
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers: []corev1.Container{{
+							Image: "test:latest",
+							Env:   []corev1.EnvVar{{Name: "MY_NODE", Value: "node1"}, {Name: "MY_POD", Value: "pod1"}},
+						}},
+					},
+				},
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers: []corev1.Container{{
+							Image: "test:latest",
+							Env:   []corev1.EnvVar{{Name: "MY_NODE", Value: "node1"}, {Name: "MY_POD", Value: "pod1"}, {Name: "REMOVED_ENV", Value: "val"}},
+						}},
+					},
+				},
+				true,
+				true,
+			),
 		)
 	})
 	Describe("shouldUpdatePVCRetentionPolicy", func() {
