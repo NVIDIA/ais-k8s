@@ -14,7 +14,16 @@ size: 3
 protocol: https
 tls:
   skipVerifyCert: false
-  secretName: "tls-certs"
+  certificate:
+    issuerRef:
+      name: ca-issuer
+      kind: ClusterIssuer
+    mode: csi
+    additionalDNSNames:
+      - "localhost"
+      - "local-test-worker"
+      - "local-test-worker2"
+      - "local-test-worker3"
 nodeImage:
   tag: v4.2
 initImage:

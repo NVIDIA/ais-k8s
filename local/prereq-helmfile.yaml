@@ -32,6 +32,13 @@ releases:
         value: true
     wait: true
         
+  - name: cert-manager-csi-driver
+    chart: jetstack/cert-manager-csi-driver
+    namespace: cert-manager
+    wait: true
+    needs:
+      - cert-manager
+
   - name: trust-manager
     chart: jetstack/trust-manager
     namespace: cert-manager

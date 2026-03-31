@@ -40,8 +40,7 @@ echo "Waiting for AIS operator to be ready..."
 kubectl wait --for=condition=available --timeout=120s deployment/ais-operator-controller-manager -n ais-operator-system
 echo "AIS operator is ready!"
 
-# TODO: Mount certs with certmanager CSI
-# AIS local env with admin client and certs
+# AIS local env with admin client and certs (CSI cert-manager volumes)
 cd "${HELM_ROOT}/ais"
 helmfile sync -e local
 

@@ -14,8 +14,7 @@ environments:
     values:
       - valuesPath: ./config/ais/local.yaml
         https:
-          enabled: true
-          valuesPath: ./config/tls-cert/local.yaml
+          enabled: false
         cloudSecrets:
           enabled: false
         createPV:
