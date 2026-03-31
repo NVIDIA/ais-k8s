@@ -1,0 +1,196 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-create-pv-script
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+data:
+  create-pvs.sh: |
+    #!/bin/bash
+    set -euo pipefail
+
+    CLUSTER="{{ .Values.cluster }}"
+    NAMESPACE="{{ .Release.Namespace }}"
+    STORAGE_CLASS="{{ .Values.mpathInfo.storageClass }}"
+    SIZE="{{ .Values.mpathInfo.size }}"
+    TARGET_LABEL_KEY="{{ .Values.targetLabelKey }}"
+
+    MOUNTS=()
+    {{- range .Values.mpathInfo.mounts }}
+    MOUNTS+=("{{ .path }}")
+    {{- end }}
+
+    if [ ${#MOUNTS[@]} -eq 0 ]; then
+      echo "ERROR: No mount paths configured (mpathInfo.mounts is empty)"
+      exit 1
+    fi
+
+    sanitize_path() {
+      local p="${1//\//-}"
+      echo "${p#-}"
+    }
+
+    # Read AIS target K8s nodes sorted by creation time, with name as a stable tiebreaker.
+    mapfile -t NODES < <(kubectl get nodes -l "${TARGET_LABEL_KEY}=${CLUSTER}" \
+      -o jsonpath='{range .items[*]}{.metadata.creationTimestamp}{" "}{.metadata.name}{"\n"}{end}' \
+      | sort -k1,1 -k2,2 | awk '{print $2}')
+
+    if [ ${#NODES[@]} -eq 0 ]; then
+      echo "ERROR: No nodes found with label ${TARGET_LABEL_KEY}=${CLUSTER}"
+      exit 1
+    fi
+    # Check which nodes already have PVs.
+    first_sanitized=$(sanitize_path "${MOUNTS[0]}")
+    EXISTING_COUNT=0
+    for node in "${NODES[@]}"; do
+      if kubectl get pv "${node}-pv-${first_sanitized}" &>/dev/null; then
+        EXISTING_COUNT=$((EXISTING_COUNT + 1))
+      fi
+    done
+
+    # Collect taken target indices by parsing claimRef names from existing PVs
+    declare -A TAKEN
+    while IFS= read -r claim; do
+      idx="${claim##*-target-}"
+      [[ "$idx" =~ ^[0-9]+$ ]] && TAKEN[$idx]=1
+    done < <(kubectl get pv -l "cluster=${CLUSTER}" \
+      -o jsonpath='{range .items[*]}{.spec.claimRef.name}{"\n"}{end}' 2>/dev/null)
+
+    # Build queue of available indices in 0..N-1 (fills gaps from removed nodes)
+    AVAIL_INDICES=()
+    for (( i=0; i<${#NODES[@]}; i++ )); do
+      if [ -z "${TAKEN[$i]+x}" ]; then
+        AVAIL_INDICES+=("$i")
+      fi
+    done
+    avail_pos=0
+
+    NEW_COUNT=$(( ${#NODES[@]} - EXISTING_COUNT ))
+    echo "Found ${#NODES[@]} nodes (${NEW_COUNT} new), ${#MOUNTS[@]} mounts per node"
+
+    if [ $NEW_COUNT -eq 0 ]; then
+      echo "No new PVs to create"
+      exit 0
+    fi
+
+    if [ ${#AVAIL_INDICES[@]} -eq 0 ]; then
+      echo "WARNING: all target indices 0..$((${#NODES[@]}-1)) are taken but ${NEW_COUNT} node(s) lack PVs"
+      echo "  Remove PVs for decommissioned nodes to free indices: kubectl delete pv -l cluster=${CLUSTER},target-index=<index>"
+      exit 1
+    fi
+
+    echo "Creating PVs for ${NEW_COUNT} new nodes (${#AVAIL_INDICES[@]} indices available)..."
+
+    PIDS=()
+    PV_NAMES=()
+
+    for node in "${NODES[@]}"; do
+      # Skip node if it already has an AIS target data PV
+      if kubectl get pv "${node}-pv-${first_sanitized}" &>/dev/null; then
+        continue
+      fi
+      if [ $avail_pos -ge ${#AVAIL_INDICES[@]} ]; then
+        echo "WARNING: no more available target indices, skipping remaining new nodes"
+        break
+      fi
+      node_idx=${AVAIL_INDICES[$avail_pos]}
+      avail_pos=$((avail_pos + 1))
+      for mount in "${MOUNTS[@]}"; do
+        sanitized=$(sanitize_path "$mount")
+        pv_name="${node}-pv-${sanitized}"
+        claim_name="${CLUSTER}-${sanitized}-${CLUSTER}-target-${node_idx}"
+        PV_NAMES+=("$pv_name")
+
+        kubectl apply -f - <<PV_EOF &
+    apiVersion: v1
+    kind: PersistentVolume
+    metadata:
+      name: ${pv_name}
+      labels:
+        type: local
+        cluster: ${CLUSTER}
+        target-index: "${node_idx}"
+        mpath: pv-${sanitized}
+    spec:
+      storageClassName: ${STORAGE_CLASS}
+      capacity:
+        storage: ${SIZE}
+      accessModes:
+        - ReadWriteOnce
+      hostPath:
+        path: ${mount}
+      claimRef:
+        name: ${claim_name}
+        namespace: ${NAMESPACE}
+      nodeAffinity:
+        required:
+          nodeSelectorTerms:
+          - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values:
+              - ${node}
+    PV_EOF
+        PIDS+=($!)
+      done
+    done
+
+    CREATED_TOTAL=${#PV_NAMES[@]}
+
+    if [ $CREATED_TOTAL -eq 0 ]; then
+      echo "No new PVs to create"
+      exit 0
+    fi
+
+    CREATE_FAILED=0
+    for pid in "${PIDS[@]}"; do
+      if ! wait "$pid"; then
+        CREATE_FAILED=$((CREATE_FAILED+1))
+      fi
+    done
+
+    if [ $CREATE_FAILED -gt 0 ]; then
+      echo "ERROR: ${CREATE_FAILED}/${CREATED_TOTAL} PV creation(s) failed"
+      exit 1
+    fi
+
+    echo "All ${CREATED_TOTAL} PVs created successfully"
+
+    echo "Verifying PV readiness..."
+    MAX_RETRIES=30
+    RETRY_INTERVAL=2
+    NOT_READY=("${PV_NAMES[@]}")
+
+    for (( attempt=1; attempt<=MAX_RETRIES; attempt++ )); do
+      REMAINING=()
+      for pv_name in "${NOT_READY[@]}"; do
+        phase=$(kubectl get pv "$pv_name" -o jsonpath='{.status.phase}' 2>/dev/null || echo "MISSING")
+        if [[ "$phase" == "Available" || "$phase" == "Bound" ]]; then
+          echo "  ${pv_name}: ${phase}"
+        else
+          REMAINING+=("$pv_name")
+        fi
+      done
+      NOT_READY=("${REMAINING[@]}")
+
+      if [ ${#NOT_READY[@]} -eq 0 ]; then
+        break
+      fi
+
+      if [ $attempt -eq $MAX_RETRIES ]; then
+        echo "ERROR: ${#NOT_READY[@]}/${CREATED_TOTAL} PV(s) not ready after $((MAX_RETRIES * RETRY_INTERVAL))s:"
+        for pv_name in "${NOT_READY[@]}"; do
+          phase=$(kubectl get pv "$pv_name" -o jsonpath='{.status.phase}' 2>/dev/null || echo "MISSING")
+          echo "  ${pv_name}: ${phase}"
+        done
+        exit 1
+      fi
+
+      echo "  Waiting for ${#NOT_READY[@]} PV(s)... (attempt ${attempt}/${MAX_RETRIES})"
+      sleep $RETRY_INTERVAL
+    done
+
+    echo "All PVs ready to be bound"
