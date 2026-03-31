@@ -2,7 +2,7 @@
 # Copyright (c) 2025, NVIDIA CORPORATION. All rights reserved.
 #
 import sys
-from typing import List
+from typing import List, Optional
 
 from ais_metadata import AISMetadata
 
@@ -11,11 +11,16 @@ from ais_metadata import AISMetadata
 PROXY_ONLY_MD = {AISMetadata.rmd}
 
 class DeletionRunner(object):
-    def __init__(self, manager, pod_config, metadata: List[AISMetadata]):
+    def __init__(self, manager, pod_config,
+                 metadata: Optional[List[AISMetadata]] = None,
+                 storage_class: Optional[str] = None):
         self.manager = manager
         self.pod_config = pod_config
-        self.proxy_only = all(md in PROXY_ONLY_MD for md in metadata)
-        self.pod_config.exec_cmd = self.get_deletion_cmd(metadata)
+        self.storage_class = storage_class
+        self.proxy_only = False
+        if metadata:
+            self.proxy_only = all(md in PROXY_ONLY_MD for md in metadata)
+            self.pod_config.exec_cmd = self.get_deletion_cmd(metadata)
 
     @staticmethod
     def get_deletion_cmd(metadata: List[AISMetadata]):
@@ -23,22 +28,17 @@ class DeletionRunner(object):
         return f"rm /data/{values}"
 
     def delete(self):
-        print("Checking for running cluster")
-        if self.manager.is_cluster_running():
-            proceed = input(
-                "WARNING -- Cluster is still running. Are you sure you want to proceed with deletion? (y/n): "
-            )
-            if proceed.lower() != "y":
-                print("Aborting deletion as requested.")
-                sys.exit(1)
-            else:
-                print("Proceeding with deletion.")
-        pvcs = self.manager.find_pvcs(proxy_only=self.proxy_only)
-        print("Deploying deletion pods")
+        self.manager.confirm_cluster_not_running()
+        pvcs = self.manager.find_pvcs(
+            proxy_only=self.proxy_only, storage_class=self.storage_class
+        )
+        if not pvcs:
+            sys.exit("No PVCs found. Aborting.")
+        print("Deploying pods")
         self.manager.create_pods(self.pod_config, pvcs)
         self.manager.wait_for_pods_status(self.pod_config)
-        print(f"Running deletion task on metadata")
+        print("Running task")
         self.manager.exec_command(self.pod_config, pvcs)
-        print("Deleting deletion pods")
+        print("Deleting pods")
         self.manager.delete_pods(self.pod_config)
-        print("Metadata deletion complete.")
+        print("Complete.")

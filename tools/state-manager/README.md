@@ -34,9 +34,20 @@ This allows you to delete any specific AIS metadata cluster-wide or any individu
 For `restore` you MUST use a compatible tgz, as created by the backup tool. 
 Place this backup file in a restore/ directory before selecting a restore option. 
 
+### Clean PV
+
+Clean state (.ais.*) and/or data (@*) from PVs identified by storage class.
+
+### Clean Host
+
+Clean state (.ais.*) and/or data (@*) from host disk paths using node discovery and hostPath mounts.
+
 ---
 
 ## How it works
 
-Each of these scripts works by checking for existing PVCs that are used for mounting AIS state. 
-They create pods that mount those PVCs and then execute a specific command to access or modify the state data, then remove the pods when finished. 
+Backup, delete, and restore work by checking for existing PVCs that are used for mounting AIS state. 
+They create pods that mount those PVCs and then execute a specific command to access or modify the state data, then remove the pods when finished.
+
+Clean-pv follows the same pattern but targets data PVs by storage class.
+Clean-host discovers nodes by AIS labels, creates pods with hostPath mounts pinned to each node, and runs cleanup commands directly.

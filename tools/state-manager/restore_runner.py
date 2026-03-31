@@ -97,16 +97,7 @@ class RestoreRunner:
         self.manager.exec_command(self.pod_config, pvcs)
 
     def restore(self):
-        print("Checking for running cluster")
-        if self.manager.is_cluster_running():
-            proceed = input(
-                "WARNING -- Cluster is still running. Are you sure you want to proceed with restore? (y/n): "
-            )
-            if proceed.lower() != "y":
-                print("Aborting restore as requested.")
-                sys.exit(1)
-            else:
-                print("Proceeding with restore.")
+        self.manager.confirm_cluster_not_running()
         print("Extract local restore file")
         self.extract_restore_file()
         print("Validating PVCs")

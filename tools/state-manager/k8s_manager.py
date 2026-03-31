@@ -53,9 +53,62 @@ class K8sManager:
             },
         }
 
+    def define_hostpath_pod_manifest(self, pod_config, node_name, volumes, command,
+                                      role=""):
+        volume_mounts = [{"name": name, "mountPath": path} for name, path in volumes]
+        volume_specs = [{"name": name, "hostPath": {"path": path}} for name, path in volumes]
+        safe_node = node_name.replace(".", "-")
+        return {
+            "apiVersion": "v1",
+            "kind": "Pod",
+            "metadata": {
+                "name": pod_config.name.format(role=role, node_name=safe_node),
+                "namespace": self.cluster_ns,
+                "labels": pod_config.labels,
+            },
+            "spec": {
+                "affinity": {
+                    "nodeAffinity": {
+                        "requiredDuringSchedulingIgnoredDuringExecution": {
+                            "nodeSelectorTerms": [
+                                {
+                                    "matchExpressions": [
+                                        {
+                                            "key": "kubernetes.io/hostname",
+                                            "operator": "In",
+                                            "values": [node_name],
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    }
+                },
+                "restartPolicy": "Never",
+                "containers": [
+                    {
+                        "name": pod_config.container_name,
+                        "image": pod_config.image,
+                        "command": ["sh", "-ce", command],
+                        "volumeMounts": volume_mounts,
+                    }
+                ],
+                "volumes": volume_specs,
+            },
+        }
+
     def create_pods(self, pod_config, pvc_names):
         for pvc in pvc_names:
             manifest = self.define_pod_manifest(pod_config, pvc)
+            self.k8s_client.create_namespaced_pod(
+                namespace=self.cluster_ns, body=manifest
+            )
+
+    def create_hostpath_pods(self, pod_config, nodes, volumes, command, role=""):
+        for node in nodes:
+            manifest = self.define_hostpath_pod_manifest(
+                pod_config, node, volumes, command, role=role
+            )
             self.k8s_client.create_namespaced_pod(
                 namespace=self.cluster_ns, body=manifest
             )
@@ -107,12 +160,18 @@ class K8sManager:
             )
             print(resp)
 
-    def find_pvcs(self, proxy_only=False):
+    def find_pvcs(self, proxy_only=False, storage_class=None):
         label_selector = self.proxy_label_selector if proxy_only else self.ais_label_selector
         pvc_list = self.k8s_client.list_namespaced_persistent_volume_claim(
             namespace=self.cluster_ns, label_selector=label_selector
         )
-        if proxy_only:
+        if storage_class:
+            pvc_names = [
+                pvc.metadata.name
+                for pvc in pvc_list.items
+                if pvc.spec.storage_class_name == storage_class
+            ]
+        elif proxy_only:
             pvc_names = [pvc.metadata.name for pvc in pvc_list.items]
         else:
             # Filter out target data PVCs
@@ -121,11 +180,15 @@ class K8sManager:
                 for pvc in pvc_list.items
                 if pvc.spec.storage_class_name != "ais-local-storage"
             ]
-
         if not pvc_names:
             print(f"No PVCs found matching label selector {label_selector}")
-        print("Found pvcs: ", pvc_names)
+        else:
+            print("Found pvcs: ", pvc_names)
         return pvc_names
+
+    def find_nodes_by_label(self, label_selector):
+        nodes = self.k8s_client.list_node(label_selector=label_selector)
+        return [node.metadata.name for node in nodes.items]
 
     def list_pods_matching_label(self, label_selector):
         return self.k8s_client.list_namespaced_pod(
@@ -155,6 +218,13 @@ class K8sManager:
             )
         self.wait_for_pods_deleted(pod_config)
 
-    def is_cluster_running(self):
+    def confirm_cluster_not_running(self):
         pods = self.list_pods_matching_label(self.ais_label_selector)
-        return len(pods.items) > 0
+        if len(pods.items) > 0:
+            proceed = input(
+                "WARNING -- Cluster is still running. "
+                "Are you sure you want to proceed? (y/n): "
+            )
+            if proceed.lower() != "y":
+                print("Aborting.")
+                sys.exit(1)
