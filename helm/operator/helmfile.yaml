@@ -81,7 +81,7 @@ releases:
     namespace: ais-operator-system
     createNamespace: true
     chart: aistore/ais-operator
-    version: 2.15.0
+    version: 2.16.1
     values:
       - "./config/operator/{{ .Values.envFile }}.yaml.gotmpl"
     hooks:
