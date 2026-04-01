@@ -25,9 +25,9 @@ tls:
       - "local-test-worker2"
       - "local-test-worker3"
 nodeImage:
-  tag: v4.2
+  tag: v4.3
 initImage:
-  tag: v4.2
+  tag: v4.3
 logSidecarImage:
   tag: v1.1
 adminClient:
