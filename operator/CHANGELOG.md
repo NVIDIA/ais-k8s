@@ -12,6 +12,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ### Changed
 
+- Respect explicit `configToUpdate.auth.enabled: false` when `spec.auth` is configured, instead of unconditionally forcing `true`.
 - Fixed syncPodTemplate not syncing env var removals when the desired env slice was a prefix of the current, causing rollout loops on config changes such as clearing `authNSecretName`.
 - Invalidate the AIStore API client on authentication failure, not just on failure to acquire initial token.
 - Mount path size is now optional to better support hostPath data mounts.

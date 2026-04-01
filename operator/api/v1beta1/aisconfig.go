@@ -348,7 +348,10 @@ func (c *ConfigToUpdate) ConfigureAuth(authSpec *AuthSpec, issuerCAPath string) 
 	if c.Auth == nil {
 		c.Auth = &AuthConfToUpdate{}
 	}
-	c.Auth.Enabled = aisapc.Ptr(true)
+	// Default to enabled if not explicitly set by the user
+	if c.Auth.Enabled == nil {
+		c.Auth.Enabled = aisapc.Ptr(true)
+	}
 
 	// Auto-configure OIDC issuer CA bundle if path is provided
 	if issuerCAPath != "" {
