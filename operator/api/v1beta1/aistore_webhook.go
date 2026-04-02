@@ -85,18 +85,22 @@ func (ais *AIStore) validateAutoScaling() (admission.Warnings, error) {
 }
 
 func (ss *ServiceSpec) validate(path *field.Path) field.ErrorList {
-	allErrs := field.ErrorList{}
+	svcMsgs := validation.IsValidPortNum(ss.ServicePort.IntValue())
+	pubMsgs := validation.IsValidPortNum(ss.PublicPort.IntValue())
+	ctrlMsgs := validation.IsValidPortNum(ss.IntraControlPort.IntValue())
+	dataMsgs := validation.IsValidPortNum(ss.IntraDataPort.IntValue())
 
-	for _, msg := range validation.IsValidPortNum(ss.ServicePort.IntValue()) {
+	allErrs := make(field.ErrorList, 0, len(svcMsgs)+len(pubMsgs)+len(ctrlMsgs)+len(dataMsgs))
+	for _, msg := range svcMsgs {
 		allErrs = append(allErrs, field.Invalid(path.Child("servicePort"), ss.ServicePort.IntValue(), msg))
 	}
-	for _, msg := range validation.IsValidPortNum(ss.PublicPort.IntValue()) {
+	for _, msg := range pubMsgs {
 		allErrs = append(allErrs, field.Invalid(path.Child("portPublic"), ss.PublicPort.IntValue(), msg))
 	}
-	for _, msg := range validation.IsValidPortNum(ss.IntraControlPort.IntValue()) {
+	for _, msg := range ctrlMsgs {
 		allErrs = append(allErrs, field.Invalid(path.Child("portIntraControl"), ss.IntraControlPort.IntValue(), msg))
 	}
-	for _, msg := range validation.IsValidPortNum(ss.IntraDataPort.IntValue()) {
+	for _, msg := range dataMsgs {
 		allErrs = append(allErrs, field.Invalid(path.Child("portIntraData"), ss.IntraDataPort.IntValue(), msg))
 	}
 
@@ -104,10 +108,12 @@ func (ss *ServiceSpec) validate(path *field.Path) field.ErrorList {
 }
 
 func (ais *AIStore) validateServiceSpec() (admission.Warnings, error) {
-	allErrs := field.ErrorList{}
+	proxyErrs := ais.Spec.ProxySpec.validate(field.NewPath("spec", "proxySpec"))
+	targetErrs := ais.Spec.TargetSpec.validate(field.NewPath("spec", "targetSpec"))
 
-	allErrs = append(allErrs, ais.Spec.ProxySpec.validate(field.NewPath("spec", "proxySpec"))...)
-	allErrs = append(allErrs, ais.Spec.TargetSpec.validate(field.NewPath("spec", "targetSpec"))...)
+	allErrs := make(field.ErrorList, 0, len(proxyErrs)+len(targetErrs))
+	allErrs = append(allErrs, proxyErrs...)
+	allErrs = append(allErrs, targetErrs...)
 
 	return nil, allErrs.ToAggregate()
 }
