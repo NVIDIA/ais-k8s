@@ -8,6 +8,12 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ---
 
+## v2.16.1
+
+### Changed
+
+- Fixed a bug where requested storage capacity with non-integer byte conversions (e.g. `5.8Ti`) would round up in PVCs and fail to bind to PVs.  
+
 ## v2.16.0
 
 ### Changed

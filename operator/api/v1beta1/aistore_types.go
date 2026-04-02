@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
+	"gopkg.in/inf.v0"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -932,8 +933,9 @@ func (m *Mount) GetPVCResources() *corev1.VolumeResourceRequirements {
 	if m.Size == nil {
 		return &reqs
 	}
-	// K8s requires whole numbers, so use Value() to round the provided quantity from CRD
-	bytes := m.Size.Value()
+	// resource.NewQuantity requires whole number bytes, so round (down!) the provided quantity from CRD
+	rounded := new(inf.Dec).Round(m.Size.AsDec(), 0, inf.RoundDown)
+	bytes := rounded.UnscaledBig().Int64()
 	if bytes > 0 {
 		size := *resource.NewQuantity(bytes, m.Size.Format)
 		reqs.Requests = corev1.ResourceList{corev1.ResourceStorage: size}

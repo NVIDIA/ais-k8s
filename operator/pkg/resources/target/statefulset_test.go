@@ -175,4 +175,39 @@ var _ = Describe("Statefulset Target Volumes and Mounts", Label("short"), func()
 			Expect(result.Spec.PersistentVolumeClaimRetentionPolicy.WhenScaled).To(Equal(appsv1.RetainPersistentVolumeClaimRetentionPolicyType))
 		})
 	})
+
+	Describe("PVC resource requests", func() {
+		It("should round down fractional byte quantities to avoid exceeding PV capacity", func() {
+			// 5.8Ti = 6,377,167,441,100.8 bytes — must round DOWN to 6,377,167,441,100
+			fractionalSize := resource.MustParse("5.8Ti")
+			specCopy := aisSpec.DeepCopy()
+			specCopy.Spec.TargetSpec.Mounts = []aisv1.Mount{{
+				Path:         "/data/test",
+				Size:         &fractionalSize,
+				StorageClass: apc.Ptr("dataStorageClass"),
+				Selector:     selector,
+			}}
+			result := NewTargetSS(specCopy, *specCopy.Spec.Size)
+			Expect(result.Spec.VolumeClaimTemplates).To(HaveLen(2))
+			pvcSize := result.Spec.VolumeClaimTemplates[0].Spec.Resources.Requests.Storage()
+			// Value() returns ceil, so check the actual stored quantity is <= the original
+			Expect(pvcSize.Cmp(fractionalSize)).To(BeNumerically("<=", 0),
+				"PVC request must not exceed the original size (must round down, not up)")
+			Expect(pvcSize.Value()).To(Equal(int64(6377167441100)),
+				"5.8Ti should round down to 6377167441100 bytes")
+		})
+		It("should not modify whole-number quantities", func() {
+			wholeSize := resource.MustParse("1Gi")
+			specCopy := aisSpec.DeepCopy()
+			specCopy.Spec.TargetSpec.Mounts = []aisv1.Mount{{
+				Path:         "/data/test",
+				Size:         &wholeSize,
+				StorageClass: apc.Ptr("dataStorageClass"),
+			}}
+			result := NewTargetSS(specCopy, *specCopy.Spec.Size)
+			pvcSize := result.Spec.VolumeClaimTemplates[0].Spec.Resources.Requests.Storage()
+			Expect(pvcSize.Value()).To(Equal(int64(1073741824)),
+				"1Gi (whole bytes) should be unchanged")
+		})
+	})
 })
