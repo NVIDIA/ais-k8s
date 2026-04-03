@@ -1,0 +1,24 @@
+image:
+  repository: aistorage/authn
+  tag: v4.3
+
+net:
+  externalURL: "https://ais-authn.ais.svc.cluster.local:52001"
+
+persistence:
+  enabled: true
+  storageClass: "openebs-hostpath"
+
+# Share the default config path mount
+log:
+  dir: /etc/ais/authn
+
+lb:
+  enabled: true
+  port: 52001
+
+tls:
+  enabled: true
+  createCert: true
+  certPath: "/var/certs/tls.crt"
+  keyPath: "/var/certs/tls.key"

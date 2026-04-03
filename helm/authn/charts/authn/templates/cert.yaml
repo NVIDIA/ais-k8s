@@ -14,19 +14,27 @@ spec:
   renewBefore: {{ .Values.tls.certificate.renewBefore }}
   usages:
     - server auth
+  {{- with .Values.tls.certificate.subject }}
   subject:
+    {{- with .organizations }}
     organizations:
-      {{- range .Values.tls.certificate.subject.organizations }}
+      {{- range . }}
       - {{ . }}
       {{- end }}
+    {{- end }}
+    {{- with .organizationalUnits }}
     organizationalUnits:
-      {{- range .Values.tls.certificate.subject.organizationalUnits }}
+      {{- range . }}
       - {{ . }}
       {{- end }}
+    {{- end }}
+    {{- with .countries }}
     countries:
-      {{- range .Values.tls.certificate.subject.countries }}
+      {{- range . }}
       - {{ . }}
       {{- end }}
+    {{- end }}
+  {{- end }}
   dnsNames:
     - localhost
     {{- range .Values.tls.certificate.dnsNames }}
@@ -37,8 +45,12 @@ spec:
     {{- range .Values.tls.certificate.ipAddresses }}
     - {{ . }}
     {{- end }}
+  {{- with .Values.tls.certificate.emailAddresses }}
   emailAddresses:
-    - {{ .Values.tls.certificate.emailAddress }}
+    {{- range . }}
+    - {{ . }}
+    {{- end }}
+  {{- end }}
   issuerRef:
     name: {{ .Values.tls.certificate.issuerRef.name }}
     kind: {{ .Values.tls.certificate.issuerRef.kind }}

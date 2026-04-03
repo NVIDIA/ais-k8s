@@ -30,7 +30,7 @@ timeout:
 tls:
   enabled: false
   createCert: false
-  secretName: "{{ .Release.Name }}-tls-certs"
+  secretName: "{{ .Release.Name }}-tls"
   certPath: "/var/certs/tls.crt"
   keyPath: "/var/certs/tls.key"
 

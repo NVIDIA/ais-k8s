@@ -1,0 +1,14 @@
+tls:
+  certificate:
+    duration: 8760h # 1 year
+    renewBefore: 720h # 30 days
+    issuerRef:
+      name: ca-issuer
+      kind: ClusterIssuer
+    dnsNames:
+      - "ais-authn.ais"
+      - "ais-authn.ais.svc.cluster.local"
+      - "ais-authn-lb.ais.svc.cluster.local"
+      - "local-test-worker"
+      - "local-test-worker2"
+      - "local-test-worker3"

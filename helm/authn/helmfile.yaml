@@ -2,42 +2,48 @@ environments:
   default:
     values:
       - valuesPath: "./config/authn/default.yaml.gotmpl"
-        https:
+        cert:
           valuesPath: "./config/authn/cert/default.yaml"
+  local:
+    values:
+      - valuesPath: "./config/authn/local.yaml.gotmpl"
+        cert:
+          valuesPath: "./config/authn/cert/local.yaml"
+
   tls:
     values:
       - valuesPath: "./config/authn/tls.yaml.gotmpl"
-        https:
+        cert:
           valuesPath: "./config/authn/cert/tls.yaml"
   neb-fin: 
     values: 
       - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/nvidia.yaml.gotmpl?ref=main"
-        https:
+        cert:
           valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/cert/neb-fin.yaml?ref=main"
   oci-kratos:
     values:
       - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/oci.yaml.gotmpl?ref=main"
-        https:
+        cert:
           valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/cert/oci-kratos.yaml?ref=main"
   oci-ord:
     values:
       - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/oci.yaml.gotmpl?ref=main"
-        https:
+        cert:
           valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/cert/oci-ord.yaml?ref=main"
   oci-iad:
     values:
       - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/oci.yaml.gotmpl?ref=main"
-        https:
+        cert:
           valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/cert/oci-iad.yaml?ref=main"
   sjc4-dev:
     values:
       - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/nvidia.yaml.gotmpl?ref=main"
-        https:
+        cert:
           valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/cert/sjc4-dev.yaml?ref=main"
   aws-east1-eks1-test:
     values:
       - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/aws-east1-eks1-test.yaml?ref=main"
-        https:
+        cert:
           valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/cert/aws-east1-eks1-test.yaml?ref=main"
 ---
 hooks:
@@ -59,4 +65,4 @@ releases:
     values:
       - "./charts/authn/values.yaml.gotmpl"
       - "{{ .Environment.Values.valuesPath }}"
-      - "{{ .Environment.Values.https.valuesPath }}"
+      - "{{ .Environment.Values.cert.valuesPath }}"
