@@ -23,6 +23,7 @@ Options:
                        without recreating the cluster
   --image <image>      Use an operator image from a remote registry
                        (e.g. ghcr.io/org/ais-operator:v1.0)
+  --auth               Deploy AuthN service and configure AIS with authentication
   -h, --help           Show this help message
 
 --build and --image are mutually exclusive.
@@ -32,6 +33,8 @@ Examples:
   $(basename "$0") --build                      # Build operator from source and deploy
   $(basename "$0") --image registry/op:v1.0     # Deploy with a remote operator image
   $(basename "$0") --reset --build              # Re-run setup, then build and deploy
+  $(basename "$0") --auth                       # Deploy with AuthN enabled
+  $(basename "$0") --build --auth               # Build operator and deploy with auth
 EOF
     exit "${1:-0}"
 }
@@ -121,8 +124,26 @@ wait_for_operator() {
     echo "AIS operator is ready!"
 }
 
+generate_password() {
+    LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 24
+}
+
+deploy_authn() {
+    local admin_password
+    admin_password="$(generate_password)"
+    echo "Deploying AuthN service..."
+    (cd "${HELM_ROOT}/authn" && AUTHN_ADMIN_PASSWORD="$admin_password" helmfile sync -e local)
+    echo "Waiting for AuthN deployment..."
+    kubectl rollout status deployment/ais-authn -n ais --timeout=120s
+    echo "AuthN service is ready!"
+}
+
 deploy_ais() {
-    (cd "${HELM_ROOT}/ais" && helmfile sync -e local)
+    local ais_env="local"
+    if $DEPLOY_AUTH; then
+        ais_env="local-auth"
+    fi
+    (cd "${HELM_ROOT}/ais" && helmfile sync -e "$ais_env")
 
     echo "Waiting for AIStore cluster to be ready..."
     kubectl wait --for=jsonpath='{.status.state}'=Ready --timeout=300s aistore/ais -n ais
@@ -145,6 +166,7 @@ EOF
 
 BUILD=false
 RESET=false
+DEPLOY_AUTH=false
 OPERATOR_IMG=""
 
 while [[ $# -gt 0 ]]; do
@@ -164,6 +186,10 @@ while [[ $# -gt 0 ]]; do
             fi
             OPERATOR_IMG="$2"
             shift 2
+            ;;
+        --auth)
+            DEPLOY_AUTH=true
+            shift
             ;;
         -h|--help)
             usage
@@ -206,6 +232,12 @@ else
 fi
 
 wait_for_operator
+
+# --- Deploy AuthN (if enabled) ---
+
+if $DEPLOY_AUTH; then
+    deploy_authn
+fi
 
 # --- Deploy AIStore ---
 

@@ -19,6 +19,10 @@ install_prereqs() {
     kubectl create namespace ais 2>/dev/null || true
     kubectl label namespace ais ais-trust=true --overwrite
 
+    echo "Creating operator namespace..."
+    kubectl create namespace ais-operator-system 2>/dev/null || true
+    kubectl label namespace ais-operator-system ais-trust=true --overwrite
+
     echo "Labeling nodes for AIS scheduling..."
     "${helm_root}/ais/scripts/label-nodes.sh" ais --all
 

@@ -1,0 +1,58 @@
+cluster: ais
+mpathInfo:
+  storageClass: "ais-local-storage"
+  size: 5.8Ti
+  # Apply shared label to run on one physical disk (for development/testing)
+  mounts:
+    - path: /ais/1
+      label: shared
+    - path: /ais/2
+      label: shared
+    - path: /ais/3
+      label: shared
+size: 3
+protocol: https
+tls:
+  skipVerifyCert: false
+  certificate:
+    issuerRef:
+      name: ca-issuer
+      kind: ClusterIssuer
+    mode: csi
+    additionalDNSNames:
+      - "localhost"
+      - "local-test-worker"
+      - "local-test-worker2"
+      - "local-test-worker3"
+nodeImage:
+  tag: v4.3
+initImage:
+  tag: v4.3
+logSidecarImage:
+  tag: v1.1
+adminClient:
+  enabled: true
+  # Use trust manager bundle for client
+  caConfigMap:
+    name: aistore.nvidia.com
+    key: ca.crt
+proxyLB:
+  enabled: true
+# Allows DNS to be based solely on node name, not IP
+publicNetDNSMode: Node
+
+# Configure AIS to trust JWTs issued by the local authN issuer
+configToUpdate:
+  auth:
+    enabled: true
+    oidc:
+      allowed_iss: ["https://ais-authn.ais.svc.cluster.local:52001"]
+
+# Client authN API config used by operator and admin client
+auth:
+  serviceURL: "https://ais-authn.ais.svc.cluster.local:52001"
+  usernamePassword:
+    secretName: ais-authn-su-creds
+
+stateStorageClass: "openebs-hostpath"
+cleanupMetadata: true
