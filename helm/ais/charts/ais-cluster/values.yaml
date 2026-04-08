@@ -5,10 +5,10 @@ imagePullSecrets:
 # - name:
 nodeImage:
   name: aistorage/aisnode
-  tag: v4.2
+  tag: v4.3
 initImage:
   name: aistorage/ais-init
-  tag: v4.2
+  tag: v4.3
 logSidecarImage:
   name: aistorage/ais-logs
   tag: v1.1

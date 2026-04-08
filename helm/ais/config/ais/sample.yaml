@@ -1,9 +1,9 @@
-# Default config for local KinD cluster
+# Sample config for testing and development on a local KinD cluster
 cluster: ais
 mpathInfo:
   storageClass: "ais-local-storage"
   size: 5.8Ti
-  # Apply shared label to run on one physical disk (for development/testing)
+  # Apply shared label to use multiple mount-paths on one physical disk
   mounts:
     - path: /ais/1
       label: shared

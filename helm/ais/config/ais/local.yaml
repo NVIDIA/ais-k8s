@@ -1,3 +1,4 @@
+# Config for local KinD cluster, used by /local/test-cluster.sh
 cluster: ais
 mpathInfo:
   storageClass: "ais-local-storage"

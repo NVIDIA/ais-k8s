@@ -1,10 +1,10 @@
 environments:
-  default:
+  sample:
     values:
-      - valuesPath: ./config/ais/default.yaml
+      - valuesPath: ./config/ais/sample.yaml
         https:
           enabled: true
-          valuesPath: ./config/tls-cert/default.yaml
+          valuesPath: ./config/tls-cert/sample.yaml
         cloudSecrets:
           enabled: false
         createPV:
