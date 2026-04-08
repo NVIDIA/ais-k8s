@@ -1,0 +1,83 @@
+#!/bin/bash
+###############################################################################
+# Sample cloud-init userdata for OCI OKE node pools (Oracle Linux 8).
+#
+# Use this as the cloud-init script when creating an OKE managed node pool
+# with bare metal DenseIO shapes.
+#
+# To use:
+#   1. Edit the config YAML below for your instance shape and devices.
+#   2. Update SCRIPTS_URL to point to your hosted copy of the scripts
+#      (GitHub raw URL, OCI Object Storage presigned URL, etc.).
+#   3. Paste this script into the node pool cloud-init field in the OCI
+#      console, or reference it from Terraform.
+#
+# NVMe instance store devices are local to the instance — data does not
+# survive instance termination. Reboots preserve instance store data.
+###############################################################################
+
+set -euo pipefail
+
+SCRIPTS_URL="https://raw.githubusercontent.com/NVIDIA/ais-k8s/main/tools/cloud-init"
+
+# ── Write config inline ─────────────────────────────────────────────────────
+# Edit this section for your environment. See config.yaml.example for all
+# available options.
+#
+cat > /tmp/ais-config.yaml <<'EOF'
+devices:
+  - nvme0n1
+  - nvme1n1
+  - nvme2n1
+  - nvme3n1
+  - nvme4n1
+  - nvme5n1
+
+mount_prefix: /ais
+fstype: xfs
+
+blkdevtune:
+  pattern: "nvme*"
+
+sysctl:
+  required:
+    net.core.somaxconn: 65535
+    net.ipv4.tcp_tw_reuse: 1
+    net.ipv4.ip_local_port_range: "2048 65535"
+    net.ipv4.tcp_max_tw_buckets: 1440000
+  net:
+    net.ipv4.ip_forward: 1
+    net.core.optmem_max: 25165824
+    net.core.rmem_max: 134217728
+    net.core.wmem_max: 134217728
+    net.core.netdev_max_backlog: 250000
+    net.ipv4.tcp_mem: "9087424 12116566 18174849"
+    net.ipv4.tcp_wmem: "4096 16384 134217728"
+    net.ipv4.tcp_rmem: "4096 262144 134217728"
+    net.ipv4.tcp_adv_win_scale: 1
+    net.ipv4.tcp_mtu_probing: 2
+    net.ipv4.tcp_slow_start_after_idle: 0
+    net.ipv4.tcp_max_syn_backlog: 100000
+    net.ipv4.tcp_rfc1337: 1
+  vm:
+    vm.swappiness: 10
+    vm.min_free_kbytes: 7922082
+    vm.vfs_cache_pressure: 50
+EOF
+
+# ── Fetch and run scripts ───────────────────────────────────────────────────
+
+cd /tmp
+for f in install_deps.sh ais_host_config.sh ais_datafs.sh; do
+    curl -fsSL -o "$f" "${SCRIPTS_URL}/$f"
+done
+chmod +x install_deps.sh ais_host_config.sh ais_datafs.sh
+
+bash install_deps.sh
+
+# Use bash with -x to view all startup commands in instance system log
+AIS_CONFIG=/tmp/ais-config.yaml bash ais_host_config.sh
+
+# ── OKE bootstrap (join cluster) ──────────────────────────────────────────
+curl --fail -H "Authorization: Bearer Oracle" -L0 http://169.254.169.254/opc/v2/instance/metadata/oke_init_script | base64 --decode >/var/run/oke-init.sh
+bash /var/run/oke-init.sh
