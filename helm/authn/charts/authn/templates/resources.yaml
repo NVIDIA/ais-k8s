@@ -26,6 +26,7 @@ type: Opaque
 stringData:
   RSA-PASSPHRASE: {{ .Values.signing.privateKeyPass | quote }}
 {{- end }}
+{{- if .Values.superuser.password }}
 ---
 # K8s Secret with the superuser credentials
 apiVersion: v1
@@ -39,6 +40,7 @@ type: Opaque
 stringData:
   SU-NAME: {{ .Values.superuser.name | quote }}
   SU-PASS: {{ .Values.superuser.password | quote }}
+{{- end }}
 ---
 # ConfigMap for AuthN Server with the default configuration
 apiVersion: v1
