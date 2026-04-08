@@ -1,4 +1,4 @@
-{{- if eq .Values.signing.method "hmac" }}
+{{- if and (eq .Values.signing.method "hmac") .Values.signing.key }}
 ---
 # K8s Secret with the HMAC JWT signing key
 apiVersion: v1
