@@ -78,7 +78,7 @@ func NewCertificate(ais *aisv1.AIStore) *certmanagerv1.Certificate {
 			},
 			DNSNames:    dnsNames,
 			IPAddresses: ipAddresses,
-			IssuerRef: cmmeta.ObjectReference{
+			IssuerRef: cmmeta.IssuerReference{
 				Name:  certConfig.IssuerRef.Name,
 				Kind:  issuerKind,
 				Group: "cert-manager.io",

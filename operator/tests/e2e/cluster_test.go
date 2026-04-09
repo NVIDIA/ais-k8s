@@ -357,6 +357,7 @@ var _ = Describe("Run Controller", func() {
 			err := aisapi.CreateBucket(baseParam, bck, nil)
 			Expect(err).ShouldNot(HaveOccurred())
 			names, failCnt, err := aistutils.PutRandObjs(aistutils.PutObjectsArgs{
+				Context:   ctx,
 				ProxyURL:  cc.proxyURL,
 				Bck:       bck,
 				ObjPath:   objPrefix,
@@ -392,6 +393,7 @@ var _ = Describe("Run Controller", func() {
 			// TODO: Remove once K8s cluster readiness is tightened to ensure operational readiness.
 			Eventually(func() error { return aisapi.CreateBucket(baseParams, bck, nil) }, 5*time.Second).Should(Succeed())
 			names, failCnt, err := aistutils.PutRandObjs(aistutils.PutObjectsArgs{
+				Context:   ctx,
 				ProxyURL:  cc.proxyURL,
 				Bck:       bck,
 				ObjPath:   objPrefix,
@@ -429,6 +431,7 @@ var _ = Describe("Run Controller", func() {
 			)
 			Eventually(func(ctx context.Context) error { return aisapi.CreateBucket(cc.getBaseParams(ctx), bck, nil) }, 5*time.Second).WithContext(ctx).Should(Succeed())
 			names, failCnt, err := aistutils.PutRandObjs(aistutils.PutObjectsArgs{
+				Context:   ctx,
 				ProxyURL:  cc.proxyURL,
 				Bck:       bck,
 				ObjPath:   objPrefix,
@@ -483,6 +486,7 @@ var _ = Describe("Run Controller", func() {
 			Expect(err).ShouldNot(HaveOccurred())
 			By("Test putting objects")
 			_, failCnt, err := aistutils.PutRandObjs(aistutils.PutObjectsArgs{
+				Context:   ctx,
 				ProxyURL:  cc.proxyURL,
 				Bck:       bck,
 				ObjPath:   "test-opr/",
@@ -523,6 +527,7 @@ var _ = Describe("Run Controller", func() {
 			Expect(err).ShouldNot(HaveOccurred())
 			By("Test putting objects")
 			names, failCnt, err := aistutils.PutRandObjs(aistutils.PutObjectsArgs{
+				Context:   ctx,
 				ProxyURL:  cc.proxyURL,
 				Bck:       bck,
 				ObjPath:   "test-opr/",
