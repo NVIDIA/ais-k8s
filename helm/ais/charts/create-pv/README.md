@@ -40,7 +40,7 @@ Each PV is named `<node>-pv-<mount-path>` with a `claimRef` matching the AIS Sta
 | `mpathInfo.size`          | (required, from shared config) | Capacity of each PV                                              |
 | `mpathInfo.mounts`        | (required, from shared config) | List of mount paths (each with a `path` field)                   |
 | `kubectlImage.repository` | `aistorage/ais-util`           | Container image for the Job                                      |
-| `kubectlImage.tag`        | `v4.3`                         | Image tag                                                        |
+| `kubectlImage.tag`        | `v4.4`                         | Image tag                                                        |
 | `kubectlImage.pullPolicy` | `IfNotPresent`                 | Image pull policy                                                |
 
 ## Hook lifecycle

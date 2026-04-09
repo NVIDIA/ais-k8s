@@ -1,4 +1,4 @@
 apiVersion: v2
 name: ais-create-pv
-version: 0.5.0
+version: 0.6.0
 description: Creates PersistentVolumes in parallel via a Job and blocks until all are ready
