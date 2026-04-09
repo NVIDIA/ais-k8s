@@ -520,6 +520,23 @@
           "type": "boolean",
           "description": "Set to true to run pods with host networking enabled.",
           "examples": [false]
+        },
+        "pdb": {
+          "type": "object",
+          "description": "PodDisruptionBudget configuration for target pods. When enabled, the operator creates a PDB to protect target pods from voluntary evictions during node drain or cluster scale-down.",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Controls whether a PodDisruptionBudget is created for target pods.",
+              "default": false,
+              "examples": [true, false]
+            },
+            "maxUnavailable": {
+              "type": ["integer", "string"],
+              "description": "Maximum number of target pods that can be unavailable during voluntary disruptions. Can be an absolute number (e.g. 1) or a percentage (e.g. '10%'). Setting to 0 prevents any voluntary evictions. Defaults to 0.",
+              "examples": [0, 1, "10%"]
+            }
+          }
         }
       }
     },

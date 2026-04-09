@@ -150,6 +150,15 @@ spec:
     resources:
       {{- toYaml .Values.targetSpec.resources | nindent 6 }}
     {{- end }}
+    {{- if .Values.targetSpec.pdb }}
+    {{- if .Values.targetSpec.pdb.enabled }}
+    pdb:
+      enabled: true
+      {{- if hasKey .Values.targetSpec.pdb "maxUnavailable" }}
+      maxUnavailable: {{ .Values.targetSpec.pdb.maxUnavailable }}
+      {{- end }}
+    {{- end }}
+    {{- end }}
   {{- with .Values.imagePullSecrets }}
   imagePullSecrets:
   {{- toYaml . | nindent 2 }}

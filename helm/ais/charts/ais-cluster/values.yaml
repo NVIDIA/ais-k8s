@@ -49,6 +49,8 @@ targetSpec:
   portPublic: 51081
   portIntraControl: 51082
   portIntraData: 51083
+  pdb:
+    enabled: false
 
 proxyLB:
   enabled: false
