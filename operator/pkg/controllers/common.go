@@ -245,8 +245,22 @@ func shouldUpdateLabels(desired, current *corev1.PodTemplateSpec) (bool, string)
 }
 
 func shouldUpdateVolumes(desired, current *corev1.PodTemplateSpec) (bool, string) {
-	if !equality.Semantic.DeepEqual(desired.Spec.Volumes, current.Spec.Volumes) {
-		return true, "updating volumes"
+	if len(desired.Spec.Volumes) > len(current.Spec.Volumes) {
+		return true, "updating volumes (new volumes)"
+	}
+	if len(desired.Spec.Volumes) < len(current.Spec.Volumes) {
+		return true, "updating volumes (removed volumes)"
+	}
+	currentMap := make(map[string]corev1.Volume, len(current.Spec.Volumes))
+	for i := range current.Spec.Volumes {
+		currentMap[current.Spec.Volumes[i].Name] = current.Spec.Volumes[i]
+	}
+	for i := range desired.Spec.Volumes {
+		dv := desired.Spec.Volumes[i]
+		cv, exists := currentMap[dv.Name]
+		if !exists || !equality.Semantic.DeepEqual(dv, cv) {
+			return true, fmt.Sprintf("updating volumes (%s changed)", dv.Name)
+		}
 	}
 	return false, ""
 }

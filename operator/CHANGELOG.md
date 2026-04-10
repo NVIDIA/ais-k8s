@@ -8,6 +8,14 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ---
 
+## Unreleased
+
+### Changed
+
+- Make volume spec sync ignore order.
+  - For deployments created prior to 2.12, an update to 2.15.0 would cause an AIS rollout because of an added sync on volumes if both cloud credentials and TLS volumes existed in a deployment.
+  - This order was changed in v2.12.0 but not synced until v2.15.0
+
 ## v2.16.1
 
 ### Changed
