@@ -49,7 +49,7 @@
         },
         "key": {
           "type": "string",
-          "description": "HMAC signing key (required when method is hmac)"
+          "description": "HMAC signing key. When provided with method=hmac, the chart creates a K8s Secret. Omit to manage the Secret externally."
         },
         "rsaKeyBits": {
           "type": "integer",
@@ -68,9 +68,8 @@
       },
       "then": {
         "properties": {
-          "key": { "type": "string", "minLength": 1 }
-        },
-        "required": ["key"]
+          "key": { "type": "string", "minLength": 12 }
+        }
       }
     },
     "auth": {
