@@ -217,6 +217,14 @@ else
     setup_cluster "$CLUSTER_NAME"
 fi
 
+EXPECTED_CONTEXT="kind-${CLUSTER_NAME}"
+CURRENT_CONTEXT="$(kubectl config current-context)"
+if [[ "$CURRENT_CONTEXT" != "$EXPECTED_CONTEXT" ]]; then
+    echo "Error: kubectl context is '${CURRENT_CONTEXT}', expected '${EXPECTED_CONTEXT}'" >&2
+    echo "Switch context with: kubectl config use-context ${EXPECTED_CONTEXT}" >&2
+    exit 1
+fi
+
 # --- Build and deploy operator ---
 
 if $BUILD; then
