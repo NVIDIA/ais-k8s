@@ -8,10 +8,12 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ---
 
-## Unreleased
+## v2.17.0
 
 ### Changed
 
+- Updated Go version to 1.26.
+- Updated AIStore API to v4.4 along with other dependencies.
 - Make volume spec sync ignore order.
   - For deployments created prior to 2.12, an update to 2.15.0 would cause an AIS rollout because of an added sync on volumes if both cloud credentials and TLS volumes existed in a deployment.
   - This order was changed in v2.12.0 but not synced until v2.15.0
