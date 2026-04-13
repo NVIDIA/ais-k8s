@@ -770,8 +770,9 @@ func (r *AIStoreReconciler) createOrUpdateRBACResources(ctx context.Context, ais
 
 func (r *AIStoreReconciler) reconcileTLSCertificate(ctx context.Context, ais *aisv1.AIStore) error {
 	logger := logf.FromContext(ctx)
-	// Create or update the Certificate if configured
-	if cert := cmn.NewCertificate(ais); cert != nil {
+	// Create a Certificate if configured in spec (not using csi-driver or pre-existing secret)
+	if ais.UseTLSCertificate() {
+		cert := cmn.NewCertificate(ais)
 		changed, err := r.k8sClient.CreateOrUpdateResource(ctx, ais, cert)
 		if err != nil {
 			return err

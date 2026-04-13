@@ -8,6 +8,12 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ---
 
+## Unreleased
+
+### Changed
+
+- Skip creating unused cert-manager Certificate in CSI TLS mode.
+
 ## v2.17.0
 
 ### Changed
