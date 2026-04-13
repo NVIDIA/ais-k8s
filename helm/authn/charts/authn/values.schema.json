@@ -261,6 +261,17 @@
         }
       }
     },
+    "imagePullSecrets": {
+      "type": "array",
+      "description": "List of image pull secrets for private registries",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" }
+        },
+        "required": ["name"]
+      }
+    },
     "podSecurityContext": {
       "type": "object",
       "description": "Pod-level security context"

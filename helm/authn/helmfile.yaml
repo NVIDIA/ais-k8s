@@ -51,7 +51,7 @@ releases:
     namespace: ais
     createNamespace: true
     chart: charts/authn
-    version: 0.4.0
+    version: 0.5.0
     values:
       - "./charts/authn/values.yaml.gotmpl"
       - "{{ .Environment.Values.valuesPath }}"
