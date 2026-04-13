@@ -22,7 +22,7 @@ environments:
           valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/cert/oci-ord.yaml?ref=main"
   oci-iad:
     values:
-      - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/oci.yaml.gotmpl?ref=main"
+      - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/oci-iad.yaml.gotmpl?ref=main"
         cert:
           valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/cert/oci-iad.yaml?ref=main"
   sjc4-dev:
