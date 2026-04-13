@@ -62,15 +62,7 @@
           "description": "Optional passphrase for encrypting the RSA private key on disk"
         }
       },
-      "required": ["method"],
-      "if": {
-        "properties": { "method": { "const": "hmac" } }
-      },
-      "then": {
-        "properties": {
-          "key": { "type": "string", "minLength": 12 }
-        }
-      }
+      "required": ["method"]
     },
     "auth": {
       "type": "object",
