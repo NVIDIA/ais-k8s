@@ -5,3 +5,5 @@ kubectlImage:
   repository: aistorage/ais-util
   tag: v4.4
   pullPolicy: IfNotPresent
+
+imagePullSecrets: []
