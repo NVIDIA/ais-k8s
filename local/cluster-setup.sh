@@ -12,6 +12,9 @@ install_prereqs() {
     echo "Installing prerequisites (cert-manager, storage class)..."
     helmfile -f "${SCRIPT_DIR}/prereq-helmfile.yaml" sync
 
+    echo "Waiting for trust-manager API service to be available..."
+    kubectl wait --for=condition=Available --timeout=120s apiservice/v1alpha1.trust.cert-manager.io
+
     echo "Setting up cluster issuer..."
     (cd "${helm_root}/cluster-issuer" && helmfile sync -e local)
 
