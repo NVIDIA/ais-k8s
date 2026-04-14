@@ -121,6 +121,8 @@ wait_for_operator() {
     echo "Waiting for AIS operator rollout to complete..."
     kubectl rollout status deployment/ais-operator-controller-manager \
         -n ais-operator-system --timeout=120s
+    kubectl wait --for=condition=Available --timeout=120s \
+        apiservice/v1beta1.ais.nvidia.com
     echo "AIS operator is ready!"
 }
 
