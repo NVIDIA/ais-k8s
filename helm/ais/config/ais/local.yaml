@@ -42,6 +42,12 @@ proxyLB:
 # Allows DNS to be based solely on node name, not IP
 publicNetDNSMode: Node
 
+configToUpdate:
+  # Lower than default values to allow for running without alerts on KinD docker nodes
+  memsys:
+    min_free: "512MiB"
+    to_gc: "512MiB"
+
 
 stateStorageClass: "openebs-hostpath"
 cleanupMetadata: true

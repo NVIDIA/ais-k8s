@@ -47,6 +47,10 @@ configToUpdate:
     enabled: true
     oidc:
       allowed_iss: ["https://ais-authn.ais.svc.cluster.local:52001"]
+  # Lower than default values to allow for running without alerts on KinD docker nodes
+  memsys:
+    min_free: "512MiB"
+    to_gc: "512MiB"
 
 # Client authN API config used by operator and admin client
 auth:
