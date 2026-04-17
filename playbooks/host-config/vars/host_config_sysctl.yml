@@ -135,6 +135,11 @@ ais_host_sysctl_net:
     state: present
     default: 0
     comment: Defend against time-wait assassination hazards
+  - name: net.netfilter.nf_conntrack_tcp_be_liberal
+    value: 1
+    state: present
+    default: 0
+    comment: Relax conntrack TCP checks so kube-proxy does not drop valid but out-of-window packets (e.g. retransmits / some probes) as INVALID; useful for long-lived data-plane connections when not using hostNetwork.
 
 #
 # Tags: sysctlvm

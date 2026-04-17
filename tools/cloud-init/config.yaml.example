@@ -53,6 +53,7 @@ sysctl:
     net.ipv4.tcp_slow_start_after_idle: 0
     net.ipv4.tcp_max_syn_backlog: 100000
     net.ipv4.tcp_rfc1337: 1
+    net.netfilter.nf_conntrack_tcp_be_liberal: 1
 
   # VM tuning — adjust per host memory (min_free_kbytes ~0.5-1% of RAM).
   vm:
