@@ -324,7 +324,11 @@ func syncPodTemplate(desired, current *corev1.PodTemplateSpec) (updated bool) {
 
 func findAISNodeByPodName(nodeMap aismeta.NodeMap, podName string) (*aismeta.Snode, error) {
 	for _, node := range nodeMap {
-		if strings.HasPrefix(node.ControlNet.Hostname, podName) {
+		hostname := node.ControlNet.Hostname
+		// Match on exact pod name or on an FQDN whose first label is the pod name.
+		// Plain HasPrefix is unsafe: "ais-target-1" is a prefix of "ais-target-10",
+		// which would cause the wrong node to be marked for maintenance during rollout.
+		if hostname == podName || strings.HasPrefix(hostname, podName+".") {
 			return node, nil
 		}
 	}
