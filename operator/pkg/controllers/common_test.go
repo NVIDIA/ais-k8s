@@ -6,6 +6,7 @@ package controllers
 
 import (
 	"github.com/NVIDIA/aistore/api/apc"
+	aismeta "github.com/NVIDIA/aistore/core/meta"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
@@ -316,6 +317,60 @@ var _ = Describe("isPodInCrashLoopBackOff", func() {
 			},
 		}
 		Expect(isPodInCrashLoopBackOff(pod)).To(BeFalse())
+	})
+})
+
+var _ = Describe("findAISNodeByPodName", func() {
+	makeNode := func(id, hostname string) *aismeta.Snode {
+		return &aismeta.Snode{
+			DaeID:      id,
+			ControlNet: aismeta.NetInfo{Hostname: hostname},
+		}
+	}
+
+	It("returns the node whose hostname exactly matches the pod name", func() {
+		target1 := makeNode("t1", "ais-target-1")
+		target10 := makeNode("t10", "ais-target-10")
+		nodeMap := aismeta.NodeMap{"t1": target1, "t10": target10}
+
+		node, err := findAISNodeByPodName(nodeMap, "ais-target-1")
+
+		Expect(err).NotTo(HaveOccurred())
+		Expect(node).To(Equal(target1))
+	})
+
+	It("does not match a longer hostname that shares the pod name as a prefix", func() {
+		// Reproduces the rollout bug: with a plain HasPrefix check, looking up
+		// "ais-target-1" could return the node for ais-target-10 (or ..-100),
+		// which caused the operator to put the wrong target into maintenance.
+		target10 := makeNode("t10", "ais-target-10")
+		target100 := makeNode("t100", "ais-target-100")
+		nodeMap := aismeta.NodeMap{"t10": target10, "t100": target100}
+
+		node, err := findAISNodeByPodName(nodeMap, "ais-target-1")
+
+		Expect(err).To(HaveOccurred())
+		Expect(node).To(BeNil())
+	})
+
+	It("matches an FQDN whose first label is the pod name", func() {
+		target1 := makeNode("t1", "ais-target-1.ais-target.ais.svc.cluster.local")
+		target10 := makeNode("t10", "ais-target-10.ais-target.ais.svc.cluster.local")
+		nodeMap := aismeta.NodeMap{"t1": target1, "t10": target10}
+
+		node, err := findAISNodeByPodName(nodeMap, "ais-target-1")
+
+		Expect(err).NotTo(HaveOccurred())
+		Expect(node).To(Equal(target1))
+	})
+
+	It("returns an error when no node matches", func() {
+		nodeMap := aismeta.NodeMap{"t2": makeNode("t2", "ais-target-2")}
+
+		node, err := findAISNodeByPodName(nodeMap, "ais-target-1")
+
+		Expect(err).To(HaveOccurred())
+		Expect(node).To(BeNil())
 	})
 })
 
