@@ -8,6 +8,7 @@ rules:
   - ""
   resources:
   - configmaps
+  - serviceaccounts
   - services
   verbs:
   - create
@@ -38,7 +39,6 @@ rules:
   - ""
   resources:
   - pods
-  - serviceaccounts
   verbs:
   - create
   - delete
@@ -117,6 +117,7 @@ rules:
   - delete
   - get
   - list
+  - patch
   - update
   - watch
 - apiGroups:
@@ -149,6 +150,7 @@ rules:
   - delete
   - get
   - list
+  - patch
   - update
   - watch
 - apiGroups:

@@ -6,17 +6,17 @@ package cmn
 
 import (
 	aisv1 "github.com/ais-operator/api/v1beta1"
+	"github.com/ais-operator/pkg/resources/ownerref"
 	jsoniter "github.com/json-iterator/go"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
 )
 
 func globalConfigMapName(ais *aisv1.AIStore) string {
 	return ais.Name + "-global-cm"
 }
 
-// NewGlobalCM creates the content for the configmap mounted by AIS pods based on provided spec and cluster state.
-func NewGlobalCM(ais *aisv1.AIStore) (*corev1.ConfigMap, error) {
+// NewGlobalCM creates the apply config for the global configmap mounted by AIS pods.
+func NewGlobalCM(ais *aisv1.AIStore) (*corev1ac.ConfigMapApplyConfiguration, error) {
 	globalConf, err := GenerateGlobalConfig(ais)
 	if err != nil {
 		return nil, err
@@ -25,23 +25,19 @@ func NewGlobalCM(ais *aisv1.AIStore) (*corev1.ConfigMap, error) {
 	if err != nil {
 		return nil, err
 	}
-	cm := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      globalConfigMapName(ais),
-			Namespace: ais.Namespace,
-		},
-		Data: map[string]string{
-			AISGlobalConfigName: conf,
-		},
+	data := map[string]string{
+		AISGlobalConfigName: conf,
 	}
 	if ais.Spec.HostnameMap != nil {
 		hostnameMap, err := jsoniter.MarshalToString(ais.Spec.HostnameMap)
 		if err != nil {
 			return nil, err
 		}
-		cm.Data[hostnameMapFileName] = hostnameMap
+		data[hostnameMapFileName] = hostnameMap
 	}
-	return cm, nil
+	return corev1ac.ConfigMap(globalConfigMapName(ais), ais.Namespace).
+		WithOwnerReferences(ownerref.NewControllerRef(ais)).
+		WithData(data), nil
 }
 
 func AISConfigMapName(ais *aisv1.AIStore, daeType string) string {

@@ -9,10 +9,10 @@ import (
 	aiscmn "github.com/NVIDIA/aistore/cmn"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	"github.com/ais-operator/pkg/resources/cmn"
+	"github.com/ais-operator/pkg/resources/ownerref"
 	jsoniter "github.com/json-iterator/go"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
 )
 
 func ConfigMapNSName(ais *aisv1.AIStore) types.NamespacedName {
@@ -22,21 +22,17 @@ func ConfigMapNSName(ais *aisv1.AIStore) types.NamespacedName {
 	}
 }
 
-func NewProxyCM(ais *aisv1.AIStore) (*corev1.ConfigMap, error) {
+func NewProxyCM(ais *aisv1.AIStore) (*corev1ac.ConfigMapApplyConfiguration, error) {
 	localConf := localConfTemplate(&ais.Spec.ProxySpec.ServiceSpec)
 	confLocal, err := jsoniter.MarshalToString(localConf)
 	if err != nil {
 		return nil, err
 	}
-	return &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cmn.AISConfigMapName(ais, aisapc.Proxy),
-			Namespace: ais.Namespace,
-		},
-		Data: map[string]string{
+	return corev1ac.ConfigMap(cmn.AISConfigMapName(ais, aisapc.Proxy), ais.Namespace).
+		WithOwnerReferences(ownerref.NewControllerRef(ais)).
+		WithData(map[string]string{
 			cmn.AISLocalConfigName: confLocal,
-		},
-	}, nil
+		}), nil
 }
 
 func localConfTemplate(spec *aisv1.ServiceSpec) aiscmn.LocalConfig {

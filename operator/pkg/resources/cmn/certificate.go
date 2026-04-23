@@ -5,18 +5,18 @@
 package cmn
 
 import (
-	"context"
 	"fmt"
 	"net"
 	"strings"
 	"time"
 
 	aisv1 "github.com/ais-operator/api/v1beta1"
+	"github.com/ais-operator/pkg/resources/ownerref"
 	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
-	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
+	cmapiv1ac "github.com/cert-manager/cert-manager/pkg/client/applyconfigurations/certmanager/v1"
+	cmmetav1ac "github.com/cert-manager/cert-manager/pkg/client/applyconfigurations/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -41,7 +41,7 @@ func CertificateNSName(ais *aisv1.AIStore) types.NamespacedName {
 	}
 }
 
-func NewCertificate(ais *aisv1.AIStore) *certmanagerv1.Certificate {
+func NewCertificate(ais *aisv1.AIStore) *cmapiv1ac.CertificateApplyConfiguration {
 	certConfig := ais.GetTLSCertificate()
 	if certConfig == nil {
 		return nil
@@ -60,31 +60,25 @@ func NewCertificate(ais *aisv1.AIStore) *certmanagerv1.Certificate {
 		renewBefore = certConfig.RenewBefore.Duration
 	}
 
-	// Build DNS names and IP addresses
 	dnsNames, ipAddresses := buildCertificateSANs(ais)
 
-	return &certmanagerv1.Certificate{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      certificateName(ais),
-			Namespace: ais.Namespace,
-		},
-		Spec: certmanagerv1.CertificateSpec{
-			SecretName:  CertificateSecretName(ais),
-			Duration:    &metav1.Duration{Duration: duration},
-			RenewBefore: &metav1.Duration{Duration: renewBefore},
-			Usages: []certmanagerv1.KeyUsage{
-				certmanagerv1.UsageServerAuth,
-				certmanagerv1.UsageClientAuth,
-			},
-			DNSNames:    dnsNames,
-			IPAddresses: ipAddresses,
-			IssuerRef: cmmeta.IssuerReference{
-				Name:  certConfig.IssuerRef.Name,
-				Kind:  issuerKind,
-				Group: "cert-manager.io",
-			},
-		},
-	}
+	issuerRef := cmmetav1ac.IssuerReference().
+		WithName(certConfig.IssuerRef.Name).
+		WithKind(issuerKind).
+		WithGroup("cert-manager.io")
+
+	spec := cmapiv1ac.CertificateSpec().
+		WithSecretName(CertificateSecretName(ais)).
+		WithDuration(metav1.Duration{Duration: duration}).
+		WithRenewBefore(metav1.Duration{Duration: renewBefore}).
+		WithUsages(certmanagerv1.UsageServerAuth, certmanagerv1.UsageClientAuth).
+		WithDNSNames(dnsNames...).
+		WithIPAddresses(ipAddresses...).
+		WithIssuerRef(issuerRef)
+
+	return cmapiv1ac.Certificate(certificateName(ais), ais.Namespace).
+		WithOwnerReferences(ownerref.NewControllerRef(ais)).
+		WithSpec(spec)
 }
 
 func addServiceDNSNames(names []string, svcName, namespace, clusterDomain string) []string {
@@ -149,15 +143,9 @@ func addHostOrIP(host string, dnsNames, ipAddresses *[]string) {
 	}
 }
 
-func DeleteCertificateIfExists(ctx context.Context, k8sClient interface {
-	DeleteResourceIfExists(context.Context, client.Object) (bool, error)
-}, ais *aisv1.AIStore) (bool, error) {
-	cert := &certmanagerv1.Certificate{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      certificateName(ais),
-			Namespace: ais.Namespace,
-		},
+func TLSCertificate(ais *aisv1.AIStore) *certmanagerv1.Certificate {
+	nn := CertificateNSName(ais)
+	return &certmanagerv1.Certificate{
+		ObjectMeta: metav1.ObjectMeta{Name: nn.Name, Namespace: nn.Namespace},
 	}
-
-	return k8sClient.DeleteResourceIfExists(ctx, cert)
 }

@@ -33,7 +33,7 @@ func (r *AIStoreReconciler) ensureTargetPrereqs(ctx context.Context, ais *aisv1.
 		return
 	}
 
-	if _, err = r.k8sClient.CreateOrUpdateResource(ctx, ais, cm); err != nil {
+	if err = r.k8sClient.Apply(ctx, cm); err != nil {
 		r.recordError(ctx, ais, err, "Failed to deploy target ConfigMap")
 		return
 	}

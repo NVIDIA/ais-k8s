@@ -86,12 +86,12 @@ func NewAISReconcilerFromMgr(mgr manager.Manager, aisClientTLSOpts services.AISC
 // +kubebuilder:rbac:groups="",resources=pods/log,verbs=get
 // +kubebuilder:rbac:groups="",resources=nodes,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
-// +kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=list;watch;delete
-// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles;rolebindings,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles;rolebindings,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=policy,resources=poddisruptionbudgets,verbs=get;list;watch;create;patch;update;delete
 // +kubebuilder:rbac:groups=batch,resources=jobs,verbs=create;list;watch;delete
-// +kubebuilder:rbac:groups=cert-manager.io,resources=certificates,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups=cert-manager.io,resources=certificates,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=discovery.k8s.io,resources=endpointslices,verbs=get;list;watch
 // +kubebuilder:rbac:groups=storage.k8s.io,resources=storageclasses,verbs=get;list;watch
 // +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch
@@ -487,13 +487,13 @@ func (r *AIStoreReconciler) reconcileResources(ctx context.Context, ais *aisv1.A
 
 	// 3. Deploy statsd ConfigMap. Required by both proxies and targets.
 	statsDCM := statsd.NewStatsDCM(ais)
-	if _, err = r.k8sClient.CreateOrUpdateResource(ctx, ais, statsDCM); err != nil {
+	if err = r.k8sClient.Apply(ctx, statsDCM); err != nil {
 		r.recordError(ctx, ais, err, "Failed to deploy StatsD ConfigMap")
 		return err
 	}
 
 	// 4. Deploy global cluster ConfigMap.
-	if _, err = r.k8sClient.CreateOrUpdateResource(ctx, ais, globalCM); err != nil {
+	if err = r.k8sClient.Apply(ctx, globalCM); err != nil {
 		r.recordError(ctx, ais, err, "Failed to deploy global cluster ConfigMap")
 		return err
 	}
@@ -747,21 +747,21 @@ func calcRestartConfigAnnotation(annot string, conf *aiscmn.ConfigToSet) (string
 func (r *AIStoreReconciler) createOrUpdateRBACResources(ctx context.Context, ais *aisv1.AIStore) (err error) {
 	// 1. Create service account if not exists
 	sa := cmn.NewAISServiceAccount(ais)
-	if _, err = r.k8sClient.CreateOrUpdateResource(ctx, nil, sa); err != nil {
+	if err = r.k8sClient.Apply(ctx, sa); err != nil {
 		r.recordError(ctx, ais, err, "Failed to create ServiceAccount")
 		return
 	}
 
 	// 2. Create AIS Role
 	role := cmn.NewAISRBACRole(ais)
-	if _, err = r.k8sClient.CreateOrUpdateResource(ctx, nil, role); err != nil {
+	if err = r.k8sClient.Apply(ctx, role); err != nil {
 		r.recordError(ctx, ais, err, "Failed to create Role")
 		return
 	}
 
 	// 3. Create binding for the Role
 	rb := cmn.NewAISRBACRoleBinding(ais)
-	if _, err = r.k8sClient.CreateOrUpdateResource(ctx, nil, rb); err != nil {
+	if err = r.k8sClient.Apply(ctx, rb); err != nil {
 		r.recordError(ctx, ais, err, "Failed to create RoleBinding")
 		return
 	}
@@ -769,21 +769,13 @@ func (r *AIStoreReconciler) createOrUpdateRBACResources(ctx context.Context, ais
 }
 
 func (r *AIStoreReconciler) reconcileTLSCertificate(ctx context.Context, ais *aisv1.AIStore) error {
-	logger := logf.FromContext(ctx)
 	// Create a Certificate if configured in spec (not using csi-driver or pre-existing secret)
 	if ais.UseTLSCertificate() {
 		cert := cmn.NewCertificate(ais)
-		changed, err := r.k8sClient.CreateOrUpdateResource(ctx, ais, cert)
-		if err != nil {
-			return err
-		}
-		if changed {
-			logger.Info("Reconciled TLS certificate", "name", cert.GetName())
-		}
-		return nil
+		return r.k8sClient.Apply(ctx, cert)
 	}
 	// Delete Certificate if it exists
-	_, err := cmn.DeleteCertificateIfExists(ctx, r.k8sClient, ais)
+	_, err := r.k8sClient.DeleteResourceIfExists(ctx, cmn.TLSCertificate(ais))
 	return err
 }
 

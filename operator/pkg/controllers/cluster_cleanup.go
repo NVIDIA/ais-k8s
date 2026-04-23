@@ -141,18 +141,9 @@ func (r *AIStoreReconciler) deleteAllPVCs(ctx context.Context, ais *aisv1.AIStor
 
 func (r *AIStoreReconciler) cleanupRBAC(ctx context.Context, ais *aisv1.AIStore) (anyUpdated bool, err error) {
 	return cmn.AnyFunc(
-		func() (bool, error) {
-			rb := cmn.NewAISRBACRoleBinding(ais)
-			return r.k8sClient.DeleteResourceIfExists(ctx, rb)
-		},
-		func() (bool, error) {
-			role := cmn.NewAISRBACRole(ais)
-			return r.k8sClient.DeleteResourceIfExists(ctx, role)
-		},
-		func() (bool, error) {
-			sa := cmn.NewAISServiceAccount(ais)
-			return r.k8sClient.DeleteResourceIfExists(ctx, sa)
-		},
+		func() (bool, error) { return r.k8sClient.DeleteResourceIfExists(ctx, cmn.RoleBinding(ais)) },
+		func() (bool, error) { return r.k8sClient.DeleteResourceIfExists(ctx, cmn.Role(ais)) },
+		func() (bool, error) { return r.k8sClient.DeleteResourceIfExists(ctx, cmn.ServiceAccount(ais)) },
 	)
 }
 
@@ -162,5 +153,5 @@ func (r *AIStoreReconciler) cleanupAdminClient(ctx context.Context, ais *aisv1.A
 
 func (r *AIStoreReconciler) cleanupTLS(ctx context.Context, ais *aisv1.AIStore) (bool, error) {
 	// Delete the Certificate resource; cert-manager may or may not clean up the Secret
-	return cmn.DeleteCertificateIfExists(ctx, r.k8sClient, ais)
+	return r.k8sClient.DeleteResourceIfExists(ctx, cmn.TLSCertificate(ais))
 }

@@ -10,10 +10,10 @@ import (
 	aiscos "github.com/NVIDIA/aistore/cmn/cos"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	"github.com/ais-operator/pkg/resources/cmn"
+	"github.com/ais-operator/pkg/resources/ownerref"
 	jsoniter "github.com/json-iterator/go"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
 )
 
 func ConfigMapNSName(ais *aisv1.AIStore) types.NamespacedName {
@@ -23,20 +23,16 @@ func ConfigMapNSName(ais *aisv1.AIStore) types.NamespacedName {
 	}
 }
 
-func NewTargetCM(ais *aisv1.AIStore) (*corev1.ConfigMap, error) {
+func NewTargetCM(ais *aisv1.AIStore) (*corev1ac.ConfigMapApplyConfiguration, error) {
 	localConfStr, err := buildLocalConf(ais)
 	if err != nil {
 		return nil, err
 	}
-	return &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cmn.AISConfigMapName(ais, aisapc.Target),
-			Namespace: ais.Namespace,
-		},
-		Data: map[string]string{
+	return corev1ac.ConfigMap(cmn.AISConfigMapName(ais, aisapc.Target), ais.Namespace).
+		WithOwnerReferences(ownerref.NewControllerRef(ais)).
+		WithData(map[string]string{
 			cmn.AISLocalConfigName: localConfStr,
-		},
-	}, nil
+		}), nil
 }
 
 func buildLocalConf(ais *aisv1.AIStore) (string, error) {

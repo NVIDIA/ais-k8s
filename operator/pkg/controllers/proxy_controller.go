@@ -29,16 +29,14 @@ const (
 )
 
 func (r *AIStoreReconciler) ensureProxyPrereqs(ctx context.Context, ais *aisv1.AIStore) (err error) {
-	var cm *corev1.ConfigMap
-
 	// 1. Deploy required ConfigMap
-	cm, err = proxy.NewProxyCM(ais)
+	cm, err := proxy.NewProxyCM(ais)
 	if err != nil {
 		r.recordError(ctx, ais, err, "Failed to generate valid proxy ConfigMap")
 		return
 	}
 
-	if _, err = r.k8sClient.CreateOrUpdateResource(ctx, ais, cm); err != nil {
+	if err = r.k8sClient.Apply(ctx, cm); err != nil {
 		r.recordError(ctx, ais, err, "Failed to deploy ConfigMap")
 		return
 	}

@@ -6,9 +6,9 @@ package statsd
 
 import (
 	aisv1 "github.com/ais-operator/api/v1beta1"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"github.com/ais-operator/pkg/resources/ownerref"
 	"k8s.io/apimachinery/pkg/types"
+	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
 )
 
 const ConfigFile = "statsd.json"
@@ -24,17 +24,13 @@ func ConfigMapNSName(ais *aisv1.AIStore) types.NamespacedName {
 	}
 }
 
-func NewStatsDCM(ais *aisv1.AIStore) *corev1.ConfigMap {
-	return &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      ConfigMapName(ais),
-			Namespace: ais.Namespace,
-		},
-		Data: map[string]string{
+func NewStatsDCM(ais *aisv1.AIStore) *corev1ac.ConfigMapApplyConfiguration {
+	return corev1ac.ConfigMap(ConfigMapName(ais), ais.Namespace).
+		WithOwnerReferences(ownerref.NewControllerRef(ais)).
+		WithData(map[string]string{
 			ConfigFile: `{
 				"graphiteHost": "",
 				"graphitePort": 2003
 			}`,
-		},
-	}
+		})
 }

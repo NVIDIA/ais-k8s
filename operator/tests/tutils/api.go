@@ -60,12 +60,9 @@ func CheckResExistence(ctx context.Context, cluster *aisv1.AIStore, aisCfg *AIST
 	}
 
 	// 1. Check rbac exists
-	// 1.1 ServiceAccount
-	EventuallyResourceExists(ctx, k8sClient, cmn.NewAISServiceAccount(cluster), condition, intervals...)
-	// 1.2 Role
-	EventuallyResourceExists(ctx, k8sClient, cmn.NewAISRBACRole(cluster), condition, intervals...)
-	// 1.3 RoleBinding
-	EventuallyResourceExists(ctx, k8sClient, cmn.NewAISRBACRoleBinding(cluster), condition, intervals...)
+	EventuallyResourceExists(ctx, k8sClient, cmn.ServiceAccount(cluster), condition, intervals...)
+	EventuallyResourceExists(ctx, k8sClient, cmn.Role(cluster), condition, intervals...)
+	EventuallyResourceExists(ctx, k8sClient, cmn.RoleBinding(cluster), condition, intervals...)
 
 	// 2. Check for statsD config
 	EventuallyCMExists(ctx, k8sClient, statsd.ConfigMapNSName(cluster), condition, intervals...)
@@ -100,7 +97,7 @@ func CheckResExistence(ctx context.Context, cluster *aisv1.AIStore, aisCfg *AIST
 
 	// 5. Check for TLS certificate (optional)
 	if cluster.UseTLSCertificate() {
-		EventuallyResourceExists(ctx, k8sClient, cmn.NewCertificate(cluster), condition, intervals...)
+		EventuallyResourceExists(ctx, k8sClient, cmn.TLSCertificate(cluster), condition, intervals...)
 		secretNSName := types.NamespacedName{
 			Name:      cmn.CertificateSecretName(cluster),
 			Namespace: cluster.Namespace,
