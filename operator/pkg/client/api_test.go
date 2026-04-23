@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -92,7 +93,7 @@ var _ = Describe("K8sClient", func() {
 			fetchCM := &corev1.ConfigMap{}
 			err = c.Get(ctx, client.ObjectKeyFromObject(cm), fetchCM)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(fetchCM).To(Equal(updatedCM))
+			Expect(fetchCM.Data).To(Equal(updatedCM.Data))
 		})
 
 		It("should be no-op if there is no change", func() {
@@ -137,6 +138,77 @@ var _ = Describe("K8sClient", func() {
 
 			_, err = k8sClient.CreateOrUpdateResource(ctx, ais, podObj)
 			Expect(err).NotTo(HaveOccurred())
+		})
+	})
+
+	Describe("Apply", func() {
+		const (
+			cmName = "test-configmap"
+			nsName = "apply-ns"
+		)
+
+		var (
+			c         client.Client
+			k8sClient *K8sClient
+			cmKey     = client.ObjectKey{Namespace: nsName, Name: cmName}
+			ctx       = context.TODO()
+		)
+
+		BeforeEach(func() {
+			c = newFakeClient(nil)
+			k8sClient = NewClient(c, c.Scheme())
+			ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: nsName}}
+			Expect(c.Create(ctx, ns)).To(Succeed())
+		})
+
+		newCM := func() *corev1ac.ConfigMapApplyConfiguration {
+			return corev1ac.ConfigMap(cmName, nsName).
+				WithData(map[string]string{"test-key": "test-value"})
+		}
+
+		findManagedField := func(cm *corev1.ConfigMap, manager string) *metav1.ManagedFieldsEntry {
+			for i := range cm.ManagedFields {
+				if cm.ManagedFields[i].Manager == manager {
+					return &cm.ManagedFields[i]
+				}
+			}
+			return nil
+		}
+
+		It("should create the object if not exists", func() {
+			Expect(k8sClient.Apply(ctx, newCM())).To(Succeed())
+
+			fetchCM := &corev1.ConfigMap{}
+			Expect(c.Get(ctx, cmKey, fetchCM)).To(Succeed())
+			Expect(fetchCM.Data).To(HaveKeyWithValue("test-key", "test-value"))
+		})
+
+		It("should record the operator field manager with operation Apply", func() {
+			Expect(k8sClient.Apply(ctx, newCM())).To(Succeed())
+
+			fetchCM := &corev1.ConfigMap{}
+			Expect(c.Get(ctx, cmKey, fetchCM)).To(Succeed())
+
+			entry := findManagedField(fetchCM, FieldOwner)
+			Expect(entry).NotTo(BeNil(), "expected a managedFields entry for %q", FieldOwner)
+			Expect(entry.Operation).To(Equal(metav1.ManagedFieldsOperationApply))
+		})
+
+		It("should take over fields owned by another manager (ForceOwnership)", func() {
+			const otherManager = "other-manager"
+			otherApply := corev1ac.ConfigMap(cmName, nsName).
+				WithData(map[string]string{"test-key": "other-value"})
+
+			Expect(c.Apply(ctx, otherApply, client.FieldOwner(otherManager), client.ForceOwnership)).To(Succeed())
+
+			Expect(k8sClient.Apply(ctx, newCM())).To(Succeed())
+
+			fetchCM := &corev1.ConfigMap{}
+			Expect(c.Get(ctx, cmKey, fetchCM)).To(Succeed())
+			Expect(fetchCM.Data).To(HaveKeyWithValue("test-key", "test-value"))
+
+			entry := findManagedField(fetchCM, FieldOwner)
+			Expect(entry).NotTo(BeNil(), "expected operator field manager to have taken ownership")
 		})
 	})
 })

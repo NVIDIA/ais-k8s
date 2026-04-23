@@ -11,6 +11,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/managedfields"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -40,5 +41,7 @@ func newFakeClient(objs []runtime.Object) client.Client {
 	return fake.NewClientBuilder().
 		WithRuntimeObjects(objs...).
 		WithScheme(scheme.Scheme).
+		WithTypeConverters(managedfields.NewDeducedTypeConverter()).
+		WithReturnManagedFields().
 		Build()
 }

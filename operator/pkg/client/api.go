@@ -28,6 +28,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
+// FieldOwner is the field manager used by the operator's Server-Side Apply calls.
+const FieldOwner = "ais-operator"
+
 type (
 	K8sClient struct {
 		client client.Client
@@ -165,6 +168,14 @@ func (c *K8sClient) ListNodesMatchingAISSelectors(ctx context.Context, ais *aisv
 //////////////////////////////////////
 //      Create/Update resources     //
 //////////////////////////////////////
+
+// Apply performs a Server-Side Apply under the operator's field manager.
+// ForceOwnership lets reconciles overwrite external changes (e.g. a kubectl
+// edit) to fields we declare. Builders set any OwnerReference on the apply
+// config.
+func (c *K8sClient) Apply(ctx context.Context, obj runtime.ApplyConfiguration) error {
+	return c.client.Apply(ctx, obj, client.FieldOwner(FieldOwner), client.ForceOwnership)
+}
 
 func (c *K8sClient) Update(ctx context.Context, obj client.Object, opts ...client.UpdateOption) error {
 	return c.client.Update(ctx, obj, opts...)
