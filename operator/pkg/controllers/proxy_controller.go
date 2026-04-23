@@ -7,7 +7,6 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
@@ -343,7 +342,7 @@ func (r *AIStoreReconciler) setPrimaryTo(ctx context.Context, ais *aisv1.AIStore
 		return err
 	}
 	// Primary already set to pod at given pod index
-	if strings.HasPrefix(smap.Primary.ControlNet.Hostname, podName) {
+	if hostnameMatchesPod(smap.Primary.ControlNet.Hostname, podName) {
 		return nil
 	}
 
@@ -375,7 +374,7 @@ func (r *AIStoreReconciler) handleProxyScaledown(ctx context.Context, ais *aisv1
 	// Find the current primary pod index
 	currentPrimaryPodIdx := int32(-1)
 	for idx := range currentSize {
-		if strings.HasPrefix(smap.Primary.ControlNet.Hostname, proxy.PodName(ais, idx)) {
+		if hostnameMatchesPod(smap.Primary.ControlNet.Hostname, proxy.PodName(ais, idx)) {
 			currentPrimaryPodIdx = idx
 			break
 		}

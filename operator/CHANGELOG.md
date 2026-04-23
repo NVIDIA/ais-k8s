@@ -12,6 +12,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ### Changed
 
+- Fixed a bug where API calls to specific AIS nodes could select the incorrect nodes. Cluster map lookup used the pod name prefix, but could previously falsely match an entry with hostname `ais-target-10.ais.svc.cluster.local` when using `ais-target-1` as a prefix.
 - Skip creating unused cert-manager Certificate in CSI TLS mode.
 
 ## v2.17.0

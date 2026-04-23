@@ -322,13 +322,16 @@ func syncPodTemplate(desired, current *corev1.PodTemplateSpec) (updated bool) {
 	return
 }
 
+// hostnameMatchesPod checks if a hostname belongs to the given pod by matching
+// the pod name exactly or as the first DNS label of an FQDN (podName + ".").
+// Plain HasPrefix is unsafe (e.g. "ais-target-1" prefixes "ais-target-10").
+func hostnameMatchesPod(hostname, podName string) bool {
+	return hostname == podName || strings.HasPrefix(hostname, podName+".")
+}
+
 func findAISNodeByPodName(nodeMap aismeta.NodeMap, podName string) (*aismeta.Snode, error) {
 	for _, node := range nodeMap {
-		hostname := node.ControlNet.Hostname
-		// Match on exact pod name or on an FQDN whose first label is the pod name.
-		// Plain HasPrefix is unsafe: "ais-target-1" is a prefix of "ais-target-10",
-		// which would cause the wrong node to be marked for maintenance during rollout.
-		if hostname == podName || strings.HasPrefix(hostname, podName+".") {
+		if hostnameMatchesPod(node.ControlNet.Hostname, podName) {
 			return node, nil
 		}
 	}

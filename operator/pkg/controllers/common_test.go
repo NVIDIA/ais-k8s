@@ -374,6 +374,21 @@ var _ = Describe("findAISNodeByPodName", func() {
 	})
 })
 
+var _ = Describe("hostnameMatchesPod", func() {
+	DescribeTable("matches only when the hostname's first label equals the pod name",
+		func(hostname, podName string, expected bool) {
+			Expect(hostnameMatchesPod(hostname, podName)).To(Equal(expected))
+		},
+		Entry("exact match", "ais-target-1", "ais-target-1", true),
+		Entry("FQDN first label match", "ais-target-1.ais-target.ais.svc.cluster.local", "ais-target-1", true),
+		Entry("rooted FQDN first label match", "ais-target-1.ais-target.ais.svc.cluster.local.", "ais-target-1", true),
+		Entry("longer ordinal must not match (bare)", "ais-target-10", "ais-target-1", false),
+		Entry("longer ordinal must not match (FQDN)", "ais-target-10.ais-target.ais.svc.cluster.local", "ais-target-1", false),
+		Entry("unrelated hostname", "ais-proxy-1", "ais-target-1", false),
+		Entry("empty hostname", "", "ais-target-1", false),
+	)
+})
+
 var _ = Describe("isStatefulSetReady", func() {
 	r := &AIStoreReconciler{}
 	DescribeTable("should correctly detect readiness",
