@@ -7,6 +7,7 @@ package controllers
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	aismeta "github.com/NVIDIA/aistore/core/meta"
 	"github.com/ais-operator/pkg/resources/cmn"
@@ -22,6 +23,8 @@ const (
 	SyncModeIgnoreRemovedEnv
 	SyncModeIgnoreAddedEnv
 )
+
+const statefulsetRequeueDelay = time.Second
 
 // Given a desired and current pod template spec, determine if we need to trigger a rollout to sync
 // When the actual sync happens, specs will be updated
@@ -365,6 +368,13 @@ func syncSidecarContainer(desired, current *corev1.PodTemplateSpec) (updated boo
 // desired count specified in the CR, indicating a scaling operation should be initiated.
 func isScalingNeeded(ss *appsv1.StatefulSet, desired int32) bool {
 	return *ss.Spec.Replicas != desired
+}
+
+// isStatusCurrent returns true if the StatefulSet controller has processed the latest spec change.
+// When metadata.generation > status.observedGeneration, status fields like UpdateRevision and
+// CurrentRevision are stale and cannot be trusted.
+func isStatusCurrent(ss *appsv1.StatefulSet) bool {
+	return ss.Status.ObservedGeneration >= ss.Generation
 }
 
 // isRolloutInProgress returns true if a StatefulSet has an active rollout.

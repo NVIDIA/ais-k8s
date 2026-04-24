@@ -1150,6 +1150,7 @@ func createStatefulSets(ctx context.Context, c client.Client, ais *aisv1.AIStore
 	for _, ssName := range []string{"ais-proxy", "ais-target"} {
 		ss := getStatefulSet(ctx, ais, c, ssName)
 		ss.Status.Replicas = *ss.Spec.Replicas
+		ss.Status.ObservedGeneration = ss.Generation
 		Expect(c.Status().Update(ctx, &ss)).To(Succeed())
 	}
 }

@@ -123,12 +123,19 @@ func (r *AIStoreReconciler) handleTargetState(ctx context.Context, ais *aisv1.AI
 		return
 	}
 
+	logger := logf.FromContext(ctx)
+	// Check status -- fields like UpdateRevision and CurrentRevision are unreliable when stale.
+	if !isStatusCurrent(ss) {
+		logger.V(1).Info("Target StatefulSet status is stale, re-queueing")
+		return ctrl.Result{RequeueAfter: statefulsetRequeueDelay}, nil
+	}
+
 	rolling := isRolloutInProgress(ss)
 	scaling := isScalingInProgress(ss)
 	rolloutNeeded, _ := shouldUpdatePodTemplate(&target.NewTargetSS(ais, ais.GetTargetSize()).Spec.Template, &ss.Spec.Template)
 	scalingNeeded := isScalingNeeded(ss, ais.GetTargetSize())
 
-	logger := logf.FromContext(ctx).WithValues(
+	logger = logger.WithValues(
 		"statefulset", ss.Name,
 		"specReplicas", *ss.Spec.Replicas, "statusReplicas", ss.Status.Replicas,
 		"readyReplicas", ss.Status.ReadyReplicas, "desiredSize", ais.GetTargetSize(),
@@ -139,10 +146,7 @@ func (r *AIStoreReconciler) handleTargetState(ctx context.Context, ais *aisv1.AI
 	if policyUpdated, policyErr := r.syncTargetPVCRetentionPolicy(ctx, ais, ss); policyErr != nil {
 		return ctrl.Result{}, policyErr
 	} else if policyUpdated {
-		ss, err = r.k8sClient.GetStatefulSet(ctx, target.StatefulSetNSName(ais))
-		if err != nil {
-			return
-		}
+		return ctrl.Result{RequeueAfter: statefulsetRequeueDelay}, nil
 	}
 
 	// Apply template update (blocked by scaling in progress)
@@ -434,7 +438,6 @@ func (r *AIStoreReconciler) findPodNeedingUpdate(ctx context.Context, ais *aisv1
 
 func (r *AIStoreReconciler) handleTargetRollout(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) (ctrl.Result, error) {
 	logger := logf.FromContext(ctx)
-
 	// Only handle rollouts if there's a revision mismatch
 	if ss.Status.UpdateRevision == "" || ss.Status.CurrentRevision == ss.Status.UpdateRevision {
 		return ctrl.Result{}, nil

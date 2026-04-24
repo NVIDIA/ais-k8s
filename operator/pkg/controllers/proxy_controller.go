@@ -131,12 +131,19 @@ func (r *AIStoreReconciler) handleProxyState(ctx context.Context, ais *aisv1.AIS
 		return
 	}
 
+	logger := logf.FromContext(ctx)
+	// Check status -- fields like UpdateRevision and CurrentRevision are unreliable when stale.
+	if !isStatusCurrent(ss) {
+		logger.V(1).Info("Proxy StatefulSet status is stale, re-queueing")
+		return ctrl.Result{RequeueAfter: statefulsetRequeueDelay}, nil
+	}
+
 	rolling := isRolloutInProgress(ss)
 	scaling := isScalingInProgress(ss)
 	rolloutNeeded, _ := shouldUpdatePodTemplate(&proxy.NewProxyStatefulSet(ais, ais.GetProxySize()).Spec.Template, &ss.Spec.Template)
 	scalingNeeded := isScalingNeeded(ss, ais.GetProxySize())
 
-	logger := logf.FromContext(ctx).WithValues(
+	logger = logger.WithValues(
 		"statefulset", ss.Name,
 		"specReplicas", *ss.Spec.Replicas, "statusReplicas", ss.Status.Replicas,
 		"readyReplicas", ss.Status.ReadyReplicas, "desiredSize", ais.GetProxySize(),
@@ -156,10 +163,7 @@ func (r *AIStoreReconciler) handleProxyState(ctx context.Context, ais *aisv1.AIS
 	if policyUpdated, policyErr := r.syncProxyPVCRetentionPolicy(ctx, ais, ss); policyErr != nil {
 		return result, policyErr
 	} else if policyUpdated {
-		ss, err = r.k8sClient.GetStatefulSet(ctx, proxySSName)
-		if err != nil {
-			return
-		}
+		return ctrl.Result{RequeueAfter: statefulsetRequeueDelay}, nil
 	}
 
 	// Apply scaling (blocked by rollout in progress)

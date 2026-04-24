@@ -11,6 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var _ = Describe("compareEnvWithIgnored", func() {
@@ -90,21 +91,44 @@ var _ = Describe("compareEnvWithIgnored", func() {
 })
 
 // makeSS is a helper that builds a StatefulSet with the given spec/status fields.
+// Generation and ObservedGeneration both default to 1 (status is current).
 func makeSS(specReplicas, statusReplicas, updatedReplicas, readyReplicas int32, currentRev, updateRev string, strategy appsv1.StatefulSetUpdateStrategyType) *appsv1.StatefulSet {
+	ss := makeSSWithGeneration(specReplicas, statusReplicas, updatedReplicas, readyReplicas, currentRev, updateRev, strategy, 1, 1)
+	return ss
+}
+
+// makeSSWithGeneration extends makeSS with explicit generation and observedGeneration values.
+func makeSSWithGeneration(specReplicas, statusReplicas, updatedReplicas, readyReplicas int32, currentRev, updateRev string, strategy appsv1.StatefulSetUpdateStrategyType, generation, observedGeneration int64) *appsv1.StatefulSet {
 	return &appsv1.StatefulSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Generation: generation,
+		},
 		Spec: appsv1.StatefulSetSpec{
 			Replicas:       apc.Ptr(specReplicas),
 			UpdateStrategy: appsv1.StatefulSetUpdateStrategy{Type: strategy},
 		},
 		Status: appsv1.StatefulSetStatus{
-			Replicas:        statusReplicas,
-			UpdatedReplicas: updatedReplicas,
-			ReadyReplicas:   readyReplicas,
-			CurrentRevision: currentRev,
-			UpdateRevision:  updateRev,
+			ObservedGeneration: observedGeneration,
+			Replicas:           statusReplicas,
+			UpdatedReplicas:    updatedReplicas,
+			ReadyReplicas:      readyReplicas,
+			CurrentRevision:    currentRev,
+			UpdateRevision:     updateRev,
 		},
 	}
 }
+
+var _ = Describe("isStatusCurrent", func() {
+	DescribeTable("should detect whether status is current",
+		func(generation, observedGeneration int64, expected bool) {
+			ss := makeSSWithGeneration(3, 3, 3, 3, "rev-1", "rev-1", appsv1.RollingUpdateStatefulSetStrategyType, generation, observedGeneration)
+			Expect(isStatusCurrent(ss)).To(Equal(expected))
+		},
+		Entry("generation matches observed (current)", int64(1), int64(1), true),
+		Entry("generation ahead of observed (stale)", int64(2), int64(1), false),
+		Entry("both zero (fresh object)", int64(0), int64(0), true),
+	)
+})
 
 var _ = Describe("isRolloutInProgress", func() {
 	check := func(ss *appsv1.StatefulSet, expected bool) {
