@@ -14,8 +14,12 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 - Fixed a bug where API calls to specific AIS nodes could select the incorrect nodes. Cluster map lookup used the pod name prefix, but could previously falsely match an entry with hostname `ais-target-10.ais.svc.cluster.local` when using `ais-target-1` as a prefix.
 - Skip creating unused cert-manager Certificate in CSI TLS mode.
-- Migrated reconciliation of ConfigMaps, RBAC (ServiceAccount, Role, RoleBinding), and cert-manager Certificate to server-side apply.
 - Fixed a bug where a slow StatefulSet controller could result in delayed ObservedGeneration update, causing a re-enable of rebalance during rollout
+- Migrated reconciliation of resources to server-side apply:
+  - ConfigMaps
+  - RBAC (ServiceAccount, Role, RoleBinding)
+  - cert-manager Certificate
+  - proxy/target Services (headless and LoadBalancer)
 
 ## v2.17.0
 

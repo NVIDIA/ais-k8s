@@ -42,7 +42,7 @@ func (r *AIStoreReconciler) ensureProxyPrereqs(ctx context.Context, ais *aisv1.A
 	}
 
 	svc := proxy.NewProxyHeadlessSvc(ais)
-	if _, err = r.k8sClient.CreateOrUpdateResource(ctx, ais, svc); err != nil {
+	if err = r.k8sClient.Apply(ctx, svc); err != nil {
 		r.recordError(ctx, ais, err, "Failed to deploy SVC")
 		return
 	}
@@ -440,18 +440,17 @@ func (r *AIStoreReconciler) reassignPrimaryForScaledown(ctx context.Context, ais
 // `proxies` have a single LoadBalancer service across all the proxy pods.
 func (r *AIStoreReconciler) enableProxyExternalService(ctx context.Context, ais *aisv1.AIStore) (ready bool, err error) {
 	proxyLBSVC := proxy.NewProxyLoadBalancerSVC(ais)
-	_, err = r.k8sClient.CreateOrUpdateResource(ctx, ais, proxyLBSVC)
-	if err != nil {
+	if err = r.k8sClient.Apply(ctx, proxyLBSVC); err != nil {
 		return
 	}
 
 	// If SVC already exists, check if external IP is allocated
-	proxyLBSVC, err = r.k8sClient.GetService(ctx, proxy.LoadBalancerSVCNSName(ais))
+	svc, err := r.k8sClient.GetService(ctx, proxy.LoadBalancerSVCNSName(ais))
 	if err != nil {
 		return
 	}
 
-	for _, ing := range proxyLBSVC.Status.LoadBalancer.Ingress {
+	for _, ing := range svc.Status.LoadBalancer.Ingress {
 		if ing.IP != "" {
 			ready = true
 			return
