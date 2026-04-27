@@ -251,7 +251,7 @@ package-chart: build-installer-helm helm
 
 .PHONY: release
 release: package-chart
-	git add ../pages/charts config/overlays/default/kustomization.yaml helm/ais-operator
+	git add ../pages/charts config/overlays/default/kustomization.yaml helm/ais-operator CHANGELOG.md
 	git commit -s -m "operator: Release version $(VERSION)"
 
 .PHONY: operator-sdk-generate ## Use the operator-sdk CLI to generate kustomize manifests
