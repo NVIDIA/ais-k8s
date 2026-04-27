@@ -1161,7 +1161,7 @@ spec:
                   image:
                     description: |-
                       Image is the container image for the admin client
-                      Defaults to "aistorage/ais-util:latest"
+                      Defaults to "docker.io/aistorage/ais-util:latest"
                     type: string
                   imagePullPolicy:
                     description: ImagePullPolicy for the admin client container

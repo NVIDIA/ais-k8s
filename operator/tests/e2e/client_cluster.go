@@ -192,8 +192,8 @@ func (cc *clientCluster) patchImagesToCurrent(ctx context.Context) {
 func (cc *clientCluster) patchImagesToBroken(ctx context.Context) {
 	cc.fetchLatestCluster(ctx)
 	newSpec := cc.cluster.Spec.DeepCopy()
-	newSpec.NodeImage = "aistorage/aisnode:non-existent-tag"
-	newSpec.InitImage = "aistorage/ais-init:non-existent-tag"
+	newSpec.NodeImage = "docker.io/aistorage/aisnode:non-existent-tag"
+	newSpec.InitImage = "docker.io/aistorage/ais-init:non-existent-tag"
 	cc.patchClusterSpecNoWait(ctx, newSpec)
 }
 

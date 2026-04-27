@@ -21,8 +21,8 @@ spec:
   # JWT signing key secret (required for AuthN verification)
   authNSecretName: ais-authn-secret
 
-  nodeImage: "aistorage/aisnode:latest"
-  initImage: "aistorage/ais-init:latest"
+  nodeImage: "docker.io/aistorage/aisnode:latest"
+  initImage: "docker.io/aistorage/ais-init:latest"
 
   proxySpec:
     servicePort: 51080
@@ -63,8 +63,8 @@ spec:
   # JWT signing key secret (required for AuthN verification)
   authNSecretName: ais-authn-secret
 
-  nodeImage: "aistorage/aisnode:latest"
-  initImage: "aistorage/ais-init:latest"
+  nodeImage: "docker.io/aistorage/aisnode:latest"
+  initImage: "docker.io/aistorage/ais-init:latest"
 
   proxySpec:
     servicePort: 51080
@@ -116,8 +116,8 @@ spec:
   # JWT signing key secret 
   authNSecretName: ais-authn-secret
 
-  nodeImage: "aistorage/aisnode:latest"
-  initImage: "aistorage/ais-init:latest"
+  nodeImage: "docker.io/aistorage/aisnode:latest"
+  initImage: "docker.io/aistorage/ais-init:latest"
 
   proxySpec:
     servicePort: 51080

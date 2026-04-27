@@ -22,7 +22,7 @@ import (
 
 const (
 	// DefaultClientImage is the default container image for the client pod
-	DefaultClientImage = "aistorage/ais-util:latest"
+	DefaultClientImage = "docker.io/aistorage/ais-util:latest"
 	// DefaultCABundleKey is the default key name for the CA bundle in the ConfigMap
 	DefaultCABundleKey = "trust-bundle.pem"
 	// ClientCAMountPath is the path where CA certificates are mounted

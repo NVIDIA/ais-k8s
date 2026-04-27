@@ -8,6 +8,10 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ---
 
+## Unreleased
+
+- Updated default image for adminClient deployment to use fully qualified registry `docker.io/aistorage/ais-util`
+
 ## v2.18.0
 
 ### Changed

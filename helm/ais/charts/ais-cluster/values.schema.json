@@ -172,7 +172,7 @@
         "name": {
           "type": "string",
           "description": "Container image repository.",
-          "examples": ["aistorage/aisnode"]
+          "examples": ["docker.io/aistorage/aisnode"]
         },
         "tag": {
           "type": "string",
@@ -188,7 +188,7 @@
         "name": {
           "type": "string",
           "description": "Repository for init utility container.",
-          "examples": ["aistorage/ais-init"]
+          "examples": ["docker.io/aistorage/ais-init"]
         },
         "tag": {
           "type": "string",
@@ -204,7 +204,7 @@
         "name": {
           "type": "string",
           "description": "Repository for log sidecar image.",
-          "examples": ["aistorage/ais-logs"]
+          "examples": ["docker.io/aistorage/ais-logs"]
         },
         "tag": {
           "type": "string",
@@ -578,7 +578,7 @@
         "image": {
           "type": "string",
           "description": "Container image for the admin client.",
-          "examples": ["aistorage/ais-util:latest"]
+          "examples": ["docker.io/aistorage/ais-util:latest"]
         },
         "imagePullPolicy": {
           "type": "string",

@@ -92,8 +92,8 @@ spec:
       size: 5T
       storageClass: ais-local-storage
   hostpathPrefix: "/etc/ais"
-  nodeImage: "aistorage/aisnode:latest"
-  initImage: "aistorage/ais-init:latest"
+  nodeImage: "docker.io/aistorage/aisnode:latest"
+  initImage: "docker.io/aistorage/ais-init:latest"
   enableExternalLB: false
   logsDir: "/var/log/ais"
   clusterDomain: "cluster.local"

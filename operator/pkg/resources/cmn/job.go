@@ -69,7 +69,7 @@ func createContainerSpec(hostpathPrefix string) []corev1.Container {
 	return []corev1.Container{
 		{
 			Name:    "cleanup",
-			Image:   "aistorage/ais-operator-helper:latest",
+			Image:   "docker.io/aistorage/ais-operator-helper:latest",
 			Command: []string{"/cleanup-helper", "-dir=" + hostpathPrefix},
 			VolumeMounts: []corev1.VolumeMount{
 				{

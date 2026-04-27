@@ -22,11 +22,11 @@ import (
 )
 
 const (
-	DefaultNodeImage     = "aistorage/aisnode:v4.4"
-	DefaultInitImage     = "aistorage/ais-init:v4.4"
-	DefaultLogsImage     = "aistorage/ais-logs:v1.1"
-	DefaultPrevNodeImage = "aistorage/aisnode:v4.3"
-	DefaultPrevInitImage = "aistorage/ais-init:v4.3"
+	DefaultNodeImage     = "docker.io/aistorage/aisnode:v4.4"
+	DefaultInitImage     = "docker.io/aistorage/ais-init:v4.4"
+	DefaultLogsImage     = "docker.io/aistorage/ais-logs:v1.1"
+	DefaultPrevNodeImage = "docker.io/aistorage/aisnode:v4.3"
+	DefaultPrevInitImage = "docker.io/aistorage/ais-init:v4.3"
 	TestNSBase           = "ais-op-test"
 	TestNSOtherBase      = "ais-op-test-other"
 )

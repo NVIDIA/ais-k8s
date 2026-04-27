@@ -186,7 +186,7 @@ type AdminClientSpec struct {
 	Enabled *bool `json:"enabled,omitempty"`
 
 	// Image is the container image for the admin client
-	// Defaults to "aistorage/ais-util:latest"
+	// Defaults to "docker.io/aistorage/ais-util:latest"
 	// +optional
 	Image *string `json:"image,omitempty"`
 

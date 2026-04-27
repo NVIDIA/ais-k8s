@@ -77,8 +77,8 @@ spec:
         client_ca_tls: "/var/certs/ca.crt"
         client_auth_tls: 0
 
-  nodeImage: "aistorage/aisnode:v3.25"
-  initImage: "aistorage/ais-init:v3.25"
+  nodeImage: "docker.io/aistorage/aisnode:v3.25"
+  initImage: "docker.io/aistorage/ais-init:v3.25"
   hostpathPrefix: "/etc/ais"
   logsDir:
   tls:

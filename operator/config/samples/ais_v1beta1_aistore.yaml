@@ -29,8 +29,8 @@ spec:
         # Tells AIS to allow disk sharing between these mountpaths
         label: "disk1"
 
-  nodeImage: "aistorage/aisnode:v3.25"
-  initImage: "aistorage/ais-init:v3.25"
+  nodeImage: "docker.io/aistorage/aisnode:v3.25"
+  initImage: "docker.io/aistorage/ais-init:v3.25"
   hostpathPrefix: "/etc/ais"
   logsDir: "/var/log/ais"
 
