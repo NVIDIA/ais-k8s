@@ -11,10 +11,6 @@ environments:
     values:
       - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git//helm/monitoring/alloy/config/@oci-iad.yaml?ref=main"
         container_runtime: crio
-  neb-fin: 
-    values:
-      - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git//helm/monitoring/alloy/config/@neb-fin.yaml?ref=main"
-        container_runtime: containerd
   sjc112: 
     values:
       - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git//helm/monitoring/alloy/config/@sjc112.yaml?ref=main"

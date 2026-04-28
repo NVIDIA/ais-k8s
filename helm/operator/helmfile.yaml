@@ -52,13 +52,6 @@ environments:
     - createCert:
         enabled: true
         valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/operator/config/tls-cert/sjc112.yaml?ref=main"
-
-  aws-east1-eks1-test:
-    values:
-    - valuesPath: ./config/operator/default.yaml.gotmpl
-    - createCert:
-        enabled: false
-
 ---
 repositories:
   - name: aistore
