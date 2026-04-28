@@ -10,7 +10,7 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     container:
-      image: aistorage/gitlab-ci:latest
+      image: docker.io/aistorage/gitlab-ci:latest
     defaults:
       run:
         working-directory: operator

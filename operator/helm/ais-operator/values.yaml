@@ -10,7 +10,7 @@ controllerManager:
     env:
       operatorSkipVerifyCrt: "True"
     image:
-      repository: aistorage/ais-operator
+      repository: docker.io/aistorage/ais-operator
       tag: v2.18.0
     resources:
       limits:

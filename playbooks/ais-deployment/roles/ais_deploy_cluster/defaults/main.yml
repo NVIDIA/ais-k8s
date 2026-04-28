@@ -1,6 +1,6 @@
-init_image: aistorage/ais-init:v4.4
-node_image: aistorage/aisnode:v4.4
-logs_image: aistorage/ais-logs:v1.1
+init_image: docker.io/aistorage/ais-init:v4.4
+node_image: docker.io/aistorage/aisnode:v4.4
+logs_image: docker.io/aistorage/ais-logs:v1.1
 
 # Cloud
 gcp_secret_name: ""

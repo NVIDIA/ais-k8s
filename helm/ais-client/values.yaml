@@ -1,5 +1,5 @@
 image:
-  repository: aistorage/ais-util
+  repository: docker.io/aistorage/ais-util
   tag: latest
   pullPolicy: IfNotPresent
 

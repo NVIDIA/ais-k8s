@@ -1,5 +1,5 @@
 variables:
-  CI_IMAGE: aistorage/gitlab-ci:latest
+  CI_IMAGE: docker.io/aistorage/gitlab-ci:latest
   RUNNER_TAG: ais-k8s-ci
 
 image: $CI_IMAGE
