@@ -73,14 +73,16 @@ fi
 
 # --- Phase 2: Delete Released PVs ---
 
-RELEASED_PVS=$(kubectl get pv \
-  -l "cluster=$CLUSTER" \
-  -o jsonpath="{range .items[?(@.spec.storageClassName==\"$STORAGE_CLASS\")]}{.metadata.name} {.status.phase}{'\n'}{end}" \
-  | awk '$2 == "Released" {print $1}')
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if $DRY_RUN; then
     # In dry-run mode, PVCs weren't deleted so PVs are still Bound; include them
     # along with any already-Released PVs.
+    RELEASED_PVS=$(kubectl get pv \
+      -l "cluster=$CLUSTER" \
+      -o jsonpath="{range .items[?(@.spec.storageClassName==\"$STORAGE_CLASS\")]}{.metadata.name} {.status.phase}{'\n'}{end}" \
+      | awk '$2 == "Released" {print $1}')
+
     if [ -n "${BOUND_PVS:-}" ]; then
         PV_LIST=$(printf '%s\n%s' "${RELEASED_PVS:-}" "$BOUND_PVS" | sort -u | grep -v '^$' || true)
     else
@@ -92,30 +94,11 @@ if $DRY_RUN; then
     fi
     echo ""
     echo "PVs that would be deleted for cluster '$CLUSTER':"
-else
-    PV_LIST="$RELEASED_PVS"
-    if [ -z "$PV_LIST" ]; then
-        echo "No Released PVs found for cluster '$CLUSTER'."
-        exit 0
-    fi
+    # shellcheck disable=SC2086
+    kubectl get pv $PV_LIST
     echo ""
-    echo "Released PVs to delete for cluster '$CLUSTER':"
-fi
-
-# shellcheck disable=SC2086
-kubectl get pv $PV_LIST
-echo ""
-PV_COUNT=$(echo "$PV_LIST" | wc -l | tr -d ' ')
-
-if $DRY_RUN; then
+    PV_COUNT=$(echo "$PV_LIST" | wc -l | tr -d ' ')
     echo "[dry run] Would delete $PV_COUNT PV(s)."
 else
-    read -r -p "Delete these $PV_COUNT PV(s)? [y/N]: " CONFIRM
-    case "$CONFIRM" in
-        [yY][eE][sS]|[yY]) ;;
-        *) echo "Aborted. No PVs were deleted."; exit 0 ;;
-    esac
-
-    # shellcheck disable=SC2086
-    kubectl delete pv $PV_LIST
+    "$SCRIPT_DIR/delete-released-pvs.sh" "$CLUSTER" "$STORAGE_CLASS"
 fi
