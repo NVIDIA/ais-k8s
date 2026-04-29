@@ -182,7 +182,12 @@ func getTLSCSIVolumeSource(ais *v1beta1.AIStore, daeType string) corev1.VolumeSo
 	}
 	name := ais.Name + "-" + daeType
 	issuerRef := certConfig.IssuerRef
-	dnsNames, _ := buildCertificateSANs(ais)
+	// CSI mode intentionally omits cluster-node SANs: those hosts are derived
+	// from selector-matched nodes, and threading that list into the pod template
+	// would force a StatefulSet rollout on every node-list change. Operators
+	// needing node-level SANs in CSI mode must populate Spec.HostnameMap or
+	// AdditionalDNSNames explicitly, or use the non-CSI Certificate path.
+	dnsNames, _ := buildCertificateSANs(ais, nil)
 
 	attrs := map[string]string{
 		csiapisv1.IssuerNameKey: issuerRef.Name,

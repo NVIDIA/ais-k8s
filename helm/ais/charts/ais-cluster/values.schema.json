@@ -125,7 +125,7 @@
             },
             "mode": {
               "type": "string",
-              "description": "Certificate delivery mode: 'secret' (shared secret) or 'csi' (per-pod certificates via CSI driver). Defaults to 'secret'.",
+              "description": "Certificate delivery mode: 'secret' (shared) or 'csi' (per-pod via CSI driver). Defaults to 'secret'. In 'csi' mode, node-derived SANs are not auto-included; use additionalDNSNames or hostnameMap.",
               "enum": ["secret", "csi"],
               "default": "secret",
               "examples": ["secret", "csi"]

@@ -41,7 +41,7 @@ func CertificateNSName(ais *aisv1.AIStore) types.NamespacedName {
 	}
 }
 
-func NewCertificate(ais *aisv1.AIStore) *cmapiv1ac.CertificateApplyConfiguration {
+func NewCertificate(ais *aisv1.AIStore, publicHosts []string) *cmapiv1ac.CertificateApplyConfiguration {
 	certConfig := ais.GetTLSCertificate()
 	if certConfig == nil {
 		return nil
@@ -60,7 +60,7 @@ func NewCertificate(ais *aisv1.AIStore) *cmapiv1ac.CertificateApplyConfiguration
 		renewBefore = certConfig.RenewBefore.Duration
 	}
 
-	dnsNames, ipAddresses := buildCertificateSANs(ais)
+	dnsNames, ipAddresses := buildCertificateSANs(ais, publicHosts)
 
 	issuerRef := cmmetav1ac.IssuerReference().
 		WithName(certConfig.IssuerRef.Name).
@@ -92,7 +92,7 @@ func addServiceDNSNames(names []string, svcName, namespace, clusterDomain string
 	)
 }
 
-func buildCertificateSANs(ais *aisv1.AIStore) (dnsNames, ipAddresses []string) {
+func buildCertificateSANs(ais *aisv1.AIStore, publicHosts []string) (dnsNames, ipAddresses []string) {
 	clusterDomain := ais.GetClusterDomain()
 
 	// Add DNS names for proxy service
@@ -119,12 +119,8 @@ func buildCertificateSANs(ais *aisv1.AIStore) (dnsNames, ipAddresses []string) {
 		}
 	}
 
-	// Add auto-discovered node names
-	for _, nodeName := range ais.Status.AutoScaleStatus.ExpectedTargetNodes {
-		addHostOrIP(nodeName, &dnsNames, &ipAddresses)
-	}
-	for _, nodeName := range ais.Status.AutoScaleStatus.ExpectedProxyNodes {
-		addHostOrIP(nodeName, &dnsNames, &ipAddresses)
+	for _, host := range publicHosts {
+		addHostOrIP(host, &dnsNames, &ipAddresses)
 	}
 
 	// Add user-specified additional DNS names

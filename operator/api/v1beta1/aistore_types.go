@@ -244,9 +244,11 @@ type CAConfigMapRef struct {
 type TLSCertificateMode string
 
 const (
-	// TLSCertificateModeSecret uses a shared Secret mounted to all pods
+	// TLSCertificateModeSecret uses a shared Secret mounted to all pods. SANs
+	// include service DNS names and request redirect addresses based on publicNetDNSMode.
 	TLSCertificateModeSecret TLSCertificateMode = "secret"
-	// TLSCertificateModeCSI uses cert-manager CSI driver for per-pod certificates
+	// TLSCertificateModeCSI uses cert-manager CSI driver for per-pod certificates.
+	// Node-derived SANs are not auto-included; use additionalDNSNames or hostnameMap.
 	TLSCertificateModeCSI TLSCertificateMode = "csi"
 )
 
@@ -826,11 +828,17 @@ func (ais *AIStore) GetDiscoveryProxyURL() string {
 	return fmt.Sprintf("%s://%s.%s.%s", ais.getScheme(), svcName, ais.Namespace, svcSuffix)
 }
 
-func (ais *AIStore) UseNodeNameForPublicNet() bool {
-	if ais.Spec.PublicNetDNSMode != nil && *ais.Spec.PublicNetDNSMode == PubNetDNSModeNode {
-		return true
+// GetPublicNetDNSMode returns the configured public network DNS mode,
+// defaulting to PubNetDNSModeIP when unset.
+func (ais *AIStore) GetPublicNetDNSMode() PubNetDNSMode {
+	if ais.Spec.PublicNetDNSMode == nil {
+		return PubNetDNSModeIP
 	}
-	return false
+	return *ais.Spec.PublicNetDNSMode
+}
+
+func (ais *AIStore) UseNodeNameForPublicNet() bool {
+	return ais.GetPublicNetDNSMode() == PubNetDNSModeNode
 }
 
 func (ais *AIStore) getScheme() string {

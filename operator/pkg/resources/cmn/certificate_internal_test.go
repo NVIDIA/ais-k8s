@@ -26,15 +26,13 @@ var _ = Describe("buildCertificateSANs", func() {
 					"test-worker-1": "test-worker-1, 127.0.0.1",
 				},
 			},
-			Status: aisv1.AIStoreStatus{
-				AutoScaleStatus: aisv1.AutoScaleStatus{
-					ExpectedTargetNodes: []string{"test-target-node-1", "test-target-node-2"},
-					ExpectedProxyNodes:  []string{"test-proxy-node-1", "test-proxy-node-2"},
-				},
-			},
+		}
+		nodeNames := []string{
+			"test-target-node-1", "test-target-node-2",
+			"test-proxy-node-1", "test-proxy-node-2",
 		}
 
-		dnsNames, ipAddresses := buildCertificateSANs(ais)
+		dnsNames, ipAddresses := buildCertificateSANs(ais, nodeNames)
 
 		Expect(dnsNames).To(ContainElement("test-cluster-proxy"))
 		Expect(dnsNames).To(ContainElement("test-cluster-proxy.test-ns"))

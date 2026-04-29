@@ -120,6 +120,20 @@ func DestroyCluster(ctx context.Context, client *aisclient.K8sClient,
 	EventuallyCRNotExists(ctx, client, cluster, intervals...)
 }
 
+// GetNodeNamesAndIPs returns names and primary IPs of nodes matching the given selector.
+func GetNodeNamesAndIPs(ctx context.Context, c *aisclient.K8sClient, selector map[string]string) (names, ips []string) {
+	matched, err := c.ListNodesMatchingSelector(ctx, selector)
+	Expect(err).To(BeNil())
+	for i := range matched.Items {
+		node := &matched.Items[i]
+		names = append(names, node.Name)
+		if ip := aisclient.NodePrimaryIP(node); ip != "" {
+			ips = append(ips, ip)
+		}
+	}
+	return names, ips
+}
+
 func EventuallyCRNotExists(ctx context.Context, client *aisclient.K8sClient,
 	cluster *aisv1.AIStore, intervals ...interface{},
 ) {

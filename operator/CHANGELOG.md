@@ -11,6 +11,9 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 ## Unreleased
 
 - Updated default image for adminClient deployment to use fully qualified registry `docker.io/aistorage/ais-util`
+- `tls.certificate.mode: secret` certificates now include cluster-node hosts as SANs (per `publicNetDNSMode`) regardless of autoscaling.
+- `tls.certificate.mode: csi` no longer auto-includes node-derived SANs in autoscale-enabled clusters; specify hosts via `additionalDNSNames` or `hostnameMap`.
+  - Prior behavior injected the autoscale node list into per-pod CSI cert SANs, forcing a pod rollout on every node change.
 
 ## v2.18.0
 

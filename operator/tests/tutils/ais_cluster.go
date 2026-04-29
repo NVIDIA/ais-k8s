@@ -47,6 +47,9 @@ type (
 		EnableAdminClient         bool
 		EnableTargetPDB           bool
 		TLS                       *TLSArgs
+		PublicNetDNSMode          aisv1.PubNetDNSMode
+		ProxyNodeSelector         map[string]string
+		TargetNodeSelector        map[string]string
 		ShutdownCluster           bool
 		CleanupMetadata           bool
 		CleanupData               bool
@@ -232,6 +235,18 @@ func newAISClusterCR(args *ClusterSpecArgs, mounts []aisv1.Mount) *aisv1.AIStore
 
 	if args.TLS != nil {
 		spec.TLS = buildTLSSpec(args.TLS)
+	}
+
+	if args.PublicNetDNSMode != "" {
+		spec.PublicNetDNSMode = aisapc.Ptr(args.PublicNetDNSMode)
+	}
+
+	if args.ProxyNodeSelector != nil {
+		spec.ProxySpec.NodeSelector = args.ProxyNodeSelector
+	}
+
+	if args.TargetNodeSelector != nil {
+		spec.TargetSpec.NodeSelector = args.TargetNodeSelector
 	}
 
 	cluster := &aisv1.AIStore{

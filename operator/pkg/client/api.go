@@ -165,6 +165,19 @@ func (c *K8sClient) ListNodesMatchingAISSelectors(ctx context.Context, ais *aisv
 	return nodeNames.UnsortedList(), nil
 }
 
+// NodePrimaryIP returns the node's InternalIP, falling back to ExternalIP.
+// Returns "" when neither is set.
+func NodePrimaryIP(node *corev1.Node) string {
+	for _, t := range []corev1.NodeAddressType{corev1.NodeInternalIP, corev1.NodeExternalIP} {
+		for _, addr := range node.Status.Addresses {
+			if addr.Type == t && addr.Address != "" {
+				return addr.Address
+			}
+		}
+	}
+	return ""
+}
+
 //////////////////////////////////////
 //      Create/Update resources     //
 //////////////////////////////////////

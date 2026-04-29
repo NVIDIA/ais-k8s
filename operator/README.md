@@ -386,8 +386,9 @@ To deploy with HTTPS, the AIS spec must define the `spec.ConfigToUpdate.net.http
 
 #### Using a secret mount
 
-If you are using a secret mount to access your certificate, define it with `spec.tlsSecretName`.
-The operator will automatically mount the contents of the secret at the location `/var/certs`.
+If you bring your own Kubernetes Secret containing the cert and key, define it with `spec.tlsSecretName`. The secret must contain keys `tls.crt` and `tls.key` (standard `kubernetes.io/tls` layout); for mTLS, also include `ca.crt`. The operator mounts the secret contents at `/var/certs`. 
+
+The operator does *not* manage the cert's lifecycle or SANs in this mode.
 
 We provide automation for creating this secret for both Helm and Ansible Playbooks. 
 
@@ -395,13 +396,28 @@ Helm: See [HTTPS Deployment docs section](../helm/ais/README.md#https-deployment
 
 Playbooks: See [generate_https_cert.yml](../playbooks/ais-deployment/generate_https_cert.yml) and associated [templates](../playbooks/ais-deployment/roles/generate_https_cert/templates).
 
-#### Using csi-driver
-With `cert-manager csi-driver` installed, you can get signed certificates directly from your Issuer.
+#### Using operator-managed certificate
+
+With `spec.tls.certificate.mode: secret` (default), the operator creates a cert-manager `Certificate` resource and mounts the issued Secret on every pod. The certificate's SAN list reflects the nodes that may host AIS pods:
+
+- **`publicNetDNSMode: Node`** — SANs include the names of nodes matching either the target or proxy `nodeSelector` (and tolerating their `tolerations`).
+- **`publicNetDNSMode: IP`** — SANs include those nodes' primary IPs (InternalIP, falling back to ExternalIP).
+- **`publicNetDNSMode: Pod`** — Pod-scoped DNS only, so node identities are *not* included.
+
+When autoscaling is enabled, the SAN list tracks `Status.AutoScaleStatus.ExpectedTargetNodes` / `ExpectedProxyNodes` instead of a live node listing, with the same `publicNetDNSMode` semantics.
+
+**Note:** If the proxy or target `nodeSelector` is unset, every node in the cluster matches and ends up in the cert. If this is undesired, set explicit selectors so the cert reflects only the nodes that may host AIS pods.
+
+#### Using CSI driver
+
+With `cert-manager csi-driver` installed, the driver issues a fresh certificate per pod at volume mount time, directly from your Issuer.
 The sample configuration below contains definitions for RBAC and an Issuer for use with Vault.
 
 ```bash
 kubectl apply -f  config/samples/ais_v1beta1_aistore_tls_certmanager_csi.yaml
 ```
+
+**Note:** Node-derived SANs are _not_ auto-included in CSI mode. Use `spec.tls.certificate.additionalDNSNames` or `spec.hostnameMap` to pin extra hostnames or IPs.
 
 **Testing Considerations:**
 

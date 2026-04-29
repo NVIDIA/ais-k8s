@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"sync"
 	"time"
 
@@ -21,6 +22,7 @@ import (
 	"github.com/ais-operator/pkg/resources/proxy"
 	"github.com/ais-operator/pkg/resources/target"
 	"github.com/ais-operator/tests/tutils"
+	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -433,6 +435,42 @@ func (cc *clientCluster) disableTargetPDB(ctx context.Context) {
 
 func (cc *clientCluster) verifyTargetPDBDeleted(ctx context.Context) {
 	tutils.EventuallyPDBExists(ctx, cc.k8sClient, target.PDBNSName(cc.cluster), BeFalse(), clusterDestroyTimeout, clusterDestroyInterval)
+}
+
+func (cc *clientCluster) setPublicNetDNSMode(ctx context.Context, mode aisv1.PubNetDNSMode) {
+	cc.fetchLatestCluster(ctx)
+	patch := clientpkg.MergeFrom(cc.cluster.DeepCopy())
+	cc.cluster.Spec.PublicNetDNSMode = aisapc.Ptr(mode)
+	Expect(cc.k8sClient.Patch(ctx, cc.cluster, patch)).To(Succeed())
+}
+
+// verifyCertSANs polls the operator-managed Certificate CR until its SAN list
+// reflects the given mode for the provided expected node names/IPs.
+func (cc *clientCluster) verifyCertSANs(ctx context.Context, mode aisv1.PubNetDNSMode, expectedNames, expectedIPs []string) {
+	certKey := types.NamespacedName{Name: cc.cluster.Name + "-tls-cert", Namespace: cc.cluster.Namespace}
+	Eventually(func(ctx context.Context) error {
+		cert := &certmanagerv1.Certificate{}
+		if err := cc.k8sClient.Get(ctx, certKey, cert); err != nil {
+			return err
+		}
+		return checkCertSANs(cert, mode, expectedNames, expectedIPs)
+	}, clusterUpdateTimeout, clusterUpdateInterval).WithContext(ctx).Should(Succeed())
+}
+
+func checkCertSANs(cert *certmanagerv1.Certificate, mode aisv1.PubNetDNSMode, expectedNames, expectedIPs []string) error {
+	wantNames := mode == aisv1.PubNetDNSModeNode
+	wantIPs := mode == aisv1.PubNetDNSModeIP
+	for _, name := range expectedNames {
+		if slices.Contains(cert.Spec.DNSNames, name) != wantNames {
+			return fmt.Errorf("DNSNames node-name presence for %q = %v, want %v", name, !wantNames, wantNames)
+		}
+	}
+	for _, ip := range expectedIPs {
+		if slices.Contains(cert.Spec.IPAddresses, ip) != wantIPs {
+			return fmt.Errorf("IPAddresses node-IP presence for %q = %v, want %v", ip, !wantIPs, wantIPs)
+		}
+	}
+	return nil
 }
 
 func (cc *clientCluster) verifyPodImages(ctx context.Context) {

@@ -193,68 +193,27 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 func (r *AIStoreReconciler) determineAutoScaleStatus(ctx context.Context, ais *aisv1.AIStore) error {
 	logger := logf.FromContext(ctx)
 	autoScaleStatus := aisv1.AutoScaleStatus{}
-	// If autoScale is enabled figure out target nodes and proxy nodes
 	if ais.IsTargetAutoScaling() {
-		nodes, err := r.k8sClient.ListNodesMatchingSelector(ctx, ais.Spec.TargetSpec.NodeSelector)
+		targetNodes, err := r.listMatchingNodeNames(ctx, ais.Spec.TargetSpec.NodeSelector, ais.Spec.TargetSpec.Tolerations)
 		if err != nil {
 			logger.Error(err, "Unable to fetch nodes for autoScaleStatus target")
 			return err
 		}
-
-		targetNodes := make([]string, 0, len(nodes.Items))
-		for i := range nodes.Items {
-			node := nodes.Items[i]
-
-			if !toleratesTaints(ctx, ais.Spec.TargetSpec.Tolerations, &node) {
-				continue
-			}
-			targetNodes = append(targetNodes, node.Name)
-		}
 		logger.Info("Discovered autoScaleStatus target nodes", "targetNodes", targetNodes)
-		slices.Sort(targetNodes)
 		autoScaleStatus.ExpectedTargetNodes = targetNodes
 	}
 
 	if ais.IsProxyAutoScaling() {
-		nodes, err := r.k8sClient.ListNodesMatchingSelector(ctx, ais.Spec.ProxySpec.NodeSelector)
+		proxyNodes, err := r.listMatchingNodeNames(ctx, ais.Spec.ProxySpec.NodeSelector, ais.Spec.ProxySpec.Tolerations)
 		if err != nil {
 			logger.Error(err, "Unable to fetch nodes for autoScaleStatus proxy")
 			return err
 		}
-		proxyNodes := make([]string, 0, len(nodes.Items))
-		for i := range nodes.Items {
-			node := nodes.Items[i]
-
-			if !toleratesTaints(ctx, ais.Spec.ProxySpec.Tolerations, &node) {
-				continue
-			}
-			proxyNodes = append(proxyNodes, node.Name)
-		}
 		logger.Info("Discovered autoScaleStatus proxy nodes", "proxyNodes", proxyNodes)
-		slices.Sort(proxyNodes)
 		autoScaleStatus.ExpectedProxyNodes = proxyNodes
 	}
 
 	return r.updateAutoScaleStatus(ctx, ais, autoScaleStatus)
-}
-
-func toleratesTaints(ctx context.Context, tolerations []corev1.Toleration, node *corev1.Node) bool {
-	for _, taint := range node.Spec.Taints {
-		if taint.Effect != corev1.TaintEffectNoSchedule && taint.Effect != corev1.TaintEffectNoExecute {
-			continue
-		}
-		isTolerated := false
-		for _, toleration := range tolerations {
-			if toleration.ToleratesTaint(logf.FromContext(ctx), &taint, true) {
-				isTolerated = true
-				break
-			}
-		}
-		if !isTolerated {
-			return false
-		}
-	}
-	return true
 }
 
 func (r *AIStoreReconciler) initializeCR(ctx context.Context, ais *aisv1.AIStore) (err error) {
@@ -768,11 +727,56 @@ func (r *AIStoreReconciler) createOrUpdateRBACResources(ctx context.Context, ais
 	return
 }
 
+// discoverPublicNetHosts returns target+proxy public network hosts per
+// publicNetDNSMode, reusing Status.AutoScaleStatus when populated.
+func (r *AIStoreReconciler) discoverPublicNetHosts(ctx context.Context, ais *aisv1.AIStore) ([]string, error) {
+	mode := ais.GetPublicNetDNSMode()
+	if mode == aisv1.PubNetDNSModePod {
+		return nil, nil
+	}
+	targetHosts, err := r.targetPublicHosts(ctx, ais, mode)
+	if err != nil {
+		return nil, err
+	}
+	proxyHosts, err := r.proxyPublicHosts(ctx, ais, mode)
+	if err != nil {
+		return nil, err
+	}
+	hosts := slices.Concat(targetHosts, proxyHosts)
+	slices.Sort(hosts)
+	return slices.Compact(hosts), nil
+}
+
+func (r *AIStoreReconciler) targetPublicHosts(ctx context.Context, ais *aisv1.AIStore, mode aisv1.PubNetDNSMode) ([]string, error) {
+	if mode == aisv1.PubNetDNSModeNode && ais.IsTargetAutoScaling() && len(ais.Status.AutoScaleStatus.ExpectedTargetNodes) > 0 {
+		return slices.Clone(ais.Status.AutoScaleStatus.ExpectedTargetNodes), nil
+	}
+	nodes, err := r.listMatchingNodes(ctx, ais.Spec.TargetSpec.NodeSelector, ais.Spec.TargetSpec.Tolerations)
+	if err != nil {
+		return nil, err
+	}
+	return publicHostsForNodes(nodes, mode), nil
+}
+
+func (r *AIStoreReconciler) proxyPublicHosts(ctx context.Context, ais *aisv1.AIStore, mode aisv1.PubNetDNSMode) ([]string, error) {
+	if mode == aisv1.PubNetDNSModeNode && ais.IsProxyAutoScaling() && len(ais.Status.AutoScaleStatus.ExpectedProxyNodes) > 0 {
+		return slices.Clone(ais.Status.AutoScaleStatus.ExpectedProxyNodes), nil
+	}
+	nodes, err := r.listMatchingNodes(ctx, ais.Spec.ProxySpec.NodeSelector, ais.Spec.ProxySpec.Tolerations)
+	if err != nil {
+		return nil, err
+	}
+	return publicHostsForNodes(nodes, mode), nil
+}
+
 func (r *AIStoreReconciler) reconcileTLSCertificate(ctx context.Context, ais *aisv1.AIStore) error {
 	// Create a Certificate if configured in spec (not using csi-driver or pre-existing secret)
 	if ais.UseTLSCertificate() {
-		cert := cmn.NewCertificate(ais)
-		return r.k8sClient.Apply(ctx, cert)
+		publicHosts, err := r.discoverPublicNetHosts(ctx, ais)
+		if err != nil {
+			return err
+		}
+		return r.k8sClient.Apply(ctx, cmn.NewCertificate(ais, publicHosts))
 	}
 	// Delete Certificate if it exists
 	_, err := r.k8sClient.DeleteResourceIfExists(ctx, cmn.TLSCertificate(ais))
@@ -973,8 +977,12 @@ func (r *AIStoreReconciler) findAISClustersForNode(ctx context.Context, o k8scli
 				continue
 			}
 		}
+		if r.nodeAffectsTLSCertificate(ctx, node, &ais) {
+			requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{Namespace: ais.Namespace, Name: ais.Name}})
+			continue
+		}
 
-		logger.Info("Skipping non-autoScaleStatus AIStore cr", "cr", ais.GetName())
+		logger.Info("Node changes do not require AIStore resource update", "cr", ais.GetName())
 	}
 
 	if len(requests) > 0 {
@@ -1016,6 +1024,53 @@ func (*AIStoreReconciler) nodeMatchesSelector(node *corev1.Node, selector map[st
 	nodeLabels := labels.Set(node.Labels)
 	selectorLabels := labels.Set(selector)
 	return selectorLabels.AsSelector().Matches(nodeLabels)
+}
+
+// listMatchingNodes returns nodes matching selector whose taints are tolerated.
+func (r *AIStoreReconciler) listMatchingNodes(ctx context.Context, selector map[string]string, tolerations []corev1.Toleration) ([]corev1.Node, error) {
+	nodes, err := r.k8sClient.ListNodesMatchingSelector(ctx, selector)
+	if err != nil {
+		return nil, err
+	}
+	matching := make([]corev1.Node, 0, len(nodes.Items))
+	for i := range nodes.Items {
+		node := &nodes.Items[i]
+		if !toleratesTaints(ctx, tolerations, node) {
+			continue
+		}
+		matching = append(matching, *node)
+	}
+	return matching, nil
+}
+
+// listMatchingNodeNames returns sorted names of nodes matching selector whose taints are tolerated.
+func (r *AIStoreReconciler) listMatchingNodeNames(ctx context.Context, selector map[string]string, tolerations []corev1.Toleration) ([]string, error) {
+	nodes, err := r.listMatchingNodes(ctx, selector, tolerations)
+	if err != nil {
+		return nil, err
+	}
+	names := make([]string, len(nodes))
+	for i := range nodes {
+		names[i] = nodes[i].Name
+	}
+	slices.Sort(names)
+	return names, nil
+}
+
+// nodeAffectsTLSCertificate reports whether a change to node could change the
+// SAN list of AIS's operator-managed TLS Certificate. A node contributes a SAN
+// only if it can actually host a daemon pod (its labels match the node selector
+// and tolerates the taints).
+func (r *AIStoreReconciler) nodeAffectsTLSCertificate(ctx context.Context, node *corev1.Node, ais *aisv1.AIStore) bool {
+	if !ais.UseTLSCertificate() || ais.GetPublicNetDNSMode() == aisv1.PubNetDNSModePod {
+		return false
+	}
+	if r.nodeMatchesSelector(node, ais.Spec.ProxySpec.NodeSelector) &&
+		toleratesTaints(ctx, ais.Spec.ProxySpec.Tolerations, node) {
+		return true
+	}
+	return r.nodeMatchesSelector(node, ais.Spec.TargetSpec.NodeSelector) &&
+		toleratesTaints(ctx, ais.Spec.TargetSpec.Tolerations, node)
 }
 
 func (r *AIStoreReconciler) handleSuccessfulReconcile(ctx context.Context, ais *aisv1.AIStore) (err error) {

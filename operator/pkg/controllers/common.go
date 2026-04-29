@@ -5,15 +5,19 @@
 package controllers
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
 
 	aismeta "github.com/NVIDIA/aistore/core/meta"
+	aisv1 "github.com/ais-operator/api/v1beta1"
+	aisclient "github.com/ais-operator/pkg/client"
 	"github.com/ais-operator/pkg/resources/cmn"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type SyncMode int
@@ -483,4 +487,48 @@ func shouldUpdate(desired, current *corev1.PodTemplateSpec, funcs ...func(desire
 		}
 	}
 	return false, ""
+}
+
+// toleratesTaints reports whether the given tolerations cover every NoSchedule
+// / NoExecute taint on the node.
+func toleratesTaints(ctx context.Context, tolerations []corev1.Toleration, node *corev1.Node) bool {
+	for _, taint := range node.Spec.Taints {
+		if taint.Effect != corev1.TaintEffectNoSchedule && taint.Effect != corev1.TaintEffectNoExecute {
+			continue
+		}
+		isTolerated := false
+		for _, toleration := range tolerations {
+			if toleration.ToleratesTaint(logf.FromContext(ctx), &taint, true) {
+				isTolerated = true
+				break
+			}
+		}
+		if !isTolerated {
+			return false
+		}
+	}
+	return true
+}
+
+// publicHostsForNodes returns host strings per publicNetDNSMode: node names for
+// `publicNetDNSMode: Node`, primary IPs for `publicNetDNSMode: IP`, and no hosts
+// for `publicNetDNSMode: Pod`. Caller is responsible for sort/dedup.
+func publicHostsForNodes(nodes []corev1.Node, mode aisv1.PubNetDNSMode) []string {
+	if mode == aisv1.PubNetDNSModePod {
+		return nil
+	}
+	hosts := make([]string, 0, len(nodes))
+	switch mode {
+	case aisv1.PubNetDNSModeNode:
+		for i := range nodes {
+			hosts = append(hosts, nodes[i].Name)
+		}
+	case aisv1.PubNetDNSModeIP:
+		for i := range nodes {
+			if ip := aisclient.NodePrimaryIP(&nodes[i]); ip != "" {
+				hosts = append(hosts, ip)
+			}
+		}
+	}
+	return hosts
 }

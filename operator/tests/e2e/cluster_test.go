@@ -15,6 +15,7 @@ import (
 	"github.com/NVIDIA/aistore/cmn/cos"
 	aistutils "github.com/NVIDIA/aistore/tools"
 	aisxact "github.com/NVIDIA/aistore/xact"
+	aisv1 "github.com/ais-operator/api/v1beta1"
 	"github.com/ais-operator/tests/tutils"
 	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	. "github.com/onsi/ginkgo/v2"
@@ -89,9 +90,18 @@ var _ = Describe("Run Controller", func() {
 		})
 	})
 
-	Context("TLS Certificate", func() {
-		It("Should create Certificate and Secret via cert-manager", func(ctx context.Context) {
-			issuer := &certmanagerv1.Issuer{
+	Context("TLS Certificate", Ordered, func() {
+		nodeSelector := map[string]string{"ais-node": "true"}
+
+		var (
+			issuer        *certmanagerv1.Issuer
+			cc            *clientCluster
+			expectedNames []string
+			expectedIPs   []string
+		)
+
+		BeforeAll(func(ctx context.Context) {
+			issuer = &certmanagerv1.Issuer{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-selfsigned-issuer",
 					Namespace: cluArgs.Namespace,
@@ -105,19 +115,37 @@ var _ = Describe("Run Controller", func() {
 			_, err := WorkerCfg.K8sClient.CreateResourceIfNotExists(ctx, nil, issuer)
 			Expect(err).To(BeNil())
 
-			cluArgs.TLS = &tutils.TLSArgs{
-				IssuerName: issuer.Name,
-				IssuerKind: "Issuer",
-			}
-			cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
-			defer func() {
-				cc.printLogs(ctx)
-				cc.destroyAndCleanup()
-				_, err := WorkerCfg.K8sClient.DeleteResourceIfExists(ctx, issuer)
-				Expect(err).To(BeNil())
-			}()
+			expectedNames, expectedIPs = tutils.GetNodeNamesAndIPs(ctx, WorkerCfg.K8sClient, nodeSelector)
+			Expect(expectedNames).NotTo(BeEmpty(), "test cluster must have at least one node labeled ais-node=true")
+
+			cluArgs.TLS = &tutils.TLSArgs{IssuerName: issuer.Name, IssuerKind: "Issuer"}
+			cluArgs.ProxyNodeSelector = nodeSelector
+			cluArgs.TargetNodeSelector = nodeSelector
+			cc = newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
 			cc.create(ctx)
 			cc.waitForResources(ctx)
+		})
+
+		AfterAll(func(ctx context.Context) {
+			cc.printLogs(ctx)
+			cc.destroyAndCleanup()
+			_, err := WorkerCfg.K8sClient.DeleteResourceIfExists(ctx, issuer)
+			Expect(err).To(BeNil())
+		})
+
+		It("Should include node names as SANs when publicNetDNSMode=Node", func(ctx context.Context) {
+			cc.setPublicNetDNSMode(ctx, aisv1.PubNetDNSModeNode)
+			cc.verifyCertSANs(ctx, aisv1.PubNetDNSModeNode, expectedNames, expectedIPs)
+		})
+
+		It("Should include node IPs as SANs when publicNetDNSMode=IP", func(ctx context.Context) {
+			cc.setPublicNetDNSMode(ctx, aisv1.PubNetDNSModeIP)
+			cc.verifyCertSANs(ctx, aisv1.PubNetDNSModeIP, expectedNames, expectedIPs)
+		})
+
+		It("Should omit node-derived SANs when publicNetDNSMode=Pod", func(ctx context.Context) {
+			cc.setPublicNetDNSMode(ctx, aisv1.PubNetDNSModePod)
+			cc.verifyCertSANs(ctx, aisv1.PubNetDNSModePod, expectedNames, expectedIPs)
 		})
 	})
 
