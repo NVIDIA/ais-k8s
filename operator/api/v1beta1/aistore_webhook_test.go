@@ -13,63 +13,54 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
-func TestValidateProxyUpdateTolerations(t *testing.T) {
-	RegisterTestingT(t)
+// runTolerationUpdateScenarios exercises add/remove/modify toleration paths for proxy or target updates.
+func runTolerationUpdateScenarios(
+	t *testing.T,
+	component string,
+	validate func(prev, ais *AIStore) error,
+	setTolerations func(a *AIStore, tols []corev1.Toleration),
+) {
+	t.Helper()
 
 	toleration := corev1.Toleration{Key: "gpu", Operator: corev1.TolerationOpExists, Effect: corev1.TaintEffectNoSchedule}
 
-	t.Run("adding toleration to proxy spec is allowed", func(_ *testing.T) {
+	t.Run("adding toleration to "+component+" spec is allowed", func(subT *testing.T) {
+		RegisterTestingT(subT)
 		prev := &AIStore{}
 		ais := &AIStore{}
-		ais.Spec.ProxySpec.Tolerations = []corev1.Toleration{toleration}
-		Expect(validateProxyUpdate(prev, ais)).To(Succeed())
+		setTolerations(ais, []corev1.Toleration{toleration})
+		Expect(validate(prev, ais)).To(Succeed())
 	})
 
-	t.Run("removing toleration from proxy spec is allowed", func(_ *testing.T) {
+	t.Run("removing toleration from "+component+" spec is allowed", func(subT *testing.T) {
+		RegisterTestingT(subT)
 		prev := &AIStore{}
-		prev.Spec.ProxySpec.Tolerations = []corev1.Toleration{toleration}
+		setTolerations(prev, []corev1.Toleration{toleration})
 		ais := &AIStore{}
-		Expect(validateProxyUpdate(prev, ais)).To(Succeed())
+		Expect(validate(prev, ais)).To(Succeed())
 	})
 
-	t.Run("modifying toleration in proxy spec is allowed", func(_ *testing.T) {
+	t.Run("modifying toleration in "+component+" spec is allowed", func(subT *testing.T) {
+		RegisterTestingT(subT)
 		prev := &AIStore{}
-		prev.Spec.ProxySpec.Tolerations = []corev1.Toleration{toleration}
+		setTolerations(prev, []corev1.Toleration{toleration})
 		ais := &AIStore{}
 		modified := toleration
 		modified.Effect = corev1.TaintEffectNoExecute
-		ais.Spec.ProxySpec.Tolerations = []corev1.Toleration{modified}
-		Expect(validateProxyUpdate(prev, ais)).To(Succeed())
+		setTolerations(ais, []corev1.Toleration{modified})
+		Expect(validate(prev, ais)).To(Succeed())
+	})
+}
+
+func TestValidateProxyUpdateTolerations(t *testing.T) {
+	runTolerationUpdateScenarios(t, aisapc.Proxy, validateProxyUpdate, func(a *AIStore, tols []corev1.Toleration) {
+		a.Spec.ProxySpec.Tolerations = tols
 	})
 }
 
 func TestValidateTargetUpdateTolerations(t *testing.T) {
-	RegisterTestingT(t)
-
-	toleration := corev1.Toleration{Key: "gpu", Operator: corev1.TolerationOpExists, Effect: corev1.TaintEffectNoSchedule}
-
-	t.Run("adding toleration to target spec is allowed", func(_ *testing.T) {
-		prev := &AIStore{}
-		ais := &AIStore{}
-		ais.Spec.TargetSpec.Tolerations = []corev1.Toleration{toleration}
-		Expect(validateTargetUpdate(prev, ais)).To(Succeed())
-	})
-
-	t.Run("removing toleration from target spec is allowed", func(_ *testing.T) {
-		prev := &AIStore{}
-		prev.Spec.TargetSpec.Tolerations = []corev1.Toleration{toleration}
-		ais := &AIStore{}
-		Expect(validateTargetUpdate(prev, ais)).To(Succeed())
-	})
-
-	t.Run("modifying toleration in target spec is allowed", func(_ *testing.T) {
-		prev := &AIStore{}
-		prev.Spec.TargetSpec.Tolerations = []corev1.Toleration{toleration}
-		ais := &AIStore{}
-		modified := toleration
-		modified.Effect = corev1.TaintEffectNoExecute
-		ais.Spec.TargetSpec.Tolerations = []corev1.Toleration{modified}
-		Expect(validateTargetUpdate(prev, ais)).To(Succeed())
+	runTolerationUpdateScenarios(t, aisapc.Target, validateTargetUpdate, func(a *AIStore, tols []corev1.Toleration) {
+		a.Spec.TargetSpec.Tolerations = tols
 	})
 }
 
