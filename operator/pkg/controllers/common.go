@@ -42,6 +42,7 @@ func shouldUpdatePodTemplate(desired, current *corev1.PodTemplateSpec) (bool, st
 		shouldUpdateLabels,
 		shouldUpdateVolumes,
 		shouldUpdatePriorityClass,
+		shouldUpdateTolerations,
 	}
 	return shouldUpdate(desired, current, checks...)
 }
@@ -275,6 +276,13 @@ func shouldUpdatePriorityClass(desired, current *corev1.PodTemplateSpec) (bool, 
 	return false, ""
 }
 
+func shouldUpdateTolerations(desired, current *corev1.PodTemplateSpec) (bool, string) {
+	if !equality.Semantic.DeepEqual(desired.Spec.Tolerations, current.Spec.Tolerations) {
+		return true, "updating tolerations"
+	}
+	return false, ""
+}
+
 func syncPodTemplate(desired, current *corev1.PodTemplateSpec) (updated bool) {
 	for _, daemon := range []struct {
 		desiredContainer *corev1.Container
@@ -315,6 +323,11 @@ func syncPodTemplate(desired, current *corev1.PodTemplateSpec) (updated bool) {
 
 	if desired.Spec.PriorityClassName != current.Spec.PriorityClassName {
 		current.Spec.PriorityClassName = desired.Spec.PriorityClassName
+		updated = true
+	}
+
+	if !equality.Semantic.DeepEqual(desired.Spec.Tolerations, current.Spec.Tolerations) {
+		current.Spec.Tolerations = desired.Spec.Tolerations
 		updated = true
 	}
 

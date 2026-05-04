@@ -398,6 +398,56 @@ var _ = Describe("findAISNodeByPodName", func() {
 	})
 })
 
+var _ = Describe("shouldUpdateTolerations", func() {
+	makePodTemplate := func(tolerations []corev1.Toleration) *corev1.PodTemplateSpec {
+		pt := &corev1.PodTemplateSpec{}
+		pt.Spec.Tolerations = tolerations
+		return pt
+	}
+
+	It("returns false when both have no tolerations", func() {
+		desired := makePodTemplate(nil)
+		current := makePodTemplate(nil)
+		update, _ := shouldUpdateTolerations(desired, current)
+		Expect(update).To(BeFalse())
+	})
+
+	It("returns true when a toleration is added", func() {
+		tol := corev1.Toleration{Key: "gpu", Operator: corev1.TolerationOpExists, Effect: corev1.TaintEffectNoSchedule}
+		desired := makePodTemplate([]corev1.Toleration{tol})
+		current := makePodTemplate(nil)
+		update, reason := shouldUpdateTolerations(desired, current)
+		Expect(update).To(BeTrue())
+		Expect(reason).To(Equal("updating tolerations"))
+	})
+
+	It("returns true when a toleration is removed", func() {
+		tol := corev1.Toleration{Key: "gpu", Operator: corev1.TolerationOpExists, Effect: corev1.TaintEffectNoSchedule}
+		desired := makePodTemplate(nil)
+		current := makePodTemplate([]corev1.Toleration{tol})
+		update, _ := shouldUpdateTolerations(desired, current)
+		Expect(update).To(BeTrue())
+	})
+
+	It("returns true when a toleration is modified", func() {
+		tol := corev1.Toleration{Key: "gpu", Operator: corev1.TolerationOpExists, Effect: corev1.TaintEffectNoSchedule}
+		modified := tol
+		modified.Effect = corev1.TaintEffectNoExecute
+		desired := makePodTemplate([]corev1.Toleration{modified})
+		current := makePodTemplate([]corev1.Toleration{tol})
+		update, _ := shouldUpdateTolerations(desired, current)
+		Expect(update).To(BeTrue())
+	})
+
+	It("returns false when tolerations are identical", func() {
+		tol := corev1.Toleration{Key: "gpu", Operator: corev1.TolerationOpExists, Effect: corev1.TaintEffectNoSchedule}
+		desired := makePodTemplate([]corev1.Toleration{tol})
+		current := makePodTemplate([]corev1.Toleration{tol})
+		update, _ := shouldUpdateTolerations(desired, current)
+		Expect(update).To(BeFalse())
+	})
+})
+
 var _ = Describe("hostnameMatchesPod", func() {
 	DescribeTable("matches only when the hostname's first label equals the pod name",
 		func(hostname, podName string, expected bool) {

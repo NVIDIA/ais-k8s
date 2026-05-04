@@ -9,8 +9,69 @@ import (
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
+
+func TestValidateProxyUpdateTolerations(t *testing.T) {
+	RegisterTestingT(t)
+
+	toleration := corev1.Toleration{Key: "gpu", Operator: corev1.TolerationOpExists, Effect: corev1.TaintEffectNoSchedule}
+
+	t.Run("adding toleration to proxy spec is allowed", func(_ *testing.T) {
+		prev := &AIStore{}
+		ais := &AIStore{}
+		ais.Spec.ProxySpec.Tolerations = []corev1.Toleration{toleration}
+		Expect(validateProxyUpdate(prev, ais)).To(Succeed())
+	})
+
+	t.Run("removing toleration from proxy spec is allowed", func(_ *testing.T) {
+		prev := &AIStore{}
+		prev.Spec.ProxySpec.Tolerations = []corev1.Toleration{toleration}
+		ais := &AIStore{}
+		Expect(validateProxyUpdate(prev, ais)).To(Succeed())
+	})
+
+	t.Run("modifying toleration in proxy spec is allowed", func(_ *testing.T) {
+		prev := &AIStore{}
+		prev.Spec.ProxySpec.Tolerations = []corev1.Toleration{toleration}
+		ais := &AIStore{}
+		modified := toleration
+		modified.Effect = corev1.TaintEffectNoExecute
+		ais.Spec.ProxySpec.Tolerations = []corev1.Toleration{modified}
+		Expect(validateProxyUpdate(prev, ais)).To(Succeed())
+	})
+}
+
+func TestValidateTargetUpdateTolerations(t *testing.T) {
+	RegisterTestingT(t)
+
+	toleration := corev1.Toleration{Key: "gpu", Operator: corev1.TolerationOpExists, Effect: corev1.TaintEffectNoSchedule}
+
+	t.Run("adding toleration to target spec is allowed", func(_ *testing.T) {
+		prev := &AIStore{}
+		ais := &AIStore{}
+		ais.Spec.TargetSpec.Tolerations = []corev1.Toleration{toleration}
+		Expect(validateTargetUpdate(prev, ais)).To(Succeed())
+	})
+
+	t.Run("removing toleration from target spec is allowed", func(_ *testing.T) {
+		prev := &AIStore{}
+		prev.Spec.TargetSpec.Tolerations = []corev1.Toleration{toleration}
+		ais := &AIStore{}
+		Expect(validateTargetUpdate(prev, ais)).To(Succeed())
+	})
+
+	t.Run("modifying toleration in target spec is allowed", func(_ *testing.T) {
+		prev := &AIStore{}
+		prev.Spec.TargetSpec.Tolerations = []corev1.Toleration{toleration}
+		ais := &AIStore{}
+		modified := toleration
+		modified.Effect = corev1.TaintEffectNoExecute
+		ais.Spec.TargetSpec.Tolerations = []corev1.Toleration{modified}
+		Expect(validateTargetUpdate(prev, ais)).To(Succeed())
+	})
+}
 
 func TestAIStoreValidateSize(t *testing.T) {
 	tests := []struct {
