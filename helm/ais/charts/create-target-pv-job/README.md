@@ -1,4 +1,8 @@
-# ais-create-pv
+# ais-create-target-pv-job
+
+> **Deprecated:** use [ais-create-target-pv](../create-target-pv/README.md) for new clusters.
+> This chart remains for clusters whose PVs it already created, which cannot be moved to the new chart in place.
+> It has no helmfile release, so it must be installed directly with `helm`.
 
 Helm chart that creates hostPath PersistentVolumes for AIS target nodes.
 PVs are created by a Kubernetes Job that runs as a Helm hook on `pre-install` and `pre-upgrade` triggers.

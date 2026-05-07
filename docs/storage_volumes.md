@@ -21,7 +21,7 @@ Paths are sanitized by replacing all `/` with `-`.
 
 For example, the path `/ais/nvme0n1` with a cluster named `ais` produces a PVC named `ais-ais-nvme0n1-ais-target-0` for Pod `ais-target-0`.
 
-For simple creation of static, local HostPath-type PVs, we provide the [create-pv Helm chart](../helm/ais/charts/create-pv/README.md).
+For simple creation of static, local HostPath-type PVs, we provide the [create-target-pv Helm chart](../helm/ais/charts/create-target-pv/README.md).
 
 ## PV Requirements
 
@@ -34,33 +34,33 @@ Existing PVs must have the following for AIStore PVCs to bind:
 - A pre-configured filesystem (XFS recommended)
   - This may be created by the provisioner
 
-To pin a PVC to a specific PV, set `claimRef` on the PV to match the expected PVC name and namespace (see naming convention above).
-For local PVs, also set `nodeAffinity` so the Pod gets scheduled on the node that holds the disk.
+For local PVs, set `nodeAffinity` so the Pod gets scheduled on the node that holds the disk.
+With a `WaitForFirstConsumer` storage class, binding is deferred until the target Pod is scheduled, so the PV on the chosen node is the one bound.
+To instead pin a PVC to a specific PV up front, set `claimRef` on the PV to match the expected PVC name and namespace (see naming convention above).
 
-`mount.selector` in the AIStore resource is propagated onto the PVC's `spec.selector` and only filters the candidate PVs by labels.
-It can be used alongside `claimRef` but is not currently required.
+`mount.selector` in the AIStore resource is propagated onto the PVC's `spec.selector` and filters the candidate PVs by labels.
+Without a `claimRef`, every PV on a node is an equally valid candidate, so the selector is what binds each PVC to the PV backed by the same host path.
 The AIS Helm chart does not expose `mount.selector`.
 Instead, each path gets its own label selector injected based on `mount.path`:
 
 ```yaml
 selector:
   matchLabels:
-    mpath: pv-{{ .path | replace "/" "-" | trimPrefix "-" }}
+    mpath: pv-{{ regexReplaceAll "[^a-z0-9.-]+" (lower .path) "-" | trimPrefix "-" | trimSuffix "-" }}
 ```
 
 ## End-to-End Example
 
-The following examples use the provided [create-pv Helm chart](../helm/ais/charts/create-pv/).
+The following examples use the provided [create-target-pv Helm chart](../helm/ais/charts/create-target-pv/).
 
 ### Sample PV
 
-Below is a PV as created by the `create-pv` chart, where the K8s node name is the IP shown:
+Below is a PV as created by the `create-target-pv` chart, where the K8s node name is the IP shown:
 
 ```text
 Name:              10.49.42.56-pv-ais-nvme0n1
 Labels:            cluster=ais
                    mpath=pv-ais-nvme0n1
-                   target-index=16
                    type=local
 Annotations:       <none>
 Finalizers:        [kubernetes.io/pv-protection]

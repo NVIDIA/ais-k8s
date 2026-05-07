@@ -31,7 +31,7 @@ This will help you fine-tune your system to meet AIStore's requirements, ensurin
 - **Persistent Volumes**:
   - The AIS Operator does **NOT** format disks or create persistent volumes -- we expect this to be done beforehand as it varies per deployment. 
   - For details on PV requirements and the PVC naming convention, see [Target Data Persistent Volumes](./storage_volumes.md).
-  - See the [create-pv](../helm/ais/charts/create-pv/README.md) Helm Chart for a reference template for creating node-local HostPath-type PVs.
+  - See the [create-target-pv](../helm/ais/charts/create-target-pv/README.md) Helm Chart for a reference template for creating node-local HostPath-type PVs.
 
 ## Deployment Steps
 

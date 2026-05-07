@@ -139,7 +139,8 @@ spec:
         storageClass: {{ $mpath.storageClass }}
         selector:
           matchLabels:
-            mpath: pv-{{ .path | replace "/" "-" | trimPrefix "-" }}
+            {{- /* Sanitize the mount path to a valid DNS-1123 name. Keep in sync with the sanitize in create-target-pv pv.yaml. */}}
+            mpath: pv-{{ regexReplaceAll "[^a-z0-9.-]+" (lower .path) "-" | trimPrefix "-" | trimSuffix "-" }}
         {{- end }}
         {{- if .label }}
         label: {{ .label }}

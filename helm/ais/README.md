@@ -12,7 +12,7 @@ See the [cluster management section](#cluster-management) before enabling any of
 ### Node Labeling
 
 The [label-nodes.sh](./scripts/label-nodes.sh) convenience script labels nodes with `nvidia.com/ais-proxy=<cluster>` and `nvidia.com/ais-target=<cluster>`.
-These labels are used for scheduling via `nodeSelector` and by the `ais-create-pv` chart to discover target nodes.
+These labels are used for scheduling via `nodeSelector` and by the `ais-create-target-pv` chart to discover target nodes.
 
 ```bash
 ./scripts/label-nodes.sh <cluster> <node1,node2,...|--all>
@@ -27,18 +27,24 @@ Pass `--remove` to strip both labels and release the nodes. With `--all`, this s
 
 ### PV Creation
 
-The provided helmfile includes the [ais-create-pv](./charts/create-pv/) release, enabled by setting `createPV.enabled: true` for the environment.
-This chart queries for labeled target nodes and creates host path PVs for each mount-path on every labeled target.
+The provided helmfile includes the [ais-create-target-pv](./charts/create-target-pv/) release, enabled by setting `createTargetPV.enabled: true` for the environment.
+This chart templates one host path PV per mount-path on every labeled target node (discovered by label or a provided list) and makes them available under a `WaitForFirstConsumer` storage class.
+Each PV binds once the operator creates a target PVC that the scheduler places on that node.
 See [Target Data Persistent Volumes](../../docs/storage_volumes.md) for details on volume mounts.
 
-If you want to use an existing set of PVs, set `createPV.enabled: false`.
-You can also change the `storageClass` option to instruct AIS target pods to mount a different existing storage class.
+To use an existing set of PVs, set `createTargetPV.enabled: false`.
+The `storageClass` option instructs AIS target pods to mount a different existing storage class.
+
+The older [ais-create-target-pv-job](./charts/create-target-pv-job/) chart provisions the target PVs through a pre-install Job.
+Its PVs carry a `claimRef` naming the one target PVC allowed to bind, so every node has to be mapped to a target ordinal up front instead of the scheduler resolving it through `WaitForFirstConsumer`, and those PVs are not Helm-managed.
+
+> **Note:** It is not possible to in-place upgrade from `create-target-pv-job` to the new `create-target-pv` chart. The old Job-created PVs are not Helm-owned and collide by name, so moving an existing cluster to this chart will require redeploying the cluster *entirely*.
 
 ### Scaling
 
 The `size` value in your AIS values file sets the number of proxy and target pods.
 `proxySpec.size` and `targetSpec.size` override it for that component, so a cluster can run a different number of proxies than targets.
-Pods schedule only onto nodes carrying the cluster's labels, and `ais-create-pv` discovers targets the same way, so [label](#node-labeling) any new nodes before raising a size.
+Pods schedule only onto nodes carrying the cluster's labels, and `ais-create-target-pv` discovers targets the same way, so [label](#node-labeling) any new nodes before raising a size.
 Then run `helmfile sync` again.
 
 Lowering a size removes the highest-ordinal pods.
@@ -106,6 +112,7 @@ helmfile destroy --environment <your-env>
 |------------------------------------------------------------|---------------------------------------------------------------------------------------|
 | [ais-cloud-secrets](./charts/cloud-secrets/) | Create k8s secrets from local files for cloud backends                                |
 | [ais-cluster](./charts/ais-cluster/)         | Create an AIS cluster resource, with the expectation the operator is already deployed |
-| [ais-create-pv](./charts/create-pv/)         | Create HostPath PersistentVolumes for labeled target nodes                            |
+| [ais-create-target-pv](./charts/create-target-pv/)         | Create HostPath PersistentVolumes for target nodes, bound via WaitForFirstConsumer    |
+| [ais-create-target-pv-job](./charts/create-target-pv-job/) | Create claimRef-pinned target PVs via a pre-install Job, not Helm-managed              |
 | [tls-cert](./charts/tls-cert/)               | Create a cert-manager certificate                                                     |
                                                           

@@ -1,0 +1,12 @@
+targetLabelKey: nvidia.com/ais-target
+
+# Explicit list of target node kubernetes.io/hostname label values. When set, one
+# PV per (node, mount) is created and pinned to each host. When empty, nodes are
+# discovered by looking up nodes labeled targetLabelKey=<cluster> and using their
+# kubernetes.io/hostname label.
+nodes: []
+
+# Create the WaitForFirstConsumer StorageClass named mpathInfo.storageClass.
+# Set to false if the StorageClass already exists in the cluster; that existing
+# StorageClass must use volumeBindingMode: WaitForFirstConsumer.
+createStorageClass: true

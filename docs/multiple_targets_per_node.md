@@ -19,7 +19,7 @@ In standard deployments, the `hostPort` setting in a pod specification is used t
 
 See [Target Data Persistent Volumes](./storage_volumes.md) for information on mounting storage for AIStore K8s pods.
 
-The bundled [create-pv Helm chart](../helm/ais/charts/create-pv/README.md) creates one PV for each mount path on every node. 
+The bundled [create-target-pv Helm chart](../helm/ais/charts/create-target-pv/README.md) creates one PV for each mount path on every node. 
 For multiple targets on the same node, instead create PVs for each desired target with matching node affinity.
 See the linked [sample deployment](./samples/sample-multi-target-deployment.yml) for an example. 
 

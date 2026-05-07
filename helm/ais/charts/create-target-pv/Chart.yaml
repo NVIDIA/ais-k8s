@@ -1,0 +1,4 @@
+apiVersion: v2
+name: ais-create-target-pv
+version: 0.1.0
+description: Creates one hostPath PV per (target node, mount) with per-host node affinity, bound via WaitForFirstConsumer. Nodes come from .Values.nodes or are discovered by label.

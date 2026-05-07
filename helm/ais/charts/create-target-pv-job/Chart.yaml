@@ -1,4 +1,5 @@
 apiVersion: v2
-name: ais-create-pv
+name: ais-create-target-pv-job
 version: 0.6.0
 description: Creates PersistentVolumes in parallel via a Job and blocks until all are ready
+deprecated: true

@@ -1,0 +1,54 @@
+{{- $cluster := required "cluster is required" .Values.cluster -}}
+{{- $storageClass := required "mpathInfo.storageClass is required" .Values.mpathInfo.storageClass -}}
+{{- $size := required "mpathInfo.size is required" .Values.mpathInfo.size -}}
+{{- $targetLabelKey := .Values.targetLabelKey -}}
+{{- $mounts := .Values.mpathInfo.mounts -}}
+{{- $nodes := .Values.nodes -}}
+{{- if not $nodes }}
+  {{- $discovered := list -}}
+  {{- range $node := (lookup "v1" "Node" "" "").items }}
+    {{- if eq (index $node.metadata.labels $targetLabelKey) $cluster }}
+      {{- $host := index $node.metadata.labels "kubernetes.io/hostname" }}
+      {{- if not $host }}
+        {{- fail (printf "node %s has no kubernetes.io/hostname label" $node.metadata.name) }}
+      {{- end }}
+      {{- $discovered = append $discovered $host }}
+    {{- end }}
+  {{- end }}
+  {{- $nodes = $discovered }}
+{{- end }}
+{{- if not $nodes }}
+  {{- fail (printf "no target nodes resolved: set .Values.nodes or label nodes with %s=%s (lookup is empty during offline `helm template`)" $targetLabelKey $cluster) }}
+{{- end }}
+{{- range $node := $nodes }}
+{{- range $mount := $mounts }}
+{{- /* Sanitize the mount path to a valid DNS-1123 name. Keep in sync with the mpath selector in ais-cluster ais.yaml. */ -}}
+{{- $sanitized := regexReplaceAll "[^a-z0-9.-]+" (lower $mount.path) "-" | trimPrefix "-" | trimSuffix "-" }}
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ $node }}-pv-{{ $sanitized }}
+  labels:
+    type: local
+    cluster: {{ $cluster }}
+    mpath: pv-{{ $sanitized }}
+spec:
+  storageClassName: {{ $storageClass }}
+  capacity:
+    storage: {{ $size }}
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: {{ $mount.path }}
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values:
+                - {{ $node }}
+{{- end }}
+{{- end }}

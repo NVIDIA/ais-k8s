@@ -7,7 +7,7 @@ environments:
           valuesPath: ./config/tls-cert/sample.yaml
         cloudSecrets:
           enabled: false
-        createPV:
+        createTargetPV:
           enabled: true
 
   local:
@@ -17,7 +17,7 @@ environments:
           enabled: false
         cloudSecrets:
           enabled: false
-        createPV:
+        createTargetPV:
           enabled: true
 
   local-auth:
@@ -27,7 +27,7 @@ environments:
           enabled: false
         cloudSecrets:
           enabled: false
-        createPV:
+        createTargetPV:
           enabled: true
 
   keycloak:
@@ -38,7 +38,7 @@ environments:
           valuesPath: ./config/tls-cert/keycloak.yaml
         cloudSecrets:
           enabled: false
-        createPV:
+        createTargetPV:
           enabled: true
 
   sjc4-dev:
@@ -49,8 +49,8 @@ environments:
           valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/ais/config/tls-cert/sjc4-dev.yaml?ref=main"
         cloudSecrets:
           enabled: false
-        createPV:
-          enabled: true
+        createTargetPV:
+          enabled: false
 
   sjc4-1000:
     values:
@@ -60,8 +60,8 @@ environments:
           valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/ais/config/tls-cert/sjc4-1000.yaml?ref=main"
         cloudSecrets:
           enabled: false
-        createPV:
-          enabled: true
+        createTargetPV:
+          enabled: false
 
   sjc11:
     values:
@@ -72,8 +72,8 @@ environments:
         cloudSecrets:
           enabled: false
           valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/ais/config/cloud/sjc11.yaml.gotmpl?ref=main"
-        createPV:
-          enabled: true
+        createTargetPV:
+          enabled: false
 
   sjc112:
     values:
@@ -83,8 +83,8 @@ environments:
           valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/ais/config/tls-cert/sjc112.yaml?ref=main"
         cloudSecrets:
           enabled: false
-        createPV:
-          enabled: true
+        createTargetPV:
+          enabled: false
 
   ais-qa:
     values:
@@ -94,8 +94,8 @@ environments:
           valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/ais/config/tls-cert/ais-qa.yaml?ref=main"
         cloudSecrets:
           enabled: false
-        createPV:
-          enabled: true
+        createTargetPV:
+          enabled: false
 
   oci-iad:
     values:
@@ -104,7 +104,7 @@ environments:
           enabled: false
         cloudSecrets:
           enabled: false
-        createPV:
+        createTargetPV:
           enabled: false
 
   oci-iad-test:
@@ -114,8 +114,8 @@ environments:
           enabled: false
         cloudSecrets:
           enabled: false
-        createPV:
-          enabled: true
+        createTargetPV:
+          enabled: false
 
   oci-ord:
     values:
@@ -124,7 +124,7 @@ environments:
           enabled: false
         cloudSecrets:
           enabled: false
-        createPV:
+        createTargetPV:
           enabled: false
 
   oci-nrt:
@@ -134,8 +134,8 @@ environments:
           enabled: false
         cloudSecrets:
           enabled: false
-        createPV:
-          enabled: true
+        createTargetPV:
+          enabled: false
 ---
 hooks:
   - events: ["prepare"]
@@ -168,12 +168,12 @@ releases:
       - "{{ .Environment.Values.cloudSecrets | get \"valuesPath\" \"\" }}"
       - "{{ .Environment.Values.valuesPath }}"
 
-  - name: ais-create-pv
+  - name: ais-create-target-pv
     namespace: "{{ .Values | get \"namespace\" \"ais\" }}"
     createNamespace: true
-    chart: charts/create-pv
+    chart: charts/create-target-pv
     version: 0.1.0
-    condition: createPV.enabled
+    condition: createTargetPV.enabled
     values:
       - "{{ .Environment.Values.valuesPath }}"
 
