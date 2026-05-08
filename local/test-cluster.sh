@@ -106,7 +106,7 @@ deploy_operator_local() {
 
     helm upgrade --install ais-operator "${OPERATOR_ROOT}/helm/ais-operator" \
         -n ais-operator-system --create-namespace \
-        -f "${HELM_ROOT}/operator/config/operator/local.yaml.gotmpl" \
+        -f "${HELM_ROOT}/operator/config/operator/local.yaml" \
         --set controllerManager.manager.image.repository="$repo" \
         --set controllerManager.manager.image.tag="$tag" \
         --set controllerManager.manager.imagePullPolicy="$pull_policy"

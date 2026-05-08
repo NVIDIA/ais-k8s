@@ -1,47 +1,47 @@
 environments:
   default:
     values:
-    - valuesPath: ./config/operator/default.yaml.gotmpl
+    - valuesPath: ./config/operator/default.yaml
     - createCert:
         enabled: false
         valuesPath: ./config/tls-cert/default.yaml
   local:
     values:
-      - valuesPath: ./config/operator/local.yaml.gotmpl
+      - valuesPath: ./config/operator/local.yaml
       - createCert:
           enabled: true
           valuesPath: ./config/tls-cert/local.yaml
   keycloak:
     values:
-    - valuesPath: ./config/operator/keycloak.yaml.gotmpl
+    - valuesPath: ./config/operator/keycloak.yaml
     - createCert:
         enabled: false
         valuesPath: ./config/tls-cert/keycloak.yaml
   oci-iad:
     values:
-    - valuesPath: ./config/operator/default.yaml.gotmpl
+    - valuesPath: ./config/operator/default.yaml
     - createCert:
         enabled: false
   oci-ord:
     values:
-    - valuesPath: ./config/operator/default.yaml.gotmpl
+    - valuesPath: ./config/operator/default.yaml
     - createCert:
         enabled: false
   sjc4-1000:
     values:
-      - valuesPath: ./config/operator/default.yaml.gotmpl
+      - valuesPath: ./config/operator/default.yaml
       - createCert:
           enabled: true
           valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/operator/config/tls-cert/sjc4-1000.yaml?ref=main"
   sjc11:
     values:
-    - valuesPath: ./config/operator/default.yaml.gotmpl
+    - valuesPath: ./config/operator/default.yaml
     - createCert:
         enabled: true
         valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/operator/config/tls-cert/sjc11.yaml?ref=main"
   sjc4-dev:
     values:
-    - valuesPath: ./config/operator/default.yaml.gotmpl
+    - valuesPath: ./config/operator/default.yaml
     - createCert:
         enabled: true
         valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/operator/config/tls-cert/sjc4-dev.yaml?ref=main"
@@ -82,7 +82,7 @@ releases:
     namespace: ais-operator-system
     createNamespace: true
     chart: aistore/ais-operator
-    version: 2.17.0
+    version: 2.18.0
     values:
       - "{{ .Environment.Values.valuesPath }}"
     hooks:

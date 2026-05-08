@@ -1,0 +1,4 @@
+controllerManager:
+  manager:
+    image:
+      repository: docker.io/aistorage/ais-operator
