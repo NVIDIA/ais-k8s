@@ -7,10 +7,12 @@ environments:
     values:
       - valuesPath:  "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git//helm/monitoring/alloy/config/@oci-ord.yaml?ref=main"
         container_runtime: crio
+        host_network: true
   oci-iad:
     values:
       - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git//helm/monitoring/alloy/config/@oci-iad.yaml?ref=main"
         container_runtime: crio
+        host_network: true
   sjc112: 
     values:
       - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git//helm/monitoring/alloy/config/@sjc112.yaml?ref=main"
@@ -39,7 +41,7 @@ releases:
     namespace: monitoring
     createNamespace: true
     chart: grafana/alloy
-    version: 1.5.2
+    version: 1.8.0
     values:
       - ./config/alloy/default.yaml.gotmpl
 
