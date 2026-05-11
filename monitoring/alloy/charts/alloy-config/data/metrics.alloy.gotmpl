@@ -50,7 +50,7 @@ discovery.relabel "all_aisnode" {
   }
 }
 
-prometheus.exporter.unix "system" { 
+prometheus.exporter.unix "system" {
   // Include NVME and SD only by default
   disk {
     device_include = "^(nvme\\d+|sd[a-z]+)"
@@ -58,6 +58,10 @@ prometheus.exporter.unix "system" {
   netdev {
     device_exclude = "^(veth|lo|cni).*"
   }
+  // Override the defaults with increased TcpExt options
+  netstat {
+    fields = "^(.*_(InErrors|InErrs)|Ip_Forwarding|Ip(6|Ext)_(InOctets|OutOctets)|Icmp6?_(InMsgs|OutMsgs)|TcpExt_(Listen.*|Syncookies.*|TCPSynRetrans|TCPTimeouts|TCPAbort.*|TCPMemoryPressures|TCPBacklogDrop|TCPReqQFull.*)|Tcp_(ActiveOpens|InSegs|OutSegs|OutRsts|PassiveOpens|RetransSegs|CurrEstab)|Udp6?_(InDatagrams|OutDatagrams|NoPorts|RcvbufErrors|SndbufErrors))$"
+   }
   filesystem {
     mount_points_exclude = "^/(dev|var|proc|run|sys|tmp)($|/)"
   }
