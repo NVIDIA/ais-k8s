@@ -29,7 +29,7 @@ else
   echo "venv not found, creating and installing requirements for keycloak ais-admin creation script"
   python3 -m venv venv
   source "$SCRIPT_DIR/venv/bin/activate"
-  pip install -r requirements.txt
+  pip install keycloak
 fi
 
 # Build python arguments, conditionally add --verify-ca

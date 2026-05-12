@@ -26,15 +26,6 @@ updates:
       - "dependabot"
     schedule:
       interval: "weekly"
-  - package-ecosystem: "pip"
-    directory: "/auth/keycloak/scripts"
-    labels:
-      - "dependencies"
-      - "dependabot"
-    schedule:
-      interval: "weekly"
-    ignore:
-      - dependency-name: "*" # ignore dependencies for demo script
   - package-ecosystem: "gomod"
     directory: "/"
     labels:
