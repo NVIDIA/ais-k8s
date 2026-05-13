@@ -82,7 +82,7 @@ releases:
     namespace: ais-operator-system
     createNamespace: true
     chart: aistore/ais-operator
-    version: 2.18.0
+    version: 2.19.0
     values:
       - "{{ .Environment.Values.valuesPath }}"
     hooks:
