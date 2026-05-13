@@ -149,4 +149,4 @@ patches:
 images:
 - name: controller
   newName: docker.io/aistorage/ais-operator
-  newTag: v2.18.0
+  newTag: v2.19.0

@@ -8,7 +8,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ---
 
-## Unreleased
+## v2.19.0
 
 - Updated default image for adminClient deployment to use fully qualified registry `docker.io/aistorage/ais-util`
 - `tls.certificate.mode: secret` certificates now include cluster-node hosts as SANs (per `publicNetDNSMode`) regardless of autoscaling.
