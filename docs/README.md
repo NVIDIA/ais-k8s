@@ -1,6 +1,6 @@
 # AIStore K8s Deployment Guide
 
-This document provides comprehensive, step-by-step guidance for deploying [AIStore](https://github.com/NVIDIA/aistore) clusters on Kubernetes (K8s).
+This document provides guidance for deploying [AIStore](https://github.com/NVIDIA/aistore) clusters on Kubernetes (K8s).
 
 ## Contents
 
@@ -28,9 +28,8 @@ This will help you fine-tune your system to meet AIStore's requirements, ensurin
 
 - **Persistent Volumes**:
   - The AIS Operator does **NOT** format disks or create persistent volumes -- we expect this to be done beforehand as it varies per deployment. 
-  - Refer to the [prerequisites doc](./prerequisites.md) for formatting disks.
-  - For creating PVs in Helm deployments see the [Helm README](../helm/README.md#pv-creation).
-  - See the local [create-pv](../helm/ais/charts/create-pv) Helm Chart for a reference template for creating local PVs.
+  - For details on PV requirements and the PVC naming convention, see [Target Data Persistent Volumes](./storage_volumes.md).
+  - See the [create-pv](../helm/ais/charts/create-pv/README.md) Helm Chart for a reference template for creating node-local HostPath-type PVs.
 
 ## Deployment Steps
 

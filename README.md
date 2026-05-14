@@ -16,7 +16,7 @@ This repository serves as a complete toolkit for setting up AIStore in a Kuberne
 
 The diagram illustrates an AIStore deployment on a multi-node K8s cluster, with each node containing a `proxy` and a `target` pod.
 The `proxy` redirects client requests to the `target` pods, which handle data storage and retrieval.
-These pods utilize Persistent Volume Claims (PVCs) linked to Persistent Volumes (PVs) corresponding to actual storage disks.
+These pods utilize Persistent Volume Claims (PVCs) bound to [Persistent Volumes (PVs)](./docs/storage_volumes.md) corresponding to actual storage disks.
 The AIS Operator oversees the entire setup, managing all operations related to the cluster.
 
 ![system-overview](docs/diagrams/ais-overview.png)

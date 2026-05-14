@@ -14,12 +14,11 @@ For both bare-metal and managed K8s deployments:
 - **Operating System (OS)**: Compatible with any Linux-based OS. Ubuntu >=22.04 or RHEL >=8 recommended.
 - **Drives**:
   - AIStore's performance scales with the number and type of disks used.
+  - See [Target Data Persistent Volumes](./storage_volumes.md) for information on mounting storage for AIStore K8s Pods.
   - We provide a [guide](../playbooks/host-config/docs/ais_datafs.md) to using the [ais_datafs_mkfs playbook](../playbooks/host-config/docs/ais_datafs.md) for disk formatting and mounting as required by AIS.
   - **Filesystem**:
     See the [AIStore docs](https://github.com/NVIDIA/aistore/blob/main/docs/getting_started.md#prerequisites) for information on system prerequisites. 
-    Notably, AIS requires `extended attributes` and we recommend an `XFS filesystem`. 
-  - **Recommended XFS mount options**:
-      - noatime, nodiratime, logbufs=8, logbsize=256k, largeio, inode64, swalloc, allocsize=131072k, nobarrier.
+    Notably, AIS requires `extended attributes` and we recommend an `XFS filesystem`.
 
 ### Resource Requirements
 
@@ -40,9 +39,8 @@ This setup can lead to faster GET requests for these objects, as they can be ser
 
 ### Storage Type
 
-- **Direct Attached Storage (DAS)**: Options like HDDs, SSDs, and NVMe drives are preferred for performance reasons.
+- **Direct Attached Storage (DAS)**: Local drives are preferred for optimal performance and scaling.
 Direct attached storage ensures fewer layers of transport, which is beneficial for performance, reliability, observability, and debugging.
-Hence, we recommend locally attached storage when possible.
 
 - **Networked Storage Options**: AIStore is also compatible with networked storage solutions like iSCSI volumes and NFS mounts.
 While these options are functional, they may not offer the same level of performance as DAS.

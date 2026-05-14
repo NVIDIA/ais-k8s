@@ -5,6 +5,8 @@ PVs are created by a Kubernetes Job that runs as a Helm hook on `pre-install` an
 
 Subsequent chart installations will be blocked until all PVs are verified as `Available` or `Bound`.
 
+See [Target Data Persistent Volumes](../../../../docs/storage_volumes.md) for details and information on other mounting options.
+
 ## Existing PVs
 
 Nodes with existing AIS data PVs are skipped entirely.
@@ -28,7 +30,7 @@ If no new nodes are found, the Job exits immediately.
 
 ## PV Naming
 
-Each PV is named `<node>-pv-<mount-path>` with a `claimRef` matching the AIS StatefulSet PVC naming convention: `<cluster>-<mount-path>-<cluster>-target-<node-index>`.
+Each PV is named `<node>-pv-<mount-path>` with a `claimRef` matching the [AIS PVC naming convention](../../../../docs/storage_volumes.md#pvc-templating).
 
 ## Values
 

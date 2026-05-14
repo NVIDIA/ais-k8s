@@ -22,6 +22,7 @@ These labels are used for scheduling via `nodeSelector` and by the `ais-create-p
 
 The provided helmfile includes the [ais-create-pv](./charts/create-pv/) release, enabled by setting `createPV.enabled: true` for the environment.
 This chart queries for labeled target nodes and creates host path PVs for each mount-path on every labeled target.
+See [Target Data Persistent Volumes](../../docs/storage_volumes.md) for details on volume mounts.
 
 If you want to use an existing set of PVs, set `createPV.enabled: false`.
 You can also change the `storageClass` option to instruct AIS target pods to mount a different existing storage class.

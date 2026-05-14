@@ -17,29 +17,16 @@ In standard deployments, the `hostPort` setting in a pod specification is used t
 
 ## Persistent Volume Configuration
 
-Properly setting up PVs and PVCs is crucial for managing storage resources in Kubernetes. Here is an example of a [sample PV](samples/sample-pv.yaml).
+See [Target Data Persistent Volumes](./storage_volumes.md) for information on mounting storage for AIStore K8s pods.
 
-### Creating PVs and PVCs
+The bundled [create-pv Helm chart](../helm/ais/charts/create-pv/README.md) creates one PV for each mount path on every node. 
+For multiple targets on the same node, instead create PVs for each desired target with matching node affinity.
+See the linked [sample deployment](./samples/sample-multi-target-deployment.yml) for an example. 
 
-1. **Naming Convention**: Follow a naming convention for PVCs: `<namespace>-<path-separated-by-dashes>-<pod-name>`. For instance, `ais-data-aistore-ais-target-3` breaks down as follows:
-   - `ais` represents the namespace.
-   - `data/aistore` is transformed to `data-aistore` as the path.
-   - `ais-target-3` indicates the specific pod name where the pv is going to be attached.
-   
-2. **Mount Configuration**: In your StatefulSet's target specification, define mounts as follows:
-   ```yaml
-   spec:
-     ...
-     targetSpec:
-       mounts:
-       - path: /data/aistore
-         size: 5T
-         storageClass: ais-local-storage
-     ...
-   ```
+## Disable Target Pod Anti-Affinity
 
-3. **Disable Pod Anti-Affinity**: To allow the placement of multiple proxies/targets on a single node, set `disablePodAntiAffinity: true` in your StatefulSet. This adjustment is critical for deploying multiple targets per node efficiently.
+To allow the placement of multiple targets on a single node, set `spec.targetSpec.disablePodAntiAffinity: true`.
 
 ## Example Deployment
 
-In this [sample deployment](samples/sample-multi-target-deployment.yml) scenario two PVs are created, each linked to a distinct disk. A cluster is then deployed with one proxy and two targets, each target utilizing one of the PVs.
+In this [sample deployment](./samples/sample-multi-target-deployment.yml) scenario two PVs are created, each linked to a distinct disk. A cluster is then deployed with one proxy and two targets, each target utilizing one of the PVs.
