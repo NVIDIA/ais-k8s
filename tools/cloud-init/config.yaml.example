@@ -61,8 +61,15 @@ sysctl:
     vm.min_free_kbytes: 7922082
     vm.vfs_cache_pressure: 50
 
+# NIC tuning via ethtool (persists across reboots via /var/lib/cloud/scripts/per-boot/)
+# Each item is passed verbatim to `ethtool`.
+ethtool:
+  - "-G eth0 rx 8192"
+  - "-L eth0 combined 64"
+
 # Skip individual steps
 skip:
   mkfs: false
   blkdevtune: false
   sysctl: false
+  ethtool: false

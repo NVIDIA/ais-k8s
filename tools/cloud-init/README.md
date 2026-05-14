@@ -29,6 +29,7 @@ All three scripts can be run independently or together via `ais_host_config.sh`.
 |------|--------|--------------------|-------------|
 | sysctl | `ais_host_config.sh` | `ais_host_config_sysctl` | Arbitrary sysctl key-value pairs via `/etc/sysctl.d/` drop-ins (config-file-only) |
 | Block device tuning | `ais_host_config.sh` | `ais_host_config_common` (tag: `io`) | `read_ahead_kb` via udev rule (persists across reboots) |
+| NIC tuning | `ais_host_config.sh` | `ais_host_config_common` (tag: `ethtool`) | Arbitrary `ethtool` commands, re-applied via cloud-init per-boot script (persists across reboots) |
 | Filesystem creation | `ais_datafs.sh` | `ais_datafs_mkfs` | Parallel `mkfs` on specified devices |
 | Filesystem mounting | `ais_datafs.sh` | `ais_datafs_mount` | Mount at `/ais/<device>`, fstab entries using UUID |
 
@@ -39,6 +40,7 @@ All three scripts can be run independently or together via `ais_host_config.sh`.
 | `bash` | bash | All scripts |
 | `udevadm` | udev (systemd) | `ais_host_config.sh` (block device tuning rules) |
 | `sysctl` | procps | `ais_host_config.sh` |
+| `ethtool` | ethtool | `ais_host_config.sh` (NIC tuning) and the generated per-boot script |
 | `curl` | curl | `install_deps.sh` (downloads `yq` binary) |
 | `yq` | [mikefarah/yq](https://github.com/mikefarah/yq) | `ais_host_config.sh` (YAML config parsing) |
 | `blkid` | util-linux | `ais_datafs.sh` |
@@ -151,12 +153,27 @@ See `config.yaml.example` for recommended defaults organized into `required`,
 
 Be sure to update these carefully to account for the available cpu, memory, and networking on your instance shapes.  
 
+### NIC Tuning (ethtool)
+
+Configured via the YAML config under `ethtool:` as a list of strings. Each item is passed verbatim as arguments to `ethtool`:
+
+```yaml
+ethtool:
+  - "-G eth0 rx 8192"
+  - "-L eth0 combined 64"
+```
+
+Settings are baked into `/var/lib/cloud/scripts/per-boot/10-ais-ethtool.sh`, which cloud-init re-runs on every boot.
+
+Omit the `ethtool:` key (or set `SKIP_ETHTOOL=true`) to skip NIC tuning entirely.
+
 ### Feature Flags
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `SKIP_SYSCTL` | `false` | Skip all sysctl configuration |
 | `SKIP_BLKDEVTUNE` | `false` | Skip block device tuning (udev rule) |
+| `SKIP_ETHTOOL` | `false` | Skip NIC tuning (per-boot script) |
 | `SKIP_MKFS` | `false` | Skip filesystem creation (mount only) |
 
 ## Examples

@@ -53,6 +53,10 @@ command -v blkid      &>/dev/null || needed+=(util-linux)
 command -v mount      &>/dev/null || needed+=(util-linux)
 command -v udevadm    &>/dev/null || needed+=(udev)
 
+if [[ "${SKIP_ETHTOOL:-false}" != "true" ]] && ! command -v ethtool &>/dev/null; then
+    needed+=(ethtool)
+fi
+
 if [[ "$FSTYPE" == "xfs" ]] && ! command -v mkfs.xfs &>/dev/null; then
     needed+=(xfsprogs)
 fi
