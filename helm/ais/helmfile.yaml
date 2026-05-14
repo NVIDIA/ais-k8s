@@ -126,6 +126,16 @@ environments:
           enabled: false
         createPV:
           enabled: false
+
+  oci-nrt:
+    values:
+      - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/ais/config/ais/oci-nrt.yaml?ref=main"
+        https:
+          enabled: false
+        cloudSecrets:
+          enabled: false
+        createPV:
+          enabled: true
 ---
 hooks:
   - events: ["prepare"]

@@ -27,6 +27,11 @@ environments:
     - valuesPath: ./config/operator/default.yaml
     - createCert:
         enabled: false
+  oci-nrt:
+    values:
+    - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/operator/config/operator/oci-nrt.yaml?ref=main"
+    - createCert:
+        enabled: false
   sjc4-1000:
     values:
       - valuesPath: ./config/operator/default.yaml
