@@ -6,6 +6,8 @@ HELM_ROOT="${SCRIPT_DIR}/../helm"
 OPERATOR_ROOT="${SCRIPT_DIR}/../operator"
 CLUSTER_NAME="local-test"
 DEFAULT_OPERATOR_IMG="ais-operator:local"
+AIS_NAMESPACE="ais"
+AWS_SECRET_NAME="aws-creds"
 
 source "${SCRIPT_DIR}/cluster-setup.sh"
 # Skip helmfile install confirmations
@@ -24,6 +26,10 @@ Options:
   --image <image>      Use an operator image from a remote registry
                        (e.g. ghcr.io/org/ais-operator:v1.0)
   --auth               Deploy AuthN service and configure AIS with authentication
+  --aws [dir]          Create the 'aws-creds' Kubernetes secret from AWS config and
+                       credentials files and wire it into the AIS cluster. If <dir>
+                       is omitted, \$HOME/.aws is used. The directory must contain
+                       both 'config' and 'credentials' files.
   -h, --help           Show this help message
 
 --build and --image are mutually exclusive.
@@ -35,6 +41,8 @@ Examples:
   $(basename "$0") --reset --build              # Re-run setup, then build and deploy
   $(basename "$0") --auth                       # Deploy with AuthN enabled
   $(basename "$0") --build --auth               # Build operator and deploy with auth
+  $(basename "$0") --aws                        # Deploy with AWS creds from \$HOME/.aws
+  $(basename "$0") --aws /path/to/aws-dir       # Deploy with AWS creds from a custom dir
 EOF
     exit "${1:-0}"
 }
@@ -140,12 +148,54 @@ deploy_authn() {
     echo "AuthN service is ready!"
 }
 
+validate_aws_dir() {
+    local dir="$1"
+    if [[ ! -d "$dir" ]]; then
+        echo "Error: AWS directory '${dir}' does not exist or is not a directory" >&2
+        exit 1
+    fi
+    local missing=()
+    for f in config credentials; do
+        if [[ ! -f "${dir}/${f}" ]]; then
+            missing+=("${f}")
+        elif [[ ! -r "${dir}/${f}" ]]; then
+            echo "Error: AWS file '${dir}/${f}' is not readable" >&2
+            exit 1
+        fi
+    done
+    if [[ ${#missing[@]} -gt 0 ]]; then
+        echo "Error: AWS directory '${dir}' is missing required file(s): ${missing[*]}" >&2
+        echo "Expected both 'config' and 'credentials' files (standard AWS CLI layout)." >&2
+        exit 1
+    fi
+}
+
+create_aws_secret() {
+    local dir="$1"
+    echo "(Re)creating Kubernetes secret '${AWS_SECRET_NAME}' from '${dir}' in namespace '${AIS_NAMESPACE}'..."
+    kubectl create namespace "$AIS_NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
+    # Always recreate so local file changes are picked up on every run.
+    kubectl delete secret "$AWS_SECRET_NAME" --namespace "$AIS_NAMESPACE" --ignore-not-found
+    kubectl create secret generic "$AWS_SECRET_NAME" \
+        --namespace "$AIS_NAMESPACE" \
+        --from-file=config="${dir}/config" \
+        --from-file=credentials="${dir}/credentials"
+}
+
 deploy_ais() {
     local ais_env="local"
     if $DEPLOY_AUTH; then
         ais_env="local-auth"
     fi
-    (cd "${HELM_ROOT}/ais" && helmfile sync -e "$ais_env")
+    local sync_args=(sync -e "$ais_env")
+    if [[ -n "$AWS_DIR" ]]; then
+        create_aws_secret "$AWS_DIR"
+        # Propagate awsSecretName to the ais-cluster release. helmfile passes
+        # --set to every selected release; the other releases use charts that
+        # don't reference cloud.awsSecretName, so they ignore it.
+        sync_args+=(--set "cloud.awsSecretName=${AWS_SECRET_NAME}")
+    fi
+    (cd "${HELM_ROOT}/ais" && helmfile "${sync_args[@]}")
 
     echo "Waiting for AIStore cluster to be ready..."
     kubectl wait --for=jsonpath='{.status.state}'=Ready --timeout=300s aistore/ais -n ais
@@ -170,6 +220,7 @@ BUILD=false
 RESET=false
 DEPLOY_AUTH=false
 OPERATOR_IMG=""
+AWS_DIR=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -193,6 +244,15 @@ while [[ $# -gt 0 ]]; do
             DEPLOY_AUTH=true
             shift
             ;;
+        --aws)
+            if [[ -n "${2:-}" && "${2:0:1}" != "-" ]]; then
+                AWS_DIR="$2"
+                shift 2
+            else
+                AWS_DIR="${HOME}/.aws"
+                shift
+            fi
+            ;;
         -h|--help)
             usage
             ;;
@@ -206,6 +266,10 @@ done
 if $BUILD && [[ -n "$OPERATOR_IMG" ]]; then
     echo "Error: --build and --image are mutually exclusive" >&2
     exit 1
+fi
+
+if [[ -n "$AWS_DIR" ]]; then
+    validate_aws_dir "$AWS_DIR"
 fi
 
 # --- Cluster creation and setup ---

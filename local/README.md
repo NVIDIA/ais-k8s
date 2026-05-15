@@ -21,6 +21,12 @@ Scripts for deploying a local AIStore environment on a [KinD](https://kind.sigs.
 
 # Deploy with authentication enabled
 ./local/test-cluster.sh --auth
+
+# Deploy with AWS credentials from $HOME/.aws
+./local/test-cluster.sh --aws
+
+# Deploy with AWS credentials from a custom directory
+./local/test-cluster.sh --aws /path/to/aws-dir
 ```
 
 Once the cluster is ready, connect to the admin client:
@@ -41,10 +47,16 @@ Options:
   --image <image>      Use an operator image from a remote registry
                        (e.g. ghcr.io/org/ais-operator:v1.0)
   --auth               Deploy AuthN service and configure AIS with authentication
+  --aws [dir]          Create the 'aws-creds' Kubernetes secret from AWS config and
+                       credentials files and wire it into the AIS cluster. If <dir>
+                       is omitted, $HOME/.aws is used. The directory must contain
+                       both 'config' and 'credentials' files.
   -h, --help           Show this help message
 ```
 
 `--build` and `--image` are mutually exclusive. When neither is specified the operator is deployed with the current release image.
+
+When `--aws` is supplied the script creates a Kubernetes secret named `aws-creds` in the `ais` namespace (with `config` and `credentials` keys) and sets `cloud.awsSecretName=aws-creds` on the deployed AIS cluster so the AIS targets are configured with an AWS backend.
 
 ## What It Does
 
