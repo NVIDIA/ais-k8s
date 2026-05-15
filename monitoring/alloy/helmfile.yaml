@@ -13,6 +13,11 @@ environments:
       - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git//helm/monitoring/alloy/config/@oci-iad.yaml?ref=main"
         container_runtime: crio
         host_network: true
+  oci-nrt:
+    values:
+      - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git//helm/monitoring/alloy/config/@oci-nrt.yaml?ref=main"
+        container_runtime: crio
+        host_network: true
   sjc112: 
     values:
       - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git//helm/monitoring/alloy/config/@sjc112.yaml?ref=main"
