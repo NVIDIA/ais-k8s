@@ -21,6 +21,8 @@ Refer to the [Prometheus Alerting Configuration](https://prometheus.io/docs/aler
 
 The alert rules live in a separate local Helm chart at [./alert-rules](./alert-rules/), released independently of `kube-prometheus-stack`. 
 The chart renders `PrometheusRule` resources and exposes environment-specific config via [./alert-rules/values.yaml](./alert-rules/values.yaml). 
+Set `disk.type` to `nvme` (queue-depth/latency node_exporter alerts) or `hdd` (`ais_target_disk_util` saturation). 
+Use `disk.regex` to scope device matchers (e.g. `nvme.*` for NVMe clusters).
 The `release: prometheus` label on the rendered `PrometheusRule` marks it for loading by the `kube-prometheus-stack` deployment.
 
 The [scripts/convert.py](./scripts/convert.py) helper renders the chart via `helm template` and emits per-alert YAML files for the downstream Grafana provisioning pipeline. 

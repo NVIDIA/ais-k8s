@@ -6,6 +6,7 @@ collides with Helm's templating. Each description string is wrapped in a
 backtick-delimited go-template literal (`{{` ... `}}`) so it passes through
 unchanged.
 */ -}}
+{{- include "ais-alert-rules.validateDiskType" . -}}
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
@@ -21,24 +22,63 @@ spec:
         - alert: NodeLowFreeDiskInfo
           expr: |
             (
-              (sum by (cluster, instance, device) (node_filesystem_avail_bytes{mountpoint=~"{{ .Values.mountpointRegex }}", device=~"{{ .Values.diskRegex }}", cluster=~"{{ .Values.clusterRegex }}"}) / sum by (cluster, instance, device) (node_filesystem_size_bytes{mountpoint=~"{{ .Values.mountpointRegex }}", device=~"{{ .Values.diskRegex }}", cluster=~"{{ .Values.clusterRegex }}"})) >= 0.10
+              (sum by (cluster, instance, device) (node_filesystem_avail_bytes{mountpoint=~"{{ .Values.mountpointRegex }}", device=~"{{ .Values.disk.regex }}", cluster=~"{{ .Values.clusterRegex }}"}) / sum by (cluster, instance, device) (node_filesystem_size_bytes{mountpoint=~"{{ .Values.mountpointRegex }}", device=~"{{ .Values.disk.regex }}", cluster=~"{{ .Values.clusterRegex }}"})) >= 0.10
             ) and (
-              (sum by (cluster, instance, device) (node_filesystem_avail_bytes{mountpoint=~"{{ .Values.mountpointRegex }}", device=~"{{ .Values.diskRegex }}", cluster=~"{{ .Values.clusterRegex }}"}) / sum by (cluster, instance, device) (node_filesystem_size_bytes{mountpoint=~"{{ .Values.mountpointRegex }}", device=~"{{ .Values.diskRegex }}", cluster=~"{{ .Values.clusterRegex }}"})) < 0.20
+              (sum by (cluster, instance, device) (node_filesystem_avail_bytes{mountpoint=~"{{ .Values.mountpointRegex }}", device=~"{{ .Values.disk.regex }}", cluster=~"{{ .Values.clusterRegex }}"}) / sum by (cluster, instance, device) (node_filesystem_size_bytes{mountpoint=~"{{ .Values.mountpointRegex }}", device=~"{{ .Values.disk.regex }}", cluster=~"{{ .Values.clusterRegex }}"})) < 0.20
             )
           for: 5m
           labels:
             severity: info
           annotations:
-            summary: Node Disk Space Low on AIS Mountpath
+            summary: Node disk space low
             description: {{`"Free space on device '{{ $labels.device }}', instance '{{ $labels.instance }}' is below 20%."`}}
         - alert: NodeLowFreeDisk
-          expr: (sum by (cluster, instance, device) (node_filesystem_avail_bytes{mountpoint=~"{{ .Values.mountpointRegex }}", device=~"{{ .Values.diskRegex }}", cluster=~"{{ .Values.clusterRegex }}"}) / sum by (cluster, instance, device) (node_filesystem_size_bytes{mountpoint=~"{{ .Values.mountpointRegex }}", device=~"{{ .Values.diskRegex }}", cluster=~"{{ .Values.clusterRegex }}"})) < 0.10
+          expr: (sum by (cluster, instance, device) (node_filesystem_avail_bytes{mountpoint=~"{{ .Values.mountpointRegex }}", device=~"{{ .Values.disk.regex }}", cluster=~"{{ .Values.clusterRegex }}"}) / sum by (cluster, instance, device) (node_filesystem_size_bytes{mountpoint=~"{{ .Values.mountpointRegex }}", device=~"{{ .Values.disk.regex }}", cluster=~"{{ .Values.clusterRegex }}"})) < 0.10
           for: 5m
           labels:
             severity: critical
           annotations:
-            summary: Node Disk Space Critical on AIS Mountpath
+            summary: Node disk space critical
             description: {{`"Free space on device '{{ $labels.device }}', instance '{{ $labels.instance }}' is below 10%."`}}
+        {{- if eq .Values.disk.type "nvme" }}
+        # Saturation signal for multi-queue NVMe: rate of weighted IO time is the
+        # average queue depth (aqu-sz). Unlike io_time-derived "%util" this scales
+        # with parallel in-flight IOs, so it actually reflects how full the device's
+        # queues are.
+        - alert: NodeHighDiskQueueDepth
+          expr: rate(node_disk_io_time_weighted_seconds_total{cluster=~"{{ .Values.clusterRegex }}", device=~"{{ .Values.disk.regex }}"}[3m]) > 32
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: NVMe sustained high queue depth
+            description: {{`"Average queue depth on device '{{ $labels.device }}' (instance '{{ $labels.instance }}') has been above 32 for 5m, indicating the disk is saturated."`}}
+        # Latency-based saturation signal. Read await > 5ms sustained on datacenter
+        # NVMe means the device is past its happy operating point. Gated by IOPS so
+        # we don't alert on a single slow IO at near-idle.
+        - alert: NodeHighDiskReadLatency
+          expr: |
+            (rate(node_disk_read_time_seconds_total{cluster=~"{{ .Values.clusterRegex }}", device=~"{{ .Values.disk.regex }}"}[3m])
+             / rate(node_disk_reads_completed_total{cluster=~"{{ .Values.clusterRegex }}", device=~"{{ .Values.disk.regex }}"}[3m])) > 0.005
+            and rate(node_disk_reads_completed_total{cluster=~"{{ .Values.clusterRegex }}", device=~"{{ .Values.disk.regex }}"}[3m]) > 10
+          for: 3m
+          labels:
+            severity: warning
+          annotations:
+            summary: NVMe read latency elevated
+            description: {{`"Average read await on device '{{ $labels.device }}' (instance '{{ $labels.instance }}') has been above 5ms for 3m under load."`}}
+        - alert: NodeHighDiskWriteLatency
+          expr: |
+            (rate(node_disk_write_time_seconds_total{cluster=~"{{ .Values.clusterRegex }}", device=~"{{ .Values.disk.regex }}"}[5m])
+             / rate(node_disk_writes_completed_total{cluster=~"{{ .Values.clusterRegex }}", device=~"{{ .Values.disk.regex }}"}[5m])) > 0.030
+            and rate(node_disk_writes_completed_total{cluster=~"{{ .Values.clusterRegex }}", device=~"{{ .Values.disk.regex }}"}[5m]) > 10
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: NVMe write latency elevated
+            description: {{`"Average write await on device '{{ $labels.device }}' (instance '{{ $labels.instance }}') has been above 30ms for 10m under load."`}}
+        {{- end }}
         - alert: NodeNetworkErrorsHigh
           expr: sum by(cluster, instance, device) (rate(node_network_receive_errs_total{device=~"{{ .Values.nicRegex }}", cluster=~"{{ .Values.clusterRegex }}"}[5m]) + rate(node_network_transmit_errs_total{device=~"{{ .Values.nicRegex }}", cluster=~"{{ .Values.clusterRegex }}"}[5m])) > 0
           for: 10m
@@ -69,7 +109,7 @@ spec:
           labels:
             severity: critical
           annotations:
-            summary: AIS Proxy is unavailable
+            summary: AIS proxy is unavailable
             description: {{`"Proxy in statefulset '{{ $labels.statefulset }}' in namespace '{{ $labels.namespace }}' is unavailable."`}}
         - alert: TargetUnavailable
           expr: (max by (cluster, namespace, statefulset) (kube_statefulset_status_replicas{statefulset=~".*target$", cluster=~"{{ .Values.clusterRegex }}"}) - min by (cluster, namespace, statefulset) (kube_statefulset_status_replicas_ready{statefulset=~".*target$", cluster=~"{{ .Values.clusterRegex }}"})) > 0
@@ -85,7 +125,7 @@ spec:
           labels:
             severity: critical
           annotations:
-            summary: High Memory Usage Detected
+            summary: High memory usage detected
             description: {{`"Memory utilization on instance '{{ $labels.instance }}' has exceeded 80% for the last 5 minutes."`}}
         - alert: K8sHighCpuUtilization
           expr: 100 - (avg by(cluster, instance) (irate(node_cpu_seconds_total{mode="idle",cluster=~"{{ .Values.clusterRegex }}"}[5m])) * 100) > 80
@@ -93,7 +133,7 @@ spec:
           labels:
             severity: critical
           annotations:
-            summary: High CPU Usage Detected
+            summary: High CPU usage detected
             description: {{`"CPU utilization on instance '{{ $labels.instance }}' has exceeded 80% for the last 5 minutes."`}}
         - alert: K8sHighContainerRestarts
           expr: increase(kube_pod_container_status_restarts_total{cluster=~"{{ .Values.clusterRegex }}"}[5m]) > 3
@@ -124,7 +164,7 @@ spec:
           labels:
             severity: critical
           annotations:
-            summary: "Node Exporter job not scraping metrics"
+            summary: Node Exporter job not scraping metrics
             description: "No scrape response for job 'node-exporter'."
         - alert: AISExporterDown
           expr: up{job="aistore", cluster=~"{{ .Values.clusterRegex }}"} == 0
@@ -132,5 +172,5 @@ spec:
           labels:
             severity: critical
           annotations:
-            summary: "AIS job not scraping metrics"
-            description: "No scrape response for job 'aistore'."
+            summary: AIS job not scraping metrics
+            description: {{`"No scrape response for job 'aistore' on cluster '{{ $labels.cluster }}'."`}}

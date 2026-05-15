@@ -12,7 +12,10 @@ clusterRegex: ".*aistore.*"
 # capacity alerts to AIS mountpaths.
 mountpointRegex: "^/ais/.*"
 
-# Regex for disk metrics
-diskRegex: ".*"
+# Disk alert profile: "nvme" uses queue-depth/latency node_exporter rules;
+# "hdd" uses ais_target_disk_util saturation instead.
+disk:
+  type: nvme
+  regex: "nvme.*"
 # Regex for network device metrics
 nicRegex: ".*"
