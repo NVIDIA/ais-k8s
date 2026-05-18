@@ -1,0 +1,4 @@
+apiVersion: v2
+name: ais-alert-rules
+description: PrometheusRule containing AIStore alerts
+version: 0.1.0

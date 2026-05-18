@@ -1,0 +1,18 @@
+# Label that the kube-prometheus-stack Prometheus uses to discover
+# PrometheusRule resources. The chart sets `ruleSelectorNilUsesHelmValues: true`
+# by default, which means rules need `release: <helm-release-name>` to be picked
+# up. Our prometheus release is called "prometheus", so leave this unchanged
+# unless that release is renamed.
+prometheusReleaseLabel: prometheus
+
+# Cluster name regex used inside alert expressions to scope queries to AIS clusters.
+clusterRegex: ".*aistore.*"
+
+# Filesystem mountpoint regex used by node_filesystem_* expressions to scope
+# capacity alerts to AIS mountpaths.
+mountpointRegex: "^/ais/.*"
+
+# Regex for disk metrics
+diskRegex: ".*"
+# Regex for network device metrics
+nicRegex: ".*"

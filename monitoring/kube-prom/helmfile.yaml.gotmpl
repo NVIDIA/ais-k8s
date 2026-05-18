@@ -32,4 +32,9 @@ releases:
       - ./values/kube-state-metrics.yaml.gotmpl
       - ./values/grafana.yaml.gotmpl
       - ./values/node-exporter.yaml
-      - ./values/alert-rules.yaml
+
+  - name: alert-rules
+    namespace: monitoring
+    chart: ./alert-rules
+    needs:
+      - prometheus

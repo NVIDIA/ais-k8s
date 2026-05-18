@@ -15,11 +15,16 @@ These are loaded first so that they can be reused by the generic value overrides
 
 ### Alerting
 
-[AlertManager](https://prometheus.io/docs/alerting/latest/alertmanager/) supports various receivers, and you can configure them as needed. 
-We include a slack alert config in the [alertmanager values file](./values/alertmanager.yaml.gotmpl). 
+[AlertManager](https://prometheus.io/docs/alerting/latest/alertmanager/) supports various receivers, and you can configure them as needed.
+We include an example slack alert config in the [alertmanager values file](./values/alertmanager.yaml.gotmpl).
 Refer to the [Prometheus Alerting Configuration](https://prometheus.io/docs/alerting/latest/configuration/#general-receiver-related-settings) for details on each receiver's config.
 
-The rules themselves are provided via the `additionalPrometheusRulesMap` value option in the [alert-rules.yaml](./values/alert-rules.yaml).
+The alert rules live in a separate local Helm chart at [./alert-rules](./alert-rules/), released independently of `kube-prometheus-stack`. 
+The chart renders `PrometheusRule` resources and exposes environment-specific config via [./alert-rules/values.yaml](./alert-rules/values.yaml). 
+The `release: prometheus` label on the rendered `PrometheusRule` marks it for loading by the `kube-prometheus-stack` deployment.
+
+The [scripts/convert.py](./scripts/convert.py) helper renders the chart via `helm template` and emits per-alert YAML files for the downstream Grafana provisioning pipeline. 
+Pass `--values <file>` to override the defaults for a particular environment.
 
 # Usage
 

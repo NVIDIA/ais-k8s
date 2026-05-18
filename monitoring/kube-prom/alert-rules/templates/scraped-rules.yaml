@@ -1,0 +1,136 @@
+{{- /*
+PrometheusRule for AIStore alerts based on scraped metrics from node-exporter, kube-state-metrics, etc.
+
+Note on escaping: Prometheus alert templating uses `{{ $labels.x }}`, which
+collides with Helm's templating. Each description string is wrapped in a
+backtick-delimited go-template literal (`{{` ... `}}`) so it passes through
+unchanged.
+*/ -}}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ .Release.Name }}-scraped
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: ais-alert-rules
+    release: {{ .Values.prometheusReleaseLabel }}
+spec:
+  groups:
+    - name: AIStoreScrapedAlerts
+      rules:
+        - alert: NodeLowFreeDiskInfo
+          expr: |
+            (
+              (sum by (cluster, instance, device) (node_filesystem_avail_bytes{mountpoint=~"{{ .Values.mountpointRegex }}", device=~"{{ .Values.diskRegex }}", cluster=~"{{ .Values.clusterRegex }}"}) / sum by (cluster, instance, device) (node_filesystem_size_bytes{mountpoint=~"{{ .Values.mountpointRegex }}", device=~"{{ .Values.diskRegex }}", cluster=~"{{ .Values.clusterRegex }}"})) >= 0.10
+            ) and (
+              (sum by (cluster, instance, device) (node_filesystem_avail_bytes{mountpoint=~"{{ .Values.mountpointRegex }}", device=~"{{ .Values.diskRegex }}", cluster=~"{{ .Values.clusterRegex }}"}) / sum by (cluster, instance, device) (node_filesystem_size_bytes{mountpoint=~"{{ .Values.mountpointRegex }}", device=~"{{ .Values.diskRegex }}", cluster=~"{{ .Values.clusterRegex }}"})) < 0.20
+            )
+          for: 5m
+          labels:
+            severity: info
+          annotations:
+            summary: Node Disk Space Low on AIS Mountpath
+            description: {{`"Free space on device '{{ $labels.device }}', instance '{{ $labels.instance }}' is below 20%."`}}
+        - alert: NodeLowFreeDisk
+          expr: (sum by (cluster, instance, device) (node_filesystem_avail_bytes{mountpoint=~"{{ .Values.mountpointRegex }}", device=~"{{ .Values.diskRegex }}", cluster=~"{{ .Values.clusterRegex }}"}) / sum by (cluster, instance, device) (node_filesystem_size_bytes{mountpoint=~"{{ .Values.mountpointRegex }}", device=~"{{ .Values.diskRegex }}", cluster=~"{{ .Values.clusterRegex }}"})) < 0.10
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: Node Disk Space Critical on AIS Mountpath
+            description: {{`"Free space on device '{{ $labels.device }}', instance '{{ $labels.instance }}' is below 10%."`}}
+        - alert: NodeNetworkErrorsHigh
+          expr: sum by(cluster, instance, device) (rate(node_network_receive_errs_total{device=~"{{ .Values.nicRegex }}", cluster=~"{{ .Values.clusterRegex }}"}[5m]) + rate(node_network_transmit_errs_total{device=~"{{ .Values.nicRegex }}", cluster=~"{{ .Values.clusterRegex }}"}[5m])) > 0
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Network errors detected on node interface
+            description: {{`"Network errors on interface '{{ $labels.device }}' of instance '{{ $labels.instance }}' over the last 10 minutes."`}}
+        - alert: NodeNetworkDropsHigh
+          expr: sum by(cluster, instance, device) (rate(node_network_receive_drop_total{device=~"{{ .Values.nicRegex }}", cluster=~"{{ .Values.clusterRegex }}"}[5m]) + rate(node_network_transmit_drop_total{device=~"{{ .Values.nicRegex }}", cluster=~"{{ .Values.clusterRegex }}"}[5m])) > 0
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Network packet drops detected on node interface
+            description: {{`"Network packet drops on interface '{{ $labels.device }}' of instance '{{ $labels.instance }}' over the last 10 minutes."`}}
+        - alert: K8sNodeNotReady
+          expr: sum by(cluster, node) (kube_node_status_condition{condition="Ready", status!="true", cluster=~"{{ .Values.clusterRegex }}"}) > 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: K8s Node is not ready
+            description: {{`"Node '{{ $labels.node }}' status is not ready."`}}
+        - alert: ProxyUnavailable
+          expr: (max by (cluster, namespace, statefulset) (kube_statefulset_status_replicas{statefulset=~".*proxy$", cluster=~"{{ .Values.clusterRegex }}"}) - min by (cluster, namespace, statefulset) (kube_statefulset_status_replicas_ready{statefulset=~".*proxy$", cluster=~"{{ .Values.clusterRegex }}"})) > 0
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: AIS Proxy is unavailable
+            description: {{`"Proxy in statefulset '{{ $labels.statefulset }}' in namespace '{{ $labels.namespace }}' is unavailable."`}}
+        - alert: TargetUnavailable
+          expr: (max by (cluster, namespace, statefulset) (kube_statefulset_status_replicas{statefulset=~".*target$", cluster=~"{{ .Values.clusterRegex }}"}) - min by (cluster, namespace, statefulset) (kube_statefulset_status_replicas_ready{statefulset=~".*target$", cluster=~"{{ .Values.clusterRegex }}"})) > 0
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: AIS Target is unavailable
+            description: {{`"Target in statefulset '{{ $labels.statefulset }}' in namespace '{{ $labels.namespace }}' is unavailable."`}}
+        - alert: K8sHighMemoryUtilization
+          expr: (node_memory_MemTotal_bytes{cluster=~"{{ .Values.clusterRegex }}"}  - node_memory_MemAvailable_bytes{cluster=~"{{ .Values.clusterRegex }}"}) / node_memory_MemTotal_bytes{cluster=~"{{ .Values.clusterRegex }}"} * 100 > 80
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: High Memory Usage Detected
+            description: {{`"Memory utilization on instance '{{ $labels.instance }}' has exceeded 80% for the last 5 minutes."`}}
+        - alert: K8sHighCpuUtilization
+          expr: 100 - (avg by(cluster, instance) (irate(node_cpu_seconds_total{mode="idle",cluster=~"{{ .Values.clusterRegex }}"}[5m])) * 100) > 80
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: High CPU Usage Detected
+            description: {{`"CPU utilization on instance '{{ $labels.instance }}' has exceeded 80% for the last 5 minutes."`}}
+        - alert: K8sHighContainerRestarts
+          expr: increase(kube_pod_container_status_restarts_total{cluster=~"{{ .Values.clusterRegex }}"}[5m]) > 3
+          labels:
+            severity: warning
+          annotations:
+            summary: High container restarts detected
+            description: {{`"Container '{{ $labels.container }}' in pod '{{ $labels.pod }}' (namespace '{{ $labels.namespace }}') restarted more than 3 times over the last 5 minutes."`}}
+        - alert: K8sPodPendingTooLong
+          expr: sum by (cluster, namespace, pod) (kube_pod_status_phase{phase="Pending", cluster=~"{{ .Values.clusterRegex }}"}) > 0
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Pod pending too long
+            description: {{`"Pod '{{ $labels.pod }}' in namespace '{{ $labels.namespace }}' has been in Pending state for over 10 minutes."`}}
+        - alert: K8sResourceQuotaNearLimit
+          expr: (kube_resourcequota{type="used", cluster=~"{{ .Values.clusterRegex }}"} / on (cluster, namespace, resource, resourcequota) kube_resourcequota{type="hard", cluster=~"{{ .Values.clusterRegex }}"}) > 0.9
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Namespace resource quota near limit
+            description: {{`"Namespace '{{ $labels.namespace }}' resource '{{ $labels.resource }}' is above 90% of its quota in quota set '{{ $labels.resourcequota }}'."`}}
+        - alert: NodeExporterDown
+          expr: up{job="node-exporter", cluster=~"{{ .Values.clusterRegex }}"} == 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Node Exporter job not scraping metrics"
+            description: "No scrape response for job 'node-exporter'."
+        - alert: AISExporterDown
+          expr: up{job="aistore", cluster=~"{{ .Values.clusterRegex }}"} == 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "AIS job not scraping metrics"
+            description: "No scrape response for job 'aistore'."
