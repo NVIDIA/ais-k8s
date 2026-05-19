@@ -1,0 +1,14 @@
+name: update-kernel-uek
+
+workload:
+  kind: daemonset
+  script: up-kernel.sh
+
+image:
+  repository: docker.io/aistorage/ais-util
+  tag: v4.5
+  pullPolicy: IfNotPresent
+
+# Matches all nodes including control-plane
+tolerations:
+  - operator: Exists

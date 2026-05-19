@@ -1,0 +1,20 @@
+name: debug-privileged
+
+# pod | daemonset
+workload:
+  kind: pod
+  # Bash script filename under scripts/ (chart files). Empty runs "sleep infinity" for kubectl exec.
+  script: ""
+
+# Pin to one node (pod only; mutually exclusive with nodeSelector)
+nodeName: ""
+
+# Schedule on nodes with these labels (daemonset or pod; mutually exclusive with nodeName)
+nodeSelector: {}
+
+image:
+  repository: docker.io/aistorage/ais-util
+  tag: v4.5
+  pullPolicy: IfNotPresent
+
+tolerations: []

@@ -1,0 +1,11 @@
+{{- if .Values.workload.script }}
+{{- include "remote-exec.validateScript" . }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "remote-exec.name" . }}-script
+  namespace: {{ .Release.Namespace }}
+data:
+  {{ .Values.workload.script }}: |
+{{- (.Files.Get (printf "scripts/%s" .Values.workload.script)) | nindent 4 }}
+{{- end }}

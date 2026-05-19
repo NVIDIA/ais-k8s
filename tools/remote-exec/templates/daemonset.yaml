@@ -1,0 +1,20 @@
+{{- include "remote-exec.validateWorkloadKind" . }}
+{{- if eq .Values.workload.kind "daemonset" }}
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ include "remote-exec.name" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ include "remote-exec.name" . }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ include "remote-exec.name" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "remote-exec.name" . }}
+    spec:
+      {{- include "remote-exec.podSpec" . | nindent 6 }}
+{{- end }}

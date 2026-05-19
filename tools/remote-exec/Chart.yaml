@@ -1,0 +1,5 @@
+apiVersion: v2
+name: remote-exec
+description: Privileged host-access pod or DaemonSet for remote debugging and one-off node scripts
+type: application
+version: 0.1.0

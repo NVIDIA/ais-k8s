@@ -1,0 +1,10 @@
+name: oci-growfs
+
+workload:
+  kind: daemonset
+  script: grow-fs.sh
+
+image:
+  repository: docker.io/aistorage/ais-util
+  tag: v4.5
+  pullPolicy: IfNotPresent

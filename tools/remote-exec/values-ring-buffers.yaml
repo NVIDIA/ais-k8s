@@ -1,0 +1,13 @@
+name: update-ethtool-ring-buffers
+
+workload:
+  kind: daemonset
+  script: ring-buffers.sh
+
+image:
+  repository: docker.io/aistorage/ais-util
+  tag: v4.5
+  pullPolicy: IfNotPresent
+
+tolerations:
+  - operator: Exists

@@ -1,0 +1,10 @@
+{{- include "remote-exec.validateWorkloadKind" . }}
+{{- if eq .Values.workload.kind "pod" }}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ include "remote-exec.name" . }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  {{- include "remote-exec.podSpec" . | nindent 2 }}
+{{- end }}
