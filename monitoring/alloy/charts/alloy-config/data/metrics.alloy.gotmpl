@@ -51,6 +51,7 @@ discovery.relabel "all_aisnode" {
 }
 
 prometheus.exporter.unix "system" {
+  enable_collectors = ["ethtool"]
   // Include NVME and SD only by default
   disk {
     device_include = "^(nvme\\d+|sd[a-z]+)"
@@ -58,6 +59,23 @@ prometheus.exporter.unix "system" {
   netdev {
     device_exclude = "^(veth|lo|cni).*"
   }
+  {{- if and .Values.ethtool .Values.ethtool.device_include }}
+  // Default metrics for driver-level NIC health:
+  // rx_errors, tx_errors, rx_dropped, tx_dropped, tx_queue_dropped  | Generic driver-level errors and drops
+  // link_down_events_phy | Link flapping / cable-transceiver issues (mlx5)
+  // rx_crc_errors_phy, rx_symbol_err_phy | Link quality / FCS / physical coding errors
+  // rx_discards_phy, tx_discards_phy, tx_errors_phy | Hardware-level discards and TX errors
+  // rx_pause_ctrl_phy, tx_pause_ctrl_phy | Network vs NIC congestion (pause frames)
+  // rx_oversize_pkts_buffer, rx_oversize_pkts_sw_drop | MTU/buffer sizing mismatches
+  {{- $ethtoolMetricsInclude := "^(rx_errors|tx_errors|rx_dropped|tx_dropped|tx_queue_dropped|link_down_events_phy|rx_out_of_buffer|rx_crc_errors_phy|rx_symbol_err_phy|rx_discards_phy|tx_discards_phy|tx_errors_phy|rx_pause_ctrl_phy|tx_pause_ctrl_phy|rx_oversize_pkts_buffer|rx_oversize_pkts_sw_drop)$" }}
+  {{- if .Values.ethtool.metrics_include }}
+  {{- $ethtoolMetricsInclude = .Values.ethtool.metrics_include }}
+  {{- end }}
+  ethtool {
+    device_include = "{{ .Values.ethtool.device_include }}"
+    metrics_include = "{{ $ethtoolMetricsInclude }}"
+  }
+  {{- end }}
   // Override the defaults with increased TcpExt options
   netstat {
     fields = "^(.*_(InErrors|InErrs)|Ip_Forwarding|Ip(6|Ext)_(InOctets|OutOctets)|Icmp6?_(InMsgs|OutMsgs)|TcpExt_(Listen.*|Syncookies.*|TCPSynRetrans|TCPTimeouts|TCPAbort.*|TCPMemoryPressures|TCPBacklogDrop|TCPReqQFull.*)|Tcp_(ActiveOpens|InSegs|OutSegs|OutRsts|PassiveOpens|RetransSegs|CurrEstab)|Udp6?_(InDatagrams|OutDatagrams|NoPorts|RcvbufErrors|SndbufErrors))$"

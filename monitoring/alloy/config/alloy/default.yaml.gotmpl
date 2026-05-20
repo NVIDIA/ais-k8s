@@ -20,6 +20,12 @@ alloy:
   # -- Port to listen for traffic on.
   listenPort: 12345
 
+  # Additional capabilities for the pod
+  securityContext:
+    capabilities:
+      # Required for ethtool collector
+      add: ["NET_ADMIN"]
+
   # -- Host aliases to add to the Alloy container.
   hostAliases: []
   # - ip: "20.21.22.23"

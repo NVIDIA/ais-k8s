@@ -17,7 +17,10 @@ The full list of available helm values can be found [here](https://github.com/gr
 
 The alloy-config chart contains the alloy specification for a full pipeline to scrape logs and metrics depending on the values provided.
 See the values for the [default environment](./config/alloy-config/default.yaml) for explanation of some options. 
-Components will be created as needed depending on which local or remote exporter values are set. 
+Components will be created as needed depending on which local or remote exporter values are set.
+
+The `ethtool` value sets `device_include` on the unix exporter's ethtool collector (disabled when unset). 
+`metrics_include` is optional; when unset, the chart uses a default regex limited to NIC-health counters. 
 
 For internal deployment values, see the `ais-infra` repo.
 

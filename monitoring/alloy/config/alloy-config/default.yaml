@@ -2,6 +2,12 @@
 scrape:
   https: "true"
 
+# Ethtool collector (prometheus.exporter.unix); requires host ethtool and CAP_NET_ADMIN.
+# device_include is a regexp of interface names.
+# metrics_include is optional; omit to use the chart default NIC-health stat regex.
+ethtool:
+  device_include: "^ens.*"
+
 local:
   metricsEndpoint: "http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090/api/v1/otlp/"
   logsEndpoint: "http://loki-gateway.monitoring.svc.cluster.local/loki/api/v1/push"
