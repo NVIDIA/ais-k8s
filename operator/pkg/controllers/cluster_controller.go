@@ -187,7 +187,16 @@ func (r *AIStoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return r.bootstrapNew(ctx, ais)
 	}
 
-	return r.handleCREvents(ctx, ais)
+	if res, err := r.handleCREvents(ctx, ais); err != nil || !res.IsZero() {
+		return res, err
+	}
+
+	// Delete any deprecated statsd ConfigMap.
+	if err = r.reconcileDeprecatedStatsDCM(ctx, ais); err != nil {
+		r.recordError(ctx, ais, err, "Failed to reconcile deletion of StatsD ConfigMap")
+		return reconcile.Result{}, err
+	}
+	return reconcile.Result{}, nil
 }
 
 func (r *AIStoreReconciler) determineAutoScaleStatus(ctx context.Context, ais *aisv1.AIStore) error {
@@ -444,20 +453,13 @@ func (r *AIStoreReconciler) reconcileResources(ctx context.Context, ais *aisv1.A
 		return err
 	}
 
-	// 3. Deploy statsd ConfigMap. Required by both proxies and targets.
-	statsDCM := statsd.NewStatsDCM(ais)
-	if err = r.k8sClient.Apply(ctx, statsDCM); err != nil {
-		r.recordError(ctx, ais, err, "Failed to deploy StatsD ConfigMap")
-		return err
-	}
-
-	// 4. Deploy global cluster ConfigMap.
+	// 3. Deploy global cluster ConfigMap.
 	if err = r.k8sClient.Apply(ctx, globalCM); err != nil {
 		r.recordError(ctx, ais, err, "Failed to deploy global cluster ConfigMap")
 		return err
 	}
 
-	// 5. Deploy admin client if enabled.
+	// 4. Deploy admin client if enabled.
 	if err = r.reconcileAdminClient(ctx, ais); err != nil {
 		r.recordError(ctx, ais, err, "Failed to reconcile admin client")
 		return err
@@ -466,6 +468,24 @@ func (r *AIStoreReconciler) reconcileResources(ctx context.Context, ais *aisv1.A
 	// FIXME: We should also move the logic from `bootstrapNew` and `handleCREvents`.
 
 	return nil
+}
+
+func (r *AIStoreReconciler) reconcileDeprecatedStatsDCM(ctx context.Context, ais *aisv1.AIStore) error {
+	cm := &corev1.ConfigMap{}
+	cmName := statsd.ConfigMapNSName(ais)
+	if err := r.k8sClient.Get(ctx, cmName, cm); err != nil {
+		if !k8serrors.IsNotFound(err) {
+			return err
+		}
+		return nil
+	}
+	if !metav1.IsControlledBy(cm, ais) {
+		return nil
+	}
+	logf.FromContext(ctx).Info("Deleting deprecated StatsD ConfigMap",
+		"namespace", cmName.Namespace, "name", cmName.Name)
+	_, err := r.k8sClient.DeleteConfigMapIfExists(ctx, cmName)
+	return err
 }
 
 func (r *AIStoreReconciler) ensurePrereqs(ctx context.Context, ais *aisv1.AIStore) (result ctrl.Result, err error) {

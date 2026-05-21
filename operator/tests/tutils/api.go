@@ -20,7 +20,6 @@ import (
 	aisclient "github.com/ais-operator/pkg/client"
 	"github.com/ais-operator/pkg/resources/cmn"
 	"github.com/ais-operator/pkg/resources/proxy"
-	"github.com/ais-operator/pkg/resources/statsd"
 	"github.com/ais-operator/pkg/resources/target"
 	. "github.com/onsi/gomega"
 	batchv1 "k8s.io/api/batch/v1"
@@ -64,29 +63,26 @@ func CheckResExistence(ctx context.Context, cluster *aisv1.AIStore, aisCfg *AIST
 	EventuallyResourceExists(ctx, k8sClient, cmn.Role(cluster), condition, intervals...)
 	EventuallyResourceExists(ctx, k8sClient, cmn.RoleBinding(cluster), condition, intervals...)
 
-	// 2. Check for statsD config
-	EventuallyCMExists(ctx, k8sClient, statsd.ConfigMapNSName(cluster), condition, intervals...)
-
-	// 3. Proxy resources
-	// 3.1 config
+	// 2. Proxy resources
+	// 2.1 config
 	EventuallyCMExists(ctx, k8sClient, proxy.ConfigMapNSName(cluster), condition, intervals...)
-	// 3.2 Service
+	// 2.2 Service
 	EventuallyServiceExists(ctx, k8sClient, proxy.HeadlessSVCNSName(cluster), condition, intervals...)
-	// 3.3 StatefulSet
+	// 2.3 StatefulSet
 	EventuallySSExists(ctx, k8sClient, proxy.StatefulSetNSName(cluster), condition, intervals...)
-	// 3.4 ExternalLB Service (optional)
+	// 2.4 ExternalLB Service (optional)
 	if cluster.Spec.EnableExternalLB {
 		EventuallyServiceExists(ctx, k8sClient, proxy.LoadBalancerSVCNSName(cluster), condition, intervals...)
 	}
 
-	// 4. Target resources
-	// 4.1 config
+	// 3. Target resources
+	// 3.1 config
 	EventuallyCMExists(ctx, k8sClient, target.ConfigMapNSName(cluster), condition, intervals...)
-	// 4.2 Service
+	// 3.2 Service
 	EventuallyServiceExists(ctx, k8sClient, target.HeadlessSVCNSName(cluster), condition, intervals...)
-	// 4.3 StatefulSet
+	// 3.3 StatefulSet
 	EventuallySSExists(ctx, k8sClient, target.StatefulSetNSName(cluster), condition, intervals...)
-	// 4.4 ExternalLB Service (optional)
+	// 3.4 ExternalLB Service (optional)
 	if cluster.Spec.EnableExternalLB {
 		timeout, interval := aisCfg.GetLBExistenceTimeout()
 		for i := range cluster.GetTargetSize() {
@@ -95,7 +91,7 @@ func CheckResExistence(ctx context.Context, cluster *aisv1.AIStore, aisCfg *AIST
 		}
 	}
 
-	// 5. Check for TLS certificate (optional)
+	// 4. Check for TLS certificate (optional)
 	if cluster.UseTLSCertificate() {
 		EventuallyResourceExists(ctx, k8sClient, cmn.TLSCertificate(cluster), condition, intervals...)
 		secretNSName := types.NamespacedName{

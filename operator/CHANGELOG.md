@@ -8,6 +8,17 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ---
 
+## v3.0.0 (Unreleased)
+
+This release will result in an AIStore cluster rollout to sync pod templates.
+
+### Removed
+
+- Removed StatsD ConfigMap, volume, and mounts
+  - StatsD support was deprecated in AIStore in v3.28 and dropped in v4.0
+
+---
+
 ## v2.19.0
 
 - Updated default image for adminClient deployment to use fully qualified registry `docker.io/aistorage/ais-util`

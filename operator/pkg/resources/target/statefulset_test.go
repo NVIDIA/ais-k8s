@@ -62,8 +62,8 @@ var _ = Describe("Statefulset Target Volumes and Mounts", Label("short"), func()
 			Expect(*result.Spec.VolumeClaimTemplates[1].Spec.StorageClassName).To(Equal("stateStorageClass"))
 			Expect(result.Spec.VolumeClaimTemplates[1].Spec.Resources.Requests.Storage().String()).To(Equal("1Gi"))
 
-			// config-mount,statsd-config,logs,state,data
-			Expect(result.Spec.Template.Spec.Containers[0].VolumeMounts).To(HaveLen(5))
+			// config-mount,logs,state,data
+			Expect(result.Spec.Template.Spec.Containers[0].VolumeMounts).To(HaveLen(4))
 		})
 		It("should return with VolumeClaimTemplates for state and multiple for data", func() {
 			specCopy := aisSpec.DeepCopy()
@@ -100,8 +100,8 @@ var _ = Describe("Statefulset Target Volumes and Mounts", Label("short"), func()
 			Expect(*result.Spec.VolumeClaimTemplates[2].Spec.StorageClassName).To(Equal("stateStorageClass"))
 			Expect(result.Spec.VolumeClaimTemplates[2].Spec.Resources.Requests.Storage().String()).To(Equal("1Gi"))
 
-			// config-mount,statsd-config,logs,state,data,data
-			Expect(result.Spec.Template.Spec.Containers[0].VolumeMounts).To(HaveLen(6))
+			// config-mount,logs,state,data,data
+			Expect(result.Spec.Template.Spec.Containers[0].VolumeMounts).To(HaveLen(5))
 		})
 	})
 	Describe("New Target with hostMount", func() {
@@ -124,7 +124,7 @@ var _ = Describe("Statefulset Target Volumes and Mounts", Label("short"), func()
 			result := NewTargetSS(specCopy, *specCopy.Spec.Size)
 			Expect(result).To(Not(BeNil()))
 			Expect(result.Spec.VolumeClaimTemplates).To(HaveLen(0))
-			Expect(result.Spec.Template.Spec.Volumes).To(HaveLen(7))
+			Expect(result.Spec.Template.Spec.Volumes).To(HaveLen(6))
 
 			var dataVolume *v1.Volume
 			// Expect the host path data mount to be created with a fixed volume name
@@ -142,7 +142,7 @@ var _ = Describe("Statefulset Target Volumes and Mounts", Label("short"), func()
 			Expect(dataVolume.HostPath.Path).To(Equal(expectedHostPath))
 			Expect(*dataVolume.HostPath.Type).To(Equal(v1.HostPathDirectoryOrCreate))
 
-			Expect(result.Spec.Template.Spec.Containers[0].VolumeMounts).To(HaveLen(5))
+			Expect(result.Spec.Template.Spec.Containers[0].VolumeMounts).To(HaveLen(4))
 		})
 	})
 

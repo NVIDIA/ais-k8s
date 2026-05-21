@@ -11,7 +11,6 @@ import (
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
 	"github.com/ais-operator/api/v1beta1"
-	"github.com/ais-operator/pkg/resources/statsd"
 	csiapis "github.com/cert-manager/csi-driver/pkg/apis"
 	csiapisv1 "github.com/cert-manager/csi-driver/pkg/apis/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -31,7 +30,6 @@ const (
 	// AisConfigDir Container-internal location of initial config, written by init container and used at aisnode start
 	AisConfigDir      = "/var/ais_config"
 	LogsDir           = "/var/log/ais"
-	StatsDDir         = "/var/statsd_config"
 	InitGlobalConfDir = "/var/global_config"
 
 	// Other container mount locations
@@ -47,7 +45,6 @@ const (
 	AISGlobalConfigName = "ais.json"
 	AISLocalConfigName  = "ais_local.json"
 
-	StatsDVolume         = "statsd-config"
 	configTemplateVolume = "config-template"
 	configVolume         = "config-mount"
 	configGlobalVolume   = "config-global"
@@ -82,17 +79,6 @@ func NewAISVolumes(ais *v1beta1.AIStore, daeType string) []corev1.Volume {
 				ConfigMap: &corev1.ConfigMapVolumeSource{
 					LocalObjectReference: corev1.LocalObjectReference{
 						Name: globalConfigMapName(ais),
-					},
-					DefaultMode: &CMDefaultMode,
-				},
-			},
-		},
-		{
-			Name: StatsDVolume,
-			VolumeSource: corev1.VolumeSource{
-				ConfigMap: &corev1.ConfigMapVolumeSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: statsd.ConfigMapName(ais),
 					},
 					DefaultMode: &CMDefaultMode,
 				},
@@ -223,10 +209,6 @@ func NewAISVolumeMounts(ais *v1beta1.AIStore, daeType string) []corev1.VolumeMou
 		{
 			Name:      configVolume,
 			MountPath: AisConfigDir,
-		},
-		{
-			Name:      StatsDVolume,
-			MountPath: StatsDDir,
 		},
 		newLogsVolumeMount(daeType),
 	}
