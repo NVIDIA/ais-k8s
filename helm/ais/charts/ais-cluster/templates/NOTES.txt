@@ -4,5 +4,11 @@ To learn more about the release, try:
 $ helm status {{ .Release.Name }} -n {{ .Release.Namespace }}
 $ helm get all {{ .Release.Name }} -n {{ .Release.Namespace }}
 {{ if hasKey .Values "logSidecarImage" }}
-WARNING: The value `logSidecarImage` is deprecated and will be removed in a future release.
+WARNING: The value `logSidecarImage` is no longer supported with operator versions > 3.0.0.
+{{- end }}
+{{- if .Values.enableExternalLB }}
+WARNING: The value `enableExternalLB` is deprecated. With operator >= 3.1.0, prefer `proxySpec.externalAccess` and `targetSpec.externalAccess`.
+{{- end }}
+{{- if .Values.proxyLB.enabled }}
+WARNING: The value `proxyLB` is deprecated. With operator >= 3.1.0, set `proxySpec.externalAccess.enabled: true` (and `proxySpec.externalAccess.serviceAnnotations`) for the equivalent shared proxy LoadBalancer.
 {{- end }}

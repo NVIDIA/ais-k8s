@@ -422,7 +422,7 @@
     },
     "enableExternalLB": {
       "type": ["boolean"],
-      "description": "Creates individual LoadBalancer services for each AIS target.",
+      "description": "Deprecated: enables operator-managed LoadBalancer services for proxies and targets. Prefer proxySpec.externalAccess and/or targetSpec.externalAccess.",
       "examples": [true, false]
     },
     "publicNetDNSMode": {
@@ -500,6 +500,17 @@
               "limits": { "cpu": "4", "memory": "8Gi" }
             }
           ]
+        },
+        "externalAccess": {
+          "type": "object",
+          "description": "Configuration for cluster-external access to proxies, currently via a shared LoadBalancer.",
+          "properties": {
+            "enabled": { "type": "boolean", "default": false },
+            "serviceAnnotations": {
+              "type": "object",
+              "additionalProperties": { "type": "string" }
+            }
+          }
         }
       }
     },
@@ -598,6 +609,17 @@
               "examples": [0, 1, "10%"]
             }
           }
+        },
+        "externalAccess": {
+          "type": "object",
+          "description": "Configuration for cluster-external access to targets, currently via per-target LoadBalancer services.",
+          "properties": {
+            "enabled": { "type": "boolean", "default": false },
+            "serviceAnnotations": {
+              "type": "object",
+              "additionalProperties": { "type": "string" }
+            }
+          }
         }
       }
     },
@@ -607,7 +629,7 @@
         "enabled": {
           "type": "boolean",
           "default": false,
-          "description": "Enable a LoadBalancer service for AIS proxies."
+          "description": "Deprecated: Enable a shared proxy LoadBalancer. With operator >= 3.1.0, prefer proxySpec.externalAccess."
         },
         "port": {
           "type": "integer",
@@ -633,7 +655,7 @@
         "enabled": {
           "type": "boolean",
           "description": "Controls whether the admin client deployment is created. Defaults to true when adminClient is specified.",
-          "default": true,
+          "default": false,
           "examples": [true, false]
         },
         "image": {

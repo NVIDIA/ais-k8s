@@ -41,7 +41,10 @@ proxySpec:
   servicePort: 51080
   portPublic: 51080
   portIntraControl: 51082
-  portIntraData: 51083 
+  portIntraData: 51083
+  externalAccess:
+    enabled: false
+    serviceAnnotations: {}
 
 targetSpec:
   tolerations:
@@ -53,9 +56,15 @@ targetSpec:
   portPublic: 51081
   portIntraControl: 51082
   portIntraData: 51083
+  externalAccess:
+    enabled: false
+    serviceAnnotations: {}
   pdb:
     enabled: false
 
+# Deprecated: use proxySpec.externalAccess with operator >= 3.1.0 instead.
+# proxyLB creates a standalone shared proxy LoadBalancer Service, independent of the
+# operator version, for operator-managed deployments that predate proxySpec.externalAccess.
 proxyLB:
   enabled: false
   port: 51080

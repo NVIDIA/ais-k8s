@@ -80,6 +80,7 @@ spec:
     resources:
       {{- toYaml .Values.proxySpec.resources | nindent 6 }}
     {{- end }}
+    {{- include "ais-cluster.proxyExternalAccess" . | nindent 4 }}
   targetSpec:
     {{- with .Values.targetSpec.annotations }}
     annotations:
@@ -157,6 +158,7 @@ spec:
       {{- end }}
     {{- end }}
     {{- end }}
+    {{- include "ais-cluster.targetExternalAccess" . | nindent 4 }}
   {{- with .Values.imagePullSecrets }}
   imagePullSecrets:
   {{- toYaml . | nindent 2 }}
