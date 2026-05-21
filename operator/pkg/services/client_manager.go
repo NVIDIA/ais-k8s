@@ -143,7 +143,7 @@ func (m *AISClientManager) getAISAPIEndpoint(ctx context.Context,
 		}
 		port = ais.Spec.ProxySpec.PublicPort.String()
 	// If LoadBalancer is configured use the LB service to contact the API.
-	case ais.Spec.EnableExternalLB:
+	case ais.ProxyExternalAccessEnabled():
 		proxyLBSVC, svcErr := m.k8sClient.GetService(ctx, proxy.LoadBalancerSVCNSName(ais))
 		if svcErr != nil {
 			return "", svcErr
@@ -154,9 +154,13 @@ func (m *AISClientManager) getAISAPIEndpoint(ctx context.Context,
 				hostname = ing.IP
 				break
 			}
+			if ing.Hostname != "" {
+				hostname = ing.Hostname
+				break
+			}
 		}
 		if hostname == "" {
-			return "", fmt.Errorf("proxy load balancer svc %q has no ingress IP", proxy.LoadBalancerSVCNSName(ais))
+			return "", fmt.Errorf("proxy load balancer svc %q has no ingress IP or hostname", proxy.LoadBalancerSVCNSName(ais))
 		}
 		port = ais.Spec.ProxySpec.ServicePort.String()
 	// When operator is deployed within K8s cluster with no external LoadBalancer,

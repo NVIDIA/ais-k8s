@@ -132,9 +132,9 @@ func proxyPodSpec(ais *aisv1.AIStore) *corev1.PodSpec {
 }
 
 func NewInitContainerEnv(ais *aisv1.AIStore) (initEnv []corev1.EnvVar) {
-	initEnv = cmn.CommonInitEnv(ais)
+	initEnv = cmn.CommonInitEnv(ais, ais.ProxyExternalAccessEnabled())
 	initEnv = append(initEnv, cmn.EnvFromValue(cmn.EnvServiceName, headlessSVCName(ais.Name)))
-	if ais.Spec.ProxySpec.HostPort != nil {
+	if ais.Spec.ProxySpec.HostPort != nil && !ais.ProxyExternalAccessEnabled() {
 		if ais.UseNodeNameForPublicNet() {
 			initEnv = append(initEnv, cmn.EnvFromFieldPath(cmn.EnvPublicHostname, "spec.nodeName"))
 		} else {

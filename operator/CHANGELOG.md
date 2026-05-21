@@ -14,6 +14,11 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 - Added `maxUnavailable` to `proxySpec.autoScale` and `targetSpec.autoScale` to prevent autoscale scale-down while a cluster has unavailable pods within the configured budget.
 - `AIStoreAuth` custom resource (`auth.ais.nvidia.com/v1alpha1`), served by the existing operator. This addition also introduces API types, a validating webhook, and a no-op reconciler for `AIStoreAuth` as the foundation for managing AuthN deployments via the operator.
+- Added `spec.proxySpec.externalAccess` and `spec.targetSpec.externalAccess` for additional control of external services to expose pod access; currently limited to LoadBalancers. 
+
+### Changed
+
+- Deprecated `enableExternalLB`. Use `spec.proxySpec.externalAccess` and `spec.targetSpec.externalAccess` for equivalent and extended config.
 
 ---
 

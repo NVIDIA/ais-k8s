@@ -22,7 +22,7 @@ const (
 	EnvPublicHostname       = "AIS_PUBLIC_HOSTNAME"
 	EnvPublicDNSMode        = "AIS_PUBLIC_DNS_MODE"    // Determines what DNS name to use for the public network
 	EnvClusterDomain        = "AIS_K8S_CLUSTER_DOMAIN" // K8s cluster DNS domain
-	EnvEnableExternalAccess = "ENABLE_EXTERNAL_ACCESS" // Bool flag to indicate AIS daemon is exposed using LoadBalancer
+	EnvEnableExternalAccess = "ENABLE_EXTERNAL_ACCESS" // Bool flag to indicate AIS is exposed using LoadBalancer
 
 	EnvHostNetwork = "HOST_NETWORK" // Bool flag to indicate if host network is enabled for target
 
@@ -44,15 +44,12 @@ func CommonEnv() []corev1.EnvVar {
 	}
 }
 
-// CommonInitEnv provides environment variables used by init containers for both proxy and target pods
-func CommonInitEnv(ais *aisv1.AIStore) []corev1.EnvVar {
+// CommonInitEnv provides environment variables used by init containers for both proxy and target pods.
+func CommonInitEnv(ais *aisv1.AIStore, externalAccessEnabled bool) []corev1.EnvVar {
 	initEnv := []corev1.EnvVar{
 		EnvFromFieldPath(EnvHostIPS, "status.hostIPs"),
 		EnvFromValue(EnvClusterDomain, ais.GetClusterDomain()),
-		EnvFromValue(
-			EnvEnableExternalAccess,
-			strconv.FormatBool(ais.Spec.EnableExternalLB),
-		),
+		EnvFromValue(EnvEnableExternalAccess, strconv.FormatBool(externalAccessEnabled)),
 	}
 	if ais.Spec.PublicNetDNSMode != nil {
 		initEnv = append(initEnv, EnvFromValue(EnvPublicDNSMode, string(*ais.Spec.PublicNetDNSMode)))

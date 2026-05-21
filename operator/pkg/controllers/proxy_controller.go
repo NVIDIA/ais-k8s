@@ -452,26 +452,20 @@ func (r *AIStoreReconciler) reassignPrimaryForScaledown(ctx context.Context, ais
 	return fmt.Errorf("no pod found to set as primary")
 }
 
-// enableProxyExternalService, creates a LoadBalancer service for proxy statefulset.
+// createProxyExternalService creates a LoadBalancer service for the proxy statefulset.
 // NOTE: As opposed to `target` external services, where we have a separate LoadBalancer service per pod,
 // `proxies` have a single LoadBalancer service across all the proxy pods.
-func (r *AIStoreReconciler) enableProxyExternalService(ctx context.Context, ais *aisv1.AIStore) (ready bool, err error) {
-	proxyLBSVC := proxy.NewProxyLoadBalancerSVC(ais)
-	if err = r.k8sClient.Apply(ctx, proxyLBSVC); err != nil {
-		return
-	}
+func (r *AIStoreReconciler) createProxyExternalService(ctx context.Context, ais *aisv1.AIStore) error {
+	return r.k8sClient.Apply(ctx, proxy.NewProxyLoadBalancerSVC(ais))
+}
 
-	// If SVC already exists, check if external IP is allocated
+// proxyExternalSvcReady reports whether the proxy LoadBalancer service has ingress allocated.
+func (r *AIStoreReconciler) proxyExternalSvcReady(ctx context.Context, ais *aisv1.AIStore) (ready bool, err error) {
 	svc, err := r.k8sClient.GetService(ctx, proxy.LoadBalancerSVCNSName(ais))
 	if err != nil {
-		return
+		return false, err
 	}
-
-	for _, ing := range svc.Status.LoadBalancer.Ingress {
-		if ing.IP != "" {
-			ready = true
-			return
-		}
-	}
-	return
+	ready = cmn.LoadBalancerIngressReady(svc.Status.LoadBalancer.Ingress)
+	logf.FromContext(ctx).Info("Proxy LoadBalancer readiness", "service", svc.Name, "ready", ready)
+	return ready, nil
 }

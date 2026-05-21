@@ -45,6 +45,8 @@ type (
 		LogSidecarImage           string
 		DisableTargetAntiAffinity bool
 		EnableExternalLB          bool
+		ProxyExternalAccess       bool
+		TargetExternalAccess      bool
 		EnableAdminClient         bool
 		EnableTargetPDB           bool
 		TLS                       *TLSArgs
@@ -213,8 +215,14 @@ func newAISClusterCR(args *ClusterSpecArgs, mounts []aisv1.Mount) *aisv1.AIStore
 			DisablePodAntiAffinity: &args.DisableTargetAntiAffinity,
 		},
 	}
+	if args.EnableExternalLB || args.ProxyExternalAccess {
+		spec.ProxySpec.ExternalAccess = &aisv1.ExternalAccessSpec{}
+	}
+	if args.EnableExternalLB || args.TargetExternalAccess {
+		spec.TargetSpec.ExternalAccess = &aisv1.ExternalAccessSpec{}
+	}
 	// If not using an LB, use the host port to provide external access
-	if !args.EnableExternalLB {
+	if !args.EnableExternalLB && !args.ProxyExternalAccess && !args.TargetExternalAccess {
 		spec.APIMode = aisapc.Ptr(args.APIMode)
 		spec.ProxySpec.HostPort = aisapc.Ptr(int32(51080))
 		spec.TargetSpec.HostPort = aisapc.Ptr(int32(51081))

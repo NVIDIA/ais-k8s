@@ -86,6 +86,15 @@ const (
 	aisAzureURL          = "AIS_AZURE_URL"
 )
 
+// ExternalAccessSpec configures services for external client access.
+// On proxies this creates one shared LoadBalancer; on targets one LoadBalancer per pod ordinal.
+type ExternalAccessSpec struct {
+	// ServiceAnnotations are merged onto the created service(s)
+	// (for example cloud provider or external-dns annotations).
+	// +optional
+	ServiceAnnotations map[string]string `json:"serviceAnnotations,omitempty"`
+}
+
 // PubNetDNSMode defines allowed values for publicNetDNSMode spec option
 type PubNetDNSMode string
 
@@ -446,8 +455,11 @@ type AIStoreSpec struct {
 	// +optional
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 
-	// EnableExternalLB, if set, enables external access to AIS cluster using LoadBalancer service
-	EnableExternalLB bool `json:"enableExternalLB"`
+	// EnableExternalLB, if set, enables LoadBalancer services for external access to targets and proxies.
+	//
+	// Deprecated: set spec.proxySpec.externalAccess and/or spec.targetSpec.externalAccess to enable instead.
+	// +optional
+	EnableExternalLB bool `json:"enableExternalLB,omitempty"`
 
 	// PublicNetDNSMode Defines the public network DNS name to use with hostPort.
 	// Defaults to 'IP' to use the host IP.
@@ -586,6 +598,10 @@ type DaemonSpec struct {
 	// HTTP endpoints and ports are managed by the operator and cannot be overridden.
 	// +optional
 	Probes *ProbeConfSpec `json:"probes,omitempty"`
+
+	// ExternalAccess configures services for cluster-external access to AIS.
+	// +optional
+	ExternalAccess *ExternalAccessSpec `json:"externalAccess,omitempty"`
 }
 
 // ProbeSpec defines optional overrides for Kubernetes probe timing parameters.
@@ -873,6 +889,20 @@ func (ais *AIStore) GetPublicNetDNSMode() PubNetDNSMode {
 
 func (ais *AIStore) UseNodeNameForPublicNet() bool {
 	return ais.GetPublicNetDNSMode() == PubNetDNSModeNode
+}
+
+func (ais *AIStore) ProxyExternalAccessEnabled() bool {
+	if ais.Spec.ProxySpec.ExternalAccess != nil {
+		return true
+	}
+	return ais.Spec.EnableExternalLB
+}
+
+func (ais *AIStore) TargetExternalAccessEnabled() bool {
+	if ais.Spec.TargetSpec.ExternalAccess != nil {
+		return true
+	}
+	return ais.Spec.EnableExternalLB
 }
 
 func (ais *AIStore) getScheme() string {

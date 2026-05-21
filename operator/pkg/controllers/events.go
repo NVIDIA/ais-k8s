@@ -26,8 +26,7 @@ const (
 	ActionCreate            = "Create"
 	ActionDelete            = "Delete"
 	ActionReconcile         = "Reconciled"
-	ActionInitProxyLB       = "InitProxyLB"
-	ActionWaitForProxyLB    = "WaitingForProxyLB"
+	ActionInitExternalSvc   = "InitExternalService"
 	ActionInitTargets       = "InitTargets"
 	ActionInitProxies       = "InitProxies"
 )

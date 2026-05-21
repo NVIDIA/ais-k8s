@@ -57,7 +57,7 @@ type clientCluster struct {
 }
 
 func (cc *clientCluster) applyDefaultHostPortOffset(args *tutils.ClusterSpecArgs) {
-	if args.EnableExternalLB {
+	if args.EnableExternalLB || args.ProxyExternalAccess || args.TargetExternalAccess {
 		return
 	}
 	// Apply host port offset of 10 per parallel Ginkgo process to give each process a unique host port
@@ -81,7 +81,7 @@ func newClientCluster(ctx context.Context, aisCfg *tutils.AISTestCfg, k8sClient 
 func (cc *clientCluster) getTimeout() time.Duration {
 	// For a cluster with external LB, allocating external-IP could be time-consuming.
 	// Force longer timeout for cluster creation.
-	if cc.cluster.Spec.EnableExternalLB {
+	if cc.cluster.ProxyExternalAccessEnabled() || cc.cluster.TargetExternalAccessEnabled() {
 		return cc.aisCfg.GetClusterCreateLongTimeout()
 	}
 	return cc.aisCfg.GetClusterCreateTimeout()
@@ -289,7 +289,7 @@ func (cc *clientCluster) initClientAccess(ctx context.Context) {
 
 func (cc *clientCluster) getProxyURL(ctx context.Context) (proxyURL string) {
 	var ip string
-	if cc.cluster.Spec.EnableExternalLB {
+	if cc.cluster.ProxyExternalAccessEnabled() {
 		ip = tutils.GetLoadBalancerIP(ctx, cc.k8sClient, proxy.LoadBalancerSVCNSName(cc.cluster))
 	} else {
 		ip = tutils.GetRandomProxyIP(ctx, cc.k8sClient, cc.cluster)
@@ -300,7 +300,7 @@ func (cc *clientCluster) getProxyURL(ctx context.Context) (proxyURL string) {
 
 func (cc *clientCluster) getAllProxyURLs(ctx context.Context) (proxyURLs []*string) {
 	var proxyIPs []string
-	if cc.cluster.Spec.EnableExternalLB {
+	if cc.cluster.ProxyExternalAccessEnabled() {
 		proxyIPs = []string{tutils.GetLoadBalancerIP(ctx, cc.k8sClient, proxy.LoadBalancerSVCNSName(cc.cluster))}
 	} else {
 		proxyIPs = tutils.GetAllProxyIPs(ctx, cc.k8sClient, cc.cluster)

@@ -88,9 +88,7 @@ func NewTargetLoadBalancerSVC(ais *aisv1.AIStore, targetIndex int32) *corev1ac.S
 	selectors["statefulset.kubernetes.io/pod-name"] = PodName(ais, targetIndex)
 	return corev1ac.Service(loadBalancerSVCName(ais, targetIndex), ais.Namespace).
 		WithOwnerReferences(ownerref.NewControllerRef(ais)).
-		WithAnnotations(map[string]string{
-			"prometheus.io/scrape": "true",
-		}).
+		WithAnnotations(cmn.ExternalAccessLBAnnotations(ais.Spec.TargetSpec.ExternalAccess)).
 		WithLabels(cmn.NewServiceLabels(ais.Name, ServiceLabelLB)).
 		WithSpec(corev1ac.ServiceSpec().
 			WithType(corev1.ServiceTypeLoadBalancer).

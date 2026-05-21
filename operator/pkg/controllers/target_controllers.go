@@ -541,14 +541,14 @@ func (r *AIStoreReconciler) prepareTargetForRollout(ctx context.Context, ais *ai
 }
 
 func (r *AIStoreReconciler) scaleUpLB(ctx context.Context, ais *aisv1.AIStore) error {
-	if !ais.Spec.EnableExternalLB {
+	if !ais.TargetExternalAccessEnabled() {
 		return nil
 	}
-	return r.enableTargetExternalService(ctx, ais)
+	return r.createTargetExternalServices(ctx, ais)
 }
 
 func (r *AIStoreReconciler) scaleDownLB(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) error {
-	if !ais.Spec.EnableExternalLB {
+	if !ais.TargetExternalAccessEnabled() {
 		return nil
 	}
 	for idx := *ss.Spec.Replicas; idx > ais.GetTargetSize(); idx-- {
@@ -561,31 +561,38 @@ func (r *AIStoreReconciler) scaleDownLB(ctx context.Context, ais *aisv1.AIStore,
 	return nil
 }
 
-// enableTargetExternalService, creates a loadbalancer service per target and checks if all the services are assigned an external IP.
-func (r *AIStoreReconciler) enableTargetExternalService(ctx context.Context,
-	ais *aisv1.AIStore,
-) error {
-	targetSVCList := target.NewLoadBalancerSVCList(ais)
-	// 1. Try creating a LoadBalancer service for each target pod
-	for _, svc := range targetSVCList {
+// createTargetExternalServices creates a LoadBalancer service per target.
+func (r *AIStoreReconciler) createTargetExternalServices(ctx context.Context, ais *aisv1.AIStore) error {
+	for _, svc := range target.NewLoadBalancerSVCList(ais) {
 		if err := r.k8sClient.Apply(ctx, svc); err != nil {
 			return err
 		}
 	}
+	return nil
+}
 
-	// 2. Ensure every service has an ingress IP assigned to it.
+// targetExternalSvcReady reports whether all target LoadBalancer services exist and have ingress allocated.
+func (r *AIStoreReconciler) targetExternalSvcReady(ctx context.Context, ais *aisv1.AIStore) (ready bool, err error) {
+	logger := logf.FromContext(ctx)
 	svcList := &corev1.ServiceList{}
-	err := r.k8sClient.List(ctx, svcList, client.MatchingLabels(cmn.NewServiceLabels(ais.Name, target.ServiceLabelLB)))
+	err = r.k8sClient.List(ctx, svcList, client.MatchingLabels(cmn.NewServiceLabels(ais.Name, target.ServiceLabelLB)))
 	if err != nil {
-		return err
+		return false, err
 	}
 
+	expected := int(ais.GetTargetSize())
+	if len(svcList.Items) < expected {
+		logger.Info("Waiting for target LoadBalancer services to be created", "found", len(svcList.Items), "expected", expected)
+		return false, nil
+	}
+
+	ready = true
 	for i := range svcList.Items {
-		for _, ing := range svcList.Items[i].Status.LoadBalancer.Ingress {
-			if ing.IP == "" {
-				return fmt.Errorf("ingress IP not set for Load Balancer")
-			}
+		svcReady := cmn.LoadBalancerIngressReady(svcList.Items[i].Status.LoadBalancer.Ingress)
+		logger.Info("Target LoadBalancer readiness", "service", svcList.Items[i].Name, "ready", svcReady)
+		if !svcReady {
+			ready = false
 		}
 	}
-	return nil
+	return ready, nil
 }

@@ -214,42 +214,24 @@ This section discusses AIStore accessibility by external clients - the clients *
 
 By default, each AIS pod will deploy with a `HostPort` configuration, allowing any client with access to the host to communicate to the pod directly over the specified port. 
 
-The AIStore custom resource also contains the `enableExternalLB` setting, which will instruct the operator to create K8s `LoadBalancer` services for the pods.
-External access relies on the K8s capability to assign an external IP (or hostname) to these `LoadBalancer` services.
+The AIStore custom resource supports per-role external access via `spec.proxySpec.externalAccess` (one shared proxy LoadBalancer) and `spec.targetSpec.externalAccess` (one LoadBalancer per target ordinal). 
+The legacy `enableExternalLB` field enables LoadBalancer services for **both** proxies and targets. 
+External access relies on the K8s cluster assigning an external IP or hostname to these `LoadBalancer` services.
+
+> **NOTE**: Currently, external access can be enabled only for new AIS clusters.
+> Updating external access for an existing cluster is not yet supported.
+> See the [redeployment](../docs/redeployment.md) guide for redeploying an existing cluster.
 
 **Setting up external IPs**
+
+The cluster must support provisioning enough external IPs to enable the external LoadBalancers.
+With `enableExternalLB`, the cluster must assign external IPs to (N + 1) LoadBalancer services: one per target plus one shared proxy LoadBalancer.
+
 - **Bare-Metal On-Premises Deployments**: For these setups, we recommend using [MetalLB](https://metallb.universe.tf/), a popular solution for on-premises Kubernetes environments.
 - **Cloud-Based Deployments**: If your AIStore is running in a cloud environment, you can utilize standard HTTP load balancer services provided by the cloud provider.
 
-**enableExternalLB example**
-Update your AIS spec as follows:
-
-```yaml
-# config/samples/ais_v1beta1_aistore.yaml
-apiVersion: ais.nvidia.com/v1beta1
-kind: AIStore
-metadata:
-  name: aistore-sample
-spec:
-  ...
-  enableExternalLB: true
-  # enableExternalLB: false
-```
-
-> NOTE: Currently, external access can be enabled only for new AIS clusters. Updating the `enableExternalLB` spec for an existing cluster is not yet supported.
-
-Another important consideration is - the number of external IPs.
-To deploy an AIS cluster of N storage nodes, the K8s cluster will have to assign external IPs to (N + 1) `LoadBalancer` services: one for each storage target plus one more for all the AIS proxies (aka AIS gateways) in that same cluster.
-
-Failing that requirement will lead to a failure to deploy AIStore.
-
-External access can be tested locally on `minikube` using the following command:
-
-```console
-$ minikube tunnel
-```
-
-For more information and details on *minikube tunneling*, please see [this link](https://minikube.sigs.k8s.io/docs/commands/tunnel/).
+External access can be tested locally on `minikube` using the `minikube tunnel` command; for more details, see [this link](https://minikube.sigs.k8s.io/docs/commands/tunnel/).
+For testing with KinD, see [cloud-provider-kind](https://github.com/kubernetes-sigs/cloud-provider-kind).
 
 ### Deploying cluster with shared or no disks
 

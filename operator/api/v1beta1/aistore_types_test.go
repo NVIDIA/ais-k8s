@@ -260,4 +260,32 @@ var _ = Describe("AIStore", func() {
 			})
 		})
 	})
+
+	Describe("External access", func() {
+		DescribeTable("ProxyExternalAccessEnabled", func(ais AIStore, want bool) {
+			Expect(ais.ProxyExternalAccessEnabled()).To(Equal(want))
+		},
+			Entry("legacy enableExternalLB", AIStore{Spec: AIStoreSpec{EnableExternalLB: true}}, true),
+			Entry("proxy externalAccess", AIStore{Spec: AIStoreSpec{
+				ProxySpec: DaemonSpec{ExternalAccess: &ExternalAccessSpec{}},
+			}}, true),
+			Entry("target only", AIStore{Spec: AIStoreSpec{
+				TargetSpec: TargetSpec{DaemonSpec: DaemonSpec{ExternalAccess: &ExternalAccessSpec{}}},
+			}}, false),
+			Entry("disabled", AIStore{Spec: AIStoreSpec{}}, false),
+		)
+
+		DescribeTable("TargetExternalAccessEnabled", func(ais AIStore, want bool) {
+			Expect(ais.TargetExternalAccessEnabled()).To(Equal(want))
+		},
+			Entry("legacy enableExternalLB", AIStore{Spec: AIStoreSpec{EnableExternalLB: true}}, true),
+			Entry("target externalAccess", AIStore{Spec: AIStoreSpec{
+				TargetSpec: TargetSpec{DaemonSpec: DaemonSpec{ExternalAccess: &ExternalAccessSpec{}}},
+			}}, true),
+			Entry("proxy only", AIStore{Spec: AIStoreSpec{
+				ProxySpec: DaemonSpec{ExternalAccess: &ExternalAccessSpec{}},
+			}}, false),
+			Entry("disabled", AIStore{Spec: AIStoreSpec{}}, false),
+		)
+	})
 })

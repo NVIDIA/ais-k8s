@@ -126,9 +126,9 @@ func targetPodSpec(ais *aisv1.AIStore) *corev1.PodSpec {
 }
 
 func NewInitContainerEnv(ais *aisv1.AIStore) (initEnv []corev1.EnvVar) {
-	initEnv = cmn.CommonInitEnv(ais)
+	initEnv = cmn.CommonInitEnv(ais, ais.TargetExternalAccessEnabled())
 	initEnv = append(initEnv, cmn.EnvFromValue(cmn.EnvServiceName, headlessSVCName(ais.Name)))
-	if ais.Spec.TargetSpec.HostPort != nil {
+	if ais.Spec.TargetSpec.HostPort != nil && !ais.TargetExternalAccessEnabled() {
 		if ais.UseNodeNameForPublicNet() {
 			initEnv = append(initEnv, cmn.EnvFromFieldPath(cmn.EnvPublicHostname, "spec.nodeName"))
 		} else {

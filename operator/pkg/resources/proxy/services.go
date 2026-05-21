@@ -82,9 +82,7 @@ func NewProxyLoadBalancerSVC(ais *aisv1.AIStore) *corev1ac.ServiceApplyConfigura
 	publicNetPort := ais.Spec.ProxySpec.PublicPort
 	return corev1ac.Service(loadBalancerSVCName(ais), ais.Namespace).
 		WithOwnerReferences(ownerref.NewControllerRef(ais)).
-		WithAnnotations(map[string]string{
-			"prometheus.io/scrape": "true",
-		}).
+		WithAnnotations(cmn.ExternalAccessLBAnnotations(ais.Spec.ProxySpec.ExternalAccess)).
 		WithLabels(cmn.NewServiceLabels(ais.Name, ServiceLabelLB)).
 		WithSpec(corev1ac.ServiceSpec().
 			WithType(corev1.ServiceTypeLoadBalancer).

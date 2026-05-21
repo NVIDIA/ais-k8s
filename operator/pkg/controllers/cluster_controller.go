@@ -47,7 +47,7 @@ const (
 	aisShutdownRequeueDelay  = 5 * time.Second
 	aisReadinessRequeueDelay = 3 * time.Second
 	cleanupJobDelay          = 5 * time.Second
-	proxyLBDelay             = 2 * time.Second
+	externalSvcDelay         = 2 * time.Second
 )
 
 type (
@@ -489,45 +489,14 @@ func (r *AIStoreReconciler) reconcileDeprecatedStatsDCM(ctx context.Context, ais
 }
 
 func (r *AIStoreReconciler) ensurePrereqs(ctx context.Context, ais *aisv1.AIStore) (result ctrl.Result, err error) {
-	// 1. Reconcile basic resources like RBAC and ConfigMaps.
+	// Reconcile basic resources like RBAC and ConfigMaps.
 	if err = r.reconcileResources(ctx, ais); err != nil {
 		return result, err
 	}
 
-	// 2. Check if the cluster needs external access.
-	// If yes, create a LoadBalancer services for targets and proxies and wait for external IP to be allocated.
-	if ais.Spec.EnableExternalLB {
-		var proxyReady, targetReady bool
-		proxyReady, err = r.enableProxyExternalService(ctx, ais)
-		if err != nil {
-			r.recordError(ctx, ais, err, "Failed to enable proxy external service")
-			return result, err
-		}
-		err = r.enableTargetExternalService(ctx, ais)
-		if err != nil {
-			r.recordError(ctx, ais, err, "Failed to enable target external service")
-			return result, err
-		}
-		// When external access is enabled, we need external IPs of all the targets before deploying AIS cluster.
-		// To ensure correct behavior of cluster, we requeue the reconciler till we have all the external IPs.
-		if !proxyReady {
-			if !ais.HasState(aisv1.ClusterInitializingLBService) && !ais.HasState(aisv1.ClusterPendingLBService) {
-				err = r.updateStatusWithState(ctx, ais, aisv1.ClusterInitializingLBService)
-				if err == nil {
-					r.recorder.Eventf(ais, nil, corev1.EventTypeNormal, EventReasonInitialized, ActionInitProxyLB, "Successfully initialized LoadBalancer service")
-				}
-			} else {
-				err = r.updateStatusWithState(ctx, ais, aisv1.ClusterPendingLBService)
-				if err == nil {
-					r.recorder.Eventf(
-						ais, nil, corev1.EventTypeNormal, EventReasonWaiting, ActionWaitForProxyLB,
-						"Waiting for LoadBalancer service to be ready; proxy ready=%t, target ready=%t", proxyReady, targetReady,
-					)
-				}
-			}
-			result.RequeueAfter = proxyLBDelay
-			return
-		}
+	result, err = r.reconcileExternalAccess(ctx, ais)
+	if err != nil || !result.IsZero() {
+		return
 	}
 
 	err = r.ensureProxyPrereqs(ctx, ais)
@@ -536,6 +505,64 @@ func (r *AIStoreReconciler) ensurePrereqs(ctx context.Context, ais *aisv1.AIStor
 	}
 	err = r.ensureTargetPrereqs(ctx, ais)
 	return
+}
+
+// If the cluster needs external access, create service(s) for targets and/or proxies and wait for ingress to be allocated.
+func (r *AIStoreReconciler) reconcileExternalAccess(ctx context.Context, ais *aisv1.AIStore) (result ctrl.Result, err error) {
+	if !ais.ProxyExternalAccessEnabled() && !ais.TargetExternalAccessEnabled() {
+		return
+	}
+	if err = r.createExternalServices(ctx, ais); err != nil {
+		r.recordError(ctx, ais, err, "Failed to create external services")
+		return result, err
+	}
+	ready, err := r.waitForExternalSvcReady(ctx, ais)
+	if err != nil || ready {
+		return result, err
+	}
+	if !ais.HasState(aisv1.ClusterInitializingLBService) && !ais.HasState(aisv1.ClusterPendingLBService) {
+		err = r.updateStatusWithState(ctx, ais, aisv1.ClusterInitializingLBService)
+		if err == nil {
+			r.recorder.Eventf(ais, nil, corev1.EventTypeNormal, EventReasonInitialized, ActionInitExternalSvc, "Successfully initialized external services")
+		}
+	} else {
+		err = r.updateStatusWithState(ctx, ais, aisv1.ClusterPendingLBService)
+	}
+	result.RequeueAfter = externalSvcDelay
+	return
+}
+
+// createExternalServices applies the service(s) for proxies and/or targets.
+// Both sets are created together so we can subsequently wait on them in a single pass.
+func (r *AIStoreReconciler) createExternalServices(ctx context.Context, ais *aisv1.AIStore) error {
+	if ais.ProxyExternalAccessEnabled() {
+		if err := r.createProxyExternalService(ctx, ais); err != nil {
+			return err
+		}
+	}
+	if ais.TargetExternalAccessEnabled() {
+		if err := r.createTargetExternalServices(ctx, ais); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// waitForExternalSvcReady reports whether all enabled external access services have ingress allocated.
+func (r *AIStoreReconciler) waitForExternalSvcReady(ctx context.Context, ais *aisv1.AIStore) (bool, error) {
+	if ais.ProxyExternalAccessEnabled() {
+		ready, err := r.proxyExternalSvcReady(ctx, ais)
+		if err != nil || !ready {
+			return false, err
+		}
+	}
+	if ais.TargetExternalAccessEnabled() {
+		ready, err := r.targetExternalSvcReady(ctx, ais)
+		if err != nil || !ready {
+			return false, err
+		}
+	}
+	return true, nil
 }
 
 func (r *AIStoreReconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore) (result ctrl.Result, err error) {
