@@ -4046,8 +4046,12 @@ spec:
               stateStorage:
                 description: |-
                   StateStorage configures AIStore state storage.
-                  Exactly one of HostPath or PVC must be set.
+                  Exactly one of HostPath, PVC, or EmptyDir must be set.
                 properties:
+                  emptyDir:
+                    description: EmptyDir stores AIStore state in an ephemeral emptyDir
+                      volume.
+                    type: object
                   hostPath:
                     description: HostPath stores AIStore state in directories on each
                       host.
@@ -4074,9 +4078,9 @@ spec:
                     type: object
                 type: object
                 x-kubernetes-validations:
-                - message: exactly one of hostPath or pvc must be set
-                  rule: '[has(self.hostPath), has(self.pvc)].filter(x, x).size() ==
-                    1'
+                - message: exactly one of hostPath, pvc, or emptyDir must be set
+                  rule: '[has(self.hostPath), has(self.pvc), has(self.emptyDir)].filter(x,
+                    x).size() == 1'
               stateStorageClass:
                 description: 'Deprecated: use stateStorage.pvc.storageClass.'
                 type: string

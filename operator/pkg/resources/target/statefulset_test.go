@@ -10,6 +10,7 @@ import (
 
 	"github.com/NVIDIA/aistore/api/apc"
 	aisv1 "github.com/ais-operator/api/v1beta1"
+	"github.com/ais-operator/pkg/resources/cmn"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
@@ -175,6 +176,50 @@ var _ = Describe("Statefulset Target Volumes and Mounts", Label("short"), func()
 			Expect(result.Spec.PersistentVolumeClaimRetentionPolicy).ToNot(BeNil())
 			Expect(result.Spec.PersistentVolumeClaimRetentionPolicy.WhenDeleted).To(Equal(appsv1.DeletePersistentVolumeClaimRetentionPolicyType))
 			Expect(result.Spec.PersistentVolumeClaimRetentionPolicy.WhenScaled).To(Equal(appsv1.RetainPersistentVolumeClaimRetentionPolicyType))
+		})
+	})
+
+	Describe("New Target with emptyDir metadata", func() {
+		It("should not create a state PVC and should use an emptyDir state volume", func() {
+			specCopy := aisSpec.DeepCopy()
+			specCopy.Spec.StateStorage = &aisv1.StateStorage{EmptyDir: &aisv1.StateEmptyDirConfig{}}
+			specCopy.Spec.TargetSpec.Mounts = []aisv1.Mount{{
+				Path:         "/data/test",
+				Size:         &size,
+				StorageClass: apc.Ptr("dataStorageClass"),
+			}}
+
+			result := NewTargetSS(specCopy, *specCopy.Spec.Size)
+			Expect(result).ToNot(BeNil())
+
+			// Only one VCT for data; no state PVC
+			Expect(result.Spec.VolumeClaimTemplates).To(HaveLen(1))
+			Expect(result.Spec.VolumeClaimTemplates[0].Name).To(Equal(specCopy.Name + "-data-test"))
+
+			// State volume should be emptyDir in pod volumes
+			var stateVol *v1.Volume
+			for i := range result.Spec.Template.Spec.Volumes {
+				if result.Spec.Template.Spec.Volumes[i].Name == "state-mount" {
+					stateVol = &result.Spec.Template.Spec.Volumes[i]
+				}
+			}
+			Expect(stateVol).ToNot(BeNil(), "state-mount volume must be present")
+			Expect(stateVol.EmptyDir).ToNot(BeNil(), "state-mount must be emptyDir")
+			Expect(stateVol.HostPath).To(BeNil(), "state-mount must not be a HostPath")
+
+			// State VolumeMount must point to StateDir with no SubPathExpr
+			var stateMount *v1.VolumeMount
+			for i := range result.Spec.Template.Spec.Containers[0].VolumeMounts {
+				if result.Spec.Template.Spec.Containers[0].VolumeMounts[i].Name == "state-mount" {
+					stateMount = &result.Spec.Template.Spec.Containers[0].VolumeMounts[i]
+				}
+			}
+			Expect(stateMount).ToNot(BeNil(), "state-mount VolumeMount must be present")
+			Expect(stateMount.MountPath).To(Equal(cmn.StateDir))
+			Expect(stateMount.SubPathExpr).To(BeEmpty(), "emptyDir mount must not use SubPathExpr")
+
+			// config-mount, logs, state, data
+			Expect(result.Spec.Template.Spec.Containers[0].VolumeMounts).To(HaveLen(4))
 		})
 	})
 

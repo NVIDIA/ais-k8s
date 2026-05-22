@@ -52,6 +52,144 @@ func runTolerationUpdateScenarios(
 	})
 }
 
+func TestUsesStateEmptyDir(t *testing.T) {
+	tests := []struct {
+		name     string
+		emptyDir *StateEmptyDirConfig
+		expected bool
+	}{
+		{"nil returns false", nil, false},
+		{"set returns true", &StateEmptyDirConfig{}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			RegisterTestingT(t)
+			ais := &AIStore{}
+			ais.Spec.StateStorage = &StateStorage{EmptyDir: tt.emptyDir}
+			Expect(ais.Spec.UsesStateEmptyDir()).To(Equal(tt.expected))
+		})
+	}
+}
+
+func TestValidateStateStorage(t *testing.T) {
+	tests := []struct {
+		name           string
+		stateStorage   *StateStorage
+		hostpathPrefix *string
+		storageClass   *string
+		wantErr        bool
+		wantWarning    bool
+	}{
+		{
+			name:         "only emptyDir is valid",
+			stateStorage: &StateStorage{EmptyDir: &StateEmptyDirConfig{}},
+		},
+		{
+			name:         "only hostPath is valid",
+			stateStorage: &StateStorage{HostPath: &StateHostPathConfig{Prefix: "/mnt"}},
+		},
+		{
+			name:         "only pvc is valid",
+			stateStorage: &StateStorage{PVC: &StatePVCConfig{StorageClass: "my-sc"}},
+		},
+		{
+			name:           "stateStorage and legacy hostpathPrefix emits warning",
+			stateStorage:   &StateStorage{HostPath: &StateHostPathConfig{Prefix: "/mnt"}},
+			hostpathPrefix: aisapc.Ptr("/mnt"),
+			wantWarning:    true,
+		},
+		{
+			name:           "hostpathPrefix and stateStorageClass emits legacy warning",
+			hostpathPrefix: aisapc.Ptr("/mnt"),
+			storageClass:   aisapc.Ptr("my-sc"),
+			wantWarning:    true,
+		},
+		{
+			name:         "emptyDir and hostPath errors",
+			stateStorage: &StateStorage{EmptyDir: &StateEmptyDirConfig{}, HostPath: &StateHostPathConfig{Prefix: "/mnt"}},
+			wantErr:      true,
+		},
+		{
+			name:         "emptyDir and pvc errors",
+			stateStorage: &StateStorage{EmptyDir: &StateEmptyDirConfig{}, PVC: &StatePVCConfig{StorageClass: "my-sc"}},
+			wantErr:      true,
+		},
+		{
+			name:    "none set errors",
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			RegisterTestingT(t)
+			ais := &AIStore{}
+			ais.Spec.StateStorage = tt.stateStorage
+			ais.Spec.HostpathPrefix = tt.hostpathPrefix
+			ais.Spec.StateStorageClass = tt.storageClass
+			warns, err := ais.validateStateStorage()
+			if tt.wantErr {
+				Expect(err).To(HaveOccurred())
+			} else {
+				Expect(err).ToNot(HaveOccurred())
+			}
+			if tt.wantWarning {
+				Expect(warns).ToNot(BeEmpty())
+			} else {
+				Expect(warns).To(BeEmpty())
+			}
+		})
+	}
+}
+
+func TestValidateShutdownWithEmptyDir(t *testing.T) {
+	tests := []struct {
+		name            string
+		stateStorage    *StateStorage
+		shutdownCluster *bool
+		wantErr         bool
+	}{
+		{
+			name:            "emptyDir with shutdown enabled errors",
+			stateStorage:    &StateStorage{EmptyDir: &StateEmptyDirConfig{}},
+			shutdownCluster: aisapc.Ptr(true),
+			wantErr:         true,
+		},
+		{
+			name:            "emptyDir with shutdown disabled is valid",
+			stateStorage:    &StateStorage{EmptyDir: &StateEmptyDirConfig{}},
+			shutdownCluster: aisapc.Ptr(false),
+		},
+		{
+			name:         "emptyDir with shutdown nil is valid",
+			stateStorage: &StateStorage{EmptyDir: &StateEmptyDirConfig{}},
+		},
+		{
+			name:            "hostPath with shutdown enabled is valid",
+			stateStorage:    &StateStorage{HostPath: &StateHostPathConfig{Prefix: "/mnt"}},
+			shutdownCluster: aisapc.Ptr(true),
+		},
+		{
+			name:            "pvc with shutdown enabled is valid",
+			stateStorage:    &StateStorage{PVC: &StatePVCConfig{StorageClass: "my-sc"}},
+			shutdownCluster: aisapc.Ptr(true),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			RegisterTestingT(t)
+			ais := &AIStore{}
+			ais.Spec.StateStorage = tt.stateStorage
+			ais.Spec.ShutdownCluster = tt.shutdownCluster
+			_, err := ais.validateShutdownWithEmptyDir()
+			if tt.wantErr {
+				Expect(err).To(HaveOccurred())
+			} else {
+				Expect(err).ToNot(HaveOccurred())
+			}
+		})
+	}
+}
+
 func TestValidateProxyUpdateTolerations(t *testing.T) {
 	runTolerationUpdateScenarios(t, aisapc.Proxy, validateProxyUpdate, func(a *AIStore, tols []corev1.Toleration) {
 		a.Spec.ProxySpec.Tolerations = tols

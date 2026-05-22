@@ -87,19 +87,25 @@ func NewAISVolumes(ais *v1beta1.AIStore, daeType string) []corev1.Volume {
 		newLogsVolume(ais, daeType),
 	}
 
-	if hostpathPrefix := ais.Spec.StateStorageHostPathPrefix(); hostpathPrefix != nil {
-		hostpathVolumes := []corev1.Volume{
-			{
-				Name: stateVolume,
-				VolumeSource: corev1.VolumeSource{
-					HostPath: &corev1.HostPathVolumeSource{
-						Path: path.Join(*hostpathPrefix, ais.Namespace, ais.Name, daeType),
-						Type: aisapc.Ptr(corev1.HostPathDirectoryOrCreate),
-					},
+	if ais.Spec.UsesStateEmptyDir() {
+		// emptyDir: metadata is ephemeral and local to the pod
+		volumes = append(volumes, corev1.Volume{
+			Name: stateVolume,
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		})
+	} else if hostpathPrefix := ais.Spec.StateStorageHostPathPrefix(); hostpathPrefix != nil {
+		// hostpath: no dynamic storage class or emptyDir provided; use the host directory
+		volumes = append(volumes, corev1.Volume{
+			Name: stateVolume,
+			VolumeSource: corev1.VolumeSource{
+				HostPath: &corev1.HostPathVolumeSource{
+					Path: path.Join(*hostpathPrefix, ais.Namespace, ais.Name, daeType),
+					Type: aisapc.Ptr(corev1.HostPathDirectoryOrCreate),
 				},
 			},
-		}
-		volumes = append(volumes, hostpathVolumes...)
+		})
 	}
 
 	if tlsVol := getTLSVolume(ais, daeType); tlsVol != nil {
@@ -211,25 +217,26 @@ func NewAISVolumeMounts(ais *v1beta1.AIStore, daeType string) []corev1.VolumeMou
 		newLogsVolumeMount(daeType),
 	}
 
-	if spec.UsesStatePVC() {
-		volumeName := getStatePVCName(ais)
-		dynamicMounts := []corev1.VolumeMount{
-			{
-				Name:      volumeName,
-				MountPath: StateDir,
-			},
-		}
-		volumeMounts = append(volumeMounts, dynamicMounts...)
-	} else if spec.UsesStateHostPath() {
-		hostMountSubPath := getHostMountSubPath(daeType)
-		hostMounts := []corev1.VolumeMount{
-			{
-				Name:        stateVolume,
-				MountPath:   StateDir,
-				SubPathExpr: hostMountSubPath,
-			},
-		}
-		volumeMounts = append(volumeMounts, hostMounts...)
+	switch {
+	case spec.UsesStateEmptyDir():
+		// emptyDir: mount the ephemeral volume at StateDir; no sub-path needed
+		volumeMounts = append(volumeMounts, corev1.VolumeMount{
+			Name:      stateVolume,
+			MountPath: StateDir,
+		})
+	case spec.UsesStatePVC():
+		// PVC: the volume name matches the PVC template name
+		volumeMounts = append(volumeMounts, corev1.VolumeMount{
+			Name:      getStatePVCName(ais),
+			MountPath: StateDir,
+		})
+	case spec.UsesStateHostPath():
+		// hostpath: use a sub-path per pod to isolate state directories
+		volumeMounts = append(volumeMounts, corev1.VolumeMount{
+			Name:        stateVolume,
+			MountPath:   StateDir,
+			SubPathExpr: getHostMountSubPath(daeType),
+		})
 	}
 
 	if ais.HasTLSEnabled() {

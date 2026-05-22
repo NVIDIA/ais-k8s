@@ -76,6 +76,13 @@ func (ais *AIStore) validateStateStorage() (admission.Warnings, error) {
 	return nil, nil
 }
 
+func (ais *AIStore) validateShutdownWithEmptyDir() (admission.Warnings, error) {
+	if ais.Spec.UsesStateEmptyDir() && ais.ShouldBeShutdown() {
+		return nil, fmt.Errorf("shutdownCluster cannot be enabled when stateStorage.emptyDir is used; emptyDir state is ephemeral and is lost when the cluster is shut down")
+	}
+	return nil, nil
+}
+
 func (s *AIStoreSpec) hasExactlyOneStateStorageMode() bool {
 	count := 0
 	if s.StateStorage == nil {
@@ -85,6 +92,9 @@ func (s *AIStoreSpec) hasExactlyOneStateStorageMode() bool {
 		count++
 	}
 	if s.StateStorage.PVC != nil {
+		count++
+	}
+	if s.StateStorage.EmptyDir != nil {
 		count++
 	}
 	return count == 1
@@ -207,6 +217,7 @@ func (ais *AIStore) ValidateSpec(_ context.Context, extraValidations ...func() (
 	base := []func() (admission.Warnings, error){
 		ais.validateSize,
 		ais.validateStateStorage,
+		ais.validateShutdownWithEmptyDir,
 		ais.validateAutoScaling,
 		ais.validateServiceSpec,
 		ais.validateCleanupConfig,
@@ -363,11 +374,9 @@ func (aisw *AIStoreWebhook) verifyRequiredStorageClasses(ctx context.Context, ai
 }
 
 func validateStateStorageUpdate(prev, ais *AIStore) error {
-	// Allow updates from legacy fields without modification
-	if !equality.Semantic.DeepEqual(ais.Spec.StateStorageHostPathPrefix(), prev.Spec.StateStorageHostPathPrefix()) {
-		return errCannotUpdateSpec("stateStorage.hostPath.prefix")
-	}
-	if !equality.Semantic.DeepEqual(ais.Spec.StateStoragePVCStorageClass(), prev.Spec.StateStoragePVCStorageClass()) {
+	// We can't change volumeClaimTemplates in the statefulset, and therefore can't migrate to a state storage PVC
+	// or change the storage class of an existing PVC. However, we can migrate to and from other storage methods.
+	if !equality.Semantic.DeepEqual(ais.Spec.StateStoragePVCStorageClass(), prev.Spec.StateStoragePVCStorageClass()) && ais.Spec.StateStoragePVCStorageClass() != nil {
 		return errCannotUpdateSpec("stateStorage.pvc.storageClass")
 	}
 	return nil
@@ -394,11 +403,11 @@ func errCannotUpdateSpec(specName string, diff ...string) error {
 }
 
 func errUndefinedStateStorage() error {
-	return fmt.Errorf("AIS spec does not define stateStorage. Set stateStorage.hostPath or stateStorage.pvc")
+	return fmt.Errorf("AIS spec does not define stateStorage. Set stateStorage.hostPath, stateStorage.pvc, or stateStorage.emptyDir")
 }
 
 func errInvalidStateStorage() error {
-	return fmt.Errorf("AIS spec stateStorage must define exactly one of hostPath or pvc")
+	return fmt.Errorf("AIS spec stateStorage must define exactly one of hostPath, pvc, or emptyDir")
 }
 
 func errUndefinedNodeSelector(spec string) error {
