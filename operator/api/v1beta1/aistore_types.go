@@ -303,7 +303,6 @@ type CertIssuerRef struct {
 
 // AIStoreSpec defines the desired state of AIStore
 // +kubebuilder:validation:XValidation:rule="(has(self.targetSpec.size) && has(self.proxySpec.size)) || has(self.size)",message="Invalid cluster size, it is either not specified or value is not valid"
-// +kubebuilder:validation:XValidation:rule="[has(self.tls), has(self.tlsCertificate), has(self.tlsCertManagerIssuerName), has(self.tlsSecretName)].filter(x, x).size() <= 1",message="specify only one TLS option: tls, tlsCertificate, tlsCertManagerIssuerName, or tlsSecretName"
 // +kubebuilder:validation:XValidation:rule="!has(self.cleanupData) || !self.cleanupData || (has(self.cleanupMetadata) && self.cleanupMetadata)",message="cleanupData requires cleanupMetadata to be enabled"
 type AIStoreSpec struct {
 	// Size of the cluster i.e. number of proxies and number of targets.
@@ -409,20 +408,8 @@ type AIStoreSpec struct {
 	// +optional
 	TLS *TLSSpec `json:"tls,omitempty"`
 
-	// Deprecated: Use spec.tls.certificate instead
-	// +optional
-	TLSCertificate *TLSCertificateConfig `json:"tlsCertificate,omitempty"`
-
-	// Deprecated: Use spec.tls.secretName instead
-	// +optional
-	TLSSecretName *string `json:"tlsSecretName,omitempty"`
-
 	// Secret name containing OTEL trace-exporter token.
 	TracingTokenSecretName *string `json:"tracingTokenSecretName,omitempty"`
-
-	// Deprecated: Use spec.tls.certificate with mode: csi instead
-	// +optional
-	TLSCertManagerIssuerName *string `json:"tlsCertManagerIssuerName,omitempty"`
 
 	// Secret name containing AuthN's JWT signing key
 	// +optional
@@ -1114,46 +1101,21 @@ func (ais *AIStore) UseHTTPS() bool {
 	return ais.Spec.ConfigToUpdate != nil && ais.Spec.ConfigToUpdate.Net != nil && ais.Spec.ConfigToUpdate.Net.HTTP != nil && ais.Spec.ConfigToUpdate.Net.HTTP.UseHTTPS != nil && *ais.Spec.ConfigToUpdate.Net.HTTP.UseHTTPS
 }
 
-func (ais *AIStore) GetTLSSpec() *TLSSpec {
-	// New field to take precedence
-	if ais.Spec.TLS != nil {
-		return ais.Spec.TLS
-	}
-	// Handle deprecated fields
-	if ais.Spec.TLSSecretName != nil {
-		return &TLSSpec{SecretName: ais.Spec.TLSSecretName}
-	}
-	if ais.Spec.TLSCertificate != nil {
-		return &TLSSpec{Certificate: ais.Spec.TLSCertificate}
-	}
-	if ais.Spec.TLSCertManagerIssuerName != nil {
-		return &TLSSpec{
-			Certificate: &TLSCertificateConfig{
-				IssuerRef: CertIssuerRef{Name: *ais.Spec.TLSCertManagerIssuerName},
-				Mode:      TLSCertificateModeCSI,
-			},
-		}
-	}
-	return nil
-}
-
 // HasTLSEnabled returns true if any TLS configuration is specified
 func (ais *AIStore) HasTLSEnabled() bool {
-	return ais.GetTLSSpec() != nil
+	return ais.Spec.TLS != nil
 }
 
 // GetTLSCertificate returns the TLS certificate config if present
 func (ais *AIStore) GetTLSCertificate() *TLSCertificateConfig {
-	tlsSpec := ais.GetTLSSpec()
-	if tlsSpec != nil {
-		return tlsSpec.Certificate
+	if ais.Spec.TLS != nil {
+		return ais.Spec.TLS.Certificate
 	}
 	return nil
 }
 
 func (ais *AIStore) UseTLSSecret() bool {
-	tlsSpec := ais.GetTLSSpec()
-	return tlsSpec != nil && tlsSpec.SecretName != nil && *tlsSpec.SecretName != ""
+	return ais.Spec.TLS != nil && ais.Spec.TLS.SecretName != nil && *ais.Spec.TLS.SecretName != ""
 }
 
 func (ais *AIStore) UseTLSCertificate() bool {
@@ -1174,7 +1136,7 @@ func (ais *AIStore) UseTLSCSI() bool {
 
 func (ais *AIStore) GetTLSSecretName() string {
 	if ais.UseTLSSecret() {
-		return *ais.GetTLSSpec().SecretName
+		return *ais.Spec.TLS.SecretName
 	}
 	if ais.UseTLSCertificate() {
 		return fmt.Sprintf("%s-tls", ais.Name)

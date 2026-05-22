@@ -70,12 +70,7 @@ spec:
   configToUpdate:
     net:
       http:
-        server_crt: "/var/certs/tls.crt"
-        server_key: "/var/certs/tls.key"
         use_https: true
-        skip_verify: true # if you are using self signed certs
-        client_ca_tls: "/var/certs/ca.crt"
-        client_auth_tls: 0
 
   nodeImage: "docker.io/aistorage/aisnode:v3.25"
   initImage: "docker.io/aistorage/ais-init:v3.25"

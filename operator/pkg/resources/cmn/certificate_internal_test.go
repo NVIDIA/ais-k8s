@@ -19,8 +19,10 @@ var _ = Describe("buildCertificateSANs", func() {
 				Namespace: "test-ns",
 			},
 			Spec: aisv1.AIStoreSpec{
-				TLSCertificate: &aisv1.TLSCertificateConfig{
-					AdditionalDNSNames: []string{"test-additional-dns-name"},
+				TLS: &aisv1.TLSSpec{
+					Certificate: &aisv1.TLSCertificateConfig{
+						AdditionalDNSNames: []string{"test-additional-dns-name"},
+					},
 				},
 				HostnameMap: map[string]string{
 					"test-worker-1": "test-worker-1, 127.0.0.1",

@@ -369,24 +369,34 @@ You may want to enhance the security of your AIStore deployment by enabling HTTP
 
 **Important:** Before proceeding, please ensure that you have `cert-manager` (or equivalent) installed.
 
-To deploy with HTTPS, the AIS spec must define the `spec.ConfigToUpdate.net.http` section, example below: 
+Deploying with HTTPS requires two spec entries:
+
+1. **`spec.tls`:** Tells the operator how to provision and mount the cert (secret reference or cert-manager Certificate).
+2. **`spec.configToUpdate.net.http.use_https: true`:** Tells AIS to actually serve HTTPS.
 
 ```yaml
+spec:
+  tls:
+    certificate:
+      issuerRef:
+        name: ca-issuer
+        kind: ClusterIssuer
+    # Or, to reference an existing Kubernetes TLS secret,
+    # use secretName: tls-certs
+  configToUpdate:
     net:
       http:
-        server_crt: "/var/certs/tls.crt"
-        server_key: "/var/certs/tls.key"
         use_https: true
-        skip_verify: true # if you are using self-signed certs without trust
-        client_ca_tls: "/var/certs/ca.crt"
-        client_auth_tls: 0
+        skip_verify: false  # Set true only when using self-signed certs without a trusted CA
 ```
 
->> Note: This will be included in the spec by default when enabling https and using our Helm charts or playbooks
+**Important:** When `spec.tls` is set, the operator mounts certificates at `/var/certs/{tls.crt,tls.key,ca.crt}` and writes those paths into the AIS config automatically. The admission webhook rejects any spec that also sets `server_crt`, `server_key`, or `client_ca_tls` under `configToUpdate.net.http`.
+
+> **Note:** Our Helm charts and Ansible playbooks populate the `configToUpdate.net.http` HTTPS fields (`use_https`, `skip_verify`) automatically when `spec.tls` is configured.
 
 #### Using a secret mount
 
-If you bring your own Kubernetes Secret containing the cert and key, define it with `spec.tlsSecretName`. The secret must contain keys `tls.crt` and `tls.key` (standard `kubernetes.io/tls` layout); for mTLS, also include `ca.crt`. The operator mounts the secret contents at `/var/certs`. 
+If you bring your own Kubernetes Secret containing the cert and key, define it with `spec.tls.secretName`. The secret must contain keys `tls.crt` and `tls.key` (standard `kubernetes.io/tls` layout); for mTLS, also include `ca.crt`. The operator mounts the secret contents at `/var/certs`. 
 
 The operator does *not* manage the cert's lifecycle or SANs in this mode.
 

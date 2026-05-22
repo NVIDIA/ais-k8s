@@ -138,6 +138,30 @@ func (aisw *AIStoreWebhook) validateSpec(ctx context.Context, ais *AIStore) (adm
 	)
 }
 
+// validateTLSCertPaths rejects specs that set both spec.tls and any of the cert path
+// fields (server_crt, server_key, client_ca_tls) in configToUpdate.net.http, since
+// the operator manages those paths under /var/certs and would silently override them.
+func (ais *AIStore) validateTLSCertPaths() (admission.Warnings, error) {
+	if ais.Spec.TLS == nil || ais.Spec.ConfigToUpdate == nil || ais.Spec.ConfigToUpdate.Net == nil || ais.Spec.ConfigToUpdate.Net.HTTP == nil {
+		return nil, nil
+	}
+	http := ais.Spec.ConfigToUpdate.Net.HTTP
+	var conflicts []string
+	if http.Certificate != nil {
+		conflicts = append(conflicts, "server_crt")
+	}
+	if http.CertKey != nil {
+		conflicts = append(conflicts, "server_key")
+	}
+	if http.ClientCA != nil {
+		conflicts = append(conflicts, "client_ca_tls")
+	}
+	if len(conflicts) == 0 {
+		return nil, nil
+	}
+	return nil, fmt.Errorf("configToUpdate.net.http.[%s] cannot be set together with spec.tls; the operator manages cert paths under /var/certs", strings.Join(conflicts, ","))
+}
+
 func (ais *AIStore) validateCleanupConfig() (admission.Warnings, error) {
 	if !ais.ShouldCleanupMetadata() {
 		return nil, nil
@@ -161,6 +185,7 @@ func (ais *AIStore) ValidateSpec(_ context.Context, extraValidations ...func() (
 		ais.validateAutoScaling,
 		ais.validateServiceSpec,
 		ais.validateCleanupConfig,
+		ais.validateTLSCertPaths,
 	}
 
 	validations := make(

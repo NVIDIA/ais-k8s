@@ -173,23 +173,8 @@ func (in *AIStoreSpec) DeepCopyInto(out *AIStoreSpec) {
 		*out = new(TLSSpec)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.TLSCertificate != nil {
-		in, out := &in.TLSCertificate, &out.TLSCertificate
-		*out = new(TLSCertificateConfig)
-		(*in).DeepCopyInto(*out)
-	}
-	if in.TLSSecretName != nil {
-		in, out := &in.TLSSecretName, &out.TLSSecretName
-		*out = new(string)
-		**out = **in
-	}
 	if in.TracingTokenSecretName != nil {
 		in, out := &in.TracingTokenSecretName, &out.TracingTokenSecretName
-		*out = new(string)
-		**out = **in
-	}
-	if in.TLSCertManagerIssuerName != nil {
-		in, out := &in.TLSCertManagerIssuerName, &out.TLSCertManagerIssuerName
 		*out = new(string)
 		**out = **in
 	}

@@ -16,6 +16,12 @@ This release will result in an AIStore cluster rollout to sync pod templates.
 
 - Removed StatsD ConfigMap, volume, and mounts
   - StatsD support was deprecated in AIStore in v3.28 and dropped in v4.0
+- Deprecated TLS spec fields: `spec.tlsCertificate`, `spec.tlsSecretName`, `spec.tlsCertManagerIssuerName`.
+  - Migrate to `spec.tls.certificate`, `spec.tls.secretName`, or `spec.tls.certificate` with `mode: csi` respectively before upgrading. Existing CRs that still use the old fields will be rejected by the new schema.
+
+### Changed
+
+- Admission webhook now rejects specs that set both `spec.tls` and any of `configToUpdate.net.http.{server_crt,server_key,client_ca_tls}`. The operator owns these paths (`/var/certs/{tls.crt,tls.key,ca.crt}`) whenever `spec.tls` is configured.
 
 ---
 

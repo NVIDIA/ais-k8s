@@ -15,11 +15,10 @@ spec:
         idle_conns: 2048
         idle_conns_per_host: 128
 {% if protocol == "https" %}
-        server_crt: "/var/certs/tls.crt"
-        server_key: "/var/certs/tls.key"
+        # Cert paths (server_crt, server_key, client_ca_tls) are managed by the operator at /var/certs.
+        # Setting them here is rejected by the webhook.
         use_https: true
         skip_verify: {{ skip_verify_cert }} # if you are using self signed certs
-        client_ca_tls: "/var/certs/ca.crt"
         client_auth_tls: {{ client_auth_tls }}
 {% endif %}
 
@@ -94,7 +93,8 @@ spec:
 {% endif %}
   
 {% if protocol == "https" %}
-  tlsSecretName: {{ tls_secret }}
+  tls:
+    secretName: {{ tls_secret }}
 {% endif %}
   
 {% if aws_secret_name != "" %}

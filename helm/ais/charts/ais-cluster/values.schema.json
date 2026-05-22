@@ -82,11 +82,6 @@
       "enum": ["http", "https"],
       "examples": ["http"]
     },
-    "tlsSecretName": {
-      "type": ["string", "null"],
-      "description": "Deprecated: Maps to spec.tlsSecretName for older operators < v2.14.0 w/o support for spec.tls",
-      "examples": ["tls-certs"]
-    },
     "tls": {
       "type": "object",
       "description": "TLS configuration options (only applies if protocol is https). Specify only one of: secretName or certificate.",

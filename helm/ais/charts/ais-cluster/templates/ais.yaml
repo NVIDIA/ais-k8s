@@ -189,9 +189,6 @@ spec:
   cleanupMetadata: {{ .Values.cleanupMetadata }}
   cleanupData: {{ .Values.cleanupData }}
   {{- if eq .Values.protocol "https" }}
-  {{- with .Values.tlsSecretName }}
-  tlsSecretName: {{ . }}
-  {{- end }}
   {{- if or .Values.tls.secretName .Values.tls.certificate }}
   tls:
     {{- with .Values.tls.secretName }}
