@@ -52,6 +52,99 @@ func runTolerationUpdateScenarios(
 	})
 }
 
+func TestUsesEmptyDirForMetadata(t *testing.T) {
+	tests := []struct {
+		name     string
+		ptr      *bool
+		expected bool
+	}{
+		{"nil pointer returns false", nil, false},
+		{"false pointer returns false", aisapc.Ptr(false), false},
+		{"true pointer returns true", aisapc.Ptr(true), true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			RegisterTestingT(t)
+			ais := &AIStore{}
+			ais.Spec.UseEmptyDirForMetadata = tt.ptr
+			Expect(ais.UsesEmptyDirForMetadata()).To(Equal(tt.expected))
+		})
+	}
+}
+
+func TestValidateStateStorage(t *testing.T) {
+	tests := []struct {
+		name              string
+		hostpathPrefix    *string
+		stateStorageClass *string
+		useEmptyDir       *bool
+		wantErr           bool
+		wantWarning       bool
+	}{
+		{
+			name:        "only useEmptyDirForMetadata is valid",
+			useEmptyDir: aisapc.Ptr(true),
+		},
+		{
+			name:           "only hostpathPrefix is valid",
+			hostpathPrefix: aisapc.Ptr("/mnt"),
+		},
+		{
+			name:              "only stateStorageClass is valid",
+			stateStorageClass: aisapc.Ptr("my-sc"),
+		},
+		{
+			name:           "hostpathPrefix and stateStorageClass emits legacy warning",
+			hostpathPrefix: aisapc.Ptr("/mnt"),
+			stateStorageClass: aisapc.Ptr("my-sc"),
+			wantWarning:    true,
+		},
+		{
+			name:           "useEmptyDir and hostpathPrefix errors",
+			useEmptyDir:    aisapc.Ptr(true),
+			hostpathPrefix: aisapc.Ptr("/mnt"),
+			wantErr:        true,
+		},
+		{
+			name:              "useEmptyDir and stateStorageClass errors",
+			useEmptyDir:       aisapc.Ptr(true),
+			stateStorageClass: aisapc.Ptr("my-sc"),
+			wantErr:           true,
+		},
+		{
+			name:              "all three set errors",
+			useEmptyDir:       aisapc.Ptr(true),
+			hostpathPrefix:    aisapc.Ptr("/mnt"),
+			stateStorageClass: aisapc.Ptr("my-sc"),
+			wantErr:           true,
+		},
+		{
+			name:    "none set errors",
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			RegisterTestingT(t)
+			ais := &AIStore{}
+			ais.Spec.HostpathPrefix = tt.hostpathPrefix
+			ais.Spec.StateStorageClass = tt.stateStorageClass
+			ais.Spec.UseEmptyDirForMetadata = tt.useEmptyDir
+			warns, err := ais.validateStateStorage()
+			if tt.wantErr {
+				Expect(err).To(HaveOccurred())
+			} else {
+				Expect(err).ToNot(HaveOccurred())
+			}
+			if tt.wantWarning {
+				Expect(warns).ToNot(BeEmpty())
+			} else {
+				Expect(warns).To(BeEmpty())
+			}
+		})
+	}
+}
+
 func TestValidateProxyUpdateTolerations(t *testing.T) {
 	runTolerationUpdateScenarios(t, aisapc.Proxy, validateProxyUpdate, func(a *AIStore, tols []corev1.Toleration) {
 		a.Spec.ProxySpec.Tolerations = tols

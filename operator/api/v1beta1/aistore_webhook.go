@@ -54,13 +54,28 @@ func (ais *AIStore) validateSize() (admission.Warnings, error) {
 }
 
 func (ais *AIStore) validateStateStorage() (admission.Warnings, error) {
-	//nolint:all
-	if ais.Spec.StateStorageClass != nil && ais.Spec.HostpathPrefix != nil {
-		warning := fmt.Sprintf("Spec defines both hostpathPrefix and stateStorageClass. Using stateStorageClass %s", *ais.Spec.StateStorageClass)
-		return []string{warning}, nil
+	numSet := 0
+	if ais.Spec.HostpathPrefix != nil {
+		numSet++
 	}
-	if ais.Spec.StateStorageClass == nil && ais.Spec.HostpathPrefix == nil {
+	if ais.Spec.StateStorageClass != nil {
+		numSet++
+	}
+	if ais.Spec.UseEmptyDirForMetadata != nil && *ais.Spec.UseEmptyDirForMetadata {
+		numSet++
+	}
+
+	if numSet == 0 {
 		return nil, errUndefinedStateStorage()
+	}
+	if numSet > 1 {
+		//nolint:all
+		if ais.Spec.StateStorageClass != nil && ais.Spec.HostpathPrefix != nil && ais.Spec.UseEmptyDirForMetadata == nil {
+			// Legacy: both hostpathPrefix and stateStorageClass set — warn and prefer stateStorageClass
+			warning := fmt.Sprintf("Spec defines both hostpathPrefix and stateStorageClass. Using stateStorageClass %s", *ais.Spec.StateStorageClass)
+			return []string{warning}, nil
+		}
+		return nil, errMultipleStateStorageModes()
 	}
 	return nil, nil
 }
@@ -338,9 +353,13 @@ func errCannotUpdateSpec(specName string, diff ...string) error {
 }
 
 func errUndefinedStateStorage() error {
-	return fmt.Errorf("AIS spec does not define hostpathPrefix or stateStorageClass. Set hostpathPrefix to use a directory on each node or set stateStorageClass to use a dynamic storage class")
+	return fmt.Errorf("AIS spec does not define a state storage mode; set exactly one of: hostpathPrefix (host directory), stateStorageClass (dynamic PVC), or useEmptyDirForMetadata (ephemeral emptyDir)")
 }
 
 func errUndefinedNodeSelector(spec string) error {
 	return fmt.Errorf("missing nodeSelector for %s; nodeSelector is required when autoScale is enabled", spec)
+}
+
+func errMultipleStateStorageModes() error {
+	return fmt.Errorf("AIS spec defines more than one state storage mode; set exactly one of hostpathPrefix, stateStorageClass, or useEmptyDirForMetadata")
 }

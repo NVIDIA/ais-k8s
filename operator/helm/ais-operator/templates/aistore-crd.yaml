@@ -5881,6 +5881,14 @@ spec:
               tracingTokenSecretName:
                 description: Secret name containing OTEL trace-exporter token.
                 type: string
+              useEmptyDirForMetadata:
+                description: |-
+                  UseEmptyDirForMetadata, when true, stores AIS node metadata in an emptyDir
+                  volume instead of a PVC or host-path directory. The metadata is ephemeral and
+                  will be lost when the pod is restarted.
+                  Exactly one of hostpathPrefix, stateStorageClass, or useEmptyDirForMetadata must be set.
+                  This field is immutable once the cluster is created.
+                type: boolean
             required:
             - enableExternalLB
             - initImage
