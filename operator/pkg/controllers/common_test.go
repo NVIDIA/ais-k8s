@@ -7,10 +7,12 @@ package controllers
 import (
 	"github.com/NVIDIA/aistore/api/apc"
 	aismeta "github.com/NVIDIA/aistore/core/meta"
+	"github.com/ais-operator/pkg/resources/cmn"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -395,6 +397,277 @@ var _ = Describe("findAISNodeByPodName", func() {
 
 		Expect(err).To(HaveOccurred())
 		Expect(node).To(BeNil())
+	})
+})
+
+var _ = Describe("shouldUpdateContainers", func() {
+	secCtx := func(nonRoot bool) *corev1.SecurityContext {
+		return &corev1.SecurityContext{RunAsNonRoot: apc.Ptr(nonRoot)}
+	}
+	resources := func(cpu string) corev1.ResourceRequirements {
+		return corev1.ResourceRequirements{Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse(cpu)}}
+	}
+	probe := func(period int32) *corev1.Probe {
+		return &corev1.Probe{PeriodSeconds: period}
+	}
+
+	makePodTemplate := func(containers []corev1.Container) *corev1.PodTemplateSpec {
+		return &corev1.PodTemplateSpec{Spec: corev1.PodSpec{Containers: containers}}
+	}
+
+	It("returns false when both templates are identical", func() {
+		base := []corev1.Container{
+			{Name: cmn.AISContainerName, Image: "node:latest", SecurityContext: secCtx(true)},
+			{Name: "ais-logs", Image: "logs:latest", SecurityContext: secCtx(false)},
+		}
+		update, _ := shouldUpdateContainers(makePodTemplate(base), makePodTemplate(base))
+		Expect(update).To(BeFalse())
+	})
+
+	It("returns true when container length differs", func() {
+		desired := makePodTemplate([]corev1.Container{
+			{Name: "old-node", Image: "test:latest"},
+			{Name: "new-node", Image: "test:latest"},
+		})
+		current := makePodTemplate([]corev1.Container{{Name: "old-node", Image: "test:latest"}})
+		update, reason := shouldUpdateContainers(desired, current)
+		Expect(update).To(BeTrue())
+		Expect(reason).To(Equal(`updating desired containers`))
+	})
+
+	It("returns true when a container is renamed at the same index", func() {
+		desired := makePodTemplate([]corev1.Container{{Name: "new-node", Image: "test:latest"}})
+		current := makePodTemplate([]corev1.Container{{Name: "old-node", Image: "test:latest"}})
+		update, reason := shouldUpdateContainers(desired, current)
+		Expect(update).To(BeTrue())
+		Expect(reason).To(Equal(`container "new-node": renamed from "old-node"`))
+	})
+
+	Describe("primary container (all user-controllable fields trigger rollout)", func() {
+		It("returns true when the image differs", func() {
+			desired := makePodTemplate([]corev1.Container{{Name: cmn.AISContainerName, Image: "node:new"}})
+			current := makePodTemplate([]corev1.Container{{Name: cmn.AISContainerName, Image: "node:old"}})
+			update, reason := shouldUpdateContainers(desired, current)
+			Expect(update).To(BeTrue())
+			Expect(reason).To(Equal(`container "ais-node": updating image`))
+		})
+
+		It("returns true when env differs", func() {
+			desired := makePodTemplate([]corev1.Container{{Name: cmn.AISContainerName, Env: []corev1.EnvVar{{Name: "A", Value: "1"}}}})
+			current := makePodTemplate([]corev1.Container{{Name: cmn.AISContainerName, Env: []corev1.EnvVar{{Name: "A", Value: "2"}}}})
+			update, reason := shouldUpdateContainers(desired, current)
+			Expect(update).To(BeTrue())
+			Expect(reason).To(Equal(`container "ais-node": updating env variables`))
+		})
+
+		It("returns true when resources differ", func() {
+			desired := makePodTemplate([]corev1.Container{{Name: cmn.AISContainerName, Resources: resources("200m")}})
+			current := makePodTemplate([]corev1.Container{{Name: cmn.AISContainerName, Resources: resources("100m")}})
+			update, reason := shouldUpdateContainers(desired, current)
+			Expect(update).To(BeTrue())
+			Expect(reason).To(Equal(`container "ais-node": updating resource requests/limits`))
+		})
+
+		It("returns true when a probe differs", func() {
+			desired := makePodTemplate([]corev1.Container{{Name: cmn.AISContainerName, LivenessProbe: probe(5)}})
+			current := makePodTemplate([]corev1.Container{{Name: cmn.AISContainerName, LivenessProbe: probe(10)}})
+			update, reason := shouldUpdateContainers(desired, current)
+			Expect(update).To(BeTrue())
+			Expect(reason).To(Equal(`container "ais-node": updating health probes`))
+		})
+
+		It("returns true when the security context differs", func() {
+			desired := makePodTemplate([]corev1.Container{{Name: cmn.AISContainerName, SecurityContext: secCtx(true)}})
+			current := makePodTemplate([]corev1.Container{{Name: cmn.AISContainerName, SecurityContext: secCtx(false)}})
+			update, reason := shouldUpdateContainers(desired, current)
+			Expect(update).To(BeTrue())
+			Expect(reason).To(Equal(`container "ais-node": updating security context`))
+		})
+
+		It("returns true when the security context is added", func() {
+			desired := makePodTemplate([]corev1.Container{{Name: cmn.AISContainerName, SecurityContext: secCtx(true)}})
+			current := makePodTemplate([]corev1.Container{{Name: cmn.AISContainerName}})
+			update, reason := shouldUpdateContainers(desired, current)
+			Expect(update).To(BeTrue())
+			Expect(reason).To(Equal(`container "ais-node": updating security context`))
+		})
+
+		It("returns true when the security context is removed", func() {
+			desired := makePodTemplate([]corev1.Container{{Name: cmn.AISContainerName}})
+			current := makePodTemplate([]corev1.Container{{Name: cmn.AISContainerName, SecurityContext: secCtx(true)}})
+			update, reason := shouldUpdateContainers(desired, current)
+			Expect(update).To(BeTrue())
+			Expect(reason).To(Equal(`container "ais-node": updating security context`))
+		})
+	})
+
+	Describe("sidecar (only image/resources/securityContext trigger sync)", func() {
+		primary := corev1.Container{Name: cmn.AISContainerName, Image: "node:latest"}
+
+		It("returns true when the sidecar image differs", func() {
+			desired := makePodTemplate([]corev1.Container{primary, {Name: "ais-logs", Image: "logs:new"}})
+			current := makePodTemplate([]corev1.Container{primary, {Name: "ais-logs", Image: "logs:old"}})
+			update, reason := shouldUpdateContainers(desired, current)
+			Expect(update).To(BeTrue())
+			Expect(reason).To(Equal(`container "ais-logs": updating image`))
+		})
+
+		It("returns true when the sidecar resources differ", func() {
+			desired := makePodTemplate([]corev1.Container{primary, {Name: "ais-logs", Resources: resources("200m")}})
+			current := makePodTemplate([]corev1.Container{primary, {Name: "ais-logs", Resources: resources("100m")}})
+			update, reason := shouldUpdateContainers(desired, current)
+			Expect(update).To(BeTrue())
+			Expect(reason).To(Equal(`container "ais-logs": updating resource requests/limits`))
+		})
+
+		It("returns false when only the sidecar env differs (operator-internal)", func() {
+			desired := makePodTemplate([]corev1.Container{primary, {Name: "ais-logs", Env: []corev1.EnvVar{{Name: "A", Value: "1"}}}})
+			current := makePodTemplate([]corev1.Container{primary, {Name: "ais-logs", Env: []corev1.EnvVar{{Name: "A", Value: "2"}}}})
+			update, _ := shouldUpdateContainers(desired, current)
+			Expect(update).To(BeFalse())
+		})
+
+		It("returns false when only the sidecar probes differ (operator-internal)", func() {
+			desired := makePodTemplate([]corev1.Container{primary, {Name: "ais-logs", LivenessProbe: probe(5)}})
+			current := makePodTemplate([]corev1.Container{primary, {Name: "ais-logs", LivenessProbe: probe(10)}})
+			update, _ := shouldUpdateContainers(desired, current)
+			Expect(update).To(BeFalse())
+		})
+
+		It("returns true when the sidecar security context differs", func() {
+			desired := makePodTemplate([]corev1.Container{primary, {Name: "ais-logs", SecurityContext: secCtx(true)}})
+			current := makePodTemplate([]corev1.Container{primary, {Name: "ais-logs", SecurityContext: secCtx(false)}})
+			update, reason := shouldUpdateContainers(desired, current)
+			Expect(update).To(BeTrue())
+			Expect(reason).To(Equal(`container "ais-logs": updating security context`))
+		})
+
+		It("returns true when the sidecar security context is added", func() {
+			desired := makePodTemplate([]corev1.Container{primary, {Name: "ais-logs", SecurityContext: secCtx(true)}})
+			current := makePodTemplate([]corev1.Container{primary, {Name: "ais-logs"}})
+			update, reason := shouldUpdateContainers(desired, current)
+			Expect(update).To(BeTrue())
+			Expect(reason).To(Equal(`container "ais-logs": updating security context`))
+		})
+
+		It("returns true when the sidecar security context is removed", func() {
+			desired := makePodTemplate([]corev1.Container{primary, {Name: "ais-logs"}})
+			current := makePodTemplate([]corev1.Container{primary, {Name: "ais-logs", SecurityContext: secCtx(true)}})
+			update, reason := shouldUpdateContainers(desired, current)
+			Expect(update).To(BeTrue())
+			Expect(reason).To(Equal(`container "ais-logs": updating security context`))
+		})
+	})
+})
+
+var _ = Describe("shouldUpdateInitContainers", func() {
+	secCtx := func(nonRoot bool) *corev1.SecurityContext {
+		return &corev1.SecurityContext{RunAsNonRoot: apc.Ptr(nonRoot)}
+	}
+	resources := func(cpu string) corev1.ResourceRequirements {
+		return corev1.ResourceRequirements{Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse(cpu)}}
+	}
+
+	makePodTemplate := func(initContainers []corev1.Container) *corev1.PodTemplateSpec {
+		return &corev1.PodTemplateSpec{Spec: corev1.PodSpec{InitContainers: initContainers}}
+	}
+
+	It("returns true when init container length differs", func() {
+		desired := makePodTemplate([]corev1.Container{
+			{Name: "old-init", Image: "test:latest"},
+			{Name: "new-init", Image: "test:latest"},
+		})
+		current := makePodTemplate([]corev1.Container{{Name: "old-init", Image: "test:latest"}})
+		update, reason := shouldUpdateInitContainers(desired, current)
+		Expect(update).To(BeTrue())
+		Expect(reason).To(Equal(`updating desired init containers`))
+	})
+
+	It("returns true when an init container is renamed at the same index", func() {
+		desired := makePodTemplate([]corev1.Container{{Name: "new-init", Image: "test:latest"}})
+		current := makePodTemplate([]corev1.Container{{Name: "old-init", Image: "test:latest"}})
+		update, reason := shouldUpdateInitContainers(desired, current)
+		Expect(update).To(BeTrue())
+		Expect(reason).To(Equal(`container "new-init": renamed from "old-init"`))
+	})
+
+	It("returns true when an init container image differs", func() {
+		desired := makePodTemplate([]corev1.Container{{Name: "init", Image: "init:new"}})
+		current := makePodTemplate([]corev1.Container{{Name: "init", Image: "init:old"}})
+		update, reason := shouldUpdateInitContainers(desired, current)
+		Expect(update).To(BeTrue())
+		Expect(reason).To(Equal(`container "init": updating image`))
+	})
+
+	// Operator-internal fields that are not part of the per-kind init policy.
+	// These must not cause rollouts on operator upgrades.
+	DescribeTable("returns false when only an operator-internal init container field differs",
+		func(desired, current corev1.Container) {
+			desired.Name = "init"
+			current.Name = "init"
+			update, _ := shouldUpdateInitContainers(
+				makePodTemplate([]corev1.Container{desired}),
+				makePodTemplate([]corev1.Container{current}),
+			)
+			Expect(update).To(BeFalse())
+		},
+		Entry("env",
+			corev1.Container{Env: []corev1.EnvVar{{Name: "A", Value: "1"}}},
+			corev1.Container{Env: []corev1.EnvVar{{Name: "A", Value: "2"}}},
+		),
+		Entry("resources",
+			corev1.Container{Resources: resources("200m")},
+			corev1.Container{Resources: resources("100m")},
+		),
+	)
+
+	It("returns true when an init container security context differs", func() {
+		desired := makePodTemplate([]corev1.Container{{Name: "init", SecurityContext: secCtx(true)}})
+		current := makePodTemplate([]corev1.Container{{Name: "init", SecurityContext: secCtx(false)}})
+		update, reason := shouldUpdateInitContainers(desired, current)
+		Expect(update).To(BeTrue())
+		Expect(reason).To(Equal(`container "init": updating security context`))
+	})
+
+	It("returns true when an init container security context is added", func() {
+		desired := makePodTemplate([]corev1.Container{{Name: "init", SecurityContext: secCtx(true)}})
+		current := makePodTemplate([]corev1.Container{{Name: "init"}})
+		update, reason := shouldUpdateInitContainers(desired, current)
+		Expect(update).To(BeTrue())
+		Expect(reason).To(Equal(`container "init": updating security context`))
+	})
+
+	It("returns true when an init container security context is removed", func() {
+		desired := makePodTemplate([]corev1.Container{{Name: "init"}})
+		current := makePodTemplate([]corev1.Container{{Name: "init", SecurityContext: secCtx(true)}})
+		update, reason := shouldUpdateInitContainers(desired, current)
+		Expect(update).To(BeTrue())
+		Expect(reason).To(Equal(`container "init": updating security context`))
+	})
+})
+
+var _ = Describe("syncContainers", func() {
+	It("replaces the slice when lengths differ", func() {
+		desired := []corev1.Container{
+			{Name: cmn.AISContainerName, Image: "node:latest"},
+			{Name: "ais-logs", Image: "logs:latest"},
+		}
+		current := []corev1.Container{{Name: cmn.AISContainerName, Image: "node:latest"}}
+		Expect(syncContainers(desired, &current)).To(BeTrue())
+		Expect(current).To(Equal(desired))
+	})
+
+	It("syncs an individual container when it differs", func() {
+		desired := []corev1.Container{
+			{Name: cmn.AISContainerName, Image: "node:latest"},
+			{Name: "ais-logs", Image: "logs:new"},
+		}
+		current := []corev1.Container{
+			{Name: cmn.AISContainerName, Image: "node:latest"},
+			{Name: "ais-logs", Image: "logs:old"},
+		}
+		Expect(syncContainers(desired, &current)).To(BeTrue())
+		Expect(current[1].Image).To(Equal("logs:new"))
 	})
 })
 

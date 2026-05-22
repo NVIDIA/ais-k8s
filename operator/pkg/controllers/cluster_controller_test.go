@@ -523,6 +523,7 @@ var _ = Describe("AIStoreController", func() {
 					Spec: corev1.PodSpec{
 						InitContainers: []corev1.Container{{Image: "test:latest"}},
 						Containers: []corev1.Container{{
+							Name:  cmn.AISContainerName,
 							Image: "test:latest",
 							Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{
 								corev1.ResourceCPU: resource.MustParse("100m"),
@@ -533,7 +534,7 @@ var _ = Describe("AIStoreController", func() {
 				&corev1.PodTemplateSpec{
 					Spec: corev1.PodSpec{
 						InitContainers: []corev1.Container{{Image: "test:latest"}},
-						Containers:     []corev1.Container{{Image: "test:latest"}},
+						Containers:     []corev1.Container{{Name: cmn.AISContainerName, Image: "test:latest"}},
 					},
 				},
 				true,
@@ -567,6 +568,7 @@ var _ = Describe("AIStoreController", func() {
 					Spec: corev1.PodSpec{
 						InitContainers: []corev1.Container{{Image: "test:latest"}},
 						Containers: []corev1.Container{{
+							Name:  cmn.AISContainerName,
 							Image: "test:latest",
 							Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{
 								corev1.ResourceCPU: resource.MustParse("100m"),
@@ -578,6 +580,7 @@ var _ = Describe("AIStoreController", func() {
 					Spec: corev1.PodSpec{
 						InitContainers: []corev1.Container{{Image: "test:latest"}},
 						Containers: []corev1.Container{{
+							Name:  cmn.AISContainerName,
 							Image: "test:latest",
 							Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{
 								corev1.ResourceCPU: resource.MustParse("200m"),
@@ -593,6 +596,7 @@ var _ = Describe("AIStoreController", func() {
 					Spec: corev1.PodSpec{
 						InitContainers: []corev1.Container{{Image: "test:latest"}},
 						Containers: []corev1.Container{{
+							Name:  cmn.AISContainerName,
 							Image: "test:latest",
 							Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{
 								corev1.ResourceMemory: resource.MustParse("100m"),
@@ -604,6 +608,7 @@ var _ = Describe("AIStoreController", func() {
 					Spec: corev1.PodSpec{
 						InitContainers: []corev1.Container{{Image: "test:latest"}},
 						Containers: []corev1.Container{{
+							Name:  cmn.AISContainerName,
 							Image: "test:latest",
 							Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{
 								corev1.ResourceCPU: resource.MustParse("200m"),
@@ -624,6 +629,7 @@ var _ = Describe("AIStoreController", func() {
 					Spec: corev1.PodSpec{
 						InitContainers: []corev1.Container{{Image: "test:latest"}},
 						Containers: []corev1.Container{{
+							Name:  cmn.AISContainerName,
 							Image: "test:latest",
 							Env:   []corev1.EnvVar{{Name: "key", Value: "value"}},
 							Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{
@@ -641,6 +647,7 @@ var _ = Describe("AIStoreController", func() {
 					Spec: corev1.PodSpec{
 						InitContainers: []corev1.Container{{Image: "test:latest"}},
 						Containers: []corev1.Container{{
+							Name:  cmn.AISContainerName,
 							Image: "test:latest",
 							Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{
 								corev1.ResourceCPU: resource.MustParse("100m"),
@@ -763,6 +770,7 @@ var _ = Describe("AIStoreController", func() {
 					Spec: corev1.PodSpec{
 						InitContainers: []corev1.Container{{Image: "test:latest"}},
 						Containers: []corev1.Container{{
+							Name:  cmn.AISContainerName,
 							Image: "test:latest",
 							SecurityContext: &corev1.SecurityContext{
 								RunAsNonRoot: apc.Ptr(true),
@@ -773,7 +781,7 @@ var _ = Describe("AIStoreController", func() {
 				&corev1.PodTemplateSpec{
 					Spec: corev1.PodSpec{
 						InitContainers: []corev1.Container{{Image: "test:latest"}},
-						Containers:     []corev1.Container{{Image: "test:latest"}},
+						Containers:     []corev1.Container{{Name: cmn.AISContainerName, Image: "test:latest"}},
 					},
 				},
 				true,
@@ -784,6 +792,7 @@ var _ = Describe("AIStoreController", func() {
 					Spec: corev1.PodSpec{
 						InitContainers: []corev1.Container{{Image: "test:latest"}},
 						Containers: []corev1.Container{{
+							Name:  cmn.AISContainerName,
 							Image: "test:latest",
 							SecurityContext: &corev1.SecurityContext{
 								RunAsNonRoot: apc.Ptr(true),
@@ -795,6 +804,7 @@ var _ = Describe("AIStoreController", func() {
 					Spec: corev1.PodSpec{
 						InitContainers: []corev1.Container{{Image: "test:latest"}},
 						Containers: []corev1.Container{{
+							Name:  cmn.AISContainerName,
 							Image: "test:latest",
 							SecurityContext: &corev1.SecurityContext{
 								RunAsNonRoot: apc.Ptr(false),
@@ -828,6 +838,7 @@ var _ = Describe("AIStoreController", func() {
 					Spec: corev1.PodSpec{
 						InitContainers: []corev1.Container{{Image: "test:latest"}},
 						Containers: []corev1.Container{{
+							Name:  cmn.AISContainerName,
 							Image: "test:latest",
 							LivenessProbe: &corev1.Probe{
 								InitialDelaySeconds: 120,
@@ -842,6 +853,7 @@ var _ = Describe("AIStoreController", func() {
 					Spec: corev1.PodSpec{
 						InitContainers: []corev1.Container{{Image: "test:latest"}},
 						Containers: []corev1.Container{{
+							Name:  cmn.AISContainerName,
 							Image: "test:latest",
 							LivenessProbe: &corev1.Probe{
 								InitialDelaySeconds: 60,
@@ -860,6 +872,7 @@ var _ = Describe("AIStoreController", func() {
 					Spec: corev1.PodSpec{
 						InitContainers: []corev1.Container{{Image: "test:latest"}},
 						Containers: []corev1.Container{{
+							Name:  cmn.AISContainerName,
 							Image: "test:latest",
 							ReadinessProbe: &corev1.Probe{
 								PeriodSeconds:    15,
@@ -873,6 +886,7 @@ var _ = Describe("AIStoreController", func() {
 					Spec: corev1.PodSpec{
 						InitContainers: []corev1.Container{{Image: "test:latest"}},
 						Containers: []corev1.Container{{
+							Name:  cmn.AISContainerName,
 							Image: "test:latest",
 							ReadinessProbe: &corev1.Probe{
 								PeriodSeconds:    5,
@@ -890,6 +904,7 @@ var _ = Describe("AIStoreController", func() {
 					Spec: corev1.PodSpec{
 						InitContainers: []corev1.Container{{Image: "test:latest"}},
 						Containers: []corev1.Container{{
+							Name:  cmn.AISContainerName,
 							Image: "test:latest",
 							StartupProbe: &corev1.Probe{
 								PeriodSeconds:    10,
@@ -903,6 +918,7 @@ var _ = Describe("AIStoreController", func() {
 					Spec: corev1.PodSpec{
 						InitContainers: []corev1.Container{{Image: "test:latest"}},
 						Containers: []corev1.Container{{
+							Name:  cmn.AISContainerName,
 							Image: "test:latest",
 							StartupProbe: &corev1.Probe{
 								PeriodSeconds:    5,
@@ -1036,6 +1052,7 @@ var _ = Describe("AIStoreController", func() {
 					Spec: corev1.PodSpec{
 						InitContainers: []corev1.Container{{Image: "test:latest"}},
 						Containers: []corev1.Container{{
+							Name:  cmn.AISContainerName,
 							Image: "test:latest",
 							Env:   []corev1.EnvVar{{Name: "MY_NODE", Value: "node1"}, {Name: "MY_POD", Value: "pod1"}},
 						}},
@@ -1045,6 +1062,7 @@ var _ = Describe("AIStoreController", func() {
 					Spec: corev1.PodSpec{
 						InitContainers: []corev1.Container{{Image: "test:latest"}},
 						Containers: []corev1.Container{{
+							Name:  cmn.AISContainerName,
 							Image: "test:latest",
 							Env:   []corev1.EnvVar{{Name: "MY_NODE", Value: "node1"}, {Name: "MY_POD", Value: "pod1"}, {Name: "REMOVED_ENV", Value: "val"}},
 						}},

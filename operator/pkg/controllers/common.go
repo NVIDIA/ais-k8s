@@ -37,12 +37,10 @@ func shouldUpdatePodTemplate(desired, current *corev1.PodTemplateSpec) (bool, st
 	// Define a series of functions to check
 	// Each function returns whether we should trigger a rollout to sync along with a reason
 	checks := []func(desired, current *corev1.PodTemplateSpec) (bool, string){
-		shouldUpdateContainerList,
-		shouldUpdateInitContainer,
-		shouldUpdatePrimaryContainer,
-		shouldUpdateSecurityContext,
+		shouldUpdateInitContainers,
+		shouldUpdateContainers,
+		shouldUpdatePodSecurityContext,
 		shouldUpdateAnnotations,
-		shouldUpdateSidecars,
 		shouldUpdateLabels,
 		shouldUpdateVolumes,
 		shouldUpdatePriorityClass,
@@ -51,64 +49,79 @@ func shouldUpdatePodTemplate(desired, current *corev1.PodTemplateSpec) (bool, st
 	return shouldUpdate(desired, current, checks...)
 }
 
-func shouldUpdateInitContainer(desired, current *corev1.PodTemplateSpec) (bool, string) {
-	desiredInit := &desired.Spec.InitContainers[0]
-	currentInit := &current.Spec.InitContainers[0]
-	// Init container resources are hardcoded operator defaults and not user-specified.
-	// Changes should not trigger a rollout and thus can skip the resource comparison.
-	return shouldUpdateContainerSpec(desiredInit, currentInit, true)
+// containerChecks declares which fields participate in rollout-trigger comparisons
+// for a given container, scoped to user-controllable fields per container kind
+// Name and Image are always compared.
+// Operator-internal changes should not roll existing clusters on upgrade.
+// Security Context comparison is an exception, enabled to force sync with the v3.0.0 release.
+type containerChecks struct {
+	env, resources, probes, securityContext bool
 }
 
-func shouldUpdateContainerList(desired, current *corev1.PodTemplateSpec) (bool, string) {
-	if len(desired.Spec.Containers) != len(current.Spec.Containers) {
+var (
+	primaryContainerChecks = containerChecks{env: true, resources: true, probes: true, securityContext: true}
+	sidecarContainerChecks = containerChecks{resources: true, securityContext: true}
+	initContainerChecks    = containerChecks{securityContext: true}
+)
+
+// containerChecksFor returns the rollout-trigger policy for a container based on name
+func containerChecksFor(name string) containerChecks {
+	if name == cmn.AISContainerName {
+		return primaryContainerChecks
+	}
+	return sidecarContainerChecks
+}
+
+func shouldUpdateInitContainers(desired, current *corev1.PodTemplateSpec) (bool, string) {
+	desiredInit := desired.Spec.InitContainers
+	currentInit := current.Spec.InitContainers
+	if len(desiredInit) != len(currentInit) {
+		return true, "updating desired init containers"
+	}
+	for i := range desiredInit {
+		if update, reason := shouldUpdateContainerSpec(&desiredInit[i], &currentInit[i], initContainerChecks); update {
+			return true, reason
+		}
+	}
+	return false, ""
+}
+
+func shouldUpdateContainers(desired, current *corev1.PodTemplateSpec) (bool, string) {
+	desiredCont := desired.Spec.Containers
+	currentCont := current.Spec.Containers
+	if len(desiredCont) != len(currentCont) {
 		return true, "updating desired containers"
 	}
-	return false, ""
-}
-
-func shouldUpdatePrimaryContainer(desired, current *corev1.PodTemplateSpec) (bool, string) {
-	return shouldUpdateContainerSpec(&desired.Spec.Containers[0], &current.Spec.Containers[0], false)
-}
-
-func shouldUpdateSidecars(desired, current *corev1.PodTemplateSpec) (bool, string) {
-	// Assuming 0 is primary container
-	if len(desired.Spec.Containers) <= 1 {
-		return false, ""
-	}
-	currentByName := make(map[string]corev1.Container, len(current.Spec.Containers))
-	for i := range current.Spec.Containers {
-		c := current.Spec.Containers[i]
-		currentByName[c.Name] = c
-	}
-	// compare each desired sidecar to the current one with the same name
-	for i := 1; i < len(desired.Spec.Containers); i++ {
-		d := desired.Spec.Containers[i]
-		c, ok := currentByName[d.Name]
-		// should not happen (Spec.Containers length check previously)
-		// but this means spec differs, so we should sync
-		if !ok {
-			return true, fmt.Sprintf("adding sidecar container: %q", d.Name)
-		}
-		// currently only checking image for triggering rollout
-		if d.Image != c.Image {
-			return true, fmt.Sprintf("updating image for %q container", d.Name)
+	for i := range desiredCont {
+		checks := containerChecksFor(desiredCont[i].Name)
+		if update, reason := shouldUpdateContainerSpec(&desiredCont[i], &currentCont[i], checks); update {
+			return true, reason
 		}
 	}
 	return false, ""
 }
 
-func shouldUpdateContainerSpec(desired, current *corev1.Container, skipRes bool) (bool, string) {
+func shouldUpdateContainerSpec(desired, current *corev1.Container, c containerChecks) (bool, string) {
+	reason := func(detail string) string {
+		return fmt.Sprintf("container %q: %s", desired.Name, detail)
+	}
+	if desired.Name != current.Name {
+		return true, reason(fmt.Sprintf("renamed from %q", current.Name))
+	}
 	if desired.Image != current.Image {
-		return true, fmt.Sprintf("updating image for %q container", desired.Name)
+		return true, reason("updating image")
 	}
-	if !equality.Semantic.DeepEqual(desired.Env, current.Env) {
-		return true, fmt.Sprintf("updating env variables for %q container", desired.Name)
+	if c.env && !equality.Semantic.DeepEqual(desired.Env, current.Env) {
+		return true, reason("updating env variables")
 	}
-	if !skipRes && !equality.Semantic.DeepEqual(&desired.Resources, &current.Resources) {
-		return true, fmt.Sprintf("updating resource requests/limits for %q container", desired.Name)
+	if c.resources && !equality.Semantic.DeepEqual(desired.Resources, current.Resources) {
+		return true, reason("updating resource requests/limits")
 	}
-	if shouldUpdateProbes(desired, current) {
-		return true, "updating health probes"
+	if c.probes && shouldUpdateProbes(desired, current) {
+		return true, reason("updating health probes")
+	}
+	if c.securityContext && !equality.Semantic.DeepEqual(desired.SecurityContext, current.SecurityContext) {
+		return true, reason("updating security context")
 	}
 	return false, ""
 }
@@ -119,20 +132,12 @@ func shouldUpdateProbes(desired, current *corev1.Container) bool {
 		!equality.Semantic.DeepEqual(desired.StartupProbe, current.StartupProbe)
 }
 
-func shouldUpdateSecurityContext(desired, current *corev1.PodTemplateSpec) (bool, string) {
-	desiredSpec := &desired.Spec
-	currentSpec := &current.Spec
+func shouldUpdatePodSecurityContext(desired, current *corev1.PodTemplateSpec) (bool, string) {
 	// Pod-level securityContext
 	// Both `desired.SecurityContext` and `current.SecurityContext` are
 	// expected to be non-nil here as `SecurityContext` should be set by default.
-	if !equality.Semantic.DeepEqual(desiredSpec.SecurityContext, currentSpec.SecurityContext) {
+	if !equality.Semantic.DeepEqual(desired.Spec.SecurityContext, current.Spec.SecurityContext) {
 		return true, "updating security context for pod"
-	}
-
-	// Only sync securityContext for primary container -- do not restart cluster to add to sidecar or init
-	// TODO: sync on all in next major version
-	if !equality.Semantic.DeepEqual(desiredSpec.Containers[0].SecurityContext, currentSpec.Containers[0].SecurityContext) {
-		return true, fmt.Sprintf("updating security context for container %s", desiredSpec.Containers[0].Name)
 	}
 	return false, ""
 }
@@ -258,20 +263,10 @@ func shouldUpdateTolerations(desired, current *corev1.PodTemplateSpec) (bool, st
 }
 
 func syncPodTemplate(desired, current *corev1.PodTemplateSpec) (updated bool) {
-	for _, daemon := range []struct {
-		desiredContainer *corev1.Container
-		currentContainer *corev1.Container
-	}{
-		{&desired.Spec.InitContainers[0], &current.Spec.InitContainers[0]},
-		{&desired.Spec.Containers[0], &current.Spec.Containers[0]},
-	} {
-		if equality.Semantic.DeepDerivative(*daemon.desiredContainer, *daemon.currentContainer) {
-			// Account for env var removals with a deep equal check
-			if equality.Semantic.DeepEqual(daemon.desiredContainer.Env, daemon.currentContainer.Env) {
-				continue
-			}
-		}
-		*daemon.currentContainer = *daemon.desiredContainer
+	if syncContainers(desired.Spec.InitContainers, &current.Spec.InitContainers) {
+		updated = true
+	}
+	if syncContainers(desired.Spec.Containers, &current.Spec.Containers) {
 		updated = true
 	}
 
@@ -305,11 +300,29 @@ func syncPodTemplate(desired, current *corev1.PodTemplateSpec) (updated bool) {
 		updated = true
 	}
 
-	if syncSidecarContainer(desired, current) {
-		updated = true
-	}
-
 	return
+}
+
+func syncContainers(desired []corev1.Container, current *[]corev1.Container) bool {
+	if len(desired) != len(*current) {
+		*current = desired
+		return true
+	}
+	updated := false
+	for i := range desired {
+		if syncContainer(&desired[i], &(*current)[i]) {
+			updated = true
+		}
+	}
+	return updated
+}
+
+func syncContainer(desired, current *corev1.Container) bool {
+	if equality.Semantic.DeepEqual(*desired, *current) {
+		return false
+	}
+	*current = *desired
+	return true
 }
 
 // hostnameMatchesPod checks if a hostname belongs to the given pod by matching
@@ -326,29 +339,6 @@ func findAISNodeByPodName(nodeMap aismeta.NodeMap, podName string) (*aismeta.Sno
 		}
 	}
 	return nil, fmt.Errorf("no matching AIS node found for pod %q", podName)
-}
-
-func syncSidecarContainer(desired, current *corev1.PodTemplateSpec) (updated bool) {
-	// We have no sidecar, and don't want one
-	if len(desired.Spec.Containers) < 2 && len(current.Spec.Containers) < 2 {
-		return false
-	}
-	// We want to remove the sidecar
-	if len(desired.Spec.Containers) < 2 && len(current.Spec.Containers) > 1 {
-		current.Spec.Containers = current.Spec.Containers[:1]
-		return true
-	}
-	// Add a new sidecar
-	if len(desired.Spec.Containers) > 1 && len(current.Spec.Containers) < 2 {
-		current.Spec.Containers = append(current.Spec.Containers, desired.Spec.Containers[1])
-		return true
-	}
-	// If sidecar is already updated, no change
-	if equality.Semantic.DeepDerivative(desired.Spec.Containers[1], current.Spec.Containers[1]) {
-		return false
-	}
-	current.Spec.Containers[1] = desired.Spec.Containers[1]
-	return true
 }
 
 // isScalingNeeded returns true if the StatefulSet spec replicas differ from the

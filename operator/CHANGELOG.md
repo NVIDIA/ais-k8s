@@ -15,6 +15,12 @@ This release will result in an AIStore cluster rollout to sync pod templates.
 ### Changed
 
 - Admission webhook now rejects specs that set both `spec.tls` and any of `configToUpdate.net.http.{server_crt,server_key,client_ca_tls}`. The operator owns these paths (`/var/certs/{tls.crt,tls.key,ca.crt}`) whenever `spec.tls` is configured.
+- Container spec comparison and sync are now unified across init, primary, and sidecar containers, with a per-kind rollout-trigger policy:
+  - **Sidecars** (e.g. `ais-logs`): `resources` and `securityContext` diffs now trigger a rollout in addition to `image`.
+  - **Init containers**: all init containers are compared. `securityContext` diffs now trigger a rollout in addition to `image`; `env` and probe diffs no longer trigger.
+  - Renaming a container at the same index now triggers a rollout.
+- Pod template field removals cause a rollout to sync (previously only `env` respected removals).
+
 - All label-based selection will use prefixed labels `app.kubernetes.io/name` and `app.kubernetes.io/component` 
   - Labels applied to pods are NOT changed.
   - Newly-created StatefulSets select only on prefixed labels. Existing StatefulSets continue to select on all labels and are not updated in place. 

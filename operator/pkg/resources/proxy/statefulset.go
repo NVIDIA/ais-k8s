@@ -117,7 +117,7 @@ func proxyPodSpec(ais *aisv1.AIStore) *corev1.PodSpec {
 		Affinity:           cmn.CreateAISAffinity(ais.Spec.ProxySpec.Affinity, SelectorLabels(ais)),
 		NodeSelector:       ais.Spec.ProxySpec.NodeSelector,
 		ServiceAccountName: cmn.ServiceAccountName(ais),
-		// By default, Kubernetes sets non-nil `SecurityContext`. So we have do that too,
+		// By default, Kubernetes sets non-nil `SecurityContext`. So we have to do that too,
 		// otherwise during comparison we will always fail (nil vs non-nil).
 		//
 		// See: https://github.com/kubernetes/kubernetes/blob/fa03b93d25a5a22d4f91e4c44f66fc69a6f69a35/pkg/apis/core/v1/defaults.go#L215-L236
