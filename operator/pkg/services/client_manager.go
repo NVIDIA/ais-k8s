@@ -170,12 +170,13 @@ func (m *AISClientManager) getAISAPIEndpoint(ctx context.Context,
 
 func (m *AISClientManager) getPublicAISHostname(ctx context.Context, ais *aisv1.AIStore) (hostname string, err error) {
 	// Find ANY ready proxy pod and return the public endpoint
-	pods, err := m.k8sClient.ListReadyPods(ctx, ais, proxy.BasicLabels(ais))
+	selector := proxy.SelectorLabels(ais)
+	pods, err := m.k8sClient.ListReadyPods(ctx, ais, selector)
 	if err != nil {
 		return "", err
 	}
 	if len(pods.Items) == 0 {
-		return "", fmt.Errorf("no ready pods found matching selector %q", proxy.BasicLabels(ais))
+		return "", fmt.Errorf("no ready pods found matching selector %v", selector)
 	}
 	return pods.Items[0].Status.HostIP, nil
 }

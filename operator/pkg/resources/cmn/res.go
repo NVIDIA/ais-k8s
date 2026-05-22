@@ -148,7 +148,7 @@ func NewDaemonPorts(spec *aisv1.DaemonSpec) []corev1.ContainerPort {
 	}
 }
 
-func CreateAISAffinity(affinity *corev1.Affinity, basicLabels map[string]string) *corev1.Affinity {
+func CreateAISAffinity(affinity *corev1.Affinity, labels map[string]string) *corev1.Affinity {
 	// If we have no affinity defined in spec, define an empty one
 	if affinity == nil {
 		affinity = &corev1.Affinity{}
@@ -156,17 +156,17 @@ func CreateAISAffinity(affinity *corev1.Affinity, basicLabels map[string]string)
 
 	// If we have an affinity but no specific PodAntiAffinity, set it
 	if affinity.PodAntiAffinity == nil {
-		affinity.PodAntiAffinity = createPodAntiAffinity(basicLabels)
+		affinity.PodAntiAffinity = createPodAntiAffinity(labels)
 	}
 
 	return affinity
 }
 
-func createPodAntiAffinity(basicLabels map[string]string) *corev1.PodAntiAffinity {
-	// Pods matching basicLabels may not be scheduled on the same hostname
+func createPodAntiAffinity(labels map[string]string) *corev1.PodAntiAffinity {
+	// Pods matching given labels may not be scheduled on the same hostname
 	labelAffinity := corev1.PodAffinityTerm{
 		LabelSelector: &metav1.LabelSelector{
-			MatchLabels: basicLabels,
+			MatchLabels: labels,
 		},
 		TopologyKey: corev1.LabelHostname,
 	}

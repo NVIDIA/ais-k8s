@@ -12,6 +12,15 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 This release will result in an AIStore cluster rollout to sync pod templates.
 
+### Changed
+
+- Admission webhook now rejects specs that set both `spec.tls` and any of `configToUpdate.net.http.{server_crt,server_key,client_ca_tls}`. The operator owns these paths (`/var/certs/{tls.crt,tls.key,ca.crt}`) whenever `spec.tls` is configured.
+- All label-based selection will use prefixed labels `app.kubernetes.io/name` and `app.kubernetes.io/component` 
+  - Labels applied to pods are NOT changed.
+  - Newly-created StatefulSets select only on prefixed labels. Existing StatefulSets continue to select on all labels and are not updated in place. 
+  - Replaces selector usage of `app` and `component`. Legacy labels remain on pods and StatefulSets for compatibility with existing selectors.
+  - User labels cannot override `app.kubernetes.io/name` and `app.kubernetes.io/component`.
+
 ### Removed
 
 - Removed StatsD ConfigMap, volume, and mounts
@@ -20,10 +29,6 @@ This release will result in an AIStore cluster rollout to sync pod templates.
   - Migrate to `spec.tls.certificate`, `spec.tls.secretName`, or `spec.tls.certificate` with `mode: csi` respectively before upgrading. Existing CRs that still use the old fields will be rejected by the new schema.
 - Deprecated log-sidecar spec fields: `spec.logSidecarImage`, `spec.logSidecarResources`.
   - Migrate to `spec.logSidecar.image` and `spec.logSidecar.resources` before upgrading.
-
-### Changed
-
-- Admission webhook now rejects specs that set both `spec.tls` and any of `configToUpdate.net.http.{server_crt,server_key,client_ca_tls}`. The operator owns these paths (`/var/certs/{tls.crt,tls.key,ca.crt}`) whenever `spec.tls` is configured.
 
 ---
 

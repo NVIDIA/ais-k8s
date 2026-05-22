@@ -41,13 +41,6 @@ func LoadBalancerSVCNSName(ais *aisv1.AIStore) types.NamespacedName {
 	}
 }
 
-func ServiceSelectorLabels(aisName string) map[string]string {
-	return map[string]string{
-		cmn.LabelApp:       aisName,
-		cmn.LabelComponent: aisapc.Proxy,
-	}
-}
-
 // NewProxyHeadlessSvc creates the apply config for the headless Service fronting proxy pods.
 func NewProxyHeadlessSvc(ais *aisv1.AIStore) *corev1ac.ServiceApplyConfiguration {
 	servicePort := ais.Spec.ProxySpec.ServicePort
@@ -80,7 +73,7 @@ func NewProxyHeadlessSvc(ais *aisv1.AIStore) *corev1ac.ServiceApplyConfiguration
 					WithPort(int32(dataPort.IntValue())).
 					WithTargetPort(dataPort),
 			).
-			WithSelector(ServiceSelectorLabels(ais.Name)),
+			WithSelector(SelectorLabels(ais)),
 		)
 }
 
@@ -102,6 +95,6 @@ func NewProxyLoadBalancerSVC(ais *aisv1.AIStore) *corev1ac.ServiceApplyConfigura
 					WithPort(int32(servicePort.IntValue())).
 					WithTargetPort(publicNetPort),
 			).
-			WithSelector(ServiceSelectorLabels(ais.Name)),
+			WithSelector(SelectorLabels(ais)),
 		)
 }

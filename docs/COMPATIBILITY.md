@@ -18,8 +18,42 @@ The following matrix shows the compatible versions of AIStore ([aisnode](https:/
 | v3.28           | v1.6.0                            | Operator >= v2.3.0 **NOT** compatible with AIS < v3.28 <br/>(recommend upgrade to > v3.28 BEFORE operator > v2.3.0)                                                                                                                  | [AIS](https://github.com/NVIDIA/aistore/releases/tag/v1.3.28)                                                                                                                                                     |
 | v4.1            | v2.8.0                            | AIS ≥ v4.1 is **NOT** compatible with operator < v2.8.0 (upgrade operator to > v2.8.0 first); AIS now gates readiness on cluster join, requiring `publishNotReadyAddresses: true` on headless SVCs for peer discovery during startup | [AIS](https://github.com/NVIDIA/aistore/releases/tag/v1.4.1), [operator v2.8.0](https://github.com/NVIDIA/ais-k8s/releases/tag/v2.8.0)                                                                            |
 | v4.2            | v2.8.0                            |                                                                                                                                                                                                                                      | [AIS](https://github.com/NVIDIA/aistore/releases/tag/v1.4.2), [operator v2.14.0](https://github.com/NVIDIA/ais-k8s/releases/tag/v2.14.0)                                                                          |
+| v4.3-v4.5       | v2.8.0                            |                                                                                                                                                                                                                                      | [AIS](https://github.com/NVIDIA/aistore/releases/tag/v1.4.5), [operator v2.19.0](https://github.com/NVIDIA/ais-k8s/releases/tag/v2.19.0)                                                                          |
 
 >**NOTE:** We recommend and support only the latest versions of AIStore and the AIS K8s Operator.
+
+## Operator v3.0.0
+
+This major release drops support for several deprecated features. 
+See the operator [CHANGELOG.md](../operator/CHANGELOG.md) for details.
+
+Removed:
+- StatsD support
+- Deprecated options for TLS configuration
+- Deprecated options for logSidecar
+- Selection by [deprecated pod labels](#pod-labels)
+
+### Pod Labels
+
+Starting with operator version [v2.1.1](https://github.com/NVIDIA/ais-k8s/releases/tag/v2.1.1), the operator uses [K8s-standard prefixed labels](https://kubernetes.io/docs/concepts/overview/working-with-objects/common-labels/).
+For releases deployed with prior versions, `v3.0.0` drops support for pod selection based solely on the old `app` and `component` labels.
+
+This will result in rollout and cleanup failures if a `v3.0.0` operator tries to manage a statefulset deployed with a version prior to `v2.1.1`.
+
+To check an existing cluster for compatibility with operator versions `v3.0.0` and above, you can use the following to check for modern labels on AIS pods: 
+
+```console
+# Update as needed to match your cluster name and namespace
+kubectl get pod -n ais -l 'app.kubernetes.io/component=proxy' \
+  -o jsonpath='{.items[0].metadata.labels.app\.kubernetes\.io/name}{"\n"}'
+  
+kubectl get pod -n ais -l 'app.kubernetes.io/component=target' \
+  -o jsonpath='{.items[0].metadata.labels.app\.kubernetes\.io/name}{"\n"}'
+```
+
+If both of these queries return the cluster name, then the operator can be safely upgraded. 
+If no label exists, first upgrade to an operator version >= `v2.1.1`, then apply any change to the spec to sync the modern label syntax to the K8s resources. 
+
 
 ## Init container compatibility
 Starting with operator version `1.6.0`, we have begun to move the generation of AIS config from the operator to the init container.

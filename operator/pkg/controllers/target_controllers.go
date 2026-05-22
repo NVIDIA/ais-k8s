@@ -387,7 +387,7 @@ func isPodReady(pod *corev1.Pod) bool {
 
 func (r *AIStoreReconciler) findPodNeedingUpdate(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) string {
 	logger := logf.FromContext(ctx).WithValues("statefulset", ss.Name)
-	podList, err := r.k8sClient.ListPods(ctx, ais, target.RequiredPodLabels(ais))
+	podList, err := r.k8sClient.ListPods(ctx, ais, target.SelectorLabels(ais))
 	if err != nil {
 		logger.Error(err, "Failed to list target pods")
 		return ""

@@ -131,12 +131,12 @@ func (r *AIStoreReconciler) cleanupPVC(ctx context.Context, ais *aisv1.AIStore) 
 
 func (r *AIStoreReconciler) deleteAllPVCs(ctx context.Context, ais *aisv1.AIStore) (bool, error) {
 	r.log.Info("Cleaning up all target PVCs")
-	updated, err := r.k8sClient.DeletePVCs(ctx, ais.Namespace, target.RequiredPodLabels(ais), nil)
+	updated, err := r.k8sClient.DeletePVCs(ctx, ais.Namespace, target.SelectorLabels(ais), nil)
 	if err != nil {
 		return updated, err
 	}
 	r.log.Info("Cleaning up all proxy PVCs")
-	return r.k8sClient.DeletePVCs(ctx, ais.Namespace, proxy.RequiredPodLabels(ais), nil)
+	return r.k8sClient.DeletePVCs(ctx, ais.Namespace, proxy.SelectorLabels(ais), nil)
 }
 
 func (r *AIStoreReconciler) cleanupRBAC(ctx context.Context, ais *aisv1.AIStore) (anyUpdated bool, err error) {

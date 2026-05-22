@@ -33,7 +33,7 @@ func NewTargetPDB(ais *aisv1.AIStore) *policyv1.PodDisruptionBudget {
 		Spec: policyv1.PodDisruptionBudgetSpec{
 			MaxUnavailable: &maxUnavailable,
 			Selector: &metav1.LabelSelector{
-				MatchLabels: BasicLabels(ais),
+				MatchLabels: SelectorLabels(ais),
 			},
 		},
 	}

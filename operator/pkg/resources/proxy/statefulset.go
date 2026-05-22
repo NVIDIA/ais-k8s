@@ -6,7 +6,6 @@ package proxy
 
 import (
 	"fmt"
-	"maps"
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
 	aisenv "github.com/NVIDIA/aistore/api/env"
@@ -29,22 +28,15 @@ func PodName(ais *aisv1.AIStore, idx int32) string {
 	return fmt.Sprintf("%s-%d", ais.ProxyStatefulSetName(), idx)
 }
 
+// BasicLabels defines labels for proxy pods and statefulset
+// Includes legacy labels for compatibility with older StatefulSets that may still select on
+// non-prefixed 'app' and 'component' labels
 func BasicLabels(ais *aisv1.AIStore) map[string]string {
-	return map[string]string{
-		cmn.LabelApp:               ais.Name,
-		cmn.LabelAppPrefixed:       ais.Name,
-		cmn.LabelComponent:         aisapc.Proxy,
-		cmn.LabelComponentPrefixed: aisapc.Proxy,
-	}
+	return cmn.LegacyLabels(ais.Name, aisapc.Proxy)
 }
 
-// RequiredPodLabels contains backwards compatible pod labels for selecting pods on older clusters
-// TODO: Remove in release 3.0
-func RequiredPodLabels(ais *aisv1.AIStore) map[string]string {
-	return map[string]string{
-		cmn.LabelApp:       ais.Name,
-		cmn.LabelComponent: aisapc.Proxy,
-	}
+func SelectorLabels(ais *aisv1.AIStore) map[string]string {
+	return cmn.SelectorLabels(ais.Name, aisapc.Proxy)
 }
 
 func DefaultPrimaryNSName(ais *aisv1.AIStore) types.NamespacedName {
@@ -56,9 +48,7 @@ func DefaultPrimaryNSName(ais *aisv1.AIStore) types.NamespacedName {
 
 func NewProxyStatefulSet(ais *aisv1.AIStore, size int32) *apiv1.StatefulSet {
 	basicLabels := BasicLabels(ais)
-	podLabels := map[string]string{}
-	maps.Copy(podLabels, basicLabels)
-	maps.Copy(podLabels, ais.Spec.ProxySpec.Labels)
+	podLabels := cmn.MergePodLabels(ais.Spec.ProxySpec.Labels, basicLabels)
 
 	ss := &apiv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
@@ -68,7 +58,7 @@ func NewProxyStatefulSet(ais *aisv1.AIStore, size int32) *apiv1.StatefulSet {
 		},
 		Spec: apiv1.StatefulSetSpec{
 			Selector: &metav1.LabelSelector{
-				MatchLabels: basicLabels,
+				MatchLabels: SelectorLabels(ais),
 			},
 			ServiceName:          headlessSVCName(ais.Name),
 			PodManagementPolicy:  apiv1.ParallelPodManagement,
@@ -124,7 +114,7 @@ func proxyPodSpec(ais *aisv1.AIStore) *corev1.PodSpec {
 				ReadinessProbe:  cmn.NewReadinessProbe(ais, aisapc.Proxy),
 			},
 		},
-		Affinity:           cmn.CreateAISAffinity(ais.Spec.ProxySpec.Affinity, BasicLabels(ais)),
+		Affinity:           cmn.CreateAISAffinity(ais.Spec.ProxySpec.Affinity, SelectorLabels(ais)),
 		NodeSelector:       ais.Spec.ProxySpec.NodeSelector,
 		ServiceAccountName: cmn.ServiceAccountName(ais),
 		// By default, Kubernetes sets non-nil `SecurityContext`. So we have do that too,

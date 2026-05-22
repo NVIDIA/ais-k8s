@@ -5,7 +5,6 @@
 package target
 
 import (
-	"maps"
 	"path/filepath"
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
@@ -28,29 +27,20 @@ func StatefulSetNSName(ais *aisv1.AIStore) types.NamespacedName {
 	}
 }
 
+// BasicLabels defines labels for target pods and statefulset
+// Includes legacy labels for compatibility with older StatefulSets that may still select on
+// non-prefixed 'app' and 'component' labels
 func BasicLabels(ais *aisv1.AIStore) map[string]string {
-	return map[string]string{
-		cmn.LabelApp:               ais.Name,
-		cmn.LabelAppPrefixed:       ais.Name,
-		cmn.LabelComponent:         aisapc.Target,
-		cmn.LabelComponentPrefixed: aisapc.Target,
-	}
+	return cmn.LegacyLabels(ais.Name, aisapc.Target)
 }
 
-// RequiredPodLabels contains backwards compatible pod labels for selecting pods on older clusters
-// TODO: Remove in release 3.0
-func RequiredPodLabels(ais *aisv1.AIStore) map[string]string {
-	return map[string]string{
-		cmn.LabelApp:       ais.Name,
-		cmn.LabelComponent: aisapc.Target,
-	}
+func SelectorLabels(ais *aisv1.AIStore) map[string]string {
+	return cmn.SelectorLabels(ais.Name, aisapc.Target)
 }
 
 func NewTargetSS(ais *aisv1.AIStore, expectedSize int32) *apiv1.StatefulSet {
 	basicLabels := BasicLabels(ais)
-	podLabels := map[string]string{}
-	maps.Copy(podLabels, BasicLabels(ais))
-	maps.Copy(podLabels, ais.Spec.TargetSpec.Labels)
+	podLabels := cmn.MergePodLabels(ais.Spec.TargetSpec.Labels, basicLabels)
 
 	ss := &apiv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
@@ -61,7 +51,7 @@ func NewTargetSS(ais *aisv1.AIStore, expectedSize int32) *apiv1.StatefulSet {
 		},
 		Spec: apiv1.StatefulSetSpec{
 			Selector: &metav1.LabelSelector{
-				MatchLabels: basicLabels,
+				MatchLabels: SelectorLabels(ais),
 			},
 			ServiceName:         headlessSVCName(ais.Name),
 			PodManagementPolicy: apiv1.ParallelPodManagement,
@@ -124,7 +114,7 @@ func targetPodSpec(ais *aisv1.AIStore) *corev1.PodSpec {
 		//
 		// See: https://github.com/kubernetes/kubernetes/blob/fa03b93d25a5a22d4f91e4c44f66fc69a6f69a35/pkg/apis/core/v1/defaults.go#L215-L236
 		SecurityContext: cmn.ValueOrDefault(ais.Spec.TargetSpec.SecurityContext, &corev1.PodSecurityContext{}),
-		Affinity:        createTargetAffinity(ais, BasicLabels(ais)),
+		Affinity:        createTargetAffinity(ais, SelectorLabels(ais)),
 		NodeSelector:    ais.Spec.TargetSpec.NodeSelector,
 		Volumes:         newVolumes(ais),
 		Tolerations:     ais.Spec.TargetSpec.Tolerations,
@@ -168,10 +158,10 @@ func NewAISContainerEnv(ais *aisv1.AIStore) []corev1.EnvVar {
 	return cmn.MergeEnvVars(baseEnv, ais.Spec.TargetSpec.Env)
 }
 
-func createTargetAffinity(ais *aisv1.AIStore, basicLabels map[string]string) *corev1.Affinity {
+func createTargetAffinity(ais *aisv1.AIStore, labels map[string]string) *corev1.Affinity {
 	// Don't add additional rules to the affinity set in the target spec (can also be nil)
 	if ais.AllowTargetSharedNodes() {
 		return ais.Spec.TargetSpec.Affinity
 	}
-	return cmn.CreateAISAffinity(ais.Spec.TargetSpec.Affinity, basicLabels)
+	return cmn.CreateAISAffinity(ais.Spec.TargetSpec.Affinity, labels)
 }

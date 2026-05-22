@@ -47,13 +47,6 @@ func PodName(ais *aisv1.AIStore, index int32) string {
 	return fmt.Sprintf("%s-%d", statefulSetName(ais), index)
 }
 
-func ServiceSelectorLabels(aisName string) map[string]string {
-	return map[string]string{
-		cmn.LabelApp:       aisName,
-		cmn.LabelComponent: aisapc.Target,
-	}
-}
-
 func NewTargetHeadlessSvc(ais *aisv1.AIStore) *corev1ac.ServiceApplyConfiguration {
 	servicePort := ais.Spec.TargetSpec.ServicePort
 	controlPort := ais.Spec.TargetSpec.IntraControlPort
@@ -84,15 +77,15 @@ func NewTargetHeadlessSvc(ais *aisv1.AIStore) *corev1ac.ServiceApplyConfiguratio
 					WithPort(int32(dataPort.IntValue())).
 					WithTargetPort(dataPort),
 			).
-			WithSelector(ServiceSelectorLabels(ais.Name)),
+			WithSelector(SelectorLabels(ais)),
 		)
 }
 
 func NewTargetLoadBalancerSVC(ais *aisv1.AIStore, targetIndex int32) *corev1ac.ServiceApplyConfiguration {
 	servicePort := ais.Spec.TargetSpec.ServicePort
 	publicNetPort := ais.Spec.TargetSpec.PublicPort
-	selectors := ServiceSelectorLabels(ais.Name)
-	selectors["statefulset.kubernetes.io/pod-name"] = fmt.Sprintf("%s-%d", statefulSetName(ais), targetIndex)
+	selectors := SelectorLabels(ais)
+	selectors["statefulset.kubernetes.io/pod-name"] = PodName(ais, targetIndex)
 	return corev1ac.Service(loadBalancerSVCName(ais, targetIndex), ais.Namespace).
 		WithOwnerReferences(ownerref.NewControllerRef(ais)).
 		WithAnnotations(map[string]string{
