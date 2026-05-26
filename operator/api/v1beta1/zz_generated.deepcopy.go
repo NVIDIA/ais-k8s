@@ -84,11 +84,6 @@ func (in *AIStoreSpec) DeepCopyInto(out *AIStoreSpec) {
 		*out = new(int32)
 		**out = **in
 	}
-	if in.LogSidecarImage != nil {
-		in, out := &in.LogSidecarImage, &out.LogSidecarImage
-		*out = new(string)
-		**out = **in
-	}
 	if in.LogSidecar != nil {
 		in, out := &in.LogSidecar, &out.LogSidecar
 		*out = new(LogSidecarSpec)
@@ -207,11 +202,6 @@ func (in *AIStoreSpec) DeepCopyInto(out *AIStoreSpec) {
 		in, out := &in.PriorityClassName, &out.PriorityClassName
 		*out = new(string)
 		**out = **in
-	}
-	if in.LogSidecarResources != nil {
-		in, out := &in.LogSidecarResources, &out.LogSidecarResources
-		*out = new(v1.ResourceRequirements)
-		(*in).DeepCopyInto(*out)
 	}
 }
 

@@ -21,7 +21,7 @@ import (
 var _ = Describe("Statefulset", Label("short"), func() {
 	Describe("Log Sidecar", func() {
 		DescribeTable("should create log container spec with proper image and resources",
-			func(daeType string, withResources bool, oldFmt bool) {
+			func(daeType string, withResources bool) {
 				var (
 					imageName = "testImage"
 					resources *corev1.ResourceRequirements
@@ -39,18 +39,9 @@ var _ = Describe("Statefulset", Label("short"), func() {
 						},
 					}
 				}
-				if oldFmt {
-					//nolint // testing backwards-compat for deprecated field
-					ais.Spec.LogSidecarImage = &imageName
-					if withResources {
-						//nolint // testing backwards-compat for deprecated field
-						ais.Spec.LogSidecarResources = resources
-					}
-				} else {
-					ais.Spec.LogSidecar = &aisv1.LogSidecarSpec{Image: imageName}
-					if withResources {
-						ais.Spec.LogSidecar.Resources = resources
-					}
+				ais.Spec.LogSidecar = &aisv1.LogSidecarSpec{Image: imageName}
+				if withResources {
+					ais.Spec.LogSidecar.Resources = resources
 				}
 
 				cSpec := NewLogSidecar(ais, daeType)
@@ -70,14 +61,10 @@ var _ = Describe("Statefulset", Label("short"), func() {
 					Expect(cSpec.Resources.Limits).To(BeNil())
 				}
 			},
-			Entry("for proxy", aisapc.Proxy, false, false),
-			Entry("for proxy, with resources", aisapc.Proxy, true, false),
-			Entry("for proxy, backwards-compatible", aisapc.Proxy, false, true),
-			Entry("for proxy, with resources, backwards-compatible", aisapc.Proxy, true, true),
-			Entry("for target", aisapc.Target, false, false),
-			Entry("for target, with resources", aisapc.Target, true, false),
-			Entry("for target, backwards-compatible", aisapc.Target, false, true),
-			Entry("for target, with resources, backwards-compatible", aisapc.Target, true, true),
+			Entry("for proxy", aisapc.Proxy, false),
+			Entry("for proxy, with resources", aisapc.Proxy, true),
+			Entry("for target", aisapc.Target, false),
+			Entry("for target, with resources", aisapc.Target, true),
 		)
 	})
 

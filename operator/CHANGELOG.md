@@ -18,6 +18,8 @@ This release will result in an AIStore cluster rollout to sync pod templates.
   - StatsD support was deprecated in AIStore in v3.28 and dropped in v4.0
 - Deprecated TLS spec fields: `spec.tlsCertificate`, `spec.tlsSecretName`, `spec.tlsCertManagerIssuerName`.
   - Migrate to `spec.tls.certificate`, `spec.tls.secretName`, or `spec.tls.certificate` with `mode: csi` respectively before upgrading. Existing CRs that still use the old fields will be rejected by the new schema.
+- Deprecated log-sidecar spec fields: `spec.logSidecarImage`, `spec.logSidecarResources`.
+  - Migrate to `spec.logSidecar.image` and `spec.logSidecar.resources` before upgrading.
 
 ### Changed
 

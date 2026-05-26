@@ -316,11 +316,6 @@ type AIStoreSpec struct {
 	// Container image used for `ais-init` container.
 	// +kubebuilder:validation:MinLength=1
 	InitImage string `json:"initImage"`
-	// Deprecated: Use logSidecar.image
-	// Container image used for `ais-logs` container.
-	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:Optional
-	LogSidecarImage *string `json:"logSidecarImage"`
 	// LogSidecar defines the details for a logging sidecar container deployed within each AIS pod
 	// +kubebuilder:validation:Optional
 	LogSidecar *LogSidecarSpec `json:"logSidecar"`
@@ -449,13 +444,6 @@ type AIStoreSpec struct {
 	// See: https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/
 	// +optional
 	PriorityClassName *string `json:"priorityClassName,omitempty"`
-
-	// Deprecated: Use logSidecar.resources
-	// LogSidecarResources specifies resource requirements for the ais-logs sidecar container.
-	// Setting requests equal to limits gives the pod Guaranteed QoS, protecting it from eviction.
-	// If not specified, the sidecar runs with no resource constraints (BestEffort for that container).
-	// +optional
-	LogSidecarResources *corev1.ResourceRequirements `json:"logSidecarResources,omitempty"`
 }
 
 // AIStoreStatus defines the observed state of AIStore
@@ -896,20 +884,17 @@ func (ais *AIStore) IsProxyAutoScaling() bool {
 }
 
 func (ais *AIStore) GetLogSidecarImage() string {
-	if ais.Spec.LogSidecar != nil {
-		return ais.Spec.LogSidecar.Image
+	if ais.Spec.LogSidecar == nil {
+		return ""
 	}
-	if ais.Spec.LogSidecarImage != nil {
-		return *ais.Spec.LogSidecarImage
-	}
-	return ""
+	return ais.Spec.LogSidecar.Image
 }
 
 func (ais *AIStore) GetLogSidecarResources() *corev1.ResourceRequirements {
-	if ais.Spec.LogSidecar != nil {
-		return ais.Spec.LogSidecar.Resources
+	if ais.Spec.LogSidecar == nil {
+		return nil
 	}
-	return ais.Spec.LogSidecarResources
+	return ais.Spec.LogSidecar.Resources
 }
 
 func (m *Mount) IsHostPath() bool {
