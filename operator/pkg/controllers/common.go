@@ -104,7 +104,7 @@ func shouldUpdateContainerSpec(desired, current *corev1.Container, skipRes bool)
 	if !equality.Semantic.DeepEqual(desired.Env, current.Env) {
 		return true, fmt.Sprintf("updating env variables for %q container", desired.Name)
 	}
-	if !skipRes && shouldUpdateResources(&desired.Resources, &current.Resources) {
+	if !skipRes && !equality.Semantic.DeepEqual(&desired.Resources, &current.Resources) {
 		return true, fmt.Sprintf("updating resource requests/limits for %q container", desired.Name)
 	}
 	if shouldUpdateProbes(desired, current) {
@@ -135,18 +135,6 @@ func shouldUpdateSecurityContext(desired, current *corev1.PodTemplateSpec) (bool
 		return true, fmt.Sprintf("updating security context for container %s", desiredSpec.Containers[0].Name)
 	}
 	return false, ""
-}
-
-func shouldUpdateResources(desired, current *corev1.ResourceRequirements) bool {
-	// TODO: Remove check in next major version (causes cluster restart)
-	// If we already have ephemeral storage request, do a full comparison
-	if current.Requests.StorageEphemeral() != nil && !current.Requests.StorageEphemeral().IsZero() {
-		return !equality.Semantic.DeepEqual(desired, current)
-	}
-	// Do not sync if the only change is *adding* ephemeral storage request
-	desFiltered := desired.DeepCopy()
-	delete(desFiltered.Requests, corev1.ResourceEphemeralStorage)
-	return !equality.Semantic.DeepEqual(desFiltered, current)
 }
 
 // Compares the given slices of EnvVars and return true if there are changes to sync

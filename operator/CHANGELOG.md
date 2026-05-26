@@ -30,6 +30,7 @@ This release will result in an AIStore cluster rollout to sync pod templates.
 - Deprecated log-sidecar spec fields: `spec.logSidecarImage`, `spec.logSidecarResources`.
   - Migrate to `spec.logSidecar.image` and `spec.logSidecar.resources` before upgrading.
 - Backwards-compatible env-var rollout skips: `AIS_PUBLIC_HOSTNAME` removals on the AIS container and `AIS_PUBLIC_DNS_MODE`/`HOST_IPS` additions on the init container will now trigger a rollout instead of being ignored.
+- Rollout-skip for adding `resources.requests.ephemeral-storage`; resource diffs are now compared in full.
 
 ---
 
