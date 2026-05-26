@@ -29,6 +29,7 @@ This release will result in an AIStore cluster rollout to sync pod templates.
   - Migrate to `spec.tls.certificate`, `spec.tls.secretName`, or `spec.tls.certificate` with `mode: csi` respectively before upgrading. Existing CRs that still use the old fields will be rejected by the new schema.
 - Deprecated log-sidecar spec fields: `spec.logSidecarImage`, `spec.logSidecarResources`.
   - Migrate to `spec.logSidecar.image` and `spec.logSidecar.resources` before upgrading.
+- Backwards-compatible env-var rollout skips: `AIS_PUBLIC_HOSTNAME` removals on the AIS container and `AIS_PUBLIC_DNS_MODE`/`HOST_IPS` additions on the init container will now trigger a rollout instead of being ignored.
 
 ---
 

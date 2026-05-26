@@ -101,7 +101,7 @@ func shouldUpdateContainerSpec(desired, current *corev1.Container, skipRes bool)
 	if desired.Image != current.Image {
 		return true, fmt.Sprintf("updating image for %q container", desired.Name)
 	}
-	if shouldUpdateEnv(desired.Name, desired.Env, current.Env) {
+	if !equality.Semantic.DeepEqual(desired.Env, current.Env) {
 		return true, fmt.Sprintf("updating env variables for %q container", desired.Name)
 	}
 	if !skipRes && shouldUpdateResources(&desired.Resources, &current.Resources) {
@@ -147,24 +147,6 @@ func shouldUpdateResources(desired, current *corev1.ResourceRequirements) bool {
 	desFiltered := desired.DeepCopy()
 	delete(desFiltered.Requests, corev1.ResourceEphemeralStorage)
 	return !equality.Semantic.DeepEqual(desFiltered, current)
-}
-
-// Ignore removed "cmn.EnvPublicHostname" removed from AIS container in v2.9.1 to avoid rollout
-// TODO: Update in next major release to remove backwards compatible env var changes
-func shouldUpdateEnv(name string, desired, current []corev1.EnvVar) bool {
-	var ignored map[string]struct{}
-	switch name {
-	case cmn.AISContainerName:
-		ignored = map[string]struct{}{cmn.EnvPublicHostname: {}}
-		// Compare but don't sync if the only change is removing this env
-		return compareEnvWithIgnored(desired, current, ignored, SyncModeIgnoreRemovedEnv)
-	case cmn.InitContainerName:
-		ignored = map[string]struct{}{cmn.EnvPublicDNSMode: {}, cmn.EnvHostIPS: {}}
-		// Compare but don't sync if the only change is adding this env
-		return compareEnvWithIgnored(desired, current, ignored, SyncModeIgnoreAddedEnv)
-	default:
-		return !equality.Semantic.DeepEqual(desired, current)
-	}
 }
 
 // Compares the given slices of EnvVars and return true if there are changes to sync
