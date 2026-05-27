@@ -99,7 +99,7 @@ func targetPodSpec(ais *aisv1.AIStore) *corev1.PodSpec {
 				Env:             NewAISContainerEnv(ais),
 				Ports:           cmn.NewDaemonPorts(&ais.Spec.TargetSpec.DaemonSpec),
 				Resources:       *cmn.NewResourceReq(ais, &ais.Spec.TargetSpec.Resources),
-				SecurityContext: ais.Spec.TargetSpec.ContainerSecurity,
+				SecurityContext: cmn.GetAISSecurityContext(&ais.Spec.TargetSpec.DaemonSpec),
 				VolumeMounts:    newVolumeMounts(ais),
 				StartupProbe:    cmn.NewStartupProbe(ais, aisapc.Target),
 				LivenessProbe:   cmn.NewLivenessProbe(ais, aisapc.Target),
@@ -109,15 +109,11 @@ func targetPodSpec(ais *aisv1.AIStore) *corev1.PodSpec {
 		HostNetwork:        ais.UseHostNetwork(),
 		DNSPolicy:          ais.GetTargetDNSPolicy(),
 		ServiceAccountName: cmn.ServiceAccountName(ais),
-		// By default, Kubernetes sets non-nil `SecurityContext`. So we have to do that too,
-		// otherwise during comparison we will always fail (nil vs non-nil).
-		//
-		// See: https://github.com/kubernetes/kubernetes/blob/fa03b93d25a5a22d4f91e4c44f66fc69a6f69a35/pkg/apis/core/v1/defaults.go#L215-L236
-		SecurityContext: cmn.ValueOrDefault(ais.Spec.TargetSpec.SecurityContext, &corev1.PodSecurityContext{}),
-		Affinity:        createTargetAffinity(ais, SelectorLabels(ais)),
-		NodeSelector:    ais.Spec.TargetSpec.NodeSelector,
-		Volumes:         newVolumes(ais),
-		Tolerations:     ais.Spec.TargetSpec.Tolerations,
+		SecurityContext:    cmn.GetPodSecurityContext(&ais.Spec.TargetSpec.DaemonSpec),
+		Affinity:           createTargetAffinity(ais, SelectorLabels(ais)),
+		NodeSelector:       ais.Spec.TargetSpec.NodeSelector,
+		Volumes:            newVolumes(ais),
+		Tolerations:        ais.Spec.TargetSpec.Tolerations,
 	}
 	// Apply priority class if specified to prevent eviction during node pressure
 	if ais.Spec.PriorityClassName != nil {

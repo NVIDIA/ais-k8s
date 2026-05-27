@@ -499,6 +499,43 @@ var _ = Describe("shouldUpdateContainers", func() {
 			Expect(update).To(BeTrue())
 			Expect(reason).To(Equal(`container "ais-node": updating security context`))
 		})
+
+		Describe("AIS primary container security context values", func() {
+			defaultSC := cmn.DefaultAISContainerSecurityContext()
+			makePrimary := func(sc *corev1.SecurityContext) *corev1.PodTemplateSpec {
+				return makePodTemplate([]corev1.Container{{
+					Name:            cmn.AISContainerName,
+					Image:           "node:latest",
+					SecurityContext: sc,
+				}})
+			}
+
+			It("returns false when both templates use the default security context", func() {
+				update, _ := shouldUpdateContainers(makePrimary(defaultSC), makePrimary(defaultSC))
+				Expect(update).To(BeFalse())
+			})
+
+			It("returns true when AISContainerSecurityContext overrides the default", func() {
+				custom := &corev1.SecurityContext{
+					RunAsUser:                apc.Ptr(int64(123)),
+					RunAsNonRoot:             apc.Ptr(true),
+					AllowPrivilegeEscalation: apc.Ptr(false),
+				}
+				update, reason := shouldUpdateContainers(makePrimary(custom), makePrimary(defaultSC))
+				Expect(update).To(BeTrue())
+				Expect(reason).To(Equal(`container "ais-node": updating security context`))
+			})
+
+			It("returns false when custom security context matches on both sides", func() {
+				custom := &corev1.SecurityContext{
+					RunAsUser:                apc.Ptr(int64(123)),
+					RunAsNonRoot:             apc.Ptr(true),
+					AllowPrivilegeEscalation: apc.Ptr(false),
+				}
+				update, _ := shouldUpdateContainers(makePrimary(custom), makePrimary(custom))
+				Expect(update).To(BeFalse())
+			})
+		})
 	})
 
 	Describe("sidecar (only image/resources/securityContext trigger sync)", func() {
@@ -668,6 +705,26 @@ var _ = Describe("syncContainers", func() {
 		}
 		Expect(syncContainers(desired, &current)).To(BeTrue())
 		Expect(current[1].Image).To(Equal("logs:new"))
+	})
+
+	It("syncs primary container security context when it differs from default", func() {
+		custom := &corev1.SecurityContext{
+			RunAsUser:                apc.Ptr(int64(123)),
+			RunAsNonRoot:             apc.Ptr(true),
+			AllowPrivilegeEscalation: apc.Ptr(false),
+		}
+		desired := []corev1.Container{{
+			Name:            cmn.AISContainerName,
+			Image:           "node:latest",
+			SecurityContext: custom,
+		}}
+		current := []corev1.Container{{
+			Name:            cmn.AISContainerName,
+			Image:           "node:latest",
+			SecurityContext: cmn.DefaultAISContainerSecurityContext(),
+		}}
+		Expect(syncContainers(desired, &current)).To(BeTrue())
+		Expect(current[0].SecurityContext).To(Equal(custom))
 	})
 })
 

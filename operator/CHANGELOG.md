@@ -12,6 +12,12 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 This release will result in an AIStore cluster rollout to sync pod templates.
 
+### Added
+
+- Default pod-level security context applied when `securityContext` is unset, with runtime-default seccomp profiles.
+- AIS-container security context spec option `aisContainerSecurityContext` to replace `capabilities`. Keeps the same underlying K8s type.
+  - Default when `aisContainerSecurityContext` is unset: drop all capabilities and disallow privilege escalation.
+
 ### Changed
 
 - Admission webhook
@@ -28,6 +34,7 @@ This release will result in an AIStore cluster rollout to sync pod templates.
   - Newly-created StatefulSets select only on prefixed labels. Existing StatefulSets continue to select on all labels and are not updated in place. 
   - Replaces selector usage of `app` and `component`. Legacy labels remain on pods and StatefulSets for compatibility with existing selectors.
   - User labels cannot override `app.kubernetes.io/name` and `app.kubernetes.io/component`.
+- Deprecated the `capabilities` spec option, replaced with a more accurate `aisContainerSecurityContext`.
 
 ### Removed
 

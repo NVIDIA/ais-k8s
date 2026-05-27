@@ -335,14 +335,14 @@ var _ = Describe("AIStoreController", func() {
 					reconcileProxy(ctx, ais, r)
 					reconcileTarget(ctx, ais, r)
 
-					By("Expect statefulset specs to update")
+					By("Expect statefulset specs to update to use default pod security context")
 					Eventually(func(g Gomega) {
 						ss := getStatefulSet(ctx, ais, c, "ais-proxy")
-						g.Expect(ss.Spec.Template.Spec.SecurityContext).To(Equal(&corev1.PodSecurityContext{}))
+						g.Expect(ss.Spec.Template.Spec.SecurityContext).To(Equal(cmn.DefaultPodSecurityContext()))
 					}, 10*time.Second, 2*time.Second).Should(Succeed())
 					Eventually(func(g Gomega) {
 						ss := getStatefulSet(ctx, ais, c, "ais-target")
-						g.Expect(ss.Spec.Template.Spec.SecurityContext).To(Equal(&corev1.PodSecurityContext{}))
+						g.Expect(ss.Spec.Template.Spec.SecurityContext).To(Equal(cmn.DefaultPodSecurityContext()))
 					}, 10*time.Second, 2*time.Second).Should(Succeed())
 				})
 
@@ -393,24 +393,6 @@ var _ = Describe("AIStoreController", func() {
 						},
 						func(g Gomega, podTemplate corev1.PodTemplateSpec) {
 							g.ExpectWithOffset(1, podTemplate.Spec.Containers[0].Env[0].Name).To(Equal("key"))
-						},
-					),
-					Entry("container security context",
-						func(ais *aisv1.AIStore) {
-							ais.Spec.ProxySpec.ContainerSecurity = &corev1.SecurityContext{
-								RunAsNonRoot:             apc.Ptr(true),
-								AllowPrivilegeEscalation: apc.Ptr(false),
-							}
-							ais.Spec.TargetSpec.ContainerSecurity = &corev1.SecurityContext{
-								RunAsNonRoot:             apc.Ptr(true),
-								AllowPrivilegeEscalation: apc.Ptr(false),
-							}
-						},
-						func(g Gomega, podTemplate corev1.PodTemplateSpec) {
-							g.ExpectWithOffset(1, podTemplate.Spec.Containers[0].SecurityContext).To(Equal(&corev1.SecurityContext{
-								RunAsNonRoot:             apc.Ptr(true),
-								AllowPrivilegeEscalation: apc.Ptr(false),
-							}))
 						},
 					),
 				)

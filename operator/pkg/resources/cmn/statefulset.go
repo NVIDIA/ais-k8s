@@ -30,17 +30,56 @@ const (
 	DefaultMiscStorageReq   = int64(128 * aiscos.MiB)
 )
 
-// RestrictedSecurityContext returns a limited security context
-func RestrictedSecurityContext() *corev1.SecurityContext {
+// DefaultPodSecurityContext returns the default pod-level SecurityContext shared by all
+// containers in the pod (init, aisnode, log sidecar).
+func DefaultPodSecurityContext() *corev1.PodSecurityContext {
+	return &corev1.PodSecurityContext{
+		// aisnode and log-sidecar images currently run as root
+		RunAsNonRoot:   aisapc.Ptr(false),
+		SeccompProfile: &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
+	}
+}
+
+// DefaultAISContainerSecurityContext returns the default container-level SecurityContext for
+// the primary aisnode container.
+func DefaultAISContainerSecurityContext() *corev1.SecurityContext {
+	// The main AIS container requires writing to the internal root filesystem as of v4.6
+	// so ReadOnlyRootFilesystem must remain false
 	return &corev1.SecurityContext{
-		// Currently required by init and log sidecar containers as they run with default root user
-		RunAsNonRoot:             aisapc.Ptr(false),
-		ReadOnlyRootFilesystem:   aisapc.Ptr(true),
 		AllowPrivilegeEscalation: aisapc.Ptr(false),
 		Capabilities: &corev1.Capabilities{
 			Drop: []corev1.Capability{"ALL"},
 		},
 	}
+}
+
+// RestrictedSecurityContext returns the stricter container-level default used by the init
+// and log-sidecar containers.
+func RestrictedSecurityContext() *corev1.SecurityContext {
+	sc := DefaultAISContainerSecurityContext()
+	sc.ReadOnlyRootFilesystem = aisapc.Ptr(true)
+	return sc
+}
+
+// GetPodSecurityContext resolves the pod-level SecurityContext for a DaemonSpec, falling
+// back to DefaultPodSecurityContext when unset.
+func GetPodSecurityContext(s *aisv1.DaemonSpec) *corev1.PodSecurityContext {
+	if s.SecurityContext != nil {
+		return s.SecurityContext
+	}
+	return DefaultPodSecurityContext()
+}
+
+// GetAISSecurityContext resolves the primary AIS container SecurityContext for a DaemonSpec.
+// Precedence: AISContainerSecurityContext > deprecated Capabilities > DefaultAISContainerSecurityContext.
+func GetAISSecurityContext(s *aisv1.DaemonSpec) *corev1.SecurityContext {
+	if s.AISContainerSecurityContext != nil {
+		return s.AISContainerSecurityContext
+	}
+	if s.Capabilities != nil { //nolint:staticcheck // backwards compatibility for deprecated Capabilities field
+		return s.Capabilities //nolint:staticcheck // deprecated Capabilities field
+	}
+	return DefaultAISContainerSecurityContext()
 }
 
 func PrepareAnnotations(annotations map[string]string, netAttachment, restartHash *string) map[string]string {

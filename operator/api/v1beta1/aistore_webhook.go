@@ -248,7 +248,8 @@ func allowDaemonSpecUpdates(prev, spec *DaemonSpec) {
 	prev.Env = spec.Env
 	prev.Resources = spec.Resources
 	prev.SecurityContext = spec.SecurityContext
-	prev.ContainerSecurity = spec.ContainerSecurity
+	prev.Capabilities = spec.Capabilities
+	prev.AISContainerSecurityContext = spec.AISContainerSecurityContext
 	prev.AutoScaleConf = spec.AutoScaleConf
 	prev.PVCRetentionPolicy = spec.PVCRetentionPolicy
 	prev.Probes = spec.Probes

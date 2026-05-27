@@ -497,7 +497,7 @@ type ServiceSpec struct {
 // NodeSpec defines the specs for AIS Daemon pods/containers
 type DaemonSpec struct {
 	ServiceSpec `json:",inline"`
-	// SecurityContext holds pod-level security attributes and common container settings for AIS Daemon (proxy/target) object.
+	// SecurityContext defines pod-level security attributes and common container settings for AIS proxy and target pods.
 	// +optional
 	SecurityContext *corev1.PodSecurityContext `json:"securityContext,omitempty"`
 
@@ -524,9 +524,14 @@ type DaemonSpec struct {
 	// +optional
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 
-	// ContainerSecurity holds the security context for AIS Daemon containers.
+	// Deprecated: Capabilities defines the security context for the primary AIS container.
+	// Use AISContainerSecurityContext instead.
 	// +optional
-	ContainerSecurity *corev1.SecurityContext `json:"capabilities,omitempty"`
+	Capabilities *corev1.SecurityContext `json:"capabilities,omitempty"`
+
+	// AISContainerSecurityContext defines the security context for the primary AIS container.
+	// Values defined here can override the overall SecurityContext
+	AISContainerSecurityContext *corev1.SecurityContext `json:"aisContainerSecurityContext,omitempty"`
 
 	// List of additional environment variables to set in the AIS Daemon container.
 	// Overrides any default envs set by operator.
