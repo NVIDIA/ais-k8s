@@ -67,8 +67,6 @@ spec:
     portPublic: {{ .Values.proxySpec.portPublic }}
     portIntraControl: {{ .Values.proxySpec.portIntraControl }}
     portIntraData: {{ .Values.proxySpec.portIntraData }}
-    capabilities:
-      privileged: true
     {{- if .Values.proxySpec.securityContext }}
     securityContext:
       {{- toYaml .Values.proxySpec.securityContext | nindent 6 }}
@@ -111,8 +109,6 @@ spec:
     {{- if hasKey .Values.targetSpec "hostNetwork" }}
     hostNetwork: {{ .Values.targetSpec.hostNetwork }}
     {{- end }}
-    capabilities:
-      privileged: true
     {{- if .Values.targetSpec.securityContext }}
     securityContext:
       {{- toYaml .Values.targetSpec.securityContext | nindent 6 }}

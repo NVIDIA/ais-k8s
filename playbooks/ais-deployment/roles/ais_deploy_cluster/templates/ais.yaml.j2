@@ -29,8 +29,6 @@ spec:
     portIntraControl: 51082
     portIntraData: 51083
     tolerations: {{ node_tolerations }}
-    capabilities:
-      privileged: true
 {% if (sysctls is defined) and (sysctls != "") %}
     securityContext: 
       sysctls: {{ sysctls }}
@@ -59,8 +57,6 @@ spec:
     portPublic: 51081
     portIntraControl: 51082
     portIntraData: 51083
-    capabilities:
-      privileged: true
     hostNetwork: {{ host_network }}
 {% if target_size is defined and target_size | int > 0 and target_size | int <= cluster_size | int %}
     size: {{ target_size }}

@@ -83,8 +83,6 @@ spec:
     portPublic: 51081
     portIntraControl: 51082
     portIntraData: 51083
-    capabilities:
-      privileged: true
     nodeSelector:
       "kubernetes.io/hostname": "aistorecpu1012.nsv.sjc4.nvmetal.net"
     mounts:
