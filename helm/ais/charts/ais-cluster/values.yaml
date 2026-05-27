@@ -9,9 +9,12 @@ nodeImage:
 initImage:
   name: docker.io/aistorage/ais-init
   tag: v4.6
-logSidecarImage:
-  name: docker.io/aistorage/ais-logs
-  tag: v1.1
+# logSidecar configures the log-collection sidecar (image + resources).
+# `logSidecarImage` is deprecated.
+logSidecar:
+  image:
+    name: docker.io/aistorage/ais-logs
+    tag: v1.1
 cloud:
   awsSecretName:
   gcpSecretName:

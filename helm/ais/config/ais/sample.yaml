@@ -25,8 +25,9 @@ nodeImage:
   tag: v4.6
 initImage:
   tag: v4.6
-logSidecarImage:
-  tag: v1.1
+logSidecar:
+  image:
+    tag: v1.1
 # See cloud-provider-kind or similar for LoadBalancer support
 proxyLB:
   enabled: true

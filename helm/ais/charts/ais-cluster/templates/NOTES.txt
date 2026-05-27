@@ -3,3 +3,6 @@ Deployed AIS with helm chart version {{ .Chart.Version }} to namespace {{ .Relea
 To learn more about the release, try:
 $ helm status {{ .Release.Name }} -n {{ .Release.Namespace }}
 $ helm get all {{ .Release.Name }} -n {{ .Release.Namespace }}
+{{ if hasKey .Values "logSidecarImage" }}
+WARNING: The value `logSidecarImage` is deprecated and will be removed in a future release.
+{{- end }}

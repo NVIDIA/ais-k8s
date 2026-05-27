@@ -172,16 +172,7 @@ spec:
   {{- end }}
   nodeImage: "{{ .Values.nodeImage.name }}:{{ .Values.nodeImage.tag }}"
   initImage: "{{ .Values.initImage.name }}:{{ .Values.initImage.tag }}"
-  {{- if hasKey .Values "logSidecarImage" }}
-  {{- if and (hasKey .Values.logSidecarImage "name") (hasKey .Values.logSidecarImage "tag") }}
-  logSidecar:
-    image: "{{ .Values.logSidecarImage.name }}:{{ .Values.logSidecarImage.tag }}"
-    {{- with .Values.logSidecarImage.resources }}
-    resources:
-      {{- toYaml . | nindent 6 }}
-    {{- end }}
-  {{- end }}
-  {{- end }}
+  {{- include "ais-cluster.logSidecar" . | nindent 2 }}
   {{- with .Values.hostpathPrefix }}
   hostpathPrefix: {{ . }}
   {{- end }}

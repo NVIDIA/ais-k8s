@@ -192,19 +192,25 @@
         }
       }
     },
-    "logSidecarImage": {
+    "logSidecar": {
       "type": "object",
       "description": "Optional sidecar container for log collection and shipping.",
       "properties": {
-        "name": {
-          "type": "string",
-          "description": "Repository for log sidecar image.",
-          "examples": ["docker.io/aistorage/ais-logs"]
-        },
-        "tag": {
-          "type": "string",
-          "description": "Tag of log sidecar image.",
-          "examples": ["v1.1"]
+        "image": {
+          "type": "object",
+          "description": "Log sidecar container image.",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Repository for log sidecar image.",
+              "examples": ["docker.io/aistorage/ais-logs"]
+            },
+            "tag": {
+              "type": "string",
+              "description": "Tag of log sidecar image.",
+              "examples": ["v1.1"]
+            }
+          }
         },
         "resources": {
           "type": "object",
@@ -216,6 +222,15 @@
             }
           ]
         }
+      }
+    },
+    "logSidecarImage": {
+      "type": "object",
+      "description": "DEPRECATED, renamed to `logSidecar`.",
+      "properties": {
+        "name": { "type": "string" },
+        "tag": { "type": "string" },
+        "resources": { "type": "object" }
       }
     },
     "cloud": {

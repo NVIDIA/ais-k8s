@@ -28,8 +28,9 @@ nodeImage:
   tag: v4.6
 initImage:
   tag: v4.6
-logSidecarImage:
-  tag: v1.1
+logSidecar:
+  image:
+    tag: v1.1
 adminClient:
   enabled: true
   # Use trust manager bundle for client
