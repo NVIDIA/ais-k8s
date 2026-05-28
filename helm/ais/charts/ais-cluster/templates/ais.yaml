@@ -67,6 +67,9 @@ spec:
     portPublic: {{ .Values.proxySpec.portPublic }}
     portIntraControl: {{ .Values.proxySpec.portIntraControl }}
     portIntraData: {{ .Values.proxySpec.portIntraData }}
+    {{- /* Backwards compatible spec option for operator <= v2.19.0 */}}
+    capabilities:
+      {{- toYaml (default (dict "privileged" true) .Values.proxySpec.aisContainerSecurityContext) | nindent 6 }}
     {{- if .Values.proxySpec.securityContext }}
     securityContext:
       {{- toYaml .Values.proxySpec.securityContext | nindent 6 }}
@@ -106,6 +109,9 @@ spec:
     portPublic: {{ .Values.targetSpec.portPublic }}
     portIntraControl: {{ .Values.targetSpec.portIntraControl }}
     portIntraData: {{ .Values.targetSpec.portIntraData }}
+    {{- /* Backwards compatible spec option for operator <= v2.19.0 */}}
+    capabilities:
+      {{- toYaml (default (dict "privileged" true) .Values.targetSpec.aisContainerSecurityContext) | nindent 6 }}
     {{- if hasKey .Values.targetSpec "hostNetwork" }}
     hostNetwork: {{ .Values.targetSpec.hostNetwork }}
     {{- end }}
