@@ -26,13 +26,18 @@ spec:
       {{- $baseConfig := default (dict) .Values.configToUpdate }}
       {{- $userHTTP := (dig "net" "http" dict $baseConfig) }}
       {{- $httpsDefaults := dict
-          "server_crt" "/var/certs/tls.crt"
-          "server_key" "/var/certs/tls.key"
           "use_https" true
           "skip_verify" .Values.tls.skipVerifyCert
-          "client_ca_tls" "/var/certs/ca.crt"
           "client_auth_tls" 0
       }}
+      {{- /* Operator manages /var/certs/* whenever spec.tls is set */}}
+      {{- if not (or .Values.tls.secretName .Values.tls.certificate) }}
+        {{- $httpsDefaults = merge $httpsDefaults (dict
+            "server_crt" "/var/certs/tls.crt"
+            "server_key" "/var/certs/tls.key"
+            "client_ca_tls" "/var/certs/ca.crt"
+        ) }}
+      {{- end }}
       {{- $mergedHTTP := merge $httpsDefaults $userHTTP }}
       {{- $userNet := (dig "net" dict $baseConfig) }}
       {{- $mergedNet := merge (dict "http" $mergedHTTP) $userNet }}
