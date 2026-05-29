@@ -238,43 +238,39 @@ func (aisw *AIStoreWebhook) ValidateUpdate(ctx context.Context, prev, ais *AISto
 	return warnings, nil
 }
 
+// allowDaemonSpecUpdates copies fields from `ais` onto `prev` that are allowed
+// to change on an existing cluster. Any field not copied here will cause the
+// update to be rejected if it differs from the previous value.
+func allowDaemonSpecUpdates(prev, spec *DaemonSpec) {
+	prev.Size = spec.Size
+	prev.Annotations = spec.Annotations
+	prev.Labels = spec.Labels
+	prev.Env = spec.Env
+	prev.Resources = spec.Resources
+	prev.SecurityContext = spec.SecurityContext
+	prev.ContainerSecurity = spec.ContainerSecurity
+	prev.AutoScaleConf = spec.AutoScaleConf
+	prev.PVCRetentionPolicy = spec.PVCRetentionPolicy
+	prev.Probes = spec.Probes
+	prev.Tolerations = spec.Tolerations
+}
+
 func validateProxyUpdate(prev, ais *AIStore) error {
-	// users can update size for scaling up or down
-	prev.Spec.ProxySpec.Size = ais.Spec.ProxySpec.Size
-	prev.Spec.ProxySpec.Annotations = ais.Spec.ProxySpec.Annotations
-	prev.Spec.ProxySpec.Labels = ais.Spec.ProxySpec.Labels
-	prev.Spec.ProxySpec.Env = ais.Spec.ProxySpec.Env
-	prev.Spec.ProxySpec.Resources = ais.Spec.ProxySpec.Resources
-	prev.Spec.ProxySpec.SecurityContext = ais.Spec.ProxySpec.SecurityContext
-	prev.Spec.ProxySpec.AutoScaleConf = ais.Spec.ProxySpec.AutoScaleConf
-	prev.Spec.ProxySpec.PVCRetentionPolicy = ais.Spec.ProxySpec.PVCRetentionPolicy
-	prev.Spec.ProxySpec.Probes = ais.Spec.ProxySpec.Probes
-	prev.Spec.ProxySpec.Tolerations = ais.Spec.ProxySpec.Tolerations
+	allowDaemonSpecUpdates(&prev.Spec.ProxySpec, &ais.Spec.ProxySpec)
 	if !equality.Semantic.DeepEqual(ais.Spec.ProxySpec, prev.Spec.ProxySpec) {
 		diff := deep.Equal(ais.Spec.ProxySpec, prev.Spec.ProxySpec)
 		webhooklog.Info(fmt.Sprintf("Differences found in proxy spec: [%s]", strings.Join(diff, ", ")))
-		// TODO: For now, just error if proxy specs are updated. Eventually, this should be implemented.
 		return errCannotUpdateSpec("proxySpec", diff...)
 	}
 	return nil
 }
 
 func validateTargetUpdate(prev, ais *AIStore) error {
-	prev.Spec.TargetSpec.Size = ais.Spec.TargetSpec.Size
-	prev.Spec.TargetSpec.Annotations = ais.Spec.TargetSpec.Annotations
-	prev.Spec.TargetSpec.Labels = ais.Spec.TargetSpec.Labels
-	prev.Spec.TargetSpec.Env = ais.Spec.TargetSpec.Env
-	prev.Spec.TargetSpec.Resources = ais.Spec.TargetSpec.Resources
-	prev.Spec.TargetSpec.SecurityContext = ais.Spec.TargetSpec.SecurityContext
-	prev.Spec.TargetSpec.AutoScaleConf = ais.Spec.TargetSpec.AutoScaleConf
+	allowDaemonSpecUpdates(&prev.Spec.TargetSpec.DaemonSpec, &ais.Spec.TargetSpec.DaemonSpec)
 	prev.Spec.TargetSpec.PodDisruptionBudget = ais.Spec.TargetSpec.PodDisruptionBudget
-	prev.Spec.TargetSpec.PVCRetentionPolicy = ais.Spec.TargetSpec.PVCRetentionPolicy
-	prev.Spec.TargetSpec.Probes = ais.Spec.TargetSpec.Probes
-	prev.Spec.TargetSpec.Tolerations = ais.Spec.TargetSpec.Tolerations
 	if !equality.Semantic.DeepEqual(ais.Spec.TargetSpec, prev.Spec.TargetSpec) {
 		diff := deep.Equal(ais.Spec.TargetSpec, prev.Spec.TargetSpec)
 		webhooklog.Info(fmt.Sprintf("Differences found in target spec: [%s]", strings.Join(diff, ", ")))
-		// TODO: For now, just error if target specs are updated. Eventually, this should be implemented.
 		return errCannotUpdateSpec("targetSpec", diff...)
 	}
 	return nil
