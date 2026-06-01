@@ -211,7 +211,7 @@ func NewAIStoreClient(ctx context.Context, url string, tokenInfo *TokenInfo, mod
 
 func buildBaseParams(url, token string, tlsCfg *tls.Config) *api.BaseParams {
 	transportArgs := cmn.TransportArgs{
-		Timeout:         10 * time.Second,
+		ClientTimeout:   10 * time.Second,
 		UseHTTPProxyEnv: true,
 	}
 	transport := cmn.NewTransport(transportArgs)
@@ -220,7 +220,7 @@ func buildBaseParams(url, token string, tlsCfg *tls.Config) *api.BaseParams {
 	return &api.BaseParams{
 		Client: &http.Client{
 			Transport: transport,
-			Timeout:   transportArgs.Timeout,
+			Timeout:   transportArgs.ClientTimeout,
 		},
 		URL:   url,
 		Token: token,

@@ -384,7 +384,7 @@ func newAuthBaseParams(ctx context.Context, conf AuthConfig) (*api.BaseParams, e
 	logger := logf.FromContext(ctx)
 
 	transportArgs := cmn.TransportArgs{
-		Timeout:         10 * time.Second,
+		ClientTimeout:   10 * time.Second,
 		UseHTTPProxyEnv: true,
 	}
 	transport := cmn.NewTransport(transportArgs)
@@ -407,7 +407,7 @@ func newAuthBaseParams(ctx context.Context, conf AuthConfig) (*api.BaseParams, e
 	return &api.BaseParams{
 		Client: &http.Client{
 			Transport: transport,
-			Timeout:   transportArgs.Timeout,
+			Timeout:   transportArgs.ClientTimeout,
 		},
 		URL: serviceURL,
 		UA:  userAgent,
