@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	clientpkg "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("Run Controller", func() {
@@ -401,6 +402,76 @@ var _ = Describe("Run Controller", func() {
 
 			By("Revert scale back to original size")
 			cc.scale(ctx, true, -1)
+		})
+	})
+
+	Context("Autoscaling", func() {
+		It("Should defer target scale-down when unavailable targets are within maxUnavailable", func(ctx context.Context) {
+			const targetCount = 3
+			cluArgs.Size = 1
+			cluArgs.ProxySize = 1
+			cluArgs.TargetSize = -1
+			cluArgs.MaxTargets = targetCount
+			cluArgs.TargetNodeSelector = map[string]string{"ais-node": "true"}
+
+			cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
+			sizeLimit := int32(3)
+			maxUnavailable := int32(1)
+			cc.cluster.Spec.TargetSpec.AutoScaleConf = &aisv1.AutoScaleConf{
+				SizeLimit:      aisapc.Ptr(sizeLimit),
+				MaxUnavailable: aisapc.Ptr(maxUnavailable),
+			}
+			defer func() {
+				cc.printLogs(ctx)
+				cc.destroyAndCleanup()
+			}()
+			cc.create(ctx)
+
+			Eventually(func(ctx context.Context) int32 {
+				ss, err := cc.k8sClient.GetStatefulSet(ctx, target.StatefulSetNSName(cc.cluster))
+				if err != nil || ss.Spec.Replicas == nil {
+					return -1
+				}
+				return *ss.Spec.Replicas
+			}, clusterUpdateTimeout, clusterUpdateInterval).WithContext(ctx).Should(Equal(int32(targetCount)))
+
+			By("Making target-1 unavailable before reducing autoscale desired size")
+			cc.makeTargetUnschedulable(ctx, 1)
+
+			By("Waiting for the StatefulSet to report the target unavailable")
+			Eventually(func(ctx context.Context) bool {
+				ss, err := cc.k8sClient.GetStatefulSet(ctx, target.StatefulSetNSName(cc.cluster))
+				if err != nil || ss.Spec.Replicas == nil {
+					return false
+				}
+				// Settled count with exactly one unavailable target, so the scale-down is
+				// evaluated against the disruption rather than a stale healthy snapshot.
+				return *ss.Spec.Replicas == int32(targetCount) &&
+					ss.Status.Replicas == int32(targetCount) &&
+					ss.Status.ReadyReplicas == int32(targetCount-1)
+			}, clusterUpdateTimeout, clusterUpdateInterval).WithContext(ctx).Should(BeTrue())
+
+			By("Reducing autoscale target size while one target is unavailable")
+			cc.fetchLatestCluster(ctx)
+			patch := clientpkg.MergeFrom(cc.cluster.DeepCopy())
+			sizeLimit = targetCount - 1
+			cc.cluster.Spec.TargetSpec.AutoScaleConf.SizeLimit = aisapc.Ptr(sizeLimit)
+			Expect(cc.k8sClient.Patch(ctx, cc.cluster, patch)).To(Succeed())
+
+			By("Verifying scale-down is deferred and the cluster remains Ready")
+			Consistently(func(ctx context.Context) int32 {
+				ss, err := cc.k8sClient.GetStatefulSet(ctx, target.StatefulSetNSName(cc.cluster))
+				Expect(err).To(BeNil())
+				return *ss.Spec.Replicas
+			}, 20*time.Second, clusterUpdateInterval).WithContext(ctx).Should(Equal(int32(targetCount)))
+			Consistently(func(ctx context.Context) bool {
+				ais, err := cc.k8sClient.GetAIStoreCR(ctx, cc.cluster.NamespacedName())
+				if err != nil {
+					return false
+				}
+				readyCond := tutils.GetClusterReadyCondition(ais)
+				return ais.Status.State == aisv1.ClusterReady && readyCond != nil && readyCond.Status == metav1.ConditionTrue
+			}, 20*time.Second, clusterUpdateInterval).WithContext(ctx).Should(BeTrue())
 		})
 	})
 

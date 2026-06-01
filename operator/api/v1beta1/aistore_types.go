@@ -691,6 +691,11 @@ type AutoScaleConf struct {
 	// +kubebuilder:validation:Minimum=1
 	// +optional
 	SizeLimit *int32 `json:"sizeLimit,omitempty"`
+
+	// Maximum number of pods that can be unavailable when auto-scaling is enabled (defaults to 0 if not specified).
+	// +kubebuilder:validation:Minimum=0
+	// +optional
+	MaxUnavailable *int32 `json:"maxUnavailable,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -796,6 +801,18 @@ func (ais *AIStore) GetProxySize() int32 {
 	return *ais.Spec.Size
 }
 
+func (ais *AIStore) GetMinReadyProxies() int32 {
+	proxySize := ais.GetProxySize()
+	if ais.IsProxyAutoScaling() {
+		return max(1, proxySize-ais.GetProxyMaxUnavailable())
+	}
+	return proxySize
+}
+
+func (ais *AIStore) GetProxyMaxUnavailable() int32 {
+	return ais.Spec.ProxySpec.autoScaleMaxUnavailable()
+}
+
 func (ais *AIStore) GetTargetSize() int32 {
 	if ais.IsTargetAutoScaling() {
 		targetNodes := int32(len(ais.Status.AutoScaleStatus.ExpectedTargetNodes))
@@ -809,6 +826,18 @@ func (ais *AIStore) GetTargetSize() int32 {
 		return *ais.Spec.TargetSpec.Size
 	}
 	return *ais.Spec.Size
+}
+
+func (ais *AIStore) GetMinReadyTargets() int32 {
+	targetSize := ais.GetTargetSize()
+	if ais.IsTargetAutoScaling() {
+		return max(1, targetSize-ais.GetTargetMaxUnavailable())
+	}
+	return targetSize
+}
+
+func (ais *AIStore) GetTargetMaxUnavailable() int32 {
+	return ais.Spec.TargetSpec.autoScaleMaxUnavailable()
 }
 
 func (ais *AIStore) GetDefaultProxyURL() string {
@@ -1211,6 +1240,13 @@ func (ais *AIStore) GetRequiredAudiences() []string {
 		return nil
 	}
 	return *ais.Spec.ConfigToUpdate.Auth.RequiredClaims.Aud
+}
+
+func (s *DaemonSpec) autoScaleMaxUnavailable() int32 {
+	if s.AutoScaleConf == nil || s.AutoScaleConf.MaxUnavailable == nil {
+		return 0
+	}
+	return *s.AutoScaleConf.MaxUnavailable
 }
 
 // +kubebuilder:object:root=true

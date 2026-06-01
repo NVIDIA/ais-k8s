@@ -133,7 +133,7 @@ func (r *AIStoreReconciler) handleTargetState(ctx context.Context, ais *aisv1.AI
 	rolling := isRolloutInProgress(ss)
 	scaling := isScalingInProgress(ss)
 	rolloutNeeded, _ := shouldUpdatePodTemplate(&target.NewTargetSS(ais, ais.GetTargetSize()).Spec.Template, &ss.Spec.Template)
-	scalingNeeded := isScalingNeeded(ss, ais.GetTargetSize())
+	scalingNeeded := isTargetScalingNeeded(ais, ss)
 
 	logger = logger.WithValues(
 		"statefulset", ss.Name,
@@ -160,6 +160,15 @@ func (r *AIStoreReconciler) handleTargetState(ctx context.Context, ais *aisv1.AI
 
 	// Apply scaling (blocked by rollout in progress)
 	if scalingNeeded && !rolling {
+		proceed, cErr := r.confirmScalingNeeded(ctx, target.StatefulSetNSName(ais), ss,
+			ais.GetTargetSize(), ais.GetTargetMaxUnavailable(), ais.IsTargetAutoScaling())
+		if cErr != nil {
+			return ctrl.Result{}, cErr
+		}
+		if !proceed {
+			logger.Info("Deferring target scale-down; fresh status shows unavailable replicas within maxUnavailable budget")
+			return ctrl.Result{RequeueAfter: targetLongRequeueDelay}, nil
+		}
 		if err = r.startTargetScaling(ctx, ais, ss); err != nil {
 			return ctrl.Result{}, err
 		}
@@ -183,11 +192,19 @@ func (r *AIStoreReconciler) handleTargetState(ctx context.Context, ais *aisv1.AI
 	}
 
 	// Wait for readiness
-	if !r.isStatefulSetReady(ais.GetTargetSize(), ss) {
+	if !r.isTargetStatefulSetReady(ais, ss) {
 		logger.Info("Waiting for target statefulset to reach desired replicas")
 		return ctrl.Result{RequeueAfter: targetLongRequeueDelay}, nil
 	}
 	return
+}
+
+func isTargetScalingNeeded(ais *aisv1.AIStore, ss *appsv1.StatefulSet) bool {
+	return statefulsetScalingNeeded(ss, ais.GetTargetSize(), ais.GetTargetMaxUnavailable(), ais.IsTargetAutoScaling())
+}
+
+func (r *AIStoreReconciler) isTargetStatefulSetReady(ais *aisv1.AIStore, ss *appsv1.StatefulSet) bool {
+	return r.isStatefulSetReady(ss, ais.GetTargetSize(), ais.GetMinReadyTargets(), ais.IsTargetAutoScaling())
 }
 
 func (r *AIStoreReconciler) resolveStatefulSetScaling(ctx context.Context, ais *aisv1.AIStore) error {

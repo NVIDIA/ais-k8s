@@ -797,11 +797,11 @@ var _ = Describe("hostnameMatchesPod", func() {
 	)
 })
 
-var _ = Describe("isStatefulSetReady", func() {
+var _ = Describe("isStatefulSetFullyReady", func() {
 	r := &AIStoreReconciler{}
 	DescribeTable("should correctly detect readiness",
 		func(ss *appsv1.StatefulSet, desiredSize int32, expected bool) {
-			Expect(r.isStatefulSetReady(desiredSize, ss)).To(Equal(expected))
+			Expect(r.isStatefulSetFullyReady(desiredSize, ss)).To(Equal(expected))
 		},
 		Entry("all conditions met",
 			makeSS(3, 3, 3, 3, "rev-1", "rev-1", appsv1.RollingUpdateStatefulSetStrategyType), int32(3),
@@ -830,6 +830,83 @@ var _ = Describe("isStatefulSetReady", func() {
 		Entry("no update revision (ready if counts match)",
 			makeSS(3, 3, 0, 3, "", "", appsv1.RollingUpdateStatefulSetStrategyType), int32(3),
 			true,
+		),
+	)
+})
+
+var _ = Describe("statefulsetScalingNeeded", func() {
+	DescribeTable("should decide whether scaling is needed",
+		func(ss *appsv1.StatefulSet, desired, maxUnavailable int32, autoScaling, expected bool) {
+			Expect(statefulsetScalingNeeded(ss, desired, maxUnavailable, autoScaling)).To(Equal(expected))
+		},
+		Entry("fixed: scale up to desired",
+			makeSS(1, 1, 1, 1, "rev-1", "rev-1", appsv1.RollingUpdateStatefulSetStrategyType),
+			int32(3), int32(0), false, true,
+		),
+		Entry("fixed: scale down to desired",
+			makeSS(3, 3, 3, 3, "rev-1", "rev-1", appsv1.RollingUpdateStatefulSetStrategyType),
+			int32(1), int32(0), false, true,
+		),
+		Entry("fixed: already at desired",
+			makeSS(3, 3, 3, 3, "rev-1", "rev-1", appsv1.RollingUpdateStatefulSetStrategyType),
+			int32(3), int32(0), false, false,
+		),
+		Entry("auto: always scale up to desired",
+			makeSS(3, 3, 3, 3, "rev-1", "rev-1", appsv1.RollingUpdateStatefulSetStrategyType),
+			int32(5), int32(1), true, true,
+		),
+		Entry("auto: unavailable within tolerance, no scale down",
+			makeSS(3, 3, 3, 2, "rev-1", "rev-1", appsv1.RollingUpdateStatefulSetStrategyType),
+			int32(2), int32(1), true, false,
+		),
+		Entry("auto: unavailable exceeds tolerance, scale down",
+			makeSS(3, 3, 3, 1, "rev-1", "rev-1", appsv1.RollingUpdateStatefulSetStrategyType),
+			int32(2), int32(1), true, true,
+		),
+		Entry("auto: healthy cluster scales down to desired",
+			makeSS(3, 3, 3, 3, "rev-1", "rev-1", appsv1.RollingUpdateStatefulSetStrategyType),
+			int32(2), int32(1), true, true,
+		),
+		Entry("auto: scaling in flight defers scale down",
+			makeSS(3, 2, 2, 2, "rev-1", "rev-1", appsv1.RollingUpdateStatefulSetStrategyType),
+			int32(2), int32(1), true, false,
+		),
+		Entry("auto: rollout in flight defers scale down",
+			makeSS(3, 3, 2, 3, "rev-1", "rev-2", appsv1.RollingUpdateStatefulSetStrategyType),
+			int32(2), int32(1), true, false,
+		),
+	)
+})
+
+var _ = Describe("statefulsetReady", func() {
+	r := &AIStoreReconciler{}
+	DescribeTable("should decide readiness with autoscaling tolerance",
+		func(ss *appsv1.StatefulSet, desired, minReady int32, autoScaling, expected bool) {
+			Expect(r.isStatefulSetReady(ss, desired, minReady, autoScaling)).To(Equal(expected))
+		},
+		Entry("fully ready",
+			makeSS(3, 3, 3, 3, "rev-1", "rev-1", appsv1.RollingUpdateStatefulSetStrategyType),
+			int32(3), int32(3), false, true,
+		),
+		Entry("fixed: not fully ready is not ready",
+			makeSS(3, 3, 3, 2, "rev-1", "rev-1", appsv1.RollingUpdateStatefulSetStrategyType),
+			int32(3), int32(3), false, false,
+		),
+		Entry("auto: not fully ready but meets minReady",
+			makeSS(3, 3, 3, 2, "rev-1", "rev-1", appsv1.RollingUpdateStatefulSetStrategyType),
+			int32(3), int32(2), true, true,
+		),
+		Entry("auto: not fully ready and below minReady",
+			makeSS(3, 3, 3, 1, "rev-1", "rev-1", appsv1.RollingUpdateStatefulSetStrategyType),
+			int32(3), int32(2), true, false,
+		),
+		Entry("auto: meets minReady but rollout in flight is not ready",
+			makeSS(3, 3, 2, 3, "rev-1", "rev-2", appsv1.RollingUpdateStatefulSetStrategyType),
+			int32(3), int32(2), true, false,
+		),
+		Entry("auto: meets minReady but scaling in flight is not ready",
+			makeSS(3, 2, 2, 2, "rev-1", "rev-1", appsv1.RollingUpdateStatefulSetStrategyType),
+			int32(3), int32(2), true, false,
 		),
 	)
 })

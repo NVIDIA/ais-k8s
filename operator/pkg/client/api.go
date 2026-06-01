@@ -33,20 +33,26 @@ const FieldOwner = "ais-operator"
 
 type (
 	K8sClient struct {
-		client client.Client
-		scheme *runtime.Scheme
+		client    client.Client
+		apiReader client.Reader
+		scheme    *runtime.Scheme
 	}
 )
 
 func NewClient(c client.Client, s *runtime.Scheme) *K8sClient {
 	return &K8sClient{
-		client: c,
-		scheme: s,
+		client:    c,
+		apiReader: c,
+		scheme:    s,
 	}
 }
 
 func NewClientFromMgr(mgr manager.Manager) *K8sClient {
-	return NewClient(mgr.GetClient(), mgr.GetScheme())
+	return &K8sClient{
+		client:    mgr.GetClient(),
+		apiReader: mgr.GetAPIReader(),
+		scheme:    mgr.GetScheme(),
+	}
 }
 
 /////////////////////////////////////////
@@ -106,6 +112,12 @@ func (c *K8sClient) ListJobsInNamespace(ctx context.Context, namespace string) (
 
 func (c *K8sClient) GetStatefulSet(ctx context.Context, name types.NamespacedName) (*appsv1.StatefulSet, error) {
 	return getResource[*appsv1.StatefulSet](c.client, ctx, name)
+}
+
+// GetStatefulSetDirect bypasses the informer cache, reading straight from the API server.
+// Use only where cache staleness would be unsafe (e.g. confirming an autoscale scale-down).
+func (c *K8sClient) GetStatefulSetDirect(ctx context.Context, name types.NamespacedName) (*appsv1.StatefulSet, error) {
+	return getResource[*appsv1.StatefulSet](c.apiReader, ctx, name)
 }
 
 func (c *K8sClient) GetDeployment(ctx context.Context, name types.NamespacedName) (*appsv1.Deployment, error) {
@@ -413,7 +425,7 @@ func (c *K8sClient) GetReadyPod(ctx context.Context, name types.NamespacedName) 
 
 // GENERICS
 
-func getResource[T client.Object](c client.Client, ctx context.Context, name types.NamespacedName) (T, error) { //nolint:revive // This is special case where it is just better to pass client first instead of context.
+func getResource[T client.Object](c client.Reader, ctx context.Context, name types.NamespacedName) (T, error) { //nolint:revive // This is special case where it is just better to pass client first instead of context.
 	var r T
 	rv := reflect.New(reflect.TypeOf(r).Elem()).Interface().(T)
 	err := c.Get(ctx, name, rv)

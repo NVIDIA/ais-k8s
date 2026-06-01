@@ -3158,6 +3158,12 @@ spec:
                     description: AutoScaleConf contains additional configuration for
                       auto-scaling (size == -1)
                     properties:
+                      maxUnavailable:
+                        description: Maximum number of pods that can be unavailable
+                          when auto-scaling is enabled (defaults to 0 if not specified).
+                        format: int32
+                        minimum: 0
+                        type: integer
                       sizeLimit:
                         description: Maximum size of a given node type when auto-scaling
                           is enabled
@@ -5183,6 +5189,12 @@ spec:
                     description: AutoScaleConf contains additional configuration for
                       auto-scaling (size == -1)
                     properties:
+                      maxUnavailable:
+                        description: Maximum number of pods that can be unavailable
+                          when auto-scaling is enabled (defaults to 0 if not specified).
+                        format: int32
+                        minimum: 0
+                        type: integer
                       sizeLimit:
                         description: Maximum size of a given node type when auto-scaling
                           is enabled

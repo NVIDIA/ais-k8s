@@ -17,6 +17,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/types"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -341,10 +342,44 @@ func findAISNodeByPodName(nodeMap aismeta.NodeMap, podName string) (*aismeta.Sno
 	return nil, fmt.Errorf("no matching AIS node found for pod %q", podName)
 }
 
-// isScalingNeeded returns true if the StatefulSet spec replicas differ from the
-// desired count specified in the CR, indicating a scaling operation should be initiated.
-func isScalingNeeded(ss *appsv1.StatefulSet, desired int32) bool {
-	return *ss.Spec.Replicas != desired
+// statefulsetScalingNeeded determines whether a daemon StatefulSet should be scaled.
+func statefulsetScalingNeeded(ss *appsv1.StatefulSet, desired, maxUnavailable int32, autoScaling bool) bool {
+	specReplicas := *ss.Spec.Replicas
+	// Always scale UP the statefulset to match spec
+	if desired > specReplicas {
+		return true
+	}
+	// Already at the desired size
+	if desired == specReplicas {
+		return false
+	}
+	// Scaling down: a fixed-size cluster scales to exactly the desired size
+	if !autoScaling {
+		return true
+	}
+	// Autoscaling scale-down: only trust the status when it is settled, otherwise wait so
+	// we don't act on a stale or in-flight pod count (e.g. a pod being recreated).
+	if isRolloutInProgress(ss) || isScalingInProgress(ss) {
+		return false
+	}
+	// Defer scale-down while unavailable pods are within the budget.
+	unavailable := specReplicas - ss.Status.ReadyReplicas
+	return unavailable == 0 || unavailable > maxUnavailable
+}
+
+// confirmScalingNeeded re-checks an autoscale scale-down against a non-cached read of the
+// StatefulSet. The informer can lag a disruption (a pod going unready) and still show full
+// readiness, which would let statefulsetScalingNeeded green-light a scale-down that
+// decommissions a healthy daemon.
+func (r *AIStoreReconciler) confirmScalingNeeded(ctx context.Context, key types.NamespacedName, cached *appsv1.StatefulSet, desired, maxUnavailable int32, autoScaling bool) (bool, error) {
+	if !autoScaling || desired >= *cached.Spec.Replicas {
+		return true, nil
+	}
+	fresh, err := r.k8sClient.GetStatefulSetDirect(ctx, key)
+	if err != nil {
+		return false, err
+	}
+	return statefulsetScalingNeeded(fresh, desired, maxUnavailable, autoScaling), nil
 }
 
 // isStatusCurrent returns true if the StatefulSet controller has processed the latest spec change.
@@ -420,7 +455,9 @@ func shouldUpdatePVCRetentionPolicy(desired, current *appsv1.StatefulSetPersiste
 	return !equality.Semantic.DeepEqual(desired, current)
 }
 
-func (*AIStoreReconciler) isStatefulSetReady(desiredSize int32, ss *appsv1.StatefulSet) bool {
+// isStatefulSetFullyReady reports whether the StatefulSet is at the desired size with
+// every pod updated to the latest revision and ready (no rollout or scaling in progress).
+func (*AIStoreReconciler) isStatefulSetFullyReady(desiredSize int32, ss *appsv1.StatefulSet) bool {
 	specReplicas := *ss.Spec.Replicas
 
 	// Must match size provided in AIS cluster spec
@@ -440,6 +477,22 @@ func (*AIStoreReconciler) isStatefulSetReady(desiredSize int32, ss *appsv1.State
 
 	// To be ready, spec must match status.ReadyReplicas
 	return specReplicas == ss.Status.ReadyReplicas
+}
+
+// isStatefulSetReady reports whether a daemon StatefulSet is ready to proceed.
+func (r *AIStoreReconciler) isStatefulSetReady(ss *appsv1.StatefulSet, desired, minReady int32, autoScaling bool) bool {
+	if r.isStatefulSetFullyReady(desired, ss) {
+		return true
+	}
+	if !autoScaling {
+		return false
+	}
+	// When autoscaling enabled, tolerate configured amount of unavailable pods
+	// if there is no ongoing rollout or scale operation.
+	if isRolloutInProgress(ss) || isScalingInProgress(ss) {
+		return false
+	}
+	return ss.Status.ReadyReplicas >= minReady
 }
 
 func shouldUpdate(desired, current *corev1.PodTemplateSpec, funcs ...func(desired, current *corev1.PodTemplateSpec) (bool, string)) (bool, string) {

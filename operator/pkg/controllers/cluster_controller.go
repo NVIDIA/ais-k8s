@@ -1131,18 +1131,21 @@ func (r *AIStoreReconciler) checkAISClusterReady(ctx context.Context, ais *aisv1
 
 	proxyCount := int32(len(smap.Pmap))
 	targetCount := int32(len(smap.Tmap))
-	expectedProxies := ais.GetProxySize()
-	expectedTargets := ais.GetTargetSize()
 
-	if proxyCount != expectedProxies || targetCount != expectedTargets {
+	if proxyCount < ais.GetMinReadyProxies() {
 		logger.Info(
-			"AIS cluster is not ready, counts do not match spec",
-			"smapProxies", proxyCount, "expectedProxies", expectedProxies,
-			"smapTargets", targetCount, "expectedTargets", expectedTargets,
+			"AIS cluster is not ready, proxy count does not match spec",
+			"smapProxies", proxyCount, "expectedProxies", ais.GetProxySize(),
 		)
 		return
 	}
-
+	if targetCount < ais.GetMinReadyTargets() {
+		logger.Info(
+			"AIS cluster is not ready, target count does not match spec",
+			"smapTargets", targetCount, "expectedTargets", ais.GetTargetSize(),
+		)
+		return
+	}
 	if ais.Status.ClusterID != smap.UUID {
 		ais.Status.ClusterID = smap.UUID
 		if err = r.patchStatus(ctx, ais); err != nil {

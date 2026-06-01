@@ -8,6 +8,14 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ---
 
+## Unreleased
+
+### Added
+
+- Added `maxUnavailable` to `proxySpec.autoScale` and `targetSpec.autoScale` to prevent autoscale scale-down while a cluster has unavailable pods within the configured budget.
+
+---
+
 ## v3.0.0
 
 This release will result in an AIStore cluster rollout to sync pod templates.

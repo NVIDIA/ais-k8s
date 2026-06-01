@@ -141,7 +141,7 @@ func (r *AIStoreReconciler) handleProxyState(ctx context.Context, ais *aisv1.AIS
 	rolling := isRolloutInProgress(ss)
 	scaling := isScalingInProgress(ss)
 	rolloutNeeded, _ := shouldUpdatePodTemplate(&proxy.NewProxyStatefulSet(ais, ais.GetProxySize()).Spec.Template, &ss.Spec.Template)
-	scalingNeeded := isScalingNeeded(ss, ais.GetProxySize())
+	scalingNeeded := isProxyScalingNeeded(ais, ss)
 
 	logger = logger.WithValues(
 		"statefulset", ss.Name,
@@ -168,6 +168,15 @@ func (r *AIStoreReconciler) handleProxyState(ctx context.Context, ais *aisv1.AIS
 
 	// Apply scaling (blocked by rollout in progress)
 	if scalingNeeded && !rolling {
+		proceed, cErr := r.confirmScalingNeeded(ctx, proxy.StatefulSetNSName(ais), ss,
+			ais.GetProxySize(), ais.GetProxyMaxUnavailable(), ais.IsProxyAutoScaling())
+		if cErr != nil {
+			return ctrl.Result{}, cErr
+		}
+		if !proceed {
+			logger.Info("Deferring proxy scale-down; fresh status shows unavailable replicas within maxUnavailable budget")
+			return ctrl.Result{RequeueAfter: proxyStartupInterval}, nil
+		}
 		if err = r.handleProxyScale(ctx, ais, ss); err != nil {
 			return ctrl.Result{}, err
 		}
@@ -185,11 +194,19 @@ func (r *AIStoreReconciler) handleProxyState(ctx context.Context, ais *aisv1.AIS
 		return ctrl.Result{RequeueAfter: proxyStartupInterval}, nil
 	}
 	// Wait for readiness
-	if !r.isStatefulSetReady(ais.GetProxySize(), ss) {
+	if !r.isProxyStatefulSetReady(ais, ss) {
 		logger.Info("Waiting for proxy statefulset to reach desired replicas")
 		return ctrl.Result{RequeueAfter: proxyStartupInterval}, nil
 	}
 	return
+}
+
+func isProxyScalingNeeded(ais *aisv1.AIStore, ss *appsv1.StatefulSet) bool {
+	return statefulsetScalingNeeded(ss, ais.GetProxySize(), ais.GetProxyMaxUnavailable(), ais.IsProxyAutoScaling())
+}
+
+func (r *AIStoreReconciler) isProxyStatefulSetReady(ais *aisv1.AIStore, ss *appsv1.StatefulSet) bool {
+	return r.isStatefulSetReady(ss, ais.GetProxySize(), ais.GetMinReadyProxies(), ais.IsProxyAutoScaling())
 }
 
 func (r *AIStoreReconciler) handleProxyScale(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) error {
