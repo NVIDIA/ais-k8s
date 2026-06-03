@@ -1,5 +1,5 @@
-init_image: docker.io/aistorage/ais-init:v4.6
-node_image: docker.io/aistorage/aisnode:v4.6
+init_image: docker.io/aistorage/ais-init:v4.7
+node_image: docker.io/aistorage/aisnode:v4.7
 logs_image: docker.io/aistorage/ais-logs:v1.1
 
 # Cloud
