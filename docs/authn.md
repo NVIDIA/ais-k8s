@@ -113,6 +113,8 @@ export AIS_AUTHN_URL=http://ais-authn.ais:52001
 
 ## Switching Between HTTP and HTTPS (TLS) for the AuthN Server
 
+For how AuthN certificates are issued and trusted, see the [TLS guide](./tls.md).
+
 To switch the protocol of an existing AuthN server from HTTP to HTTPS (or vice versa), you can apply the new configuration specification over the current deployment.
 This will automatically redeploy the AuthN server with the updated settings.
 

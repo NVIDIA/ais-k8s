@@ -20,12 +20,7 @@ Each environment can use a common environment file along with an additional [cer
 
 ### TLS
 
-Note the `tls` environment expects an existing certificate secret.
-
-If the `createCert` value is set to true, a cert-manager certificate resource will be created that will output to this secret.
-
-Note the valid IP addresses and DNS names for the certificate must be provided as a value for these environments. 
-To provide deployment-specific values, add the environment values to the [cert values file](./config/authn/cert)
+See [docs/tls.md](../../docs/tls.md) for the TLS overview and how AuthN fits in. In this chart, set `tls.enabled: true` to serve HTTPS. With `tls.createCert: true` a cert-manager `Certificate` is created from the `issuerRef` and DNS names in the [cert values file](./config/authn/cert); otherwise point `tls.secretName` at an existing certificate secret.
 
 ### Required Env
 

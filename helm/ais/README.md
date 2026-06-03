@@ -29,26 +29,7 @@ You can also change the `storageClass` option to instruct AIS target pods to mou
 
 ## HTTPS deployment
 
-To deploy with TLS enabled, simply set the following values in your **AIS** chart values file
-
-```
-protocol: https
-tls:
-    skipVerifyCert: false // optional
-    secretName: "tls-certs" // Required only if using secret mount. Mounts to /var/certs
-```
-
-This will update the AIS config and mount the secret if provided (read below for creating).
-
-### Generating the certificates
-
-To use a self-signed issuer, follow the [README](../README.md#install-issuer) to install the [issuer chart](../issuer).
-
-If you want to use the [tls-cert chart](./charts/tls-cert) to actually generate and manage the certificates, set the value `https.enabled: true` for your environment in the [helmfile](./helmfile.yaml).
-
-Create a values file for your environment in [config/tls-cert](./config/tls-cert).
-
-Finally, update the values file including the reference to the Issuer or ClusterIssuer you want to use. 
+Enable TLS by setting `protocol: https` and a `tls` block in your AIS values file. To have cert-manager generate and manage the cert, enable the `https` release (`https.enabled: true`) in the [helmfile](./helmfile.yaml) with a [config/tls-cert](./config/tls-cert) values file. See the [TLS guide](../../docs/tls.md) for cert options and the self-signed-CA model.
 
 ## Cloud Credentials
 

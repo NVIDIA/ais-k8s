@@ -30,11 +30,14 @@ However, for more advanced deployments it's recommended to follow [cert-manager 
 
 ### Configure Operator TLS and mTLS
 
+For the overall picture of how TLS fits together across AIS, AuthN, and the operator, refer to the [TLS guide](../docs/tls.md). This section covers the operator-side configuration.
+
 The operator communicates with the deployed AIS clusters over the AIS API.
 
 #### Enabling TLS Certificate Verification
 
-To enable certificate verification for AIS cluster connections, set this in the AIStore CR:
+Certificate verification for Operator to AIS API calls is controlled by `spec.operatorSkipVerifyCrt` on the AIStore CR, which you can set through the ais-cluster Helm chart's `operatorSkipVerifyCrt` value.
+Set `false` to verify certificates or `true` to skip verification:
 
 ```yaml
 spec:
@@ -51,6 +54,9 @@ controllerManager:
 ```
 
 For kustomize deployments, modify [config/overlays/default/manager_env_patch.yaml](config/overlays/default/manager_env_patch.yaml).
+
+When neither the CR field nor the env var is set, the operator verifies certificates.
+Note that the default kustomize overlay ships `OPERATOR_SKIP_VERIFY_CRT="True"`, so a default kustomize install skips verification until you override it.
 
 #### Configuring Custom CA Certificates for AIS Clusters (Optional)
 
@@ -137,6 +143,12 @@ For example, `/etc/operator/tls/aisNamespace/aisCluster`.
 
 See the linked [certificates diagram](../docs/diagrams/certificates.jpg) for a visualization of the TLS options.
 
+#### Webhook and Metrics TLS (Internal)
+
+The operator's admission webhook and metrics endpoints are served over TLS using certificates that the install provisions on its own. This is internal to the operator and needs no configuration.
+
+A self-signed `Issuer` (`selfsigned-issuer`) issues a `serving-cert` Certificate (secret `webhook-server-cert`) for the webhook service, along with a separate certificate for the metrics endpoint. The `ValidatingWebhookConfiguration` is annotated with `cert-manager.io/inject-ca-from`, so cert-manager's CA injector populates its `caBundle`. Both the Helm chart and the kustomize overlays create these resources, which is why `cert-manager` is a prerequisite for installing the operator.
+
 ### Deploy AIS Operator
 
 First, install the AIS CRD:
@@ -179,7 +191,8 @@ spec:
   adminClient: {}
 ```
 
-For TLS-enabled clusters, provide a CA bundle via ConfigMap:
+For TLS-enabled clusters, provide the CA bundle as a ConfigMap so the client trusts the cluster certificate.
+Refer to [Trusting a self-signed CA](../docs/tls.md#trusting-a-self-signed-ca) for where this ConfigMap comes from:
 
 ```yaml
 spec:
@@ -353,93 +366,9 @@ This is the default value for the `GOOGLE_APPLICATION_CREDENTIALS` environment v
 
 ### AIS HTTPS Deployment
 
-You may want to enhance the security of your AIStore deployment by enabling HTTPS.
+Refer to the [TLS guide](../docs/tls.md#ais-cluster) for enabling cluster HTTPS and the certificate-supply modes (secret mount, operator-managed, or CSI driver).
 
-**Important:** Before proceeding, please ensure that you have `cert-manager` (or equivalent) installed.
-
-Deploying with HTTPS requires two spec entries:
-
-1. **`spec.tls`:** Tells the operator how to provision and mount the cert (secret reference or cert-manager Certificate).
-2. **`spec.configToUpdate.net.http.use_https: true`:** Tells AIS to actually serve HTTPS.
-
-```yaml
-spec:
-  tls:
-    certificate:
-      issuerRef:
-        name: ca-issuer
-        kind: ClusterIssuer
-    # Or, to reference an existing Kubernetes TLS secret,
-    # use secretName: tls-certs
-  configToUpdate:
-    net:
-      http:
-        use_https: true
-        skip_verify: false  # Set true only when using self-signed certs without a trusted CA
-```
-
-**Important:** When `spec.tls` is set, the operator mounts certificates at `/var/certs/{tls.crt,tls.key,ca.crt}` and writes those paths into the AIS config automatically. The admission webhook rejects any spec that also sets `server_crt`, `server_key`, or `client_ca_tls` under `configToUpdate.net.http`.
-
-> **Note:** Our Helm charts and Ansible playbooks populate the `configToUpdate.net.http` HTTPS fields (`use_https`, `skip_verify`) automatically when `spec.tls` is configured.
-
-#### Using a secret mount
-
-If you bring your own Kubernetes Secret containing the cert and key, define it with `spec.tls.secretName`. The secret must contain keys `tls.crt` and `tls.key` (standard `kubernetes.io/tls` layout); for mTLS, also include `ca.crt`. The operator mounts the secret contents at `/var/certs`. 
-
-The operator does *not* manage the cert's lifecycle or SANs in this mode.
-
-We provide automation for creating this secret for both Helm and Ansible Playbooks. 
-
-Helm: See [HTTPS Deployment docs section](../helm/ais/README.md#https-deployment)
-
-Playbooks: See [generate_https_cert.yml](../playbooks/ais-deployment/generate_https_cert.yml) and associated [templates](../playbooks/ais-deployment/roles/generate_https_cert/templates).
-
-#### Using operator-managed certificate
-
-With `spec.tls.certificate.mode: secret` (default), the operator creates a cert-manager `Certificate` resource and mounts the issued Secret on every pod. The certificate's SAN list reflects the nodes that may host AIS pods:
-
-- **`publicNetDNSMode: Node`** — SANs include the names of nodes matching either the target or proxy `nodeSelector` (and tolerating their `tolerations`).
-- **`publicNetDNSMode: IP`** — SANs include those nodes' primary IPs (InternalIP, falling back to ExternalIP).
-- **`publicNetDNSMode: Pod`** — Pod-scoped DNS only, so node identities are *not* included.
-
-When autoscaling is enabled, the SAN list tracks `Status.AutoScaleStatus.ExpectedTargetNodes` / `ExpectedProxyNodes` instead of a live node listing, with the same `publicNetDNSMode` semantics.
-
-**Note:** If the proxy or target `nodeSelector` is unset, every node in the cluster matches and ends up in the cert. If this is undesired, set explicit selectors so the cert reflects only the nodes that may host AIS pods.
-
-#### Using CSI driver
-
-With `cert-manager csi-driver` installed, the driver issues a fresh certificate per pod at volume mount time, directly from your Issuer.
-The sample configuration below contains definitions for RBAC and an Issuer for use with Vault.
-
-```bash
-kubectl apply -f  config/samples/ais_v1beta1_aistore_tls_certmanager_csi.yaml
-```
-
-**Note:** Node-derived SANs are _not_ auto-included in CSI mode. Use `spec.tls.certificate.additionalDNSNames` or `spec.hostnameMap` to pin extra hostnames or IPs.
-
-**Testing Considerations:**
-
-- For tests utilizing the AIStore Command Line Interface (CLI), configure the CLI to bypass certificate verification by applying the setting: execute `$ ais config cli set cluster.skip_verify_crt true`. This adjustment facilitates unverified connections to the AIStore cluster.
-
-- When using `curl` to interact with your AIStore cluster over HTTPS, use the `-k` flag to skip certificate validation. For example:
-
-```bash
-curl -k https://your-ais-cluster-url
-```
-
-- If you prefer not to skip certificate validation, you can export the self-signed certificate for use with `curl`. Here's how to export the certificate:
-
-```bash
-kubectl get secret tls-certs -n ais-operator-system -o jsonpath='{.data.tls\.crt}' | base64 --decode > tls.crt
-```
-
-You can now use the exported `tls.crt` as a parameter when using `curl`, like this:
-
-```bash
-curl --cacert tls.crt https://your-ais-cluster-url
-```
-
-By following these steps, you can deploy AIStore in a Kubernetes environment with HTTPS support, leveraging a self-signed certificate provided by cert-manager.
+Two operator-specific details apply. When `spec.tls` is set, the operator mounts certificates at `/var/certs/{tls.crt,tls.key,ca.crt}` and writes those paths into the AIS config automatically. The admission webhook rejects any spec that also sets `server_crt`, `server_key`, or `client_ca_tls` under `configToUpdate.net.http`.
 
 ## Development
 

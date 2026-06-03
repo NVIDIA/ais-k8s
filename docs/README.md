@@ -94,6 +94,10 @@ $ watch kubectl get pods -n <cluster-namespace>
 
 See the [operator docs](../operator/README.md#enabling-external-access) for configuring external access to AIS proxies and targets.
 
+### Securing access with TLS
+
+To serve the cluster and AuthN over HTTPS, refer to the [TLS guide](./tls.md).
+
 ## Post-Deployment Steps
 
 ### Client Pod Access

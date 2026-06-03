@@ -76,4 +76,4 @@ Recommended flow:
 
 2. Delete the AIS custom resource and wait for the operator to finish cleanup.
 3. Check for remaining PVCs and retained PVs as described above.
-4. Redeploy the AIS cluster with the new protocol and TLS settings. For Helm deployments, set the protocol and TLS options according to the [AIS Helm HTTPS deployment guide](../helm/ais/README.md#https-deployment).
+4. Redeploy the AIS cluster with the new protocol and TLS settings according to the [TLS guide](./tls.md).
