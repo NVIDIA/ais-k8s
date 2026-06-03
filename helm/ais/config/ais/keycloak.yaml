@@ -16,9 +16,9 @@ tls:
   skipVerifyCert: false
   secretName: "tls-certs"
 nodeImage:
-  tag: v4.6
+  tag: v4.7
 initImage:
-  tag: v4.6
+  tag: v4.7
 logSidecar:
   image:
     tag: v1.1

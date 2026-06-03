@@ -3,7 +3,7 @@ targetLabelKey: nvidia.com/ais-target
 # Image must include bash and kubectl
 kubectlImage:
   repository: docker.io/aistorage/ais-util
-  tag: v4.6
+  tag: v4.7
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
