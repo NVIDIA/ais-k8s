@@ -326,8 +326,13 @@ type AIStoreSpec struct {
 	HostpathPrefix *string `json:"hostpathPrefix,omitempty"`
 	// Used for creating dynamic volumes for storing state
 	// +optional
-	StateStorageClass *string         `json:"stateStorageClass,omitempty"`
-	ConfigToUpdate    *ConfigToUpdate `json:"configToUpdate,omitempty"`
+	StateStorageClass *string `json:"stateStorageClass,omitempty"`
+	// UseEmptyDirForMetadata, when true, stores AIS node metadata in an emptyDir
+	// volume instead of a PVC or host-path directory.
+	// Exactly one of hostpathPrefix, stateStorageClass, or useEmptyDirForMetadata must be set.
+	// +optional
+	UseEmptyDirForMetadata *bool           `json:"useEmptyDirForMetadata,omitempty"`
+	ConfigToUpdate         *ConfigToUpdate `json:"configToUpdate,omitempty"`
 
 	// IssuerCAConfigMap is the name of a ConfigMap containing the CA certificate bundle
 	// for verifying OIDC issuer certificates. When set, the ConfigMap will be mounted
@@ -1002,6 +1007,12 @@ func mergeTolerationsUnique(a, b []corev1.Toleration) []corev1.Toleration {
 
 func (ais *AIStore) AllowTargetSharedNodes() bool {
 	return ais.Spec.TargetSpec.DisablePodAntiAffinity != nil && *ais.Spec.TargetSpec.DisablePodAntiAffinity
+}
+
+// UsesEmptyDirForMetadata returns true when metadata should be stored in an emptyDir
+// volume rather than a PVC or host-path directory.
+func (ais *AIStore) UsesEmptyDirForMetadata() bool {
+	return ais.Spec.UseEmptyDirForMetadata != nil && *ais.Spec.UseEmptyDirForMetadata
 }
 
 func (ais *AIStore) TargetPDBEnabled() bool {

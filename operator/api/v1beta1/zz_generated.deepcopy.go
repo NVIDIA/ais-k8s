@@ -99,6 +99,11 @@ func (in *AIStoreSpec) DeepCopyInto(out *AIStoreSpec) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.UseEmptyDirForMetadata != nil {
+		in, out := &in.UseEmptyDirForMetadata, &out.UseEmptyDirForMetadata
+		*out = new(bool)
+		**out = **in
+	}
 	if in.ConfigToUpdate != nil {
 		in, out := &in.ConfigToUpdate, &out.ConfigToUpdate
 		*out = new(ConfigToUpdate)
