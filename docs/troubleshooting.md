@@ -17,7 +17,7 @@ Below is one reliable series of steps to solve this scenario, assuming you are u
 
 1. Identify a working AIS node of the **same type** as the one to fix (`target` or `proxy`)
 1. (optional) For proxies, remove the label from the node to avoid load balancer using it during the process.
-    1. Remove the the `nvidia.com/ais-proxy=ais` or `nvidia.com/ais-target=ais` label from the broken K8s node.
+    1. Remove the `nvidia.com/ais-proxy=ais` or `nvidia.com/ais-target=ais` label from the broken K8s node.
     1. Delete the faulty pod. At this point it should enter `Pending` state assuming you have no other nodes available for scheduling. 
 1. Use SCP to copy the working node's config from `/opt/local-path-provisioner/<pvc-name>/.ais.conf` to your machine (may require copying to your home dir and using sudo chmod)
 1. Identify the node the broken proxy is scheduled on. One way is to use `kubectl get pvc -n ais <pvc-name> -o yaml` with the node's state pvc. 

@@ -10,6 +10,7 @@ This document provides guidance for deploying [AIStore](https://github.com/NVIDI
    - [AIStore Deployment](#aistore-deployment)
 1. [**Post-Deployment Steps**](#post-deployment-steps)
    - [Setting Up a Debugging Pod](#setting-up-a-debugging-pod)
+   - [Redeployment](#redeployment)
    - [Monitoring](#monitoring)
    - [Performance Testing with aisloader](#performance-testing-with-aisloader)
 1. [**Troubleshooting Help**](#troubleshooting)
@@ -101,6 +102,10 @@ We currently offer two options for deploying a client Pod within the cluster:
 
 - `adminClient` option in AIS spec will create a managed deployment with a pre-configured pod. See the [operator documentation](../operator/README.md#deploying-an-admin-client).
 - `ais-client` Helm Chart offers an independent chart for configuring the deployment. See the [chart documentation](../helm/ais-client/README.md)
+
+### Redeployment
+
+For guidance on decommissioning and redeploying an AIS cluster, see the [redeployment guide](redeployment.md).
 
 ### Monitoring
 
