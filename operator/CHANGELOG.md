@@ -35,6 +35,10 @@ This release will result in an AIStore cluster rollout to sync pod templates.
   - Replaces selector usage of `app` and `component`. Legacy labels remain on pods and StatefulSets for compatibility with existing selectors.
   - User labels cannot override `app.kubernetes.io/name` and `app.kubernetes.io/component`.
 - Deprecated the `capabilities` spec option, replaced with a more accurate `aisContainerSecurityContext`.
+- Updated default manager args set by the operator kustomize overlay and resulting helm chart:
+  - Enable leader election by default.
+  - Set explicit bind addresses for health probe and metrics.
+  - Metrics server will now use the certificate from the `metrics-server-cert` secret.
 
 ### Removed
 

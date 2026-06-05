@@ -137,6 +137,7 @@ replacements:
       version: v1
 
 patches:
+- path: manager_args_patch.yaml
 - path: manager_auth_metric_patch.yaml
 - path: manager_webhook_patch.yaml
 - path: webhook_cainjection_patch.yaml

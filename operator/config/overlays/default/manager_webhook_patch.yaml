@@ -8,8 +8,6 @@ spec:
     spec:
       containers:
       - name: manager
-        args:
-        - "--webhook-cert-path=/tmp/k8s-webhook-server/serving-certs"
         ports:
         - containerPort: 9443
           name: webhook-server
