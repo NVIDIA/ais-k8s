@@ -373,9 +373,15 @@ func isPodActive(pod *corev1.Pod) bool {
 	return pod != nil && pod.DeletionTimestamp == nil
 }
 
-func isPodReady(pod *corev1.Pod) bool {
+func isPodRolloutCompleted(pod *corev1.Pod) bool {
 	if !isPodActive(pod) {
 		return false
+	}
+	// An unschedulable pod can't become Ready on its own. A new spec (affinity, tolerations,
+	// mounts) may let it schedule once recreated; if it doesn't, we still treat its rollout as
+	// complete so later ordinals can advance instead of stalling.
+	if isPodUnschedulable(pod) {
+		return true
 	}
 	for _, condition := range pod.Status.Conditions {
 		if condition.Type == corev1.PodReady && condition.Status == corev1.ConditionTrue {
@@ -403,7 +409,7 @@ func (r *AIStoreReconciler) findPodNeedingUpdate(ctx context.Context, ais *aisv1
 		// For HA, previous pod MUST be ready before proceeding
 		if idx > 0 {
 			prevName := target.PodName(ais, idx-1)
-			if !isPodReady(podMap[prevName]) {
+			if !isPodRolloutCompleted(podMap[prevName]) {
 				logger.Info("Waiting for previous pod to be ready before proceeding with rollout", "pod", prevName)
 				return ""
 			}
@@ -453,27 +459,11 @@ func (r *AIStoreReconciler) handleTargetRollout(ctx context.Context, ais *aisv1.
 		return ctrl.Result{RequeueAfter: targetShortRequeueDelay}, nil // No pod needs update or waiting for current pod
 	}
 
-	apiClient, err := r.clientManager.GetClient(ctx, ais)
+	requeue, err := r.prepareTargetForRollout(ctx, ais, podName)
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to get API client: %w", err)
+		return ctrl.Result{}, err
 	}
-
-	smap, err := apiClient.GetClusterMap()
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to get cluster map: %w", err)
-	}
-
-	node, err := findAISNodeByPodName(smap.Tmap, podName)
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to find node for pod %s: %w", podName, err)
-	}
-
-	if !smap.InMaint(node) {
-		logger.Info("Setting maintenance mode for pod", "pod", podName, "node", node.ID())
-		_, err = apiClient.StartMaintenance(&aisapc.ActValRmNode{DaemonID: node.ID(), SkipRebalance: true})
-		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to start maintenance for pod %s: %w", podName, err)
-		}
+	if requeue {
 		return ctrl.Result{RequeueAfter: targetShortRequeueDelay}, nil
 	}
 
@@ -489,6 +479,48 @@ func (r *AIStoreReconciler) handleTargetRollout(ctx context.Context, ais *aisv1.
 
 	// Requeue to handle next pod
 	return ctrl.Result{RequeueAfter: targetShortRequeueDelay}, nil
+}
+
+// prepareTargetForRollout puts the AIS target backing podName into maintenance before the pod is
+// deleted for rollout. It returns requeue=true when maintenance was just started and the caller
+// should requeue before deleting. Unschedulable pods skip maintenance entirely, since they aren't
+// running an AIS daemon to drain.
+func (r *AIStoreReconciler) prepareTargetForRollout(ctx context.Context, ais *aisv1.AIStore, podName string) (requeue bool, err error) {
+	logger := logf.FromContext(ctx)
+
+	pod, err := r.k8sClient.GetPod(ctx, types.NamespacedName{Name: podName, Namespace: ais.Namespace})
+	if err != nil {
+		return false, fmt.Errorf("failed to get pod %s: %w", podName, err)
+	}
+	if isPodUnschedulable(pod) {
+		logger.Info("Skipping AIS maintenance for unschedulable pod", "pod", podName)
+		return false, nil
+	}
+
+	apiClient, err := r.clientManager.GetClient(ctx, ais)
+	if err != nil {
+		return false, fmt.Errorf("failed to get API client: %w", err)
+	}
+
+	smap, err := apiClient.GetClusterMap()
+	if err != nil {
+		return false, fmt.Errorf("failed to get cluster map: %w", err)
+	}
+
+	node, err := findAISNodeByPodName(smap.Tmap, podName)
+	if err != nil {
+		return false, fmt.Errorf("failed to find node for pod %s: %w", podName, err)
+	}
+
+	if !smap.InMaint(node) {
+		logger.Info("Setting maintenance mode for pod", "pod", podName, "node", node.ID())
+		if _, err = apiClient.StartMaintenance(&aisapc.ActValRmNode{DaemonID: node.ID(), SkipRebalance: true}); err != nil {
+			return false, fmt.Errorf("failed to start maintenance for pod %s: %w", podName, err)
+		}
+		return true, nil
+	}
+
+	return false, nil
 }
 
 func (r *AIStoreReconciler) scaleUpLB(ctx context.Context, ais *aisv1.AIStore) error {

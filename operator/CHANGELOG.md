@@ -23,6 +23,7 @@ This release will result in an AIStore cluster rollout to sync pod templates.
 - Admission webhook
   - Rejects specs that set both `spec.tls` and any of `configToUpdate.net.http.{server_crt,server_key,client_ca_tls}`. The operator owns these paths (`/var/certs/{tls.crt,tls.key,ca.crt}`) whenever `spec.tls` is configured.
   - Allows updates to both proxy and target `capabilities`, mapped to container security context.
+- Target rollouts now tolerate Kubernetes-unschedulable pending pods.
 
 - Container spec comparison and sync are now unified across init, primary, and sidecar containers, with a per-kind rollout-trigger policy:
   - **Sidecars** (e.g. `ais-logs`): `resources` and `securityContext` diffs now trigger a rollout in addition to `image`.

@@ -388,6 +388,9 @@ func isScalingInProgress(ss *appsv1.StatefulSet) bool {
 }
 
 func isPodUnschedulable(pod *corev1.Pod) bool {
+	if pod == nil {
+		return false
+	}
 	for _, cond := range pod.Status.Conditions {
 		if cond.Type == corev1.PodScheduled &&
 			cond.Status == corev1.ConditionFalse &&

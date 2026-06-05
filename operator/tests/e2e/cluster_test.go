@@ -16,6 +16,7 @@ import (
 	aistutils "github.com/NVIDIA/aistore/tools"
 	aisxact "github.com/NVIDIA/aistore/xact"
 	aisv1 "github.com/ais-operator/api/v1beta1"
+	"github.com/ais-operator/pkg/resources/target"
 	"github.com/ais-operator/tests/tutils"
 	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	. "github.com/onsi/ginkgo/v2"
@@ -252,6 +253,41 @@ var _ = Describe("Run Controller", func() {
 			cc.patchImagesToCurrent(ctx)
 			cc.verifyPodImages(ctx)
 		})
+
+		It("Should allow upgrading when a pod is unschedulable", func(ctx context.Context) {
+			cluArgs.NodeImage = AISTestCfg.PreviousNodeImage
+			cluArgs.InitImage = AISTestCfg.PreviousInitImage
+			cluArgs.Size = 3
+			cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
+			defer func() {
+				cc.printLogs(ctx)
+				cc.destroyAndCleanup()
+			}()
+			cc.create(ctx)
+
+			By("Making target-1 unschedulable")
+			cc.makeTargetUnschedulable(ctx, 1)
+
+			By("Upgrading images without waiting for the unschedulable target to become Ready")
+			cc.fetchLatestCluster(ctx)
+			newSpec := cc.cluster.Spec.DeepCopy()
+			newSpec.NodeImage = AISTestCfg.NodeImage
+			newSpec.InitImage = AISTestCfg.InitImage
+			cc.patchClusterSpecNoWait(ctx, newSpec)
+
+			By("Waiting for the target StatefulSet to finish rolling out the new revision")
+			Eventually(func(ctx context.Context) bool {
+				ss, err := cc.k8sClient.GetStatefulSet(ctx, target.StatefulSetNSName(cc.cluster))
+				if err != nil {
+					return false
+				}
+				return ss.Status.UpdateRevision != ss.Status.CurrentRevision &&
+					ss.Status.UpdatedReplicas == *ss.Spec.Replicas
+			}, clusterUpdateTimeout, clusterUpdateInterval).WithContext(ctx).Should(BeTrue())
+
+			By("Verifying every pod picked up the new image")
+			cc.verifyPodImages(ctx)
+		})
 	})
 
 	Context("Scale without LB", Ordered, func() {
@@ -355,12 +391,12 @@ var _ = Describe("Run Controller", func() {
 
 			By("Wait for target pod to be stuck in Pending")
 			Eventually(func(ctx context.Context) bool {
-				return cc.hasPendingTargetPods(ctx)
+				return cc.hasPendingTargetPod(ctx, 1)
 			}, 60*time.Second, 2*time.Second).WithContext(ctx).Should(BeTrue(), "Should have target pod stuck in Pending")
 
 			By("Verify target pod stays stuck in Pending state")
 			Consistently(func(ctx context.Context) bool {
-				return cc.hasPendingTargetPods(ctx)
+				return cc.hasPendingTargetPod(ctx, 1)
 			}, 10*time.Second, 2*time.Second).WithContext(ctx).Should(BeTrue(), "Target pod should remain stuck in Pending")
 
 			By("Revert scale back to original size")

@@ -269,6 +269,10 @@ var _ = Describe("isPodUnschedulable", func() {
 		Expect(isPodUnschedulable(pod)).To(BeFalse())
 	})
 
+	It("returns false when pod is nil", func() {
+		Expect(isPodUnschedulable(nil)).To(BeFalse())
+	})
+
 	It("returns false when PodScheduled is false for a different reason", func() {
 		pod := &corev1.Pod{
 			Status: corev1.PodStatus{
