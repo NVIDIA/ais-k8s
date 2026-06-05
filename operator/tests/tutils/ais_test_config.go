@@ -33,6 +33,7 @@ const (
 
 type AISTestCfg struct {
 	K8sProvider       string
+	StateStorageClass string
 	StorageClass      string
 	StorageHostPath   string
 	NodeImage         string
@@ -51,6 +52,7 @@ func NewAISTestCfg(ctx context.Context, k8sClient *aisclient.K8sClient) (*AISTes
 	}
 	return &AISTestCfg{
 		K8sProvider:       k8sProvider,
+		StateStorageClass: DefaultStateStorageClass,
 		StorageClass:      initStorageClass(ctx, k8sClient, k8sProvider),
 		StorageHostPath:   initStorageHostPath(),
 		NodeImage:         initNodeImage(),

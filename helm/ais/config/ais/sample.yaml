@@ -20,7 +20,9 @@ tls:
       name: ca-issuer
       kind: ClusterIssuer
 # "standard" is the default storageClass in KinD
-stateStorageClass: standard
+stateStorage:
+  pvc:
+    storageClass: standard
 nodeImage:
   tag: v4.7
 initImage:

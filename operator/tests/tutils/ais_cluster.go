@@ -22,13 +22,14 @@ import (
 )
 
 const (
-	DefaultNodeImage     = "docker.io/aistorage/aisnode:v4.7"
-	DefaultInitImage     = "docker.io/aistorage/ais-init:v4.7"
-	DefaultLogsImage     = "docker.io/aistorage/ais-logs:v1.1"
-	DefaultPrevNodeImage = "docker.io/aistorage/aisnode:v4.6"
-	DefaultPrevInitImage = "docker.io/aistorage/ais-init:v4.6"
-	TestNSBase           = "ais-op-test"
-	TestNSOtherBase      = "ais-op-test-other"
+	DefaultNodeImage         = "docker.io/aistorage/aisnode:v4.7"
+	DefaultInitImage         = "docker.io/aistorage/ais-init:v4.7"
+	DefaultLogsImage         = "docker.io/aistorage/ais-logs:v1.1"
+	DefaultPrevNodeImage     = "docker.io/aistorage/aisnode:v4.6"
+	DefaultPrevInitImage     = "docker.io/aistorage/ais-init:v4.6"
+	DefaultStateStorageClass = "local-path"
+	TestNSBase               = "ais-op-test"
+	TestNSOtherBase          = "ais-op-test-other"
 )
 
 type (
@@ -51,6 +52,7 @@ type (
 		ProxyNodeSelector         map[string]string
 		TargetNodeSelector        map[string]string
 		ShutdownCluster           bool
+		StateStorage              *aisv1.StateStorage
 		CleanupMetadata           bool
 		CleanupData               bool
 		APIMode                   string
@@ -76,6 +78,7 @@ func NewClusterSpecArgs(testCfg *AISTestCfg, namespace string) *ClusterSpecArgs 
 	return &ClusterSpecArgs{
 		Name:                      clusterName(),
 		Namespace:                 namespace,
+		StateStorage:              &aisv1.StateStorage{PVC: &aisv1.StatePVCConfig{StorageClass: testCfg.StateStorageClass}},
 		StorageClass:              testCfg.StorageClass,
 		StorageHostPath:           testCfg.StorageHostPath,
 		Size:                      1,
@@ -186,8 +189,8 @@ func newAISClusterCR(args *ClusterSpecArgs, mounts []aisv1.Mount) *aisv1.AIStore
 		LogSidecar: &aisv1.LogSidecarSpec{
 			Image: args.LogSidecarImage,
 		},
-		StateStorageClass: aisapc.Ptr("local-path"),
-		EnableExternalLB:  args.EnableExternalLB,
+		StateStorage:     args.StateStorage,
+		EnableExternalLB: args.EnableExternalLB,
 		ProxySpec: aisv1.DaemonSpec{
 			ServiceSpec: aisv1.ServiceSpec{
 				ServicePort:      intstr.FromInt32(51080),

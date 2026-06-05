@@ -18,8 +18,8 @@ This preserves AIS metadata for a future deployment of the same cluster.
 
 When `cleanupMetadata: true`, the operator calls the AIS decommission API and cleans up AIS state:
 
-- State PVCs are deleted when `stateStorageClass` is used.
-- State host paths are cleaned by operator-managed jobs when host path state storage is used.
+- State PVCs are deleted when `stateStorage.pvc.storageClass` is used.
+- State host paths under `stateStorage.hostPath.prefix` are cleaned by operator-managed jobs when host path state storage is used.
 - Target data PVCs are also deleted so that stale state and data PVC bindings are not reused inconsistently.
 
 Use `cleanupMetadata: true` when the next deployment must start with fresh AIS state, such as when changing protocol between HTTP and HTTPS.

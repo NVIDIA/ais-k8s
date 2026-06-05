@@ -31,7 +31,9 @@ spec:
 
   nodeImage: "docker.io/aistorage/aisnode:v3.25"
   initImage: "docker.io/aistorage/ais-init:v3.25"
-  hostpathPrefix: "/etc/ais"
+  stateStorage:
+    hostPath:
+      prefix: "/etc/ais"
   logsDir: "/var/log/ais"
 
   # To be able to access the AIS deployment outside kubernetes cluster, set:

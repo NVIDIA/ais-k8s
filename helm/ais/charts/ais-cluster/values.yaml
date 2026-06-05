@@ -25,6 +25,7 @@ cleanupData: false
 cleanupMetadata: false
 apiMode: 
 clusterDomain:
+stateStorage:
 stateStorageClass:
 authNSecretName:
 auth:

@@ -1904,10 +1904,7 @@ spec:
                   for multi-home
                 type: object
               hostpathPrefix:
-                description: |-
-                  StateStorageClass recommended if possible
-                  See docs/state_storage.md
-                  Path on host used for state
+                description: 'Deprecated: use stateStorage.hostPath.prefix.'
                 type: string
               imagePullSecrets:
                 description: |-
@@ -4019,8 +4016,42 @@ spec:
                 format: int32
                 minimum: -1
                 type: integer
+              stateStorage:
+                description: |-
+                  StateStorage configures AIStore state storage.
+                  Exactly one of HostPath or PVC must be set.
+                properties:
+                  hostPath:
+                    description: HostPath stores AIStore state in directories on each
+                      host.
+                    properties:
+                      prefix:
+                        description: Prefix is the path on each host used for AIStore
+                          state.
+                        minLength: 1
+                        type: string
+                    required:
+                    - prefix
+                    type: object
+                  pvc:
+                    description: PVC stores AIStore state in dynamically provisioned
+                      volumes.
+                    properties:
+                      storageClass:
+                        description: StorageClass is used for dynamically provisioning
+                          AIStore state volumes.
+                        minLength: 1
+                        type: string
+                    required:
+                    - storageClass
+                    type: object
+                type: object
+                x-kubernetes-validations:
+                - message: exactly one of hostPath or pvc must be set
+                  rule: '[has(self.hostPath), has(self.pvc)].filter(x, x).size() ==
+                    1'
               stateStorageClass:
-                description: Used for creating dynamic volumes for storing state
+                description: 'Deprecated: use stateStorage.pvc.storageClass.'
                 type: string
               targetSpec:
                 description: Target deployment specification.

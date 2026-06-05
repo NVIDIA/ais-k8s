@@ -37,9 +37,11 @@ var _ = Describe("Statefulset Target Volumes and Mounts", Label("short"), func()
 			Namespace: "test-namespace",
 		},
 		Spec: aisv1.AIStoreSpec{
-			Size:              apc.Ptr(int32(1)),
-			StateStorageClass: apc.Ptr("stateStorageClass"),
-			TargetSpec:        aisv1.TargetSpec{},
+			Size: apc.Ptr(int32(1)),
+			StateStorage: &aisv1.StateStorage{
+				PVC: &aisv1.StatePVCConfig{StorageClass: "stateStorageClass"},
+			},
+			TargetSpec: aisv1.TargetSpec{},
 		},
 	}
 	Describe("New Target with storageClass", func() {
@@ -116,9 +118,9 @@ var _ = Describe("Statefulset Target Volumes and Mounts", Label("short"), func()
 
 			specCopy := aisSpec.DeepCopy()
 
-			// Not used for this test, but explicitly set so we don't have a state volume claim to count
-			specCopy.Spec.StateStorageClass = nil
-			specCopy.Spec.HostpathPrefix = apc.Ptr("/etc/ais")
+			specCopy.Spec.StateStorage = &aisv1.StateStorage{
+				HostPath: &aisv1.StateHostPathConfig{Prefix: "/etc/ais"},
+			}
 
 			specCopy.Spec.TargetSpec.Mounts = testHostMount
 			result := NewTargetSS(specCopy, *specCopy.Spec.Size)

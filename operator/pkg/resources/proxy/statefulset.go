@@ -153,8 +153,8 @@ func NewAISContainerEnv(ais *aisv1.AIStore) []corev1.EnvVar {
 }
 
 func proxyVC(ais *aisv1.AIStore) []corev1.PersistentVolumeClaim {
-	if ais.Spec.StateStorageClass != nil {
-		if statePVC := cmn.DefineStatePVC(ais, ais.Spec.StateStorageClass); statePVC != nil {
+	if stateStorageClass := ais.Spec.StateStoragePVCStorageClass(); stateStorageClass != nil {
+		if statePVC := cmn.DefineStatePVC(ais, stateStorageClass); statePVC != nil {
 			return []corev1.PersistentVolumeClaim{*statePVC}
 		}
 	}

@@ -50,5 +50,7 @@ configToUpdate:
     to_gc: "512MiB"
 
 
-stateStorageClass: "openebs-hostpath"
+stateStorage:
+  pvc:
+    storageClass: "openebs-hostpath"
 cleanupMetadata: true

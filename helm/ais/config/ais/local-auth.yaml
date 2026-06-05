@@ -59,5 +59,7 @@ auth:
   usernamePassword:
     secretName: ais-authn-su-creds
 
-stateStorageClass: "openebs-hostpath"
+stateStorage:
+  pvc:
+    storageClass: "openebs-hostpath"
 cleanupMetadata: true

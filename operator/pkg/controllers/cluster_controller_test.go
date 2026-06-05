@@ -108,7 +108,9 @@ var _ = Describe("AIStoreController", func() {
 								{Path: "/data", Size: apc.Ptr(resource.MustParse("10Gi"))},
 							},
 						},
-						HostpathPrefix: apc.Ptr("/ais"),
+						StateStorage: &aisv1.StateStorage{
+							HostPath: &aisv1.StateHostPathConfig{Prefix: "/ais"},
+						},
 						ConfigToUpdate: &aisv1.ConfigToUpdate{
 							Log: &aisv1.LogConfToUpdate{
 								ToStderr: apc.Ptr(true),

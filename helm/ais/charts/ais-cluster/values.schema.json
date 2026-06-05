@@ -300,14 +300,65 @@
       "description": "Shut down the cluster (dangerous: scales down all pods).",
       "examples": [false]
     },
+    "stateStorage": {
+      "type": ["object", "null"],
+      "description": "AIStore state storage configuration. Exactly one of hostPath or pvc should be set.",
+      "allOf": [
+        {
+          "if": {
+            "type": "object"
+          },
+          "then": {
+            "oneOf": [
+              {
+                "required": ["hostPath"],
+                "not": {
+                  "required": ["pvc"]
+                }
+              },
+              {
+                "required": ["pvc"],
+                "not": {
+                  "required": ["hostPath"]
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "properties": {
+        "hostPath": {
+          "type": "object",
+          "properties": {
+            "prefix": {
+              "type": "string",
+              "description": "Path on node for pod hostPath state volumes.",
+              "examples": ["/etc/ais"]
+            }
+          },
+          "required": ["prefix"]
+        },
+        "pvc": {
+          "type": "object",
+          "properties": {
+            "storageClass": {
+              "type": "string",
+              "description": "StorageClass for dynamically provisioning state/config volumes.",
+              "examples": ["local-path"]
+            }
+          },
+          "required": ["storageClass"]
+        }
+      }
+    },
     "hostpathPrefix": {
       "type": ["string", "null"],
-      "description": "Path on node for pod hostPath volumes. Use stateStorageClass if possible.",
+      "description": "Deprecated: use stateStorage.hostPath.prefix.",
       "examples": ["/etc/ais"]
     },
     "stateStorageClass": {
       "type": ["string", "null"],
-      "description": "StorageClass for dynamically provisioning state/config volumes.",
+      "description": "Deprecated: use stateStorage.pvc.storageClass.",
       "examples": ["local-path"]
     },
     "cleanupData": {

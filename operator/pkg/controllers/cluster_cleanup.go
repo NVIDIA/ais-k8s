@@ -33,9 +33,9 @@ func (r *AIStoreReconciler) cleanup(ctx context.Context, ais *aisv1.AIStore) (up
 	if err != nil {
 		return
 	}
-	// If not using storage class, trigger jobs to clean up host mounts
-	// Note this is not part of the above list to avoid host cleanup jobs blocking any K8s resource cleanup
-	if ais.ShouldCleanupMetadata() && ais.Spec.StateStorageClass == nil {
+	// If using HostPath for state, create node-local host cleanup jobs.
+	// Note this is not part of the above list to avoid host cleanup jobs blocking any K8s resource cleanup.
+	if ais.ShouldCleanupMetadata() && ais.Spec.UsesStateHostPath() {
 		err = r.cleanupHostStateMounts(ctx, ais)
 	}
 	return

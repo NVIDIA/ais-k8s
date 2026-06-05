@@ -22,3 +22,35 @@ logSidecar:
   {{- end }}
 {{- end -}}
 {{- end -}}
+
+{{/*
+Return the effective state storage class used for validation.
+*/}}
+{{- define "ais-cluster.stateStorageClass" -}}
+{{- $storageClass := .Values.stateStorageClass -}}
+{{- $stateStorage := .Values.stateStorage | default dict -}}
+{{- if hasKey $stateStorage "pvc" -}}
+  {{- $storageClass = dig "pvc" "storageClass" "" $stateStorage -}}
+{{- end -}}
+{{- $storageClass -}}
+{{- end -}}
+
+{{/*
+Render state storage on the AIStore spec. If the new stateStorage value is set,
+render it as-is so it takes precedence over legacy fields. Otherwise, render the
+legacy fields for backwards compatibility.
+*/}}
+{{- define "ais-cluster.stateStorage" -}}
+{{- $stateStorage := .Values.stateStorage | default dict -}}
+{{- if or (hasKey $stateStorage "hostPath") (hasKey $stateStorage "pvc") }}
+stateStorage:
+{{- toYaml $stateStorage | nindent 2 }}
+{{- else }}
+{{- with .Values.hostpathPrefix }}
+hostpathPrefix: {{ . }}
+{{- end }}
+{{- with .Values.stateStorageClass }}
+stateStorageClass: {{ . }}
+{{- end }}
+{{- end -}}
+{{- end -}}

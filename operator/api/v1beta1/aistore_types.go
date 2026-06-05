@@ -228,6 +228,30 @@ type AdminClientSpec struct {
 	CAConfigMap *CAConfigMapRef `json:"caConfigMap,omitempty"`
 }
 
+type StateHostPathConfig struct {
+	// Prefix is the path on each host used for AIStore state.
+	// +kubebuilder:validation:MinLength=1
+	Prefix string `json:"prefix"`
+}
+
+type StatePVCConfig struct {
+	// StorageClass is used for dynamically provisioning AIStore state volumes.
+	// +kubebuilder:validation:MinLength=1
+	StorageClass string `json:"storageClass"`
+}
+
+// StateStorage configures AIStore state storage.
+// Exactly one of HostPath or PVC must be set.
+// +kubebuilder:validation:XValidation:rule="[has(self.hostPath), has(self.pvc)].filter(x, x).size() == 1",message="exactly one of hostPath or pvc must be set"
+type StateStorage struct {
+	// HostPath stores AIStore state in directories on each host.
+	// +optional
+	HostPath *StateHostPathConfig `json:"hostPath,omitempty"`
+	// PVC stores AIStore state in dynamically provisioned volumes.
+	// +optional
+	PVC *StatePVCConfig `json:"pvc,omitempty"`
+}
+
 // CAConfigMapRef references a ConfigMap containing a CA certificate bundle
 type CAConfigMapRef struct {
 	// Name of the ConfigMap containing the CA bundle
@@ -319,12 +343,13 @@ type AIStoreSpec struct {
 	// LogSidecar defines the details for a logging sidecar container deployed within each AIS pod
 	// +kubebuilder:validation:Optional
 	LogSidecar *LogSidecarSpec `json:"logSidecar"`
-	// StateStorageClass recommended if possible
-	// See docs/state_storage.md
-	// Path on host used for state
+
+	// +optional
+	StateStorage *StateStorage `json:"stateStorage,omitempty"`
+	// Deprecated: use stateStorage.hostPath.prefix.
 	// +optional
 	HostpathPrefix *string `json:"hostpathPrefix,omitempty"`
-	// Used for creating dynamic volumes for storing state
+	// Deprecated: use stateStorage.pvc.storageClass.
 	// +optional
 	StateStorageClass *string         `json:"stateStorageClass,omitempty"`
 	ConfigToUpdate    *ConfigToUpdate `json:"configToUpdate,omitempty"`
@@ -900,6 +925,34 @@ func (ais *AIStore) GetLogSidecarResources() *corev1.ResourceRequirements {
 		return nil
 	}
 	return ais.Spec.LogSidecar.Resources
+}
+
+func (s *AIStoreSpec) StateStoragePVCStorageClass() *string {
+	if s.StateStorage != nil {
+		if s.StateStorage.PVC != nil {
+			return &s.StateStorage.PVC.StorageClass
+		}
+		return nil
+	}
+	return s.StateStorageClass
+}
+
+func (s *AIStoreSpec) StateStorageHostPathPrefix() *string {
+	if s.StateStorage != nil && s.StateStorage.HostPath != nil {
+		return &s.StateStorage.HostPath.Prefix
+	}
+	if s.StateStorage == nil && s.StateStorageClass == nil {
+		return s.HostpathPrefix
+	}
+	return nil
+}
+
+func (s *AIStoreSpec) UsesStatePVC() bool {
+	return s.StateStoragePVCStorageClass() != nil
+}
+
+func (s *AIStoreSpec) UsesStateHostPath() bool {
+	return s.StateStorageHostPathPrefix() != nil
 }
 
 func (m *Mount) IsHostPath() bool {

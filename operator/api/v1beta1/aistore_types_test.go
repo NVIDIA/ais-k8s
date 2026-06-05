@@ -189,16 +189,18 @@ var _ = Describe("AIStore", func() {
 					"invalid cluster size -2, should be at least 1 or -1 for autoScaling",
 				),
 				Entry(
-					"hostpathPrefix and stateStorageClass empty",
+					"stateStorage empty",
 					AIStore{Spec: AIStoreSpec{Size: aisapc.Ptr[int32](1)}},
-					"AIS spec does not define hostpathPrefix or stateStorageClass",
+					"AIS spec does not define stateStorage",
 				),
 				Entry(
 					"invalid proxy serviceSpec",
 					AIStore{
 						Spec: AIStoreSpec{
-							Size:           aisapc.Ptr[int32](1),
-							HostpathPrefix: aisapc.Ptr("/mnt"),
+							Size: aisapc.Ptr[int32](1),
+							StateStorage: &StateStorage{
+								HostPath: &StateHostPathConfig{Prefix: "/mnt"},
+							},
 						},
 					},
 					"spec.proxySpec.servicePort: Invalid value: 0: must be between 1 and 65535",
@@ -207,8 +209,10 @@ var _ = Describe("AIStore", func() {
 					"invalid target serviceSpec",
 					AIStore{
 						Spec: AIStoreSpec{
-							Size:           aisapc.Ptr[int32](1),
-							HostpathPrefix: aisapc.Ptr("/mnt"),
+							Size: aisapc.Ptr[int32](1),
+							StateStorage: &StateStorage{
+								HostPath: &StateHostPathConfig{Prefix: "/mnt"},
+							},
 							ProxySpec: DaemonSpec{
 								ServiceSpec: ServiceSpec{
 									ServicePort:      intstr.FromInt32(51080),
@@ -226,8 +230,10 @@ var _ = Describe("AIStore", func() {
 			It("should pass AIStore validation", func() {
 				ais := AIStore{
 					Spec: AIStoreSpec{
-						Size:           aisapc.Ptr[int32](1),
-						HostpathPrefix: aisapc.Ptr("/mnt"),
+						Size: aisapc.Ptr[int32](1),
+						StateStorage: &StateStorage{
+							HostPath: &StateHostPathConfig{Prefix: "/mnt"},
+						},
 						ProxySpec: DaemonSpec{
 							ServiceSpec: ServiceSpec{
 								ServicePort:      intstr.FromInt32(51080),

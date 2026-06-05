@@ -37,7 +37,9 @@ spec:
 
   nodeImage: "docker.io/aistorage/aisnode:v3.26-aeed9cb0"
   initImage: "docker.io/aistorage/ais-init:v3.26"
-  hostpathPrefix: "/etc/ais"
+  stateStorage:
+    hostPath:
+      prefix: "/etc/ais"
   logsDir: "/var/log/ais"
   tracingTokenSecretName: "lightstep-token"
 

@@ -43,5 +43,7 @@ auth:
   tls:
     # Trust bundle is defined by authCAConfigmapName, mounted at default mountpath 
     insecureSkipVerify: false
-stateStorageClass: "openebs-hostpath"
+stateStorage:
+  pvc:
+    storageClass: "openebs-hostpath"
 cleanupMetadata: true

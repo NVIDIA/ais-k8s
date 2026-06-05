@@ -51,7 +51,9 @@ var _ = Describe("K8sClient", func() {
 							Size: apc.Ptr[int32](1),
 						},
 					},
-					HostpathPrefix: apc.Ptr("/ais"),
+					StateStorage: &aisv1.StateStorage{
+						HostPath: &aisv1.StateHostPathConfig{Prefix: "/ais"},
+					},
 				},
 			}
 			err = c.Create(ctx, ais)

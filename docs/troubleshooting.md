@@ -13,7 +13,7 @@ As of writing, an AIS node on startup will follow this priority sequence when de
 
 ### Solving a Split-brain
 
-Below is one reliable series of steps to solve this scenario, assuming you are using the [local-path stateStorageClass option](./state_storage.md). Other state storage options may store the metadata elsewhere, such as `/etc/ais`. 
+Below is one reliable series of steps to solve this scenario, assuming you are using the [local-path stateStorage.pvc.storageClass option](./state_storage.md). Other state storage options may store the metadata elsewhere, such as `/etc/ais`. 
 
 1. Identify a working AIS node of the **same type** as the one to fix (`target` or `proxy`)
 1. (optional) For proxies, remove the label from the node to avoid load balancer using it during the process.

@@ -89,7 +89,9 @@ spec:
     - path: /data/aistore
       size: 5T
       storageClass: ais-local-storage
-  hostpathPrefix: "/etc/ais"
+  stateStorage:
+    hostPath:
+      prefix: "/etc/ais"
   nodeImage: "docker.io/aistorage/aisnode:latest"
   initImage: "docker.io/aistorage/ais-init:latest"
   enableExternalLB: false

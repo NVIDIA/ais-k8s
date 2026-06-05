@@ -21,8 +21,7 @@ const CleanupPrefix = "cleanup"
 func NewCleanupJob(ais *aisv1.AIStore, nodeName string) *batchv1.Job {
 	ttl := int32(0) // delete the pod as soon as it is completed
 	jobName := fmt.Sprintf("%s-%s-", CleanupPrefix, strings.ReplaceAll(nodeName, ".", "-"))
-	//nolint:all
-	hostpathPrefix := *ais.Spec.HostpathPrefix
+	hostpathPrefix := *ais.Spec.StateStorageHostPathPrefix()
 	return &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: jobName,

@@ -96,9 +96,8 @@ func newTargetPVCs(ais *aisv1.AIStore) []corev1.PersistentVolumeClaim {
 		}
 		pvcs = append(pvcs, *mnt.BuildPVC(ais.Name))
 	}
-	// If using a storage class for state storage, add PVCs for state
-	if ais.Spec.StateStorageClass != nil {
-		if statePVC := cmn.DefineStatePVC(ais, ais.Spec.StateStorageClass); statePVC != nil {
+	if stateStorageClass := ais.Spec.StateStoragePVCStorageClass(); stateStorageClass != nil {
+		if statePVC := cmn.DefineStatePVC(ais, stateStorageClass); statePVC != nil {
 			pvcs = append(pvcs, *statePVC)
 		}
 	}

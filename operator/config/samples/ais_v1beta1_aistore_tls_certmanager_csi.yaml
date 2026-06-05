@@ -74,7 +74,9 @@ spec:
 
   nodeImage: "docker.io/aistorage/aisnode:v3.25"
   initImage: "docker.io/aistorage/ais-init:v3.25"
-  hostpathPrefix: "/etc/ais"
+  stateStorage:
+    hostPath:
+      prefix: "/etc/ais"
   logsDir:
   tls:
     certificate:

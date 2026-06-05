@@ -54,15 +54,41 @@ func (ais *AIStore) validateSize() (admission.Warnings, error) {
 }
 
 func (ais *AIStore) validateStateStorage() (admission.Warnings, error) {
-	//nolint:all
+	if ais.Spec.StateStorage != nil {
+		if ais.Spec.StateStorageClass != nil || ais.Spec.HostpathPrefix != nil {
+			warnings := admission.Warnings{"spec.stateStorage is set; ignoring legacy hostpathPrefix and stateStorageClass fields"}
+			if !ais.Spec.hasExactlyOneStateStorageMode() {
+				return warnings, errInvalidStateStorage()
+			}
+			return warnings, nil
+		}
+		if !ais.Spec.hasExactlyOneStateStorageMode() {
+			return nil, errInvalidStateStorage()
+		}
+		return nil, nil
+	}
 	if ais.Spec.StateStorageClass != nil && ais.Spec.HostpathPrefix != nil {
 		warning := fmt.Sprintf("Spec defines both hostpathPrefix and stateStorageClass. Using stateStorageClass %s", *ais.Spec.StateStorageClass)
-		return []string{warning}, nil
+		return admission.Warnings{warning}, nil
 	}
 	if ais.Spec.StateStorageClass == nil && ais.Spec.HostpathPrefix == nil {
 		return nil, errUndefinedStateStorage()
 	}
 	return nil, nil
+}
+
+func (s *AIStoreSpec) hasExactlyOneStateStorageMode() bool {
+	count := 0
+	if s.StateStorage == nil {
+		return false
+	}
+	if s.StateStorage.HostPath != nil {
+		count++
+	}
+	if s.StateStorage.PVC != nil {
+		count++
+	}
+	return count == 1
 }
 
 func (ais *AIStore) validateAutoScaling() (admission.Warnings, error) {
@@ -166,7 +192,7 @@ func (ais *AIStore) validateCleanupConfig() (admission.Warnings, error) {
 	if !ais.ShouldCleanupMetadata() {
 		return nil, nil
 	}
-	if ais.Spec.StateStorageClass != nil {
+	if !ais.Spec.UsesStateHostPath() {
 		return nil, nil
 	}
 	if len(ais.Spec.TargetSpec.NodeSelector) == 0 || len(ais.Spec.ProxySpec.NodeSelector) == 0 {
@@ -229,11 +255,8 @@ func (aisw *AIStoreWebhook) ValidateUpdate(ctx context.Context, prev, ais *AISto
 	if ais.Spec.EnableExternalLB != prev.Spec.EnableExternalLB {
 		return warnings, errCannotUpdateSpec("enableExternalLB")
 	}
-
-	if ais.Spec.HostpathPrefix != nil && prev.Spec.HostpathPrefix != nil {
-		if *ais.Spec.HostpathPrefix != *prev.Spec.HostpathPrefix {
-			return warnings, errCannotUpdateSpec("hostpathPrefix")
-		}
+	if storageErr := validateStateStorageUpdate(prev, ais); storageErr != nil {
+		return warnings, storageErr
 	}
 	return warnings, nil
 }
@@ -328,7 +351,7 @@ func (aisw *AIStoreWebhook) verifyRequiredStorageClasses(ctx context.Context, ai
 		scMap[scList.Items[i].Name] = &scList.Items[i]
 	}
 
-	requiredClasses := []*string{ais.Spec.StateStorageClass}
+	requiredClasses := []*string{ais.Spec.StateStoragePVCStorageClass()}
 	for _, requiredClass := range requiredClasses {
 		if requiredClass != nil {
 			if _, exists := scMap[*requiredClass]; !exists {
@@ -337,6 +360,17 @@ func (aisw *AIStoreWebhook) verifyRequiredStorageClasses(ctx context.Context, ai
 		}
 	}
 	return nil, nil
+}
+
+func validateStateStorageUpdate(prev, ais *AIStore) error {
+	// Allow updates from legacy fields without modification
+	if !equality.Semantic.DeepEqual(ais.Spec.StateStorageHostPathPrefix(), prev.Spec.StateStorageHostPathPrefix()) {
+		return errCannotUpdateSpec("stateStorage.hostPath.prefix")
+	}
+	if !equality.Semantic.DeepEqual(ais.Spec.StateStoragePVCStorageClass(), prev.Spec.StateStoragePVCStorageClass()) {
+		return errCannotUpdateSpec("stateStorage.pvc.storageClass")
+	}
+	return nil
 }
 
 // errors
@@ -360,7 +394,11 @@ func errCannotUpdateSpec(specName string, diff ...string) error {
 }
 
 func errUndefinedStateStorage() error {
-	return fmt.Errorf("AIS spec does not define hostpathPrefix or stateStorageClass. Set hostpathPrefix to use a directory on each node or set stateStorageClass to use a dynamic storage class")
+	return fmt.Errorf("AIS spec does not define stateStorage. Set stateStorage.hostPath or stateStorage.pvc")
+}
+
+func errInvalidStateStorage() error {
+	return fmt.Errorf("AIS spec stateStorage must define exactly one of hostPath or pvc")
 }
 
 func errUndefinedNodeSelector(spec string) error {
