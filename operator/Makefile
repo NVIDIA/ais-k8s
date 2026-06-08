@@ -1,8 +1,12 @@
-DEFAULT_VERSION = 2.1.2
+DEFAULT_VERSION = 2.19.0
+DEFAULT_IMG_REPOSITORY = docker.io/aistorage/ais-operator
+VERSION_BASE = $(patsubst v%,%,$(VERSION))
+VERSION_TAG = $(if $(VERSION),v$(VERSION_BASE),)
+IMG ?= $(if $(VERSION),$(DEFAULT_IMG_REPOSITORY):$(VERSION_TAG),)
 # Strip off any preceding `v` from version string
-HELM_CHART_APP_VERSION := $(shell echo $(VERSION) | sed 's/^v//')
+HELM_CHART_APP_VERSION = $(VERSION_BASE)
 # Use VERSION if provided
-BUILD_VERSION_BASE = $(if $(VERSION),$(VERSION),$(DEFAULT_VERSION))
+BUILD_VERSION_BASE = $(if $(VERSION),$(VERSION_BASE),$(DEFAULT_VERSION))
 BUILD_VERSION = $(BUILD_VERSION_BASE)+$(shell git rev-parse --short HEAD)
 BUILD_TIME = $(shell date +%FT%T%z)
 OS = $(shell go env GOOS)

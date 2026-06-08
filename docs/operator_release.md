@@ -7,11 +7,14 @@ We keep a running changelog in [operator/CHANGELOG.md](../operator/CHANGELOG.md)
 
 ## Building a Release
 
-From the operator directory, define the Docker image to build and the release version, then run `release`, e.g.:
+From the operator directory, define the release version, then run `release`, e.g.:
 
 ```bash
-IMG=aistorage/ais-operator:v2.11.0 VERSION=2.11.0 make release
+VERSION=2.11.0 make release
 ```
+
+To override the default image, also set `IMG`, e.g. `VERSION=2.11.0 IMG=aistorage/ais-operator:v2.11.0 make release`.
+
 This command:
 - Generates all required manifests, combined into `operator/dist/ais-operator.yaml`.
 - Updates the default image in Kustomize overlays.

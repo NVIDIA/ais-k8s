@@ -469,11 +469,11 @@ make generate
 make manifests
 
 # Apply kustomize to the base manifests to generate an installer manifest
-make build-installer
+VERSION=2.19.0 make build-installer
 
 # Apply kustomize, then helmify, then our custom templating
 # This updates the helm chart in operator/helm
-make build-installer-helm
+VERSION=2.19.0 make build-installer-helm
 ```
 
 For building and pushing the operator container images, use the following commands.
@@ -481,8 +481,11 @@ Currently, `docker` and `podman` are explicitly supported.
 To use a different tool, we expect it to be aliased to one of these commands and compatible with their arguments.
 
 ```console
-# Define an image to build
-export IMG=<REPOSITORY>/<IMAGE_TAG> 
+# Define a release version; IMG defaults to docker.io/aistorage/ais-operator:v$VERSION
+export VERSION=2.19.0
+
+# To use a different image, set IMG explicitly
+export IMG=<REPOSITORY>/<IMAGE_TAG>
 
 # Build and push the image:
 # For the current platform, with docker
