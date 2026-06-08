@@ -8,7 +8,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ---
 
-## v3.0.0 (Unreleased)
+## v3.0.0
 
 This release will result in an AIStore cluster rollout to sync pod templates.
 
