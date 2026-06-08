@@ -3,8 +3,7 @@ DEFAULT_IMG_REPOSITORY = docker.io/aistorage/ais-operator
 VERSION_BASE = $(patsubst v%,%,$(VERSION))
 VERSION_TAG = $(if $(VERSION),v$(VERSION_BASE),)
 IMG ?= $(if $(VERSION),$(DEFAULT_IMG_REPOSITORY):$(VERSION_TAG),)
-# Strip off any preceding `v` from version string
-HELM_CHART_APP_VERSION = $(VERSION_BASE)
+HELM_CHART_VERSION = $(VERSION_BASE)
 # Use VERSION if provided
 BUILD_VERSION_BASE = $(if $(VERSION),$(VERSION_BASE),$(DEFAULT_VERSION))
 BUILD_VERSION = $(BUILD_VERSION_BASE)+$(shell git rev-parse --short HEAD)
@@ -245,12 +244,13 @@ build-installer-helm: require-img require-version manifests generate kustomize h
 	# Copy generated templates and values into persisted chart
 	cp dist/ais-operator/values.yaml helm/ais-operator/values.yaml
 	cp dist/ais-operator/templates/*.yaml helm/ais-operator/templates
+	$(YQ) -i '.version = "$(HELM_CHART_VERSION)" | .appVersion = "$(HELM_CHART_VERSION)" | .appVersion style = "double"' helm/ais-operator/Chart.yaml
 	# Merge extra values and persisted templates over the top of the generated files
 	./helm/apply_replacements.sh $(LOCAL_BIN)
 
 .PHONY: package-chart
 package-chart: build-installer-helm helm
-	$(HELM) package helm/ais-operator -d ../pages/charts/ --app-version $(HELM_CHART_APP_VERSION)
+	$(HELM) package helm/ais-operator -d ../pages/charts/ --version $(HELM_CHART_VERSION) --app-version $(HELM_CHART_VERSION)
 	$(HELM) repo index --url $(PAGES) ../pages/charts --merge ../pages/charts/index.yaml
 
 .PHONY: release
