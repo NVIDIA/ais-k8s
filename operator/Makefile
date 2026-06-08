@@ -4,6 +4,7 @@ VERSION_BASE = $(patsubst v%,%,$(VERSION))
 VERSION_TAG = $(if $(VERSION),v$(VERSION_BASE),)
 IMG ?= $(if $(VERSION),$(DEFAULT_IMG_REPOSITORY):$(VERSION_TAG),)
 HELM_CHART_VERSION = $(VERSION_BASE)
+SEMVER_REGEX = ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-((0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(\.(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?(\+([0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*))?$$
 # Use VERSION if provided
 BUILD_VERSION_BASE = $(if $(VERSION),$(VERSION_BASE),$(DEFAULT_VERSION))
 BUILD_VERSION = $(BUILD_VERSION_BASE)+$(shell git rev-parse --short HEAD)
@@ -74,6 +75,9 @@ require-img:
 
 require-version:
 	@[ "${VERSION}" ] || ( echo "VERSION must be set for this make target"; exit 1 )
+
+require-helm-chart-version:
+	@[[ "$(HELM_CHART_VERSION)" =~ $(SEMVER_REGEX) ]] || ( echo "VERSION must resolve to a SemVer chart version, got $(VERSION)"; exit 1 )
 
 .PHONY: help
 help: ## Display this help.
@@ -244,12 +248,16 @@ build-installer-helm: require-img require-version manifests generate kustomize h
 	# Copy generated templates and values into persisted chart
 	cp dist/ais-operator/values.yaml helm/ais-operator/values.yaml
 	cp dist/ais-operator/templates/*.yaml helm/ais-operator/templates
-	$(YQ) -i '.version = "$(HELM_CHART_VERSION)" | .appVersion = "$(HELM_CHART_VERSION)" | .appVersion style = "double"' helm/ais-operator/Chart.yaml
+	@if [[ "$(HELM_CHART_VERSION)" =~ $(SEMVER_REGEX) ]]; then \
+		$(YQ) -i '.version = "$(HELM_CHART_VERSION)" | .appVersion = "$(HELM_CHART_VERSION)" | .appVersion style = "double"' helm/ais-operator/Chart.yaml; \
+	else \
+		echo "Skipping Helm chart metadata update for non-SemVer VERSION=$(VERSION)"; \
+	fi
 	# Merge extra values and persisted templates over the top of the generated files
 	./helm/apply_replacements.sh $(LOCAL_BIN)
 
 .PHONY: package-chart
-package-chart: build-installer-helm helm
+package-chart: require-helm-chart-version build-installer-helm helm
 	$(HELM) package helm/ais-operator -d ../pages/charts/ --version $(HELM_CHART_VERSION) --app-version $(HELM_CHART_VERSION)
 	$(HELM) repo index --url $(PAGES) ../pages/charts --merge ../pages/charts/index.yaml
 
