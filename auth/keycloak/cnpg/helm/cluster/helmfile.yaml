@@ -4,7 +4,7 @@ repositories:
 
 releases:
   - name: cloudnative-pg
-    namespace: cnpg-database
+    namespace: "{{ .Values | get \"namespace\" \"cnpg-database\" }}"
     chart: cnpg/cluster
     createNamespace: true
     wait: true

@@ -75,7 +75,7 @@ hooks:
 
 releases:
   - name: operator-tls-cert
-    namespace: ais-operator-system
+    namespace: "{{ .Values | get \"namespace\" \"ais-operator-system\" }}"
     createNamespace: true
     chart: tls-cert
     condition: createCert.enabled
@@ -84,7 +84,7 @@ releases:
       - "{{ .Environment.Values.createCert | get \"valuesPath\" \"\" }}"
 
   - name: ais-operator
-    namespace: ais-operator-system
+    namespace: "{{ .Values | get \"namespace\" \"ais-operator-system\" }}"
     createNamespace: true
     chart: aistore/ais-operator
     version: 3.0.0

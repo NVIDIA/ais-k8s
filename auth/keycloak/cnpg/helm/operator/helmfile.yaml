@@ -4,7 +4,7 @@ repositories:
 
 releases:
   - name: cloudnative-pg-operator
-    namespace: cnpg-system
+    namespace: "{{ .Values | get \"namespace\" \"cnpg-system\" }}"
     chart: cnpg/cloudnative-pg
     createNamespace: true
     wait: true

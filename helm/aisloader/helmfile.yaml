@@ -1,10 +1,10 @@
 releases:
   - name: aisloader-graphite
-    namespace: ais
+    namespace: "{{ .Values | get \"namespace\" \"ais\" }}"
     createNamespace: true
     chart: ./charts/graphite
 
   - name: aisloader
-    namespace: ais
+    namespace: "{{ .Values | get \"namespace\" \"ais\" }}"
     createNamespace: true
     chart: ./charts/benchmark

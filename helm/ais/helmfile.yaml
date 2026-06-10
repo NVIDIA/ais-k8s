@@ -149,7 +149,7 @@ hooks:
 
 releases:
   - name: ais-tls-cert
-    namespace: ais
+    namespace: "{{ .Values | get \"namespace\" \"ais\" }}"
     createNamespace: true
     chart: charts/tls-cert
     version: 0.1.0
@@ -159,7 +159,7 @@ releases:
       - "{{ .Environment.Values.valuesPath }}"
 
   - name: ais-cloud-secrets
-    namespace: ais
+    namespace: "{{ .Values | get \"namespace\" \"ais\" }}"
     createNamespace: true
     chart: charts/cloud-secrets
     version: 0.1.0
@@ -169,7 +169,7 @@ releases:
       - "{{ .Environment.Values.valuesPath }}"
 
   - name: ais-create-pv
-    namespace: ais
+    namespace: "{{ .Values | get \"namespace\" \"ais\" }}"
     createNamespace: true
     chart: charts/create-pv
     version: 0.1.0
@@ -178,7 +178,7 @@ releases:
       - "{{ .Environment.Values.valuesPath }}"
 
   - name: ais-cluster
-    namespace: ais
+    namespace: "{{ .Values | get \"namespace\" \"ais\" }}"
     createNamespace: true
     chart: charts/ais-cluster
     version: 0.4.0

@@ -53,7 +53,7 @@ hooks:
 
 releases:
   - name: ais-authn
-    namespace: ais
+    namespace: "{{ .Values | get \"namespace\" \"ais\" }}"
     createNamespace: true
     chart: charts/authn
     version: 0.5.0

@@ -6,6 +6,8 @@ environments:
 releases:
   # Defines a self-signed issuer for acquiring a tls cert
   - name: issuer
+    namespace: "{{ .Values | get \"namespace\" \"cert-manager\" }}"
+    createNamespace: true
     chart: issuer-chart
     version: 0.1.0
     values:
