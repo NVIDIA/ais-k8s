@@ -1,0 +1,31 @@
+# Default values for the issuer chart.
+
+# Select the issuer scope: "ClusterIssuer" (cluster-wide) or "Issuer" (namespaced)
+issuerKind: ClusterIssuer
+
+# Namespace for the CA Certificate, and for the issuers when issuerKind is "Issuer".
+# Defaults to "cert-manager" for ClusterIssuer (where it reads the CA secret) and
+# to the release namespace for a namespaced Issuer. Set to override.
+# namespace: cert-manager
+
+# Bootstrap self-signed issuer used to sign the CA certificate
+selfSignedIssuer:
+  name: selfsigned-issuer
+
+# Self-signed CA certificate issued by the self-signed issuer
+caCertificate:
+  name: selfsigned-cert
+  commonName: selfsigned-ca
+  # Secret holding the CA cert/key; consumed by the CA issuer below
+  secretName: ca-root-secret
+  duration: 8760h
+  renewBefore: 720h
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS1
+    size: 4096
+  # Set a subject in your env config to avoid an empty Issuer DN (see cert-manager docs)
+
+# CA issuer that signs certificates using the CA certificate above
+caIssuer:
+  name: ca-issuer

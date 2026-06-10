@@ -22,7 +22,7 @@ helmfile -f prereq-helmfile.yaml sync
 kubectl create namespace keycloak || true
 
 # Install cluster issuer for making cert
-helmfile -f ../../helm/cluster-issuer/helmfile.yaml sync
+helmfile -f ../../helm/issuer/helmfile.yaml sync
 # Create a certificate
 kubectl apply -f manifests/certificate.yaml
 

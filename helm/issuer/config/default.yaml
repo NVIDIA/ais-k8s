@@ -1,0 +1,11 @@
+# Inherits all defaults from issuer-chart/values.yaml.
+# Add environment-specific overrides below.
+
+caCertificate:
+  subject:
+    organizations:
+      - NVIDIA Corporation
+    organizationalUnits:
+      - NGC Storage
+    countries:
+      - US

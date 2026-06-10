@@ -5,7 +5,7 @@ environments:
 ---
 releases:
   # Defines a self-signed issuer for acquiring a tls cert
-  - name: cluster-issuer
+  - name: issuer
     chart: issuer-chart
     version: 0.1.0
     values:

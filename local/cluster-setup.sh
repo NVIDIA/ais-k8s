@@ -19,7 +19,7 @@ install_prereqs() {
     kubectl wait --for=condition=Available --timeout=120s apiservice/v1alpha1.trust.cert-manager.io
 
     echo "Setting up cluster issuer..."
-    (cd "${helm_root}/cluster-issuer" && helmfile sync -e local)
+    (cd "${helm_root}/issuer" && helmfile sync -e local)
 
     echo "Creating AIS namespace..."
     kubectl create namespace ais 2>/dev/null || true

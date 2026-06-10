@@ -11,7 +11,7 @@ This directory contains Helm charts for deploying the following:
 | [AIS authN server](./authn)       | Deploys the beta [AIS Authentication Server](https://github.com/NVIDIA/aistore/blob/main/docs/authn.md)                                                                                                                            |
 | [AIS admin client](./ais-client)  | Creates a Deployment with a client Pod provisioned for AIS cluster access (see `adminClient` in AIStore spec for integrated option)                                                                                                |
 | [AIS Loader](./aisloader)         | Deploys the [aisloader](https://github.com/NVIDIA/aistore/blob/main/docs/aisloader.md) benchmark tool for testing cluster performance                                                                                              |
-| [ClusterIssuer](./cluster-issuer) | Creates a simple [cert-manager SelfSigned ClusterIssuer](https://cert-manager.io/docs/configuration/selfsigned/)                                                                                                                   |
+| [Issuer](./issuer)                | Creates a simple [cert-manager SelfSigned](https://cert-manager.io/docs/configuration/selfsigned/) `ClusterIssuer` or namespaced `Issuer`                                                                                          |
 
 ## Prerequisites
 
@@ -39,24 +39,23 @@ We use [helmfile](https://github.com/helmfile/helmfile?tab=readme-ov-file) to in
 
 **Follow these steps in order:** 
 
-### 1. Install Cluster Issuer (optional - only for HTTPS)
+### 1. Install Issuer
 
-You need a cluster issuer only if you want HTTPS:
-- HTTPS AIStore cluster, OR
-- AuthN with HTTPS
+This step is optional. 
+To use HTTPS for AIStore or AuthN, you'll need an issuer to create certificate bundles. 
+An existing cert-manager `Issuer` or `ClusterIssuer` can be used, or follow the instructions below to bootstrap a self-signed issuer.
 
-If you don't want HTTPS, skip this step.
-
-We provide a [chart](./cluster-issuer/) to set up a [self-signed cluster issuer](https://cert-manager.io/docs/configuration/selfsigned/).
+We provide a [chart](./issuer/) to set up a [self-signed](https://cert-manager.io/docs/configuration/selfsigned/) issuer.
+Set `issuerKind` to `ClusterIssuer` (cluster-wide, the default) or `Issuer` (namespaced) in your config file.
 Before proceeding, ensure that [cert-manager](https://cert-manager.io/) is installed and all its pods are running in your cluster.  
 You can verify this by running the provided [check_cert_manager.sh script](./operator/check_cert_manager.sh).
 
-1. Go to the [`cluster-issuer`](./cluster-issuer/) directory
-2. Create a new environment in the [helmfile](./cluster-issuer/helmfile.yaml)
+1. Go to the [`issuer`](./issuer/) directory
+2. Create a new environment in the [helmfile](./issuer/helmfile.yaml)
 3. Update your certificate values in a config file
 4. Run: `helmfile sync -e <your-env>`
 
-Check it worked: `kubectl get clusterissuer` should show a `ca-issuer` ready.
+Check it worked: for a `ClusterIssuer`, `kubectl get clusterissuer` should show a `ca-issuer` ready; for a namespaced `Issuer`, `kubectl get issuer -n <namespace>` should show it ready.
 
 ### 2. Deploy [AuthN](https://github.com/NVIDIA/aistore/blob/main/docs/authn.md) Server (optional - only if you want AuthN)
 

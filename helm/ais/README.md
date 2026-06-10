@@ -42,7 +42,7 @@ This will update the AIS config and mount the secret if provided (read below for
 
 ### Generating the certificates
 
-To use a self-signed ClusterIssuer, follow the [README](../README.md#install-cluster-issuer--optional) to install the [cluster-issuer chart](../cluster-issuer).
+To use a self-signed issuer, follow the [README](../README.md#install-issuer) to install the [issuer chart](../issuer).
 
 If you want to use the [tls-cert chart](./charts/tls-cert) to actually generate and manage the certificates, set the value `https.enabled: true` for your environment in the [helmfile](./helmfile.yaml).
 
