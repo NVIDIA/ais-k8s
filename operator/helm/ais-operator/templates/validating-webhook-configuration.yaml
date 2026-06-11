@@ -28,3 +28,24 @@ webhooks:
     resources:
     - aistores
   sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: '{{ include "ais-operator.fullname" . }}-webhook-service'
+      namespace: '{{ .Release.Namespace }}'
+      path: /validate-auth-ais-nvidia-com-v1alpha1-aistoreauth
+  failurePolicy: Fail
+  name: vaistoreauth.kb.io
+  rules:
+  - apiGroups:
+    - auth.ais.nvidia.com
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - aistoreauths
+  sideEffects: None

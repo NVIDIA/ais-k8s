@@ -1,0 +1,74 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ais-authn-su-creds
+  namespace: ais
+type: Opaque
+stringData:
+  SU-NAME: admin
+  SU-PASS: adminpassword
+---
+apiVersion: auth.ais.nvidia.com/v1alpha1
+kind: AIStoreAuth
+metadata:
+  name: ais-authn
+  namespace: ais
+spec:
+  adminSecret:
+    name: ais-authn-su-creds
+  config:
+    auth:
+      expirationTime: 24h
+      signingKey:
+        bits: 2048
+    log:
+      level: 3
+    net:
+      externalURL: https://ais-authn.ais.svc.cluster.local:52001
+      http:
+        port: 52001
+    timeout:
+      defaultTimeout: 30s
+  tls:
+    certificate:
+      issuerRef:
+        name: ca-issuer
+        kind: ClusterIssuer
+      additionalDNSNames:
+        - ais-authn.ais.svc.cluster.local
+  persistence:
+    size: 256Mi
+    storageClass: openebs-hostpath
+  externalAccess:
+    nodePort:
+      port: 30001
+    # LoadBalancer is optional; include the block to enable it. Shown here commented to illustrate the available fields.
+    # loadBalancer:
+    #   port: 52001
+    #   # clusterIP pins a static cluster IP or can be omitted/empty to let Kubernetes assign one.
+    #   clusterIP: ""
+    #   annotations: {}
+  deployment:
+    image: docker.io/aistorage/authn:v4.5
+    imagePullPolicy: IfNotPresent
+    strategy:
+      type: Recreate
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    # Probes target the AuthN HTTP port (52001). TCP is used so the sample stays valid regardless of whether TLS is enabled.
+    livenessProbe:
+      tcpSocket:
+        port: 52001
+      initialDelaySeconds: 10
+      periodSeconds: 15
+    readinessProbe:
+      tcpSocket:
+        port: 52001
+      initialDelaySeconds: 5
+      periodSeconds: 10

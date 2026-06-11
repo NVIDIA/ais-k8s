@@ -100,6 +100,32 @@ rules:
   - update
   - watch
 - apiGroups:
+  - auth.ais.nvidia.com
+  resources:
+  - aistoreauths
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - auth.ais.nvidia.com
+  resources:
+  - aistoreauths/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - auth.ais.nvidia.com
+  resources:
+  - aistoreauths/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - batch
   resources:
   - jobs

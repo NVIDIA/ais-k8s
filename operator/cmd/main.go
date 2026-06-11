@@ -12,7 +12,10 @@ import (
 	"path/filepath"
 	"strings"
 
+	authv1alpha1 "github.com/ais-operator/api/aisauth/v1alpha1"
 	aisv1 "github.com/ais-operator/api/v1beta1"
+	authcontroller "github.com/ais-operator/internal/controller/aisauth"
+	authwebhookv1alpha1 "github.com/ais-operator/internal/webhook/aisauth/v1alpha1"
 	"github.com/ais-operator/pkg/controllers"
 	"github.com/ais-operator/pkg/services"
 	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
@@ -43,6 +46,7 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(aisv1.AddToScheme(scheme))
+	utilruntime.Must(authv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(certmanagerv1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
@@ -195,6 +199,17 @@ func main() {
 		Complete()
 	if err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "AIStore")
+		os.Exit(1)
+	}
+
+	if err = authcontroller.NewAIStoreAuthReconcilerFromMgr(
+		mgr, ctrl.Log.WithName("controllers").WithName("AIStoreAuth"),
+	).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "AIStoreAuth")
+		os.Exit(1)
+	}
+	if err = authwebhookv1alpha1.SetupAIStoreAuthWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "AIStoreAuth")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder

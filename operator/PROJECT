@@ -5,6 +5,7 @@
 domain: nvidia.com
 layout:
 - go.kubebuilder.io/v4
+multigroup: true
 projectName: ais-operator
 repo: github.com/ais-operator
 resources:
@@ -17,4 +18,16 @@ resources:
   kind: AIStore
   path: github.com/ais-operator/api/v1beta1
   version: v1beta1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: nvidia.com
+  group: auth.ais
+  kind: AIStoreAuth
+  path: github.com/ais-operator/api/aisauth/v1alpha1
+  version: v1alpha1
+  webhooks:
+    validation: true
+    webhookVersion: v1
 version: "3"
