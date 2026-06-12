@@ -59,6 +59,7 @@ helm uninstall grow-fs -n kube-system
 | `values-grow-fs.yaml`      | DaemonSet | `grow-fs.sh`             | Run `oci-growfs` on all nodes              |
 | `values-ring-buffers.yaml` | DaemonSet | `ring-buffers.sh`        | Resize ethtool ring buffers on `ens300np0` |
 | `values-up-kernel.yaml`    | DaemonSet | `up-kernel.sh`           | Update `kernel-uek` from `ol8_UEKR7`       |
+| `values-node-doctor.yaml`  | DaemonSet | `node-doctor.sh`         | Run Node Doctor `--check` on all nodes (see `scripts/node-doctor.md`) |
 
 ## Values
 

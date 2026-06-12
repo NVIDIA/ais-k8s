@@ -1,0 +1,16 @@
+name: node-doctor
+
+workload:
+  kind: daemonset
+  script: node-doctor.sh
+
+image:
+  repository: docker.io/aistorage/ais-util
+  tag: v4.7
+  pullPolicy: IfNotPresent
+
+# Node Doctor is worker-node only. In OKE the managed control plane is not part of
+# the cluster, so a DaemonSet schedules on worker nodes only.
+# operator: Exists tolerates node taints so every worker is covered.
+tolerations:
+  - operator: Exists
