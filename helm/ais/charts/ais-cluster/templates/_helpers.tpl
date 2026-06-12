@@ -54,3 +54,20 @@ stateStorageClass: {{ . }}
 {{- end }}
 {{- end -}}
 {{- end -}}
+
+{{/*
+Validate that the state storage class exists. Requires cluster access, so this
+is skipped during templating (e.g. `helm template`).
+*/}}
+{{- define "ais-cluster.validateStateStorageClass" -}}
+{{- $stateStorageClass := include "ais-cluster.stateStorageClass" . -}}
+{{- if $stateStorageClass }}
+{{- $hasClusterAccess := (lookup "v1" "Node" "" "").items }}
+{{- if $hasClusterAccess }}
+{{- $sc := lookup "storage.k8s.io/v1" "StorageClass" "" $stateStorageClass }}
+{{- if empty $sc }}
+{{- fail (printf "StorageClass '%s' for state storage not found. Please ensure the StorageClass exists before deploying." $stateStorageClass) }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end -}}
