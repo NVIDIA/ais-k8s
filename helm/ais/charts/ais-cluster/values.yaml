@@ -44,7 +44,7 @@ proxySpec:
   portIntraData: 51083
   externalAccess:
     enabled: false
-    serviceAnnotations: {}
+    annotations: {}
 
 targetSpec:
   tolerations:
@@ -58,7 +58,7 @@ targetSpec:
   portIntraData: 51083
   externalAccess:
     enabled: false
-    serviceAnnotations: {}
+    annotations: {}
   pdb:
     enabled: false
 

@@ -3526,11 +3526,11 @@ spec:
                     description: ExternalAccess configures services for cluster-external
                       access to AIS.
                     properties:
-                      serviceAnnotations:
+                      annotations:
                         additionalProperties:
                           type: string
                         description: |-
-                          ServiceAnnotations are merged onto the created service(s)
+                          Annotations are merged onto the created service(s)
                           (for example cloud provider or external-dns annotations).
                         type: object
                     type: object
@@ -5566,11 +5566,11 @@ spec:
                     description: ExternalAccess configures services for cluster-external
                       access to AIS.
                     properties:
-                      serviceAnnotations:
+                      annotations:
                         additionalProperties:
                           type: string
                         description: |-
-                          ServiceAnnotations are merged onto the created service(s)
+                          Annotations are merged onto the created service(s)
                           (for example cloud provider or external-dns annotations).
                         type: object
                     type: object

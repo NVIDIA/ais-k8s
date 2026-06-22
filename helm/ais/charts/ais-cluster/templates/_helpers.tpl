@@ -85,10 +85,10 @@ is skipped during templating (e.g. `helm template`).
 {{- define "ais-cluster.proxyExternalAccess" -}}
 {{- if include "ais-cluster.proxyExternalAccessEnabled" . | trim -}}
 {{- $proxyEA := default (dict) .Values.proxySpec.externalAccess -}}
-{{- $ann := $proxyEA.serviceAnnotations | default dict -}}
+{{- $ann := $proxyEA.annotations | default dict -}}
 {{- if $ann }}
 externalAccess:
-  serviceAnnotations:
+  annotations:
 {{ toYaml $ann | indent 4 }}
 {{- else }}
 externalAccess: {}
@@ -99,10 +99,10 @@ externalAccess: {}
 {{- define "ais-cluster.targetExternalAccess" -}}
 {{- if include "ais-cluster.targetExternalAccessEnabled" . | trim -}}
 {{- $targetEA := default (dict) .Values.targetSpec.externalAccess -}}
-{{- $ann := $targetEA.serviceAnnotations | default dict -}}
+{{- $ann := $targetEA.annotations | default dict -}}
 {{- if $ann }}
 externalAccess:
-  serviceAnnotations:
+  annotations:
 {{ toYaml $ann | indent 4 }}
 {{- else }}
 externalAccess: {}

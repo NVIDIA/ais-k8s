@@ -28,7 +28,7 @@ func TestLoadBalancerIngressReady(t *testing.T) {
 
 func TestExternalAccessLBAnnotations_merge(t *testing.T) {
 	ea := &aisv1.ExternalAccessSpec{
-		ServiceAnnotations: map[string]string{
+		Annotations: map[string]string{
 			"custom": "value",
 		},
 	}

@@ -89,10 +89,10 @@ const (
 // ExternalAccessSpec configures services for external client access.
 // On proxies this creates one shared LoadBalancer; on targets one LoadBalancer per pod ordinal.
 type ExternalAccessSpec struct {
-	// ServiceAnnotations are merged onto the created service(s)
+	// Annotations are merged onto the created service(s)
 	// (for example cloud provider or external-dns annotations).
 	// +optional
-	ServiceAnnotations map[string]string `json:"serviceAnnotations,omitempty"`
+	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
 // PubNetDNSMode defines allowed values for publicNetDNSMode spec option

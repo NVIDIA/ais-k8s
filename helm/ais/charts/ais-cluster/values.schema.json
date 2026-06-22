@@ -506,7 +506,7 @@
           "description": "Configuration for cluster-external access to proxies, currently via a shared LoadBalancer.",
           "properties": {
             "enabled": { "type": "boolean", "default": false },
-            "serviceAnnotations": {
+            "annotations": {
               "type": "object",
               "additionalProperties": { "type": "string" }
             }
@@ -615,7 +615,7 @@
           "description": "Configuration for cluster-external access to targets, currently via per-target LoadBalancer services.",
           "properties": {
             "enabled": { "type": "boolean", "default": false },
-            "serviceAnnotations": {
+            "annotations": {
               "type": "object",
               "additionalProperties": { "type": "string" }
             }

@@ -16,7 +16,7 @@ func ExternalAccessLBAnnotations(ea *aisv1.ExternalAccessSpec) map[string]string
 	}
 	var user map[string]string
 	if ea != nil {
-		user = ea.ServiceAnnotations
+		user = ea.Annotations
 	}
 	return mergeServiceAnnotations(ann, user)
 }

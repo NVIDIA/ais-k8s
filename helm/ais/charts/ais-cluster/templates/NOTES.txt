@@ -10,5 +10,5 @@ WARNING: The value `logSidecarImage` is no longer supported with operator versio
 WARNING: The value `enableExternalLB` is deprecated. With operator >= 3.1.0, prefer `proxySpec.externalAccess` and `targetSpec.externalAccess`.
 {{- end }}
 {{- if .Values.proxyLB.enabled }}
-WARNING: The value `proxyLB` is deprecated. With operator >= 3.1.0, set `proxySpec.externalAccess.enabled: true` (and `proxySpec.externalAccess.serviceAnnotations`) for the equivalent shared proxy LoadBalancer.
+WARNING: The value `proxyLB` is deprecated. With operator >= 3.1.0, set `proxySpec.externalAccess.enabled: true` (and `proxySpec.externalAccess.annotations`) for the equivalent shared proxy LoadBalancer.
 {{- end }}
