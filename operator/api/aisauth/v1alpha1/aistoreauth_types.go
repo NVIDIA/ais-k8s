@@ -13,6 +13,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const defaultListenPort int32 = 52001
+
 // ServerConfSpec configures token issuance, signing, and user storage.
 type ServerConfSpec struct {
 	// ExpirationTime is the default lifetime for issued JWTs.
@@ -370,6 +372,15 @@ func (authn *AIStoreAuth) GetTLSSecretName() string {
 		return fmt.Sprintf("%s-tls", authn.Name)
 	}
 	return ""
+}
+
+// ListenPort returns the AuthN HTTP(S) listen port.
+func (authn *AIStoreAuth) ListenPort() int32 {
+	cfg := authn.Spec.Config
+	if cfg == nil || cfg.Net == nil || cfg.Net.HTTP == nil || cfg.Net.HTTP.Port == nil {
+		return defaultListenPort
+	}
+	return *cfg.Net.HTTP.Port
 }
 
 // +kubebuilder:object:root=true

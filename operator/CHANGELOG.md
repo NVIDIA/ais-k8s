@@ -10,6 +10,10 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ## Unreleased
 
+### Added
+
+- The operator-managed `AIStoreAuth` reconciliation now generates an owned `{name}-config` ConfigMap containing a fully rendered `authn.json`.
+
 ### Changed
 
 - Migrated AIS API TLS certificate verification toggle to `spec.operatorSkipVerifyCrt`.
@@ -17,6 +21,8 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 ### Deprecated
 
 - `OPERATOR_SKIP_VERIFY_CRT` env option. Use `spec.operatorSkipVerifyCrt`; env is used only as fallback when the spec field is unset.
+
+---
 
 ## v3.1.0
 

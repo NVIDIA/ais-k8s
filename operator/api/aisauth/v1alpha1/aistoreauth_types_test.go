@@ -80,6 +80,45 @@ func TestAIStoreAuthTLSHelpers(t *testing.T) {
 	}
 }
 
+func TestAIStoreAuthListenPort(t *testing.T) {
+	tests := []struct {
+		name string
+		spec AIStoreAuthSpec
+		port int32
+	}{
+		{
+			name: "default",
+			port: 52001,
+		},
+		{
+			name: "no http config",
+			spec: AIStoreAuthSpec{
+				Config: &ConfigSpec{Net: &NetSpec{}},
+			},
+			port: 52001,
+		},
+		{
+			name: "configured",
+			spec: AIStoreAuthSpec{
+				Config: &ConfigSpec{
+					Net: &NetSpec{
+						HTTP: &HTTPConfSpec{Port: ptr(int32(53001))},
+					},
+				},
+			},
+			port: 53001,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
+			authn := &AIStoreAuth{Spec: tt.spec}
+			g.Expect(authn.ListenPort()).To(Equal(tt.port))
+		})
+	}
+}
+
 func ptr[T any](v T) *T {
 	return &v
 }
