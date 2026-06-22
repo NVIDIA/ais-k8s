@@ -15,7 +15,7 @@ controllerManager:
       operatorSkipVerifyCrt: "True"
     image:
       repository: docker.io/aistorage/ais-operator
-      tag: v3.0.0
+      tag: v3.1.0
     resources:
       limits:
         cpu: 100m
