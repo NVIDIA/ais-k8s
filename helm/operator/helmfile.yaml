@@ -20,7 +20,7 @@ environments:
   oci-iad:
     values:
     - version: 2.19.0
-    - valuesPath: ./config/operator/default.yaml
+    - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/operator/config/operator/oci-iad.yaml?ref=main"
     - createCert:
         enabled: false
   oci-ord:
