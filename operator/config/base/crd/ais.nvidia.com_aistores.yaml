@@ -5879,6 +5879,18 @@ spec:
                           More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
                         type: object
                     type: object
+                  scaleDownMode:
+                    default: decommission
+                    description: |-
+                      ScaleDownMode controls how targets are scaled down.
+                      "decommission" (default) rebalances data off the node or deletes it, depending on whether rebalance is enabled.
+                      "retain" leaves data on the node by putting the target into maintenance mode. This is useful when you expect
+                      another pod to be immediately scheduled on the node. Note that if this is not the case then any data on the node
+                      will become inaccessible.
+                    enum:
+                    - decommission
+                    - retain
+                    type: string
                   securityContext:
                     description: SecurityContext defines pod-level security attributes
                       and common container settings for AIS proxy and target pods.

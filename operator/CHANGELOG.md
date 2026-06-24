@@ -14,6 +14,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 - The operator-managed `AIStoreAuth` reconciliation now generates an owned `{name}-config` ConfigMap containing a fully rendered `authn.json`.
 - Operator-provisioned certificates via `tls.certificate` will include service external endpoints in the SAN list when using `externalAccess` options.
+- `spec.targetSpec.scaleDownMode` option to control target scale-down behavior. Defaults to `decommission` (rebalance data off the node, or delete it if rebalance is disabled); set to `retain` to keep data on the node via maintenance mode, for use when a replacement pod is expected to reschedule there immediately.
 
 ### Changed
 
