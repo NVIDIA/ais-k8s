@@ -93,8 +93,9 @@ spec:
                           remain valid.
                         type: string
                       signingKey:
-                        description: SigningKey configures JWT signing parameters
-                          in AuthN config. Ignored when hmacSecret is set.
+                        description: |-
+                          SigningKey configures JWT signing parameters in AuthN config.
+                          AuthN decides whether these values are relevant for the selected signing mode.
                         properties:
                           bits:
                             description: Bits is the RSA key size when using RSA signing.

@@ -5,6 +5,8 @@
 package v1alpha1
 
 import (
+	"fmt"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -21,7 +23,8 @@ type ServerConfSpec struct {
 	// +optional
 	MaxTokenAge *metav1.Duration `json:"maxTokenAge,omitempty"`
 
-	// SigningKey configures JWT signing parameters in AuthN config. Ignored when hmacSecret is set.
+	// SigningKey configures JWT signing parameters in AuthN config.
+	// AuthN decides whether these values are relevant for the selected signing mode.
 	// +optional
 	SigningKey *SigningKeySpec `json:"signingKey,omitempty"`
 
@@ -333,6 +336,40 @@ type AIStoreAuth struct {
 
 	Spec   AIStoreAuthSpec   `json:"spec,omitempty"`
 	Status AIStoreAuthStatus `json:"status,omitempty"`
+}
+
+// HasTLSEnabled returns true if AuthN should serve HTTPS.
+func (authn *AIStoreAuth) HasTLSEnabled() bool {
+	return authn.UseTLSSecret() || authn.UseTLSCertificate()
+}
+
+// GetTLSCertificate returns the cert-manager certificate config if present.
+func (authn *AIStoreAuth) GetTLSCertificate() *TLSCertificateConfig {
+	if authn.Spec.TLS == nil {
+		return nil
+	}
+	return authn.Spec.TLS.Certificate
+}
+
+// UseTLSSecret returns true if AuthN should use an existing TLS Secret.
+func (authn *AIStoreAuth) UseTLSSecret() bool {
+	return authn.Spec.TLS != nil && authn.Spec.TLS.SecretName != nil && *authn.Spec.TLS.SecretName != ""
+}
+
+// UseTLSCertificate returns true if AuthN should use an operator-managed cert-manager Certificate.
+func (authn *AIStoreAuth) UseTLSCertificate() bool {
+	return authn.GetTLSCertificate() != nil
+}
+
+// GetTLSSecretName returns the Kubernetes TLS Secret name mounted by AuthN.
+func (authn *AIStoreAuth) GetTLSSecretName() string {
+	if authn.UseTLSSecret() {
+		return *authn.Spec.TLS.SecretName
+	}
+	if authn.UseTLSCertificate() {
+		return fmt.Sprintf("%s-tls", authn.Name)
+	}
+	return ""
 }
 
 // +kubebuilder:object:root=true
