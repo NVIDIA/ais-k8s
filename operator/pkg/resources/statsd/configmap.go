@@ -1,9 +1,10 @@
-// Package statsd is deprecated. StatsD support was deprecated in AIStore
-// in v3.28 and dropped in v4.0. Resource-name helpers are maintained here
-// for cleanup of past deployments.
 /*
  * Copyright (c) 2021-2026, NVIDIA CORPORATION. All rights reserved.
  */
+
+// Package statsd is deprecated. StatsD support was deprecated in AIStore
+// in v3.28 and dropped in v4.0. Resource-name helpers are maintained here
+// for cleanup of past deployments.
 package statsd
 
 import (

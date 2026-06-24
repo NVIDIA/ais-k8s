@@ -1,7 +1,7 @@
-// Package controllers contains k8s controller logic for AIS cluster
 /*
  * Copyright (c) 2021-2026, NVIDIA CORPORATION. All rights reserved.
  */
+
 package controllers
 
 // Reasons to be used by event recorder

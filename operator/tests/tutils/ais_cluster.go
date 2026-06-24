@@ -1,7 +1,7 @@
-// Package tutils provides utilities for running AIS operator tests
 /*
  * Copyright (c) 2021-2026, NVIDIA CORPORATION. All rights reserved.
  */
+
 package tutils
 
 import (

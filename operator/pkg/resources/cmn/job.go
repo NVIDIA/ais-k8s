@@ -1,8 +1,8 @@
-// Package cmn provides utilities for common AIS cluster resources
 // Creates a cleanup job for a specific node
 /*
  * Copyright (c) 2024, NVIDIA CORPORATION. All rights reserved.
  */
+
 package cmn
 
 import (

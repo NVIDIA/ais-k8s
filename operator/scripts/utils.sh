@@ -15,14 +15,6 @@ function check_gomod {
 
 function check_files_headers {
   for f in $(find ${OPERATOR_DIR} -type f -name "*.go" ! -regex $EXTERNAL_SRC_REGEX); do
-    # Expect '// +build ...' or '// Package ...'.
-    out=$(head -n 1 $f | grep -P "\/\/\s?(\+build(.*)|go:build(.*)|Package(.*))")
-    if [[ $? -ne 0 ]]; then
-      echo "$f: first line should be package a description. Instead got:"
-      head -n 1 $f
-      exit 1
-    fi
-
     # Expect '// no-copyright' or standard copyright preamble.
     out=$(head -n 10 $f | grep -P "((.*)\/\/\sno-copyright(.*)|(.*)Copyright(.*)NVIDIA(.*)All rights reserved(.*))")
     if [[ $? -ne 0 ]]; then

@@ -1,7 +1,7 @@
-// Package contains declaration of AIS Kubernetes Custom Resource Definitions
 /*
  * Copyright (c) 2024, NVIDIA CORPORATION. All rights reserved.
  */
+
 package v1beta1
 
 import (

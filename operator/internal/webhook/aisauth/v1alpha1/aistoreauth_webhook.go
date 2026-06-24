@@ -1,7 +1,8 @@
-// Package v1alpha1 contains admission webhooks for the auth.ais.nvidia.com/v1alpha1 API group.
 /*
  * Copyright (c) 2026, NVIDIA CORPORATION. All rights reserved.
  */
+
+// Package v1alpha1 contains admission webhooks for the auth.ais.nvidia.com/v1alpha1 API group.
 package v1alpha1
 
 import (

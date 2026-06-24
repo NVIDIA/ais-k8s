@@ -1,7 +1,7 @@
-// Package e2e contains AIS operator integration tests
 /*
  * Copyright (c) 2025, NVIDIA CORPORATION. All rights reserved.
  */
+
 package e2e
 
 import (

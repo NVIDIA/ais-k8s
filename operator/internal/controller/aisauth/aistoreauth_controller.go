@@ -1,7 +1,8 @@
-// Package aisauth contains k8s controller logic for the AuthN authentication server.
 /*
  * Copyright (c) 2026, NVIDIA CORPORATION. All rights reserved.
  */
+
+// Package aisauth contains k8s controller logic for the AuthN authentication server.
 package aisauth
 
 import (

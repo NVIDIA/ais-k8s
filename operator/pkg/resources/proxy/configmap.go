@@ -1,7 +1,7 @@
-// Package proxy contains k8s resources required by AIS proxy daemons
 /*
  * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
  */
+
 package proxy
 
 import (

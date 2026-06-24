@@ -1,8 +1,9 @@
-// Package ownerref builds OwnerReference apply configurations for resources
-// owned by an AIStore CR.
 /*
  * Copyright (c) 2026, NVIDIA CORPORATION. All rights reserved.
  */
+
+// Package ownerref builds OwnerReference apply configurations for resources
+// owned by an AIStore CR.
 package ownerref
 
 import (
