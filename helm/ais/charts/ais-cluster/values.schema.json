@@ -420,6 +420,11 @@
         }
       }
     },
+    "operatorSkipVerifyCrt": {
+      "type": ["boolean", "null"],
+      "description": "Controls TLS certificate verification for Operator -> AIS HTTPS calls. False enforces verification; true disables it. If unset, operator fallback behavior applies.",
+      "examples": [false, true]
+    },
     "enableExternalLB": {
       "type": ["boolean"],
       "description": "Deprecated: enables operator-managed LoadBalancer services for proxies and targets. Prefer proxySpec.externalAccess and/or targetSpec.externalAccess.",

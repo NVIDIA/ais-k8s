@@ -31,11 +31,17 @@ However, for more advanced deployments it's recommended to follow [cert-manager 
 ### Configure Operator TLS and mTLS
 
 The operator communicates with the deployed AIS clusters over the AIS API.
-By default, if the AIS cluster is using HTTPS the operator will not verify the certificate (`OPERATOR_SKIP_VERIFY_CRT=True`).
 
 #### Enabling TLS Certificate Verification
 
-To enable certificate verification for AIS cluster connections, set the environment variable:
+To enable certificate verification for AIS cluster connections, set this in the AIStore CR:
+
+```yaml
+spec:
+  operatorSkipVerifyCrt: false
+```
+
+The operator environment variable is still supported as a deprecated fallback when `spec.operatorSkipVerifyCrt` is unset:
 
 ```yaml
 controllerManager:

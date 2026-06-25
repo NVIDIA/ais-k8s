@@ -29,6 +29,7 @@ stateStorage:
 stateStorageClass:
 authNSecretName:
 auth:
+operatorSkipVerifyCrt:
 enableExternalLB: false
 publicNetDNSMode:
 logsDir:

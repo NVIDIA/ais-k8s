@@ -8,6 +8,16 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ---
 
+## Unreleased
+
+### Changed
+
+- Migrated AIS API TLS certificate verification toggle to `spec.operatorSkipVerifyCrt`.
+
+### Deprecated
+
+- `OPERATOR_SKIP_VERIFY_CRT` env option. Use `spec.operatorSkipVerifyCrt`; env is used only as fallback when the spec field is unset.
+
 ## v3.1.0
 
 ### Added

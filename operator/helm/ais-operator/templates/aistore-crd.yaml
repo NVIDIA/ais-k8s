@@ -2031,6 +2031,13 @@ spec:
               ociSecretName:
                 description: Secret name containing OCI config and credentials
                 type: string
+              operatorSkipVerifyCrt:
+                description: |-
+                  OperatorSkipVerifyCrt controls TLS verification for Operator -> AIS API HTTPS calls.
+                  When false, the operator verifies certificates using trusted CAs.
+                  When true, certificate verification is disabled.
+                  When unset, the operator falls back to deprecated OPERATOR_SKIP_VERIFY_CRT.
+                type: boolean
               priorityClassName:
                 description: |-
                   PriorityClassName specifies the priority class name for AIS daemon pods (proxy and target).

@@ -24,7 +24,8 @@ import (
 )
 
 const (
-	APIModePublic  = "public"
+	APIModePublic = "public"
+	// Deprecated: Use AIStore CR field spec.operatorSkipVerifyCrt instead.
 	EnvSkipVerify  = "OPERATOR_SKIP_VERIFY_CRT"
 	ClientCertFile = "tls.crt"
 	ClientKeyFile  = "tls.key"
@@ -191,7 +192,7 @@ func (m *AISClientManager) getTLSConfig(ctx context.Context, ais *aisv1.AIStore)
 	}
 	tlsDir := m.getTLSPath(ais)
 	tlsConf := &tls.Config{}
-	err := configureCAVerification(ctx, tlsConf, tlsDir)
+	err := configureCAVerification(ctx, ais, tlsConf, tlsDir)
 	if err != nil {
 		return nil, err
 	}
@@ -199,11 +200,24 @@ func (m *AISClientManager) getTLSConfig(ctx context.Context, ais *aisv1.AIStore)
 	return tlsConf, err
 }
 
-func configureCAVerification(ctx context.Context, tlsConf *tls.Config, tlsDir string) error {
+func configureCAVerification(ctx context.Context, ais *aisv1.AIStore, tlsConf *tls.Config, tlsDir string) error {
 	logger := logf.FromContext(ctx)
-	skipVerify, err := aiscos.ParseBool(os.Getenv(EnvSkipVerify))
-	if err != nil {
-		return err
+	var (
+		skipVerify bool
+		err        error
+	)
+	// Prefer the per-cluster CR setting. Fall back to operator env var for backward compatibility.
+	if ais.Spec.OperatorSkipVerifyCrt != nil {
+		skipVerify = *ais.Spec.OperatorSkipVerifyCrt
+	} else {
+		raw, exists := os.LookupEnv(EnvSkipVerify)
+		if exists {
+			logger.Info("DEPRECATED: using operator env for skip-verify fallback; set spec.operatorSkipVerifyCrt on AIStore CR instead", "env", EnvSkipVerify)
+			skipVerify, err = aiscos.ParseBool(raw)
+			if err != nil {
+				return err
+			}
+		}
 	}
 	if skipVerify {
 		tlsConf.InsecureSkipVerify = true

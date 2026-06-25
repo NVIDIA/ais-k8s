@@ -25,7 +25,7 @@ controllerManager:
         memory: 20Mi
     # Optional ConfigMap names for CA certificates -- operator falls back to system CAs if not present
     # Override these values to use different ConfigMap names (e.g., from trust-manager)
-    # For operator->AIStore cluster TLS verification
+    # For Operator -> AIStore cluster TLS verification
     aisCAConfigmapName: ais-operator-ais-ca
     # For operator->auth service TLS verification
     authCAConfigmapName: ais-operator-auth-ca

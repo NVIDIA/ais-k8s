@@ -449,6 +449,13 @@ type AIStoreSpec struct {
 	// +optional
 	Auth *AuthSpec `json:"auth,omitempty"`
 
+	// OperatorSkipVerifyCrt controls TLS verification for Operator -> AIS API HTTPS calls.
+	// When false, the operator verifies certificates using trusted CAs.
+	// When true, certificate verification is disabled.
+	// When unset, the operator falls back to deprecated OPERATOR_SKIP_VERIFY_CRT.
+	// +optional
+	OperatorSkipVerifyCrt *bool `json:"operatorSkipVerifyCrt,omitempty"`
+
 	// ImagePullSecrets is an optional list of references to secrets in the same namespace to pull container images of AIS Daemons
 	// Applied to the service account so all pods inherit authentication automatically
 	// More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/#add-imagepullsecrets-to-a-service-account
