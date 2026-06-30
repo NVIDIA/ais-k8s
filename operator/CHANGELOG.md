@@ -13,6 +13,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 ### Added
 
 - The operator-managed `AIStoreAuth` reconciliation now generates an owned `{name}-config` ConfigMap containing a fully rendered `authn.json`.
+- Operator-provisioned certificates via `tls.certificate` will include service external endpoints in the SAN list when using `externalAccess` options.
 
 ### Changed
 

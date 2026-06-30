@@ -794,26 +794,77 @@ func (r *AIStoreReconciler) discoverPublicNetHosts(ctx context.Context, ais *ais
 	return slices.Compact(hosts), nil
 }
 
-func (r *AIStoreReconciler) targetPublicHosts(ctx context.Context, ais *aisv1.AIStore, mode aisv1.PubNetDNSMode) ([]string, error) {
+func (r *AIStoreReconciler) targetPublicHosts(ctx context.Context, ais *aisv1.AIStore, mode aisv1.PubNetDNSMode) (hosts []string, err error) {
+	// Use autoscale-discovered nodes if already provided, otherwise discover valid target hosts
 	if mode == aisv1.PubNetDNSModeNode && ais.IsTargetAutoScaling() && len(ais.Status.AutoScaleStatus.ExpectedTargetNodes) > 0 {
-		return slices.Clone(ais.Status.AutoScaleStatus.ExpectedTargetNodes), nil
+		hosts = slices.Clone(ais.Status.AutoScaleStatus.ExpectedTargetNodes)
+	} else {
+		nodes, listErr := r.listMatchingNodes(ctx, ais.Spec.TargetSpec.NodeSelector, ais.Spec.TargetSpec.Tolerations)
+		if listErr != nil {
+			return nil, listErr
+		}
+		hosts = publicHostsForNodes(nodes, mode)
 	}
-	nodes, err := r.listMatchingNodes(ctx, ais.Spec.TargetSpec.NodeSelector, ais.Spec.TargetSpec.Tolerations)
+	if !ais.TargetExternalAccessEnabled() {
+		return hosts, nil
+	}
+	endpoints, err := r.externalEndpoints(ctx, ais, target.ServiceLabelLB)
 	if err != nil {
 		return nil, err
 	}
-	return publicHostsForNodes(nodes, mode), nil
+	return append(hosts, endpoints...), nil
 }
 
-func (r *AIStoreReconciler) proxyPublicHosts(ctx context.Context, ais *aisv1.AIStore, mode aisv1.PubNetDNSMode) ([]string, error) {
+func (r *AIStoreReconciler) proxyPublicHosts(ctx context.Context, ais *aisv1.AIStore, mode aisv1.PubNetDNSMode) (hosts []string, err error) {
+	// Use autoscale-discovered nodes if already provided, otherwise discover valid proxy hosts
 	if mode == aisv1.PubNetDNSModeNode && ais.IsProxyAutoScaling() && len(ais.Status.AutoScaleStatus.ExpectedProxyNodes) > 0 {
-		return slices.Clone(ais.Status.AutoScaleStatus.ExpectedProxyNodes), nil
+		hosts = slices.Clone(ais.Status.AutoScaleStatus.ExpectedProxyNodes)
+	} else {
+		nodes, listErr := r.listMatchingNodes(ctx, ais.Spec.ProxySpec.NodeSelector, ais.Spec.ProxySpec.Tolerations)
+		if listErr != nil {
+			return nil, listErr
+		}
+		hosts = publicHostsForNodes(nodes, mode)
 	}
-	nodes, err := r.listMatchingNodes(ctx, ais.Spec.ProxySpec.NodeSelector, ais.Spec.ProxySpec.Tolerations)
+	if !ais.ProxyExternalAccessEnabled() {
+		return hosts, nil
+	}
+	endpoints, err := r.externalEndpoints(ctx, ais, proxy.ServiceLabelLB)
 	if err != nil {
 		return nil, err
 	}
-	return publicHostsForNodes(nodes, mode), nil
+	return append(hosts, endpoints...), nil
+}
+
+// externalEndpoints returns the external IPs/hostnames of every LoadBalancer
+// service matching the given component LB label.
+func (r *AIStoreReconciler) externalEndpoints(ctx context.Context, ais *aisv1.AIStore, lbLabel string) ([]string, error) {
+	svcList := &corev1.ServiceList{}
+	err := r.k8sClient.List(ctx, svcList,
+		k8sclient.InNamespace(ais.Namespace),
+		k8sclient.MatchingLabels(cmn.NewServiceLabels(ais.Name, lbLabel)),
+	)
+	if err != nil {
+		return nil, err
+	}
+	return loadBalancerEndpoints(svcList.Items), nil
+}
+
+// loadBalancerEndpoints returns every external IP and hostname across the given
+// LoadBalancer services (single LB may expose multiple ingress entries and both an IP and hostname).
+func loadBalancerEndpoints(svcs []corev1.Service) []string {
+	var endpoints []string
+	for i := range svcs {
+		for _, ing := range svcs[i].Status.LoadBalancer.Ingress {
+			if ing.IP != "" {
+				endpoints = append(endpoints, ing.IP)
+			}
+			if ing.Hostname != "" {
+				endpoints = append(endpoints, ing.Hostname)
+			}
+		}
+	}
+	return endpoints
 }
 
 func (r *AIStoreReconciler) reconcileTLSCertificate(ctx context.Context, ais *aisv1.AIStore) error {

@@ -18,6 +18,8 @@ import (
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	aisclient "github.com/ais-operator/pkg/client"
 	"github.com/ais-operator/pkg/resources/cmn"
+	"github.com/ais-operator/pkg/resources/proxy"
+	"github.com/ais-operator/pkg/resources/target"
 	mocks "github.com/ais-operator/pkg/services/mocks"
 	"github.com/ais-operator/tests/tutils"
 	jsoniter "github.com/json-iterator/go"
@@ -33,9 +35,11 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 var _ = Describe("AIStoreController", func() {
@@ -1057,6 +1061,76 @@ var _ = Describe("AIStoreController", func() {
 			),
 		)
 	})
+	Describe("external access host discovery", func() {
+		const (
+			aisName    = "ais"
+			namespace  = "ais-ns"
+			lbIP       = "203.0.113.10"
+			lbHostname = "lb.example.com"
+		)
+
+		// reconcilerWithLB returns a reconciler backed by a fake client holding a
+		// single LoadBalancer Service with the given component LB label, plus a
+		// fresh AIStore CR. No envtest/API server is involved.
+		reconcilerWithLB := func(lbLabel string) (*AIStoreReconciler, *aisv1.AIStore) {
+			lbSvc := &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      aisName + "-" + lbLabel,
+					Namespace: namespace,
+					Labels:    cmn.NewServiceLabels(aisName, lbLabel),
+				},
+				Status: corev1.ServiceStatus{LoadBalancer: corev1.LoadBalancerStatus{
+					Ingress: []corev1.LoadBalancerIngress{{IP: lbIP}, {Hostname: lbHostname}},
+				}},
+			}
+			c := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(lbSvc).Build()
+			r := &AIStoreReconciler{k8sClient: aisclient.NewClient(c, scheme.Scheme)}
+			ais := &aisv1.AIStore{ObjectMeta: metav1.ObjectMeta{Name: aisName, Namespace: namespace}}
+			return r, ais
+		}
+
+		DescribeTable("includes external endpoints iff external access is enabled for that component",
+			func(ctx SpecContext, lbLabel string, enable func(*aisv1.AIStore), publicHosts func(context.Context, *AIStoreReconciler, *aisv1.AIStore) ([]string, error)) {
+				r, ais := reconcilerWithLB(lbLabel)
+
+				By("excluding external endpoints when external access is disabled")
+				hosts, err := publicHosts(ctx, r, ais)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(hosts).ToNot(ContainElements(lbIP, lbHostname))
+
+				By("including external endpoints when external access is enabled")
+				enable(ais)
+				hosts, err = publicHosts(ctx, r, ais)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(hosts).To(ContainElements(lbIP, lbHostname))
+			},
+			Entry("target", target.ServiceLabelLB,
+				func(a *aisv1.AIStore) { a.Spec.TargetSpec.ExternalAccess = &aisv1.ExternalAccessSpec{} },
+				func(ctx context.Context, r *AIStoreReconciler, a *aisv1.AIStore) ([]string, error) {
+					return r.targetPublicHosts(ctx, a, aisv1.PubNetDNSModeIP)
+				},
+			),
+			Entry("proxy", proxy.ServiceLabelLB,
+				func(a *aisv1.AIStore) { a.Spec.ProxySpec.ExternalAccess = &aisv1.ExternalAccessSpec{} },
+				func(ctx context.Context, r *AIStoreReconciler, a *aisv1.AIStore) ([]string, error) {
+					return r.proxyPublicHosts(ctx, a, aisv1.PubNetDNSModeIP)
+				},
+			),
+		)
+
+		It("appends external endpoints to autoscale-discovered nodes in Node mode", func(ctx SpecContext) {
+			const nodeName = "node-1"
+			r, ais := reconcilerWithLB(target.ServiceLabelLB)
+			ais.Spec.TargetSpec.Size = apc.Ptr[int32](-1)
+			ais.Spec.TargetSpec.ExternalAccess = &aisv1.ExternalAccessSpec{}
+			ais.Status.AutoScaleStatus.ExpectedTargetNodes = []string{nodeName}
+
+			hosts, err := r.targetPublicHosts(ctx, ais, aisv1.PubNetDNSModeNode)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(hosts).To(ContainElements(nodeName, lbIP, lbHostname))
+		})
+	})
+
 	Describe("shouldUpdatePVCRetentionPolicy", func() {
 		DescribeTable("should correctly compare PVC retention policy", func(desiredSyncPolicy, currentSyncPolicy *appsv1.StatefulSetPersistentVolumeClaimRetentionPolicy, expectedResult bool) {
 			needsUpdate := shouldUpdatePVCRetentionPolicy(desiredSyncPolicy, currentSyncPolicy)
