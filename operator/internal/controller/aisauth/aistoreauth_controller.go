@@ -50,6 +50,7 @@ func NewAIStoreAuthReconcilerFromMgr(mgr manager.Manager, logger logr.Logger) *A
 // +kubebuilder:rbac:groups=auth.ais.nvidia.com,resources=aistoreauths/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=auth.ais.nvidia.com,resources=aistoreauths/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;patch
+// +kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=get;list;watch;create;update;patch
 
 func (r *AIStoreAuthReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := r.log.WithValues("namespace", req.Namespace, "name", req.Name)
@@ -70,6 +71,11 @@ func (r *AIStoreAuthReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return reconcile.Result{}, err
 	}
 
+	if err := r.reconcilePersistence(ctx, authn); err != nil {
+		r.recordError(ctx, authn, err, "Failed to reconcile AuthN persistence")
+		return reconcile.Result{}, err
+	}
+
 	logger.Info("Reconciled AIStoreAuth")
 	return reconcile.Result{}, nil
 }
@@ -86,6 +92,24 @@ func (r *AIStoreAuthReconciler) reconcileConfigMap(ctx context.Context, authn *a
 	return nil
 }
 
+// reconcilePersistence creates the owned AuthN data PVC. PersistentVolumes are not
+// managed by the operator, they are pre-provisioned with Helm (volumeName) or created
+// by a StorageClass provisioner (storageClass).
+//
+// Changing an immutable PVC field (storageClassName, volumeName, or size on a
+// non-expandable class) will fail server-side apply on every reconcile.
+func (r *AIStoreAuthReconciler) reconcilePersistence(ctx context.Context, authn *authv1alpha1.AIStoreAuth) error {
+	pvc, err := authnres.NewPVC(authn)
+	if err != nil {
+		return err
+	}
+	if err := r.client.Apply(ctx, pvc, client.FieldOwner(aisclient.FieldOwner), client.ForceOwnership); err != nil {
+		return err
+	}
+	logf.FromContext(ctx).Info("AuthN PVC applied", "name", authnres.PVCName(authn))
+	return nil
+}
+
 func (r *AIStoreAuthReconciler) recordError(ctx context.Context, authn *authv1alpha1.AIStoreAuth, err error, msg string) {
 	logf.FromContext(ctx).Error(err, msg)
 	r.recorder.Eventf(authn, nil, corev1.EventTypeWarning, eventReasonFailed, actionReconcile,
@@ -97,6 +121,7 @@ func (r *AIStoreAuthReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&authv1alpha1.AIStoreAuth{}).
 		Owns(&corev1.ConfigMap{}).
+		Owns(&corev1.PersistentVolumeClaim{}).
 		Named("aistoreauth").
 		Complete(r)
 }

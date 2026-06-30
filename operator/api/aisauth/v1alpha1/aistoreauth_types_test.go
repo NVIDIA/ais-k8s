@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -119,8 +120,58 @@ func TestAIStoreAuthListenPort(t *testing.T) {
 	}
 }
 
+func TestPersistenceSpecMode(t *testing.T) {
+	tests := []struct {
+		name              string
+		persistence       PersistenceSpec
+		usesStorageClass  bool
+		usesExistingVol   bool
+		storageSizeString string
+	}{
+		{
+			name:              "storage class",
+			persistence:       PersistenceSpec{StorageClass: ptr("openebs-hostpath")},
+			usesStorageClass:  true,
+			storageSizeString: "256Mi",
+		},
+		{
+			name:              "existing volume",
+			persistence:       PersistenceSpec{VolumeName: ptr("existing-pv")},
+			usesExistingVol:   true,
+			storageSizeString: "256Mi",
+		},
+		{
+			name:              "explicit size",
+			persistence:       PersistenceSpec{StorageClass: ptr("fast"), Size: quantityPtr("1Gi")},
+			usesStorageClass:  true,
+			storageSizeString: "1Gi",
+		},
+		{
+			name:              "empty storage class is not dynamic mode",
+			persistence:       PersistenceSpec{StorageClass: ptr("")},
+			storageSizeString: "256Mi",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
+			p := tt.persistence
+			g.Expect(p.UsesStorageClass()).To(Equal(tt.usesStorageClass))
+			g.Expect(p.UsesExistingVolume()).To(Equal(tt.usesExistingVol))
+			size := p.StorageSize()
+			g.Expect(size.String()).To(Equal(tt.storageSizeString))
+		})
+	}
+}
+
 func ptr[T any](v T) *T {
 	return &v
+}
+
+func quantityPtr(s string) *resource.Quantity {
+	q := resource.MustParse(s)
+	return &q
 }
 
 // testIssuerName avoids gosec G101 false positives by avoiding hardcoding a

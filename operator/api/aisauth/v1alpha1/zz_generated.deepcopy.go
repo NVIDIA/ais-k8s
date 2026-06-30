@@ -428,13 +428,13 @@ func (in *PersistenceSpec) DeepCopyInto(out *PersistenceSpec) {
 		x := (*in).DeepCopy()
 		*out = &x
 	}
-	if in.HostPath != nil {
-		in, out := &in.HostPath, &out.HostPath
+	if in.StorageClass != nil {
+		in, out := &in.StorageClass, &out.StorageClass
 		*out = new(string)
 		**out = **in
 	}
-	if in.StorageClass != nil {
-		in, out := &in.StorageClass, &out.StorageClass
+	if in.VolumeName != nil {
+		in, out := &in.VolumeName, &out.VolumeName
 		*out = new(string)
 		**out = **in
 	}

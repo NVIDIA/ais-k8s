@@ -40,6 +40,7 @@ var _ = Describe("AIStoreAuthReconciler", Label("short"), func() {
 		Expect(authv1alpha1.AddToScheme(scheme)).To(Succeed())
 		Expect(corev1.AddToScheme(scheme)).To(Succeed())
 
+		sc := "openebs-hostpath"
 		authn = &authv1alpha1.AIStoreAuth{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "ais-authn",
@@ -47,6 +48,9 @@ var _ = Describe("AIStoreAuthReconciler", Label("short"), func() {
 				UID:       types.UID("test-uid"),
 			},
 			Spec: authv1alpha1.AIStoreAuthSpec{
+				Persistence: authv1alpha1.PersistenceSpec{
+					StorageClass: &sc,
+				},
 				Deployment: authv1alpha1.DeploymentSpec{
 					Image: "docker.io/aistorage/authn:v4.5",
 				},
@@ -83,4 +87,28 @@ var _ = Describe("AIStoreAuthReconciler", Label("short"), func() {
 		cm := &corev1.ConfigMap{}
 		Expect(reconciler.client.Get(ctx, authnres.ConfigMapNSName(authn), cm)).To(Succeed())
 	})
+
+	It("creates an owned PVC for dynamic storage", func() {
+		Expect(reconciler.reconcilePersistence(ctx, authn)).To(Succeed())
+
+		pvc := &corev1.PersistentVolumeClaim{}
+		Expect(reconciler.client.Get(ctx, authnres.PVCNSName(authn), pvc)).To(Succeed())
+		Expect(pvc.OwnerReferences).To(HaveLen(1))
+		Expect(pvc.OwnerReferences[0].Name).To(Equal(authn.Name))
+		Expect(pvc.Spec.StorageClassName).To(HaveValue(Equal("openebs-hostpath")))
+		Expect(pvc.Spec.VolumeName).To(BeEmpty())
+	})
+
+	It("creates a PVC bound to an existing volume by name", func() {
+		vol := "existing-authn-pv"
+		authn.Spec.Persistence = authv1alpha1.PersistenceSpec{VolumeName: &vol}
+
+		Expect(reconciler.reconcilePersistence(ctx, authn)).To(Succeed())
+
+		pvc := &corev1.PersistentVolumeClaim{}
+		Expect(reconciler.client.Get(ctx, authnres.PVCNSName(authn), pvc)).To(Succeed())
+		Expect(pvc.Spec.VolumeName).To(Equal(vol))
+		Expect(pvc.Spec.StorageClassName).To(HaveValue(Equal("")))
+	})
+
 })

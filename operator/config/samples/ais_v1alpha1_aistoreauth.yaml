@@ -37,9 +37,13 @@ spec:
         kind: ClusterIssuer
       additionalDNSNames:
         - ais-authn.ais.svc.cluster.local
+  # Persistence requires exactly one mode. PVs are pre-provisioned outside the operator (for example by Helm).
   persistence:
     size: 256Mi
+    # storageClass: dynamically provision a PVC via the named StorageClass.
     storageClass: openebs-hostpath
+    # volumeName: bind the PVC to an existing PersistentVolume by name.
+    # volumeName: ais-authn-pv
   externalAccess:
     nodePort:
       port: 30001

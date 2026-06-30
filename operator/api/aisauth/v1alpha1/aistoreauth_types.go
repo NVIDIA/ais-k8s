@@ -13,7 +13,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const defaultListenPort int32 = 52001
+const (
+	defaultListenPort      int32 = 52001
+	defaultPersistenceSize       = "256Mi"
+)
 
 // ServerConfSpec configures token issuance, signing, and user storage.
 type ServerConfSpec struct {
@@ -165,20 +168,46 @@ type TLSCertificateConfig struct {
 }
 
 // PersistenceSpec configures the AuthN data volume (users, RSA keys).
-// When neither hostPath nor storageClass is set, the operator provisions node-local (host-path) storage.
-// +kubebuilder:validation:XValidation:rule="[has(self.hostPath), has(self.storageClass)].filter(x, x).size() <= 1",message="specify at most one of hostPath or storageClass"
+// Exactly one of storageClass (dynamic PVC) or volumeName (bind a pre-provisioned PV)
+// must be set. PersistentVolumes must be pre-provisioned outside the operator (for example by Helm).
+// +kubebuilder:validation:XValidation:rule="[has(self.storageClass), has(self.volumeName)].filter(x, x).size() == 1",message="specify exactly one of storageClass or volumeName"
 type PersistenceSpec struct {
-	// Size of the requested PVC when using storageClass.
+	// Size requested for the PVC. Defaults to 256Mi.
+	// Size in bytes. Specify with a unit suffix like "Mi" or "Gi" (e.g., 256Mi, 1Gi), or as a plain integer for bytes (e.g., 268435456).
+	// +kubebuilder:validation:XValidation:rule="type(self) == int ? self > 0 : quantity(self).isGreaterThan(quantity('0'))",message="must be greater than zero"
 	// +optional
 	Size *resource.Quantity `json:"size,omitempty"`
 
-	// HostPath creates a node-local PV backed by a directory on the node.
-	// +optional
-	HostPath *string `json:"hostPath,omitempty"`
-
-	// StorageClass provisions a dynamic PVC.
+	// StorageClass provisions a dynamic PVC via the named StorageClass.
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
 	// +optional
 	StorageClass *string `json:"storageClass,omitempty"`
+
+	// VolumeName binds the PVC to an existing PersistentVolume by name.
+	// The PV must be pre-provisioned (for example by Helm) before the operator reconciles.
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	// +optional
+	VolumeName *string `json:"volumeName,omitempty"`
+}
+
+// UsesStorageClass reports whether AuthN storage is a dynamically provisioned PVC.
+func (p *PersistenceSpec) UsesStorageClass() bool {
+	return p.StorageClass != nil && *p.StorageClass != ""
+}
+
+// UsesExistingVolume reports whether the PVC binds to a pre-provisioned PV by name.
+func (p *PersistenceSpec) UsesExistingVolume() bool {
+	return p.VolumeName != nil && *p.VolumeName != ""
+}
+
+// StorageSize returns the requested PVC size, defaulting when unset.
+func (p *PersistenceSpec) StorageSize() resource.Quantity {
+	if p.Size != nil {
+		return *p.Size
+	}
+	return resource.MustParse(defaultPersistenceSize)
 }
 
 // ExternalAccessSpec configures optional external Services (NodePort, LoadBalancer).
@@ -289,10 +318,10 @@ type AIStoreAuthSpec struct {
 	TLS *TLSSpec `json:"tls,omitempty"`
 
 	// Persistence configures durable storage for AuthN state (users, RSA keys).
-	// When omitted, defaults to a node-local (host-path) storage.
-	// +kubebuilder:default:={}
-	// +optional
-	Persistence PersistenceSpec `json:"persistence,omitempty"`
+	// Exactly one of storageClass or volumeName must be set. PersistentVolumes are
+	// provisioned outside the operator. Required because there is no default storage mode.
+	// +kubebuilder:validation:Required
+	Persistence PersistenceSpec `json:"persistence"`
 
 	// ExternalAccess configures optional external Services (NodePort, LoadBalancer).
 	// +optional

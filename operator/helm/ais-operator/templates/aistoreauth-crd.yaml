@@ -2043,30 +2043,41 @@ spec:
                 type: object
                 x-kubernetes-map-type: atomic
               persistence:
-                default: {}
                 description: |-
                   Persistence configures durable storage for AuthN state (users, RSA keys).
-                  When omitted, defaults to a node-local (host-path) storage.
+                  Exactly one of storageClass or volumeName must be set. PersistentVolumes are
+                  provisioned outside the operator. Required because there is no default storage mode.
                 properties:
-                  hostPath:
-                    description: HostPath creates a node-local PV backed by a directory
-                      on the node.
-                    type: string
                   size:
                     anyOf:
                     - type: integer
                     - type: string
-                    description: Size of the requested PVC when using storageClass.
+                    description: |-
+                      Size requested for the PVC. Defaults to 256Mi.
+                      Size in bytes. Specify with a unit suffix like "Mi" or "Gi" (e.g., 256Mi, 1Gi), or as a plain integer for bytes (e.g., 268435456).
                     pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                     x-kubernetes-int-or-string: true
+                    x-kubernetes-validations:
+                    - message: must be greater than zero
+                      rule: 'type(self) == int ? self > 0 : quantity(self).isGreaterThan(quantity(''0''))'
                   storageClass:
-                    description: StorageClass provisions a dynamic PVC.
+                    description: StorageClass provisions a dynamic PVC via the named
+                      StorageClass.
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                  volumeName:
+                    description: |-
+                      VolumeName binds the PVC to an existing PersistentVolume by name.
+                      The PV must be pre-provisioned (for example by Helm) before the operator reconciles.
+                    maxLength: 253
+                    minLength: 1
                     type: string
                 type: object
                 x-kubernetes-validations:
-                - message: specify at most one of hostPath or storageClass
-                  rule: '[has(self.hostPath), has(self.storageClass)].filter(x, x).size()
-                    <= 1'
+                - message: specify exactly one of storageClass or volumeName
+                  rule: '[has(self.storageClass), has(self.volumeName)].filter(x, x).size()
+                    == 1'
               rsaPassphraseSecret:
                 description: RSAPassphraseSecret names a Secret in the CR namespace
                   holding the RSA key passphrase.
@@ -2140,6 +2151,7 @@ spec:
                     <= 1'
             required:
             - deployment
+            - persistence
             type: object
           status:
             description: AIStoreAuthStatus defines the observed state of the AuthN server.
