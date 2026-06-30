@@ -236,7 +236,7 @@ func (r *AIStoreReconciler) resolveStatefulSetScaling(ctx context.Context, ais *
 		}
 		logger.Info("Scaling up target statefulset to match AIS cluster spec size", "desiredSize", expectedSize)
 	} else if expectedSize < currentSize {
-		// Wait for decommission to complete before scaling the StatefulSet down
+		// If applicable, wait for decommission to complete before scaling the StatefulSet down
 		if ready, scaleErr := r.isReadyToScaleDown(ctx, ais, currentSize); scaleErr != nil || !ready {
 			return scaleErr
 		}
@@ -260,6 +260,9 @@ func (r *AIStoreReconciler) isReadyToScaleDown(ctx context.Context, ais *aisv1.A
 	if err != nil {
 		return
 	}
+	if ais.Spec.TargetSpec.GetScaleDownMode() == aisv1.ScaleDownModeRetain {
+		return true, nil
+	}
 	// If any targets are still in the smap as decommissioning, delay scaling
 	for _, targetNode := range smap.Tmap {
 		if smap.InMaintOrDecomm(targetNode.ID()) && !smap.InMaint(targetNode) {
@@ -281,7 +284,10 @@ func (r *AIStoreReconciler) startTargetScaling(ctx context.Context, ais *aisv1.A
 		return r.scaleUpLB(ctx, ais)
 	}
 
-	// Otherwise - scale down.
+	err := r.scaleDownLB(ctx, ais, ss)
+	if err != nil {
+		return err
+	}
 	// Ensure rebalance is enabled before decommissioning so data can migrate
 	// off the targets being decommissioned.
 	if err := r.enableRebalanceCondition(ctx, ais); err != nil {
@@ -290,15 +296,11 @@ func (r *AIStoreReconciler) startTargetScaling(ctx context.Context, ais *aisv1.A
 	if err := r.handleConfigState(ctx, ais, true /*force*/); err != nil {
 		return err
 	}
-	err := r.scaleDownLB(ctx, ais, ss)
-	if err != nil {
-		return err
-	}
-	// Decommission target through AIS API
-	return r.decommissionTargets(ctx, ais, *ss.Spec.Replicas)
+	// Prepare targets for scale down either via maintenance mode or decommission.
+	return r.prepareTargetsForScaleDown(ctx, ais, *ss.Spec.Replicas)
 }
 
-func (r *AIStoreReconciler) decommissionTargets(ctx context.Context, ais *aisv1.AIStore, actualSize int32) error {
+func (r *AIStoreReconciler) prepareTargetsForScaleDown(ctx context.Context, ais *aisv1.AIStore, actualSize int32) error {
 	logger := logf.FromContext(ctx)
 	apiClient, err := r.clientManager.GetClient(ctx, ais)
 	if err != nil {
@@ -308,10 +310,10 @@ func (r *AIStoreReconciler) decommissionTargets(ctx context.Context, ais *aisv1.
 	if err != nil {
 		return err
 	}
-	logger.Info("Decommissioning targets", "Smap version", smap)
+	logger.Info("Preparing targets for scale down", "Smap version", smap)
 	for idx := actualSize; idx > ais.GetTargetSize(); idx-- {
 		podName := target.PodName(ais, idx-1)
-		logger.Info("Attempting to decommission target", "podName", podName)
+		logger.Info("Attempting to prepare target for scale down", "podName", podName)
 		node, err := findAISNodeByPodName(smap.Tmap, podName)
 		if err != nil {
 			// If target is not in the cluster map, fetch the pod and inspect state.
@@ -320,25 +322,34 @@ func (r *AIStoreReconciler) decommissionTargets(ctx context.Context, ais *aisv1.
 			pod, podErr := r.k8sClient.GetPod(ctx, types.NamespacedName{Name: podName, Namespace: ais.Namespace})
 			switch {
 			case k8serrors.IsNotFound(podErr):
-				logger.Info("Target pod not found, skipping decommission", "podName", podName)
+				logger.Info("Target pod not found, skipping scale-down preparation", "podName", podName)
 				continue
 			case podErr != nil:
 				return fmt.Errorf("failed to get pod %s: %w", podName, podErr)
 			case isPodUnschedulable(pod):
-				logger.Info("Target pod is unschedulable, skipping decommission", "podName", podName)
+				logger.Info("Target pod is unschedulable, skipping scale-down preparation", "podName", podName)
 				continue
 			case isPodInCrashLoopBackOff(pod):
-				logger.Info("Target pod is in CrashLoopBackOff, skipping decommission", "podName", podName)
+				logger.Info("Target pod is in CrashLoopBackOff, skipping scale-down preparation", "podName", podName)
 				continue
 			}
 			return fmt.Errorf("waiting for target %s to register in smap", podName)
 		}
 		if !smap.InMaintOrDecomm(node.ID()) {
-			logger.Info("Decommissioning target", "nodeID", node.ID())
-			_, err = apiClient.DecommissionNode(&aisapc.ActValRmNode{DaemonID: node.ID(), RmUserData: true})
-			if err != nil {
-				logger.Error(err, "Failed to decommission node", "nodeID", node.ID())
-				return err
+			if ais.Spec.TargetSpec.GetScaleDownMode() == aisv1.ScaleDownModeRetain {
+				logger.Info("Putting target in maintenance mode", "nodeID", node.ID())
+				_, err = apiClient.StartMaintenance(&aisapc.ActValRmNode{DaemonID: node.ID(), SkipRebalance: true})
+				if err != nil {
+					logger.Error(err, "Failed to put node in maintenance", "nodeID", node.ID())
+					return err
+				}
+			} else {
+				logger.Info("Decommissioning target", "nodeID", node.ID())
+				_, err = apiClient.DecommissionNode(&aisapc.ActValRmNode{DaemonID: node.ID(), RmUserData: true})
+				if err != nil {
+					logger.Error(err, "Failed to decommission node", "nodeID", node.ID())
+					return err
+				}
 			}
 		} else {
 			logger.Info("AIS target is already in decommissioning state", "nodeID", node.ID())

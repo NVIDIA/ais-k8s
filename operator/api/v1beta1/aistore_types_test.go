@@ -288,4 +288,14 @@ var _ = Describe("AIStore", func() {
 			Entry("disabled", AIStore{Spec: AIStoreSpec{}}, false),
 		)
 	})
+
+	Describe("TargetSpec.GetScaleDownMode", func() {
+		DescribeTable("should return the correct value", func(t TargetSpec, want ScaleDownMode) {
+			Expect(t.GetScaleDownMode()).To(Equal(want))
+		},
+			Entry("nil field (defaults to decommission)", TargetSpec{}, ScaleDownModeDecommission),
+			Entry("explicitly decommission", TargetSpec{ScaleDownMode: aisapc.Ptr(ScaleDownModeDecommission)}, ScaleDownModeDecommission),
+			Entry("explicitly retain", TargetSpec{ScaleDownMode: aisapc.Ptr(ScaleDownModeRetain)}, ScaleDownModeRetain),
+		)
+	})
 })
