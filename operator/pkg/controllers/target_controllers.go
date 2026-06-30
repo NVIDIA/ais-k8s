@@ -575,7 +575,9 @@ func (r *AIStoreReconciler) createTargetExternalServices(ctx context.Context, ai
 func (r *AIStoreReconciler) targetExternalSvcReady(ctx context.Context, ais *aisv1.AIStore) (ready bool, err error) {
 	logger := logf.FromContext(ctx)
 	svcList := &corev1.ServiceList{}
-	err = r.k8sClient.List(ctx, svcList, client.MatchingLabels(cmn.NewServiceLabels(ais.Name, target.ServiceLabelLB)))
+	err = r.k8sClient.List(ctx, svcList,
+		client.InNamespace(ais.Namespace),
+		client.MatchingLabels(cmn.NewServiceLabels(ais.Name, target.ServiceLabelLB)))
 	if err != nil {
 		return false, err
 	}
