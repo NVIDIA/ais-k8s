@@ -24,9 +24,9 @@ stateStorage:
   pvc:
     storageClass: standard
 nodeImage:
-  tag: v4.7
+  tag: v4.8
 initImage:
-  tag: v4.7
+  tag: v4.8
 logSidecar:
   image:
     tag: v1.1
