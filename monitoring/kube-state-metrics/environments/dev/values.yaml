@@ -1,0 +1,3 @@
+affinity:
+  nodeLabelKey: monitoring
+  nodeLabelValue: true

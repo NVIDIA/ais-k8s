@@ -15,3 +15,8 @@ affinity:
               - "{{ .Values.affinity.nodeLabelValue }}"
 {{- end }}
 {{- end }}
+
+{{- if hasKey .Values "metricAllowlist" }}
+metricAllowlist:
+{{ .Values.metricAllowlist | toYaml | indent 2 }}
+{{- end }}

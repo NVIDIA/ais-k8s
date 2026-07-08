@@ -1,3 +1,7 @@
+affinity:
+  nodeLabelKey: monitoring
+  nodeLabelValue: true
+
 metricAllowlist:
   - kube_node_info
   - kube_node_status_condition
