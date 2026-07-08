@@ -2,7 +2,7 @@ livedebugging {
   enabled = true
 }
 
-{{- if .Values.remote }}
+{{- if and .Values.remote (or .Values.remote.endpoint .Values.remote.metricsEndpoint .Values.remote.logsEndpoint) }}
 
 remote.kubernetes.secret "export" {
   namespace = "monitoring"

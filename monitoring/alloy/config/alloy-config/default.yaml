@@ -9,8 +9,8 @@ ethtool:
   device_include: "^ens.*"
 
 local:
-  metricsEndpoint: "http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090/api/v1/otlp/"
-  logsEndpoint: "http://loki-gateway.monitoring.svc.cluster.local/loki/api/v1/push"
+  endpoint: "http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090/api/v1/otlp"
+  logsEndpoint: "http://loki-gateway.monitoring.svc.cluster.local/otlp/v1/logs"
 
 remote:
   # Set for common OLTP endpoint
