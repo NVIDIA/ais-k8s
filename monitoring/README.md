@@ -53,8 +53,8 @@ Default service names and ports:
 ### Example Instructions for Grafana.
 
 Configure access from the host into the pod by using ONE of the following:
-   - Port-forward: `kubectl port-forward --namespace monitoring service/kube-prometheus-stack-grafana 3000:80`
-   - Patch the service to use NodePort: `kubectl patch svc kube-prometheus-stack-grafana -n monitoring -p '{"spec": {"type": "NodePort"}}'`
+   - Port-forward: `kubectl port-forward --namespace monitoring service/prometheus-grafana 3000:80`
+   - Patch the service to use NodePort: `kubectl patch svc prometheus-grafana -n monitoring -p '{"spec": {"type": "NodePort"}}'`
    - Create a separate NodePort or LoadBalancer service: [k8s docs](https://kubernetes.io/docs/concepts/services-networking/service/)
 
 If needed, use an ssh tunnel to access the k8s host: `ssh -L <port>:localhost:<port> <user-name>@<ip-or-host-name>` and view `localhost:<port>`.

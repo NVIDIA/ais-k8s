@@ -1,8 +1,13 @@
 prometheus:
-  persistentVolume:
-    size: {{ .Values.prometheus.pvSize }}
-    storageClass: {{ .Values.prometheus.storageClass }}
   prometheusSpec:
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: {{ .Values.prometheus.storageClass }}
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: {{ .Values.prometheus.pvSize }}
     {{- if hasKey .Values "affinity"}}
     {{- if and .Values.affinity.nodeLabelKey .Values.affinity.nodeLabelValue }}
     affinity:
