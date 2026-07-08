@@ -63,6 +63,14 @@ chunksCache:
   affinity: 
     nodeAffinity: {{- toYaml .Values.nodeAffinity | nindent 6 }}  
 
+# cri-o short-name-mode requires fully-qualified image names
+memcached:
+  image:
+    repository: docker.io/library/memcached
+memcachedExporter:
+  image:
+    repository: docker.io/prom/memcached-exporter
+
 # Enable minio for storage
 minio:
   enabled: true
