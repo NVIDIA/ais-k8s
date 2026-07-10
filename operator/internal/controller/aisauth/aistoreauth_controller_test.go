@@ -10,6 +10,7 @@ import (
 
 	authv1alpha1 "github.com/ais-operator/api/aisauth/v1alpha1"
 	authnres "github.com/ais-operator/internal/resources/aisauth"
+	aisclient "github.com/ais-operator/pkg/client"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -57,8 +58,9 @@ var _ = Describe("AIStoreAuthReconciler", Label("short"), func() {
 			},
 		}
 
+		fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(authn).Build()
 		reconciler = &AIStoreAuthReconciler{
-			client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(authn).Build(),
+			client: aisclient.NewClient(fakeClient, scheme),
 			scheme: scheme,
 			log:    zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)),
 		}

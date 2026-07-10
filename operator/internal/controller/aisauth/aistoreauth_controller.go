@@ -17,7 +17,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -30,7 +29,7 @@ const (
 
 // AIStoreAuthReconciler reconciles an AIStoreAuth object.
 type AIStoreAuthReconciler struct {
-	client   client.Client
+	client   *aisclient.K8sClient
 	scheme   *runtime.Scheme
 	log      logr.Logger
 	recorder events.EventRecorder
@@ -39,7 +38,7 @@ type AIStoreAuthReconciler struct {
 // NewAIStoreAuthReconcilerFromMgr builds an AIStoreAuthReconciler from a controller manager.
 func NewAIStoreAuthReconcilerFromMgr(mgr manager.Manager, logger logr.Logger) *AIStoreAuthReconciler {
 	return &AIStoreAuthReconciler{
-		client:   mgr.GetClient(),
+		client:   aisclient.NewClientFromMgr(mgr),
 		scheme:   mgr.GetScheme(),
 		log:      logger,
 		recorder: mgr.GetEventRecorder("aistoreauth-controller"),
@@ -85,7 +84,7 @@ func (r *AIStoreAuthReconciler) reconcileConfigMap(ctx context.Context, authn *a
 	if err != nil {
 		return err
 	}
-	if err := r.client.Apply(ctx, cm, client.FieldOwner(aisclient.FieldOwner), client.ForceOwnership); err != nil {
+	if err := r.client.Apply(ctx, cm); err != nil {
 		return err
 	}
 	logf.FromContext(ctx).Info("AuthN ConfigMap applied", "name", authnres.ConfigMapName(authn))
@@ -103,7 +102,7 @@ func (r *AIStoreAuthReconciler) reconcilePersistence(ctx context.Context, authn 
 	if err != nil {
 		return err
 	}
-	if err := r.client.Apply(ctx, pvc, client.FieldOwner(aisclient.FieldOwner), client.ForceOwnership); err != nil {
+	if err := r.client.Apply(ctx, pvc); err != nil {
 		return err
 	}
 	logf.FromContext(ctx).Info("AuthN PVC applied", "name", authnres.PVCName(authn))
