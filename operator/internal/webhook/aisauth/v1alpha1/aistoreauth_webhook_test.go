@@ -92,17 +92,22 @@ func TestValidateSecretRefs(t *testing.T) {
 			existingSecrets: []string{"admin", "rsa-pass"},
 		},
 		{
-			name:            "hmac mode is admitted even when the hmac secret is absent",
+			name:            "hmac mode with existing admin and signing secrets is admitted",
 			admin:           secretRef("admin"),
 			hmac:            secretRef("hmac"),
-			existingSecrets: []string{"admin"},
+			existingSecrets: []string{"admin", "hmac"},
+		},
+		{
+			name:       "hmac mode with a missing signing secret is rejected",
+			hmac:       secretRef("hmac"),
+			wantFields: []string{"spec.hmacSecret"},
 		},
 		{
 			name:            "setting both hmac and rsa passphrase secrets is rejected",
 			admin:           secretRef("admin"),
 			hmac:            secretRef("hmac"),
 			rsa:             secretRef("rsa-pass"),
-			existingSecrets: []string{"admin", "rsa-pass"},
+			existingSecrets: []string{"admin", "hmac", "rsa-pass"},
 			wantFields:      []string{"spec.rsaPassphraseSecret"},
 		},
 		{
@@ -119,10 +124,11 @@ func TestValidateSecretRefs(t *testing.T) {
 			wantFields: []string{"spec.rsaPassphraseSecret"},
 		},
 		{
-			name:       "missing admin secret is rejected",
-			admin:      secretRef("admin"),
-			hmac:       secretRef("hmac"),
-			wantFields: []string{"spec.adminSecret"},
+			name:            "missing admin secret is rejected",
+			admin:           secretRef("admin"),
+			hmac:            secretRef("hmac"),
+			existingSecrets: []string{"hmac"},
+			wantFields:      []string{"spec.adminSecret"},
 		},
 		{
 			name:  "empty-name references are treated as unset and admitted",
@@ -136,6 +142,12 @@ func TestValidateSecretRefs(t *testing.T) {
 			rsa:        secretRef("rsa-pass"),
 			wantFields: []string{"spec.adminSecret", "spec.rsaPassphraseSecret"},
 		},
+		{
+			name:       "missing admin and HMAC secrets are reported together",
+			admin:      secretRef("admin"),
+			hmac:       secretRef("hmac"),
+			wantFields: []string{"spec.adminSecret", "spec.hmacSecret"},
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -148,10 +160,10 @@ func TestValidateSecretRefs(t *testing.T) {
 // TestValidateUpdateAndDelete locks in that update reuses create's validation and
 // that delete is a no-op.
 func TestValidateUpdateAndDelete(t *testing.T) {
-	authn := newAuthN(nil, nil, secretRef("rsa-pass")) // referenced Secret does not exist
+	authn := newAuthN(nil, secretRef("hmac"), nil) // referenced Secret does not exist
 	v := newValidator()
 	_, err := v.ValidateUpdate(context.Background(), authn, authn)
-	assertResult(t, err, []string{"spec.rsaPassphraseSecret"})
+	assertResult(t, err, []string{"spec.hmacSecret"})
 	if _, err := v.ValidateDelete(context.Background(), authn); err != nil {
 		t.Errorf("expected delete to be a no-op, got %v", err)
 	}

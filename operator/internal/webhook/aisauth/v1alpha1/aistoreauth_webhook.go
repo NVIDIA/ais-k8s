@@ -66,9 +66,20 @@ func (v *AIStoreAuthCustomValidator) validate(ctx context.Context, authn *authv1
 		}
 	}
 
+	hmacName := secretRefName(authn.Spec.HMACSecret)
+	if hmacName != "" {
+		fieldErr, err := v.requireSecret(ctx, authn.Namespace, hmacName, specPath.Child("hmacSecret"))
+		if err != nil {
+			return err
+		}
+		if fieldErr != nil {
+			allErrs = append(allErrs, fieldErr)
+		}
+	}
+
 	rsaPath := specPath.Child("rsaPassphraseSecret")
 	if rsaName := secretRefName(authn.Spec.RSAPassphraseSecret); rsaName != "" {
-		if secretRefName(authn.Spec.HMACSecret) != "" {
+		if hmacName != "" {
 			allErrs = append(allErrs, field.Invalid(rsaPath, rsaName,
 				"must not be set together with spec.hmacSecret"))
 		} else {
