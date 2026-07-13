@@ -232,7 +232,39 @@ var _ = Describe("scaleDownMode", func() {
 				Expect(k8sClient.Update(ctx, ais)).To(Succeed())
 			})
 
-			It("is always ready", func() {
+			It("scales when the target being removed is in maintenance", func() {
+				t1 := &aismeta.Snode{DaeID: "t1", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-0"}}
+				t2 := &aismeta.Snode{DaeID: "t2", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-1"}}
+				t3 := &aismeta.Snode{DaeID: "t3", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-2"}, Flags: aismeta.SnodeMaint}
+				smap := &aismeta.Smap{
+					Tmap: aismeta.NodeMap{"t1": t1, "t2": t2, "t3": t3},
+				}
+				apiClient.EXPECT().GetClusterMap().Return(smap, nil)
+				ready, err := r.isReadyToScaleDown(ctx, ais, 3)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(ready).To(BeTrue())
+			})
+
+			It("delays scaling when the target being removed is not yet in maintenance", func() {
+				t1 := &aismeta.Snode{DaeID: "t1", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-0"}}
+				t2 := &aismeta.Snode{DaeID: "t2", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-1"}}
+				t3 := &aismeta.Snode{DaeID: "t3", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-2"}}
+				smap := &aismeta.Smap{
+					Tmap: aismeta.NodeMap{"t1": t1, "t2": t2, "t3": t3},
+				}
+				apiClient.EXPECT().GetClusterMap().Return(smap, nil)
+				ready, err := r.isReadyToScaleDown(ctx, ais, 3)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(ready).To(BeFalse())
+			})
+
+			It("scales when the target being removed is absent from the cluster map", func() {
+				t1 := &aismeta.Snode{DaeID: "t1", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-0"}}
+				t2 := &aismeta.Snode{DaeID: "t2", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-1"}}
+				smap := &aismeta.Smap{
+					Tmap: aismeta.NodeMap{"t1": t1, "t2": t2},
+				}
+				apiClient.EXPECT().GetClusterMap().Return(smap, nil)
 				ready, err := r.isReadyToScaleDown(ctx, ais, 3)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(ready).To(BeTrue())

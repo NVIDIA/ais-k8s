@@ -10,6 +10,7 @@ import (
 	"time"
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
+	aismeta "github.com/NVIDIA/aistore/core/meta"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	"github.com/ais-operator/pkg/resources/cmn"
 	"github.com/ais-operator/pkg/resources/target"
@@ -251,11 +252,6 @@ func (r *AIStoreReconciler) resolveStatefulSetScaling(ctx context.Context, ais *
 }
 
 func (r *AIStoreReconciler) isReadyToScaleDown(ctx context.Context, ais *aisv1.AIStore, currentSize int32) (ready bool, err error) {
-	if ais.Spec.TargetSpec.RetainOnScaleDown() {
-		return true, nil
-	}
-
-	logger := logf.FromContext(ctx)
 	apiClient, err := r.clientManager.GetClient(ctx, ais)
 	if err != nil {
 		return
@@ -264,19 +260,50 @@ func (r *AIStoreReconciler) isReadyToScaleDown(ctx context.Context, ais *aisv1.A
 	if err != nil {
 		return
 	}
+	if ais.Spec.TargetSpec.RetainOnScaleDown() {
+		return isReadyToScaleDownRetain(ctx, ais, smap, currentSize), nil
+	}
+	return isReadyToScaleDownDecommission(ctx, smap, currentSize), nil
+}
+
+// isReadyToScaleDownRetain reports whether every target being removed is in maintenance. Maintenance is a
+// persistent flag that keeps the node in the cluster map, so readiness is checked per removed target.
+func isReadyToScaleDownRetain(ctx context.Context, ais *aisv1.AIStore, smap *aismeta.Smap, currentSize int32) bool {
+	logger := logf.FromContext(ctx)
+	for idx := currentSize; idx > ais.GetTargetSize(); idx-- {
+		podName := target.PodName(ais, idx-1)
+		node, nodeErr := findAISNodeByPodName(smap.Tmap, podName)
+		if nodeErr != nil {
+			// Target isn't a cluster member, so there's nothing to gate on.
+			logger.Info("Target being removed is absent from cluster map, skipping maintenance check", "podName", podName)
+			continue
+		}
+		if !smap.InMaint(node) {
+			logger.Info("Delaying scaling. Target not yet in maintenance", "nodeID", node.ID())
+			return false
+		}
+	}
+	return true
+}
+
+// isReadyToScaleDownDecommission reports whether a decommission-path scale-down can proceed. A
+// decommissioned target leaves the cluster map, so wait until none are mid-decommission and the node
+// count has dropped.
+func isReadyToScaleDownDecommission(ctx context.Context, smap *aismeta.Smap, currentSize int32) bool {
+	logger := logf.FromContext(ctx)
 	// If any targets are still in the smap as decommissioning, delay scaling
 	for _, targetNode := range smap.Tmap {
 		if smap.InMaintOrDecomm(targetNode.ID()) && !smap.InMaint(targetNode) {
 			logger.Info("Delaying scaling. Target still in decommissioning state", "target", targetNode.ID())
-			return
+			return false
 		}
 	}
 	// If we have the same number of target nodes as current replicas and none showed as decommissioned, don't scale
 	if int32(len(smap.Tmap)) == currentSize {
 		logger.Info("Delaying scaling. All target nodes are still listed as active")
-		return
+		return false
 	}
-	return true, nil
+	return true
 }
 
 func (r *AIStoreReconciler) startTargetScaling(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) error {
