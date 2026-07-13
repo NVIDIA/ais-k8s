@@ -7,6 +7,8 @@ package controllers
 import (
 	"context"
 
+	"github.com/NVIDIA/aistore/api/apc"
+	aismeta "github.com/NVIDIA/aistore/core/meta"
 	aisv1 "github.com/ais-operator/api/v1beta1"
 	aisclient "github.com/ais-operator/pkg/client"
 	"github.com/ais-operator/pkg/resources/target"
@@ -14,8 +16,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -121,5 +125,174 @@ var _ = Describe("prepareTargetForRollout", func() {
 		requeue, err := r.prepareTargetForRollout(ctx, ais, podName)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(requeue).To(BeFalse())
+	})
+})
+
+var _ = Describe("scaleDownMode", func() {
+	var (
+		r         *AIStoreReconciler
+		ais       *aisv1.AIStore
+		mockCtrl  *gomock.Controller
+		apiClient *mocks.MockAIStoreClientInterface
+		namespace string
+		ctx       = context.TODO()
+	)
+
+	BeforeEach(func() {
+		namespace = "ais-test-" + rand.String(10)
+		Expect(k8sClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace}})).To(Succeed())
+
+		ais = &aisv1.AIStore{
+			ObjectMeta: metav1.ObjectMeta{Name: "ais", Namespace: namespace},
+			Spec: aisv1.AIStoreSpec{
+				InitImage: "init:latest",
+				NodeImage: "node:latest",
+				ProxySpec: aisv1.DaemonSpec{
+					Size: apc.Ptr[int32](1),
+					ServiceSpec: aisv1.ServiceSpec{
+						ServicePort:      intstr.FromInt32(51080),
+						PublicPort:       intstr.FromInt32(51081),
+						IntraControlPort: intstr.FromInt32(51082),
+						IntraDataPort:    intstr.FromInt32(51083),
+					},
+				},
+				TargetSpec: aisv1.TargetSpec{
+					DaemonSpec: aisv1.DaemonSpec{
+						Size: apc.Ptr[int32](2),
+						ServiceSpec: aisv1.ServiceSpec{
+							ServicePort:      intstr.FromInt32(51080),
+							PublicPort:       intstr.FromInt32(51081),
+							IntraControlPort: intstr.FromInt32(51082),
+							IntraDataPort:    intstr.FromInt32(51083),
+						},
+					},
+					Mounts: []aisv1.Mount{{Path: "/data"}},
+				},
+				StateStorage: &aisv1.StateStorage{
+					HostPath: &aisv1.StateHostPathConfig{Prefix: "/ais"},
+				},
+			},
+		}
+		Expect(k8sClient.Create(ctx, ais)).To(Succeed())
+
+		tmpClient := aisclient.NewClient(k8sClient, k8sClient.Scheme())
+		mockCtrl = gomock.NewController(GinkgoT())
+		apiClient = mocks.NewMockAIStoreClientInterface(mockCtrl)
+		clientManager := mocks.NewMockAISClientManagerInterface(mockCtrl)
+		clientManager.EXPECT().GetClient(gomock.Any(), gomock.Any()).Return(apiClient, nil).AnyTimes()
+		r = NewAISReconciler(tmpClient, &events.FakeRecorder{}, ctrl.Log, clientManager)
+	})
+
+	AfterEach(func() {
+		mockCtrl.Finish()
+	})
+
+	makeSS := func(replicas int32) *appsv1.StatefulSet {
+		return &appsv1.StatefulSet{
+			Spec: appsv1.StatefulSetSpec{
+				Replicas: &replicas,
+			},
+		}
+	}
+
+	Describe("isReadyToScaleDown", func() {
+		Context("when scaleDownMode is decommission (default)", func() {
+			It("scales when all targets are ready", func() {
+				t1 := &aismeta.Snode{DaeID: "t1", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-0"}}
+				t2 := &aismeta.Snode{DaeID: "t2", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-1"}}
+				smap := &aismeta.Smap{
+					Tmap: aismeta.NodeMap{"t1": t1, "t2": t2},
+				}
+				apiClient.EXPECT().GetClusterMap().Return(smap, nil)
+
+				// 2 targets in smap but currentSize is 3, so safe to scale down by 1.
+				ready, err := r.isReadyToScaleDown(ctx, ais, 3)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(ready).To(BeTrue())
+			})
+
+			It("delays scaling when all targets are still active", func() {
+				t1 := &aismeta.Snode{DaeID: "t1", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-0"}}
+				t2 := &aismeta.Snode{DaeID: "t2", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-1"}}
+				t3 := &aismeta.Snode{DaeID: "t3", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-2"}}
+				smap := &aismeta.Smap{
+					Tmap: aismeta.NodeMap{"t1": t1, "t2": t2, "t3": t3},
+				}
+				apiClient.EXPECT().GetClusterMap().Return(smap, nil)
+
+				ready, err := r.isReadyToScaleDown(ctx, ais, 3)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(ready).To(BeFalse())
+			})
+		})
+
+		Context("when scaleDownMode is retain", func() {
+			BeforeEach(func() {
+				ais.Spec.TargetSpec.ScaleDownMode = aisv1.ScaleDownModeRetain
+				Expect(k8sClient.Update(ctx, ais)).To(Succeed())
+			})
+
+			It("is always ready", func() {
+				ready, err := r.isReadyToScaleDown(ctx, ais, 3)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(ready).To(BeTrue())
+			})
+		})
+	})
+
+	Describe("startTargetScaling", func() {
+		BeforeEach(func() {
+			// Pre-set rebalance condition so enableRebalanceCondition is a no-op
+			ais.SetCondition(aisv1.ConditionReadyRebalance)
+			Expect(k8sClient.Status().Update(ctx, ais)).To(Succeed())
+		})
+
+		Context("when scaleDownMode is decommission (default)", func() {
+			It("decommissions targets with RmUserData=true", func() {
+				ss := makeSS(3)
+
+				apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any(), false).Return(nil)
+
+				t3 := &aismeta.Snode{DaeID: "t3", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-2"}}
+				smap := &aismeta.Smap{
+					Tmap: aismeta.NodeMap{"t3": t3},
+				}
+				apiClient.EXPECT().GetClusterMap().Return(smap, nil)
+
+				apiClient.EXPECT().DecommissionNode(gomock.Any()).DoAndReturn(func(act *apc.ActValRmNode) (string, error) {
+					Expect(act.RmUserData).To(BeTrue())
+					return "xid", nil
+				})
+
+				err := r.startTargetScaling(ctx, ais, ss)
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+
+		Context("when scaleDownMode is retain", func() {
+			BeforeEach(func() {
+				ais.Spec.TargetSpec.ScaleDownMode = aisv1.ScaleDownModeRetain
+				Expect(k8sClient.Update(ctx, ais)).To(Succeed())
+			})
+
+			It("puts targets in maintenance with SkipRebalance=true", func() {
+				ss := makeSS(3)
+
+				t3 := &aismeta.Snode{DaeID: "t3", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-2"}}
+				smap := &aismeta.Smap{
+					Tmap: aismeta.NodeMap{"t3": t3},
+				}
+				apiClient.EXPECT().GetClusterMap().Return(smap, nil)
+
+				apiClient.EXPECT().StartMaintenance(gomock.Any()).DoAndReturn(func(act *apc.ActValRmNode) (string, error) {
+					Expect(act.SkipRebalance).To(BeTrue())
+					Expect(act.DaemonID).To(Equal("t3"))
+					return "xid", nil
+				})
+
+				err := r.startTargetScaling(ctx, ais, ss)
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
 	})
 })

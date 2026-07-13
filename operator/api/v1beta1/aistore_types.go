@@ -611,6 +611,19 @@ type DaemonSpec struct {
 	ExternalAccess *ExternalAccessSpec `json:"externalAccess,omitempty"`
 }
 
+// ScaleDownMode defines the behavior when scaling down targets.
+type ScaleDownMode string
+
+const (
+	// ScaleDownModeDecommission rebalances data off the node (or deletes it if
+	// rebalance is disabled) before removing the target.
+	ScaleDownModeDecommission ScaleDownMode = "decommission"
+	// ScaleDownModeRetain leaves data on the node by putting the target into
+	// maintenance mode. Useful when another pod is expected to be immediately
+	// scheduled; otherwise data may become inaccessible.
+	ScaleDownModeRetain ScaleDownMode = "retain"
+)
+
 // ProbeSpec defines optional overrides for Kubernetes probe timing parameters.
 // All fields are optional; unset fields use operator defaults.
 // SuccessThreshold is intentionally omitted: Kubernetes requires it to be 1 for liveness
@@ -661,6 +674,16 @@ type TargetSpec struct {
 	// during node drain or cluster scale-down operations by cloud providers.
 	// +optional
 	PodDisruptionBudget *PDBSpec `json:"pdb,omitempty"`
+
+	// ScaleDownMode controls how targets are scaled down.
+	// "decommission" (default) rebalances data off the node or deletes it, depending on whether rebalance is enabled.
+	// "retain" leaves data on the node by putting the target into maintenance mode. This is useful when you expect
+	// another pod to be immediately scheduled on the node. Note that if this is not the case then any data on the node
+	// will become inaccessible.
+	// +kubebuilder:validation:Enum=decommission;retain
+	// +kubebuilder:default:=decommission
+	// +optional
+	ScaleDownMode ScaleDownMode `json:"scaleDownMode,omitempty"`
 }
 
 // LogSidecarSpec defines a sidecar container to expose AIS logs to K8s
@@ -949,10 +972,6 @@ func (ais *AIStore) ShouldIncludeClientCert() bool {
 		return false
 	}
 	return tls.ClientAuthType(*ais.Spec.ConfigToUpdate.Net.HTTP.ClientAuthTLS) > tls.NoClientCert
-}
-
-func (ais *AIStore) IsFullyAutoScaling() bool {
-	return ais.GetTargetSize() == -1 && ais.GetProxySize() == -1
 }
 
 func (ais *AIStore) IsTargetAutoScaling() bool {

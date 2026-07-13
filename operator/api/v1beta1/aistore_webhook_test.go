@@ -64,6 +64,13 @@ func TestValidateTargetUpdateTolerations(t *testing.T) {
 	})
 }
 
+func TestValidateTargetUpdateToScaleDownMode(t *testing.T) {
+	prev := &AIStore{}
+	ais := &AIStore{}
+	ais.Spec.TargetSpec.ScaleDownMode = "retain"
+	Expect(validateTargetUpdate(prev, ais)).To(Succeed())
+}
+
 func TestAIStoreValidateSize(t *testing.T) {
 	tests := []struct {
 		name       string // description of this test case
