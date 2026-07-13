@@ -1305,6 +1305,12 @@ func (s *DaemonSpec) autoScaleMaxUnavailable() int32 {
 	return *s.AutoScaleConf.MaxUnavailable
 }
 
+// RetainOnScaleDown reports whether targets should be retained (put into
+// maintenance mode) instead of decommissioned on scale down.
+func (t *TargetSpec) RetainOnScaleDown() bool {
+	return t.ScaleDownMode == ScaleDownModeRetain
+}
+
 // +kubebuilder:object:root=true
 
 // AIStoreList contains a list of AIStore

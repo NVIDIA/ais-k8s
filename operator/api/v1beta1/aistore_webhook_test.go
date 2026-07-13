@@ -25,30 +25,30 @@ func runTolerationUpdateScenarios(
 	toleration := corev1.Toleration{Key: "gpu", Operator: corev1.TolerationOpExists, Effect: corev1.TaintEffectNoSchedule}
 
 	t.Run("adding toleration to "+component+" spec is allowed", func(subT *testing.T) {
-		RegisterTestingT(subT)
+		g := NewWithT(subT)
 		prev := &AIStore{}
 		ais := &AIStore{}
 		setTolerations(ais, []corev1.Toleration{toleration})
-		Expect(validate(prev, ais)).To(Succeed())
+		g.Expect(validate(prev, ais)).To(Succeed())
 	})
 
 	t.Run("removing toleration from "+component+" spec is allowed", func(subT *testing.T) {
-		RegisterTestingT(subT)
+		g := NewWithT(subT)
 		prev := &AIStore{}
 		setTolerations(prev, []corev1.Toleration{toleration})
 		ais := &AIStore{}
-		Expect(validate(prev, ais)).To(Succeed())
+		g.Expect(validate(prev, ais)).To(Succeed())
 	})
 
 	t.Run("modifying toleration in "+component+" spec is allowed", func(subT *testing.T) {
-		RegisterTestingT(subT)
+		g := NewWithT(subT)
 		prev := &AIStore{}
 		setTolerations(prev, []corev1.Toleration{toleration})
 		ais := &AIStore{}
 		modified := toleration
 		modified.Effect = corev1.TaintEffectNoExecute
 		setTolerations(ais, []corev1.Toleration{modified})
-		Expect(validate(prev, ais)).To(Succeed())
+		g.Expect(validate(prev, ais)).To(Succeed())
 	})
 }
 
@@ -65,10 +65,11 @@ func TestValidateTargetUpdateTolerations(t *testing.T) {
 }
 
 func TestValidateTargetUpdateToScaleDownMode(t *testing.T) {
+	g := NewWithT(t)
 	prev := &AIStore{}
 	ais := &AIStore{}
-	ais.Spec.TargetSpec.ScaleDownMode = "retain"
-	Expect(validateTargetUpdate(prev, ais)).To(Succeed())
+	ais.Spec.TargetSpec.ScaleDownMode = ScaleDownModeRetain
+	g.Expect(validateTargetUpdate(prev, ais)).To(Succeed())
 }
 
 func TestAIStoreValidateSize(t *testing.T) {
@@ -178,8 +179,8 @@ func TestAIStoreValidateSize(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		RegisterTestingT(t)
 		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
 			var ais AIStore
 			ais.Spec.ProxySpec.Size = tt.proxySize
 			ais.Spec.TargetSpec.Size = tt.targetSize
@@ -194,7 +195,7 @@ func TestAIStoreValidateSize(t *testing.T) {
 			if tt.wantErr {
 				t.Fatal("validateSize() succeeded unexpectedly")
 			}
-			Expect(got).To(Equal(tt.want))
+			g.Expect(got).To(Equal(tt.want))
 		})
 	}
 }

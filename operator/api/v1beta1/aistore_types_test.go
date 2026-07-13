@@ -287,5 +287,13 @@ var _ = Describe("AIStore", func() {
 			}}, false),
 			Entry("disabled", AIStore{Spec: AIStoreSpec{}}, false),
 		)
+
+		DescribeTable("RetainOnScaleDown", func(spec TargetSpec, want bool) {
+			Expect(spec.RetainOnScaleDown()).To(Equal(want))
+		},
+			Entry("unset defaults to decommission", TargetSpec{}, false),
+			Entry("decommission", TargetSpec{ScaleDownMode: ScaleDownModeDecommission}, false),
+			Entry("retain", TargetSpec{ScaleDownMode: ScaleDownModeRetain}, true),
+		)
 	})
 })

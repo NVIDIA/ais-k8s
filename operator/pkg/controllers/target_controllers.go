@@ -251,7 +251,7 @@ func (r *AIStoreReconciler) resolveStatefulSetScaling(ctx context.Context, ais *
 }
 
 func (r *AIStoreReconciler) isReadyToScaleDown(ctx context.Context, ais *aisv1.AIStore, currentSize int32) (ready bool, err error) {
-	if ais.Spec.TargetSpec.ScaleDownMode == aisv1.ScaleDownModeRetain {
+	if ais.Spec.TargetSpec.RetainOnScaleDown() {
 		return true, nil
 	}
 
@@ -286,7 +286,7 @@ func (r *AIStoreReconciler) startTargetScaling(ctx context.Context, ais *aisv1.A
 	}
 
 	// Otherwise - scale down.
-	if ais.Spec.TargetSpec.ScaleDownMode == aisv1.ScaleDownModeDecommission {
+	if !ais.Spec.TargetSpec.RetainOnScaleDown() {
 		// Ensure rebalance is enabled before decommissioning so data can migrate
 		// off the targets being decommissioned.
 		if err := r.enableRebalanceCondition(ctx, ais); err != nil {
@@ -341,7 +341,7 @@ func (r *AIStoreReconciler) prepareTargetsForScaleDown(ctx context.Context, ais 
 			return fmt.Errorf("waiting for target %s to register in smap", podName)
 		}
 		if !smap.InMaintOrDecomm(node.ID()) {
-			if ais.Spec.TargetSpec.ScaleDownMode == aisv1.ScaleDownModeRetain {
+			if ais.Spec.TargetSpec.RetainOnScaleDown() {
 				logger.Info("Putting target in maintenance mode", "nodeID", node.ID())
 				_, err = apiClient.StartMaintenance(&aisapc.ActValRmNode{DaemonID: node.ID(), SkipRebalance: true})
 				if err != nil {
