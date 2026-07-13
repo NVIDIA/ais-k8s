@@ -13,6 +13,7 @@ import (
 	aisclient "github.com/ais-operator/pkg/client"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -39,6 +40,7 @@ var _ = Describe("AIStoreAuthReconciler", Label("short"), func() {
 		ctx = context.Background()
 		scheme = runtime.NewScheme()
 		Expect(authv1alpha1.AddToScheme(scheme)).To(Succeed())
+		Expect(appsv1.AddToScheme(scheme)).To(Succeed())
 		Expect(corev1.AddToScheme(scheme)).To(Succeed())
 
 		sc := "openebs-hostpath"
@@ -111,6 +113,41 @@ var _ = Describe("AIStoreAuthReconciler", Label("short"), func() {
 		Expect(reconciler.client.Get(ctx, authnres.PVCNSName(authn), pvc)).To(Succeed())
 		Expect(pvc.Spec.VolumeName).To(Equal(vol))
 		Expect(pvc.Spec.StorageClassName).To(HaveValue(Equal("")))
+	})
+
+	It("creates an owned Deployment", func() {
+		Expect(reconciler.reconcileDeployment(ctx, authn)).To(Succeed())
+
+		deployment := &appsv1.Deployment{}
+		Expect(reconciler.client.Get(ctx, authnres.DeploymentNSName(authn), deployment)).To(Succeed())
+		Expect(deployment.OwnerReferences).To(HaveLen(1))
+		Expect(deployment.OwnerReferences[0].Controller).To(HaveValue(BeTrue()))
+		Expect(deployment.OwnerReferences[0].Name).To(Equal(authn.Name))
+		Expect(deployment.Spec.Replicas).To(HaveValue(Equal(int32(1))))
+		Expect(deployment.Spec.Strategy.Type).To(Equal(appsv1.RecreateDeploymentStrategyType))
+	})
+
+	It("reconciles and converges Deployment image and config changes", func() {
+		req := ctrl.Request{NamespacedName: authnres.DeploymentNSName(authn)}
+		_, err := reconciler.Reconcile(ctx, req)
+		Expect(err).NotTo(HaveOccurred())
+
+		deployment := &appsv1.Deployment{}
+		Expect(reconciler.client.Get(ctx, authnres.DeploymentNSName(authn), deployment)).To(Succeed())
+		originalChecksum := deployment.Spec.Template.Annotations[authnres.ConfigChecksumAnnotation]
+
+		stored := &authv1alpha1.AIStoreAuth{}
+		Expect(reconciler.client.Get(ctx, req.NamespacedName, stored)).To(Succeed())
+		stored.Spec.Deployment.Image = "docker.io/aistorage/authn:v4.8"
+		level := int32(4)
+		stored.Spec.Config = &authv1alpha1.ConfigSpec{Log: &authv1alpha1.LogSpec{Level: &level}}
+		Expect(reconciler.client.Update(ctx, stored)).To(Succeed())
+
+		_, err = reconciler.Reconcile(ctx, req)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(reconciler.client.Get(ctx, authnres.DeploymentNSName(authn), deployment)).To(Succeed())
+		Expect(deployment.Spec.Template.Spec.Containers[0].Image).To(Equal("docker.io/aistorage/authn:v4.8"))
+		Expect(deployment.Spec.Template.Annotations[authnres.ConfigChecksumAnnotation]).NotTo(Equal(originalChecksum))
 	})
 
 })

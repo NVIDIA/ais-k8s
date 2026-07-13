@@ -12,6 +12,7 @@ import (
 	authnres "github.com/ais-operator/internal/resources/aisauth"
 	aisclient "github.com/ais-operator/pkg/client"
 	"github.com/go-logr/logr"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -50,6 +51,7 @@ func NewAIStoreAuthReconcilerFromMgr(mgr manager.Manager, logger logr.Logger) *A
 // +kubebuilder:rbac:groups=auth.ais.nvidia.com,resources=aistoreauths/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;patch
 // +kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=get;list;watch;create;update;patch
+// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch
 
 func (r *AIStoreAuthReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := r.log.WithValues("namespace", req.Namespace, "name", req.Name)
@@ -72,6 +74,11 @@ func (r *AIStoreAuthReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	if err := r.reconcilePersistence(ctx, authn); err != nil {
 		r.recordError(ctx, authn, err, "Failed to reconcile AuthN persistence")
+		return reconcile.Result{}, err
+	}
+
+	if err := r.reconcileDeployment(ctx, authn); err != nil {
+		r.recordError(ctx, authn, err, "Failed to reconcile AuthN Deployment")
 		return reconcile.Result{}, err
 	}
 
@@ -109,6 +116,18 @@ func (r *AIStoreAuthReconciler) reconcilePersistence(ctx context.Context, authn 
 	return nil
 }
 
+func (r *AIStoreAuthReconciler) reconcileDeployment(ctx context.Context, authn *authv1alpha1.AIStoreAuth) error {
+	deployment, err := authnres.NewDeployment(authn)
+	if err != nil {
+		return err
+	}
+	if err := r.client.Apply(ctx, deployment); err != nil {
+		return err
+	}
+	logf.FromContext(ctx).Info("AuthN Deployment applied", "name", authnres.DeploymentName(authn))
+	return nil
+}
+
 func (r *AIStoreAuthReconciler) recordError(ctx context.Context, authn *authv1alpha1.AIStoreAuth, err error, msg string) {
 	logf.FromContext(ctx).Error(err, msg)
 	r.recorder.Eventf(authn, nil, corev1.EventTypeWarning, eventReasonFailed, actionReconcile,
@@ -121,6 +140,7 @@ func (r *AIStoreAuthReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&authv1alpha1.AIStoreAuth{}).
 		Owns(&corev1.ConfigMap{}).
 		Owns(&corev1.PersistentVolumeClaim{}).
+		Owns(&appsv1.Deployment{}).
 		Named("aistoreauth").
 		Complete(r)
 }

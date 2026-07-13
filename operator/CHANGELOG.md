@@ -12,6 +12,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ### Added
 
+- The operator-managed `AIStoreAuth` reconciliation now creates an owned AuthN Deployment that mounts the rendered configurations, persistent volumes, referenced Secrets, and rolls out pods when the rendered configuration changes.
 - The operator-managed `AIStoreAuth` reconciliation now generates an owned `{name}-config` ConfigMap containing a fully rendered `authn.json`.
 - The operator-managed `AIStoreAuth` reconciliation now provisions an owned `{name}-storage` PersistentVolumeClaim for AuthN state. Persistence supports dynamic provisioning via `spec.persistence.storageClass` or binding to a pre-provisioned PV via `spec.persistence.volumeName`.
 - The `AIStoreAuth` validating webhook now enforces that referenced `spec.adminSecret`, `spec.hmacSecret`, and `spec.rsaPassphraseSecret` Secrets already exist, and that `spec.hmacSecret` and `spec.rsaPassphraseSecret` are not set together.

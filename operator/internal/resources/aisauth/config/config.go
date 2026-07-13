@@ -13,19 +13,19 @@ import (
 	authv1alpha1 "github.com/ais-operator/api/aisauth/v1alpha1"
 )
 
-// Constants for operator-owned default values.
-const (
-	defaultDBFilePath  = "/etc/ais/authn/authn.db"
-	defaultTLSCertPath = "/var/certs/tls.crt"
-	defaultTLSKeyPath  = "/var/certs/tls.key"
-)
+// Paths contains the operator-managed file locations referenced by AuthN config.
+type Paths struct {
+	Database       string
+	TLSCertificate string
+	TLSKey         string
+}
 
 // GenerateConfig maps AIStoreAuth spec.config and spec.tls into the full AuthN runtime config.
-func GenerateConfig(authn *authv1alpha1.AIStoreAuth) (*aisauthn.Config, error) {
+func GenerateConfig(authn *authv1alpha1.AIStoreAuth, paths Paths) (*aisauthn.Config, error) {
 	conf := &aisauthn.Config{
 		Log:     renderLogConfig(authn),
-		Net:     renderNetConfig(authn),
-		Server:  renderServerConfig(authn),
+		Net:     renderNetConfig(authn, paths),
+		Server:  renderServerConfig(authn, paths),
 		Timeout: renderTimeoutConfig(authn),
 	}
 	if err := conf.Validate(); err != nil {
@@ -48,7 +48,7 @@ func renderLogConfig(authn *authv1alpha1.AIStoreAuth) aisauthn.LogConf {
 	return logCfg
 }
 
-func renderNetConfig(authn *authv1alpha1.AIStoreAuth) aisauthn.NetConf {
+func renderNetConfig(authn *authv1alpha1.AIStoreAuth, paths Paths) aisauthn.NetConf {
 	netCfg := aisauthn.NetConf{}
 	netCfg.HTTP.Port = int(authn.ListenPort())
 	if authn.Spec.Config != nil && authn.Spec.Config.Net != nil {
@@ -59,15 +59,15 @@ func renderNetConfig(authn *authv1alpha1.AIStoreAuth) aisauthn.NetConf {
 
 	if authn.HasTLSEnabled() {
 		netCfg.HTTP.UseHTTPS = true
-		netCfg.HTTP.Certificate = defaultTLSCertPath
-		netCfg.HTTP.Key = defaultTLSKeyPath
+		netCfg.HTTP.Certificate = paths.TLSCertificate
+		netCfg.HTTP.Key = paths.TLSKey
 	}
 	return netCfg
 }
 
-func renderServerConfig(authn *authv1alpha1.AIStoreAuth) aisauthn.ServerConf {
+func renderServerConfig(authn *authv1alpha1.AIStoreAuth, paths Paths) aisauthn.ServerConf {
 	serverCfg := aisauthn.ServerConf{
-		DBConf: aisauthn.DatabaseConf{Filepath: defaultDBFilePath},
+		DBConf: aisauthn.DatabaseConf{Filepath: paths.Database},
 	}
 	if authn.Spec.Config != nil && authn.Spec.Config.Auth != nil {
 		authSpec := authn.Spec.Config.Auth

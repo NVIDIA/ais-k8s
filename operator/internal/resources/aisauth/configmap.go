@@ -61,7 +61,7 @@ func NewConfigMap(authn *authv1alpha1.AIStoreAuth) (*corev1ac.ConfigMapApplyConf
 }
 
 func renderAuthnJSON(authn *authv1alpha1.AIStoreAuth) (string, error) {
-	conf, err := authnconfig.GenerateConfig(authn)
+	conf, err := authnconfig.GenerateConfig(authn, configPaths)
 	if err != nil {
 		return "", err
 	}

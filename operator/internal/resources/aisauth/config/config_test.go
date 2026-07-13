@@ -20,10 +20,31 @@ func TestGenerateConfig(t *testing.T) {
 	g := NewWithT(t)
 
 	authn := newTestAIStoreAuth()
-	cfg, err := authnconfig.GenerateConfig(authn)
+	cfg, err := generateConfig(authn)
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(cfg.Net.HTTP.Port).To(Equal(52001))
 	g.Expect(cfg.Server.DBConf.Filepath).To(Equal("/etc/ais/authn/authn.db"))
+}
+
+func TestGenerateConfigUsesProvidedPaths(t *testing.T) {
+	g := NewWithT(t)
+	authn := newTestAIStoreAuth()
+	authn.Spec.TLS = &authv1alpha1.TLSSpec{
+		Certificate: &authv1alpha1.TLSCertificateConfig{
+			IssuerRef: authv1alpha1.CertIssuerRef{Name: testIssuerName()},
+		},
+	}
+	paths := authnconfig.Paths{
+		Database:       "/custom/state/authn.db",
+		TLSCertificate: "/custom/tls/server.crt",
+		TLSKey:         "/custom/tls/server.key",
+	}
+
+	cfg, err := authnconfig.GenerateConfig(authn, paths)
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(cfg.Server.DBConf.Filepath).To(Equal(paths.Database))
+	g.Expect(cfg.Net.HTTP.Certificate).To(Equal(paths.TLSCertificate))
+	g.Expect(cfg.Net.HTTP.Key).To(Equal(paths.TLSKey))
 }
 
 func TestGenerateConfigSigningKey(t *testing.T) {
@@ -40,7 +61,7 @@ func TestGenerateConfigSigningKey(t *testing.T) {
 		},
 	}
 
-	cfg, err := authnconfig.GenerateConfig(authn)
+	cfg, err := generateConfig(authn)
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(cfg.Server.SigningKey.Bits).To(Equal(4096))
 	g.Expect(cfg.Server.SigningKey.Mode).To(Equal(aisauthn.SigningKeyModeExternal))
@@ -59,7 +80,7 @@ func TestGenerateConfigIndividualAuthFields(t *testing.T) {
 			},
 		}
 
-		cfg, err := authnconfig.GenerateConfig(authn)
+		cfg, err := generateConfig(authn)
 		g.Expect(err).NotTo(HaveOccurred())
 		g.Expect(cfg.Log.Level).To(Equal("5"))
 		g.Expect(cfg.Log.FlushInterval).To(Equal(cos.Duration(11 * time.Second)))
@@ -77,7 +98,7 @@ func TestGenerateConfigIndividualAuthFields(t *testing.T) {
 			},
 		}
 
-		cfg, err := authnconfig.GenerateConfig(authn)
+		cfg, err := generateConfig(authn)
 		g.Expect(err).NotTo(HaveOccurred())
 		g.Expect(cfg.Net.ExternalURL).To(Equal(externalURL))
 		g.Expect(cfg.Net.HTTP.Port).To(Equal(53001))
@@ -92,7 +113,7 @@ func TestGenerateConfigIndividualAuthFields(t *testing.T) {
 			},
 		}
 
-		cfg, err := authnconfig.GenerateConfig(authn)
+		cfg, err := generateConfig(authn)
 		g.Expect(err).NotTo(HaveOccurred())
 		g.Expect(cfg.Net.HTTP.UseHTTPS).To(BeTrue())
 		g.Expect(cfg.Net.HTTP.Certificate).To(Equal("/var/certs/tls.crt"))
@@ -108,7 +129,7 @@ func TestGenerateConfigIndividualAuthFields(t *testing.T) {
 			},
 		}
 
-		cfg, err := authnconfig.GenerateConfig(authn)
+		cfg, err := generateConfig(authn)
 		g.Expect(err).NotTo(HaveOccurred())
 		g.Expect(cfg.Server.Expire).To(Equal(cos.Duration(12 * time.Hour)))
 	})
@@ -122,7 +143,7 @@ func TestGenerateConfigIndividualAuthFields(t *testing.T) {
 			},
 		}
 
-		cfg, err := authnconfig.GenerateConfig(authn)
+		cfg, err := generateConfig(authn)
 		g.Expect(err).NotTo(HaveOccurred())
 		g.Expect(cfg.Server.MaxTokenAge).To(Equal(cos.Duration(72 * time.Hour)))
 	})
@@ -136,7 +157,7 @@ func TestGenerateConfigIndividualAuthFields(t *testing.T) {
 			},
 		}
 
-		cfg, err := authnconfig.GenerateConfig(authn)
+		cfg, err := generateConfig(authn)
 		g.Expect(err).NotTo(HaveOccurred())
 		g.Expect(cfg.Timeout.Default).To(Equal(cos.Duration(45 * time.Second)))
 	})
@@ -151,10 +172,18 @@ func TestGenerateConfigIndividualAuthFields(t *testing.T) {
 			},
 		}
 
-		cfg, err := authnconfig.GenerateConfig(authn)
+		cfg, err := generateConfig(authn)
 		g.Expect(err).NotTo(HaveOccurred())
 		g.Expect(cfg.Server.DBConf.DBType).To(Equal("BuntDB"))
 		g.Expect(cfg.Server.DBConf.Filepath).To(Equal("/etc/ais/authn/authn.db"))
+	})
+}
+
+func generateConfig(authn *authv1alpha1.AIStoreAuth) (*aisauthn.Config, error) {
+	return authnconfig.GenerateConfig(authn, authnconfig.Paths{
+		Database:       "/etc/ais/authn/authn.db",
+		TLSCertificate: "/var/certs/tls.crt",
+		TLSKey:         "/var/certs/tls.key",
 	})
 }
 
