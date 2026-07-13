@@ -1,7 +1,8 @@
-FROM alpine:latest as builder
+FROM alpine:latest AS builder
 
 ARG COREUTILS_VERSION=9.7
 ARG TINI_VERSION=v0.19.0
+ARG TARGETARCH
 
 # Build a statically compiled version of tail to copy into the final image
 RUN apk add --no-cache build-base
@@ -14,8 +15,9 @@ RUN wget https://ftp.gnu.org/gnu/coreutils/coreutils-${COREUTILS_VERSION}.tar.xz
     make
 RUN mv /src/coreutils-${COREUTILS_VERSION}/src/tail /tail
 
-RUN wget -O /tini https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini-static && \
+RUN wget -O /tini https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini-static-${TARGETARCH} && \
     chmod +x /tini
+
 FROM gcr.io/distroless/static-debian12
 COPY --from=builder /tail /usr/bin/tail
 COPY --from=builder /tini /usr/bin/tini
