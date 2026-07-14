@@ -161,22 +161,7 @@ func (r *AIStoreReconciler) handleTargetState(ctx context.Context, ais *aisv1.AI
 
 	// Apply scaling (blocked by rollout in progress)
 	if scalingNeeded && !rolling {
-		proceed, cErr := r.confirmScalingNeeded(ctx, target.StatefulSetNSName(ais), ss,
-			ais.GetTargetSize(), ais.GetTargetMaxUnavailable(), ais.IsTargetAutoScaling())
-		if cErr != nil {
-			return ctrl.Result{}, cErr
-		}
-		if !proceed {
-			logger.Info("Deferring target scale-down; fresh status shows unavailable replicas within maxUnavailable budget")
-			return ctrl.Result{RequeueAfter: targetLongRequeueDelay}, nil
-		}
-		if err = r.startTargetScaling(ctx, ais, ss); err != nil {
-			return ctrl.Result{}, err
-		}
-		if err = r.resolveStatefulSetScaling(ctx, ais); err != nil {
-			return ctrl.Result{}, err
-		}
-		return ctrl.Result{RequeueAfter: targetLongRequeueDelay}, nil
+		return r.handleTargetScaling(ctx, ais, ss)
 	}
 
 	// Drive ongoing rollout
@@ -198,6 +183,27 @@ func (r *AIStoreReconciler) handleTargetState(ctx context.Context, ais *aisv1.AI
 		return ctrl.Result{RequeueAfter: targetLongRequeueDelay}, nil
 	}
 	return
+}
+
+// handleTargetScaling applies a pending target scale-up or scale-down.
+func (r *AIStoreReconciler) handleTargetScaling(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) (ctrl.Result, error) {
+	logger := logf.FromContext(ctx)
+	proceed, err := r.confirmScalingNeeded(ctx, target.StatefulSetNSName(ais), ss,
+		ais.GetTargetSize(), ais.GetTargetMaxUnavailable(), ais.IsTargetAutoScaling())
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if !proceed {
+		logger.Info("Deferring target scale-down; fresh status shows unavailable replicas within maxUnavailable budget")
+		return ctrl.Result{RequeueAfter: targetLongRequeueDelay}, nil
+	}
+	if err = r.startTargetScaling(ctx, ais, ss); err != nil {
+		return ctrl.Result{}, err
+	}
+	if err = r.resolveStatefulSetScaling(ctx, ais); err != nil {
+		return ctrl.Result{}, err
+	}
+	return ctrl.Result{RequeueAfter: targetLongRequeueDelay}, nil
 }
 
 func isTargetScalingNeeded(ais *aisv1.AIStore, ss *appsv1.StatefulSet) bool {
@@ -376,8 +382,10 @@ func (r *AIStoreReconciler) prepareTargetsForScaleDown(ctx context.Context, ais 
 					return err
 				}
 			} else {
-				logger.Info("Decommissioning target", "nodeID", node.ID())
-				_, err = apiClient.DecommissionNode(&aisapc.ActValRmNode{DaemonID: node.ID(), RmUserData: true})
+				// safe_decommission keeps the target's on-disk data while plain decommission removes it.
+				rmUserData := !ais.Spec.TargetSpec.SafeDecommissionOnScaleDown()
+				logger.Info("Decommissioning target", "nodeID", node.ID(), "rmUserData", rmUserData)
+				_, err = apiClient.DecommissionNode(&aisapc.ActValRmNode{DaemonID: node.ID(), RmUserData: rmUserData})
 				if err != nil {
 					logger.Error(err, "Failed to decommission node", "nodeID", node.ID())
 					return err

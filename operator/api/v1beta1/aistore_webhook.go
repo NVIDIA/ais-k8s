@@ -121,6 +121,17 @@ func (ais *AIStore) validateAutoScaling() (admission.Warnings, error) {
 	return warns, nil
 }
 
+// validateSafeDecommission warns when rebalance is disabled while using scaleDownMode safe_decommission.
+func (ais *AIStore) validateSafeDecommission() (admission.Warnings, error) {
+	if !ais.Spec.TargetSpec.SafeDecommissionOnScaleDown() {
+		return nil, nil
+	}
+	if !ais.Spec.ConfigToUpdate.RebalanceEnabled() {
+		return admission.Warnings{fmt.Sprintf("scaleDownMode is %q but rebalance is disabled; enable configToUpdate.rebalance.enabled so target data is migrated on scale-down", ScaleDownModeSafeDecommission)}, nil
+	}
+	return nil, nil
+}
+
 func (ss *ServiceSpec) validate(path *field.Path) field.ErrorList {
 	svcMsgs := validation.IsValidPortNum(ss.ServicePort.IntValue())
 	pubMsgs := validation.IsValidPortNum(ss.PublicPort.IntValue())
@@ -298,6 +309,7 @@ func (ais *AIStore) ValidateSpec(_ context.Context, extraValidations ...func() (
 		ais.validateServiceSpec,
 		ais.validateCleanupConfig,
 		ais.validateTLSCertPaths,
+		ais.validateSafeDecommission,
 	}
 
 	validations := make(

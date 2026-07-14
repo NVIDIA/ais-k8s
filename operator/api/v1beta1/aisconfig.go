@@ -312,6 +312,14 @@ func (c *ConfigToUpdate) IsRebalanceEnabledSet() bool {
 	return c.Rebalance.Enabled != nil
 }
 
+// RebalanceEnabled reports the configured rebalance.enabled value, defaulting to true when unset.
+func (c *ConfigToUpdate) RebalanceEnabled() bool {
+	if c == nil || c.Rebalance == nil || c.Rebalance.Enabled == nil {
+		return true
+	}
+	return *c.Rebalance.Enabled
+}
+
 func (c *ConfigToUpdate) UpdateRebalanceEnabled(enabled *bool) {
 	if c.Rebalance == nil {
 		c.Rebalance = &RebalanceConfToUpdate{}

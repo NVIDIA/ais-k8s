@@ -311,6 +311,42 @@ func TestShouldVerifyAuthSecret(t *testing.T) {
 	}
 }
 
+func newSafeDecommAIS(mode ScaleDownMode, rebalance *bool) *AIStore {
+	ais := &AIStore{}
+	ais.Spec.TargetSpec.ScaleDownMode = mode
+	if rebalance != nil {
+		ais.Spec.ConfigToUpdate = &ConfigToUpdate{}
+		ais.Spec.ConfigToUpdate.UpdateRebalanceEnabled(rebalance)
+	}
+	return ais
+}
+
+func TestValidateSafeDecommission(t *testing.T) {
+	tests := []struct {
+		name      string
+		mode      ScaleDownMode
+		rebalance *bool
+		wantWarn  bool
+	}{
+		{"warns when rebalance is disabled", ScaleDownModeSafeDecommission, aisapc.Ptr(false), true},
+		{"no warning when rebalance is enabled", ScaleDownModeSafeDecommission, aisapc.Ptr(true), false},
+		{"no warning when rebalance is unset", ScaleDownModeSafeDecommission, nil, false},
+		{"no warning for decommission mode", ScaleDownModeDecommission, aisapc.Ptr(false), false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(subT *testing.T) {
+			g := NewWithT(subT)
+			warnings, err := newSafeDecommAIS(tt.mode, tt.rebalance).validateSafeDecommission()
+			g.Expect(err).NotTo(HaveOccurred())
+			if tt.wantWarn {
+				g.Expect(warnings).NotTo(BeEmpty())
+			} else {
+				g.Expect(warnings).To(BeEmpty())
+			}
+		})
+	}
+}
+
 func TestValidateAuthSecretAccess(t *testing.T) {
 	const tenantNS = "tenant"
 	ctx := admission.NewContextWithRequest(context.Background(), admission.Request{

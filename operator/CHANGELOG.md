@@ -17,8 +17,11 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 - The `AIStoreAuth` validating webhook now enforces that referenced `spec.adminSecret`, `spec.hmacSecret`, and `spec.rsaPassphraseSecret` Secrets already exist, and that `spec.hmacSecret` and `spec.rsaPassphraseSecret` are not set together.
 - The operator-managed `AIStoreAuth` reconciliation now creates an owned AuthN Deployment that mounts the rendered configurations, persistent volumes, referenced Secrets, and rolls out pods when the rendered configuration changes.
 - Operator-provisioned certificates via `tls.certificate` will include service external endpoints in the SAN list when using `externalAccess` options.
-- `spec.targetSpec.scaleDownMode` option to control target scale-down behavior. Defaults to `decommission` (rebalance data off the node, or delete it if rebalance is disabled); set to `retain` to keep data on the node via maintenance mode, for use when a replacement pod is expected to reschedule there immediately.
 - `spec.stateStorage.emptyDir` option to use an `emptyDir` volume for state storage. This is a Kubernetes-native way to manage state that works well if a cluster is expected to always be active.
+- `spec.targetSpec.scaleDownMode` option to control target scale-down behavior:
+  - `safe_decommission` (default): Rebalances data off the node and removes the target while keeping its on-disk data, and warns when rebalance is disabled since data is migrated only when rebalance is enabled (recommended for local AIS buckets, whose data cannot be recovered if lost).
+  - `decommission`: Rebalances data off the node, then removes the target and deletes its on-disk data (the data is deleted without migrating when rebalance is disabled).
+  - `retain`: Keeps data on the node via maintenance mode, for use when a replacement pod is expected to reschedule there immediately.
 
 ### Changed
 

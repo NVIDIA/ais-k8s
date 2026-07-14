@@ -624,13 +624,9 @@ type DaemonSpec struct {
 type ScaleDownMode string
 
 const (
-	// ScaleDownModeDecommission rebalances data off the node (or deletes it if
-	// rebalance is disabled) before removing the target.
-	ScaleDownModeDecommission ScaleDownMode = "decommission"
-	// ScaleDownModeRetain leaves data on the node by putting the target into
-	// maintenance mode. Useful when another pod is expected to be immediately
-	// scheduled; otherwise data may become inaccessible.
-	ScaleDownModeRetain ScaleDownMode = "retain"
+	ScaleDownModeDecommission     ScaleDownMode = "decommission"
+	ScaleDownModeRetain           ScaleDownMode = "retain"
+	ScaleDownModeSafeDecommission ScaleDownMode = "safe_decommission"
 )
 
 // ProbeSpec defines optional overrides for Kubernetes probe timing parameters.
@@ -685,12 +681,16 @@ type TargetSpec struct {
 	PodDisruptionBudget *PDBSpec `json:"pdb,omitempty"`
 
 	// ScaleDownMode controls how targets are scaled down.
-	// "decommission" (default) rebalances data off the node or deletes it, depending on whether rebalance is enabled.
+	// "safe_decommission" (default) rebalances data off the node and removes the target, keeping its on-disk data.
+	// Rebalance should be enabled so data is migrated before a target is removed, and a warning is issued when it is
+	// not. Recommended for local AIS buckets, whose data cannot be recovered if lost.
+	// "decommission" rebalances data off the node, then removes the target and deletes its on-disk data. When rebalance
+	// is disabled the data is deleted without being migrated.
 	// "retain" leaves data on the node by putting the target into maintenance mode. This is useful when you expect
 	// another pod to be immediately scheduled on the node. Note that if this is not the case then any data on the node
 	// will become inaccessible.
-	// +kubebuilder:validation:Enum=decommission;retain
-	// +kubebuilder:default:=decommission
+	// +kubebuilder:validation:Enum=decommission;retain;safe_decommission
+	// +kubebuilder:default:=safe_decommission
 	// +optional
 	ScaleDownMode ScaleDownMode `json:"scaleDownMode,omitempty"`
 }
@@ -1322,6 +1322,11 @@ func (s *DaemonSpec) autoScaleMaxUnavailable() int32 {
 // maintenance mode) instead of decommissioned on scale down.
 func (t *TargetSpec) RetainOnScaleDown() bool {
 	return t.ScaleDownMode == ScaleDownModeRetain
+}
+
+// SafeDecommissionOnScaleDown reports whether targets use the safe_decommission scale-down mode.
+func (t *TargetSpec) SafeDecommissionOnScaleDown() bool {
+	return t.ScaleDownMode == ScaleDownModeSafeDecommission
 }
 
 // +kubebuilder:object:root=true

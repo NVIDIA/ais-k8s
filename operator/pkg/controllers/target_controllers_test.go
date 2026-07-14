@@ -196,7 +196,12 @@ var _ = Describe("scaleDownMode", func() {
 	}
 
 	Describe("isReadyToScaleDown", func() {
-		Context("when scaleDownMode is decommission (default)", func() {
+		Context("when scaleDownMode is decommission", func() {
+			BeforeEach(func() {
+				ais.Spec.TargetSpec.ScaleDownMode = aisv1.ScaleDownModeDecommission
+				Expect(k8sClient.Update(ctx, ais)).To(Succeed())
+			})
+
 			It("scales when all targets are ready", func() {
 				t1 := &aismeta.Snode{DaeID: "t1", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-0"}}
 				t2 := &aismeta.Snode{DaeID: "t2", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-1"}}
@@ -279,26 +284,28 @@ var _ = Describe("scaleDownMode", func() {
 			Expect(k8sClient.Status().Update(ctx, ais)).To(Succeed())
 		})
 
-		Context("when scaleDownMode is decommission (default)", func() {
-			It("decommissions targets with RmUserData=true", func() {
-				ss := makeSS(3)
+		expectDecommission := func(mode aisv1.ScaleDownMode, rmUserData bool) {
+			ais.Spec.TargetSpec.ScaleDownMode = mode
+			Expect(k8sClient.Update(ctx, ais)).To(Succeed())
 
-				apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any(), false).Return(nil)
-
-				t3 := &aismeta.Snode{DaeID: "t3", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-2"}}
-				smap := &aismeta.Smap{
-					Tmap: aismeta.NodeMap{"t3": t3},
-				}
-				apiClient.EXPECT().GetClusterMap().Return(smap, nil)
-
-				apiClient.EXPECT().DecommissionNode(gomock.Any()).DoAndReturn(func(act *apc.ActValRmNode) (string, error) {
-					Expect(act.RmUserData).To(BeTrue())
-					return "xid", nil
-				})
-
-				err := r.startTargetScaling(ctx, ais, ss)
-				Expect(err).NotTo(HaveOccurred())
+			ss := makeSS(3)
+			apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any(), false).Return(nil)
+			t3 := &aismeta.Snode{DaeID: "t3", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-2"}}
+			smap := &aismeta.Smap{Tmap: aismeta.NodeMap{"t3": t3}}
+			apiClient.EXPECT().GetClusterMap().Return(smap, nil)
+			apiClient.EXPECT().DecommissionNode(gomock.Any()).DoAndReturn(func(act *apc.ActValRmNode) (string, error) {
+				Expect(act.RmUserData).To(Equal(rmUserData))
+				return "xid", nil
 			})
+			Expect(r.startTargetScaling(ctx, ais, ss)).To(Succeed())
+		}
+
+		It("decommissions targets with RmUserData=true when scaleDownMode is decommission", func() {
+			expectDecommission(aisv1.ScaleDownModeDecommission, true)
+		})
+
+		It("keeps target data with RmUserData=false when scaleDownMode is safe_decommission", func() {
+			expectDecommission(aisv1.ScaleDownModeSafeDecommission, false)
 		})
 
 		Context("when scaleDownMode is retain", func() {
