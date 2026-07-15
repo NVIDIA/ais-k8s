@@ -155,6 +155,9 @@ type UsernamePasswordAuth struct {
 
 	// SecretNamespace is the namespace of the secret containing auth service admin credentials
 	// If not specified, defaults to the AIStore cluster namespace
+	// The submitting user's access to the referenced Secret is verified with a SubjectAccessReview
+	// on AIStore create, and on update when the secret reference changes
+	// +kubebuilder:validation:MinLength=1
 	// +optional
 	SecretNamespace *string `json:"secretNamespace,omitempty"`
 

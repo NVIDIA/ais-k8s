@@ -11,6 +11,7 @@ import (
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
 	"github.com/go-test/deep"
+	authorizationv1 "k8s.io/api/authorization/v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -32,6 +33,7 @@ type AIStoreWebhook struct {
 
 // change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
 // +kubebuilder:webhook:path=/validate-ais-nvidia-com-v1beta1-aistore,mutating=false,failurePolicy=fail,sideEffects=None,groups=ais.nvidia.com,resources=aistores,verbs=create;update,versions=v1beta1,name=vaistore.kb.io,admissionReviewVersions={v1,v1beta1}
+// +kubebuilder:rbac:groups=authorization.k8s.io,resources=subjectaccessreviews,verbs=create
 
 var _ admission.Validator[*AIStore] = &AIStoreWebhook{}
 
@@ -146,10 +148,10 @@ func (ais *AIStore) validateServiceSpec() (admission.Warnings, error) {
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type.
 func (aisw *AIStoreWebhook) ValidateCreate(ctx context.Context, ais *AIStore) (admission.Warnings, error) {
 	webhooklog.WithValues("name", ais.Name, "namespace", ais.Namespace).Info("Validate create")
-	return aisw.validateSpec(ctx, ais)
+	return aisw.validateSpec(ctx, ais, nil)
 }
 
-func (aisw *AIStoreWebhook) validateSpec(ctx context.Context, ais *AIStore) (admission.Warnings, error) {
+func (aisw *AIStoreWebhook) validateSpec(ctx context.Context, ais, prev *AIStore) (admission.Warnings, error) {
 	return ais.ValidateSpec(ctx,
 		func() (admission.Warnings, error) {
 			return aisw.verifyNodesAvailable(ctx, ais, aisapc.Proxy)
@@ -160,7 +162,81 @@ func (aisw *AIStoreWebhook) validateSpec(ctx context.Context, ais *AIStore) (adm
 		func() (admission.Warnings, error) {
 			return aisw.verifyRequiredStorageClasses(ctx, ais)
 		},
+		func() (admission.Warnings, error) {
+			return aisw.validateAuthSecretAccess(ctx, ais, prev)
+		},
 	)
+}
+
+func authSecretNamespace(ais *AIStore, up *UsernamePasswordAuth) string {
+	if up.SecretNamespace != nil {
+		return *up.SecretNamespace
+	}
+	return ais.Namespace
+}
+
+// shouldVerifyAuthSecret checks if we must verify user access to the provided auth secret reference
+func shouldVerifyAuthSecret(prev, ais *AIStore) bool {
+	// Nothing to verify
+	if ais.Spec.Auth == nil || ais.Spec.Auth.UsernamePassword == nil {
+		return false
+	}
+	// If no previous entry, we must verify access
+	if prev == nil || prev.Spec.Auth == nil || prev.Spec.Auth.UsernamePassword == nil {
+		return true
+	}
+	// Only require SubjectAccessReview if the reference changed from previous
+	prevUp := prev.Spec.Auth.UsernamePassword
+	currUp := ais.Spec.Auth.UsernamePassword
+	if prevUp.SecretName != currUp.SecretName {
+		return true
+	}
+	return authSecretNamespace(prev, prevUp) != authSecretNamespace(ais, currUp)
+}
+
+// validateAuthSecretAccess verifies the submitting user can get the auth credentials
+// Secret referenced by spec.auth.usernamePassword. The check runs at admission time
+// on create and on update only when the secret reference changes.
+func (aisw *AIStoreWebhook) validateAuthSecretAccess(ctx context.Context, ais, prev *AIStore) (admission.Warnings, error) {
+	if !shouldVerifyAuthSecret(prev, ais) {
+		return nil, nil
+	}
+	up := ais.Spec.Auth.UsernamePassword
+	secretNS := authSecretNamespace(ais, up)
+
+	req, err := admission.RequestFromContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("cannot authorize auth secret reference: %w", err)
+	}
+	userInfo := req.UserInfo
+
+	extra := make(map[string]authorizationv1.ExtraValue, len(userInfo.Extra))
+	for k, v := range userInfo.Extra {
+		extra[k] = authorizationv1.ExtraValue(v)
+	}
+
+	sar := &authorizationv1.SubjectAccessReview{
+		Spec: authorizationv1.SubjectAccessReviewSpec{
+			User:   userInfo.Username,
+			UID:    userInfo.UID,
+			Groups: userInfo.Groups,
+			Extra:  extra,
+			ResourceAttributes: &authorizationv1.ResourceAttributes{
+				Namespace: secretNS,
+				Verb:      "get",
+				Group:     "",
+				Resource:  "secrets",
+				Name:      up.SecretName,
+			},
+		},
+	}
+	if err := aisw.Client.Create(ctx, sar); err != nil {
+		return nil, fmt.Errorf("failed to authorize auth secret %q in namespace %q: %w", up.SecretName, secretNS, err)
+	}
+	if !sar.Status.Allowed {
+		return nil, errUnauthorizedAuthSecret(userInfo.Username, up.SecretName, secretNS)
+	}
+	return nil, nil
 }
 
 // validateTLSCertPaths rejects specs that set both spec.tls and any of the cert path
@@ -235,7 +311,7 @@ func (ais *AIStore) ValidateSpec(_ context.Context, extraValidations ...func() (
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type.
 func (aisw *AIStoreWebhook) ValidateUpdate(ctx context.Context, prev, ais *AIStore) (admission.Warnings, error) {
 	webhooklog.WithValues("name", ais.Name, "namespace", ais.Namespace).Info("Validate update")
-	warnings, err := aisw.validateSpec(ctx, ais)
+	warnings, err := aisw.validateSpec(ctx, ais, prev)
 	if err != nil {
 		return warnings, err
 	}
@@ -403,4 +479,8 @@ func errInvalidStateStorage() error {
 
 func errUndefinedNodeSelector(spec string) error {
 	return fmt.Errorf("missing nodeSelector for %s; nodeSelector is required when autoScale is enabled", spec)
+}
+
+func errUnauthorizedAuthSecret(user, secretName, secretNamespace string) error {
+	return fmt.Errorf("user %q is not authorized to get Secret %q in namespace %q referenced by spec.auth.usernamePassword", user, secretName, secretNamespace)
 }

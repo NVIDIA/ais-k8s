@@ -24,6 +24,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 - Migrated AIS API TLS certificate verification toggle to `spec.operatorSkipVerifyCrt`.
 - Proxy statefulset will set `AIS_PUBLIC_HOSTNAME` on pods regardless of `proxySpec.externalAccess`.
   - Previously, if `externalAccess` was enabled and `AIS_PUBLIC_HOSTNAME` was omitted, pods would resolve the pod IP as the public hostname. These IPs are not included in provisioned certificates and will fail verification in keepalive or health check fallback scenarios.
+- If defining operator auth access via `spec.auth.usernamePassword`, the submitting user's access to the referenced Secret is verified with a `SubjectAccessReview`.
 
 ### Deprecated
 
