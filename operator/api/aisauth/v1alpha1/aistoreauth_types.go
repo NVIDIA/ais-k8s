@@ -7,7 +7,6 @@ package v1alpha1
 import (
 	"fmt"
 
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -260,9 +259,6 @@ type DeploymentSpec struct {
 	// +kubebuilder:default:=IfNotPresent
 	// +optional
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
-
-	// +optional
-	Strategy *appsv1.DeploymentStrategy `json:"strategy,omitempty"`
 
 	// +optional
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`

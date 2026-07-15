@@ -72,7 +72,8 @@ func NewDeployment(authn *authv1alpha1.AIStoreAuth) (*appsv1ac.DeploymentApplyCo
 		WithOwnerReferences(ownerref.NewAIStoreAuthControllerRef(authn)).
 		WithLabels(resourceLabels(authn)).
 		WithSpec(appsv1ac.DeploymentSpec().
-			WithReplicas(1).
+			WithReplicas(1). // AuthN doesn't support multiple replicas
+			// AuthN is single-replica, so the rollout strategy is fixed to Recreate.
 			WithStrategy(appsv1ac.DeploymentStrategy().WithType(appsv1.RecreateDeploymentStrategyType)).
 			WithSelector(metav1ac.LabelSelector().WithMatchLabels(selectorLabels(authn))).
 			WithTemplate(corev1ac.PodTemplateSpec().

@@ -21,6 +21,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ### Changed
 
+- Operator-managed `AIStoreAuth` Deployments are fixed to the `Recreate` rollout strategy, so the configurable `spec.deployment.strategy` field has been removed.
 - Migrated AIS API TLS certificate verification toggle to `spec.operatorSkipVerifyCrt`.
 - Proxy statefulset will set `AIS_PUBLIC_HOSTNAME` on pods regardless of `proxySpec.externalAccess`.
   - Previously, if `externalAccess` was enabled and `AIS_PUBLIC_HOSTNAME` was omitted, pods would resolve the pod IP as the public hostname. These IPs are not included in provisioned certificates and will fail verification in keepalive or health check fallback scenarios.

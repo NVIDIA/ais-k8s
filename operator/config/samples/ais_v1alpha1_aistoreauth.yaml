@@ -56,8 +56,6 @@ spec:
   deployment:
     image: docker.io/aistorage/authn:v4.5
     imagePullPolicy: IfNotPresent
-    strategy:
-      type: Recreate
     resources:
       requests:
         cpu: 100m
