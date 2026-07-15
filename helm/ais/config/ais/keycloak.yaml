@@ -21,7 +21,7 @@ initImage:
   tag: v4.8
 logSidecar:
   image:
-    tag: v1.1
+    tag: v1.2
 configToUpdate:
   backend:
     aws: {}

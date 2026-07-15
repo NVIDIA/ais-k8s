@@ -14,7 +14,7 @@ initImage:
 logSidecar:
   image:
     name: docker.io/aistorage/ais-logs
-    tag: v1.1
+    tag: v1.2
 cloud:
   awsSecretName:
   gcpSecretName:

@@ -30,7 +30,7 @@ initImage:
   tag: v4.8
 logSidecar:
   image:
-    tag: v1.1
+    tag: v1.2
 adminClient:
   enabled: true
   # Use trust manager bundle for client

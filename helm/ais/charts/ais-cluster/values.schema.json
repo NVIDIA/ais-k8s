@@ -208,7 +208,7 @@
             "tag": {
               "type": "string",
               "description": "Tag of log sidecar image.",
-              "examples": ["v1.1"]
+              "examples": ["v1.2"]
             }
           }
         },

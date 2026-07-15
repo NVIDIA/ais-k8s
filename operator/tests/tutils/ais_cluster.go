@@ -24,7 +24,7 @@ import (
 const (
 	DefaultNodeImage         = "docker.io/aistorage/aisnode:v4.8"
 	DefaultInitImage         = "docker.io/aistorage/ais-init:v4.8"
-	DefaultLogsImage         = "docker.io/aistorage/ais-logs:v1.1"
+	DefaultLogsImage         = "docker.io/aistorage/ais-logs:v1.2"
 	DefaultPrevNodeImage     = "docker.io/aistorage/aisnode:v4.7"
 	DefaultPrevInitImage     = "docker.io/aistorage/ais-init:v4.7"
 	DefaultStateStorageClass = "local-path"
