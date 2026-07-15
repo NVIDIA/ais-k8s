@@ -50,23 +50,9 @@ func NewDeployment(authn *authv1alpha1.AIStoreAuth) (*appsv1ac.DeploymentApplyCo
 		return nil, err
 	}
 	checksum := sha256.Sum256([]byte(authnJSON))
-
-	container := corev1ac.Container().
-		WithName(containerName).
-		WithImage(authn.Spec.Deployment.Image).
-		WithPorts(corev1ac.ContainerPort().
-			WithName(portName).
-			WithContainerPort(authn.ListenPort()).
-			WithProtocol(corev1.ProtocolTCP)).
-		WithEnv(secretEnvVars(authn)...).
-		WithVolumeMounts(volumeMounts(authn)...)
-	if authn.Spec.Deployment.ImagePullPolicy != "" {
-		container.WithImagePullPolicy(authn.Spec.Deployment.ImagePullPolicy)
-	}
-
-	podSpec := corev1ac.PodSpec().
-		WithContainers(container).
-		WithVolumes(volumes(authn)...)
+	spec := &authn.Spec.Deployment
+	container := newContainer(authn, spec)
+	podSpec := newPodSpec(authn, container)
 
 	return appsv1ac.Deployment(DeploymentName(authn), authn.Namespace).
 		WithOwnerReferences(ownerref.NewAIStoreAuthControllerRef(authn)).
@@ -82,4 +68,32 @@ func NewDeployment(authn *authv1alpha1.AIStoreAuth) (*appsv1ac.DeploymentApplyCo
 					ConfigChecksumAnnotation: hex.EncodeToString(checksum[:]),
 				}).
 				WithSpec(podSpec))), nil
+}
+
+func newContainer(
+	authn *authv1alpha1.AIStoreAuth,
+	spec *authv1alpha1.DeploymentSpec,
+) *corev1ac.ContainerApplyConfiguration {
+	container := corev1ac.Container().
+		WithName(containerName).
+		WithImage(spec.Image).
+		WithPorts(corev1ac.ContainerPort().
+			WithName(portName).
+			WithContainerPort(authn.ListenPort()).
+			WithProtocol(corev1.ProtocolTCP)).
+		WithEnv(secretEnvVars(authn)...).
+		WithVolumeMounts(volumeMounts(authn)...)
+	if spec.ImagePullPolicy != "" {
+		container.WithImagePullPolicy(spec.ImagePullPolicy)
+	}
+	return container
+}
+
+func newPodSpec(
+	authn *authv1alpha1.AIStoreAuth,
+	container *corev1ac.ContainerApplyConfiguration,
+) *corev1ac.PodSpecApplyConfiguration {
+	return corev1ac.PodSpec().
+		WithContainers(container).
+		WithVolumes(volumes(authn)...)
 }
