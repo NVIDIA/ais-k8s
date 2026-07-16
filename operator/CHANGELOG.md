@@ -8,6 +8,14 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ---
 
+## Unreleased
+
+### Added
+
+- Added shared conversion support for translating Kubernetes API types into server-side apply configurations for operator-managed `AIStoreAuth` resources.
+
+---
+
 ## v3.2.0
 
 ### Added
