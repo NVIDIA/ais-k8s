@@ -8,14 +8,15 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ---
 
-## Unreleased
+## v3.2.0
 
 ### Added
 
-- The operator-managed `AIStoreAuth` reconciliation now generates an owned `{name}-config` ConfigMap containing a fully rendered `authn.json`.
-- The operator-managed `AIStoreAuth` reconciliation now provisions an owned `{name}-storage` PersistentVolumeClaim for AuthN state. Persistence supports dynamic provisioning via `spec.persistence.storageClass` or binding to a pre-provisioned PV via `spec.persistence.volumeName`.
-- The `AIStoreAuth` validating webhook now enforces that referenced `spec.adminSecret`, `spec.hmacSecret`, and `spec.rsaPassphraseSecret` Secrets already exist, and that `spec.hmacSecret` and `spec.rsaPassphraseSecret` are not set together.
-- The operator-managed `AIStoreAuth` reconciliation now creates an owned AuthN Deployment that mounts the rendered configurations, persistent volumes, referenced Secrets, and rolls out pods when the rendered configuration changes.
+- `AIStoreAuth` reconciliation 
+  - Generates a `{name}-config` ConfigMap containing a fully rendered `authn.json`.
+  - Provisions a `{name}-storage` PersistentVolumeClaim for AuthN state. Persistence supports dynamic provisioning via `spec.persistence.storageClass` or binding to a pre-provisioned PV via `spec.persistence.volumeName`.
+  - Validating webhook now enforces that referenced `spec.adminSecret`, `spec.hmacSecret`, and `spec.rsaPassphraseSecret` Secrets already exist, and that `spec.hmacSecret` and `spec.rsaPassphraseSecret` are not set together.
+  - Creates a Deployment that mounts the rendered configurations, persistent volumes, referenced Secrets, and rolls out pods when the rendered configuration changes.
 - Operator-provisioned certificates via `tls.certificate` will include service external endpoints in the SAN list when using `externalAccess` options.
 - `spec.stateStorage.emptyDir` option to use an `emptyDir` volume for state storage. This is a Kubernetes-native way to manage state that works well if a cluster is expected to always be active.
 - `spec.targetSpec.scaleDownMode` option to control target scale-down behavior:
@@ -25,7 +26,6 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ### Changed
 
-- Operator-managed `AIStoreAuth` Deployments are fixed to the `Recreate` rollout strategy, so the configurable `spec.deployment.strategy` field has been removed.
 - Migrated AIS API TLS certificate verification toggle to `spec.operatorSkipVerifyCrt`.
 - Proxy statefulset will set `AIS_PUBLIC_HOSTNAME` on pods regardless of `proxySpec.externalAccess`.
   - Previously, if `externalAccess` was enabled and `AIS_PUBLIC_HOSTNAME` was omitted, pods would resolve the pod IP as the public hostname. These IPs are not included in provisioned certificates and will fail verification in keepalive or health check fallback scenarios.
