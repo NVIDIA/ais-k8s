@@ -252,9 +252,12 @@ type StatePVCConfig struct {
 	StorageClass string `json:"storageClass"`
 }
 
+// StateEmptyDirConfig configures an ephemeral emptyDir volume for AIStore state.
+type StateEmptyDirConfig struct{}
+
 // StateStorage configures AIStore state storage.
-// Exactly one of HostPath or PVC must be set.
-// +kubebuilder:validation:XValidation:rule="[has(self.hostPath), has(self.pvc)].filter(x, x).size() == 1",message="exactly one of hostPath or pvc must be set"
+// Exactly one of HostPath, PVC, or EmptyDir must be set.
+// +kubebuilder:validation:XValidation:rule="[has(self.hostPath), has(self.pvc), has(self.emptyDir)].filter(x, x).size() == 1",message="exactly one of hostPath, pvc, or emptyDir must be set"
 type StateStorage struct {
 	// HostPath stores AIStore state in directories on each host.
 	// +optional
@@ -262,6 +265,9 @@ type StateStorage struct {
 	// PVC stores AIStore state in dynamically provisioned volumes.
 	// +optional
 	PVC *StatePVCConfig `json:"pvc,omitempty"`
+	// EmptyDir stores AIStore state in an ephemeral emptyDir volume.
+	// +optional
+	EmptyDir *StateEmptyDirConfig `json:"emptyDir,omitempty"`
 }
 
 // CAConfigMapRef references a ConfigMap containing a CA certificate bundle
@@ -1041,6 +1047,10 @@ func (s *AIStoreSpec) UsesStatePVC() bool {
 
 func (s *AIStoreSpec) UsesStateHostPath() bool {
 	return s.StateStorageHostPathPrefix() != nil
+}
+
+func (s *AIStoreSpec) UsesStateEmptyDir() bool {
+	return s.StateStorage != nil && s.StateStorage.EmptyDir != nil
 }
 
 func (m *Mount) IsHostPath() bool {

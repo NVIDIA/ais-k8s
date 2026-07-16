@@ -18,6 +18,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 - The operator-managed `AIStoreAuth` reconciliation now creates an owned AuthN Deployment that mounts the rendered configurations, persistent volumes, referenced Secrets, and rolls out pods when the rendered configuration changes.
 - Operator-provisioned certificates via `tls.certificate` will include service external endpoints in the SAN list when using `externalAccess` options.
 - `spec.targetSpec.scaleDownMode` option to control target scale-down behavior. Defaults to `decommission` (rebalance data off the node, or delete it if rebalance is disabled); set to `retain` to keep data on the node via maintenance mode, for use when a replacement pod is expected to reschedule there immediately.
+- `spec.stateStorage.emptyDir` option to use an `emptyDir` volume for state storage. This is a Kubernetes-native way to manage state that works well if a cluster is expected to always be active.
 
 ### Changed
 
