@@ -195,7 +195,9 @@ func newTestAIStoreAuth() *authv1alpha1.AIStoreAuth {
 		},
 		Spec: authv1alpha1.AIStoreAuthSpec{
 			Deployment: authv1alpha1.DeploymentSpec{
-				Image: "docker.io/aistorage/authn:v4.5",
+				Container: authv1alpha1.ContainerSpec{
+					Image: "docker.io/aistorage/authn:v4.5",
+				},
 			},
 		},
 	}

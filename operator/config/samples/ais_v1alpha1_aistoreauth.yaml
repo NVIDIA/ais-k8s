@@ -54,23 +54,24 @@ spec:
     #   clusterIP: ""
     #   annotations: {}
   deployment:
-    image: docker.io/aistorage/authn:v4.5
-    imagePullPolicy: IfNotPresent
-    resources:
-      requests:
-        cpu: 100m
-        memory: 128Mi
-      limits:
-        cpu: 500m
-        memory: 512Mi
-    # Probes target the AuthN HTTP port (52001). TCP is used so the sample stays valid regardless of whether TLS is enabled.
-    livenessProbe:
-      tcpSocket:
-        port: 52001
-      initialDelaySeconds: 10
-      periodSeconds: 15
-    readinessProbe:
-      tcpSocket:
-        port: 52001
-      initialDelaySeconds: 5
-      periodSeconds: 10
+    container:
+      image: docker.io/aistorage/authn:v4.5
+      imagePullPolicy: IfNotPresent
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi
+      # Probes target the AuthN HTTP port (52001). TCP is used so the sample stays valid regardless of whether TLS is enabled.
+      livenessProbe:
+        tcpSocket:
+          port: 52001
+        initialDelaySeconds: 10
+        periodSeconds: 15
+      readinessProbe:
+        tcpSocket:
+          port: 52001
+        initialDelaySeconds: 5
+        periodSeconds: 10

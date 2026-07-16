@@ -55,7 +55,9 @@ var _ = Describe("AIStoreAuthReconciler", Label("short"), func() {
 					StorageClass: &sc,
 				},
 				Deployment: authv1alpha1.DeploymentSpec{
-					Image: "docker.io/aistorage/authn:v4.5",
+					Container: authv1alpha1.ContainerSpec{
+						Image: "docker.io/aistorage/authn:v4.5",
+					},
 				},
 			},
 		}
@@ -138,7 +140,7 @@ var _ = Describe("AIStoreAuthReconciler", Label("short"), func() {
 
 		stored := &authv1alpha1.AIStoreAuth{}
 		Expect(reconciler.client.Get(ctx, req.NamespacedName, stored)).To(Succeed())
-		stored.Spec.Deployment.Image = "docker.io/aistorage/authn:v4.8"
+		stored.Spec.Deployment.Container.Image = "docker.io/aistorage/authn:v4.8"
 		level := int32(4)
 		stored.Spec.Config = &authv1alpha1.ConfigSpec{Log: &authv1alpha1.LogSpec{Level: &level}}
 		Expect(reconciler.client.Update(ctx, stored)).To(Succeed())

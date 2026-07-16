@@ -26,7 +26,9 @@ var _ = Describe("Volumes", func() {
 			},
 			Spec: authv1alpha1.AIStoreAuthSpec{
 				Deployment: authv1alpha1.DeploymentSpec{
-					Image: "docker.io/aistorage/authn:v4.8",
+					Container: authv1alpha1.ContainerSpec{
+						Image: "docker.io/aistorage/authn:v4.8",
+					},
 				},
 			},
 		}

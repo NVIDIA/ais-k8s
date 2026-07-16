@@ -247,8 +247,8 @@ type LoadBalancerSpec struct {
 	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
-// DeploymentSpec configures the AuthN Deployment.
-type DeploymentSpec struct {
+// ContainerSpec configures the AuthN container.
+type ContainerSpec struct {
 	// Image is the AuthN container image
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
@@ -264,10 +264,25 @@ type DeploymentSpec struct {
 	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 
 	// +optional
-	PodSecurityContext *corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
+	SecurityContext *corev1.SecurityContext `json:"securityContext,omitempty"`
+
+	// LivenessProbe overrides the container liveness probe.
+	// +optional
+	LivenessProbe *corev1.Probe `json:"livenessProbe,omitempty"`
+
+	// ReadinessProbe overrides the container readiness probe.
+	// +optional
+	ReadinessProbe *corev1.Probe `json:"readinessProbe,omitempty"`
+}
+
+// DeploymentSpec configures the AuthN Deployment.
+type DeploymentSpec struct {
+	// Container configures the AuthN container.
+	// +kubebuilder:validation:Required
+	Container ContainerSpec `json:"container"`
 
 	// +optional
-	SecurityContext *corev1.SecurityContext `json:"securityContext,omitempty"`
+	PodSecurityContext *corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
 
 	// +optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
@@ -280,14 +295,6 @@ type DeploymentSpec struct {
 
 	// +optional
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
-
-	// LivenessProbe overrides the container liveness probe.
-	// +optional
-	LivenessProbe *corev1.Probe `json:"livenessProbe,omitempty"`
-
-	// ReadinessProbe overrides the container readiness probe.
-	// +optional
-	ReadinessProbe *corev1.Probe `json:"readinessProbe,omitempty"`
 }
 
 // AIStoreAuthSpec defines the desired AuthN server deployment.
@@ -323,7 +330,7 @@ type AIStoreAuthSpec struct {
 	// +optional
 	ExternalAccess *ExternalAccessSpec `json:"externalAccess,omitempty"`
 
-	// Deployment configures the AuthN Deployment (image, pod policy).
+	// Deployment configures the AuthN Deployment.
 	// +kubebuilder:validation:Required
 	Deployment DeploymentSpec `json:"deployment"`
 }

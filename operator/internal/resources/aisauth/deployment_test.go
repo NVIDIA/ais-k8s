@@ -14,8 +14,10 @@ import (
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
 )
 
@@ -33,8 +35,10 @@ var _ = Describe("Deployment", func() {
 			Spec: authv1alpha1.AIStoreAuthSpec{
 				Persistence: authv1alpha1.PersistenceSpec{StorageClass: &storageClass},
 				Deployment: authv1alpha1.DeploymentSpec{
-					Image:           "docker.io/aistorage/authn:v4.8",
-					ImagePullPolicy: corev1.PullIfNotPresent,
+					Container: authv1alpha1.ContainerSpec{
+						Image:           "docker.io/aistorage/authn:v4.8",
+						ImagePullPolicy: corev1.PullIfNotPresent,
+					},
 				},
 			},
 		}
@@ -99,6 +103,38 @@ var _ = Describe("Deployment", func() {
 		updated, err := authnres.NewDeployment(authn)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(updated.Spec.Template.Annotations[authnres.ConfigChecksumAnnotation]).NotTo(Equal(checksum))
+	})
+
+	It("leaves optional container fields unset", func() {
+		container := newContainer(authn)
+
+		Expect(container.Resources).To(BeNil())
+		Expect(container.SecurityContext).To(BeNil())
+		Expect(container.LivenessProbe).To(BeNil())
+		Expect(container.ReadinessProbe).To(BeNil())
+	})
+
+	It("renders optional container fields from spec.deployment.container", func() {
+		runAsNonRoot := true
+		authn.Spec.Deployment.Container.Resources = &corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("100m")},
+		}
+		authn.Spec.Deployment.Container.SecurityContext = &corev1.SecurityContext{RunAsNonRoot: &runAsNonRoot}
+		authn.Spec.Deployment.Container.LivenessProbe = &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{TCPSocket: &corev1.TCPSocketAction{Port: intstr.FromString("http")}},
+		}
+		authn.Spec.Deployment.Container.ReadinessProbe = &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{HTTPGet: &corev1.HTTPGetAction{
+				Path: "/v1/health", Port: intstr.FromString("http"), Scheme: corev1.URISchemeHTTPS,
+			}},
+		}
+
+		container := newContainer(authn)
+
+		Expect(container.Resources.Requests.Cpu().String()).To(Equal("100m"))
+		Expect(container.SecurityContext.RunAsNonRoot).To(HaveValue(BeTrue()))
+		Expect(container.LivenessProbe.TCPSocket.Port).To(HaveValue(Equal(intstr.FromString("http"))))
+		Expect(container.ReadinessProbe.HTTPGet.Scheme).To(HaveValue(Equal(corev1.URISchemeHTTPS)))
 	})
 
 })
