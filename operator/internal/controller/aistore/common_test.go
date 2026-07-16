@@ -732,6 +732,54 @@ var _ = Describe("syncContainers", func() {
 	})
 })
 
+var _ = Describe("shouldUpdateLabels", func() {
+	makePodTemplate := func(labels map[string]string) *corev1.PodTemplateSpec {
+		return &corev1.PodTemplateSpec{ObjectMeta: metav1.ObjectMeta{Labels: labels}}
+	}
+
+	It("returns false when labels are identical", func() {
+		labels := map[string]string{"app": "ais", cmn.LabelManagedBy: cmn.LabelManagedByValue}
+		update, _ := shouldUpdateLabels(makePodTemplate(labels), makePodTemplate(labels))
+		Expect(update).To(BeFalse())
+	})
+
+	It("returns false when the only difference is adding the managed-by label", func() {
+		desired := map[string]string{"app": "ais", cmn.LabelManagedBy: cmn.LabelManagedByValue}
+		current := map[string]string{"app": "ais"}
+		update, _ := shouldUpdateLabels(makePodTemplate(desired), makePodTemplate(current))
+		Expect(update).To(BeFalse())
+	})
+
+	It("returns true when a non-managed-by label changes", func() {
+		desired := map[string]string{"app": "ais", cmn.LabelManagedBy: cmn.LabelManagedByValue}
+		current := map[string]string{"app": "ais-old"}
+		update, reason := shouldUpdateLabels(makePodTemplate(desired), makePodTemplate(current))
+		Expect(update).To(BeTrue())
+		Expect(reason).To(Equal("updating labels"))
+	})
+
+	It("returns true when a non-managed-by label is added alongside managed-by", func() {
+		desired := map[string]string{"app": "ais", "env": "prod", cmn.LabelManagedBy: cmn.LabelManagedByValue}
+		current := map[string]string{"app": "ais"}
+		update, _ := shouldUpdateLabels(makePodTemplate(desired), makePodTemplate(current))
+		Expect(update).To(BeTrue())
+	})
+
+	It("returns true when managed-by value differs", func() {
+		desired := map[string]string{"app": "ais", cmn.LabelManagedBy: cmn.LabelManagedByValue}
+		current := map[string]string{"app": "ais", cmn.LabelManagedBy: "other-operator"}
+		update, _ := shouldUpdateLabels(makePodTemplate(desired), makePodTemplate(current))
+		Expect(update).To(BeTrue())
+	})
+
+	It("returns true when a label is removed and managed-by is added", func() {
+		desired := map[string]string{"app": "ais", cmn.LabelManagedBy: cmn.LabelManagedByValue}
+		current := map[string]string{"app": "ais", "old-label": "val"}
+		update, _ := shouldUpdateLabels(makePodTemplate(desired), makePodTemplate(current))
+		Expect(update).To(BeTrue())
+	})
+})
+
 var _ = Describe("shouldUpdateTolerations", func() {
 	makePodTemplate := func(tolerations []corev1.Toleration) *corev1.PodTemplateSpec {
 		pt := &corev1.PodTemplateSpec{}

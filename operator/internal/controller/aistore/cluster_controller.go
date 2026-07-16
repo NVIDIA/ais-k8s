@@ -203,23 +203,39 @@ func (r *Reconciler) determineAutoScaleStatus(ctx context.Context, ais *aisv1.AI
 	logger := logf.FromContext(ctx)
 	autoScaleStatus := aisv1.AutoScaleStatus{}
 	if ais.IsTargetAutoScaling() {
-		targetNodes, err := r.listMatchingNodeNames(ctx, ais.Spec.TargetSpec.NodeSelector, ais.Spec.TargetSpec.Tolerations)
+		schedulableNodes, err := r.listMatchingNodeNames(ctx, ais.Spec.TargetSpec.NodeSelector, ais.Spec.TargetSpec.Tolerations)
 		if err != nil {
 			logger.Error(err, "Unable to fetch nodes for autoScaleStatus target")
 			return err
 		}
-		logger.Info("Discovered autoScaleStatus target nodes", "targetNodes", targetNodes)
-		autoScaleStatus.ExpectedTargetNodes = targetNodes
+		podNodes, err := r.listNodesRunningDaemonPods(ctx, ais, target.SelectorLabels(ais))
+		if err != nil {
+			logger.Error(err, "Unable to fetch nodes running target pods for autoScaleStatus")
+			return err
+		}
+		// We include both nodes that are schedulable and nodes that currently contain AIStore pods to avoid unnecessary scale-downs
+		// when a node that's still running an AIStore pod becomes unschedulable.
+		unionNodes := unionSorted(schedulableNodes, podNodes)
+		logger.Info("Discovered autoScaleStatus target nodes", "targetNodes", unionNodes)
+		autoScaleStatus.ExpectedTargetNodes = unionNodes
 	}
 
 	if ais.IsProxyAutoScaling() {
-		proxyNodes, err := r.listMatchingNodeNames(ctx, ais.Spec.ProxySpec.NodeSelector, ais.Spec.ProxySpec.Tolerations)
+		schedulableNodes, err := r.listMatchingNodeNames(ctx, ais.Spec.ProxySpec.NodeSelector, ais.Spec.ProxySpec.Tolerations)
 		if err != nil {
 			logger.Error(err, "Unable to fetch nodes for autoScaleStatus proxy")
 			return err
 		}
-		logger.Info("Discovered autoScaleStatus proxy nodes", "proxyNodes", proxyNodes)
-		autoScaleStatus.ExpectedProxyNodes = proxyNodes
+		podNodes, err := r.listNodesRunningDaemonPods(ctx, ais, proxy.SelectorLabels(ais))
+		if err != nil {
+			logger.Error(err, "Unable to fetch nodes running proxy pods for autoScaleStatus")
+			return err
+		}
+		// We include both nodes that are schedulable and nodes that currently contain AIStore pods to avoid unnecessary scale-downs
+		// when a node that's still running an AIStore pod becomes unschedulable.
+		unionNodes := unionSorted(schedulableNodes, podNodes)
+		logger.Info("Discovered autoScaleStatus proxy nodes", "proxyNodes", unionNodes)
+		autoScaleStatus.ExpectedProxyNodes = unionNodes
 	}
 
 	return r.updateAutoScaleStatus(ctx, ais, autoScaleStatus)
@@ -1016,7 +1032,32 @@ func (r *Reconciler) patchStatus(ctx context.Context, ais *aisv1.AIStore) error 
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	nodePredicate := predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			return !reflect.DeepEqual(e.ObjectOld.GetLabels(), e.ObjectNew.GetLabels())
+			if !reflect.DeepEqual(e.ObjectOld.GetLabels(), e.ObjectNew.GetLabels()) {
+				return true
+			}
+
+			oldNode, ok1 := e.ObjectOld.(*corev1.Node)
+			newNode, ok2 := e.ObjectNew.(*corev1.Node)
+			if !ok1 || !ok2 {
+				return false
+			}
+			return !reflect.DeepEqual(oldNode.Spec.Taints, newNode.Spec.Taints)
+		},
+		CreateFunc: func(_ event.CreateEvent) bool {
+			return true
+		},
+		DeleteFunc: func(_ event.DeleteEvent) bool {
+			return true
+		},
+	}
+	podPredicate := predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			oldPod, ok1 := e.ObjectOld.(*corev1.Pod)
+			newPod, ok2 := e.ObjectNew.(*corev1.Pod)
+			if !ok1 || !ok2 {
+				return true
+			}
+			return oldPod.Spec.NodeName != newPod.Spec.NodeName
 		},
 		CreateFunc: func(_ event.CreateEvent) bool {
 			return true
@@ -1030,6 +1071,10 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&corev1.Node{},
 			handler.EnqueueRequestsFromMapFunc(r.findAISClustersForNode),
 			builder.WithPredicates(nodePredicate),
+		).
+		Watches(&corev1.Pod{},
+			handler.EnqueueRequestsFromMapFunc(r.findAISClustersForPod),
+			builder.WithPredicates(podPredicate),
 		).
 		Owns(&apiv1.StatefulSet{}).
 		Owns(&corev1.ConfigMap{}).
@@ -1089,6 +1134,25 @@ func (r *Reconciler) findAISClustersForNode(ctx context.Context, o k8sclient.Obj
 	}
 
 	return requests
+}
+
+func (r *Reconciler) findAISClustersForPod(_ context.Context, o k8sclient.Object) []reconcile.Request {
+	logger := r.log.WithName("pod-mapper").WithValues("object", o.GetName())
+
+	pod, ok := o.(*corev1.Pod)
+	if !ok {
+		logger.Error(fmt.Errorf("unexpected object type"), "Expected Pod", "got", fmt.Sprintf("%T", o))
+		return nil
+	}
+
+	aisName := pod.Labels[cmn.LabelAppPrefixed]
+	if aisName == "" {
+		return nil
+	}
+
+	return []reconcile.Request{{
+		NamespacedName: types.NamespacedName{Namespace: pod.Namespace, Name: aisName},
+	}}
 }
 
 func (r *Reconciler) nodeMatchesForProxy(node *corev1.Node, ais *aisv1.AIStore) bool {
@@ -1153,6 +1217,44 @@ func (r *Reconciler) listMatchingNodeNames(ctx context.Context, selector map[str
 	}
 	slices.Sort(names)
 	return names, nil
+}
+
+// listNodesRunningDaemonPods returns the sorted names of nodes that currently
+// have an AIS daemon pod (matching the given labels) scheduled on them.
+func (r *Reconciler) listNodesRunningDaemonPods(ctx context.Context, ais *aisv1.AIStore, podLabels map[string]string) ([]string, error) {
+	modifiedPodLabels := make(map[string]string)
+	for key, value := range podLabels {
+		modifiedPodLabels[key] = value
+	}
+
+	// We add this label here so that the behavior change in https://github.com/NVIDIA/ais-k8s/pull/62 is fully backwards-compatible.
+	// That is, the autoscaling behavior won't change until a proxy + target statefulset rollout happens.
+	modifiedPodLabels[cmn.LabelManagedBy] = cmn.LabelManagedByValue
+
+	podList, err := r.k8sClient.ListPods(ctx, ais, modifiedPodLabels)
+	if err != nil {
+		return nil, err
+	}
+	seen := make(map[string]struct{}, len(podList.Items))
+	for i := range podList.Items {
+		nodeName := podList.Items[i].Spec.NodeName
+		if nodeName != "" {
+			seen[nodeName] = struct{}{}
+		}
+	}
+	names := make([]string, 0, len(seen))
+	for name := range seen {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+	return names, nil
+}
+
+// unionSorted returns the sorted union of two string slices.
+func unionSorted(a, b []string) []string {
+	union := slices.Concat(a, b)
+	slices.Sort(union)
+	return slices.Compact(union)
 }
 
 // nodeAffectsTLSCertificate reports whether a change to node could change the

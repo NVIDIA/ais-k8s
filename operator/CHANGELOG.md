@@ -17,6 +17,12 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
   - Applies optional container resource requirements, security context, and liveness/readiness probes to managed Deployments from `spec.deployment.container`.
   - Applies optional pod security context, node selector, tolerations, affinity, and image pull secrets to managed Deployments from `spec.deployment.pod`.
 
+
+### Changed
+
+- When autoscaling is enabled, the desired cluster size is now computed based on the union of (nodes where AIStore is currently running) and (nodes where AIStore is schedulable). This fixes an issue where marking a node unschedulable but not evicting the AIStore pods on it would cause the cluster to scale 
+down unnecessarily. Note that this will only take effect once a rollout to proxy and target statefulsets happens.
+
 ---
 
 ## v3.2.0

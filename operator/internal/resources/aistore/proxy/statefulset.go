@@ -48,6 +48,7 @@ func DefaultPrimaryNSName(ais *aisv1.AIStore) types.NamespacedName {
 
 func NewProxyStatefulSet(ais *aisv1.AIStore, size int32) *apiv1.StatefulSet {
 	basicLabels := BasicLabels(ais)
+	basicLabels[cmn.LabelManagedBy] = cmn.LabelManagedByValue
 	podLabels := cmn.MergePodLabels(ais.Spec.ProxySpec.Labels, basicLabels)
 
 	ss := &apiv1.StatefulSet{

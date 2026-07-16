@@ -25,6 +25,8 @@ const (
 	LabelPrefix             = "app.kubernetes.io/"
 	LabelAppPrefixed        = LabelPrefix + "name"
 	LabelComponentPrefixed  = LabelPrefix + "component"
+	LabelManagedBy          = LabelPrefix + "managed-by"
+	LabelManagedByValue     = "ais-operator"
 	DefaultConfigStorageReq = int64(16 * aiscos.MiB)
 	DefaultLogsStorageReq   = int64(512 * aiscos.MiB)
 	DefaultMiscStorageReq   = int64(128 * aiscos.MiB)
