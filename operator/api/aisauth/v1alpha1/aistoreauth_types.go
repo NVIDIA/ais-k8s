@@ -261,7 +261,7 @@ type DeploymentSpec struct {
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
 
 	// +optional
-	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
+	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 
 	// +optional
 	PodSecurityContext *corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
