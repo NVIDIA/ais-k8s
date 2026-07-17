@@ -50,11 +50,10 @@ func NewDeployment(authn *authv1alpha1.AIStoreAuth) (*appsv1ac.DeploymentApplyCo
 		return nil, err
 	}
 	checksum := sha256.Sum256([]byte(authnJSON))
-	container, err := newContainer(authn, &authn.Spec.Deployment.Container)
+	podSpec, err := newPodSpec(authn)
 	if err != nil {
 		return nil, err
 	}
-	podSpec := newPodSpec(authn, container)
 
 	return appsv1ac.Deployment(DeploymentName(authn), authn.Namespace).
 		WithOwnerReferences(ownerref.NewAIStoreAuthControllerRef(authn)).
@@ -119,11 +118,49 @@ func newContainer(
 	return container, nil
 }
 
-func newPodSpec(
-	authn *authv1alpha1.AIStoreAuth,
-	container *corev1ac.ContainerApplyConfiguration,
-) *corev1ac.PodSpecApplyConfiguration {
-	return corev1ac.PodSpec().
+func newPodSpec(authn *authv1alpha1.AIStoreAuth) (*corev1ac.PodSpecApplyConfiguration, error) {
+	spec := &authn.Spec.Deployment
+	container, err := newContainer(authn, &spec.Container)
+	if err != nil {
+		return nil, err
+	}
+	pod := corev1ac.PodSpec().
 		WithContainers(container).
 		WithVolumes(volumes(authn)...)
+	podSpec := spec.Pod
+	if podSpec == nil {
+		return pod, nil
+	}
+	if podSpec.SecurityContext != nil {
+		securityContext, err := toApplyConfiguration[*corev1ac.PodSecurityContextApplyConfiguration](podSpec.SecurityContext)
+		if err != nil {
+			return nil, err
+		}
+		pod.WithSecurityContext(securityContext)
+	}
+	if len(podSpec.NodeSelector) > 0 {
+		pod.WithNodeSelector(podSpec.NodeSelector)
+	}
+	if len(podSpec.Tolerations) > 0 {
+		tolerations, err := toApplyConfiguration[[]*corev1ac.TolerationApplyConfiguration](podSpec.Tolerations)
+		if err != nil {
+			return nil, err
+		}
+		pod.WithTolerations(tolerations...)
+	}
+	if podSpec.Affinity != nil {
+		affinity, err := toApplyConfiguration[*corev1ac.AffinityApplyConfiguration](podSpec.Affinity)
+		if err != nil {
+			return nil, err
+		}
+		pod.WithAffinity(affinity)
+	}
+	if len(podSpec.ImagePullSecrets) > 0 {
+		imagePullSecrets, err := toApplyConfiguration[[]*corev1ac.LocalObjectReferenceApplyConfiguration](podSpec.ImagePullSecrets)
+		if err != nil {
+			return nil, err
+		}
+		pod.WithImagePullSecrets(imagePullSecrets...)
+	}
+	return pod, nil
 }

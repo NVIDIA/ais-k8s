@@ -275,14 +275,10 @@ type ContainerSpec struct {
 	ReadinessProbe *corev1.Probe `json:"readinessProbe,omitempty"`
 }
 
-// DeploymentSpec configures the AuthN Deployment.
-type DeploymentSpec struct {
-	// Container configures the AuthN container.
-	// +kubebuilder:validation:Required
-	Container ContainerSpec `json:"container"`
-
+// PodSpec configures the AuthN Pod.
+type PodSpec struct {
 	// +optional
-	PodSecurityContext *corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
+	SecurityContext *corev1.PodSecurityContext `json:"securityContext,omitempty"`
 
 	// +optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
@@ -295,6 +291,17 @@ type DeploymentSpec struct {
 
 	// +optional
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
+}
+
+// DeploymentSpec configures the AuthN Deployment.
+type DeploymentSpec struct {
+	// Container configures the AuthN container.
+	// +kubebuilder:validation:Required
+	Container ContainerSpec `json:"container"`
+
+	// Pod configures pod-level security and scheduling.
+	// +optional
+	Pod *PodSpec `json:"pod,omitempty"`
 }
 
 // AIStoreAuthSpec defines the desired AuthN server deployment.

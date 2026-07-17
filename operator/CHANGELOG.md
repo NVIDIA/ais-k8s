@@ -15,6 +15,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 - `AIStoreAuth` reconciliation
   - Adds shared conversion support for translating Kubernetes API types into server-side apply configurations.
   - Applies optional container resource requirements, security context, and liveness/readiness probes to managed Deployments from `spec.deployment.container`.
+  - Applies optional pod security context, node selector, tolerations, affinity, and image pull secrets to managed Deployments from `spec.deployment.pod`.
 
 ---
 

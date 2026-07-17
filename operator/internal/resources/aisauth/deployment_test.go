@@ -137,6 +137,52 @@ var _ = Describe("Deployment", func() {
 		Expect(container.ReadinessProbe.HTTPGet.Scheme).To(HaveValue(Equal(corev1.URISchemeHTTPS)))
 	})
 
+	It("leaves optional pod fields unset", func() {
+		deployment, err := authnres.NewDeployment(authn)
+		Expect(err).NotTo(HaveOccurred())
+		podSpec := deployment.Spec.Template.Spec
+
+		Expect(podSpec.SecurityContext).To(BeNil())
+		Expect(podSpec.NodeSelector).To(BeEmpty())
+		Expect(podSpec.Tolerations).To(BeEmpty())
+		Expect(podSpec.Affinity).To(BeNil())
+		Expect(podSpec.ImagePullSecrets).To(BeEmpty())
+	})
+
+	It("renders optional pod fields from spec.deployment.pod", func() {
+		fsGroup := int64(2000)
+		authn.Spec.Deployment.Pod = &authv1alpha1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{FSGroup: &fsGroup},
+			NodeSelector:    map[string]string{"node-pool": "authn"},
+			Tolerations: []corev1.Toleration{{
+				Key: "dedicated", Operator: corev1.TolerationOpExists, Effect: corev1.TaintEffectNoSchedule,
+			}},
+			Affinity: &corev1.Affinity{
+				NodeAffinity: &corev1.NodeAffinity{
+					RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+						NodeSelectorTerms: []corev1.NodeSelectorTerm{{
+							MatchExpressions: []corev1.NodeSelectorRequirement{{
+								Key: "kubernetes.io/os", Operator: corev1.NodeSelectorOpIn, Values: []string{"linux"},
+							}},
+						}},
+					},
+				},
+			},
+			ImagePullSecrets: []corev1.LocalObjectReference{{Name: "registry-creds"}},
+		}
+
+		deployment, err := authnres.NewDeployment(authn)
+		Expect(err).NotTo(HaveOccurred())
+		podSpec := deployment.Spec.Template.Spec
+
+		Expect(podSpec.SecurityContext.FSGroup).To(HaveValue(Equal(int64(2000))))
+		Expect(podSpec.NodeSelector).To(Equal(map[string]string{"node-pool": "authn"}))
+		Expect(podSpec.Tolerations).To(HaveLen(1))
+		Expect(podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution).NotTo(BeNil())
+		Expect(podSpec.ImagePullSecrets).To(HaveLen(1))
+		Expect(podSpec.ImagePullSecrets[0].Name).To(HaveValue(Equal("registry-creds")))
+	})
+
 })
 
 func newContainer(authn *authv1alpha1.AIStoreAuth) corev1ac.ContainerApplyConfiguration {
