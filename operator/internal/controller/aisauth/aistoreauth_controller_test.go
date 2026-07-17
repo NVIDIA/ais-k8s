@@ -62,7 +62,11 @@ var _ = Describe("AIStoreAuthReconciler", Label("short"), func() {
 			},
 		}
 
-		fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(authn).Build()
+		fakeClient := fake.NewClientBuilder().
+			WithScheme(scheme).
+			WithStatusSubresource(authn).
+			WithObjects(authn).
+			Build()
 		reconciler = &Reconciler{
 			client: aisclient.NewClient(fakeClient, scheme),
 			scheme: scheme,
@@ -81,17 +85,21 @@ var _ = Describe("AIStoreAuthReconciler", Label("short"), func() {
 		Expect(cm.OwnerReferences[0].Name).To(Equal(authn.Name))
 	})
 
-	It("reconciles the ConfigMap through Reconcile", func() {
-		_, err := reconciler.Reconcile(ctx, ctrl.Request{
-			NamespacedName: types.NamespacedName{
-				Name:      authn.Name,
-				Namespace: authn.Namespace,
-			},
-		})
+	It("reconciles managed resources and service status through Reconcile", func() {
+		req := ctrl.Request{NamespacedName: types.NamespacedName{
+			Name: authn.Name, Namespace: authn.Namespace,
+		}}
+		_, err := reconciler.Reconcile(ctx, req)
 		Expect(err).NotTo(HaveOccurred())
 
 		cm := &corev1.ConfigMap{}
 		Expect(reconciler.client.Get(ctx, authnres.ConfigMapNSName(authn), cm)).To(Succeed())
+
+		service := &corev1.Service{}
+		Expect(reconciler.client.Get(ctx, authnres.ServiceNSName(authn), service)).To(Succeed())
+		stored := &authv1alpha1.AIStoreAuth{}
+		Expect(reconciler.client.Get(ctx, req.NamespacedName, stored)).To(Succeed())
+		Expect(stored.Status.ServiceURL).To(Equal(authnres.ServiceURL(authn)))
 	})
 
 	It("creates an owned PVC for dynamic storage", func() {

@@ -51,6 +51,7 @@ func NewReconcilerFromMgr(mgr manager.Manager, logger logr.Logger) *Reconciler {
 // +kubebuilder:rbac:groups=auth.ais.nvidia.com,resources=aistoreauths/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;patch
 // +kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=get;list;watch;create;update;patch
+// +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch
 
 func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -79,6 +80,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 	if err := r.reconcileDeployment(ctx, authn); err != nil {
 		r.recordError(ctx, authn, err, "Failed to reconcile AuthN Deployment")
+		return reconcile.Result{}, err
+	}
+
+	if err := r.reconcileServices(ctx, authn); err != nil {
+		r.recordError(ctx, authn, err, "Failed to reconcile AuthN Services")
 		return reconcile.Result{}, err
 	}
 
@@ -141,6 +147,7 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.ConfigMap{}).
 		Owns(&corev1.PersistentVolumeClaim{}).
 		Owns(&appsv1.Deployment{}).
+		Owns(&corev1.Service{}).
 		Named("aistoreauth").
 		Complete(r)
 }
