@@ -54,6 +54,18 @@ const (
 	logsVolume           = "logs-dir"
 )
 
+// StateHostPath returns the host directory holding a cluster's on-disk state,
+// scoped under the configured hostpath prefix. Pass a daeType to select that
+// daemon's subdirectory, or "" for the cluster-level directory that covers all
+// daemon types. Returns "" when the cluster does not use hostpath state.
+func StateHostPath(ais *v1beta1.AIStore, daeType string) string {
+	prefix := ais.Spec.StateStorageHostPathPrefix()
+	if prefix == nil {
+		return ""
+	}
+	return path.Join(*prefix, ais.Namespace, ais.Name, daeType)
+}
+
 func NewAISVolumes(ais *v1beta1.AIStore, daeType string) []corev1.Volume {
 	volumes := []corev1.Volume{
 		{
@@ -101,7 +113,7 @@ func NewAISVolumes(ais *v1beta1.AIStore, daeType string) []corev1.Volume {
 			Name: stateVolume,
 			VolumeSource: corev1.VolumeSource{
 				HostPath: &corev1.HostPathVolumeSource{
-					Path: path.Join(*hostpathPrefix, ais.Namespace, ais.Name, daeType),
+					Path: StateHostPath(ais, daeType),
 					Type: aisapc.Ptr(corev1.HostPathDirectoryOrCreate),
 				},
 			},

@@ -17,6 +17,10 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
   - Applies optional container resource requirements, security context, and liveness/readiness probes to managed Deployments from `spec.deployment.container`.
   - Applies optional pod security context, node selector, tolerations, affinity, and image pull secrets to managed Deployments from `spec.deployment.pod`.
 
+### Changed
+
+- Host state cleanup jobs now target a cluster's own scoped directory (`prefix/namespace/name`) instead of the shared hostpath prefix, so tearing down one cluster no longer removes state belonging to other clusters that might share the prefix.
+
 ---
 
 ## v3.2.0
