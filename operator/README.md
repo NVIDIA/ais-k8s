@@ -443,10 +443,10 @@ By following these steps, you can deploy AIStore in a Kubernetes environment wit
 
 ## Development
 
-AIS Operator leverages [operator-sdk](https://github.com/operator-framework/operator-sdk), which provides high-level APIs, scaffolding, and code generation utilities, making the operator development easy.
+AIS Operator leverages [operator-sdk](https://github.com/operator-framework/operator-sdk), which provides high-level APIs, scaffolding, and code generation utilities.
 
-[operator/api/v1beta1](./api/v1beta1), contains `go` definitions for Custom Resource Definitions (CRDs) and Webhooks used by the operator.
-Any modifications to these type definitions requires updating of the auto-generated code ([operator/api/v1beta1/zz_generated.deepcopy.go](./api/v1beta1/zz_generated.deepcopy.go)) and the YAML manifests used for deploying operator related K8s resources to the cluster.
+The [operator/api/](./api) directory contains Custom Resource Definitions (CRDs) used by the operator.
+Any modifications to these type definitions requires updating of the auto-generated code (e.g. [operator/api/aistore/v1beta1/zz_generated.deepcopy.go](./api/aistore/v1beta1/zz_generated.deepcopy.go)) and the YAML manifests used for deploying operator-related K8s resources to the cluster.
 We use the following commands to achieve this:
 
 ```console

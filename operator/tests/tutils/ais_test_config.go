@@ -11,7 +11,7 @@ import (
 	"time"
 
 	aiscos "github.com/NVIDIA/aistore/cmn/cos"
-	aisclient "github.com/ais-operator/pkg/client"
+	aisclient "github.com/ais-operator/internal/client"
 	corev1 "k8s.io/api/core/v1"
 )
 

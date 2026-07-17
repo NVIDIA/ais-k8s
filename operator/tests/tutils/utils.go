@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	aisclient "github.com/ais-operator/pkg/client"
+	aisclient "github.com/ais-operator/internal/client"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	batchv1 "k8s.io/api/batch/v1"

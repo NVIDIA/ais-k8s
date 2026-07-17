@@ -1,0 +1,117 @@
+/*
+ * Copyright (c) 2021-2026, NVIDIA CORPORATION. All rights reserved.
+ */
+
+package cmn
+
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"path/filepath"
+
+	aisapc "github.com/NVIDIA/aistore/api/apc"
+	aiscmn "github.com/NVIDIA/aistore/cmn"
+	aisv1 "github.com/ais-operator/api/aistore/v1beta1"
+	jsoniter "github.com/json-iterator/go"
+)
+
+const (
+	defaultRebalanceState       = true
+	ConfigHashAnnotation        = "config.aistore.nvidia.com/hash"
+	RestartConfigHashAnnotation = "config.aistore.nvidia.com/restart-hash"
+	RestartConfigHashInitial    = ".initial"
+)
+
+// GenerateGlobalConfig creates the initial config override to supply to an AIS daemon pod
+//
+//	This pulls configs from the AIS spec and includes cluster or state specific changes.
+//	Note that the result can be out of sync with the actual spec depending on cluster state
+func GenerateGlobalConfig(ais *aisv1.AIStore) (*aiscmn.ConfigToSet, error) {
+	// Create initial configuration with changes that we do NOT want to update with spec, e.g. primary proxy
+	conf := newInitialConfig(ais)
+	// Apply changes from AIS spec considering current state
+	configToSet, err := GenerateConfigToSet(ais)
+	if err != nil {
+		return nil, err
+	}
+	conf.Merge(configToSet)
+	return conf, nil
+}
+
+func newInitialConfig(ais *aisv1.AIStore) *aiscmn.ConfigToSet {
+	defaultURL := aisapc.Ptr(ais.GetDefaultProxyURL())
+	discoveryURL := aisapc.Ptr(ais.GetDiscoveryProxyURL())
+	conf := &aiscmn.ConfigToSet{
+		Proxy: &aiscmn.ProxyConfToSet{
+			PrimaryURL:   defaultURL,
+			OriginalURL:  defaultURL,
+			DiscoveryURL: discoveryURL,
+		},
+	}
+	return conf
+}
+
+// GenerateConfigToSet determines the actual config we want to apply based on config overrides provided in spec
+func GenerateConfigToSet(ais *aisv1.AIStore) (*aiscmn.ConfigToSet, error) {
+	specConfig := &aisv1.ConfigToUpdate{}
+	if ais.Spec.ConfigToUpdate != nil {
+		// Deep copy to avoid modifying the spec itself
+		specConfig = ais.Spec.ConfigToUpdate.DeepCopy()
+	}
+	if ais.HasTLSEnabled() {
+		if specConfig.Net == nil {
+			specConfig.Net = &aisv1.NetConfToUpdate{}
+		}
+		if specConfig.Net.HTTP == nil {
+			specConfig.Net.HTTP = &aisv1.HTTPConfToUpdate{}
+		}
+		specConfig.Net.HTTP.Certificate = aisapc.Ptr(filepath.Join(certsDir, TLSCertFileName))
+		specConfig.Net.HTTP.CertKey = aisapc.Ptr(filepath.Join(certsDir, TLSKeyFileName))
+		specConfig.Net.HTTP.ClientCA = aisapc.Ptr(filepath.Join(certsDir, TLSCAFileName))
+	}
+
+	// Override rebalance if the cluster is not ready for it (starting up, scaling, upgrading)
+	if ais.IsConditionTrue(aisv1.ConditionReadyRebalance) {
+		// If not provided, reset to default
+		if !specConfig.IsRebalanceEnabledSet() {
+			specConfig.UpdateRebalanceEnabled(aisapc.Ptr(defaultRebalanceState))
+		}
+	} else {
+		specConfig.UpdateRebalanceEnabled(aisapc.Ptr(false))
+	}
+
+	if ais.Spec.HasCloudBackend() {
+		specConfig.ConfigureBackend(&ais.Spec)
+	}
+
+	// Build OIDC issuer CA path from constants if ConfigMap is specified
+	var issuerCAPath string
+	if ais.Spec.IssuerCAConfigMap != nil {
+		issuerCAPath = filepath.Join(OIDCCAMountPath, OIDCCAFileName)
+	}
+	specConfig.ConfigureAuth(ais.Spec.Auth, issuerCAPath)
+
+	return specConfig.Convert()
+}
+
+func HashGlobalConfig(c *aiscmn.ConfigToSet) (string, error) {
+	data, err := jsoniter.Marshal(c)
+	if err != nil {
+		return "", err
+	}
+	hash := sha256.Sum256(data)
+	return hex.EncodeToString(hash[:]), nil
+}
+
+// Generates a hash of ONLY configs that should trigger cluster restart upon change
+func HashRestartConfigs(c *aiscmn.ConfigToSet) (string, error) {
+	checksum := sha256.Sum256([]byte{})
+	if c.Net != nil && c.Net.HTTP != nil {
+		confNetHTTP, err := jsoniter.Marshal(*c.Net.HTTP)
+		if err != nil {
+			return "", err
+		}
+		checksum = sha256.Sum256(confNetHTTP)
+	}
+	return hex.EncodeToString(checksum[:]), nil
+}

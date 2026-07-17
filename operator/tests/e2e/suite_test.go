@@ -13,10 +13,10 @@ import (
 	"testing"
 	"time"
 
-	aisv1 "github.com/ais-operator/api/v1beta1"
-	aisclient "github.com/ais-operator/pkg/client"
-	"github.com/ais-operator/pkg/controllers"
-	"github.com/ais-operator/pkg/services"
+	aisv1 "github.com/ais-operator/api/aistore/v1beta1"
+	aisclient "github.com/ais-operator/internal/client"
+	aiscontroller "github.com/ais-operator/internal/controller/aistore"
+	"github.com/ais-operator/internal/services"
 	"github.com/ais-operator/tests/tutils"
 	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	. "github.com/onsi/ginkgo/v2"
@@ -138,7 +138,7 @@ var _ = SynchronizedBeforeSuite(
 			CertPerCluster: false,
 		}
 
-		Expect(controllers.NewAISReconcilerFromMgr(
+		Expect(aiscontroller.NewReconcilerFromMgr(
 			mgr,
 			tlsOpts,
 			ctrl.Log.WithName("controllers").WithName("AIStore"),

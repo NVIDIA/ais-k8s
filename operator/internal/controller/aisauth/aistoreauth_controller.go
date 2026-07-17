@@ -9,8 +9,8 @@ import (
 	"fmt"
 
 	authv1alpha1 "github.com/ais-operator/api/aisauth/v1alpha1"
+	aisclient "github.com/ais-operator/internal/client"
 	authnres "github.com/ais-operator/internal/resources/aisauth"
-	aisclient "github.com/ais-operator/pkg/client"
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -28,17 +28,17 @@ const (
 	actionReconcile   = "Reconciled"
 )
 
-// AIStoreAuthReconciler reconciles an AIStoreAuth object.
-type AIStoreAuthReconciler struct {
+// Reconciler reconciles an AIStoreAuth object.
+type Reconciler struct {
 	client   *aisclient.K8sClient
 	scheme   *runtime.Scheme
 	log      logr.Logger
 	recorder events.EventRecorder
 }
 
-// NewAIStoreAuthReconcilerFromMgr builds an AIStoreAuthReconciler from a controller manager.
-func NewAIStoreAuthReconcilerFromMgr(mgr manager.Manager, logger logr.Logger) *AIStoreAuthReconciler {
-	return &AIStoreAuthReconciler{
+// NewReconcilerFromMgr builds a Reconciler from a controller manager.
+func NewReconcilerFromMgr(mgr manager.Manager, logger logr.Logger) *Reconciler {
+	return &Reconciler{
 		client:   aisclient.NewClientFromMgr(mgr),
 		scheme:   mgr.GetScheme(),
 		log:      logger,
@@ -53,7 +53,7 @@ func NewAIStoreAuthReconcilerFromMgr(mgr manager.Manager, logger logr.Logger) *A
 // +kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=get;list;watch;create;update;patch
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch
 
-func (r *AIStoreAuthReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := r.log.WithValues("namespace", req.Namespace, "name", req.Name)
 	ctx = logf.IntoContext(ctx, logger)
 
@@ -86,7 +86,7 @@ func (r *AIStoreAuthReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	return reconcile.Result{}, nil
 }
 
-func (r *AIStoreAuthReconciler) reconcileConfigMap(ctx context.Context, authn *authv1alpha1.AIStoreAuth) error {
+func (r *Reconciler) reconcileConfigMap(ctx context.Context, authn *authv1alpha1.AIStoreAuth) error {
 	cm, err := authnres.NewConfigMap(authn)
 	if err != nil {
 		return err
@@ -104,7 +104,7 @@ func (r *AIStoreAuthReconciler) reconcileConfigMap(ctx context.Context, authn *a
 //
 // Changing an immutable PVC field (storageClassName, volumeName, or size on a
 // non-expandable class) will fail server-side apply on every reconcile.
-func (r *AIStoreAuthReconciler) reconcilePersistence(ctx context.Context, authn *authv1alpha1.AIStoreAuth) error {
+func (r *Reconciler) reconcilePersistence(ctx context.Context, authn *authv1alpha1.AIStoreAuth) error {
 	pvc, err := authnres.NewPVC(authn)
 	if err != nil {
 		return err
@@ -116,7 +116,7 @@ func (r *AIStoreAuthReconciler) reconcilePersistence(ctx context.Context, authn 
 	return nil
 }
 
-func (r *AIStoreAuthReconciler) reconcileDeployment(ctx context.Context, authn *authv1alpha1.AIStoreAuth) error {
+func (r *Reconciler) reconcileDeployment(ctx context.Context, authn *authv1alpha1.AIStoreAuth) error {
 	deployment, err := authnres.NewDeployment(authn)
 	if err != nil {
 		return err
@@ -128,14 +128,14 @@ func (r *AIStoreAuthReconciler) reconcileDeployment(ctx context.Context, authn *
 	return nil
 }
 
-func (r *AIStoreAuthReconciler) recordError(ctx context.Context, authn *authv1alpha1.AIStoreAuth, err error, msg string) {
+func (r *Reconciler) recordError(ctx context.Context, authn *authv1alpha1.AIStoreAuth, err error, msg string) {
 	logf.FromContext(ctx).Error(err, msg)
 	r.recorder.Eventf(authn, nil, corev1.EventTypeWarning, eventReasonFailed, actionReconcile,
 		fmt.Sprintf("%s, err: %v", msg, err))
 }
 
 // SetupWithManager registers the reconciler with the manager.
-func (r *AIStoreAuthReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&authv1alpha1.AIStoreAuth{}).
 		Owns(&corev1.ConfigMap{}).

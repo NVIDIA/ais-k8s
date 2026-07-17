@@ -9,8 +9,8 @@ import (
 	"testing"
 
 	authv1alpha1 "github.com/ais-operator/api/aisauth/v1alpha1"
+	aisclient "github.com/ais-operator/internal/client"
 	authnres "github.com/ais-operator/internal/resources/aisauth"
-	aisclient "github.com/ais-operator/pkg/client"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
@@ -32,7 +32,7 @@ var _ = Describe("AIStoreAuthReconciler", Label("short"), func() {
 	var (
 		ctx        context.Context
 		scheme     *runtime.Scheme
-		reconciler *AIStoreAuthReconciler
+		reconciler *Reconciler
 		authn      *authv1alpha1.AIStoreAuth
 	)
 
@@ -63,7 +63,7 @@ var _ = Describe("AIStoreAuthReconciler", Label("short"), func() {
 		}
 
 		fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(authn).Build()
-		reconciler = &AIStoreAuthReconciler{
+		reconciler = &Reconciler{
 			client: aisclient.NewClient(fakeClient, scheme),
 			scheme: scheme,
 			log:    zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)),

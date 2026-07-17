@@ -12,8 +12,8 @@ import (
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
 	aiscos "github.com/NVIDIA/aistore/cmn/cos"
-	aisv1 "github.com/ais-operator/api/v1beta1"
-	aisclient "github.com/ais-operator/pkg/client"
+	aisv1 "github.com/ais-operator/api/aistore/v1beta1"
+	aisclient "github.com/ais-operator/internal/client"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"

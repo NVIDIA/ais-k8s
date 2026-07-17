@@ -1,0 +1,1260 @@
+/*
+ * Copyright (c) 2024-2026, NVIDIA CORPORATION. All rights reserved.
+ */
+
+package aistore
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"os"
+	"time"
+
+	"github.com/NVIDIA/aistore/api/apc"
+	aiscmn "github.com/NVIDIA/aistore/cmn"
+	"github.com/NVIDIA/aistore/cmn/cos"
+	aisv1 "github.com/ais-operator/api/aistore/v1beta1"
+	aisclient "github.com/ais-operator/internal/client"
+	"github.com/ais-operator/internal/resources/aistore/cmn"
+	"github.com/ais-operator/internal/resources/aistore/proxy"
+	"github.com/ais-operator/internal/resources/aistore/target"
+	mocks "github.com/ais-operator/internal/services/mocks"
+	"github.com/ais-operator/tests/tutils"
+	jsoniter "github.com/json-iterator/go"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"go.uber.org/mock/gomock"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/tools/events"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+)
+
+var _ = Describe("AIStoreController", func() {
+	Describe("Reconcile", func() {
+		var (
+			r         *Reconciler
+			c         client.Client
+			apiClient *mocks.MockAIStoreClientInterface
+
+			namespace string
+			ctx       = context.TODO()
+		)
+
+		BeforeEach(func() {
+			namespace = "ais-test-" + rand.String(10)
+			By(fmt.Sprintf("Using %q namespace", namespace))
+			c = k8sClient
+
+			// Setup initial resources.
+			err := c.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace}})
+			Expect(err).NotTo(HaveOccurred())
+
+			tmpClient := aisclient.NewClient(c, c.Scheme())
+			Expect(tmpClient).NotTo(BeNil())
+
+			// Mock the client for AIS API calls
+			mockCtrl := gomock.NewController(GinkgoT())
+			apiClient = mocks.NewMockAIStoreClientInterface(mockCtrl)
+			// Mock the client manager to return the mock client
+			clientManager := mocks.NewMockAISClientManagerInterface(mockCtrl)
+			clientManager.EXPECT().GetClient(gomock.Any(), gomock.Any()).Return(apiClient, nil).AnyTimes()
+
+			r = NewReconciler(tmpClient, &events.FakeRecorder{}, ctrl.Log, clientManager)
+		})
+
+		Describe("Reconcile", func() {
+			var (
+				ais *aisv1.AIStore
+			)
+
+			BeforeEach(func() {
+				ais = &aisv1.AIStore{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "ais",
+						Namespace: namespace,
+					},
+					Spec: aisv1.AIStoreSpec{
+						InitImage: tutils.DefaultInitImage,
+						NodeImage: tutils.DefaultNodeImage,
+						ProxySpec: aisv1.DaemonSpec{
+							Size: apc.Ptr[int32](1),
+							ServiceSpec: aisv1.ServiceSpec{
+								ServicePort:      intstr.FromInt32(51080),
+								PublicPort:       intstr.FromInt32(51081),
+								IntraControlPort: intstr.FromInt32(51082),
+								IntraDataPort:    intstr.FromInt32(51083),
+							},
+						},
+						TargetSpec: aisv1.TargetSpec{
+							DaemonSpec: aisv1.DaemonSpec{
+								Size: apc.Ptr[int32](1),
+								ServiceSpec: aisv1.ServiceSpec{
+									ServicePort:      intstr.FromInt32(51080),
+									PublicPort:       intstr.FromInt32(51081),
+									IntraControlPort: intstr.FromInt32(51082),
+									IntraDataPort:    intstr.FromInt32(51083),
+								},
+							},
+							Mounts: []aisv1.Mount{
+								{Path: "/data", Size: apc.Ptr(resource.MustParse("10Gi"))},
+							},
+						},
+						StateStorage: &aisv1.StateStorage{
+							HostPath: &aisv1.StateHostPathConfig{Prefix: "/ais"},
+						},
+						ConfigToUpdate: &aisv1.ConfigToUpdate{
+							Log: &aisv1.LogConfToUpdate{
+								ToStderr: apc.Ptr(true),
+							},
+						},
+					},
+				}
+				err := c.Create(ctx, ais)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			Describe("Without existing cluster", func() {
+				It("should properly sync external edits to owned resources", func() {
+					_, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: "ais", Namespace: namespace}})
+					Expect(err).ToNot(HaveOccurred())
+
+					By("Ensure that proxy Service has been created")
+					var proxyService corev1.Service
+					err = c.Get(ctx, types.NamespacedName{Name: "ais-proxy", Namespace: namespace}, &proxyService)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(proxyService.Spec.Type).To(Equal(corev1.ServiceTypeClusterIP))
+					Expect(proxyService.Spec.ClusterIP).To(Equal(corev1.ClusterIPNone))
+					Expect(proxyService.Spec.Ports).To(HaveLen(3))
+
+					By("Delete proxy Service")
+					err = c.Delete(ctx, &proxyService)
+					Expect(err).NotTo(HaveOccurred())
+
+					By("Ensure that Service is gone")
+					err = c.Get(ctx, types.NamespacedName{Name: "ais-proxy", Namespace: namespace}, &proxyService)
+					Expect(err).To(HaveOccurred())
+					Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+
+					By("Reconcile to recreate Service")
+					_, err = r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: "ais", Namespace: namespace}})
+					Expect(err).ToNot(HaveOccurred())
+
+					By("Ensure that proxy Service has been recreated")
+					err = c.Get(ctx, types.NamespacedName{Name: "ais-proxy", Namespace: namespace}, &proxyService)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(proxyService.Spec.Type).To(Equal(corev1.ServiceTypeClusterIP))
+					Expect(proxyService.Spec.ClusterIP).To(Equal(corev1.ClusterIPNone))
+					Expect(proxyService.Spec.Ports).To(HaveLen(3))
+				})
+
+				It("should create proxy StatefulSet when it was removed", func() {
+					var ss appsv1.StatefulSet
+
+					By("Check that proxy StatefulSet does not exist")
+					err := c.Get(ctx, types.NamespacedName{Name: "ais-proxy", Namespace: namespace}, &ss)
+					Expect(err).To(HaveOccurred())
+
+					By("Reconcile to create proxy StatefulSet")
+					reconcileProxy(ctx, ais, r)
+
+					By("Ensure that proxy StatefulSet has been created")
+					getStatefulSet(ctx, ais, c, "ais-proxy")
+				})
+
+				It("should create target StatefulSet when it was removed", func() {
+					var ss appsv1.StatefulSet
+
+					By("Check that target StatefulSet does not exist")
+					err := c.Get(ctx, types.NamespacedName{Name: "ais-target", Namespace: namespace}, &ss)
+					Expect(err).To(HaveOccurred())
+
+					By("Reconcile to create target StatefulSet")
+					reconcileTarget(ctx, ais, r)
+
+					By("Ensure that target StatefulSet has been created")
+					getStatefulSet(ctx, ais, c, "ais-target")
+				})
+
+				It("should properly handle config update", func() {
+					By("Update CRD")
+					ais.Spec.ConfigToUpdate.Features = apc.Ptr("2568")
+					expectedConfig, err := cmn.GenerateGlobalConfig(ais)
+					Expect(err).ToNot(HaveOccurred())
+					expectedHash, err := hashGlobalConfig(expectedConfig)
+					Expect(err).ToNot(HaveOccurred())
+					err = c.Update(ctx, ais)
+					Expect(err).ToNot(HaveOccurred())
+
+					By("Reconcile to propagate config")
+					apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any(), false).Times(1)
+					err = r.handleConfigState(ctx, ais, true /*force*/)
+					Expect(err).ToNot(HaveOccurred())
+
+					By("Ensure that config update is propagated to proxies/targets")
+					err = c.Get(ctx, types.NamespacedName{Name: ais.Name, Namespace: namespace}, ais)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(ais.Annotations[cmn.ConfigHashAnnotation]).To(Equal(expectedHash))
+
+					By("Ensure that a repeat with the same config does not result in an API call")
+					apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any(), false).Times(0)
+					err = r.handleConfigState(ctx, ais, false /*force*/)
+					Expect(err).ToNot(HaveOccurred())
+
+					By("Ensure that a repeat with the same config and force DOES result in an API call")
+					apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any(), false).Times(1)
+					err = r.handleConfigState(ctx, ais, true /*force*/)
+					Expect(err).ToNot(HaveOccurred())
+				})
+
+				It("should reconcile new init image in spec", func() {
+					newImg := "testInitImage"
+					createStatefulSets(ctx, c, ais, r)
+
+					By("Update init image in spec and reconcile")
+					apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any(), false).Return(nil).Times(1)
+					ais.Spec.InitImage = newImg
+					err := c.Update(ctx, ais)
+					Expect(err).ToNot(HaveOccurred())
+					reconcileProxy(ctx, ais, r)
+					reconcileTarget(ctx, ais, r)
+
+					By("Expect statefulset spec to update")
+					Eventually(statefulSetsImagesLatest(ctx, c, ais), 30*time.Second, 2*time.Second).Should(Succeed())
+				})
+
+				It("should reconcile new aisnode image in spec", func() {
+					newImg := "testNodeImage"
+					createStatefulSets(ctx, c, ais, r)
+
+					By("Update node image in spec and reconcile")
+					apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any(), false).Return(nil).Times(1)
+					ais.Spec.NodeImage = newImg
+					err := c.Update(ctx, ais)
+					Expect(err).ToNot(HaveOccurred())
+					reconcileProxy(ctx, ais, r)
+					reconcileTarget(ctx, ais, r)
+
+					By("Expect statefulset spec to update")
+					Eventually(statefulSetsImagesLatest(ctx, c, ais), 30*time.Second, 2*time.Second).Should(Succeed())
+				})
+
+				It("should reconcile changed container resources", func() {
+					createStatefulSets(ctx, c, ais, r)
+
+					By("Update container resources and reconcile")
+					apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any(), false).Return(nil).Times(1)
+					expStorage := cmn.DefaultLogsStorageReq + cmn.DefaultConfigStorageReq + cmn.DefaultMiscStorageReq
+					ais.Spec.ProxySpec.Resources = corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:              resource.MustParse("100m"),
+							corev1.ResourceMemory:           resource.MustParse("100Mi"),
+							corev1.ResourceEphemeralStorage: *resource.NewQuantity(expStorage, resource.BinarySI),
+						},
+						Limits: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("200m"),
+							corev1.ResourceMemory: resource.MustParse("200Mi"),
+						},
+					}
+					ais.Spec.TargetSpec.Resources = corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:              resource.MustParse("100m"),
+							corev1.ResourceMemory:           resource.MustParse("100Mi"),
+							corev1.ResourceEphemeralStorage: *resource.NewQuantity(expStorage, resource.BinarySI),
+						},
+						Limits: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("200m"),
+							corev1.ResourceMemory: resource.MustParse("200Mi"),
+						},
+					}
+					err := c.Update(ctx, ais)
+					Expect(err).ToNot(HaveOccurred())
+					reconcileProxy(ctx, ais, r)
+					reconcileTarget(ctx, ais, r)
+
+					By("Expect statefulset spec to update")
+					Eventually(func(g Gomega) {
+						for _, stsType := range []string{"ais-proxy", "ais-target"} {
+							ss := getStatefulSet(ctx, ais, c, stsType)
+							g.Expect(ss.Spec.Template.Spec.Containers[0].Resources.Requests).To(HaveLen(3))
+							g.Expect(ss.Spec.Template.Spec.Containers[0].Resources.Limits).To(HaveLen(2))
+						}
+					}, 30*time.Second, 2*time.Second).Should(Succeed())
+				})
+
+				It("should reconcile changed security context", func() {
+					createStatefulSets(ctx, c, ais, r)
+
+					By("Update security context in spec and reconcile")
+					apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any(), false).Return(nil).Times(1)
+					ais.Spec.ProxySpec.SecurityContext = &corev1.PodSecurityContext{
+						RunAsUser: apc.Ptr(int64(1000)),
+					}
+					ais.Spec.TargetSpec.SecurityContext = &corev1.PodSecurityContext{
+						RunAsUser: apc.Ptr(int64(1000)),
+					}
+					err := c.Update(ctx, ais)
+					Expect(err).ToNot(HaveOccurred())
+
+					reconcileProxy(ctx, ais, r)
+					reconcileTarget(ctx, ais, r)
+
+					By("Expect statefulset specs to update")
+					Eventually(func(g Gomega) {
+						ss := getStatefulSet(ctx, ais, c, "ais-proxy")
+						g.Expect(ss.Spec.Template.Spec.SecurityContext.RunAsUser).To(Equal(apc.Ptr(int64(1000))))
+					}, 10*time.Second, 2*time.Second).Should(Succeed())
+					Eventually(func(g Gomega) {
+						ss := getStatefulSet(ctx, ais, c, "ais-target")
+						g.Expect(ss.Spec.Template.Spec.SecurityContext.RunAsUser).To(Equal(apc.Ptr(int64(1000))))
+					}, 10*time.Second, 2*time.Second).Should(Succeed())
+				})
+
+				It("should reconcile cleared security context", func() {
+					ais.Spec.ProxySpec.SecurityContext = &corev1.PodSecurityContext{
+						RunAsUser: apc.Ptr(int64(1000)),
+					}
+					ais.Spec.TargetSpec.SecurityContext = &corev1.PodSecurityContext{
+						RunAsUser: apc.Ptr(int64(1000)),
+					}
+					createStatefulSets(ctx, c, ais, r)
+
+					By("Update security context in spec and reconcile")
+					apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any(), false).Return(nil).Times(1)
+					ais.Spec.ProxySpec.SecurityContext = nil
+					ais.Spec.TargetSpec.SecurityContext = nil
+					err := c.Update(ctx, ais)
+					Expect(err).ToNot(HaveOccurred())
+
+					reconcileProxy(ctx, ais, r)
+					reconcileTarget(ctx, ais, r)
+
+					By("Expect statefulset specs to update to use default pod security context")
+					Eventually(func(g Gomega) {
+						ss := getStatefulSet(ctx, ais, c, "ais-proxy")
+						g.Expect(ss.Spec.Template.Spec.SecurityContext).To(Equal(cmn.DefaultPodSecurityContext()))
+					}, 10*time.Second, 2*time.Second).Should(Succeed())
+					Eventually(func(g Gomega) {
+						ss := getStatefulSet(ctx, ais, c, "ais-target")
+						g.Expect(ss.Spec.Template.Spec.SecurityContext).To(Equal(cmn.DefaultPodSecurityContext()))
+					}, 10*time.Second, 2*time.Second).Should(Succeed())
+				})
+
+				DescribeTable("should reconcile on changed field", func(setField func(ais *aisv1.AIStore), checkField func(g Gomega, podTemplate corev1.PodTemplateSpec)) {
+					createStatefulSets(ctx, c, ais, r)
+
+					By("Update field in spec and reconcile")
+					apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any(), false).Return(nil).Times(1)
+					setField(ais)
+					err := c.Update(ctx, ais)
+					Expect(err).ToNot(HaveOccurred())
+
+					reconcileProxy(ctx, ais, r)
+					reconcileTarget(ctx, ais, r)
+
+					By("Expect StatefulSet specs to be updated")
+					Eventually(func(g Gomega) {
+						ss := getStatefulSet(ctx, ais, c, "ais-proxy")
+						checkField(g, ss.Spec.Template)
+					}, 10*time.Second, 2*time.Second).Should(Succeed())
+					Eventually(func(g Gomega) {
+						ss := getStatefulSet(ctx, ais, c, "ais-target")
+						checkField(g, ss.Spec.Template)
+					}, 10*time.Second, 2*time.Second).Should(Succeed())
+				},
+					Entry("annotations",
+						func(ais *aisv1.AIStore) {
+							ais.Spec.ProxySpec.Annotations = map[string]string{"key": "value"}
+							ais.Spec.TargetSpec.Annotations = map[string]string{"key": "value"}
+						},
+						func(g Gomega, podTemplate corev1.PodTemplateSpec) {
+							g.ExpectWithOffset(1, podTemplate.Annotations["key"]).To(Equal("value"))
+						},
+					),
+					Entry("labels",
+						func(ais *aisv1.AIStore) {
+							ais.Spec.ProxySpec.Labels = map[string]string{"key": "value"}
+							ais.Spec.TargetSpec.Labels = map[string]string{"key": "value"}
+						},
+						func(g Gomega, podTemplate corev1.PodTemplateSpec) {
+							g.ExpectWithOffset(1, podTemplate.Labels["key"]).To(Equal("value"))
+						},
+					),
+					Entry("env",
+						func(ais *aisv1.AIStore) {
+							ais.Spec.ProxySpec.Env = []corev1.EnvVar{{Name: "key", Value: "value"}}
+							ais.Spec.TargetSpec.Env = []corev1.EnvVar{{Name: "key", Value: "value"}}
+						},
+						func(g Gomega, podTemplate corev1.PodTemplateSpec) {
+							g.ExpectWithOffset(1, podTemplate.Spec.Containers[0].Env[0].Name).To(Equal("key"))
+						},
+					),
+				)
+			})
+
+			Describe("With existing cluster", func() {
+				BeforeEach(func() {
+					if existingCluster, _ := cos.ParseBool(os.Getenv("USE_EXISTING_CLUSTER")); !existingCluster {
+						Skip("Skipping tests which require existing cluster")
+					}
+				})
+
+				It("should properly reconcile basic AIStore cluster", func() {
+					_, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: "ais", Namespace: namespace}})
+					Expect(err).ToNot(HaveOccurred())
+
+					var ais aisv1.AIStore
+					err = c.Get(ctx, types.NamespacedName{Name: "ais", Namespace: namespace}, &ais)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(ais.GetFinalizers()).To(HaveLen(1))
+					Expect(ais.Status.State).To(Equal(aisv1.ClusterInitialized))
+
+					By("Ensure that proxy Service has been created")
+					var proxyService corev1.Service
+					err = c.Get(ctx, types.NamespacedName{Name: "ais-proxy", Namespace: namespace}, &proxyService)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(proxyService.Spec.Type).To(Equal(corev1.ServiceTypeClusterIP))
+					Expect(proxyService.Spec.ClusterIP).To(Equal(corev1.ClusterIPNone))
+					Expect(proxyService.Spec.Ports).To(HaveLen(3))
+
+					By("Ensure that proxy StatefulSet has been created")
+					proxySS := getStatefulSet(ctx, &ais, c, "ais-proxy")
+					Expect(*proxySS.Spec.Replicas).To(BeEquivalentTo(1))
+
+					By("Waiting for proxies to come up")
+					Eventually(proxiesReady(ctx, c, &ais), 2*time.Minute, 5*time.Second).Should(Succeed())
+
+					result, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: "ais", Namespace: namespace}})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(result.RequeueAfter).To(Not(BeZero()))
+
+					By("Ensure that target Service has been created")
+					var targetService corev1.Service
+					err = c.Get(ctx, types.NamespacedName{Name: "ais-target", Namespace: namespace}, &targetService)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(targetService.Spec.Type).To(Equal(corev1.ServiceTypeClusterIP))
+					Expect(targetService.Spec.ClusterIP).To(Equal(corev1.ClusterIPNone))
+					Expect(targetService.Spec.Ports).To(HaveLen(3))
+
+					By("Ensure that target StatefulSet has been created")
+					targetSS := getStatefulSet(ctx, &ais, c, "ais-target")
+					Expect(*targetSS.Spec.Replicas).To(BeEquivalentTo(1))
+
+					By("Waiting for targets to come up")
+					Eventually(targetsReady(ctx, c, &ais), 2*time.Minute, 5*time.Second).Should(Succeed())
+
+					result, err = r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: "ais", Namespace: namespace}})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(result.RequeueAfter).To(BeZero())
+				})
+			})
+		})
+	})
+
+	Describe("shouldUpdatePodTemplate & syncPodTemplate", func() {
+		DescribeTable("should correctly compare pod templates", func(desiredPodTemplate, currentPodTemplate *corev1.PodTemplateSpec, expectedTrigger, expectedSync bool) {
+			needsUpdate, _ := shouldUpdatePodTemplate(desiredPodTemplate, currentPodTemplate)
+			Expect(needsUpdate).To(Equal(expectedTrigger))
+
+			// Also make sure that when syncing we will correctly update the template.
+			synced := syncPodTemplate(desiredPodTemplate, currentPodTemplate)
+			Expect(synced).To(Equal(expectedSync))
+			equal := equality.Semantic.DeepEqual(desiredPodTemplate, currentPodTemplate)
+			Expect(equal).To(BeTrue())
+		},
+			Entry("different init image",
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers:     []corev1.Container{{Image: "test:latest"}},
+					},
+				},
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:old"}},
+						Containers:     []corev1.Container{{Image: "test:latest"}},
+					},
+				},
+				true,
+				true,
+			),
+			Entry("different node image",
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers:     []corev1.Container{{Image: "test:latest"}},
+					},
+				},
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers:     []corev1.Container{{Image: "test:old"}},
+					},
+				},
+				true,
+				true,
+			),
+			Entry("different resources (empty vs non-empty)",
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers: []corev1.Container{{
+							Name:  cmn.AISContainerName,
+							Image: "test:latest",
+							Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{
+								corev1.ResourceCPU: resource.MustParse("100m"),
+							}},
+						}},
+					},
+				},
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers:     []corev1.Container{{Name: cmn.AISContainerName, Image: "test:latest"}},
+					},
+				},
+				true,
+				true,
+			),
+			Entry("init container: adding resources when current has none does not trigger sync",
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{
+							Image: "test:latest",
+							Resources: corev1.ResourceRequirements{
+								Requests: corev1.ResourceList{
+									corev1.ResourceCPU: resource.MustParse("100m"),
+								},
+							},
+						}},
+						Containers: []corev1.Container{{Image: "test:latest"}},
+					},
+				},
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers:     []corev1.Container{{Image: "test:latest"}},
+					},
+				},
+				false,
+				true,
+			),
+			Entry("different resources (different values)",
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers: []corev1.Container{{
+							Name:  cmn.AISContainerName,
+							Image: "test:latest",
+							Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{
+								corev1.ResourceCPU: resource.MustParse("100m"),
+							}},
+						}},
+					},
+				},
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers: []corev1.Container{{
+							Name:  cmn.AISContainerName,
+							Image: "test:latest",
+							Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{
+								corev1.ResourceCPU: resource.MustParse("200m"),
+							}},
+						}},
+					},
+				},
+				true,
+				true,
+			),
+			Entry("different resources (different types)",
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers: []corev1.Container{{
+							Name:  cmn.AISContainerName,
+							Image: "test:latest",
+							Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{
+								corev1.ResourceMemory: resource.MustParse("100m"),
+							}},
+						}},
+					},
+				},
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers: []corev1.Container{{
+							Name:  cmn.AISContainerName,
+							Image: "test:latest",
+							Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{
+								corev1.ResourceCPU: resource.MustParse("200m"),
+							}},
+						}},
+					},
+				},
+				true,
+				true,
+			),
+			Entry("different env",
+				&corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"key": "value",
+						},
+					},
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers: []corev1.Container{{
+							Name:  cmn.AISContainerName,
+							Image: "test:latest",
+							Env:   []corev1.EnvVar{{Name: "key", Value: "value"}},
+							Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{
+								corev1.ResourceCPU: resource.MustParse("100m"),
+							}},
+						}},
+					},
+				},
+				&corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"key": "value",
+						},
+					},
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers: []corev1.Container{{
+							Name:  cmn.AISContainerName,
+							Image: "test:latest",
+							Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{
+								corev1.ResourceCPU: resource.MustParse("100m"),
+							}},
+						}},
+					},
+				},
+				true,
+				true,
+			),
+			Entry("different annotations", //nolint:dupl // For now it is okay to duplicate, maybe in the future we will fix it.
+				&corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"key": "value",
+						},
+					},
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers: []corev1.Container{{
+							Image: "test:latest",
+							Env:   []corev1.EnvVar{{Name: "key", Value: "value"}},
+							Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{
+								corev1.ResourceCPU: resource.MustParse("100m"),
+							}},
+						}},
+					},
+				},
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers: []corev1.Container{{
+							Image: "test:latest",
+							Env:   []corev1.EnvVar{{Name: "key", Value: "value"}},
+							Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{
+								corev1.ResourceCPU: resource.MustParse("100m"),
+							}},
+						}},
+					},
+				},
+				true,
+				true,
+			),
+			Entry("different labels", //nolint:dupl // For now it is okay to duplicate, maybe in the future we will fix it.
+				&corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: map[string]string{
+							"key": "value",
+						},
+					},
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers: []corev1.Container{{
+							Image: "test:latest",
+							Env:   []corev1.EnvVar{{Name: "key", Value: "value"}},
+							Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{
+								corev1.ResourceCPU: resource.MustParse("100m"),
+							}},
+						}},
+					},
+				},
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers: []corev1.Container{{
+							Image: "test:latest",
+							Env:   []corev1.EnvVar{{Name: "key", Value: "value"}},
+							Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{
+								corev1.ResourceCPU: resource.MustParse("100m"),
+							}},
+						}},
+					},
+				},
+				true,
+				true,
+			),
+			Entry("different security context (empty vs non-empty)",
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers:     []corev1.Container{{Image: "test:latest"}},
+						SecurityContext: &corev1.PodSecurityContext{
+							RunAsUser: apc.Ptr(int64(1000)),
+						},
+					},
+				},
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers:     []corev1.Container{{Image: "test:latest"}},
+					},
+				},
+				true,
+				true,
+			),
+			Entry("different security context (different values)",
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers:     []corev1.Container{{Image: "test:latest"}},
+						SecurityContext: &corev1.PodSecurityContext{
+							RunAsUser: apc.Ptr(int64(1000)),
+						},
+					},
+				},
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers:     []corev1.Container{{Image: "test:latest"}},
+						SecurityContext: &corev1.PodSecurityContext{
+							RunAsUser: apc.Ptr(int64(2000)),
+						},
+					},
+				},
+				true,
+				true,
+			),
+			Entry("different container security context (empty vs non-empty)",
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers: []corev1.Container{{
+							Name:  cmn.AISContainerName,
+							Image: "test:latest",
+							SecurityContext: &corev1.SecurityContext{
+								RunAsNonRoot: apc.Ptr(true),
+							},
+						}},
+					},
+				},
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers:     []corev1.Container{{Name: cmn.AISContainerName, Image: "test:latest"}},
+					},
+				},
+				true,
+				true,
+			),
+			Entry("different container security context (different values)",
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers: []corev1.Container{{
+							Name:  cmn.AISContainerName,
+							Image: "test:latest",
+							SecurityContext: &corev1.SecurityContext{
+								RunAsNonRoot: apc.Ptr(true),
+							},
+						}},
+					},
+				},
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers: []corev1.Container{{
+							Name:  cmn.AISContainerName,
+							Image: "test:latest",
+							SecurityContext: &corev1.SecurityContext{
+								RunAsNonRoot: apc.Ptr(false),
+							},
+						}},
+					},
+				},
+				true,
+				true,
+			),
+			Entry("different priority class name",
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers:    []corev1.Container{{Image: "test:latest"}},
+						Containers:        []corev1.Container{{Image: "test:latest"}},
+						PriorityClassName: "test-name-1",
+					},
+				},
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers:    []corev1.Container{{Image: "test:latest"}},
+						Containers:        []corev1.Container{{Image: "test:latest"}},
+						PriorityClassName: "test-name-2",
+					},
+				},
+				true,
+				true,
+			),
+			Entry("different liveness probe",
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers: []corev1.Container{{
+							Name:  cmn.AISContainerName,
+							Image: "test:latest",
+							LivenessProbe: &corev1.Probe{
+								InitialDelaySeconds: 120,
+								PeriodSeconds:       10,
+								FailureThreshold:    20,
+								TimeoutSeconds:      5,
+							},
+						}},
+					},
+				},
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers: []corev1.Container{{
+							Name:  cmn.AISContainerName,
+							Image: "test:latest",
+							LivenessProbe: &corev1.Probe{
+								InitialDelaySeconds: 60,
+								PeriodSeconds:       5,
+								FailureThreshold:    10,
+								TimeoutSeconds:      5,
+							},
+						}},
+					},
+				},
+				true,
+				true,
+			),
+			Entry("different readiness probe",
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers: []corev1.Container{{
+							Name:  cmn.AISContainerName,
+							Image: "test:latest",
+							ReadinessProbe: &corev1.Probe{
+								PeriodSeconds:    15,
+								FailureThreshold: 3,
+								TimeoutSeconds:   10,
+							},
+						}},
+					},
+				},
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers: []corev1.Container{{
+							Name:  cmn.AISContainerName,
+							Image: "test:latest",
+							ReadinessProbe: &corev1.Probe{
+								PeriodSeconds:    5,
+								FailureThreshold: 5,
+								TimeoutSeconds:   5,
+							},
+						}},
+					},
+				},
+				true,
+				true,
+			),
+			Entry("different startup probe",
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers: []corev1.Container{{
+							Name:  cmn.AISContainerName,
+							Image: "test:latest",
+							StartupProbe: &corev1.Probe{
+								PeriodSeconds:    10,
+								FailureThreshold: 60,
+								TimeoutSeconds:   5,
+							},
+						}},
+					},
+				},
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers: []corev1.Container{{
+							Name:  cmn.AISContainerName,
+							Image: "test:latest",
+							StartupProbe: &corev1.Probe{
+								PeriodSeconds:    5,
+								FailureThreshold: 30,
+								TimeoutSeconds:   5,
+							},
+						}},
+					},
+				},
+				true,
+				true,
+			),
+			Entry("different volumes",
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers:     []corev1.Container{{Image: "test:latest"}},
+						Volumes: []corev1.Volume{
+							{
+								Name: "configmap",
+								VolumeSource: corev1.VolumeSource{
+									ConfigMap: &corev1.ConfigMapVolumeSource{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "name-1",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers:     []corev1.Container{{Image: "test:latest"}},
+						Volumes: []corev1.Volume{
+							{
+								Name: "configmap",
+								VolumeSource: corev1.VolumeSource{
+									ConfigMap: &corev1.ConfigMapVolumeSource{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "name-2",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				true,
+				true,
+			),
+			Entry("no update needed",
+				&corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"key": "value",
+						},
+						Labels: map[string]string{
+							"key": "value",
+						},
+					},
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers: []corev1.Container{{
+							Image: "test:latest",
+							Env:   []corev1.EnvVar{{Name: "key", Value: "value"}},
+							Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{
+								corev1.ResourceCPU: resource.MustParse("100m"),
+							}},
+						}},
+						PriorityClassName: "priority-class-name",
+						SecurityContext: &corev1.PodSecurityContext{
+							RunAsUser: apc.Ptr(int64(0)),
+						},
+						Volumes: []corev1.Volume{
+							{
+								Name: "configmap",
+								VolumeSource: corev1.VolumeSource{
+									ConfigMap: &corev1.ConfigMapVolumeSource{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "name",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				&corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"key": "value",
+						},
+						Labels: map[string]string{
+							"key": "value",
+						},
+					},
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers: []corev1.Container{{
+							Image: "test:latest",
+							Env:   []corev1.EnvVar{{Name: "key", Value: "value"}},
+							Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{
+								corev1.ResourceCPU: resource.MustParse("100m"),
+							}},
+						}},
+						PriorityClassName: "priority-class-name",
+						SecurityContext: &corev1.PodSecurityContext{
+							RunAsUser: apc.Ptr(int64(0)),
+						},
+						Volumes: []corev1.Volume{
+							{
+								Name: "configmap",
+								VolumeSource: corev1.VolumeSource{
+									ConfigMap: &corev1.ConfigMapVolumeSource{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "name",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				false,
+				false,
+			),
+			Entry("env var removed from slice",
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers: []corev1.Container{{
+							Name:  cmn.AISContainerName,
+							Image: "test:latest",
+							Env:   []corev1.EnvVar{{Name: "MY_NODE", Value: "node1"}, {Name: "MY_POD", Value: "pod1"}},
+						}},
+					},
+				},
+				&corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{Image: "test:latest"}},
+						Containers: []corev1.Container{{
+							Name:  cmn.AISContainerName,
+							Image: "test:latest",
+							Env:   []corev1.EnvVar{{Name: "MY_NODE", Value: "node1"}, {Name: "MY_POD", Value: "pod1"}, {Name: "REMOVED_ENV", Value: "val"}},
+						}},
+					},
+				},
+				true,
+				true,
+			),
+		)
+	})
+	Describe("external access host discovery", func() {
+		const (
+			aisName    = "ais"
+			namespace  = "ais-ns"
+			lbIP       = "203.0.113.10"
+			lbHostname = "lb.example.com"
+		)
+
+		// reconcilerWithLB returns a reconciler backed by a fake client holding a
+		// single LoadBalancer Service with the given component LB label, plus a
+		// fresh AIStore CR. No envtest/API server is involved.
+		reconcilerWithLB := func(lbLabel string) (*Reconciler, *aisv1.AIStore) {
+			lbSvc := &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      aisName + "-" + lbLabel,
+					Namespace: namespace,
+					Labels:    cmn.NewServiceLabels(aisName, lbLabel),
+				},
+				Status: corev1.ServiceStatus{LoadBalancer: corev1.LoadBalancerStatus{
+					Ingress: []corev1.LoadBalancerIngress{{IP: lbIP}, {Hostname: lbHostname}},
+				}},
+			}
+			c := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(lbSvc).Build()
+			r := &Reconciler{k8sClient: aisclient.NewClient(c, scheme.Scheme)}
+			ais := &aisv1.AIStore{ObjectMeta: metav1.ObjectMeta{Name: aisName, Namespace: namespace}}
+			return r, ais
+		}
+
+		DescribeTable("includes external endpoints iff external access is enabled for that component",
+			func(ctx SpecContext, lbLabel string, enable func(*aisv1.AIStore), publicHosts func(context.Context, *Reconciler, *aisv1.AIStore) ([]string, error)) {
+				r, ais := reconcilerWithLB(lbLabel)
+
+				By("excluding external endpoints when external access is disabled")
+				hosts, err := publicHosts(ctx, r, ais)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(hosts).ToNot(ContainElements(lbIP, lbHostname))
+
+				By("including external endpoints when external access is enabled")
+				enable(ais)
+				hosts, err = publicHosts(ctx, r, ais)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(hosts).To(ContainElements(lbIP, lbHostname))
+			},
+			Entry("target", target.ServiceLabelLB,
+				func(a *aisv1.AIStore) { a.Spec.TargetSpec.ExternalAccess = &aisv1.ExternalAccessSpec{} },
+				func(ctx context.Context, r *Reconciler, a *aisv1.AIStore) ([]string, error) {
+					return r.targetPublicHosts(ctx, a, aisv1.PubNetDNSModeIP)
+				},
+			),
+			Entry("proxy", proxy.ServiceLabelLB,
+				func(a *aisv1.AIStore) { a.Spec.ProxySpec.ExternalAccess = &aisv1.ExternalAccessSpec{} },
+				func(ctx context.Context, r *Reconciler, a *aisv1.AIStore) ([]string, error) {
+					return r.proxyPublicHosts(ctx, a, aisv1.PubNetDNSModeIP)
+				},
+			),
+		)
+
+		It("appends external endpoints to autoscale-discovered nodes in Node mode", func(ctx SpecContext) {
+			const nodeName = "node-1"
+			r, ais := reconcilerWithLB(target.ServiceLabelLB)
+			ais.Spec.TargetSpec.Size = apc.Ptr[int32](-1)
+			ais.Spec.TargetSpec.ExternalAccess = &aisv1.ExternalAccessSpec{}
+			ais.Status.AutoScaleStatus.ExpectedTargetNodes = []string{nodeName}
+
+			hosts, err := r.targetPublicHosts(ctx, ais, aisv1.PubNetDNSModeNode)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(hosts).To(ContainElements(nodeName, lbIP, lbHostname))
+		})
+	})
+
+	Describe("shouldUpdatePVCRetentionPolicy", func() {
+		DescribeTable("should correctly compare PVC retention policy", func(desiredSyncPolicy, currentSyncPolicy *appsv1.StatefulSetPersistentVolumeClaimRetentionPolicy, expectedResult bool) {
+			needsUpdate := shouldUpdatePVCRetentionPolicy(desiredSyncPolicy, currentSyncPolicy)
+			Expect(needsUpdate).To(Equal(expectedResult))
+		},
+			Entry("desired policy nil, current policy nil",
+				nil,
+				nil,
+				false,
+			),
+			Entry("desired policy nil, current policy default value",
+				nil,
+				&appsv1.StatefulSetPersistentVolumeClaimRetentionPolicy{
+					WhenDeleted: appsv1.RetainPersistentVolumeClaimRetentionPolicyType,
+					WhenScaled:  appsv1.RetainPersistentVolumeClaimRetentionPolicyType,
+				},
+				false,
+			),
+			Entry("desired policy set, current policy nil",
+				&appsv1.StatefulSetPersistentVolumeClaimRetentionPolicy{
+					WhenDeleted: appsv1.RetainPersistentVolumeClaimRetentionPolicyType,
+					WhenScaled:  appsv1.DeletePersistentVolumeClaimRetentionPolicyType,
+				},
+				nil,
+				// This case happens if the kubernetes control plane is too old to support StatefulSet PVC retention policies.
+				// We'll still try to set the field in this case, which will cause an error and make it apparent to the user that
+				// they need to update kubernetes.
+				true,
+			),
+			Entry("desired policy == current policy",
+				&appsv1.StatefulSetPersistentVolumeClaimRetentionPolicy{
+					WhenDeleted: appsv1.RetainPersistentVolumeClaimRetentionPolicyType,
+					WhenScaled:  appsv1.DeletePersistentVolumeClaimRetentionPolicyType,
+				},
+				&appsv1.StatefulSetPersistentVolumeClaimRetentionPolicy{
+					WhenDeleted: appsv1.RetainPersistentVolumeClaimRetentionPolicyType,
+					WhenScaled:  appsv1.DeletePersistentVolumeClaimRetentionPolicyType,
+				},
+				false,
+			),
+			Entry("desired policy != current policy",
+				&appsv1.StatefulSetPersistentVolumeClaimRetentionPolicy{
+					WhenDeleted: appsv1.RetainPersistentVolumeClaimRetentionPolicyType,
+					WhenScaled:  appsv1.DeletePersistentVolumeClaimRetentionPolicyType,
+				},
+				&appsv1.StatefulSetPersistentVolumeClaimRetentionPolicy{
+					WhenDeleted: appsv1.DeletePersistentVolumeClaimRetentionPolicyType,
+					WhenScaled:  appsv1.DeletePersistentVolumeClaimRetentionPolicyType,
+				},
+				true,
+			),
+		)
+	})
+})
+
+func statefulSetsImagesLatest(ctx context.Context, c client.Client, ais *aisv1.AIStore) func(g Gomega) {
+	return func(g Gomega) {
+		for _, stsType := range []string{"ais-proxy", "ais-target"} {
+			ss := getStatefulSet(ctx, ais, c, stsType)
+			g.Expect(ss.Spec.Template.Spec.InitContainers[0].Image).To(BeEquivalentTo(ais.Spec.InitImage))
+			g.Expect(ss.Spec.Template.Spec.Containers[0].Image).To(BeEquivalentTo(ais.Spec.NodeImage))
+		}
+	}
+}
+
+func proxiesReady(ctx context.Context, c client.Client, ais *aisv1.AIStore) func(g Gomega) {
+	return func(g Gomega) {
+		ss := getStatefulSet(ctx, ais, c, "ais-proxy")
+		g.Expect(ss.Spec.Template.Spec.InitContainers[0].Image).To(BeEquivalentTo(ais.Spec.InitImage))
+		g.Expect(ss.Spec.Template.Spec.Containers[0].Image).To(BeEquivalentTo(ais.Spec.NodeImage))
+		g.Expect(ss.Status.Replicas).To(BeEquivalentTo(1))
+		g.Expect(ss.Status.ReadyReplicas).To(BeEquivalentTo(1), "%v", ss.Status.Conditions)
+	}
+}
+
+func targetsReady(ctx context.Context, c client.Client, ais *aisv1.AIStore) func(g Gomega) {
+	return func(g Gomega) {
+		ss := getStatefulSet(ctx, ais, c, "ais-target")
+		g.Expect(ss.Spec.Template.Spec.InitContainers[0].Image).To(BeEquivalentTo(ais.Spec.InitImage))
+		g.Expect(ss.Spec.Template.Spec.Containers[0].Image).To(BeEquivalentTo(ais.Spec.NodeImage))
+		g.Expect(ss.Status.Replicas).To(BeEquivalentTo(1))
+		g.Expect(ss.Status.ReadyReplicas).To(BeEquivalentTo(1), "%v", ss.Status.Conditions)
+	}
+}
+
+func createStatefulSets(ctx context.Context, c client.Client, ais *aisv1.AIStore, r *Reconciler) {
+	By("Reconcile to create StatefulSets")
+	reconcileProxy(ctx, ais, r)
+	reconcileTarget(ctx, ais, r)
+
+	By("Ensure that StatefulSets have been created and set status replicas to match spec")
+	for _, ssName := range []string{"ais-proxy", "ais-target"} {
+		ss := getStatefulSet(ctx, ais, c, ssName)
+		ss.Status.Replicas = *ss.Spec.Replicas
+		ss.Status.ObservedGeneration = ss.Generation
+		Expect(c.Status().Update(ctx, &ss)).To(Succeed())
+	}
+}
+
+func getStatefulSet(ctx context.Context, ais *aisv1.AIStore, c client.Client, ssName string) (ss appsv1.StatefulSet) {
+	err := c.Get(ctx, types.NamespacedName{Name: ssName, Namespace: ais.Namespace}, &ss)
+	Expect(err).ToNot(HaveOccurred())
+	return
+}
+
+func reconcileTarget(ctx context.Context, ais *aisv1.AIStore, r *Reconciler) {
+	By("Reconcile targets")
+	result, err := r.handleTargetState(ctx, ais)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(result.RequeueAfter).To(Not(BeNil()))
+}
+
+func reconcileProxy(ctx context.Context, ais *aisv1.AIStore, r *Reconciler) {
+	By("Reconcile proxies")
+	result, err := r.handleProxyState(ctx, ais)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(result.RequeueAfter).To(Not(BeNil()))
+}
+
+func hashGlobalConfig(c *aiscmn.ConfigToSet) (string, error) {
+	data, err := jsoniter.Marshal(c)
+	if err != nil {
+		return "", err
+	}
+	hash := sha256.Sum256(data)
+	return hex.EncodeToString(hash[:]), nil
+}

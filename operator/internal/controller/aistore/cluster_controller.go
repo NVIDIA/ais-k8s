@@ -1,0 +1,1242 @@
+/*
+ * Copyright (c) 2021-2026, NVIDIA CORPORATION. All rights reserved.
+ */
+
+package aistore
+
+import (
+	"context"
+	"fmt"
+	"reflect"
+	"slices"
+	"strings"
+	"time"
+
+	aiscmn "github.com/NVIDIA/aistore/cmn"
+	aisv1 "github.com/ais-operator/api/aistore/v1beta1"
+	aisclient "github.com/ais-operator/internal/client"
+	"github.com/ais-operator/internal/resources/aistore/adminclient"
+	"github.com/ais-operator/internal/resources/aistore/cmn"
+	"github.com/ais-operator/internal/resources/aistore/proxy"
+	"github.com/ais-operator/internal/resources/aistore/statsd"
+	"github.com/ais-operator/internal/resources/aistore/target"
+	"github.com/ais-operator/internal/services"
+	"github.com/go-logr/logr"
+	apiv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/json"
+	"k8s.io/client-go/tools/events"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
+	k8sclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+)
+
+const (
+	aisFinalizer             = "finalize.ais"
+	aisShutdownRequeueDelay  = 5 * time.Second
+	aisReadinessRequeueDelay = 3 * time.Second
+	cleanupJobDelay          = 5 * time.Second
+	externalSvcDelay         = 2 * time.Second
+)
+
+type (
+	// Reconciler reconciles a AIStore object
+	Reconciler struct {
+		k8sClient     *aisclient.K8sClient
+		log           logr.Logger
+		recorder      events.EventRecorder
+		clientManager services.AISClientManagerInterface
+	}
+)
+
+func NewReconciler(c *aisclient.K8sClient, recorder events.EventRecorder, logger logr.Logger, clientManager services.AISClientManagerInterface) *Reconciler {
+	return &Reconciler{
+		k8sClient:     c,
+		log:           logger,
+		recorder:      recorder,
+		clientManager: clientManager,
+	}
+}
+
+func NewReconcilerFromMgr(mgr manager.Manager, aisClientTLSOpts services.AISClientTLSOpts, logger logr.Logger) *Reconciler {
+	c := aisclient.NewClientFromMgr(mgr)
+	recorder := mgr.GetEventRecorder("ais-controller")
+	clientManager := services.NewAISClientManager(c, aisClientTLSOpts)
+	return NewReconciler(c, recorder, logger, clientManager)
+}
+
+// +kubebuilder:rbac:groups=ais.nvidia.com,resources=aistores,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=ais.nvidia.com,resources=aistores/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=ais.nvidia.com,resources=aistores/finalizers,verbs=update
+// +kubebuilder:rbac:groups=apps,resources=statefulsets;deployments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=services;configmaps,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch;create;update;delete;
+// +kubebuilder:rbac:groups="",resources=pods/log,verbs=get
+// +kubebuilder:rbac:groups="",resources=nodes,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
+// +kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=list;watch;delete
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles;rolebindings,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=policy,resources=poddisruptionbudgets,verbs=get;list;watch;create;patch;update;delete
+// +kubebuilder:rbac:groups=batch,resources=jobs,verbs=create;list;watch;delete
+// +kubebuilder:rbac:groups=cert-manager.io,resources=certificates,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=discovery.k8s.io,resources=endpointslices,verbs=get;list;watch
+// +kubebuilder:rbac:groups=storage.k8s.io,resources=storageclasses,verbs=get;list;watch
+// +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch
+
+// Reconcile is part of the main kubernetes reconciliation loop which aims to
+// move the current state of the cluster closer to the desired state.
+func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	logger := r.log.WithValues("namespace", req.Namespace, "name", req.Name)
+	ctx = logf.IntoContext(ctx, logger)
+	ais, err := r.k8sClient.GetAIStoreCR(ctx, req.NamespacedName)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			// Request object not found, could have been deleted after reconcile request.
+			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
+			// Return and don't requeue
+			return reconcile.Result{}, nil
+		}
+		// Error reading the object - requeue the request.
+		logger.Error(err, "Unable to fetch AIStore")
+		return reconcile.Result{}, err
+	}
+	logger.Info("Reconciling AIStore", "state", ais.Status.State)
+
+	if ais.HasState("") {
+		if err := r.initializeCR(ctx, ais); err != nil {
+			return reconcile.Result{}, err
+		}
+	}
+
+	if ais.IsTargetAutoScaling() || ais.IsProxyAutoScaling() {
+		if err := r.determineAutoScaleStatus(ctx, ais); err != nil {
+			return reconcile.Result{}, err
+		}
+	}
+
+	if ais.ShouldDecommission() {
+		err = r.updateStatusWithState(ctx, ais, aisv1.ClusterDecommissioning)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		r.recorder.Eventf(ais, nil, corev1.EventTypeNormal, EventReasonDeleted, ActionStartDecommission, "Decommissioning...")
+	}
+
+	if ais.ShouldStartShutdown() {
+		logger.Info("Disabling rebalance before shutting down cluster")
+		err = r.disableRebalance(ctx, ais, aisv1.ReasonShutdown, "Disabling rebalance before shutdown")
+		if err != nil {
+			logger.Error(err, "Failed to disable rebalance before shutdown")
+			return reconcile.Result{}, err
+		}
+		err = r.updateStatusWithState(ctx, ais, aisv1.ClusterShuttingDown)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		r.recorder.Eventf(ais, nil, corev1.EventTypeNormal, EventReasonUpdated, ActionStartShutdown, "Shutting down...")
+	}
+
+	switch {
+	case ais.HasState(aisv1.ClusterShuttingDown):
+		if !ais.ShouldBeShutdown() {
+			// Aborts shutdown process -- reset state and reconcile back to normal
+			err = r.updateStatusWithState(ctx, ais, aisv1.ClusterUpgrading)
+			return reconcile.Result{}, err
+		}
+		return r.shutdownCluster(ctx, ais)
+	case ais.HasState(aisv1.ClusterShutdown):
+		// Remain in shutdown state unless the spec field changes
+		if ais.ShouldBeShutdown() {
+			return reconcile.Result{}, nil
+		}
+	case ais.HasState(aisv1.ClusterDecommissioning):
+		return r.decommissionCluster(ctx, ais)
+	case ais.HasState(aisv1.ClusterCleanup):
+		return r.cleanupClusterRes(ctx, ais)
+	case ais.HasState(aisv1.HostCleanup):
+		return r.cleanupHost(ctx, ais)
+	case ais.HasState(aisv1.ClusterFinalized):
+		return r.finalize(ctx, ais)
+	}
+
+	if result, err := r.ensurePrereqs(ctx, ais); err != nil || !result.IsZero() {
+		return result, err
+	}
+
+	if ais.Status.IntraClusterURL == "" {
+		err = r.updateIntraClusterURLStatus(ctx, ais)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+	}
+
+	if !ais.IsConditionTrue(aisv1.ConditionCreated) {
+		return r.bootstrapNew(ctx, ais)
+	}
+
+	if res, err := r.handleCREvents(ctx, ais); err != nil || !res.IsZero() {
+		return res, err
+	}
+
+	// Delete any deprecated statsd ConfigMap.
+	if err = r.reconcileDeprecatedStatsDCM(ctx, ais); err != nil {
+		r.recordError(ctx, ais, err, "Failed to reconcile deletion of StatsD ConfigMap")
+		return reconcile.Result{}, err
+	}
+	return reconcile.Result{}, nil
+}
+
+func (r *Reconciler) determineAutoScaleStatus(ctx context.Context, ais *aisv1.AIStore) error {
+	logger := logf.FromContext(ctx)
+	autoScaleStatus := aisv1.AutoScaleStatus{}
+	if ais.IsTargetAutoScaling() {
+		targetNodes, err := r.listMatchingNodeNames(ctx, ais.Spec.TargetSpec.NodeSelector, ais.Spec.TargetSpec.Tolerations)
+		if err != nil {
+			logger.Error(err, "Unable to fetch nodes for autoScaleStatus target")
+			return err
+		}
+		logger.Info("Discovered autoScaleStatus target nodes", "targetNodes", targetNodes)
+		autoScaleStatus.ExpectedTargetNodes = targetNodes
+	}
+
+	if ais.IsProxyAutoScaling() {
+		proxyNodes, err := r.listMatchingNodeNames(ctx, ais.Spec.ProxySpec.NodeSelector, ais.Spec.ProxySpec.Tolerations)
+		if err != nil {
+			logger.Error(err, "Unable to fetch nodes for autoScaleStatus proxy")
+			return err
+		}
+		logger.Info("Discovered autoScaleStatus proxy nodes", "proxyNodes", proxyNodes)
+		autoScaleStatus.ExpectedProxyNodes = proxyNodes
+	}
+
+	return r.updateAutoScaleStatus(ctx, ais, autoScaleStatus)
+}
+
+func (r *Reconciler) initializeCR(ctx context.Context, ais *aisv1.AIStore) (err error) {
+	logger := logf.FromContext(ctx)
+	if !controllerutil.ContainsFinalizer(ais, aisFinalizer) {
+		logger.Info("Updating finalizer")
+		original := ais.DeepCopy()
+		controllerutil.AddFinalizer(ais, aisFinalizer)
+		if err = r.k8sClient.Patch(ctx, ais, k8sclient.MergeFrom(original)); err != nil {
+			logger.Error(err, "Failed to update finalizer")
+			return err
+		}
+		logger.Info("Successfully updated finalizer")
+	}
+
+	logger.Info("Updating state and setting condition", "state", aisv1.ConditionInitialized)
+	ais.SetCondition(aisv1.ConditionInitialized)
+	err = r.updateStatusWithState(ctx, ais, aisv1.ClusterInitialized)
+	if err != nil {
+		logger.Error(err, "Failed to update state", "state", aisv1.ConditionInitialized)
+		return err
+	}
+	logger.Info("Successfully updated state")
+
+	return
+}
+
+func (r *Reconciler) shutdownCluster(ctx context.Context, ais *aisv1.AIStore) (result reconcile.Result, err error) {
+	logger := logf.FromContext(ctx)
+
+	// Scale proxy statefulset to 0 and wait for it to finish
+	if _, err = r.k8sClient.UpdateStatefulSetReplicas(ctx, proxy.StatefulSetNSName(ais), 0); err != nil {
+		return reconcile.Result{}, err
+	}
+	proxyFinished, err := r.k8sClient.IsStatefulSetSize(ctx, proxy.StatefulSetNSName(ais), 0)
+	if err != nil || !proxyFinished {
+		return reconcile.Result{RequeueAfter: aisShutdownRequeueDelay}, err
+	}
+
+	// Scale target statefulset to 0 and wait for it to finish
+	if _, err = r.k8sClient.UpdateStatefulSetReplicas(ctx, target.StatefulSetNSName(ais), 0); err != nil {
+		return reconcile.Result{}, err
+	}
+	targetFinished, err := r.k8sClient.IsStatefulSetSize(ctx, target.StatefulSetNSName(ais), 0)
+	if err != nil || !targetFinished {
+		return reconcile.Result{RequeueAfter: aisShutdownRequeueDelay}, err
+	}
+
+	err = r.updateStatusWithState(ctx, ais, aisv1.ClusterShutdown)
+	if err != nil {
+		logger.Error(err, "Failed to update state", "state", aisv1.ClusterShutdown)
+		return reconcile.Result{}, err
+	}
+	logger.Info("AIS cluster shutdown completed")
+	r.recorder.Eventf(ais, nil, corev1.EventTypeNormal, EventReasonShutdownCompleted, ActionFinishShutdown, "Shutdown completed")
+	return reconcile.Result{}, nil
+}
+
+func (r *Reconciler) decommissionCluster(ctx context.Context, ais *aisv1.AIStore) (reconcile.Result, error) {
+	logger := logf.FromContext(ctx)
+	if r.isClusterRunning(ctx, ais) {
+		err := r.decommissionAIS(ctx, ais)
+		if err != nil {
+			logger.Error(err, "Unable to gracefully decommission AIStore, retrying until cluster is not running")
+		}
+		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+	}
+	err := r.updateStatusWithState(ctx, ais, aisv1.ClusterCleanup)
+	if err != nil {
+		logger.Error(err, "Failed to update state", "state", aisv1.ClusterCleanup)
+		return reconcile.Result{}, err
+	}
+	logger.Info("AIS cluster decommission completed")
+	r.recorder.Eventf(ais, nil, corev1.EventTypeNormal, EventReasonDecommissionCompleted, ActionDelete, "Decommission completed")
+	return reconcile.Result{}, nil
+}
+
+func (r *Reconciler) cleanupClusterRes(ctx context.Context, ais *aisv1.AIStore) (reconcile.Result, error) {
+	logger := logf.FromContext(ctx)
+	if !controllerutil.ContainsFinalizer(ais, aisFinalizer) {
+		logger.Info("No finalizer remaining on AIS")
+		return reconcile.Result{}, nil
+	}
+	logger.Info("Deleting AIS cluster resources")
+	updated, err := r.cleanup(ctx, ais)
+	if err != nil {
+		r.recordError(ctx, ais, err, "Failed to cleanup AIS Resources")
+		return reconcile.Result{}, err
+	}
+	if updated {
+		// It is better to delay the requeue little bit since cleanup can take some time.
+		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+	}
+	err = r.updateStatusWithState(ctx, ais, aisv1.HostCleanup)
+	return reconcile.Result{}, err
+}
+
+func (r *Reconciler) cleanupHost(ctx context.Context, ais *aisv1.AIStore) (reconcile.Result, error) {
+	// Get cleanup jobs
+	jobs, err := r.listCleanupJobs(ctx, ais.Namespace)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	// Delete all finished or expired jobs
+	remainingJobs, err := r.deleteFinishedJobs(ctx, jobs)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	// If some still running, requeue
+	if len(remainingJobs.Items) > 0 {
+		return reconcile.Result{RequeueAfter: cleanupJobDelay}, nil
+	}
+	// If all are gone, move to finalized stage
+	err = r.updateStatusWithState(ctx, ais, aisv1.ClusterFinalized)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	return reconcile.Result{}, err
+}
+
+func (r *Reconciler) finalize(ctx context.Context, ais *aisv1.AIStore) (result reconcile.Result, err error) {
+	logger := logf.FromContext(ctx)
+	logger.Info("Removing AIS finalizer")
+
+	original := ais.DeepCopy()
+	updated := controllerutil.RemoveFinalizer(ais, aisFinalizer)
+	if !updated {
+		return
+	}
+	if err = r.k8sClient.PatchIfExists(ctx, ais, k8sclient.MergeFrom(original)); err != nil {
+		r.recordError(ctx, ais, err, "Failed to update instance")
+		return
+	}
+
+	// Do not requeue if we've removed the finalizer -- CR should be removed
+	return reconcile.Result{}, nil
+}
+
+func (r *Reconciler) isClusterRunning(ctx context.Context, ais *aisv1.AIStore) bool {
+	// Consider cluster running if both proxy and target ss have ready pods
+	return r.ssHasReadyReplicas(ctx, target.StatefulSetNSName(ais)) && r.ssHasReadyReplicas(ctx, proxy.StatefulSetNSName(ais))
+}
+
+func (r *Reconciler) ssHasReadyReplicas(ctx context.Context, name types.NamespacedName) bool {
+	ss, err := r.k8sClient.GetStatefulSet(ctx, name)
+	if k8serrors.IsNotFound(err) {
+		return false
+	}
+	if err != nil {
+		logf.FromContext(ctx).Error(err, "Failed to get statefulset", "statefulset", name)
+		// Assume the ss has ready replicas unless we can confirm otherwise
+		return true
+	}
+	return ss.Status.ReadyReplicas > 0
+}
+
+func (r *Reconciler) decommissionAIS(ctx context.Context, ais *aisv1.AIStore) error {
+	var err error
+	logger := logf.FromContext(ctx)
+
+	if ais.ShouldCleanupMetadata() {
+		err = r.attemptGracefulDecommission(ctx, ais)
+	} else {
+		// We are "decommissioning" on the operator side and will still delete the statefulsets
+		// This call to the AIS API preserves metadata for a future cluster, where decommission call would delete it all
+		err = r.attemptGracefulShutdown(ctx, ais)
+		if err != nil {
+			logger.Info("Failed to shutdown cluster")
+		}
+	}
+	return err
+}
+
+func (r *Reconciler) attemptGracefulDecommission(ctx context.Context, ais *aisv1.AIStore) error {
+	logger := logf.FromContext(ctx)
+	logger.Info("Attempting graceful decommission of cluster")
+	cleanupData := ais.Spec.CleanupData != nil && *ais.Spec.CleanupData
+	apiClient, err := r.clientManager.GetClient(ctx, ais)
+	if err != nil {
+		return err
+	}
+	err = apiClient.DecommissionCluster(cleanupData)
+	if err != nil {
+		logger.Error(err, "Failed to gracefully decommission cluster")
+	}
+	return err
+}
+
+func (r *Reconciler) attemptGracefulShutdown(ctx context.Context, ais *aisv1.AIStore) error {
+	logger := logf.FromContext(ctx)
+	apiClient, err := r.clientManager.GetClient(ctx, ais)
+	if err != nil {
+		return err
+	}
+	logger.Info("Attempting graceful shutdown of cluster")
+	err = apiClient.ShutdownCluster()
+	if err != nil {
+		logger.Error(err, "Failed to gracefully shutdown cluster")
+	}
+	return err
+}
+
+// reconcileResources is responsible for reconciling all resources that given
+// AIStore CRD is managing. It handles initial reconcile as well as any updates.
+func (r *Reconciler) reconcileResources(ctx context.Context, ais *aisv1.AIStore) (err error) {
+	_, err = ais.ValidateSpec(ctx)
+	if err != nil {
+		r.recordError(ctx, ais, err, "Failed to validate AIStore spec")
+		return err
+	}
+
+	globalCM, err := cmn.NewGlobalCM(ais)
+	if err != nil {
+		r.recordError(ctx, ais, err, "Failed to construct global config")
+		return err
+	}
+
+	// 1. Deploy RBAC resources.
+	err = r.createOrUpdateRBACResources(ctx, ais)
+	if err != nil {
+		r.recordError(ctx, ais, err, "Failed to create/update RBAC resources")
+		return err
+	}
+
+	// 2. Reconcile TLS certificate if configured.
+	if err = r.reconcileTLSCertificate(ctx, ais); err != nil {
+		r.recordError(ctx, ais, err, "Failed to reconcile TLS certificate")
+		return err
+	}
+
+	// 3. Deploy global cluster ConfigMap.
+	if err = r.k8sClient.Apply(ctx, globalCM); err != nil {
+		r.recordError(ctx, ais, err, "Failed to deploy global cluster ConfigMap")
+		return err
+	}
+
+	// 4. Deploy admin client if enabled.
+	if err = r.reconcileAdminClient(ctx, ais); err != nil {
+		r.recordError(ctx, ais, err, "Failed to reconcile admin client")
+		return err
+	}
+
+	// FIXME: We should also move the logic from `bootstrapNew` and `handleCREvents`.
+
+	return nil
+}
+
+func (r *Reconciler) reconcileDeprecatedStatsDCM(ctx context.Context, ais *aisv1.AIStore) error {
+	cm := &corev1.ConfigMap{}
+	cmName := statsd.ConfigMapNSName(ais)
+	if err := r.k8sClient.Get(ctx, cmName, cm); err != nil {
+		if !k8serrors.IsNotFound(err) {
+			return err
+		}
+		return nil
+	}
+	if !metav1.IsControlledBy(cm, ais) {
+		return nil
+	}
+	logf.FromContext(ctx).Info("Deleting deprecated StatsD ConfigMap",
+		"namespace", cmName.Namespace, "name", cmName.Name)
+	_, err := r.k8sClient.DeleteConfigMapIfExists(ctx, cmName)
+	return err
+}
+
+func (r *Reconciler) ensurePrereqs(ctx context.Context, ais *aisv1.AIStore) (result ctrl.Result, err error) {
+	// Reconcile basic resources like RBAC and ConfigMaps.
+	if err = r.reconcileResources(ctx, ais); err != nil {
+		return result, err
+	}
+
+	result, err = r.reconcileExternalAccess(ctx, ais)
+	if err != nil || !result.IsZero() {
+		return
+	}
+
+	err = r.ensureProxyPrereqs(ctx, ais)
+	if err != nil {
+		return
+	}
+	err = r.ensureTargetPrereqs(ctx, ais)
+	return
+}
+
+// If the cluster needs external access, create service(s) for targets and/or proxies and wait for ingress to be allocated.
+func (r *Reconciler) reconcileExternalAccess(ctx context.Context, ais *aisv1.AIStore) (result ctrl.Result, err error) {
+	if !ais.ProxyExternalAccessEnabled() && !ais.TargetExternalAccessEnabled() {
+		return
+	}
+	if err = r.createExternalServices(ctx, ais); err != nil {
+		r.recordError(ctx, ais, err, "Failed to create external services")
+		return result, err
+	}
+	ready, err := r.waitForExternalSvcReady(ctx, ais)
+	if err != nil || ready {
+		return result, err
+	}
+	if !ais.HasState(aisv1.ClusterInitializingLBService) && !ais.HasState(aisv1.ClusterPendingLBService) {
+		err = r.updateStatusWithState(ctx, ais, aisv1.ClusterInitializingLBService)
+		if err == nil {
+			r.recorder.Eventf(ais, nil, corev1.EventTypeNormal, EventReasonInitialized, ActionInitExternalSvc, "Successfully initialized external services")
+		}
+	} else {
+		err = r.updateStatusWithState(ctx, ais, aisv1.ClusterPendingLBService)
+	}
+	result.RequeueAfter = externalSvcDelay
+	return
+}
+
+// createExternalServices applies the service(s) for proxies and/or targets.
+// Both sets are created together so we can subsequently wait on them in a single pass.
+func (r *Reconciler) createExternalServices(ctx context.Context, ais *aisv1.AIStore) error {
+	if ais.ProxyExternalAccessEnabled() {
+		if err := r.createProxyExternalService(ctx, ais); err != nil {
+			return err
+		}
+	}
+	if ais.TargetExternalAccessEnabled() {
+		if err := r.createTargetExternalServices(ctx, ais); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// waitForExternalSvcReady reports whether all enabled external access services have ingress allocated.
+func (r *Reconciler) waitForExternalSvcReady(ctx context.Context, ais *aisv1.AIStore) (bool, error) {
+	if ais.ProxyExternalAccessEnabled() {
+		ready, err := r.proxyExternalSvcReady(ctx, ais)
+		if err != nil || !ready {
+			return false, err
+		}
+	}
+	if ais.TargetExternalAccessEnabled() {
+		ready, err := r.targetExternalSvcReady(ctx, ais)
+		if err != nil || !ready {
+			return false, err
+		}
+	}
+	return true, nil
+}
+
+func (r *Reconciler) bootstrapNew(ctx context.Context, ais *aisv1.AIStore) (result ctrl.Result, err error) {
+	// 1. Bootstrap proxies
+	if result, err = r.initProxies(ctx, ais); err != nil {
+		r.recordError(ctx, ais, err, "Failed to create Proxy resources")
+		return
+	} else if !result.IsZero() {
+		return
+	}
+
+	// 2. Bootstrap targets
+	if result, err = r.initTargets(ctx, ais); err != nil {
+		r.recordError(ctx, ais, err, "Failed to create Target resources")
+		return
+	} else if !result.IsZero() {
+		return
+	}
+
+	ais.SetCondition(aisv1.ConditionCreated)
+	err = r.updateStatusWithState(ctx, ais, aisv1.ClusterCreated)
+	if err != nil {
+		return
+	}
+
+	r.recorder.Eventf(ais, nil, corev1.EventTypeNormal, EventReasonCreated, ActionCreate, "Successfully created AIS cluster")
+	return
+}
+
+// handleCREvents matches the AIS cluster state obtained from reconciler request against the existing cluster state.
+// It applies changes to cluster resources to ensure the request state is reached.
+// Stages:
+//  1. Check if the proxy daemon resources have a state (e.g. replica count) that matches the latest cluster spec.
+//     If not, update the state to match the request spec and requeue the request. If they do, proceed to next set of checks.
+//  2. Similarly, check the resource state for targets and ensure the state matches the reconciler request.
+//  3. Check if config is properly updated in the cluster.
+//  4. If expected state is not yet met we should reconcile until everything is ready.
+func (r *Reconciler) handleCREvents(ctx context.Context, ais *aisv1.AIStore) (ctrl.Result, error) {
+	logger := logf.FromContext(ctx)
+
+	if res, err := r.handleProxyState(ctx, ais); err != nil {
+		return res, err
+	} else if !res.IsZero() {
+		return r.updateStatusAndRequeue(ctx, ais, res)
+	}
+
+	if res, err := r.handleTargetState(ctx, ais); err != nil {
+		return res, err
+	} else if !res.IsZero() {
+		return r.updateStatusAndRequeue(ctx, ais, res)
+	}
+
+	ready, err := r.checkAISClusterReady(ctx, ais)
+	if err != nil {
+		return ctrl.Result{}, err
+	} else if !ready {
+		return r.updateStatusAndRequeue(ctx, ais, ctrl.Result{RequeueAfter: aisReadinessRequeueDelay})
+	}
+
+	// Enable the rebalance condition (still respects the spec desired rebalance.Enabled property)
+	err = r.enableRebalanceCondition(ctx, ais)
+	if err != nil {
+		logger.Error(err, "Failed to enable rebalance condition")
+		return ctrl.Result{}, err
+	}
+
+	err = r.handleConfigState(ctx, ais, false /*force*/)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	return ctrl.Result{}, r.handleSuccessfulReconcile(ctx, ais)
+}
+
+// updateStatusAndRequeue updates the cluster status to indicate it's upgrading when we need to requeue.
+func (r *Reconciler) updateStatusAndRequeue(ctx context.Context, ais *aisv1.AIStore, result ctrl.Result) (ctrl.Result, error) {
+	if !ais.IsConditionTrue(aisv1.ConditionReady) {
+		return result, nil
+	}
+
+	ais.SetConditionFalse(aisv1.ConditionReady, aisv1.ReasonUpgrading, "Waiting for cluster to upgrade")
+	if err := r.updateStatusWithState(ctx, ais, aisv1.ClusterUpgrading); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	return result, nil
+}
+
+// handleConfigState properly reconciles the AIS cluster config with the `.spec.configToUpdate` field and any other
+// operator provided configs. It also updates the restart config annotation on the AIS resource to indicate that
+// statefulsets should begin a rollout.
+//
+// The ConfigMap that also contains the global config is updated earlier, but
+// this synchronizes any changes to the active loaded config in the cluster.
+func (r *Reconciler) handleConfigState(ctx context.Context, ais *aisv1.AIStore, forceSync bool) error {
+	logger := logf.FromContext(ctx)
+	// Get the config provided in spec plus any additional ones set by the operator
+	conf, err := cmn.GenerateGlobalConfig(ais)
+	if err != nil {
+		logger.Error(err, "Error generating global config")
+		return err
+	}
+
+	newConfHash, err := r.updateClusterConfig(ctx, ais, conf, forceSync)
+	if err != nil {
+		return err
+	}
+	restartAnnot, err := calcRestartConfigAnnotation(ais.Annotations[cmn.RestartConfigHashAnnotation], conf)
+	if err != nil {
+		logger.Error(err, "Error hashing restart configs")
+		return err
+	}
+	confChanged := newConfHash != ais.Annotations[cmn.ConfigHashAnnotation]
+	restartChanged := restartAnnot != ais.Annotations[cmn.RestartConfigHashAnnotation]
+	// We only care about re-queueing if the restart annotation changes and is not initial -- regular config is done syncing at this point
+	requeue := restartChanged && !strings.HasSuffix(restartAnnot, cmn.RestartConfigHashInitial)
+	// If nothing changed, we're done
+	if !requeue && !confChanged {
+		return nil
+	}
+	err = r.patchAISAnnotations(ctx, ais, newConfHash, restartAnnot)
+	if err != nil {
+		logger.Error(err, "Error patching AIS with latest annotations")
+	}
+	return err
+}
+
+func (r *Reconciler) patchAISAnnotations(ctx context.Context, ais *aisv1.AIStore, confHash, restartHash string) error {
+	original := ais.DeepCopy()
+	if ais.Annotations == nil {
+		ais.Annotations = map[string]string{}
+	}
+	if confHash != "" {
+		ais.Annotations[cmn.ConfigHashAnnotation] = confHash
+	}
+	ais.Annotations[cmn.RestartConfigHashAnnotation] = restartHash
+	return r.k8sClient.Patch(ctx, ais, k8sclient.MergeFrom(original))
+}
+
+// Given cluster config, compute the hash, update the cluster if it does not match, and return hash if changed
+func (r *Reconciler) updateClusterConfig(ctx context.Context, ais *aisv1.AIStore, conf *aiscmn.ConfigToSet, forceSync bool) (newHash string, err error) {
+	logger := logf.FromContext(ctx)
+	confHash, err := cmn.HashGlobalConfig(conf)
+	if err != nil {
+		logger.Error(err, "Error hashing global config")
+		return
+	}
+
+	// Hash is same and not forcing, do nothing
+	if !forceSync && ais.Annotations[cmn.ConfigHashAnnotation] == confHash {
+		return confHash, nil
+	}
+	// Update active cluster config to the new global config
+	apiClient, err := r.clientManager.GetClient(ctx, ais)
+	if err != nil {
+		return
+	}
+
+	logger.Info("Updating cluster config to match spec via API")
+	err = apiClient.SetClusterConfigUsingMsg(conf, false /*transient*/)
+	if err != nil {
+		return "", fmt.Errorf("failed to update cluster config: %w", err)
+	}
+	return confHash, nil
+}
+
+// Given a hash of configs that cause restart, return the annotation we should store in AIS
+func calcRestartConfigAnnotation(annot string, conf *aiscmn.ConfigToSet) (string, error) {
+	restartHash, err := cmn.HashRestartConfigs(conf)
+	if err != nil {
+		return "", err
+	}
+	switch {
+	case annot == "":
+		return restartHash + cmn.RestartConfigHashInitial, nil
+	case strings.HasSuffix(annot, cmn.RestartConfigHashInitial):
+		currentHash := strings.TrimSuffix(annot, cmn.RestartConfigHashInitial)
+		// If annotation has initial tag, only update if hash part changes (no longer initial)
+		if currentHash == restartHash {
+			return annot, nil
+		}
+		return restartHash, nil
+	default:
+		return restartHash, nil
+	}
+}
+
+func (r *Reconciler) createOrUpdateRBACResources(ctx context.Context, ais *aisv1.AIStore) (err error) {
+	// 1. Create service account if not exists
+	sa := cmn.NewAISServiceAccount(ais)
+	if err = r.k8sClient.Apply(ctx, sa); err != nil {
+		r.recordError(ctx, ais, err, "Failed to create ServiceAccount")
+		return
+	}
+
+	// 2. Create AIS Role
+	role := cmn.NewAISRBACRole(ais)
+	if err = r.k8sClient.Apply(ctx, role); err != nil {
+		r.recordError(ctx, ais, err, "Failed to create Role")
+		return
+	}
+
+	// 3. Create binding for the Role
+	rb := cmn.NewAISRBACRoleBinding(ais)
+	if err = r.k8sClient.Apply(ctx, rb); err != nil {
+		r.recordError(ctx, ais, err, "Failed to create RoleBinding")
+		return
+	}
+	return
+}
+
+// discoverPublicNetHosts returns target+proxy public network hosts per
+// publicNetDNSMode, reusing Status.AutoScaleStatus when populated.
+func (r *Reconciler) discoverPublicNetHosts(ctx context.Context, ais *aisv1.AIStore) ([]string, error) {
+	mode := ais.GetPublicNetDNSMode()
+	if mode == aisv1.PubNetDNSModePod {
+		return nil, nil
+	}
+	targetHosts, err := r.targetPublicHosts(ctx, ais, mode)
+	if err != nil {
+		return nil, err
+	}
+	proxyHosts, err := r.proxyPublicHosts(ctx, ais, mode)
+	if err != nil {
+		return nil, err
+	}
+	hosts := slices.Concat(targetHosts, proxyHosts)
+	slices.Sort(hosts)
+	return slices.Compact(hosts), nil
+}
+
+func (r *Reconciler) targetPublicHosts(ctx context.Context, ais *aisv1.AIStore, mode aisv1.PubNetDNSMode) (hosts []string, err error) {
+	// Use autoscale-discovered nodes if already provided, otherwise discover valid target hosts
+	if mode == aisv1.PubNetDNSModeNode && ais.IsTargetAutoScaling() && len(ais.Status.AutoScaleStatus.ExpectedTargetNodes) > 0 {
+		hosts = slices.Clone(ais.Status.AutoScaleStatus.ExpectedTargetNodes)
+	} else {
+		nodes, listErr := r.listMatchingNodes(ctx, ais.Spec.TargetSpec.NodeSelector, ais.Spec.TargetSpec.Tolerations)
+		if listErr != nil {
+			return nil, listErr
+		}
+		hosts = publicHostsForNodes(nodes, mode)
+	}
+	if !ais.TargetExternalAccessEnabled() {
+		return hosts, nil
+	}
+	endpoints, err := r.externalEndpoints(ctx, ais, target.ServiceLabelLB)
+	if err != nil {
+		return nil, err
+	}
+	return append(hosts, endpoints...), nil
+}
+
+func (r *Reconciler) proxyPublicHosts(ctx context.Context, ais *aisv1.AIStore, mode aisv1.PubNetDNSMode) (hosts []string, err error) {
+	// Use autoscale-discovered nodes if already provided, otherwise discover valid proxy hosts
+	if mode == aisv1.PubNetDNSModeNode && ais.IsProxyAutoScaling() && len(ais.Status.AutoScaleStatus.ExpectedProxyNodes) > 0 {
+		hosts = slices.Clone(ais.Status.AutoScaleStatus.ExpectedProxyNodes)
+	} else {
+		nodes, listErr := r.listMatchingNodes(ctx, ais.Spec.ProxySpec.NodeSelector, ais.Spec.ProxySpec.Tolerations)
+		if listErr != nil {
+			return nil, listErr
+		}
+		hosts = publicHostsForNodes(nodes, mode)
+	}
+	if !ais.ProxyExternalAccessEnabled() {
+		return hosts, nil
+	}
+	endpoints, err := r.externalEndpoints(ctx, ais, proxy.ServiceLabelLB)
+	if err != nil {
+		return nil, err
+	}
+	return append(hosts, endpoints...), nil
+}
+
+// externalEndpoints returns the external IPs/hostnames of every LoadBalancer
+// service matching the given component LB label.
+func (r *Reconciler) externalEndpoints(ctx context.Context, ais *aisv1.AIStore, lbLabel string) ([]string, error) {
+	svcList := &corev1.ServiceList{}
+	err := r.k8sClient.List(ctx, svcList,
+		k8sclient.InNamespace(ais.Namespace),
+		k8sclient.MatchingLabels(cmn.NewServiceLabels(ais.Name, lbLabel)),
+	)
+	if err != nil {
+		return nil, err
+	}
+	return loadBalancerEndpoints(svcList.Items), nil
+}
+
+// loadBalancerEndpoints returns every external IP and hostname across the given
+// LoadBalancer services (single LB may expose multiple ingress entries and both an IP and hostname).
+func loadBalancerEndpoints(svcs []corev1.Service) []string {
+	var endpoints []string
+	for i := range svcs {
+		for _, ing := range svcs[i].Status.LoadBalancer.Ingress {
+			if ing.IP != "" {
+				endpoints = append(endpoints, ing.IP)
+			}
+			if ing.Hostname != "" {
+				endpoints = append(endpoints, ing.Hostname)
+			}
+		}
+	}
+	return endpoints
+}
+
+func (r *Reconciler) reconcileTLSCertificate(ctx context.Context, ais *aisv1.AIStore) error {
+	// Create a Certificate if configured in spec (not using csi-driver or pre-existing secret)
+	if ais.UseTLSCertificate() {
+		publicHosts, err := r.discoverPublicNetHosts(ctx, ais)
+		if err != nil {
+			return err
+		}
+		return r.k8sClient.Apply(ctx, cmn.NewCertificate(ais, publicHosts))
+	}
+	// Delete Certificate if it exists
+	_, err := r.k8sClient.DeleteResourceIfExists(ctx, cmn.TLSCertificate(ais))
+	return err
+}
+
+// reconcileAdminClient handles creating, updating, or deleting the admin client deployment.
+// If a deployment with the expected name already exists but is not owned by this AIStore CR
+// (e.g. deployed via Helm), the operator will skip reconciliation to avoid conflicts.
+func (r *Reconciler) reconcileAdminClient(ctx context.Context, ais *aisv1.AIStore) error {
+	logger := logf.FromContext(ctx)
+	nsName := adminclient.DeploymentNSName(ais)
+
+	existing, err := r.k8sClient.GetDeployment(ctx, nsName)
+	enabled := ais.AdminClientEnabled()
+	if err != nil {
+		// Continue only if the error is a missing deployment
+		if !k8serrors.IsNotFound(err) {
+			return err
+		}
+		if enabled {
+			return r.createClientDeployment(ctx, ais)
+		}
+		// Missing and not enabled: done
+		return nil
+	}
+
+	if !metav1.IsControlledBy(existing, ais) {
+		if enabled {
+			logger.Info("Admin client deployment exists but is not managed by this AIStore CR, skipping", "deployment", nsName)
+		}
+		return nil
+	}
+
+	if enabled {
+		return r.reconcileClientDeployment(ctx, ais, existing)
+	}
+	return r.removeClientDeployment(ctx, &nsName)
+}
+
+// Delete the operator-managed client deployment
+func (r *Reconciler) removeClientDeployment(ctx context.Context, nsName *types.NamespacedName) error {
+	logger := logf.FromContext(ctx)
+	deleted, err := r.k8sClient.DeleteDeploymentIfExists(ctx, *nsName)
+	if err != nil {
+		return err
+	}
+	if deleted {
+		logger.Info("Deleted admin client deployment", "name", nsName.Name)
+	}
+	return nil
+}
+
+func (r *Reconciler) createClientDeployment(ctx context.Context, ais *aisv1.AIStore) error {
+	clientDeploy := adminclient.NewClientDeployment(ais)
+	if _, createErr := r.k8sClient.CreateOrUpdateResource(ctx, ais, clientDeploy); createErr != nil {
+		return createErr
+	}
+	logf.FromContext(ctx).Info("Created admin client deployment", "name", clientDeploy.Name)
+	return nil
+}
+
+// Reconcile an existing admin client deployment to match the AIS spec
+func (r *Reconciler) reconcileClientDeployment(ctx context.Context, ais *aisv1.AIStore, existing *apiv1.Deployment) error {
+	desired := adminclient.NewClientDeployment(ais)
+	modified := existing.DeepCopy()
+	changed, reason := adminclient.SyncDeployment(desired, modified)
+	if !changed {
+		return nil
+	}
+	logger := logf.FromContext(ctx)
+	logger.Info("Reconciled admin client deployment", "name", existing.Name, "reason", reason)
+	return r.k8sClient.Patch(ctx, modified, k8sclient.MergeFrom(existing))
+}
+
+func (r *Reconciler) disableRebalance(ctx context.Context, ais *aisv1.AIStore, reason aisv1.ClusterConditionReason, msg string) error {
+	logf.FromContext(ctx).Info("Disabling rebalance condition")
+	ais.SetConditionFalse(aisv1.ConditionReadyRebalance, reason, msg)
+	err := r.patchStatus(ctx, ais)
+	if err != nil {
+		return err
+	}
+	// Also disable in the live cluster (don't wait for config sync)
+	// This function will update the annotation so future reconciliations can tell the config has been updated
+	// Force to ensure we still disable rebalance when set disabled in spec (in case it was enabled manually)
+	return r.handleConfigState(ctx, ais, true /*force*/)
+}
+
+func (r *Reconciler) enableRebalanceCondition(ctx context.Context, ais *aisv1.AIStore) error {
+	if ais.IsConditionTrue(aisv1.ConditionReadyRebalance) {
+		return nil
+	}
+	logf.FromContext(ctx).Info("Enabling rebalance condition")
+	// Note this does not force-enable rebalance, only allows the value from spec to be used again
+	ais.SetCondition(aisv1.ConditionReadyRebalance)
+	return r.patchStatus(ctx, ais)
+}
+
+func (r *Reconciler) updateAutoScaleStatus(ctx context.Context, ais *aisv1.AIStore, status aisv1.AutoScaleStatus) error {
+	if slices.Equal(ais.Status.AutoScaleStatus.ExpectedProxyNodes, status.ExpectedProxyNodes) && slices.Equal(ais.Status.AutoScaleStatus.ExpectedTargetNodes, status.ExpectedTargetNodes) {
+		return nil
+	}
+	logf.FromContext(ctx).Info("Updating autoScaleStatus", "status", status)
+	ais.Status.AutoScaleStatus = status
+	return r.patchStatus(ctx, ais)
+}
+
+func (r *Reconciler) updateIntraClusterURLStatus(ctx context.Context, ais *aisv1.AIStore) error {
+	intraClusterURL := ais.GetIntraClusterURL()
+	logf.FromContext(ctx).WithValues("intraClusterURL", intraClusterURL).Info("Updating AIS with intraClusterURL")
+	ais.Status.IntraClusterURL = intraClusterURL
+	return r.patchStatus(ctx, ais)
+}
+
+func (r *Reconciler) updateStatusWithState(ctx context.Context, ais *aisv1.AIStore, state aisv1.ClusterState) error {
+	logf.FromContext(ctx).Info("Updating AIS state", "state", state)
+	ais.SetState(state)
+	return r.patchStatus(ctx, ais)
+}
+
+func (r *Reconciler) patchStatus(ctx context.Context, ais *aisv1.AIStore) error {
+	patchBytes, err := json.Marshal(map[string]interface{}{
+		"status": ais.Status,
+	})
+	if err != nil {
+		logf.FromContext(ctx).Error(err, "Failed to marshal AIS status")
+		return err
+	}
+	patch := k8sclient.RawPatch(types.MergePatchType, patchBytes)
+
+	err = r.k8sClient.Status().Patch(ctx, ais, patch)
+	if err != nil {
+		r.recordError(ctx, ais, err, "Failed to patch CR status")
+	}
+	return err
+}
+
+// SetupWithManager sets up the controller with the Manager.
+func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
+	nodePredicate := predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			return !reflect.DeepEqual(e.ObjectOld.GetLabels(), e.ObjectNew.GetLabels())
+		},
+		CreateFunc: func(_ event.CreateEvent) bool {
+			return true
+		},
+		DeleteFunc: func(_ event.DeleteEvent) bool {
+			return true
+		},
+	}
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&aisv1.AIStore{}).
+		Watches(&corev1.Node{},
+			handler.EnqueueRequestsFromMapFunc(r.findAISClustersForNode),
+			builder.WithPredicates(nodePredicate),
+		).
+		Owns(&apiv1.StatefulSet{}).
+		Owns(&corev1.ConfigMap{}).
+		Owns(&corev1.Service{}).
+		Complete(r)
+}
+
+func (r *Reconciler) findAISClustersForNode(ctx context.Context, o k8sclient.Object) []reconcile.Request {
+	logger := r.log.WithName("node-mapper").WithValues("object", o.GetName())
+
+	// convert to node
+	node, ok := o.(*corev1.Node)
+	if !ok {
+		logger.Error(fmt.Errorf("unexpected object type"), "Expected Node", "got", fmt.Sprintf("%T", o))
+		return nil
+	}
+
+	logger.Info("Finding ais clusters for node")
+
+	// Find all autoScale AIStore clusters
+	aisList := &aisv1.AIStoreList{}
+	if err := r.k8sClient.List(ctx, aisList); err != nil {
+		logger.Error(err, "Failed to list ais crs")
+		return nil
+	}
+
+	var requests []reconcile.Request
+
+	for idx := range len(aisList.Items) {
+		ais := aisList.Items[idx]
+		// the match funcs check for two things: is the node in already in the node list and does it match the node selector
+		// We check the expectedNode list, as we could be here because the node change labels.
+		// If the node change labels we queue up the reconcile and the reconcile function will handle it.
+		if ais.IsProxyAutoScaling() {
+			if r.nodeMatchesForProxy(node, &ais) {
+				requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{Namespace: ais.Namespace, Name: ais.Name}})
+				continue
+			}
+		}
+		if ais.IsTargetAutoScaling() {
+			if r.nodeMatchesForTarget(node, &ais) {
+				requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{Namespace: ais.Namespace, Name: ais.Name}})
+				continue
+			}
+		}
+		if r.nodeAffectsTLSCertificate(ctx, node, &ais) {
+			requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{Namespace: ais.Namespace, Name: ais.Name}})
+			continue
+		}
+
+		logger.Info("Node changes do not require AIStore resource update", "cr", ais.GetName())
+	}
+
+	if len(requests) > 0 {
+		// fine to log requests here as it's only the name and namespace of each ais cr
+		logger.Info("Found new nodes for ais crs", "cluster-count", len(requests), "crs", requests)
+	}
+
+	return requests
+}
+
+func (r *Reconciler) nodeMatchesForProxy(node *corev1.Node, ais *aisv1.AIStore) bool {
+	logger := r.log.WithName("node-mapper").WithValues("node", node.Name)
+
+	if ais.IsProxyAutoScaling() && slices.Contains(ais.Status.AutoScaleStatus.ExpectedProxyNodes, node.Name) {
+		logger.Info("Node is in expected proxy nodes", "cr", ais.GetName())
+		return true
+	}
+	if ais.IsProxyAutoScaling() && r.nodeMatchesSelector(node, ais.Spec.ProxySpec.NodeSelector) {
+		logger.Info("Node selector found for proxy", "cr", ais.GetName())
+		return true
+	}
+	return false
+}
+
+func (r *Reconciler) nodeMatchesForTarget(node *corev1.Node, ais *aisv1.AIStore) bool {
+	logger := r.log.WithName("node-mapper").WithValues("node", node.Name)
+	if ais.IsTargetAutoScaling() && slices.Contains(ais.Status.AutoScaleStatus.ExpectedTargetNodes, node.Name) {
+		logger.Info("Node is in expected target nodes", "cr", ais.GetName())
+		return true
+	}
+	if ais.IsTargetAutoScaling() && r.nodeMatchesSelector(node, ais.Spec.TargetSpec.NodeSelector) {
+		logger.Info("Node selector found for target", "cr", ais.GetName())
+		return true
+	}
+	return false
+}
+
+func (*Reconciler) nodeMatchesSelector(node *corev1.Node, selector map[string]string) bool {
+	nodeLabels := labels.Set(node.Labels)
+	selectorLabels := labels.Set(selector)
+	return selectorLabels.AsSelector().Matches(nodeLabels)
+}
+
+// listMatchingNodes returns nodes matching selector whose taints are tolerated.
+func (r *Reconciler) listMatchingNodes(ctx context.Context, selector map[string]string, tolerations []corev1.Toleration) ([]corev1.Node, error) {
+	nodes, err := r.k8sClient.ListNodesMatchingSelector(ctx, selector)
+	if err != nil {
+		return nil, err
+	}
+	matching := make([]corev1.Node, 0, len(nodes.Items))
+	for i := range nodes.Items {
+		node := &nodes.Items[i]
+		if !toleratesTaints(ctx, tolerations, node) {
+			continue
+		}
+		matching = append(matching, *node)
+	}
+	return matching, nil
+}
+
+// listMatchingNodeNames returns sorted names of nodes matching selector whose taints are tolerated.
+func (r *Reconciler) listMatchingNodeNames(ctx context.Context, selector map[string]string, tolerations []corev1.Toleration) ([]string, error) {
+	nodes, err := r.listMatchingNodes(ctx, selector, tolerations)
+	if err != nil {
+		return nil, err
+	}
+	names := make([]string, len(nodes))
+	for i := range nodes {
+		names[i] = nodes[i].Name
+	}
+	slices.Sort(names)
+	return names, nil
+}
+
+// nodeAffectsTLSCertificate reports whether a change to node could change the
+// SAN list of AIS's operator-managed TLS Certificate. A node contributes a SAN
+// only if it can actually host a daemon pod (its labels match the node selector
+// and tolerates the taints).
+func (r *Reconciler) nodeAffectsTLSCertificate(ctx context.Context, node *corev1.Node, ais *aisv1.AIStore) bool {
+	if !ais.UseTLSCertificate() || ais.GetPublicNetDNSMode() == aisv1.PubNetDNSModePod {
+		return false
+	}
+	if r.nodeMatchesSelector(node, ais.Spec.ProxySpec.NodeSelector) &&
+		toleratesTaints(ctx, ais.Spec.ProxySpec.Tolerations, node) {
+		return true
+	}
+	return r.nodeMatchesSelector(node, ais.Spec.TargetSpec.NodeSelector) &&
+		toleratesTaints(ctx, ais.Spec.TargetSpec.Tolerations, node)
+}
+
+func (r *Reconciler) handleSuccessfulReconcile(ctx context.Context, ais *aisv1.AIStore) (err error) {
+	var needsUpdate bool
+	if !ais.IsConditionTrue(aisv1.ConditionReady) {
+		r.recorder.Eventf(ais, nil, corev1.EventTypeNormal, EventReasonReady, ActionReconcile, "Successfully reconciled AIStore cluster")
+		ais.SetCondition(aisv1.ConditionReady)
+		needsUpdate = true
+	}
+	if !ais.HasState(aisv1.ClusterReady) {
+		needsUpdate = true
+	}
+	if needsUpdate {
+		err = r.updateStatusWithState(ctx, ais, aisv1.ClusterReady)
+	}
+	return
+}
+
+func (r *Reconciler) checkAISClusterReady(ctx context.Context, ais *aisv1.AIStore) (ready bool, err error) {
+	logger := logf.FromContext(ctx)
+	apiClient, err := r.clientManager.GetClient(ctx, ais)
+	if err != nil {
+		logger.Error(err, "Failed to get client to check cluster readiness")
+		return
+	}
+
+	err = apiClient.Health(true /*readyToRebalance*/)
+	if err != nil {
+		logger.Info("AIS cluster is not ready", "health_error", err.Error())
+		return
+	}
+
+	smap, err := apiClient.GetClusterMap()
+	if err != nil {
+		logger.Error(err, "Failed to get cluster map to check cluster readiness")
+		return
+	}
+
+	proxyCount := int32(len(smap.Pmap))
+	targetCount := int32(len(smap.Tmap))
+
+	if proxyCount < ais.GetMinReadyProxies() {
+		logger.Info(
+			"AIS cluster is not ready, proxy count does not match spec",
+			"smapProxies", proxyCount, "expectedProxies", ais.GetProxySize(),
+		)
+		return
+	}
+	if targetCount < ais.GetMinReadyTargets() {
+		logger.Info(
+			"AIS cluster is not ready, target count does not match spec",
+			"smapTargets", targetCount, "expectedTargets", ais.GetTargetSize(),
+		)
+		return
+	}
+	if ais.Status.ClusterID != smap.UUID {
+		ais.Status.ClusterID = smap.UUID
+		if err = r.patchStatus(ctx, ais); err != nil {
+			logger.Error(err, "Failed to update cluster ID")
+			return
+		}
+	}
+
+	return true, nil
+}
+
+func (r *Reconciler) recordError(ctx context.Context, ais *aisv1.AIStore, err error, msg string) {
+	logf.FromContext(ctx).Error(err, msg)
+	note := fmt.Sprintf("%s, err: %v", msg, err)
+	r.recorder.Eventf(ais, nil, corev1.EventTypeWarning, EventReasonFailed, ActionReconcile, note)
+}

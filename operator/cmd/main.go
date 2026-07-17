@@ -14,11 +14,12 @@ import (
 	"strings"
 
 	authv1alpha1 "github.com/ais-operator/api/aisauth/v1alpha1"
-	aisv1 "github.com/ais-operator/api/v1beta1"
+	aisv1 "github.com/ais-operator/api/aistore/v1beta1"
 	authcontroller "github.com/ais-operator/internal/controller/aisauth"
+	aiscontroller "github.com/ais-operator/internal/controller/aistore"
+	"github.com/ais-operator/internal/services"
 	authwebhookv1alpha1 "github.com/ais-operator/internal/webhook/aisauth/v1alpha1"
-	"github.com/ais-operator/pkg/controllers"
-	"github.com/ais-operator/pkg/services"
+	aiswebhookv1beta1 "github.com/ais-operator/internal/webhook/aistore/v1beta1"
 	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -181,7 +182,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = controllers.NewAISReconcilerFromMgr(
+	if err = aiscontroller.NewReconcilerFromMgr(
 		mgr,
 		services.AISClientTLSOpts{
 			CertPath:       aisClientCertPath,
@@ -193,17 +194,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	err = ctrl.NewWebhookManagedBy(mgr, &aisv1.AIStore{}).
-		WithValidator(&aisv1.AIStoreWebhook{
-			Client: mgr.GetClient(),
-		}).
-		Complete()
-	if err != nil {
+	if err = aiswebhookv1beta1.SetupAIStoreWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "AIStore")
 		os.Exit(1)
 	}
 
-	if err = authcontroller.NewAIStoreAuthReconcilerFromMgr(
+	if err = authcontroller.NewReconcilerFromMgr(
 		mgr, ctrl.Log.WithName("controllers").WithName("AIStoreAuth"),
 	).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "AIStoreAuth")

@@ -21,7 +21,6 @@ RUN go mod download
 COPY cmd/main.go cmd/main.go
 COPY api api/
 COPY internal internal/
-COPY pkg pkg/
 
 # Build
 # TARGETOS/TARGETARCH are set by buildx when you pass --platform

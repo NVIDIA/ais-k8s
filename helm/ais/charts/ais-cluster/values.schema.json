@@ -266,7 +266,7 @@
     },
     "configToUpdate": {
       "type": ["object", "null"],
-      "description": "Update the AIS config directly in spec. See https://github.com/NVIDIA/ais-k8s/blob/main/operator/api/v1beta1/aisconfig.go for valid options",
+      "description": "Update the AIS config directly in spec. See https://github.com/NVIDIA/ais-k8s/blob/main/operator/api/aistore/v1beta1/aisconfig.go for valid options",
       "examples": [
         {
           "memsys": {
