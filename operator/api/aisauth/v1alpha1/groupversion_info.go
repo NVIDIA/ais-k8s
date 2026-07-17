@@ -4,6 +4,7 @@
 
 // +kubebuilder:object:generate=true
 // +groupName=auth.ais.nvidia.com
+
 package v1alpha1
 
 import (
@@ -24,7 +25,13 @@ var (
 )
 
 func addKnownTypes(scheme *runtime.Scheme) error {
-	scheme.AddKnownTypes(GroupVersion, &AIStoreAuth{}, &AIStoreAuthList{})
+	scheme.AddKnownTypes(
+		GroupVersion,
+		&AIStoreAuth{},
+		&AIStoreAuthList{},
+		&AIStoreAuthProfile{},
+		&AIStoreAuthProfileList{},
+	)
 	metav1.AddToGroupVersion(scheme, GroupVersion)
 	return nil
 }

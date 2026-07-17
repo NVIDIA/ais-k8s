@@ -19,6 +19,8 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
   - Reconciles an always-present in-cluster ClusterIP Service with optional NodePort and LoadBalancer Services from `spec.externalAccess`, and publishes the endpoint in `status.serviceURL`.
   - Configures cert-manager TLS for AuthN through `spec.tls.certificate`. The default `secret` mode reconciles a `Certificate` and mounts its generated Secret, while `mode: csi` requests and mounts a per-pod certificate through the cert-manager CSI driver. CSI mode omits resolved LoadBalancer endpoints from certificate SANs to avoid status-driven Deployment rollouts. Add externally used hostnames to `spec.tls.certificate.additionalDNSNames`.
 
+- `AIStoreAuthProfile` resource providing RBAC-controlled configuration for client logins
+
 ### Changed
 
 - AIStore TLS certificate SANs are now sorted and deduplicated before populating Certificate resources and CSI volume attributes.

@@ -4,6 +4,7 @@
 
 // +kubebuilder:object:generate=true
 // +groupName=ais.nvidia.com
+
 package v1beta1
 
 import (
@@ -24,7 +25,8 @@ var (
 )
 
 func addKnownTypes(scheme *runtime.Scheme) error {
-	scheme.AddKnownTypes(GroupVersion,
+	scheme.AddKnownTypes(
+		GroupVersion,
 		&AIStore{},
 		&AIStoreList{},
 	)

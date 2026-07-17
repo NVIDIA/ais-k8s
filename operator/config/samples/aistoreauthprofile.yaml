@@ -1,0 +1,32 @@
+---
+apiVersion: auth.ais.nvidia.com/v1alpha1
+kind: AIStoreAuthProfile
+metadata:
+  name: prod-auth-token-exchange
+spec:
+  serviceURL: https://auth-provider.ais.svc:52001
+  tokenExchange:
+    endpoint: /token
+  tls:
+    caConfigMapRef:
+      namespace: auth-config
+      name: auth-provider-ca
+      key: ca.crt
+---
+apiVersion: auth.ais.nvidia.com/v1alpha1
+kind: AIStoreAuthProfile
+metadata:
+  name: prod-auth-username-password
+spec:
+  serviceURL: https://auth-provider.ais.svc:52001
+  usernamePassword:
+    secret:
+      name: auth-provider-admin
+      namespace: auth-config
+    loginConf:
+      clientID: ais-operator
+  tls:
+    caConfigMapRef:
+      namespace: auth-config
+      name: auth-provider-ca
+      key: ca.crt

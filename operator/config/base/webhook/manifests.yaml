@@ -46,3 +46,24 @@ webhooks:
     resources:
     - aistoreauths
   sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-auth-ais-nvidia-com-v1alpha1-aistoreauthprofile
+  failurePolicy: Fail
+  name: vaistoreauthprofile.kb.io
+  rules:
+  - apiGroups:
+    - auth.ais.nvidia.com
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - aistoreauthprofiles
+  sideEffects: None

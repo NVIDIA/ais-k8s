@@ -208,6 +208,11 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err = authwebhookv1alpha1.SetupAIStoreAuthProfileWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "AIStoreAuthProfile")
+		os.Exit(1)
+	}
+
 	if err = authcontroller.NewReconcilerFromMgr(
 		mgr, ctrl.Log.WithName("controllers").WithName("AIStoreAuth"),
 	).SetupWithManager(mgr); err != nil {

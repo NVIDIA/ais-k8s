@@ -1,3 +1,4 @@
 resources:
 - ais.nvidia.com_aistores.yaml
+- auth.ais.nvidia.com_aistoreauthprofiles.yaml
 - auth.ais.nvidia.com_aistoreauths.yaml

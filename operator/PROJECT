@@ -23,6 +23,17 @@ resources:
     webhookVersion: v1
 - api:
     crdVersion: v1
+    namespaced: false
+  domain: nvidia.com
+  group: auth.ais
+  kind: AIStoreAuthProfile
+  path: github.com/ais-operator/api/aisauth/v1alpha1
+  version: v1alpha1
+  webhooks:
+    validation: true
+    webhookVersion: v1
+- api:
+    crdVersion: v1
     namespaced: true
   controller: true
   domain: nvidia.com
