@@ -27,7 +27,8 @@ For internal deployment values, see the `ais-infra` repo.
 # Authentication
 
 For remote writes, you'll need to authenticate with a secret.
-Follow the [instructions in the vault directory](../vault/README.md) and reference the Gitlab wiki to set up a secret in your target k8s cluster. 
+
+Refer to the secrets-operator README in the `ais-infra` repo for setup information.
 
 # Usage
 
