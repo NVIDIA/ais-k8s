@@ -1970,11 +1970,6 @@ spec:
                         additionalProperties:
                           type: string
                         type: object
-                      clusterIP:
-                        description: |-
-                          ClusterIP pins a static cluster IP for the LoadBalancer Service.
-                          When empty, Kubernetes assigns one from the service CIDR range.
-                        type: string
                       port:
                         default: 52001
                         description: Port is the LoadBalancer Service port.
@@ -1993,6 +1988,8 @@ spec:
                         maximum: 32767
                         minimum: 30000
                         type: integer
+                    required:
+                    - port
                     type: object
                 type: object
               hmacSecret:

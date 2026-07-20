@@ -29,8 +29,10 @@ var _ = Describe("Services", func() {
 		}
 	})
 
-	It("uses the CR name for the in-cluster Service", func() {
+	It("uses chart-compatible names for each Service", func() {
 		Expect(authnres.ServiceNSName(authn)).To(Equal(types.NamespacedName{Name: "ais-authn", Namespace: "ais"}))
+		Expect(authnres.NodePortServiceNSName(authn)).To(Equal(types.NamespacedName{Name: "ais-authn-nodeport", Namespace: "ais"}))
+		Expect(authnres.LoadBalancerServiceNSName(authn)).To(Equal(types.NamespacedName{Name: "ais-authn-lb", Namespace: "ais"}))
 	})
 
 	It("builds an owned ClusterIP Service for in-cluster access", func() {
@@ -47,8 +49,47 @@ var _ = Describe("Services", func() {
 		Expect(service.Labels).To(Equal(standardLabels()))
 		Expect(service.Spec.Type).To(HaveValue(Equal(corev1.ServiceTypeClusterIP)))
 		Expect(service.Spec.ClusterIP).To(BeNil())
-		expectServicePort(service.Spec.Ports, port)
+		expectServicePort(service.Spec.Ports, port, nil)
 		Expect(service.Spec.Selector).To(Equal(selectorLabels()))
+	})
+
+	It("builds a NodePort Service with an explicit node port", func() {
+		nodePort := int32(31001)
+		authn.Spec.ExternalAccess = &authv1alpha1.ExternalAccessSpec{
+			NodePort: &authv1alpha1.NodePortSpec{Port: nodePort},
+		}
+
+		service := authnres.NewNodePortService(authn)
+
+		Expect(service.Spec.Type).To(HaveValue(Equal(corev1.ServiceTypeNodePort)))
+		expectServicePort(service.Spec.Ports, int32(52001), &nodePort)
+	})
+
+	It("does not build a NodePort Service when it is disabled", func() {
+		Expect(authnres.NewNodePortService(authn)).To(BeNil())
+	})
+
+	It("builds a LoadBalancer Service with its public port and annotations", func() {
+		annotations := map[string]string{
+			"external-dns.alpha.kubernetes.io/hostname": "authn.ais.example.com",
+		}
+		authn.Spec.ExternalAccess = &authv1alpha1.ExternalAccessSpec{
+			LoadBalancer: &authv1alpha1.LoadBalancerSpec{
+				Port:        5443,
+				Annotations: annotations,
+			},
+		}
+
+		service := authnres.NewLoadBalancerService(authn)
+
+		Expect(service.Spec.Type).To(HaveValue(Equal(corev1.ServiceTypeLoadBalancer)))
+		Expect(service.Spec.ClusterIP).To(BeNil())
+		Expect(service.Annotations).To(Equal(annotations))
+		expectServicePort(service.Spec.Ports, int32(5443), nil)
+	})
+
+	It("does not build a LoadBalancer Service when it is disabled", func() {
+		Expect(authnres.NewLoadBalancerService(authn)).To(BeNil())
 	})
 
 	DescribeTable("publishes the canonical in-cluster URL",
@@ -61,14 +102,18 @@ var _ = Describe("Services", func() {
 	)
 })
 
-func expectServicePort(ports []corev1ac.ServicePortApplyConfiguration, port int32) {
+func expectServicePort(ports []corev1ac.ServicePortApplyConfiguration, port int32, nodePort *int32) {
 	GinkgoHelper()
 	Expect(ports).To(HaveLen(1))
 	Expect(ports[0].Name).To(HaveValue(Equal("http")))
 	Expect(ports[0].Protocol).To(HaveValue(Equal(corev1.ProtocolTCP)))
 	Expect(ports[0].Port).To(HaveValue(Equal(port)))
 	Expect(ports[0].TargetPort).To(HaveValue(Equal(intstr.FromString("http"))))
-	Expect(ports[0].NodePort).To(BeNil())
+	if nodePort == nil {
+		Expect(ports[0].NodePort).To(BeNil())
+	} else {
+		Expect(ports[0].NodePort).To(HaveValue(Equal(*nodePort)))
+	}
 }
 
 func selectorLabels() map[string]string {

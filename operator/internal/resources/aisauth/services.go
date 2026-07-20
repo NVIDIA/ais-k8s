@@ -25,6 +25,26 @@ func ServiceNSName(authn *authv1alpha1.AIStoreAuth) types.NamespacedName {
 	return types.NamespacedName{Name: ServiceName(authn), Namespace: authn.Namespace}
 }
 
+// NodePortServiceName returns the name of the optional AuthN NodePort Service.
+func NodePortServiceName(authn *authv1alpha1.AIStoreAuth) string {
+	return authn.Name + "-nodeport"
+}
+
+// NodePortServiceNSName returns the namespaced name of the optional AuthN NodePort Service.
+func NodePortServiceNSName(authn *authv1alpha1.AIStoreAuth) types.NamespacedName {
+	return types.NamespacedName{Name: NodePortServiceName(authn), Namespace: authn.Namespace}
+}
+
+// LoadBalancerServiceName returns the name of the optional AuthN LoadBalancer Service.
+func LoadBalancerServiceName(authn *authv1alpha1.AIStoreAuth) string {
+	return authn.Name + "-lb"
+}
+
+// LoadBalancerServiceNSName returns the namespaced name of the optional AuthN LoadBalancer Service.
+func LoadBalancerServiceNSName(authn *authv1alpha1.AIStoreAuth) types.NamespacedName {
+	return types.NamespacedName{Name: LoadBalancerServiceName(authn), Namespace: authn.Namespace}
+}
+
 // ServiceURL returns the stable in-cluster endpoint published in AIStoreAuth status.
 func ServiceURL(authn *authv1alpha1.AIStoreAuth) string {
 	scheme := "http"
@@ -39,6 +59,30 @@ func NewService(authn *authv1alpha1.AIStoreAuth) *corev1ac.ServiceApplyConfigura
 	return baseService(authn, ServiceName(authn)).
 		WithSpec(baseServiceSpecWithPort(authn, servicePort(authn.ListenPort())).
 			WithType(corev1.ServiceTypeClusterIP))
+}
+
+// NewNodePortService builds the optional Service used for node-level external access.
+func NewNodePortService(authn *authv1alpha1.AIStoreAuth) *corev1ac.ServiceApplyConfiguration {
+	if authn.Spec.ExternalAccess == nil || authn.Spec.ExternalAccess.NodePort == nil {
+		return nil
+	}
+	nodePort := authn.Spec.ExternalAccess.NodePort
+	port := servicePort(authn.ListenPort()).WithNodePort(nodePort.Port)
+	return baseService(authn, NodePortServiceName(authn)).
+		WithSpec(baseServiceSpecWithPort(authn, port).
+			WithType(corev1.ServiceTypeNodePort))
+}
+
+// NewLoadBalancerService builds the optional Service used for load-balanced external access.
+func NewLoadBalancerService(authn *authv1alpha1.AIStoreAuth) *corev1ac.ServiceApplyConfiguration {
+	if authn.Spec.ExternalAccess == nil || authn.Spec.ExternalAccess.LoadBalancer == nil {
+		return nil
+	}
+	lb := authn.Spec.ExternalAccess.LoadBalancer
+	return baseService(authn, LoadBalancerServiceName(authn)).
+		WithAnnotations(lb.Annotations).
+		WithSpec(baseServiceSpecWithPort(authn, servicePort(lb.Port)).
+			WithType(corev1.ServiceTypeLoadBalancer))
 }
 
 func baseService(authn *authv1alpha1.AIStoreAuth, name string) *corev1ac.ServiceApplyConfiguration {

@@ -223,10 +223,10 @@ type ExternalAccessSpec struct {
 // NodePortSpec exposes AuthN via a NodePort Service.
 type NodePortSpec struct {
 	// Port on each node (30000-32767).
+	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Minimum=30000
 	// +kubebuilder:validation:Maximum=32767
-	// +optional
-	Port *int32 `json:"port,omitempty"`
+	Port int32 `json:"port"`
 }
 
 // LoadBalancerSpec exposes AuthN via a cloud LoadBalancer Service.
@@ -237,11 +237,6 @@ type LoadBalancerSpec struct {
 	// +kubebuilder:default:=52001
 	// +optional
 	Port int32 `json:"port,omitempty"`
-
-	// ClusterIP pins a static cluster IP for the LoadBalancer Service.
-	// When empty, Kubernetes assigns one from the service CIDR range.
-	// +optional
-	ClusterIP *string `json:"clusterIP,omitempty"`
 
 	// +optional
 	Annotations map[string]string `json:"annotations,omitempty"`

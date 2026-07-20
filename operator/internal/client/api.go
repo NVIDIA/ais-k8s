@@ -309,9 +309,9 @@ func (c *K8sClient) CreateOrUpdateResource(ctx context.Context, owner *aisv1.AIS
 //       Delete resources      //
 /////////////////////////////////
 
-// DeleteResourceIfExists deletes an existing resource. It doesn't fail if the resource does not exist
-func (c *K8sClient) DeleteResourceIfExists(ctx context.Context, obj client.Object) (existed bool, err error) {
-	err = c.client.Delete(ctx, obj)
+// DeleteResourceIfExists deletes an existing resource. It doesn't fail if the resource does not exist.
+func (c *K8sClient) DeleteResourceIfExists(ctx context.Context, obj client.Object, opts ...client.DeleteOption) (existed bool, err error) {
+	err = c.client.Delete(ctx, obj, opts...)
 	return allowObjNotFound(obj, err)
 }
 

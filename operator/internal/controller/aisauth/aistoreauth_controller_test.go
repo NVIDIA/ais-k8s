@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -135,6 +136,42 @@ var _ = Describe("AIStoreAuthReconciler", Label("short"), func() {
 		Expect(deployment.OwnerReferences[0].Name).To(Equal(authn.Name))
 		Expect(deployment.Spec.Replicas).To(HaveValue(Equal(int32(1))))
 		Expect(deployment.Spec.Strategy.Type).To(Equal(appsv1.RecreateDeploymentStrategyType))
+	})
+
+	It("creates external Services when enabled and removes owned ones when disabled", func() {
+		nodePort := int32(31001)
+		authn.Spec.ExternalAccess = &authv1alpha1.ExternalAccessSpec{
+			NodePort:     &authv1alpha1.NodePortSpec{Port: nodePort},
+			LoadBalancer: &authv1alpha1.LoadBalancerSpec{Port: 52001},
+		}
+		Expect(reconciler.reconcileServices(ctx, authn)).To(Succeed())
+
+		nodePortSvc := &corev1.Service{}
+		Expect(reconciler.client.Get(ctx, authnres.NodePortServiceNSName(authn), nodePortSvc)).To(Succeed())
+		Expect(metav1.IsControlledBy(nodePortSvc, authn)).To(BeTrue())
+		lbSvc := &corev1.Service{}
+		Expect(reconciler.client.Get(ctx, authnres.LoadBalancerServiceNSName(authn), lbSvc)).To(Succeed())
+		Expect(metav1.IsControlledBy(lbSvc, authn)).To(BeTrue())
+
+		authn.Spec.ExternalAccess = nil
+		Expect(reconciler.reconcileServices(ctx, authn)).To(Succeed())
+
+		svc := &corev1.Service{}
+		Expect(k8serrors.IsNotFound(reconciler.client.Get(ctx, authnres.NodePortServiceNSName(authn), svc))).To(BeTrue())
+		Expect(k8serrors.IsNotFound(reconciler.client.Get(ctx, authnres.LoadBalancerServiceNSName(authn), svc))).To(BeTrue())
+		Expect(reconciler.client.Get(ctx, authnres.ServiceNSName(authn), svc)).To(Succeed())
+	})
+
+	It("does not delete a disabled external Service it does not own", func() {
+		service := &corev1.Service{ObjectMeta: metav1.ObjectMeta{
+			Name:      authnres.NodePortServiceName(authn),
+			Namespace: authn.Namespace,
+		}}
+		Expect(reconciler.client.Create(ctx, service)).To(Succeed())
+
+		Expect(reconciler.reconcileServices(ctx, authn)).To(Succeed())
+		Expect(reconciler.client.Get(ctx, authnres.NodePortServiceNSName(authn), service)).To(Succeed())
+		Expect(service.OwnerReferences).To(BeEmpty())
 	})
 
 	It("reconciles and converges Deployment image and config changes", func() {

@@ -16,7 +16,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
   - Adds shared conversion support for translating Kubernetes API types into server-side apply configurations.
   - Applies optional container resource requirements, security context, and liveness/readiness probes to managed Deployments from `spec.deployment.container`.
   - Applies optional pod security context, node selector, tolerations, affinity, and image pull secrets to managed Deployments from `spec.deployment.pod`.
-  - Reconciles an always-present ClusterIP Service and publishes the endpoint in `status.serviceURL`.
+  - Reconciles an always-present in-cluster ClusterIP Service with optional NodePort and LoadBalancer Services from `spec.externalAccess`, and publishes the endpoint in `status.serviceURL`.
 
 ### Changed
 

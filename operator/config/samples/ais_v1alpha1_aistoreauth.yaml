@@ -50,9 +50,8 @@ spec:
     # LoadBalancer is optional; include the block to enable it. Shown here commented to illustrate the available fields.
     # loadBalancer:
     #   port: 52001
-    #   # clusterIP pins a static cluster IP or can be omitted/empty to let Kubernetes assign one.
-    #   clusterIP: ""
-    #   annotations: {}
+    #   annotations:
+    #     external-dns.alpha.kubernetes.io/hostname: authn.ais.example.com
   deployment:
     container:
       image: docker.io/aistorage/authn:v4.5
