@@ -1,14 +1,17 @@
 DEFAULT_VERSION = 3.2.0
 DEFAULT_IMG_REPOSITORY = docker.io/aistorage/ais-operator
+# Strip optional leading v; empty when VERSION is unset
 VERSION_BASE = $(patsubst v%,%,$(VERSION))
-VERSION_TAG = $(if $(VERSION),v$(VERSION_BASE),)
-IMG ?= $(if $(VERSION),$(DEFAULT_IMG_REPOSITORY):$(VERSION_TAG),)
+ifdef VERSION
+IMG ?= $(DEFAULT_IMG_REPOSITORY):v$(VERSION_BASE)
+endif
+
 HELM_CHART_VERSION = $(VERSION_BASE)
-SEMVER_REGEX = ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-((0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(\.(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?(\+([0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*))?$$
-# Use VERSION if provided
-BUILD_VERSION_BASE = $(if $(VERSION),$(VERSION_BASE),$(DEFAULT_VERSION))
-BUILD_VERSION = $(BUILD_VERSION_BASE)+$(shell git rev-parse --short HEAD)
+BUILD_VERSION = $(or $(VERSION_BASE),$(DEFAULT_VERSION))+$(shell git rev-parse --short HEAD)
 BUILD_TIME = $(shell date +%FT%T%z)
+
+SEMVER_REGEX = ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-((0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(\.(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?(\+([0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*))?$$
+
 OS = $(shell go env GOOS)
 ARCH = $(shell go env GOARCH)
 PODMAN_BUILDPLATFORM := $(OS)/$(ARCH)
@@ -71,7 +74,7 @@ all: build
 # http://linuxcommand.org/lc3_adv_awk.php
 
 require-img:
-	@[ "${IMG}" ] || ( echo "IMG must be set for this make target"; exit 1 )
+	@[ "${IMG}" ] || ( echo "IMG (or VERSION) must be set for this make target"; exit 1 )
 
 require-version:
 	@[ "${VERSION}" ] || ( echo "VERSION must be set for this make target"; exit 1 )
