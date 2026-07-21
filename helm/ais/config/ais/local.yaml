@@ -38,8 +38,6 @@ adminClient:
   caConfigMap:
     name: aistore.nvidia.com
     key: ca.crt
-proxyLB:
-  enabled: true
 # Allows DNS to be based solely on node name, not IP
 publicNetDNSMode: Node
 
