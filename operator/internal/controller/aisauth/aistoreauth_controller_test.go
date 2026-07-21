@@ -11,6 +11,7 @@ import (
 	authv1alpha1 "github.com/ais-operator/api/aisauth/v1alpha1"
 	aisclient "github.com/ais-operator/internal/client"
 	authnres "github.com/ais-operator/internal/resources/aisauth"
+	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
@@ -43,6 +44,7 @@ var _ = Describe("AIStoreAuthReconciler", Label("short"), func() {
 		Expect(authv1alpha1.AddToScheme(scheme)).To(Succeed())
 		Expect(appsv1.AddToScheme(scheme)).To(Succeed())
 		Expect(corev1.AddToScheme(scheme)).To(Succeed())
+		Expect(certmanagerv1.AddToScheme(scheme)).To(Succeed())
 
 		sc := "openebs-hostpath"
 		authn = &authv1alpha1.AIStoreAuth{

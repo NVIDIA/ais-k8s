@@ -66,7 +66,7 @@ func TestAIStoreAuthTLSHelpers(t *testing.T) {
 			},
 			hasTLSEnabled:     true,
 			useTLSCertificate: true,
-			tlsSecretName:     "ais-authn" + "-tls",
+			tlsSecretName:     "ais-authn" + "-authn-tls",
 		},
 	}
 

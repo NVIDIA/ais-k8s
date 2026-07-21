@@ -12,7 +12,7 @@ import (
 )
 
 var _ = Describe("buildCertificateSANs", func() {
-	It("Should correctly generate DNS names and IP addresses", func() {
+	It("generates sorted unique DNS names and IP addresses", func() {
 		ais := &aisv1.AIStore{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-cluster",
@@ -21,35 +21,39 @@ var _ = Describe("buildCertificateSANs", func() {
 			Spec: aisv1.AIStoreSpec{
 				TLS: &aisv1.TLSSpec{
 					Certificate: &aisv1.TLSCertificateConfig{
-						AdditionalDNSNames: []string{"test-additional-dns-name"},
+						AdditionalDNSNames: []string{"test-additional-dns-name", "test-additional-dns-name"},
 					},
 				},
 				HostnameMap: map[string]string{
 					"test-worker-1": "test-worker-1, 127.0.0.1",
+					"test-worker-2": "test-worker-2, 127.0.0.2",
 				},
 			},
 		}
 		nodeNames := []string{
 			"test-target-node-1", "test-target-node-2",
-			"test-proxy-node-1", "test-proxy-node-2",
+			"test-proxy-node-1", "test-proxy-node-2", "test-proxy-node-1", "127.0.0.1",
 		}
 
 		dnsNames, ipAddresses := buildCertificateSANs(ais, nodeNames)
 
-		Expect(dnsNames).To(ContainElement("test-cluster-proxy"))
-		Expect(dnsNames).To(ContainElement("test-cluster-proxy.test-ns"))
-		Expect(dnsNames).To(ContainElement("test-cluster-proxy.test-ns.svc.cluster.local"))
-		Expect(dnsNames).To(ContainElement("test-cluster-target"))
-		Expect(dnsNames).To(ContainElement("test-cluster-target.test-ns"))
-		Expect(dnsNames).To(ContainElement("test-cluster-target.test-ns.svc.cluster.local"))
-		Expect(dnsNames).To(ContainElement("*.test-cluster-proxy.test-ns.svc.cluster.local"))
-		Expect(dnsNames).To(ContainElement("*.test-cluster-target.test-ns.svc.cluster.local"))
-		Expect(dnsNames).To(ContainElement("test-additional-dns-name"))
-		Expect(dnsNames).To(ContainElement("test-worker-1"))
-		Expect(dnsNames).To(ContainElement("test-target-node-1"))
-		Expect(dnsNames).To(ContainElement("test-target-node-2"))
-		Expect(dnsNames).To(ContainElement("test-proxy-node-1"))
-		Expect(dnsNames).To(ContainElement("test-proxy-node-2"))
-		Expect(ipAddresses).To(ContainElement("127.0.0.1"))
+		Expect(dnsNames).To(Equal([]string{
+			"*.test-cluster-proxy.test-ns.svc.cluster.local",
+			"*.test-cluster-target.test-ns.svc.cluster.local",
+			"test-additional-dns-name",
+			"test-cluster-proxy",
+			"test-cluster-proxy.test-ns",
+			"test-cluster-proxy.test-ns.svc.cluster.local",
+			"test-cluster-target",
+			"test-cluster-target.test-ns",
+			"test-cluster-target.test-ns.svc.cluster.local",
+			"test-proxy-node-1",
+			"test-proxy-node-2",
+			"test-target-node-1",
+			"test-target-node-2",
+			"test-worker-1",
+			"test-worker-2",
+		}))
+		Expect(ipAddresses).To(Equal([]string{"127.0.0.1", "127.0.0.2"}))
 	})
 })

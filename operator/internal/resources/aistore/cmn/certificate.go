@@ -6,22 +6,15 @@ package cmn
 
 import (
 	"fmt"
-	"net"
 	"strings"
-	"time"
 
 	aisv1 "github.com/ais-operator/api/aistore/v1beta1"
+	certres "github.com/ais-operator/internal/resources/certificates"
 	"github.com/ais-operator/internal/resources/ownerref"
 	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	cmapiv1ac "github.com/cert-manager/cert-manager/pkg/client/applyconfigurations/certmanager/v1"
-	cmmetav1ac "github.com/cert-manager/cert-manager/pkg/client/applyconfigurations/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-)
-
-const (
-	defaultCertDuration    = 8760 * time.Hour // 1 year
-	defaultCertRenewBefore = 720 * time.Hour  // 30 days
 )
 
 func certificateName(ais *aisv1.AIStore) string {
@@ -47,39 +40,20 @@ func NewCertificate(ais *aisv1.AIStore, publicHosts []string) *cmapiv1ac.Certifi
 		return nil
 	}
 
-	issuerKind := certConfig.IssuerRef.Kind
-	if issuerKind == "" {
-		issuerKind = "ClusterIssuer"
-	}
-	duration := defaultCertDuration
-	if certConfig.Duration != nil {
-		duration = certConfig.Duration.Duration
-	}
-	renewBefore := defaultCertRenewBefore
-	if certConfig.RenewBefore != nil {
-		renewBefore = certConfig.RenewBefore.Duration
-	}
-
 	dnsNames, ipAddresses := buildCertificateSANs(ais, publicHosts)
-
-	issuerRef := cmmetav1ac.IssuerReference().
-		WithName(certConfig.IssuerRef.Name).
-		WithKind(issuerKind).
-		WithGroup("cert-manager.io")
-
-	spec := cmapiv1ac.CertificateSpec().
-		WithSecretName(CertificateSecretName(ais)).
-		WithDuration(metav1.Duration{Duration: duration}).
-		WithRenewBefore(metav1.Duration{Duration: renewBefore}).
-		WithUsages(
+	spec := certres.NewSpec(&certres.SpecConfig{
+		SecretName:  CertificateSecretName(ais),
+		IssuerName:  certConfig.IssuerRef.Name,
+		IssuerKind:  certConfig.IssuerRef.Kind,
+		Duration:    certConfig.Duration,
+		RenewBefore: certConfig.RenewBefore,
+		Usages: []certmanagerv1.KeyUsage{
 			certmanagerv1.UsageDigitalSignature,
 			certmanagerv1.UsageKeyEncipherment,
 			certmanagerv1.UsageServerAuth,
 			certmanagerv1.UsageClientAuth,
-		).
-		WithDNSNames(dnsNames...).
-		WithIPAddresses(ipAddresses...).
-		WithIssuerRef(issuerRef)
+		},
+	}, dnsNames, ipAddresses)
 
 	return cmapiv1ac.Certificate(certificateName(ais), ais.Namespace).
 		WithOwnerReferences(ownerref.NewControllerRef(ais)).
@@ -117,31 +91,19 @@ func buildCertificateSANs(ais *aisv1.AIStore, publicHosts []string) (dnsNames, i
 		for _, allHosts := range ais.Spec.HostnameMap {
 			for _, host := range strings.Split(allHosts, ",") {
 				host = strings.TrimSpace(host)
-				if host != "" {
-					addHostOrIP(host, &dnsNames, &ipAddresses)
-				}
+				dnsNames, ipAddresses = certres.AppendHosts(dnsNames, ipAddresses, host)
 			}
 		}
 	}
 
-	for _, host := range publicHosts {
-		addHostOrIP(host, &dnsNames, &ipAddresses)
-	}
+	dnsNames, ipAddresses = certres.AppendHosts(dnsNames, ipAddresses, publicHosts...)
 
 	// Add user-specified additional DNS names
 	if certConfig := ais.GetTLSCertificate(); certConfig != nil {
 		dnsNames = append(dnsNames, certConfig.AdditionalDNSNames...)
 	}
 
-	return dnsNames, ipAddresses
-}
-
-func addHostOrIP(host string, dnsNames, ipAddresses *[]string) {
-	if net.ParseIP(host) != nil {
-		*ipAddresses = append(*ipAddresses, host)
-	} else {
-		*dnsNames = append(*dnsNames, host)
-	}
+	return certres.NormalizeSANs(dnsNames, ipAddresses)
 }
 
 func TLSCertificate(ais *aisv1.AIStore) *certmanagerv1.Certificate {

@@ -403,7 +403,7 @@ func (authn *AIStoreAuth) GetTLSSecretName() string {
 		return *authn.Spec.TLS.SecretName
 	}
 	if authn.UseTLSCertificate() {
-		return fmt.Sprintf("%s-tls", authn.Name)
+		return fmt.Sprintf("%s-authn-tls", authn.Name)
 	}
 	return ""
 }

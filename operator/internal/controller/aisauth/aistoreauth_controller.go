@@ -11,6 +11,7 @@ import (
 	authv1alpha1 "github.com/ais-operator/api/aisauth/v1alpha1"
 	aisclient "github.com/ais-operator/internal/client"
 	authnres "github.com/ais-operator/internal/resources/aisauth"
+	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -18,8 +19,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -53,6 +56,7 @@ func NewReconcilerFromMgr(mgr manager.Manager, logger logr.Logger) *Reconciler {
 // +kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=get;list;watch;create;update;patch
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch
+// +kubebuilder:rbac:groups=cert-manager.io,resources=certificates,verbs=get;list;watch;create;update;patch;delete
 
 func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := r.log.WithValues("namespace", req.Namespace, "name", req.Name)
@@ -78,13 +82,18 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return reconcile.Result{}, err
 	}
 
-	if err := r.reconcileDeployment(ctx, authn); err != nil {
-		r.recordError(ctx, authn, err, "Failed to reconcile AuthN Deployment")
+	if err := r.reconcileServices(ctx, authn); err != nil {
+		r.recordError(ctx, authn, err, "Failed to reconcile AuthN Services")
 		return reconcile.Result{}, err
 	}
 
-	if err := r.reconcileServices(ctx, authn); err != nil {
-		r.recordError(ctx, authn, err, "Failed to reconcile AuthN Services")
+	if err := r.reconcileTLSCertificate(ctx, authn); err != nil {
+		r.recordError(ctx, authn, err, "Failed to reconcile AuthN TLS Certificate")
+		return reconcile.Result{}, err
+	}
+
+	if err := r.reconcileDeployment(ctx, authn); err != nil {
+		r.recordError(ctx, authn, err, "Failed to reconcile AuthN Deployment")
 		return reconcile.Result{}, err
 	}
 
@@ -148,6 +157,7 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.PersistentVolumeClaim{}).
 		Owns(&appsv1.Deployment{}).
 		Owns(&corev1.Service{}).
+		Owns(&certmanagerv1.Certificate{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Named("aistoreauth").
 		Complete(r)
 }

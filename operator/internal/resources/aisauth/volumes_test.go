@@ -70,7 +70,7 @@ var _ = Describe("Volumes", func() {
 			},
 		}
 		spec := newPodSpec(authn)
-		Expect(spec.Volumes[2].Secret.SecretName).To(HaveValue(Equal("ais-authn-tls")))
+		Expect(spec.Volumes[2].Secret.SecretName).To(HaveValue(Equal("ais-authn-authn-tls")))
 	})
 })
 

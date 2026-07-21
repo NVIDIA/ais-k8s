@@ -17,9 +17,11 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
   - Applies optional container resource requirements, security context, and liveness/readiness probes to managed Deployments from `spec.deployment.container`.
   - Applies optional pod security context, node selector, tolerations, affinity, and image pull secrets to managed Deployments from `spec.deployment.pod`.
   - Reconciles an always-present in-cluster ClusterIP Service with optional NodePort and LoadBalancer Services from `spec.externalAccess`, and publishes the endpoint in `status.serviceURL`.
+  - Provisions and renews AuthN TLS certificates through cert-manager when `spec.tls.certificate` is configured.
 
 ### Changed
 
+- AIStore TLS certificate SANs are now sorted and deduplicated before populating Certificate resources and CSI volume attributes.
 - Host state cleanup jobs now target a cluster's own scoped directory (`prefix/namespace/name`) instead of the shared hostpath prefix, so tearing down one cluster no longer removes state belonging to other clusters that might share the prefix.
 - Operator-managed admin clients now use the namespace's default ServiceAccount without mounting its token.
 

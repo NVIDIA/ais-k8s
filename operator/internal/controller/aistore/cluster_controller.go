@@ -20,6 +20,7 @@ import (
 	"github.com/ais-operator/internal/resources/aistore/proxy"
 	"github.com/ais-operator/internal/resources/aistore/statsd"
 	"github.com/ais-operator/internal/resources/aistore/target"
+	certres "github.com/ais-operator/internal/resources/certificates"
 	"github.com/ais-operator/internal/services"
 	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/go-logr/logr"
@@ -864,24 +865,7 @@ func (r *Reconciler) externalEndpoints(ctx context.Context, ais *aisv1.AIStore, 
 	if err != nil {
 		return nil, err
 	}
-	return loadBalancerEndpoints(svcList.Items), nil
-}
-
-// loadBalancerEndpoints returns every external IP and hostname across the given
-// LoadBalancer services (single LB may expose multiple ingress entries and both an IP and hostname).
-func loadBalancerEndpoints(svcs []corev1.Service) []string {
-	var endpoints []string
-	for i := range svcs {
-		for _, ing := range svcs[i].Status.LoadBalancer.Ingress {
-			if ing.IP != "" {
-				endpoints = append(endpoints, ing.IP)
-			}
-			if ing.Hostname != "" {
-				endpoints = append(endpoints, ing.Hostname)
-			}
-		}
-	}
-	return endpoints
+	return certres.LoadBalancerEndpoints(svcList.Items...), nil
 }
 
 func (r *Reconciler) reconcileTLSCertificate(ctx context.Context, ais *aisv1.AIStore) error {
