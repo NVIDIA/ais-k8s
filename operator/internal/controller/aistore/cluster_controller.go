@@ -21,6 +21,7 @@ import (
 	"github.com/ais-operator/internal/resources/aistore/statsd"
 	"github.com/ais-operator/internal/resources/aistore/target"
 	"github.com/ais-operator/internal/services"
+	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/go-logr/logr"
 	apiv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -1034,6 +1035,7 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&apiv1.StatefulSet{}).
 		Owns(&corev1.ConfigMap{}).
 		Owns(&corev1.Service{}).
+		Owns(&certmanagerv1.Certificate{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Complete(r)
 }
 

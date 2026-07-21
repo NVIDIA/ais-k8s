@@ -71,7 +71,12 @@ func NewCertificate(ais *aisv1.AIStore, publicHosts []string) *cmapiv1ac.Certifi
 		WithSecretName(CertificateSecretName(ais)).
 		WithDuration(metav1.Duration{Duration: duration}).
 		WithRenewBefore(metav1.Duration{Duration: renewBefore}).
-		WithUsages(certmanagerv1.UsageServerAuth, certmanagerv1.UsageClientAuth).
+		WithUsages(
+			certmanagerv1.UsageDigitalSignature,
+			certmanagerv1.UsageKeyEncipherment,
+			certmanagerv1.UsageServerAuth,
+			certmanagerv1.UsageClientAuth,
+		).
 		WithDNSNames(dnsNames...).
 		WithIPAddresses(ipAddresses...).
 		WithIssuerRef(issuerRef)
