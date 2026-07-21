@@ -8,6 +8,12 @@ It is ONLY designed to restore to a like cluster -- with no differences from the
 
 It is currently limited to our recommended PVC configurations -- dynamically provisioned, local PVCs. 
 
+## Intended use
+
+This is a local administrative tool, not part of the running AIS service. Run it only from a trusted environment, with a trusted Kubernetes context, and as a cluster administrator who understands that it can overwrite or delete cluster data.
+
+The tool assumes its inputs are trusted. In particular, restore archives must be created by this tool and remain under the same administrator's control. Do not restore archives received from untrusted sources or modified outside that control.
+
 ---
 
 ## Prerequisites
