@@ -1,4 +1,4 @@
-DEFAULT_VERSION = 3.1.0
+DEFAULT_VERSION = 3.2.0
 DEFAULT_IMG_REPOSITORY = docker.io/aistorage/ais-operator
 VERSION_BASE = $(patsubst v%,%,$(VERSION))
 VERSION_TAG = $(if $(VERSION),v$(VERSION_BASE),)
