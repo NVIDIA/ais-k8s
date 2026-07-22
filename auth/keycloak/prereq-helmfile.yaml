@@ -30,7 +30,7 @@ releases:
     namespace: cert-manager
     createNamespace: true
     set:
-      - name: installCRDs
+      - name: crds.enabled
         value: true
     wait: true
         
