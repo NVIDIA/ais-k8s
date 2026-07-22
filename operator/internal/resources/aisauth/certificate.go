@@ -40,23 +40,16 @@ func TLSCertificate(authn *authv1alpha1.AIStoreAuth) *certmanagerv1.Certificate 
 // NewCertificate builds the cert-manager Certificate used by the AuthN server.
 func NewCertificate(ctx context.Context, authn *authv1alpha1.AIStoreAuth, externalEndpoints []string) *cmapiv1ac.CertificateApplyConfiguration {
 	config := authn.GetTLSCertificate()
-	if config == nil {
-		return nil
-	}
 
-	dnsNames, ipAddresses := certificateSANs(ctx, authn, config, externalEndpoints)
+	dnsNames := certificateDNSNames(ctx, authn, config, externalEndpoints)
 	spec := certres.NewSpec(&certres.SpecConfig{
 		SecretName:  authn.GetTLSSecretName(),
 		IssuerName:  config.IssuerRef.Name,
 		IssuerKind:  config.IssuerRef.Kind,
 		Duration:    config.Duration,
 		RenewBefore: config.RenewBefore,
-		Usages: []certmanagerv1.KeyUsage{
-			certmanagerv1.UsageDigitalSignature,
-			certmanagerv1.UsageKeyEncipherment,
-			certmanagerv1.UsageServerAuth,
-		},
-	}, dnsNames, ipAddresses)
+		Usages:      serverCertUsages(),
+	}, dnsNames, nil)
 
 	return cmapiv1ac.Certificate(CertificateName(authn), authn.Namespace).
 		WithOwnerReferences(ownerref.NewAIStoreAuthControllerRef(authn)).
@@ -64,28 +57,52 @@ func NewCertificate(ctx context.Context, authn *authv1alpha1.AIStoreAuth, extern
 		WithSpec(spec)
 }
 
-// certificateSANs derives the addresses clients use to reach AuthN.
-func certificateSANs(
+func tlsCSIVolumeAttributes(ctx context.Context, authn *authv1alpha1.AIStoreAuth) map[string]string {
+	if !authn.UseTLSCSI() {
+		return nil
+	}
+	config := authn.GetTLSCertificate()
+	// LoadBalancer addresses are omitted because changing Service status in the
+	// pod template would roll the Deployment.
+	dnsNames := certificateDNSNames(ctx, authn, config, nil)
+	return (&certres.CSIConfig{
+		IssuerName:  config.IssuerRef.Name,
+		IssuerKind:  config.IssuerRef.Kind,
+		CommonName:  fmt.Sprintf("%s.%s", ServiceName(authn), authn.Namespace),
+		DNSNames:    dnsNames,
+		Duration:    config.Duration,
+		RenewBefore: config.RenewBefore,
+		Usages:      serverCertUsages(),
+	}).ToVolumeAttributes()
+}
+
+func serverCertUsages() []certmanagerv1.KeyUsage {
+	return []certmanagerv1.KeyUsage{
+		certmanagerv1.UsageDigitalSignature,
+		certmanagerv1.UsageKeyEncipherment,
+		certmanagerv1.UsageServerAuth,
+	}
+}
+
+// certificateDNSNames derives the DNS names clients use to reach AuthN.
+func certificateDNSNames(
 	ctx context.Context,
 	authn *authv1alpha1.AIStoreAuth,
 	config *authv1alpha1.TLSCertificateConfig,
 	externalEndpoints []string,
-) (dnsNames, ipAddresses []string) {
+) (dnsNames []string) {
 	// Reserve localhost, four Service DNS names, and one possible external URL hostname.
 	dnsNames = make([]string, 0, 6+len(externalEndpoints)+len(config.AdditionalDNSNames))
-	// Reserve the loopback address and one possible external URL IP address.
-	ipAddresses = make([]string, 0, 2+len(externalEndpoints)+len(config.AdditionalIPAddresses))
 	dnsNames = append(dnsNames, "localhost")
-	ipAddresses = append(ipAddresses, "127.0.0.1")
 	dnsNames = appendServiceDNSNames(dnsNames, ServiceName(authn), authn.Namespace)
-	dnsNames, ipAddresses = certres.AppendHosts(dnsNames, ipAddresses, externalEndpoints...)
+	dnsNames, _ = certres.AppendHosts(dnsNames, nil, externalEndpoints...)
 	if externalURLHost := configuredExternalURLHost(ctx, authn); externalURLHost != "" {
-		dnsNames, ipAddresses = certres.AppendHosts(dnsNames, ipAddresses, externalURLHost)
+		dnsNames, _ = certres.AppendHosts(dnsNames, nil, externalURLHost)
 	}
 
 	dnsNames = append(dnsNames, config.AdditionalDNSNames...)
-	ipAddresses = append(ipAddresses, config.AdditionalIPAddresses...)
-	return certres.NormalizeSANs(dnsNames, ipAddresses)
+	dnsNames, _ = certres.NormalizeSANs(dnsNames, nil)
+	return dnsNames
 }
 
 func configuredExternalURLHost(ctx context.Context, authn *authv1alpha1.AIStoreAuth) string {

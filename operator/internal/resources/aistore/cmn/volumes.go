@@ -7,12 +7,11 @@ package cmn
 import (
 	"fmt"
 	"path"
-	"strings"
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
 	"github.com/ais-operator/api/aistore/v1beta1"
+	certres "github.com/ais-operator/internal/resources/certificates"
 	csiapis "github.com/cert-manager/csi-driver/pkg/apis"
-	csiapisv1 "github.com/cert-manager/csi-driver/pkg/apis/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -190,21 +189,17 @@ func getTLSCSIVolumeSource(ais *v1beta1.AIStore, daeType string) corev1.VolumeSo
 	// needing node-level SANs in CSI mode must populate Spec.HostnameMap or
 	// AdditionalDNSNames explicitly, or use the non-CSI Certificate path.
 	dnsNames, _ := buildCertificateSANs(ais, nil)
-
-	attrs := map[string]string{
-		csiapisv1.IssuerNameKey: issuerRef.Name,
-		csiapisv1.CommonNameKey: fmt.Sprintf("%s.%s", name, ais.Namespace),
-		csiapisv1.DNSNamesKey:   strings.Join(dnsNames, ","),
-	}
-
-	if issuerRef.Kind != "" {
-		attrs[csiapisv1.IssuerKindKey] = issuerRef.Kind
-	}
+	volumeAttributes := (&certres.CSIConfig{
+		IssuerName: issuerRef.Name,
+		IssuerKind: issuerRef.Kind,
+		CommonName: fmt.Sprintf("%s.%s", name, ais.Namespace),
+		DNSNames:   dnsNames,
+	}).ToVolumeAttributes()
 
 	return corev1.VolumeSource{
 		CSI: &corev1.CSIVolumeSource{
 			Driver:           csiapis.GroupName,
-			VolumeAttributes: attrs,
+			VolumeAttributes: volumeAttributes,
 			ReadOnly:         aisapc.Ptr(true),
 		},
 	}

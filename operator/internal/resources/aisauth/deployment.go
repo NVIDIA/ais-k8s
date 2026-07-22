@@ -5,6 +5,7 @@
 package aisauth
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 
@@ -44,13 +45,13 @@ func selectorLabels(authn *authv1alpha1.AIStoreAuth) map[string]string {
 }
 
 // NewDeployment builds the server-side apply configuration for the AuthN Deployment.
-func NewDeployment(authn *authv1alpha1.AIStoreAuth) (*appsv1ac.DeploymentApplyConfiguration, error) {
+func NewDeployment(ctx context.Context, authn *authv1alpha1.AIStoreAuth) (*appsv1ac.DeploymentApplyConfiguration, error) {
 	authnJSON, err := renderAuthnJSON(authn)
 	if err != nil {
 		return nil, err
 	}
 	checksum := sha256.Sum256([]byte(authnJSON))
-	podSpec, err := newPodSpec(authn)
+	podSpec, err := newPodSpec(ctx, authn)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +119,7 @@ func newContainer(
 	return container, nil
 }
 
-func newPodSpec(authn *authv1alpha1.AIStoreAuth) (*corev1ac.PodSpecApplyConfiguration, error) {
+func newPodSpec(ctx context.Context, authn *authv1alpha1.AIStoreAuth) (*corev1ac.PodSpecApplyConfiguration, error) {
 	spec := &authn.Spec.Deployment
 	container, err := newContainer(authn, &spec.Container)
 	if err != nil {
@@ -126,7 +127,7 @@ func newPodSpec(authn *authv1alpha1.AIStoreAuth) (*corev1ac.PodSpecApplyConfigur
 	}
 	pod := corev1ac.PodSpec().
 		WithContainers(container).
-		WithVolumes(volumes(authn)...)
+		WithVolumes(volumes(ctx, authn)...)
 	podSpec := spec.Pod
 	if podSpec == nil {
 		return pod, nil

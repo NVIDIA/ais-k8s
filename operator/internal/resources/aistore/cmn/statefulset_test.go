@@ -10,6 +10,7 @@ import (
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
 	aisv1 "github.com/ais-operator/api/aistore/v1beta1"
+	csiapisv1 "github.com/cert-manager/csi-driver/pkg/apis/v1alpha1"
 	nadv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -196,6 +197,8 @@ var _ = Describe("Statefulset", Label("short"), func() {
 				if expectCSI {
 					Expect(vol.CSI).ToNot(BeNil())
 					Expect(vol.CSI.Driver).To(Equal("csi.cert-manager.io"))
+					Expect(vol.CSI.VolumeAttributes).To(HaveKeyWithValue(csiapisv1.IssuerNameKey, "test-issuer"))
+					Expect(vol.CSI.VolumeAttributes).To(HaveKeyWithValue(csiapisv1.CommonNameKey, "test-cluster-proxy.test-ns"))
 				}
 				if expectSecret {
 					Expect(vol.Secret).ToNot(BeNil())

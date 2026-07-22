@@ -9,6 +9,7 @@ import (
 	"time"
 
 	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
+	csiapisv1 "github.com/cert-manager/csi-driver/pkg/apis/v1alpha1"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -84,4 +85,49 @@ func TestLoadBalancerEndpoints(t *testing.T) {
 		"192.0.2.2",
 		"dual.example.com",
 	}))
+}
+
+func TestCSIConfigToVolumeAttributes(t *testing.T) {
+	t.Run("all attributes", func(t *testing.T) {
+		g := NewWithT(t)
+		duration := metav1.Duration{Duration: 90 * 24 * time.Hour}
+		renewBefore := metav1.Duration{Duration: 15 * 24 * time.Hour}
+
+		volumeAttributes := (&CSIConfig{
+			IssuerName:  "test-issuer",
+			IssuerKind:  "Issuer",
+			CommonName:  "auth.example.com",
+			DNSNames:    []string{"auth.example.com", "auth.svc"},
+			Duration:    &duration,
+			RenewBefore: &renewBefore,
+			Usages: []certmanagerv1.KeyUsage{
+				certmanagerv1.UsageDigitalSignature,
+				certmanagerv1.UsageServerAuth,
+			},
+		}).ToVolumeAttributes()
+
+		g.Expect(volumeAttributes).To(Equal(map[string]string{
+			csiapisv1.IssuerNameKey:  "test-issuer",
+			csiapisv1.IssuerKindKey:  "Issuer",
+			csiapisv1.CommonNameKey:  "auth.example.com",
+			csiapisv1.DNSNamesKey:    "auth.example.com,auth.svc",
+			csiapisv1.DurationKey:    "2160h0m0s",
+			csiapisv1.RenewBeforeKey: "360h0m0s",
+			csiapisv1.KeyUsagesKey:   "digital signature,server auth",
+		}))
+	})
+
+	t.Run("driver defaults", func(t *testing.T) {
+		g := NewWithT(t)
+		volumeAttributes := (&CSIConfig{
+			IssuerName: "test-issuer",
+			CommonName: "auth.example.com",
+		}).ToVolumeAttributes()
+
+		g.Expect(volumeAttributes).To(Equal(map[string]string{
+			csiapisv1.IssuerNameKey: "test-issuer",
+			csiapisv1.CommonNameKey: "auth.example.com",
+			csiapisv1.DNSNamesKey:   "",
+		}))
+	})
 }

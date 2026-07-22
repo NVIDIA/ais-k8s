@@ -19,6 +19,7 @@ func TestAIStoreAuthTLSHelpers(t *testing.T) {
 		hasTLSEnabled     bool
 		useTLSSecret      bool
 		useTLSCertificate bool
+		useTLSCSI         bool
 		tlsSecretName     string
 	}{
 		{
@@ -53,7 +54,7 @@ func TestAIStoreAuthTLSHelpers(t *testing.T) {
 			},
 		},
 		{
-			name: "cert-manager certificate",
+			name: "cert-manager certificate with default Secret mode",
 			authn: &AIStoreAuth{
 				ObjectMeta: metav1.ObjectMeta{Name: "ais-authn"},
 				Spec: AIStoreAuthSpec{
@@ -68,6 +69,22 @@ func TestAIStoreAuthTLSHelpers(t *testing.T) {
 			useTLSCertificate: true,
 			tlsSecretName:     "ais-authn" + "-authn-tls",
 		},
+		{
+			name: "cert-manager CSI certificate",
+			authn: &AIStoreAuth{
+				ObjectMeta: metav1.ObjectMeta{Name: "ais-authn"},
+				Spec: AIStoreAuthSpec{
+					TLS: &TLSSpec{
+						Certificate: &TLSCertificateConfig{
+							IssuerRef: CertIssuerRef{Name: testIssuerName()},
+							Mode:      TLSCertificateModeCSI,
+						},
+					},
+				},
+			},
+			hasTLSEnabled: true,
+			useTLSCSI:     true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -76,6 +93,7 @@ func TestAIStoreAuthTLSHelpers(t *testing.T) {
 			g.Expect(tt.authn.HasTLSEnabled()).To(Equal(tt.hasTLSEnabled))
 			g.Expect(tt.authn.UseTLSSecret()).To(Equal(tt.useTLSSecret))
 			g.Expect(tt.authn.UseTLSCertificate()).To(Equal(tt.useTLSCertificate))
+			g.Expect(tt.authn.UseTLSCSI()).To(Equal(tt.useTLSCSI))
 			g.Expect(tt.authn.GetTLSSecretName()).To(Equal(tt.tlsSecretName))
 		})
 	}

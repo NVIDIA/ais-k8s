@@ -132,7 +132,7 @@ func (r *Reconciler) reconcilePersistence(ctx context.Context, authn *authv1alph
 }
 
 func (r *Reconciler) reconcileDeployment(ctx context.Context, authn *authv1alpha1.AIStoreAuth) error {
-	deployment, err := authnres.NewDeployment(authn)
+	deployment, err := authnres.NewDeployment(ctx, authn)
 	if err != nil {
 		return err
 	}

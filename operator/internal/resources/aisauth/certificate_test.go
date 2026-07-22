@@ -65,13 +65,12 @@ var _ = Describe("Certificate", func() {
 			"ais-authn.ais.svc.cluster.local",
 			"localhost",
 		}))
-		Expect(certificate.Spec.IPAddresses).To(Equal([]string{"127.0.0.1"}))
+		Expect(certificate.Spec.IPAddresses).To(BeEmpty())
 	})
 
 	It("applies configured lifetime and resolved external SANs without duplicates", func() {
 		duration := metav1.Duration{Duration: 90 * 24 * time.Hour}
 		renewBefore := metav1.Duration{Duration: 15 * 24 * time.Hour}
-		additionalIP := "192.0.2.10"
 		externalURL := "https://oidc.authn.example.com:5443"
 		authn.Spec.TLS.Certificate = &authv1alpha1.TLSCertificateConfig{
 			IssuerRef: authv1alpha1.CertIssuerRef{Name: "namespace-issuer", Kind: "Issuer"},
@@ -79,9 +78,8 @@ var _ = Describe("Certificate", func() {
 				"authn.example.com",
 				"ais-authn.ais.svc.cluster.local",
 			},
-			AdditionalIPAddresses: []string{additionalIP, additionalIP},
-			Duration:              &duration,
-			RenewBefore:           &renewBefore,
+			Duration:    &duration,
+			RenewBefore: &renewBefore,
 		}
 		authn.Spec.Config = &authv1alpha1.ConfigSpec{
 			Net: &authv1alpha1.NetSpec{ExternalURL: &externalURL},
@@ -102,15 +100,6 @@ var _ = Describe("Certificate", func() {
 			"localhost",
 			"oidc.authn.example.com",
 		}))
-		Expect(certificate.Spec.IPAddresses).To(Equal([]string{"127.0.0.1", additionalIP, "192.0.2.20"}))
-	})
-
-	It("does not build a Certificate for disabled or existing-Secret TLS", func() {
-		authn.Spec.TLS = nil
-		Expect(authnres.NewCertificate(context.Background(), authn, nil)).To(BeNil())
-
-		secretName := "existing-tls"
-		authn.Spec.TLS = &authv1alpha1.TLSSpec{SecretName: &secretName}
-		Expect(authnres.NewCertificate(context.Background(), authn, nil)).To(BeNil())
+		Expect(certificate.Spec.IPAddresses).To(BeEmpty())
 	})
 })

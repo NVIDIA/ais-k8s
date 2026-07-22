@@ -2083,12 +2083,6 @@ spec:
                         items:
                           type: string
                         type: array
-                      additionalIPAddresses:
-                        description: AdditionalIPAddresses are extra IP Subject Alternative
-                          Names to include.
-                        items:
-                          type: string
-                        type: array
                       duration:
                         description: Duration is the certificate validity period.
                         type: string
@@ -2111,6 +2105,14 @@ spec:
                         required:
                         - name
                         type: object
+                      mode:
+                        default: secret
+                        description: 'Mode specifies how certificates are delivered:
+                          "secret" (default) or "csi".'
+                        enum:
+                        - secret
+                        - csi
+                        type: string
                       renewBefore:
                         description: RenewBefore triggers renewal this long before
                           expiry.

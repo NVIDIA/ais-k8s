@@ -5,6 +5,7 @@
 package aisauth_test
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 
@@ -52,7 +53,7 @@ var _ = Describe("Deployment", func() {
 	})
 
 	It("builds an owned, single-replica Recreate Deployment with stable selectors", func() {
-		deployment, err := authnres.NewDeployment(authn)
+		deployment, err := authnres.NewDeployment(context.Background(), authn)
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(deployment.Labels).To(Equal(map[string]string{
@@ -93,14 +94,14 @@ var _ = Describe("Deployment", func() {
 		Expect(err).NotTo(HaveOccurred())
 		expected := sha256.Sum256([]byte(configMap.Data[authnres.AuthnJSONKey]))
 
-		deployment, err := authnres.NewDeployment(authn)
+		deployment, err := authnres.NewDeployment(context.Background(), authn)
 		Expect(err).NotTo(HaveOccurred())
 		checksum := deployment.Spec.Template.Annotations[authnres.ConfigChecksumAnnotation]
 		Expect(checksum).To(Equal(hex.EncodeToString(expected[:])))
 
 		level := int32(4)
 		authn.Spec.Config = &authv1alpha1.ConfigSpec{Log: &authv1alpha1.LogSpec{Level: &level}}
-		updated, err := authnres.NewDeployment(authn)
+		updated, err := authnres.NewDeployment(context.Background(), authn)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(updated.Spec.Template.Annotations[authnres.ConfigChecksumAnnotation]).NotTo(Equal(checksum))
 	})
@@ -138,7 +139,7 @@ var _ = Describe("Deployment", func() {
 	})
 
 	It("leaves optional pod fields unset", func() {
-		deployment, err := authnres.NewDeployment(authn)
+		deployment, err := authnres.NewDeployment(context.Background(), authn)
 		Expect(err).NotTo(HaveOccurred())
 		podSpec := deployment.Spec.Template.Spec
 
@@ -171,7 +172,7 @@ var _ = Describe("Deployment", func() {
 			ImagePullSecrets: []corev1.LocalObjectReference{{Name: "registry-creds"}},
 		}
 
-		deployment, err := authnres.NewDeployment(authn)
+		deployment, err := authnres.NewDeployment(context.Background(), authn)
 		Expect(err).NotTo(HaveOccurred())
 		podSpec := deployment.Spec.Template.Spec
 
@@ -187,7 +188,7 @@ var _ = Describe("Deployment", func() {
 
 func newContainer(authn *authv1alpha1.AIStoreAuth) corev1ac.ContainerApplyConfiguration {
 	GinkgoHelper()
-	deployment, err := authnres.NewDeployment(authn)
+	deployment, err := authnres.NewDeployment(context.Background(), authn)
 	Expect(err).NotTo(HaveOccurred())
 	spec := deployment.Spec.Template.Spec
 	Expect(spec.Containers).To(HaveLen(1))

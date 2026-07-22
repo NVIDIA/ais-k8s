@@ -543,11 +543,6 @@ func (in *TLSCertificateConfig) DeepCopyInto(out *TLSCertificateConfig) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
-	if in.AdditionalIPAddresses != nil {
-		in, out := &in.AdditionalIPAddresses, &out.AdditionalIPAddresses
-		*out = make([]string, len(*in))
-		copy(*out, *in)
-	}
 	if in.Duration != nil {
 		in, out := &in.Duration, &out.Duration
 		*out = new(v1.Duration)

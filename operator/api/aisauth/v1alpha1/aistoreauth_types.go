@@ -142,6 +142,16 @@ type TLSSpec struct {
 	Certificate *TLSCertificateConfig `json:"certificate,omitempty"`
 }
 
+// TLSCertificateMode defines how cert-manager delivers the certificate to AuthN.
+type TLSCertificateMode string
+
+const (
+	// TLSCertificateModeSecret uses a Secret populated from a cert-manager Certificate.
+	TLSCertificateModeSecret TLSCertificateMode = "secret"
+	// TLSCertificateModeCSI uses cert-manager's CSI driver to issue a certificate for the pod.
+	TLSCertificateModeCSI TLSCertificateMode = "csi"
+)
+
 // TLSCertificateConfig configures cert-manager certificate provisioning for AuthN.
 type TLSCertificateConfig struct {
 	// IssuerRef references a cert-manager Issuer or ClusterIssuer.
@@ -153,10 +163,6 @@ type TLSCertificateConfig struct {
 	// +optional
 	AdditionalDNSNames []string `json:"additionalDNSNames,omitempty"`
 
-	// AdditionalIPAddresses are extra IP Subject Alternative Names to include.
-	// +optional
-	AdditionalIPAddresses []string `json:"additionalIPAddresses,omitempty"`
-
 	// Duration is the certificate validity period.
 	// +optional
 	Duration *metav1.Duration `json:"duration,omitempty"`
@@ -164,6 +170,12 @@ type TLSCertificateConfig struct {
 	// RenewBefore triggers renewal this long before expiry.
 	// +optional
 	RenewBefore *metav1.Duration `json:"renewBefore,omitempty"`
+
+	// Mode specifies how certificates are delivered: "secret" (default) or "csi".
+	// +kubebuilder:validation:Enum=secret;csi
+	// +kubebuilder:default:=secret
+	// +optional
+	Mode TLSCertificateMode `json:"mode,omitempty"`
 }
 
 // PersistenceSpec configures the AuthN data volume (users, RSA keys).
@@ -376,7 +388,7 @@ type AIStoreAuth struct {
 
 // HasTLSEnabled returns true if AuthN should serve HTTPS.
 func (authn *AIStoreAuth) HasTLSEnabled() bool {
-	return authn.UseTLSSecret() || authn.UseTLSCertificate()
+	return authn.UseTLSSecret() || authn.GetTLSCertificate() != nil
 }
 
 // GetTLSCertificate returns the cert-manager certificate config if present.
@@ -394,7 +406,14 @@ func (authn *AIStoreAuth) UseTLSSecret() bool {
 
 // UseTLSCertificate returns true if AuthN should use an operator-managed cert-manager Certificate.
 func (authn *AIStoreAuth) UseTLSCertificate() bool {
-	return authn.GetTLSCertificate() != nil
+	config := authn.GetTLSCertificate()
+	return config != nil && config.Mode != TLSCertificateModeCSI
+}
+
+// UseTLSCSI returns true if AuthN should use a certificate issued through cert-manager's CSI driver.
+func (authn *AIStoreAuth) UseTLSCSI() bool {
+	config := authn.GetTLSCertificate()
+	return config != nil && config.Mode == TLSCertificateModeCSI
 }
 
 // GetTLSSecretName returns the Kubernetes TLS Secret name mounted by AuthN.

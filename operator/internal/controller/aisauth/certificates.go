@@ -15,19 +15,19 @@ import (
 )
 
 func (r *Reconciler) reconcileTLSCertificate(ctx context.Context, authn *authv1alpha1.AIStoreAuth) error {
+	if !authn.UseTLSCertificate() {
+		return r.deleteCertificate(ctx, authn)
+	}
 	externalEndpoints, err := r.loadBalancerEndpoints(ctx, authn)
 	if err != nil {
 		return err
 	}
 	certificate := authnres.NewCertificate(ctx, authn, externalEndpoints)
-	if certificate != nil {
-		if err := r.client.Apply(ctx, certificate); err != nil {
-			return err
-		}
-		logf.FromContext(ctx).Info("AuthN TLS Certificate applied", "name", authnres.CertificateName(authn))
-		return nil
+	if err := r.client.Apply(ctx, certificate); err != nil {
+		return err
 	}
-	return r.deleteCertificate(ctx, authn)
+	logf.FromContext(ctx).Info("AuthN TLS Certificate applied", "name", authnres.CertificateName(authn))
+	return nil
 }
 
 func (r *Reconciler) deleteCertificate(ctx context.Context, authn *authv1alpha1.AIStoreAuth) error {
@@ -37,7 +37,7 @@ func (r *Reconciler) deleteCertificate(ctx context.Context, authn *authv1alpha1.
 }
 
 func (r *Reconciler) loadBalancerEndpoints(ctx context.Context, authn *authv1alpha1.AIStoreAuth) ([]string, error) {
-	if authn.GetTLSCertificate() == nil || authn.Spec.ExternalAccess == nil || authn.Spec.ExternalAccess.LoadBalancer == nil {
+	if authn.Spec.ExternalAccess == nil || authn.Spec.ExternalAccess.LoadBalancer == nil {
 		return nil, nil
 	}
 	svc, err := r.client.GetService(ctx, authnres.LoadBalancerServiceNSName(authn))

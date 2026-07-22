@@ -5,8 +5,11 @@
 package aisauth
 
 import (
+	"context"
+
 	authv1alpha1 "github.com/ais-operator/api/aisauth/v1alpha1"
 	authnconfig "github.com/ais-operator/internal/resources/aisauth/config"
+	csiapis "github.com/cert-manager/csi-driver/pkg/apis"
 	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
 )
 
@@ -26,7 +29,7 @@ var configPaths = authnconfig.Paths{
 	TLSKey:         tlsMountPath + "/tls.key",
 }
 
-func volumes(authn *authv1alpha1.AIStoreAuth) []*corev1ac.VolumeApplyConfiguration {
+func volumes(ctx context.Context, authn *authv1alpha1.AIStoreAuth) []*corev1ac.VolumeApplyConfiguration {
 	result := []*corev1ac.VolumeApplyConfiguration{
 		corev1ac.Volume().WithName(storageVolumeName).
 			WithPersistentVolumeClaim(corev1ac.PersistentVolumeClaimVolumeSource().
@@ -35,7 +38,14 @@ func volumes(authn *authv1alpha1.AIStoreAuth) []*corev1ac.VolumeApplyConfigurati
 			WithConfigMap(corev1ac.ConfigMapVolumeSource().
 				WithName(ConfigMapName(authn))),
 	}
-	if authn.HasTLSEnabled() {
+	switch {
+	case authn.UseTLSCSI():
+		result = append(result, corev1ac.Volume().WithName(tlsVolumeName).
+			WithCSI(corev1ac.CSIVolumeSource().
+				WithDriver(csiapis.GroupName).
+				WithReadOnly(true).
+				WithVolumeAttributes(tlsCSIVolumeAttributes(ctx, authn))))
+	case authn.UseTLSCertificate(), authn.UseTLSSecret():
 		result = append(result, corev1ac.Volume().WithName(tlsVolumeName).
 			WithSecret(corev1ac.SecretVolumeSource().
 				WithSecretName(authn.GetTLSSecretName())))

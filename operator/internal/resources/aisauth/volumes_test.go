@@ -5,8 +5,12 @@
 package aisauth_test
 
 import (
+	"context"
+	"time"
+
 	authv1alpha1 "github.com/ais-operator/api/aisauth/v1alpha1"
 	authnres "github.com/ais-operator/internal/resources/aisauth"
+	csiapisv1 "github.com/cert-manager/csi-driver/pkg/apis/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -63,7 +67,7 @@ var _ = Describe("Volumes", func() {
 		Expect(spec.Containers[0].VolumeMounts[2].ReadOnly).To(HaveValue(BeTrue()))
 	})
 
-	It("uses the future Certificate Secret name selected by the API", func() {
+	It("mounts the Secret created by an operator-managed Certificate", func() {
 		authn.Spec.TLS = &authv1alpha1.TLSSpec{
 			Certificate: &authv1alpha1.TLSCertificateConfig{
 				IssuerRef: authv1alpha1.CertIssuerRef{Name: "issuer"},
@@ -72,11 +76,46 @@ var _ = Describe("Volumes", func() {
 		spec := newPodSpec(authn)
 		Expect(spec.Volumes[2].Secret.SecretName).To(HaveValue(Equal("ais-authn-authn-tls")))
 	})
+
+	It("requests a per-pod certificate from the cert-manager CSI driver", func() {
+		duration := metav1.Duration{Duration: 90 * 24 * time.Hour}
+		renewBefore := metav1.Duration{Duration: 15 * 24 * time.Hour}
+		externalURL := "https://authn.example.com:52001"
+		authn.Spec.Config = &authv1alpha1.ConfigSpec{
+			Net: &authv1alpha1.NetSpec{ExternalURL: &externalURL},
+		}
+		authn.Spec.TLS = &authv1alpha1.TLSSpec{
+			Certificate: &authv1alpha1.TLSCertificateConfig{
+				IssuerRef:          authv1alpha1.CertIssuerRef{Name: "issuer", Kind: "Issuer"},
+				AdditionalDNSNames: []string{"extra.example.com"},
+				Duration:           &duration,
+				RenewBefore:        &renewBefore,
+				Mode:               authv1alpha1.TLSCertificateModeCSI,
+			},
+		}
+
+		spec := newPodSpec(authn)
+		volume := spec.Volumes[2]
+		Expect(volume.Secret).To(BeNil())
+		Expect(volume.CSI.Driver).To(HaveValue(Equal("csi.cert-manager.io")))
+		Expect(volume.CSI.ReadOnly).To(HaveValue(BeTrue()))
+		Expect(volume.CSI.VolumeAttributes).To(Equal(map[string]string{
+			csiapisv1.IssuerNameKey:  "issuer",
+			csiapisv1.IssuerKindKey:  "Issuer",
+			csiapisv1.CommonNameKey:  "ais-authn.ais",
+			csiapisv1.DNSNamesKey:    "ais-authn,ais-authn.ais,ais-authn.ais.svc,ais-authn.ais.svc.cluster.local,authn.example.com,extra.example.com,localhost",
+			csiapisv1.DurationKey:    "2160h0m0s",
+			csiapisv1.RenewBeforeKey: "360h0m0s",
+			csiapisv1.KeyUsagesKey:   "digital signature,key encipherment,server auth",
+		}))
+		Expect(spec.Containers[0].VolumeMounts[2].MountPath).To(HaveValue(Equal("/var/certs")))
+		Expect(spec.Containers[0].VolumeMounts[2].ReadOnly).To(HaveValue(BeTrue()))
+	})
 })
 
 func newPodSpec(authn *authv1alpha1.AIStoreAuth) corev1ac.PodSpecApplyConfiguration {
 	GinkgoHelper()
-	deployment, err := authnres.NewDeployment(authn)
+	deployment, err := authnres.NewDeployment(context.Background(), authn)
 	Expect(err).NotTo(HaveOccurred())
 	return *deployment.Spec.Template.Spec
 }

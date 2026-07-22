@@ -56,7 +56,7 @@ var _ = Describe("TLS Certificate controller", Label("short"), func() {
 		}
 	}
 
-	It("applies and deletes a managed Certificate", func(ctx context.Context) {
+	It("deletes a managed Certificate when switching to CSI mode", func(ctx context.Context) {
 		enableManagedTLS()
 		reconciler := newReconciler()
 
@@ -64,7 +64,10 @@ var _ = Describe("TLS Certificate controller", Label("short"), func() {
 		certificate := authnres.TLSCertificate(authn)
 		Expect(reconciler.client.Get(ctx, authnres.CertificateNSName(authn), certificate)).To(Succeed())
 
-		authn.Spec.TLS = nil
+		authn.Spec.TLS.Certificate.Mode = authv1alpha1.TLSCertificateModeCSI
+		authn.Spec.ExternalAccess = &authv1alpha1.ExternalAccessSpec{
+			LoadBalancer: &authv1alpha1.LoadBalancerSpec{},
+		}
 		Expect(reconciler.reconcileTLSCertificate(ctx, authn)).To(Succeed())
 		Expect(k8serrors.IsNotFound(
 			reconciler.client.Get(ctx, authnres.CertificateNSName(authn), certificate),

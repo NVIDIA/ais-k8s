@@ -35,6 +35,10 @@ spec:
       issuerRef:
         name: ca-issuer
         kind: ClusterIssuer
+      # Set to csi to use the cert-manager CSI driver. Defaults to secret.
+      # CSI mode does not discover LoadBalancer endpoints. Add externally used
+      # hostnames to additionalDNSNames.
+      mode: secret
       additionalDNSNames:
         - ais-authn.ais.svc.cluster.local
   # Persistence requires exactly one mode. PVs are pre-provisioned outside the operator (for example by Helm).
