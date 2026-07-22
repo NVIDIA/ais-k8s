@@ -222,10 +222,35 @@ func shouldUpdateAnnotations(desired, current *corev1.PodTemplateSpec) (bool, st
 }
 
 func shouldUpdateLabels(desired, current *corev1.PodTemplateSpec) (bool, string) {
-	if !equality.Semantic.DeepEqual(desired.Labels, current.Labels) {
-		return true, "updating labels"
+	if equality.Semantic.DeepEqual(desired.Labels, current.Labels) {
+		return false, ""
 	}
-	return false, ""
+	// Skip rollout when the sole difference is the operator adding its own
+	// managed-by label to pods that predate it. Existing pods won't be in
+	// the label-scoped informer cache until a future rollout applies the
+	// label, but that is preferable to restarting the whole cluster.
+	if onlyManagedByLabelAdded(desired.Labels, current.Labels) {
+		return false, ""
+	}
+	return true, "updating labels"
+}
+
+// onlyManagedByLabelAdded reports whether the sole difference between desired
+// and current labels is the addition of the managed-by label (absent in current).
+func onlyManagedByLabelAdded(desired, current map[string]string) bool {
+	if current[cmn.LabelManagedBy] == cmn.LabelManagedByValue {
+		return false
+	}
+	if desired[cmn.LabelManagedBy] != cmn.LabelManagedByValue {
+		return false
+	}
+	desiredCopy := make(map[string]string, len(desired))
+	for k, v := range desired {
+		if k != cmn.LabelManagedBy {
+			desiredCopy[k] = v
+		}
+	}
+	return equality.Semantic.DeepEqual(desiredCopy, current)
 }
 
 func shouldUpdateVolumes(desired, current *corev1.PodTemplateSpec) (bool, string) {
