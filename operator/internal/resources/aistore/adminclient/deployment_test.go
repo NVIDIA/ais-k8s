@@ -13,7 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var _ = Describe("AuthN Environment Variables", Label("short"), func() {
+var _ = Describe("Admin Client Deployment", Label("short"), func() {
 	baseAIS := func() *aisv1.AIStore {
 		return &aisv1.AIStore{
 			ObjectMeta: metav1.ObjectMeta{
@@ -28,6 +28,38 @@ var _ = Describe("AuthN Environment Variables", Label("short"), func() {
 			},
 		}
 	}
+
+	Describe("NewClientDeployment", func() {
+		It("should use the default service account without mounting its token", func() {
+			ais := baseAIS()
+			ais.Spec.ImagePullSecrets = []corev1.LocalObjectReference{{Name: "registry-creds"}}
+
+			deployment := NewClientDeployment(ais)
+			podSpec := deployment.Spec.Template.Spec
+
+			Expect(podSpec.ServiceAccountName).To(Equal("default"))
+			Expect(podSpec.AutomountServiceAccountToken).To(HaveValue(BeFalse()))
+			Expect(podSpec.ImagePullSecrets).To(Equal(ais.Spec.ImagePullSecrets))
+		})
+
+		It("should reconcile service account security settings", func() {
+			ais := baseAIS()
+			ais.Spec.ImagePullSecrets = []corev1.LocalObjectReference{{Name: "registry-creds"}}
+			desired := NewClientDeployment(ais)
+			current := desired.DeepCopy()
+			current.Spec.Template.Spec.ServiceAccountName = "test-ais-sa"
+			current.Spec.Template.Spec.AutomountServiceAccountToken = apc.Ptr(true)
+			current.Spec.Template.Spec.ImagePullSecrets = nil
+
+			changed, reason := SyncDeployment(desired, current)
+
+			Expect(changed).To(BeTrue())
+			Expect(reason).To(ContainSubstring("serviceAccountName"))
+			Expect(reason).To(ContainSubstring("automountServiceAccountToken"))
+			Expect(reason).To(ContainSubstring("imagePullSecrets"))
+			Expect(current.Spec.Template.Spec).To(Equal(desired.Spec.Template.Spec))
+		})
+	})
 
 	Describe("authnEnvVars", func() {
 		It("should return nil when auth is nil", func() {

@@ -156,12 +156,14 @@ func NewClientDeployment(ais *aisv1.AIStore) *appsv1.Deployment {
 					Annotations: clientSpec.Annotations,
 				},
 				Spec: corev1.PodSpec{
-					ServiceAccountName: cmn.ServiceAccountName(ais),
-					NodeSelector:       clientSpec.NodeSelector,
-					Affinity:           clientSpec.Affinity,
-					Tolerations:        clientSpec.Tolerations,
-					Containers:         []corev1.Container{container},
-					Volumes:            volumes,
+					ServiceAccountName:           "default",
+					AutomountServiceAccountToken: aisapc.Ptr(false),
+					ImagePullSecrets:             ais.Spec.ImagePullSecrets,
+					NodeSelector:                 clientSpec.NodeSelector,
+					Affinity:                     clientSpec.Affinity,
+					Tolerations:                  clientSpec.Tolerations,
+					Containers:                   []corev1.Container{container},
+					Volumes:                      volumes,
 				},
 			},
 		},
@@ -262,6 +264,18 @@ func syncContainerSpec(desired, current *corev1.Container) (reasons []string) {
 func syncPodTemplateSpec(desired, modified *corev1.PodTemplateSpec) (reasons []string) {
 	dSpec := &desired.Spec
 	mSpec := &modified.Spec
+	if dSpec.ServiceAccountName != mSpec.ServiceAccountName {
+		mSpec.ServiceAccountName = dSpec.ServiceAccountName
+		reasons = append(reasons, "serviceAccountName")
+	}
+	if !equality.Semantic.DeepEqual(dSpec.AutomountServiceAccountToken, mSpec.AutomountServiceAccountToken) {
+		mSpec.AutomountServiceAccountToken = dSpec.AutomountServiceAccountToken
+		reasons = append(reasons, "automountServiceAccountToken")
+	}
+	if !equality.Semantic.DeepEqual(dSpec.ImagePullSecrets, mSpec.ImagePullSecrets) {
+		mSpec.ImagePullSecrets = dSpec.ImagePullSecrets
+		reasons = append(reasons, "imagePullSecrets")
+	}
 	if !equality.Semantic.DeepEqual(dSpec.Volumes, mSpec.Volumes) {
 		mSpec.Volumes = dSpec.Volumes
 		reasons = append(reasons, "volumes")
