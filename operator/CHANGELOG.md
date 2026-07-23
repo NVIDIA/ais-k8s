@@ -24,12 +24,9 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 - AIStore TLS certificate SANs are now sorted and deduplicated before populating Certificate resources and CSI volume attributes.
 - Host state cleanup jobs now target a cluster's own scoped directory (`prefix/namespace/name`) instead of the shared hostpath prefix, so tearing down one cluster no longer removes state belonging to other clusters that might share the prefix.
 - Operator-managed admin clients now use the namespace's default ServiceAccount without mounting its token.
-
-
-### Changed
-
 - When autoscaling is enabled, the desired cluster size is now computed based on the union of (nodes where AIStore is currently running) and (nodes where AIStore is schedulable). This fixes an issue where marking a node unschedulable but not evicting the AIStore pods on it would cause the cluster to scale 
 down unnecessarily. Note that this will only take effect once a rollout to proxy and target statefulsets happens.
+- Detect the case where a proxy rollout is stuck due to an unschedulable pod and proxy scaling is needed, and perform the scaling before continuing with the rollout.
 
 ---
 
