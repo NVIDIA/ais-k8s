@@ -50,4 +50,14 @@ CLUSTER_ROLE_TMPL="${TEMPLATES_SOURCE_DIR}/add_cluster_rolebinding_option.gotmpl
 RBAC_TEMPLATE="${TEMPLATES_TARGET_DIR}/manager-rbac.yaml"
 apply_snippet "$CLUSTER_ROLE_SNIPPET" "$CLUSTER_ROLE_TMPL" "$RBAC_TEMPLATE"
 
+# Strip helmify's top-level CRD status block
+STRIP_CRD_STATUS_TMPL="${TEMPLATES_SOURCE_DIR}/strip_crd_status.gotmpl"
+for crd in "${TEMPLATES_TARGET_DIR}"/*-crd.yaml; do
+  [ -f "$crd" ] || continue
+  echo "Removing top-level status from $(basename "$crd")"
+  AIS_TARGET_TEMPLATE="$crd" \
+    ${GOMPLATE} -f "$STRIP_CRD_STATUS_TMPL" -o "${crd}.tmp"
+  mv "${crd}.tmp" "$crd"
+done
+
 echo "Replacements applied successfully"

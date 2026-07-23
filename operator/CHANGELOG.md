@@ -24,6 +24,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 - AIStore TLS certificate SANs are now sorted and deduplicated before populating Certificate resources and CSI volume attributes.
 - Host state cleanup jobs now target a cluster's own scoped directory (`prefix/namespace/name`) instead of the shared hostpath prefix, so tearing down one cluster no longer removes state belonging to other clusters that might share the prefix.
 - Operator-managed admin clients now use the namespace's default ServiceAccount without mounting its token.
+- Operator helm chart generation drops API-server managed `status` field from generated CRDs.
 
 
 ### Changed

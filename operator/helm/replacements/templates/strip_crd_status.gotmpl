@@ -1,0 +1,3 @@
+{{- /* Helmify hardcodes a top-level CRD status block. It is API-server managed and causes Helm upgrade churn. */ -}}
+{{- $content := file.Read (getenv "AIS_TARGET_TEMPLATE") -}}
+{{- regexp.Replace `(?m)^status:\n(?:  .*\n)*` "" $content -}}
