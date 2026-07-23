@@ -143,12 +143,23 @@ func (r *Reconciler) handleProxyState(ctx context.Context, ais *aisv1.AIStore) (
 	rolloutNeeded, _ := shouldUpdatePodTemplate(&proxy.NewProxyStatefulSet(ais, ais.GetProxySize()).Spec.Template, &ss.Spec.Template)
 	scalingNeeded := isProxyScalingNeeded(ais, ss)
 
+	// Detect when a rollout is stuck on an unschedulable pod. If a pod is unschedulable then the rollout
+	// will be stuck, so we detect that and scale down the statefulset before continuing with the rollout.
+	rolloutBlocked := false
+	if rolling && ais.GetProxySize() < *ss.Spec.Replicas {
+		rolloutBlocked = r.hasUnschedulableProxyPods(ctx, ais)
+		if rolloutBlocked {
+			scalingNeeded = true
+		}
+	}
+
 	logger = logger.WithValues(
 		"statefulset", ss.Name,
 		"specReplicas", *ss.Spec.Replicas, "statusReplicas", ss.Status.Replicas,
 		"readyReplicas", ss.Status.ReadyReplicas, "desiredSize", ais.GetProxySize(),
 		"rolling", rolling, "scaling", scaling,
 		"rolloutNeeded", rolloutNeeded, "scalingNeeded", scalingNeeded,
+		"rolloutBlocked", rolloutBlocked,
 	)
 
 	// Apply template update (blocked by scaling in progress)
@@ -166,16 +177,17 @@ func (r *Reconciler) handleProxyState(ctx context.Context, ais *aisv1.AIStore) (
 		return ctrl.Result{RequeueAfter: statefulsetRequeueDelay}, nil
 	}
 
-	// Apply scaling (blocked by rollout in progress)
-	if scalingNeeded && !rolling {
-		proceed, cErr := r.confirmScalingNeeded(ctx, proxy.StatefulSetNSName(ais), ss,
-			ais.GetProxySize(), ais.GetProxyMaxUnavailable(), ais.IsProxyAutoScaling())
-		if cErr != nil {
-			return ctrl.Result{}, cErr
-		}
-		if !proceed {
-			logger.Info("Deferring proxy scale-down; fresh status shows unavailable replicas within maxUnavailable budget")
-			return ctrl.Result{RequeueAfter: proxyStartupInterval}, nil
+	if scalingNeeded && (!rolling || rolloutBlocked) {
+		if !rolloutBlocked {
+			proceed, cErr := r.confirmScalingNeeded(ctx, proxy.StatefulSetNSName(ais), ss,
+				ais.GetProxySize(), ais.GetProxyMaxUnavailable(), ais.IsProxyAutoScaling())
+			if cErr != nil {
+				return ctrl.Result{}, cErr
+			}
+			if !proceed {
+				logger.Info("Deferring proxy scale-down; fresh status shows unavailable replicas within maxUnavailable budget")
+				return ctrl.Result{RequeueAfter: proxyStartupInterval}, nil
+			}
 		}
 		if err = r.handleProxyScale(ctx, ais, ss); err != nil {
 			return ctrl.Result{}, err
@@ -199,6 +211,20 @@ func (r *Reconciler) handleProxyState(ctx context.Context, ais *aisv1.AIStore) (
 		return ctrl.Result{RequeueAfter: proxyStartupInterval}, nil
 	}
 	return
+}
+
+func (r *Reconciler) hasUnschedulableProxyPods(ctx context.Context, ais *aisv1.AIStore) bool {
+	podList, err := r.k8sClient.ListPods(ctx, ais, proxy.SelectorLabels(ais))
+	if err != nil {
+		logf.FromContext(ctx).Error(err, "Failed to list proxy pods")
+		return false
+	}
+	for i := range podList.Items {
+		if isPodUnschedulable(&podList.Items[i]) {
+			return true
+		}
+	}
+	return false
 }
 
 func isProxyScalingNeeded(ais *aisv1.AIStore, ss *appsv1.StatefulSet) bool {
