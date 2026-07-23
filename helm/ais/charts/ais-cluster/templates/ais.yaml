@@ -158,6 +158,9 @@ spec:
       {{- end }}
     {{- end }}
     {{- end }}
+    {{- with .Values.targetSpec.scaleDownMode }}
+    scaleDownMode: {{ . }}
+    {{- end }}
     {{- include "ais-cluster.targetExternalAccess" . | nindent 4 }}
   {{- with .Values.imagePullSecrets }}
   imagePullSecrets:

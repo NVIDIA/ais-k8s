@@ -62,6 +62,11 @@ targetSpec:
     annotations: {}
   pdb:
     enabled: false
+  # scaleDownMode controls how targets are scaled down (operator >= 3.2.0).
+  # safe_decommission (default): rebalance then remove target, keep on-disk data
+  # decommission: rebalance then remove target and delete on-disk data
+  # retain: put target into maintenance mode, keep data for immediate reschedule
+  # scaleDownMode: safe_decommission
 
 # Deprecated: use proxySpec.externalAccess with operator >= 3.1.0 instead.
 # proxyLB creates a standalone shared proxy LoadBalancer Service, independent of the

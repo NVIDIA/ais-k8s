@@ -615,6 +615,12 @@
             }
           }
         },
+        "scaleDownMode": {
+          "type": "string",
+          "description": "Controls how targets are scaled down (operator >= 3.2.0). safe_decommission (default) rebalances then removes the target while keeping on-disk data; decommission rebalances then removes the target and deletes on-disk data; retain puts the target into maintenance mode for immediate reschedule on the same node.",
+          "enum": ["safe_decommission", "decommission", "retain"],
+          "examples": ["safe_decommission", "decommission", "retain"]
+        },
         "externalAccess": {
           "type": "object",
           "description": "Configuration for cluster-external access to targets, currently via per-target LoadBalancer services.",
