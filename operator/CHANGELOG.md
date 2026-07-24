@@ -24,6 +24,9 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 ### Changed
 
 - AIStore TLS certificate SANs are now sorted and deduplicated before populating Certificate resources and CSI volume attributes.
+- AIStore TLS in `mode: csi` now sets the same key usages as `mode: secret`, and applies `tls.certificate.duration` and `tls.certificate.renewBefore` when specified.
+  - When those lifetime fields are unset, `mode: csi` continues to use the cert-manager CSI driver's own defaults.
+  - Note that existing clusters using `mode: csi` **will roll proxy and target pods once on upgrade**, since the added key usages attribute changes the pod template.
 - Host state cleanup jobs now target a cluster's own scoped directory (`prefix/namespace/name`) instead of the shared hostpath prefix, so tearing down one cluster no longer removes state belonging to other clusters that might share the prefix.
 - Operator-managed admin clients now use the namespace's default ServiceAccount without mounting its token.
 - Operator helm chart generation drops API-server managed `status` field from generated CRDs.

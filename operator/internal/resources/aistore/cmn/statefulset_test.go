@@ -7,6 +7,7 @@ package cmn
 import (
 	"fmt"
 	"path"
+	"time"
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
 	aisv1 "github.com/ais-operator/api/aistore/v1beta1"
@@ -199,6 +200,9 @@ var _ = Describe("Statefulset", Label("short"), func() {
 					Expect(vol.CSI.Driver).To(Equal("csi.cert-manager.io"))
 					Expect(vol.CSI.VolumeAttributes).To(HaveKeyWithValue(csiapisv1.IssuerNameKey, "test-issuer"))
 					Expect(vol.CSI.VolumeAttributes).To(HaveKeyWithValue(csiapisv1.CommonNameKey, "test-cluster-proxy.test-ns"))
+					Expect(vol.CSI.VolumeAttributes).To(HaveKeyWithValue(
+						csiapisv1.KeyUsagesKey, "digital signature,key encipherment,server auth,client auth",
+					))
 				}
 				if expectSecret {
 					Expect(vol.Secret).ToNot(BeNil())
@@ -234,5 +238,27 @@ var _ = Describe("Statefulset", Label("short"), func() {
 				},
 			}, true, false),
 		)
+
+		It("should pass the configured lifetime to the CSI driver", func() {
+			duration := metav1.Duration{Duration: 90 * 24 * time.Hour}
+			renewBefore := metav1.Duration{Duration: 15 * 24 * time.Hour}
+			ais := &aisv1.AIStore{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-cluster", Namespace: "test-ns"},
+				Spec: aisv1.AIStoreSpec{
+					TLS: &aisv1.TLSSpec{
+						Certificate: &aisv1.TLSCertificateConfig{
+							IssuerRef:   aisv1.CertIssuerRef{Name: "test-issuer"},
+							Mode:        aisv1.TLSCertificateModeCSI,
+							Duration:    &duration,
+							RenewBefore: &renewBefore,
+						},
+					},
+				},
+			}
+
+			vol := getTLSVolume(ais, aisapc.Proxy)
+			Expect(vol.CSI.VolumeAttributes).To(HaveKeyWithValue(csiapisv1.DurationKey, "2160h0m0s"))
+			Expect(vol.CSI.VolumeAttributes).To(HaveKeyWithValue(csiapisv1.RenewBeforeKey, "360h0m0s"))
+		})
 	})
 })

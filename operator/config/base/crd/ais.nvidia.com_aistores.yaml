@@ -6209,8 +6209,9 @@ spec:
                           type: string
                         type: array
                       duration:
-                        description: 'Duration is the lifetime of the certificate
-                          (default: 8760h = 1 year)'
+                        description: |-
+                          Duration is the lifetime of the certificate.
+                          Defaults to 8760h (1 year) in secret mode and to the CSI driver's own default in csi mode.
                         type: string
                       issuerRef:
                         description: IssuerRef references a cert-manager issuer
@@ -6239,8 +6240,9 @@ spec:
                         - csi
                         type: string
                       renewBefore:
-                        description: 'RenewBefore is when to start renewing (default:
-                          720h = 30 days before expiry)'
+                        description: |-
+                          RenewBefore is when to start renewing.
+                          Defaults to 720h (30 days before expiry) in secret mode and to the CSI driver's own default in csi mode.
                         type: string
                     required:
                     - issuerRef

@@ -190,10 +190,13 @@ func getTLSCSIVolumeSource(ais *v1beta1.AIStore, daeType string) corev1.VolumeSo
 	// AdditionalDNSNames explicitly, or use the non-CSI Certificate path.
 	dnsNames, _ := buildCertificateSANs(ais, nil)
 	volumeAttributes := (&certres.CSIConfig{
-		IssuerName: issuerRef.Name,
-		IssuerKind: issuerRef.Kind,
-		CommonName: fmt.Sprintf("%s.%s", name, ais.Namespace),
-		DNSNames:   dnsNames,
+		IssuerName:  issuerRef.Name,
+		IssuerKind:  issuerRef.Kind,
+		CommonName:  fmt.Sprintf("%s.%s", name, ais.Namespace),
+		DNSNames:    dnsNames,
+		Duration:    certConfig.Duration,
+		RenewBefore: certConfig.RenewBefore,
+		Usages:      certUsages(),
 	}).ToVolumeAttributes()
 
 	return corev1.VolumeSource{

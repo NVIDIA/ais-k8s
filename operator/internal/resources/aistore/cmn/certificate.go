@@ -47,17 +47,22 @@ func NewCertificate(ais *aisv1.AIStore, publicHosts []string) *cmapiv1ac.Certifi
 		IssuerKind:  certConfig.IssuerRef.Kind,
 		Duration:    certConfig.Duration,
 		RenewBefore: certConfig.RenewBefore,
-		Usages: []certmanagerv1.KeyUsage{
-			certmanagerv1.UsageDigitalSignature,
-			certmanagerv1.UsageKeyEncipherment,
-			certmanagerv1.UsageServerAuth,
-			certmanagerv1.UsageClientAuth,
-		},
+		Usages:      certUsages(),
 	}, dnsNames, ipAddresses)
 
 	return cmapiv1ac.Certificate(certificateName(ais), ais.Namespace).
 		WithOwnerReferences(ownerref.NewControllerRef(ais)).
 		WithSpec(spec)
+}
+
+// certUsages returns the key usages AIS nodes need to both serve and dial TLS.
+func certUsages() []certmanagerv1.KeyUsage {
+	return []certmanagerv1.KeyUsage{
+		certmanagerv1.UsageDigitalSignature,
+		certmanagerv1.UsageKeyEncipherment,
+		certmanagerv1.UsageServerAuth,
+		certmanagerv1.UsageClientAuth,
+	}
 }
 
 func addServiceDNSNames(names []string, svcName, namespace, clusterDomain string) []string {

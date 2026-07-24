@@ -315,11 +315,13 @@ type TLSCertificateConfig struct {
 	// +optional
 	AdditionalDNSNames []string `json:"additionalDNSNames,omitempty"`
 
-	// Duration is the lifetime of the certificate (default: 8760h = 1 year)
+	// Duration is the lifetime of the certificate.
+	// Defaults to 8760h (1 year) in secret mode and to the CSI driver's own default in csi mode.
 	// +optional
 	Duration *metav1.Duration `json:"duration,omitempty"`
 
-	// RenewBefore is when to start renewing (default: 720h = 30 days before expiry)
+	// RenewBefore is when to start renewing.
+	// Defaults to 720h (30 days before expiry) in secret mode and to the CSI driver's own default in csi mode.
 	// +optional
 	RenewBefore *metav1.Duration `json:"renewBefore,omitempty"`
 
