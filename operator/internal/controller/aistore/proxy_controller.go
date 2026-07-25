@@ -6,7 +6,7 @@ package aistore
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"time"
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
@@ -14,6 +14,7 @@ import (
 	aisv1 "github.com/ais-operator/api/aistore/v1beta1"
 	"github.com/ais-operator/internal/resources/aistore/cmn"
 	"github.com/ais-operator/internal/resources/aistore/proxy"
+	"github.com/ais-operator/internal/services"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -221,7 +222,7 @@ func (r *Reconciler) handleProxyScale(ctx context.Context, ais *aisv1.AIStore, s
 	// If the current replicas are greater than the desired replicas, decommission
 	// proxies to be scaled down and move primary to the lowest ready pod if needed
 	if currentReplicas > desiredReplicas {
-		if err := r.handleProxyScaledown(ctx, ais, currentReplicas); err != nil {
+		if err := r.prepareProxyScaleDown(ctx, ais, currentReplicas); err != nil {
 			return err
 		}
 	}
@@ -361,7 +362,7 @@ func (r *Reconciler) setPrimaryTo(ctx context.Context, ais *aisv1.AIStore, podId
 		return err
 	}
 	// Primary already set to pod at given pod index
-	if hostnameMatchesPod(smap.Primary.ControlNet.Hostname, podName) {
+	if smap.Primary != nil && hostnameMatchesPod(smap.Primary.ControlNet.Hostname, podName) {
 		return nil
 	}
 
@@ -373,41 +374,96 @@ func (r *Reconciler) setPrimaryTo(ctx context.Context, ais *aisv1.AIStore, podId
 	return apiClient.SetPrimaryProxy(node.ID(), node.PubNet.URL, true /*force*/)
 }
 
-// handleProxyScaledown decommissions all the proxy nodes that will be deleted due to scale down.
+// prepareProxyScaleDown decommissions all the proxy nodes that will be deleted due to scale down.
 // If the node being deleted is a primary, a new primary is designated before decommissioning.
-func (r *Reconciler) handleProxyScaledown(ctx context.Context, ais *aisv1.AIStore, currentSize int32) (err error) {
+func (r *Reconciler) prepareProxyScaleDown(ctx context.Context, ais *aisv1.AIStore, currentSize int32) error {
 	logger := logf.FromContext(ctx)
 	desiredSize := ais.GetProxySize()
-
 	apiClient, err := r.clientManager.GetClient(ctx, ais)
 	if err != nil {
 		logger.Error(err, "failed to get API client")
-		return
+		return err
 	}
 	smap, err := apiClient.GetClusterMap()
 	if err != nil {
 		logger.Error(err, "failed to get cluster map")
-		return
+		return err
+	}
+	err = r.ensurePrimarySurvivesScaleDown(ctx, ais, smap, currentSize, desiredSize)
+	if err != nil {
+		return err
 	}
 
-	// Find the current primary pod index
-	currentPrimaryPodIdx := int32(-1)
+	decommissionProxies(ctx, ais, smap, apiClient, currentSize, desiredSize)
+	return nil
+}
+
+func findPrimaryPodIdx(ais *aisv1.AIStore, smap *aismeta.Smap, currentSize int32) (int32, bool) {
+	if smap.Primary == nil {
+		return -1, false
+	}
 	for idx := range currentSize {
 		if hostnameMatchesPod(smap.Primary.ControlNet.Hostname, proxy.PodName(ais, idx)) {
-			currentPrimaryPodIdx = idx
-			break
+			return idx, true
 		}
 	}
+	return -1, false
+}
 
-	// If current primary will be removed, reassign it first
-	if currentPrimaryPodIdx >= desiredSize {
-		if err = r.reassignPrimaryForScaledown(ctx, ais, smap); err != nil {
-			logger.Error(err, "failed to reassign primary for scaledown")
-			return
-		}
+func (r *Reconciler) ensurePrimarySurvivesScaleDown(ctx context.Context, ais *aisv1.AIStore, smap *aismeta.Smap, currentSize, desiredSize int32) error {
+	primaryPodIdx, found := findPrimaryPodIdx(ais, smap, currentSize)
+	// Current primary will not be removed by scale down
+	if found && primaryPodIdx < desiredSize {
+		return nil
 	}
+	// A primary matching no pod is reassigned too, so scale down never removes an unknown primary
+	err := r.setLowestEligiblePodAsPrimary(ctx, ais, smap, desiredSize)
+	if err != nil {
+		logf.FromContext(ctx).Error(err, "failed to reassign primary for scaledown")
+	}
+	return err
+}
 
-	// Decommission nodes from highest index down (best-effort)
+func (r *Reconciler) isIndexValidNewPrimary(ctx context.Context, ais *aisv1.AIStore, smap *aismeta.Smap, idx int32) bool {
+	logger := logf.FromContext(ctx)
+	podName := proxy.PodName(ais, idx)
+	node, err := findAISNodeByPodName(smap.Pmap, podName)
+	if err != nil {
+		logger.Error(err, "failed to find node by pod name, trying next pod", "podName", podName)
+		return false
+	}
+	if smap.InMaintOrDecomm(node.ID()) {
+		return false
+	}
+	_, err = r.k8sClient.GetReadyPod(ctx, types.NamespacedName{Name: podName, Namespace: ais.Namespace})
+	if err != nil {
+		logger.Error(err, "failed to get ready pod, trying next pod", "podIndex", idx)
+		return false
+	}
+	return true
+}
+
+// Scale-down removes the highest pod indices, so the lowest eligible pod is the safest new primary.
+func (r *Reconciler) setLowestEligiblePodAsPrimary(ctx context.Context, ais *aisv1.AIStore, smap *aismeta.Smap, desiredSize int32) error {
+	logger := logf.FromContext(ctx)
+	for idx := range desiredSize {
+		if !r.isIndexValidNewPrimary(ctx, ais, smap, idx) {
+			continue
+		}
+		err := r.setPrimaryTo(ctx, ais, idx)
+		if err != nil {
+			logger.Error(err, "failed to set primary, trying next pod", "podIndex", idx)
+			continue
+		}
+		logger.Info("Set new primary before scale down", "podIndex", idx)
+		return nil
+	}
+	return errors.New("no pod found to set as primary")
+}
+
+// Decommission nodes from the highest index down (best-effort)
+func decommissionProxies(ctx context.Context, ais *aisv1.AIStore, smap *aismeta.Smap, apiClient services.AIStoreClientInterface, currentSize, desiredSize int32) {
+	logger := logf.FromContext(ctx)
 	for idx := currentSize - 1; idx >= desiredSize; idx-- {
 		podName := proxy.PodName(ais, idx)
 		node, err := findAISNodeByPodName(smap.Pmap, podName)
@@ -421,35 +477,6 @@ func (r *Reconciler) handleProxyScaledown(ctx context.Context, ais *aisv1.AIStor
 			logger.Error(err, "failed to decommission node", "nodeID", node.ID())
 		}
 	}
-	return
-}
-
-func (r *Reconciler) reassignPrimaryForScaledown(ctx context.Context, ais *aisv1.AIStore, smap *aismeta.Smap) (err error) {
-	logger := logf.FromContext(ctx)
-	for idx := range ais.GetProxySize() {
-		var node *aismeta.Snode
-		podName := proxy.PodName(ais, idx)
-		node, err = findAISNodeByPodName(smap.Pmap, podName)
-		if err != nil {
-			logger.Error(err, "failed to find node by pod name, trying next pod", "podName", podName)
-			continue
-		}
-		if !smap.InMaintOrDecomm(node.ID()) {
-			_, err = r.k8sClient.GetReadyPod(ctx, types.NamespacedName{Name: podName, Namespace: ais.Namespace})
-			if err != nil {
-				logger.Error(err, "failed to get ready pod, trying next pod", "podIndex", idx)
-				continue
-			}
-			err = r.setPrimaryTo(ctx, ais, idx)
-			if err != nil {
-				logger.Error(err, "failed to set primary, trying next pod", "podIndex", idx)
-				continue
-			}
-			logger.Info("Set new primary before scale down", "podIndex", idx)
-			return
-		}
-	}
-	return fmt.Errorf("no pod found to set as primary")
 }
 
 // createProxyExternalService creates a LoadBalancer service for the proxy statefulset.
