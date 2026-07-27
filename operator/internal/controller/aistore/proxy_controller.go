@@ -68,7 +68,7 @@ func (r *Reconciler) initProxies(ctx context.Context, ais *aisv1.AIStore) (ctrl.
 	}
 
 	// Wait for primary to start-up.
-	_, err = r.k8sClient.GetReadyPod(ctx, proxy.DefaultPrimaryNSName(ais))
+	_, err = r.k8sClient.GetRunningPod(ctx, proxy.DefaultPrimaryNSName(ais))
 	if err != nil {
 		logger.Info("Waiting for primary proxy to come up", "err", err.Error())
 		r.recorder.Eventf(ais, ss, corev1.EventTypeNormal, EventReasonWaiting, ActionInitProxies, "Waiting for primary proxy to come up")
@@ -222,7 +222,7 @@ func (r *Reconciler) handleProxyScale(ctx context.Context, ais *aisv1.AIStore, s
 	// If the current replicas are greater than the desired replicas, decommission
 	// proxies to be scaled down and move primary to the lowest ready pod if needed
 	if currentReplicas > desiredReplicas {
-		if err := r.prepareProxyScaleDown(ctx, ais, currentReplicas); err != nil {
+		if err := r.prepareProxyScaleDown(ctx, ais, ss); err != nil {
 			return err
 		}
 	}
@@ -376,8 +376,9 @@ func (r *Reconciler) setPrimaryTo(ctx context.Context, ais *aisv1.AIStore, podId
 
 // prepareProxyScaleDown decommissions all the proxy nodes that will be deleted due to scale down.
 // If the node being deleted is a primary, a new primary is designated before decommissioning.
-func (r *Reconciler) prepareProxyScaleDown(ctx context.Context, ais *aisv1.AIStore, currentSize int32) error {
+func (r *Reconciler) prepareProxyScaleDown(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) error {
 	logger := logf.FromContext(ctx)
+	currentSize := *ss.Spec.Replicas
 	desiredSize := ais.GetProxySize()
 	apiClient, err := r.clientManager.GetClient(ctx, ais)
 	if err != nil {
@@ -389,7 +390,7 @@ func (r *Reconciler) prepareProxyScaleDown(ctx context.Context, ais *aisv1.AISto
 		logger.Error(err, "failed to get cluster map")
 		return err
 	}
-	err = r.ensurePrimarySurvivesScaleDown(ctx, ais, smap, currentSize, desiredSize)
+	err = r.ensurePrimarySurvivesScaleDown(ctx, ais, ss, smap, desiredSize)
 	if err != nil {
 		return err
 	}
@@ -410,44 +411,64 @@ func findPrimaryPodIdx(ais *aisv1.AIStore, smap *aismeta.Smap, currentSize int32
 	return -1, false
 }
 
-func (r *Reconciler) ensurePrimarySurvivesScaleDown(ctx context.Context, ais *aisv1.AIStore, smap *aismeta.Smap, currentSize, desiredSize int32) error {
-	primaryPodIdx, found := findPrimaryPodIdx(ais, smap, currentSize)
+func (r *Reconciler) ensurePrimarySurvivesScaleDown(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet, smap *aismeta.Smap, desiredSize int32) error {
+	primaryPodIdx, found := findPrimaryPodIdx(ais, smap, *ss.Spec.Replicas)
 	// Current primary will not be removed by scale down
 	if found && primaryPodIdx < desiredSize {
 		return nil
 	}
 	// A primary matching no pod is reassigned too, so scale down never removes an unknown primary
-	err := r.setLowestEligiblePodAsPrimary(ctx, ais, smap, desiredSize)
+	err := r.setLowestEligiblePodAsPrimary(ctx, ais, ss, smap, desiredSize)
 	if err != nil {
 		logf.FromContext(ctx).Error(err, "failed to reassign primary for scaledown")
 	}
 	return err
 }
 
-func (r *Reconciler) isIndexValidNewPrimary(ctx context.Context, ais *aisv1.AIStore, smap *aismeta.Smap, idx int32) bool {
+// isIndexValidNewPrimary reports whether a proxy at the given index is valid for primary assignment
+// It must be a ready pod, active in the AIStore cluster map, and not planned for rollout upgrade
+func (r *Reconciler) isIndexValidNewPrimary(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet, smap *aismeta.Smap, idx int32) bool {
 	logger := logf.FromContext(ctx)
 	podName := proxy.PodName(ais, idx)
 	node, err := findAISNodeByPodName(smap.Pmap, podName)
 	if err != nil {
-		logger.Error(err, "failed to find node by pod name, trying next pod", "podName", podName)
+		logger.Error(err, "failed to find AIS node for pod", "podName", podName)
 		return false
 	}
 	if smap.InMaintOrDecomm(node.ID()) {
 		return false
 	}
-	_, err = r.k8sClient.GetReadyPod(ctx, types.NamespacedName{Name: podName, Namespace: ais.Namespace})
+	return r.isPodValidNewPrimary(ctx, types.NamespacedName{Name: podName, Namespace: ais.Namespace}, ss)
+}
+
+// isPodValidNewPrimary reports whether a pod is ready and on the update revision when one is available.
+func (r *Reconciler) isPodValidNewPrimary(ctx context.Context, name types.NamespacedName, ss *appsv1.StatefulSet) bool {
+	logger := logf.FromContext(ctx)
+	pod, err := r.k8sClient.GetPod(ctx, name)
 	if err != nil {
-		logger.Error(err, "failed to get ready pod, trying next pod", "podIndex", idx)
+		logger.Error(err, "failed to get pod", "podName", name.Name)
+		return false
+	}
+	if !isPodReady(pod) {
+		logger.Info("Pod is not ready: invalid as new primary", "podName", name.Name)
+		return false
+	}
+	if ss.Status.UpdateRevision != "" && !isPodOnRevision(pod, ss.Status.UpdateRevision) {
+		logger.Info("Pod is not on the latest revision: invalid as new primary",
+			"podName", name.Name,
+			"podRevision", pod.Labels[appsv1.ControllerRevisionHashLabelKey],
+			"updateRevision", ss.Status.UpdateRevision,
+		)
 		return false
 	}
 	return true
 }
 
 // Scale-down removes the highest pod indices, so the lowest eligible pod is the safest new primary.
-func (r *Reconciler) setLowestEligiblePodAsPrimary(ctx context.Context, ais *aisv1.AIStore, smap *aismeta.Smap, desiredSize int32) error {
+func (r *Reconciler) setLowestEligiblePodAsPrimary(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet, smap *aismeta.Smap, desiredSize int32) error {
 	logger := logf.FromContext(ctx)
 	for idx := range desiredSize {
-		if !r.isIndexValidNewPrimary(ctx, ais, smap, idx) {
+		if !r.isIndexValidNewPrimary(ctx, ais, ss, smap, idx) {
 			continue
 		}
 		err := r.setPrimaryTo(ctx, ais, idx)

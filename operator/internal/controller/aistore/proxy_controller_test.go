@@ -18,12 +18,31 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
+
+const (
+	currentRevision = "rev-1"
+	updateRevision  = "rev-2"
+)
+
+// scaleDownSize is the proxy count before scale down, so pods 0-2 exist and pod 2 is removed.
+const scaleDownSize = 3
+
+// settledSS returns a proxy StatefulSet with no rollout in progress.
+func settledSS() *appsv1.StatefulSet {
+	return makeSS(scaleDownSize, scaleDownSize, scaleDownSize, scaleDownSize, currentRevision, currentRevision, appsv1.RollingUpdateStatefulSetStrategyType)
+}
+
+// rollingSS returns a proxy StatefulSet mid-rollout to updateRevision.
+func rollingSS() *appsv1.StatefulSet {
+	return makeSS(scaleDownSize, scaleDownSize, scaleDownSize-1, scaleDownSize, currentRevision, updateRevision, appsv1.RollingUpdateStatefulSetStrategyType)
+}
 
 // unsizedAIS returns an AIStore with no desired proxy count, for helpers that are handed the
 // current and desired sizes explicitly and only use the AIStore to derive pod names.
@@ -159,31 +178,43 @@ var _ = Describe("prepareProxyScaleDown", func() {
 		mockCtrl.Finish()
 	})
 
-	// reconcilerWithPods returns a Reconciler backed by an in-memory client holding proxy pods in
-	// the given phases, keyed by pod index. Any index not listed has no pod at all.
-	reconcilerWithPods := func(phases map[int32]corev1.PodPhase) *Reconciler {
-		pods := make([]client.Object, 0, len(phases))
-		for idx, phase := range phases {
-			pods = append(pods, &corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{Name: proxy.PodName(ais, idx), Namespace: ais.Namespace},
-				Status:     corev1.PodStatus{Phase: phase},
-			})
+	// proxyPod builds a proxy pod at the given index, ready or not, on the given revision.
+	proxyPod := func(idx int32, ready bool, revision string) *corev1.Pod {
+		status := corev1.PodStatus{Phase: corev1.PodRunning}
+		if ready {
+			status.Conditions = []corev1.PodCondition{{Type: corev1.PodReady, Status: corev1.ConditionTrue}}
 		}
-		c := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(pods...).Build()
+		return &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      proxy.PodName(ais, idx),
+				Namespace: ais.Namespace,
+				Labels:    map[string]string{appsv1.ControllerRevisionHashLabelKey: revision},
+			},
+			Status: status,
+		}
+	}
+
+	// reconcilerWithPods returns a Reconciler backed by an in-memory client holding the given pods.
+	reconcilerWithPods := func(pods ...*corev1.Pod) *Reconciler {
+		objs := make([]client.Object, 0, len(pods))
+		for _, pod := range pods {
+			objs = append(objs, pod)
+		}
+		c := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(objs...).Build()
 		return &Reconciler{
 			k8sClient:     aisclient.NewClient(c, scheme.Scheme),
 			clientManager: clientManager,
 		}
 	}
 
-	// reconcilerWithRunningPods returns a Reconciler holding running proxy pods at the given
-	// indices. Any other pod index has no pod at all, so it looks unready to the reconciler.
-	reconcilerWithRunningPods := func(idxs ...int32) *Reconciler {
-		phases := make(map[int32]corev1.PodPhase, len(idxs))
+	// reconcilerWithReadyPods returns a Reconciler holding ready proxy pods at the given indices,
+	// all on the current revision. Any other pod index has no pod at all.
+	reconcilerWithReadyPods := func(idxs ...int32) *Reconciler {
+		pods := make([]*corev1.Pod, 0, len(idxs))
 		for _, idx := range idxs {
-			phases[idx] = corev1.PodRunning
+			pods = append(pods, proxyPod(idx, true, currentRevision))
 		}
-		return reconcilerWithPods(phases)
+		return reconcilerWithPods(pods...)
 	}
 
 	It("leaves a surviving primary alone", func() {
@@ -191,7 +222,7 @@ var _ = Describe("prepareProxyScaleDown", func() {
 		expectDecommission(apiClient, "p2", nil)
 
 		// No SetPrimaryProxy expectation: the mock fails the test if the primary is reassigned.
-		Expect(reconcilerWithRunningPods(0, 1, 2).prepareProxyScaleDown(ctx, ais, 3)).To(Succeed())
+		Expect(reconcilerWithReadyPods(0, 1, 2).prepareProxyScaleDown(ctx, ais, settledSS())).To(Succeed())
 	})
 
 	It("reassigns a primary that is being removed to the lowest ready pod", func() {
@@ -199,21 +230,53 @@ var _ = Describe("prepareProxyScaleDown", func() {
 		apiClient.EXPECT().SetPrimaryProxy("p0", gomock.Any(), true).Return(nil)
 		expectDecommission(apiClient, "p2", nil)
 
-		Expect(reconcilerWithRunningPods(0, 1, 2).prepareProxyScaleDown(ctx, ais, 3)).To(Succeed())
+		Expect(reconcilerWithReadyPods(0, 1, 2).prepareProxyScaleDown(ctx, ais, settledSS())).To(Succeed())
 	})
 
-	It("skips pods that are not running when choosing a new primary", func() {
+	It("skips pods that are not ready when choosing a new primary", func() {
 		apiClient.EXPECT().GetClusterMap().Return(proxySmap(ais, 3, 2), nil).AnyTimes()
-		// Proxy 0 exists but has not started running, so we expect a call to set p1 as primary
+		// Proxy 0 is running but not ready, so we expect a call to set p1 as primary
 		apiClient.EXPECT().SetPrimaryProxy("p1", gomock.Any(), true).Return(nil)
 		expectDecommission(apiClient, "p2", nil)
 
-		r := reconcilerWithPods(map[int32]corev1.PodPhase{
-			0: corev1.PodPending,
-			1: corev1.PodRunning,
-			2: corev1.PodRunning,
-		})
-		Expect(r.prepareProxyScaleDown(ctx, ais, 3)).To(Succeed())
+		r := reconcilerWithPods(
+			proxyPod(0, false, currentRevision),
+			proxyPod(1, true, currentRevision),
+			proxyPod(2, true, currentRevision),
+		)
+		Expect(r.prepareProxyScaleDown(ctx, ais, settledSS())).To(Succeed())
+	})
+
+	It("skips pods on the outgoing revision while a rollout is in progress", func() {
+		apiClient.EXPECT().GetClusterMap().Return(proxySmap(ais, 3, 2), nil).AnyTimes()
+		apiClient.EXPECT().SetPrimaryProxy("p1", gomock.Any(), true).Return(nil)
+		expectDecommission(apiClient, "p2", nil)
+
+		r := reconcilerWithPods(
+			proxyPod(0, true, currentRevision),
+			proxyPod(1, true, updateRevision),
+			proxyPod(2, true, updateRevision),
+		)
+		Expect(r.prepareProxyScaleDown(ctx, ais, rollingSS())).To(Succeed())
+	})
+
+	It("skips pods in maintenance or decommission when choosing a new primary", func() {
+		smap := proxySmap(ais, 3, 2)
+		smap.Pmap["p0"].Flags = aismeta.SnodeMaint
+		apiClient.EXPECT().GetClusterMap().Return(smap, nil).AnyTimes()
+		apiClient.EXPECT().SetPrimaryProxy("p1", gomock.Any(), true).Return(nil)
+		expectDecommission(apiClient, "p2", nil)
+
+		Expect(reconcilerWithReadyPods(0, 1, 2).prepareProxyScaleDown(ctx, ais, settledSS())).To(Succeed())
+	})
+
+	It("tries the next eligible pod when SetPrimaryProxy fails", func() {
+		apiClient.EXPECT().GetClusterMap().Return(proxySmap(ais, 3, 2), nil).AnyTimes()
+		apiClient.EXPECT().SetPrimaryProxy("p0", gomock.Any(), true).Return(errors.New("set primary failed"))
+		apiClient.EXPECT().SetPrimaryProxy("p1", gomock.Any(), true).Return(nil)
+		expectDecommission(apiClient, "p2", nil)
+
+		Expect(reconcilerWithReadyPods(0, 1, 2).prepareProxyScaleDown(ctx, ais, settledSS())).To(Succeed())
 	})
 
 	It("reassigns a primary that matches none of the cluster's pods", func() {
@@ -221,13 +284,13 @@ var _ = Describe("prepareProxyScaleDown", func() {
 		apiClient.EXPECT().SetPrimaryProxy("p0", gomock.Any(), true).Return(nil)
 		expectDecommission(apiClient, "p2", nil)
 
-		Expect(reconcilerWithRunningPods(0, 1, 2).prepareProxyScaleDown(ctx, ais, 3)).To(Succeed())
+		Expect(reconcilerWithReadyPods(0, 1, 2).prepareProxyScaleDown(ctx, ais, settledSS())).To(Succeed())
 	})
 
 	It("decommissions nothing when no pod can take over as primary", func() {
 		apiClient.EXPECT().GetClusterMap().Return(proxySmap(ais, 3, 2), nil)
 
-		err := reconcilerWithRunningPods(2).prepareProxyScaleDown(ctx, ais, 3)
+		err := reconcilerWithReadyPods(2).prepareProxyScaleDown(ctx, ais, settledSS())
 		Expect(err).To(MatchError(ContainSubstring("no pod found to set as primary")))
 	})
 })

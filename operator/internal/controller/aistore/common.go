@@ -447,6 +447,23 @@ func isScalingInProgress(ss *appsv1.StatefulSet) bool {
 	return ss.Status.Replicas != *ss.Spec.Replicas
 }
 
+// isPodReady reports whether a pod is present, not terminating, and passing its readiness probes.
+func isPodReady(pod *corev1.Pod) bool {
+	if !isPodActive(pod) {
+		return false
+	}
+	for _, condition := range pod.Status.Conditions {
+		if condition.Type == corev1.PodReady && condition.Status == corev1.ConditionTrue {
+			return true
+		}
+	}
+	return false
+}
+
+func isPodOnRevision(pod *corev1.Pod, revision string) bool {
+	return pod != nil && revision != "" && pod.Labels[appsv1.ControllerRevisionHashLabelKey] == revision
+}
+
 func isPodUnschedulable(pod *corev1.Pod) bool {
 	if pod == nil {
 		return false

@@ -412,7 +412,7 @@ func (c *K8sClient) DeletePDBIfExists(ctx context.Context, name types.Namespaced
 	return DeleteResourceIfExists[*policyv1.PodDisruptionBudget](c, ctx, name)
 }
 
-func (c *K8sClient) GetReadyPod(ctx context.Context, name types.NamespacedName) (pod *corev1.Pod, err error) {
+func (c *K8sClient) GetRunningPod(ctx context.Context, name types.NamespacedName) (pod *corev1.Pod, err error) {
 	pod, err = c.GetPod(ctx, name)
 	if err != nil {
 		return

@@ -451,12 +451,7 @@ func isPodRolloutCompleted(pod *corev1.Pod) bool {
 	if isPodUnschedulable(pod) {
 		return true
 	}
-	for _, condition := range pod.Status.Conditions {
-		if condition.Type == corev1.PodReady && condition.Status == corev1.ConditionTrue {
-			return true
-		}
-	}
-	return false
+	return isPodReady(pod)
 }
 
 func (r *Reconciler) findPodNeedingUpdate(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) string {
@@ -492,7 +487,7 @@ func (r *Reconciler) findPodNeedingUpdate(ctx context.Context, ais *aisv1.AIStor
 		}
 
 		// Proceed to checking next pod if current pod is up-to-date
-		podRevision := pod.Labels["controller-revision-hash"]
+		podRevision := pod.Labels[appsv1.ControllerRevisionHashLabelKey]
 		if podRevision == ss.Status.UpdateRevision {
 			continue
 		}
