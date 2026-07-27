@@ -12,12 +12,15 @@ import (
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
 	aisv1 "github.com/ais-operator/api/aistore/v1beta1"
+	webhookcmn "github.com/ais-operator/internal/webhook"
 	"github.com/go-test/deep"
 	authorizationv1 "k8s.io/api/authorization/v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -143,41 +146,24 @@ func (aisw *AIStoreWebhook) validateAuthSecretAccess(ctx context.Context, ais, p
 		return nil
 	}
 	up := ais.Spec.Auth.UsernamePassword
-	secretNS := authSecretNamespace(ais, up)
-
-	req, err := admission.RequestFromContext(ctx)
+	path := field.NewPath("spec", "auth", "usernamePassword")
+	attrs := &authorizationv1.ResourceAttributes{
+		Resource:  "secrets",
+		Namespace: authSecretNamespace(ais, up),
+		Name:      up.SecretName,
+	}
+	fieldErr, err := webhookcmn.AuthorizeGet(ctx, aisw.Client, path, attrs)
 	if err != nil {
-		return fmt.Errorf("cannot authorize auth secret reference: %w", err)
+		return err
 	}
-	userInfo := req.UserInfo
-
-	extra := make(map[string]authorizationv1.ExtraValue, len(userInfo.Extra))
-	for k, v := range userInfo.Extra {
-		extra[k] = authorizationv1.ExtraValue(v)
+	if fieldErr == nil {
+		return nil
 	}
-
-	sar := &authorizationv1.SubjectAccessReview{
-		Spec: authorizationv1.SubjectAccessReviewSpec{
-			User:   userInfo.Username,
-			UID:    userInfo.UID,
-			Groups: userInfo.Groups,
-			Extra:  extra,
-			ResourceAttributes: &authorizationv1.ResourceAttributes{
-				Namespace: secretNS,
-				Verb:      "get",
-				Group:     "",
-				Resource:  "secrets",
-				Name:      up.SecretName,
-			},
-		},
-	}
-	if err := aisw.Client.Create(ctx, sar); err != nil {
-		return fmt.Errorf("failed to authorize auth secret %q in namespace %q: %w", up.SecretName, secretNS, err)
-	}
-	if !sar.Status.Allowed {
-		return errUnauthorizedAuthSecret(userInfo.Username, up.SecretName, secretNS)
-	}
-	return nil
+	return apierrors.NewInvalid(
+		aisv1.GroupVersion.WithKind("AIStore").GroupKind(),
+		ais.Name,
+		field.ErrorList{fieldErr},
+	)
 }
 
 // allowDaemonSpecUpdates copies fields from `ais` onto `prev` that are allowed
@@ -298,8 +284,4 @@ func errCannotUpdateSpec(specName string, diff ...string) error {
 		return fmt.Errorf("cannot update spec %q for an existing cluster, diff: [%s]", specName, strings.Join(diff, ", "))
 	}
 	return fmt.Errorf("cannot update spec %q for an existing cluster", specName)
-}
-
-func errUnauthorizedAuthSecret(user, secretName, secretNamespace string) error {
-	return fmt.Errorf("user %q is not authorized to get Secret %q in namespace %q referenced by spec.auth.usernamePassword", user, secretName, secretNamespace)
 }

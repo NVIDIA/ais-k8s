@@ -5,53 +5,76 @@
 package v1alpha1
 
 import (
-	"fmt"
 	"net/url"
 	"strings"
+
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
 func (p *AIStoreAuthProfile) ValidateSpec() error {
-	if err := p.validateServiceURL(); err != nil {
-		return err
+	allErrs := p.validateServiceURL()
+	allErrs = append(allErrs, p.validateAuthMethod()...)
+	allErrs = append(allErrs, p.validateTokenExchangeEndpoint()...)
+	if len(allErrs) == 0 {
+		return nil
 	}
-	return p.validateTokenExchangeEndpoint()
+	return apierrors.NewInvalid(
+		GroupVersion.WithKind("AIStoreAuthProfile").GroupKind(),
+		p.Name,
+		allErrs,
+	)
 }
 
-func (p *AIStoreAuthProfile) validateServiceURL() error {
+func (p *AIStoreAuthProfile) validateAuthMethod() field.ErrorList {
+	if (p.Spec.UsernamePassword == nil) == (p.Spec.TokenExchange == nil) {
+		return field.ErrorList{field.Invalid(
+			field.NewPath("spec"),
+			nil,
+			"exactly one of usernamePassword or tokenExchange must be specified",
+		)}
+	}
+	return nil
+}
+
+func (p *AIStoreAuthProfile) validateServiceURL() field.ErrorList {
+	path := field.NewPath("spec", "serviceURL")
 	u, err := url.Parse(p.Spec.ServiceURL)
 	if err != nil {
-		return fmt.Errorf("spec.serviceURL is invalid: %w", err)
+		return field.ErrorList{field.Invalid(path, p.Spec.ServiceURL, err.Error())}
 	}
 	if u.Host == "" {
-		return fmt.Errorf("spec.serviceURL must include a host")
+		return field.ErrorList{field.Invalid(path, p.Spec.ServiceURL, "must include a host")}
 	}
 	if u.Path != "" && u.Path != "/" {
-		return fmt.Errorf("spec.serviceURL must not include a path")
+		return field.ErrorList{field.Invalid(path, p.Spec.ServiceURL, "must not include a path")}
 	}
 	if u.RawQuery != "" || u.Fragment != "" {
-		return fmt.Errorf("spec.serviceURL must not include query or fragment")
+		return field.ErrorList{field.Invalid(path, p.Spec.ServiceURL, "must not include query or fragment")}
 	}
 	switch u.Scheme {
 	case "https", "http":
 		return nil
 	default:
-		return fmt.Errorf("spec.serviceURL scheme must be http or https")
+		return field.ErrorList{field.Invalid(path, p.Spec.ServiceURL, "scheme must be http or https")}
 	}
 }
 
-func (p *AIStoreAuthProfile) validateTokenExchangeEndpoint() error {
+func (p *AIStoreAuthProfile) validateTokenExchangeEndpoint() field.ErrorList {
 	if p.Spec.TokenExchange == nil {
 		return nil
 	}
-	u, err := url.Parse(p.TokenExchangeEndpoint())
+	path := field.NewPath("spec", "tokenExchange", "endpoint")
+	endpoint := p.TokenExchangeEndpoint()
+	u, err := url.Parse(endpoint)
 	if err != nil {
-		return fmt.Errorf("spec.tokenExchange.endpoint is invalid: %w", err)
+		return field.ErrorList{field.Invalid(path, endpoint, err.Error())}
 	}
 	if u.Scheme != "" || u.Host != "" {
-		return fmt.Errorf("spec.tokenExchange.endpoint must be a path, not a URL")
+		return field.ErrorList{field.Invalid(path, endpoint, "must be a path, not a URL")}
 	}
 	if !strings.HasPrefix(u.Path, "/") || u.RawQuery != "" || u.Fragment != "" {
-		return fmt.Errorf("spec.tokenExchange.endpoint must be an absolute path without query or fragment")
+		return field.ErrorList{field.Invalid(path, endpoint, "must be an absolute path without query or fragment")}
 	}
 	return nil
 }
