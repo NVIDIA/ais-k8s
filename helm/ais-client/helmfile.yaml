@@ -1,5 +1,0 @@
-releases:
-  - name: ais-client
-    namespace: "{{ .Values | get \"namespace\" \"ais\" }}"
-    createNamespace: true
-    chart: ./

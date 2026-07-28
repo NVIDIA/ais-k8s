@@ -102,10 +102,8 @@ To serve the cluster and AuthN over HTTPS, refer to the [TLS guide](./tls.md).
 
 ### Client Pod Access
 
-We currently offer two options for deploying a client Pod within the cluster: 
-
-- `adminClient` option in AIS spec will create a managed deployment with a pre-configured pod. See the [operator documentation](../operator/README.md#deploying-an-admin-client).
-- `ais-client` Helm Chart offers an independent chart for configuring the deployment. See the [chart documentation](../helm/ais-client/README.md)
+Use the `adminClient` option in the AIS spec to deploy a managed client Pod pre-configured for the cluster.
+See the [operator documentation](../operator/README.md#deploying-an-admin-client).
 
 ### Redeployment
 
