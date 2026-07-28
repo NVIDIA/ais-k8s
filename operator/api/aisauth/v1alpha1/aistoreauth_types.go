@@ -164,10 +164,12 @@ type TLSCertificateConfig struct {
 	AdditionalDNSNames []string `json:"additionalDNSNames,omitempty"`
 
 	// Duration is the certificate validity period.
+	// When unset, cert-manager's own default applies in both secret and csi modes.
 	// +optional
 	Duration *metav1.Duration `json:"duration,omitempty"`
 
 	// RenewBefore triggers renewal this long before expiry.
+	// When unset, cert-manager's own default applies in both secret and csi modes.
 	// +optional
 	RenewBefore *metav1.Duration `json:"renewBefore,omitempty"`
 

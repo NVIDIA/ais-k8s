@@ -2084,7 +2084,9 @@ spec:
                           type: string
                         type: array
                       duration:
-                        description: Duration is the certificate validity period.
+                        description: |-
+                          Duration is the certificate validity period.
+                          When unset, cert-manager's own default applies in both secret and csi modes.
                         type: string
                       issuerRef:
                         description: IssuerRef references a cert-manager Issuer or
@@ -2114,8 +2116,9 @@ spec:
                         - csi
                         type: string
                       renewBefore:
-                        description: RenewBefore triggers renewal this long before
-                          expiry.
+                        description: |-
+                          RenewBefore triggers renewal this long before expiry.
+                          When unset, cert-manager's own default applies in both secret and csi modes.
                         type: string
                     required:
                     - issuerRef

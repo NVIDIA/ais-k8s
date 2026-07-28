@@ -25,8 +25,8 @@ func TestNewSpec(t *testing.T) {
 		}, []string{"auth.example.com"}, []string{"192.0.2.1"})
 
 		g.Expect(spec.SecretName).To(HaveValue(Equal("test-tls")))
-		g.Expect(spec.Duration).To(HaveValue(Equal(metav1.Duration{Duration: 8760 * time.Hour})))
-		g.Expect(spec.RenewBefore).To(HaveValue(Equal(metav1.Duration{Duration: 720 * time.Hour})))
+		g.Expect(spec.Duration).To(BeNil())
+		g.Expect(spec.RenewBefore).To(BeNil())
 		g.Expect(spec.IssuerRef.Name).To(HaveValue(Equal("test-issuer")))
 		g.Expect(spec.IssuerRef.Kind).To(HaveValue(Equal("ClusterIssuer")))
 		g.Expect(spec.IssuerRef.Group).To(HaveValue(Equal("cert-manager.io")))

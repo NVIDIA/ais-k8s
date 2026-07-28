@@ -7,8 +7,12 @@ metadata:
 spec:
   secretName: {{ .Values.tls.secretName }}
   isCA: false
-  duration: {{ .Values.certificate.duration }}
-  renewBefore: {{ .Values.certificate.renewBefore }}
+  {{- with .Values.certificate.duration }}
+  duration: {{ . }}
+  {{- end }}
+  {{- with .Values.certificate.renewBefore }}
+  renewBefore: {{ . }}
+  {{- end }}
   usages:
     - server auth
   {{- if .Values.certificate.subject }}

@@ -10,8 +10,12 @@ metadata:
 spec:
   secretName: {{ .Values.tls.secretName }}
   isCA: false
-  duration: {{ .Values.tls.certificate.duration }}
-  renewBefore: {{ .Values.tls.certificate.renewBefore }}
+  {{- with .Values.tls.certificate.duration }}
+  duration: {{ . }}
+  {{- end }}
+  {{- with .Values.tls.certificate.renewBefore }}
+  renewBefore: {{ . }}
+  {{- end }}
   usages:
     - server auth
   {{- with .Values.tls.certificate.subject }}

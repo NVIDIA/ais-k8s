@@ -24,17 +24,14 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 ### Changed
 
 - AIStore TLS certificate SANs are now sorted and deduplicated before populating Certificate resources and CSI volume attributes.
-- AIStore TLS in `mode: csi` now sets the same key usages as `mode: secret`, and applies `tls.certificate.duration` and `tls.certificate.renewBefore` when specified.
-  - When those lifetime fields are unset, `mode: csi` continues to use the cert-manager CSI driver's own defaults.
-  - Note that existing clusters using `mode: csi` **will roll proxy and target pods once on upgrade**, since the added key usages attribute changes the pod template.
+- AIStore TLS certificates are now provisioned consistently across `mode: secret` and `mode: csi` (both modes set the same key usages and apply `tls.certificate.duration` and `tls.certificate.renewBefore` when specified).
+  - When those lifetime fields are unset, both modes use cert-manager's own defaults (the operator no longer substitutes an 8760h lifetime and a 720h renewal window in `mode: secret`).
+  - Existing clusters in `mode: secret` that leave those fields unset **will have their certificates re-issued once on upgrade** under cert-manager's shorter default lifetime (set `tls.certificate.duration` and `tls.certificate.renewBefore` to explicitly keep the previous values).
+  - Existing clusters in `mode: csi` **will roll proxy and target pods once on upgrade** (added key usages attribute changes the pod template).
 - Host state cleanup jobs now target a cluster's own scoped directory (`prefix/namespace/name`) instead of the shared hostpath prefix, so tearing down one cluster no longer removes state belonging to other clusters that might share the prefix.
 - Operator-managed admin clients now use the namespace's default ServiceAccount without mounting its token.
 - Operator helm chart generation drops API-server managed `status` field from generated CRDs.
 - Proxy controller now requires primary proxy candidates to be fully ready and on the latest revision before re-assigning the primary ahead of scale down. 
-
-
-### Changed
-
 - When autoscaling is enabled, the desired cluster size is now computed based on the union of (nodes where AIStore is currently running) and (nodes where AIStore is schedulable). This fixes an issue where marking a node unschedulable but not evicting the AIStore pods on it would cause the cluster to scale 
 down unnecessarily. Note that this will only take effect once a rollout to proxy and target statefulsets happens.
 

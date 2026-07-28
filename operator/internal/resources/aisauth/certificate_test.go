@@ -48,8 +48,8 @@ var _ = Describe("Certificate", func() {
 		Expect(certificate.OwnerReferences[0].Controller).To(HaveValue(BeTrue()))
 		Expect(certificate.Labels).To(Equal(standardLabels()))
 		Expect(certificate.Spec.SecretName).To(HaveValue(Equal("ais-authn-authn-tls")))
-		Expect(certificate.Spec.Duration).To(HaveValue(Equal(metav1.Duration{Duration: 8760 * time.Hour})))
-		Expect(certificate.Spec.RenewBefore).To(HaveValue(Equal(metav1.Duration{Duration: 720 * time.Hour})))
+		Expect(certificate.Spec.Duration).To(BeNil())
+		Expect(certificate.Spec.RenewBefore).To(BeNil())
 		Expect(certificate.Spec.Usages).To(Equal([]certmanagerv1.KeyUsage{
 			certmanagerv1.UsageDigitalSignature,
 			certmanagerv1.UsageKeyEncipherment,

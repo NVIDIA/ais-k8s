@@ -7,7 +7,6 @@ package certificates
 import (
 	"net"
 	"slices"
-	"time"
 
 	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	cmapiv1ac "github.com/cert-manager/cert-manager/pkg/client/applyconfigurations/certmanager/v1"
@@ -17,10 +16,8 @@ import (
 )
 
 const (
-	defaultDuration    = 8760 * time.Hour
-	defaultRenewBefore = 720 * time.Hour
-	defaultIssuerKind  = "ClusterIssuer"
-	issuerGroup        = "cert-manager.io"
+	defaultIssuerKind = "ClusterIssuer"
+	issuerGroup       = "cert-manager.io"
 )
 
 // SpecConfig contains the common inputs used to build a cert-manager Certificate spec.
@@ -39,28 +36,26 @@ func NewSpec(config *SpecConfig, dnsNames, ipAddresses []string) *cmapiv1ac.Cert
 	if issuerKind == "" {
 		issuerKind = defaultIssuerKind
 	}
-	duration := defaultDuration
-	if config.Duration != nil {
-		duration = config.Duration.Duration
-	}
-	renewBefore := defaultRenewBefore
-	if config.RenewBefore != nil {
-		renewBefore = config.RenewBefore.Duration
-	}
 
 	issuerRef := cmmetav1ac.IssuerReference().
 		WithName(config.IssuerName).
 		WithKind(issuerKind).
 		WithGroup(issuerGroup)
 
-	return cmapiv1ac.CertificateSpec().
+	spec := cmapiv1ac.CertificateSpec().
 		WithSecretName(config.SecretName).
-		WithDuration(metav1.Duration{Duration: duration}).
-		WithRenewBefore(metav1.Duration{Duration: renewBefore}).
 		WithUsages(config.Usages...).
 		WithDNSNames(dnsNames...).
 		WithIPAddresses(ipAddresses...).
 		WithIssuerRef(issuerRef)
+
+	if config.Duration != nil {
+		spec = spec.WithDuration(*config.Duration)
+	}
+	if config.RenewBefore != nil {
+		spec = spec.WithRenewBefore(*config.RenewBefore)
+	}
+	return spec
 }
 
 // AppendHosts classifies hosts as DNS names or IP addresses and appends them to the corresponding SAN list.

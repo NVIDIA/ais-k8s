@@ -1,7 +1,5 @@
 # TLS certificate for local KinD testing
 certificate:
-  duration: 8760h # 1 year
-  renewBefore: 720h # 30 days
   subject:
     organizations:
       - NVIDIA Corporation
