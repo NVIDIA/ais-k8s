@@ -19,31 +19,56 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
-# Stub out the kubernetes client and pod_config imports (cluster-only deps).
-# The V1* factories return plain namespaces so manifests keep their fields.
-_k8s_stub = mock.MagicMock()
-_k8s_stub.client.V1ObjectMeta.side_effect = (
-    lambda name=None, labels=None: SimpleNamespace(name=name, labels=labels)
-)
-_k8s_stub.client.V1PersistentVolumeClaim.side_effect = (
-    lambda metadata=None, spec=None: SimpleNamespace(metadata=metadata, spec=spec)
-)
-sys.modules.setdefault("kubernetes", _k8s_stub)
-sys.modules.setdefault("pod_config", mock.MagicMock())
 
-from restore_runner import RestoreRunner  # noqa: E402  pylint: disable=wrong-import-position
+def _make_k8s_stub():
+    """Return a MagicMock pre-configured with V1* factories."""
+    stub = mock.MagicMock()
+    stub.client.V1ObjectMeta.side_effect = (
+        lambda name=None, labels=None: SimpleNamespace(name=name, labels=labels)
+    )
+    stub.client.V1PersistentVolumeClaim.side_effect = (
+        lambda metadata=None, spec=None: SimpleNamespace(metadata=metadata, spec=spec)
+    )
+    return stub
 
 
 class TestRestoreRunnerValidatePvcs(unittest.TestCase):
     """PVC-name derivation from per-PVC backup filenames."""
 
-    def _make_runner(self, pvc_backups: Path, existing_pvcs=None) -> RestoreRunner:
+    def setUp(self):
+        # Stub cluster-only deps inside a temporary patch so they cannot leak
+        # into other tests. Preserve any pre-existing module cache entries.
+        self._k8s_stub = _make_k8s_stub()
+        self._pod_config_stub = mock.MagicMock()
+        self._module_patcher = mock.patch.dict(
+            sys.modules,
+            {
+                "kubernetes": self._k8s_stub,
+                "pod_config": self._pod_config_stub,
+            },
+        )
+        self._module_patcher.start()
+        # Drop any cached restore_runner so the import below sees the stubs.
+        self._prior_restore_runner = sys.modules.pop("restore_runner", None)
+
+        from restore_runner import RestoreRunner  # noqa: E402  pylint: disable=wrong-import-position
+
+        self.RestoreRunner = RestoreRunner
+
+    def tearDown(self):
+        self._module_patcher.stop()
+        # Restore any prior restore_runner cache entry.
+        sys.modules.pop("restore_runner", None)
+        if self._prior_restore_runner is not None:
+            sys.modules["restore_runner"] = self._prior_restore_runner
+
+    def _make_runner(self, pvc_backups: Path, existing_pvcs=None):
         manager = mock.MagicMock()
         manager.find_pvcs.return_value = existing_pvcs or []
         with mock.patch.object(
-            RestoreRunner, "init_pvc_backups_dir", return_value=pvc_backups
+            self.RestoreRunner, "init_pvc_backups_dir", return_value=pvc_backups
         ):
-            return RestoreRunner(manager, Path("dummy.tar.gz"), mock.MagicMock())
+            return self.RestoreRunner(manager, Path("dummy.tar.gz"), mock.MagicMock())
 
     def test_derives_pvc_names_by_suffix_removal(self):
         """Names ending in .targz characters must survive suffix removal."""
