@@ -12,15 +12,21 @@ Run from tools/state-manager:
     python3 -m unittest test_restore_runner -v
 """
 
+from __future__ import annotations
+
 import sys
 import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 from unittest import mock
 
+if TYPE_CHECKING:
+    from restore_runner import RestoreRunner
 
-def _make_k8s_stub():
+
+def _make_k8s_stub() -> mock.MagicMock:
     """Return a MagicMock pre-configured with V1* factories."""
     stub = mock.MagicMock()
     stub.client.V1ObjectMeta.side_effect = (
@@ -48,21 +54,24 @@ class TestRestoreRunnerValidatePvcs(unittest.TestCase):
             },
         )
         self._module_patcher.start()
+        # Ensure cleanup runs even if the import below raises.
+        self.addCleanup(self._module_patcher.stop)
+
         # Drop any cached restore_runner so the import below sees the stubs.
         self._prior_restore_runner = sys.modules.pop("restore_runner", None)
+        self.addCleanup(self._restore_prior_module)
 
         from restore_runner import RestoreRunner  # noqa: E402  pylint: disable=wrong-import-position
 
         self.RestoreRunner = RestoreRunner
 
-    def tearDown(self):
-        self._module_patcher.stop()
-        # Restore any prior restore_runner cache entry.
+    def _restore_prior_module(self):
+        """Restore the previous restore_runner module cache entry, if any."""
         sys.modules.pop("restore_runner", None)
         if self._prior_restore_runner is not None:
             sys.modules["restore_runner"] = self._prior_restore_runner
 
-    def _make_runner(self, pvc_backups: Path, existing_pvcs=None):
+    def _make_runner(self, pvc_backups: Path, existing_pvcs=None) -> RestoreRunner:
         manager = mock.MagicMock()
         manager.find_pvcs.return_value = existing_pvcs or []
         with mock.patch.object(
