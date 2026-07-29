@@ -66,7 +66,7 @@ class RestoreRunner:
         pvc_backup_files = self.pvc_backups.glob("*.tar.gz")
         desired_pvcs = []
         for backup in pvc_backup_files:
-            desired_pvcs.append(backup.name.rstrip(".tar.gz"))
+            desired_pvcs.append(backup.name.removesuffix(".tar.gz"))
         # If we have all, we're done
         if set(pvcs) == set(desired_pvcs):
             print(f"Found PVCs matching restore files: {pvcs}")
