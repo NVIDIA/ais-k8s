@@ -19,16 +19,13 @@ Next use the CSR to generate a self-signed key and certificate.
 Run [docker-keycloak.sh](./docker-keycloak.sh) to start the keycloak docker image, provide our config, and automatically import our AIS realm.
 Note this command expects to be run from this directory, modify as needed. 
 
-### Optional Data Persistence
+### Data Persistence
 
-If you want data persistence: 
+[docker-keycloak.sh](./docker-keycloak.sh) prepares the local `./db` directory for mounting.
 
-- Use [recreate-volumes.sh](./recreate-volumes.sh)
-- OR
-  - Manually create a local `db` directory for data persistence. 
-  - Give it access for the keycloak process in the docker container to write:  `sudo chown -R 1000:1000 $(pwd)/db`
+Keycloak will mount its development file-based database into this directory for persistence between runs.
 
-This will mount keycloak's development server file-based database into a local `db` directory for data persistence between runs. 
+To reset, use [recreate-db.sh](./recreate-db.sh).
 
 ### Run Container
 
@@ -106,21 +103,17 @@ The public key can be fetched from keycloak
 
 ## Updating the AIStore Realm
 
-For development purposes to update the realm: 
-Run the above commands to start Keycloak with persistence. 
-Modify the realm to the desired state, then shutdown. 
+For development purposes, to update the exported realm:
+- Run the above commands to start Keycloak with persistence.
+- Modify the realm to the desired state, then export with [export-realm.sh](../realm/export-realm.sh):
 
-- Use [recreate-volumes.sh](./recreate-volumes.sh)
-- OR
-  - Manually create a local directory `exports` for the destination.
-  - Give it access for the keycloak process in the docker container to write: `sudo chown -R 1000:1000 $(pwd)/exports`
-
-Run this command to use the keycloak script to output the modified realm including users:
-
-```bash 
-docker run --rm \
-  -v $(pwd)/db:/opt/keycloak/data/h2 \
-  -v $(pwd)/exports:/opt/keycloak/data/export \
-  quay.io/keycloak/keycloak:latest \
-  export --dir /opt/keycloak/data/export --realm aistore --users realm_file
+```console
+ADMIN_PASSWORD=<keycloak-admin-pass> ../realm/export-realm.sh 
 ```
+
+That uses Keycloak's [partial export](https://www.keycloak.org/server/importExport#_export_a_realm_using_the_admin_console) API (groups, roles, and clients included; users omitted), strips any masked or real key material, and runs [check-realm-keys.sh](../realm/check-realm-keys.sh) so a dirty export cannot be written.
+
+In the Keycloak admin console, the same partial export is under *Realm settings* -> *Action* -> *Partial export*, with both *Include groups and roles* and *Include clients* enabled.
+Run this output through [check-realm-keys.sh](../realm/check-realm-keys.sh) to ensure no key leakage. 
+
+Create users after import with [prepare_cluster.sh](../scripts/prepare_cluster.sh).

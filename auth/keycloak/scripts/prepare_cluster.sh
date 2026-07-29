@@ -27,9 +27,9 @@ if [ -d "$SCRIPT_DIR/venv" ]; then
   source "$SCRIPT_DIR/venv/bin/activate"
 else
   echo "venv not found, creating and installing requirements for keycloak ais-admin creation script"
-  python3 -m venv venv
+  python3 -m venv "$SCRIPT_DIR/venv"
   source "$SCRIPT_DIR/venv/bin/activate"
-  pip install keycloak
+  pip install python-keycloak
 fi
 
 # Build python arguments, conditionally add --verify-ca
