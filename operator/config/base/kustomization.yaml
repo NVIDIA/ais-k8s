@@ -2,5 +2,6 @@ resources:
 - crd/
 - rbac/
 - rbac-ais/
+- rbac-aisauth/
 - manager/
 - webhook/

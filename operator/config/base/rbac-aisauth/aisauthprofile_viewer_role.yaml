@@ -1,0 +1,14 @@
+# permissions for end users to view aistoreauthprofiles.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: aisauthprofile-viewer-role
+rules:
+- apiGroups:
+  - auth.ais.nvidia.com
+  resources:
+  - aistoreauthprofiles
+  verbs:
+  - get
+  - list
+  - watch

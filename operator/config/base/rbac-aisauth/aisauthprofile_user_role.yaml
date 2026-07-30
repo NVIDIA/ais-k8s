@@ -1,0 +1,18 @@
+# Permissions for end users to reference `aistoreauthprofiles` without reading them.
+# Consumers of the profile (e.g., the AIS operator) must still have access to any resources defined in the profile.
+# This allows a user with aistore-editor-role to modify an AIStore resource referencing an auth profile
+# without requiring full viewer permissions on all AIStoreAuthProfile resources.
+#
+# This ClusterRole covers every profile in the cluster. To grant a subset, define a ClusterRole
+# with the same verb and a resourceNames list (see config/samples/aisauthprofile_rbac.yaml).
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: aisauthprofile-user-role
+rules:
+- apiGroups:
+  - auth.ais.nvidia.com
+  resources:
+  - aistoreauthprofiles
+  verbs:
+  - use

@@ -20,7 +20,14 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
   - Configures cert-manager TLS for AuthN through `spec.tls.certificate`. The default `secret` mode reconciles a `Certificate` and mounts its generated Secret, while `mode: csi` requests and mounts a per-pod certificate through the cert-manager CSI driver. CSI mode omits resolved LoadBalancer endpoints from certificate SANs to avoid status-driven Deployment rollouts. Add externally used hostnames to `spec.tls.certificate.additionalDNSNames`.
   - Reports the `Ready` status condition and manages the `status.observedGeneration` field. `Ready` is the aggregate state of the resource (the observed generation is applied and the AuthN deployment is available).
 
-- `AIStoreAuthProfile` resource providing RBAC-controlled configuration for client logins
+- New `AIStoreAuthProfile` resource 
+  - Provides RBAC-controlled configuration for client logins
+  - ClusterRoles for `AIStoreAuthProfile` access: 
+    - `aisauthprofile-editor-role` (manage profiles)
+    - `aisauthprofile-viewer-role` (read profiles)
+    - `aisauthprofile-user-role` (reference a profile via the `use` verb without reading it).
+    - Each covers all profiles in the cluster; use a role with `resourceNames` to grant a subset.
+  - See `config/samples/aisauthprofile_rbac.yaml` for binding examples with a sample ServiceAccount.
 
 ### Changed
 

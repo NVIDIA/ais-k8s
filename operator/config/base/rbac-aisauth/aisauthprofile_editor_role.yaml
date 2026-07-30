@@ -1,0 +1,18 @@
+# permissions for administrators to manage aistoreauthprofiles.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: aisauthprofile-editor-role
+rules:
+- apiGroups:
+  - auth.ais.nvidia.com
+  resources:
+  - aistoreauthprofiles
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch

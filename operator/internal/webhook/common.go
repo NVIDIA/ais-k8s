@@ -25,6 +25,18 @@ func AuthorizeGet(
 	path *field.Path,
 	attrs *authorizationv1.ResourceAttributes,
 ) (*field.Error, error) {
+	return Authorize(ctx, c, "get", path, attrs)
+}
+
+// Authorize verifies via SubjectAccessReview that the submitting user may perform
+// verb on the object described by attrs.
+func Authorize(
+	ctx context.Context,
+	c client.Client,
+	verb string,
+	path *field.Path,
+	attrs *authorizationv1.ResourceAttributes,
+) (*field.Error, error) {
 	req, err := admission.RequestFromContext(ctx)
 	if err != nil {
 		return nil, apierrors.NewInternalError(
@@ -32,8 +44,8 @@ func AuthorizeGet(
 		)
 	}
 	userInfo := req.UserInfo
-	getAttrs := attrs.DeepCopy()
-	getAttrs.Verb = "get"
+	verbAttrs := attrs.DeepCopy()
+	verbAttrs.Verb = verb
 
 	extra := make(map[string]authorizationv1.ExtraValue, len(userInfo.Extra))
 	for k, v := range userInfo.Extra {
@@ -46,7 +58,7 @@ func AuthorizeGet(
 			UID:                userInfo.UID,
 			Groups:             userInfo.Groups,
 			Extra:              extra,
-			ResourceAttributes: getAttrs,
+			ResourceAttributes: verbAttrs,
 		},
 	}
 	if err := c.Create(ctx, sar); err != nil {
@@ -58,8 +70,8 @@ func AuthorizeGet(
 		msg := fmt.Sprintf("Denied unauthorized access to resource %q in namespace %q", attrs.Resource, attrs.Namespace)
 		logf.FromContext(ctx).V(1).Info(msg, "user", userInfo.Username, "groups", userInfo.Groups)
 		return field.Forbidden(path, fmt.Sprintf(
-			"user %q is not authorized to get %s resource %q in namespace %q",
-			userInfo.Username, attrs.Resource, attrs.Name, attrs.Namespace,
+			"user %q is not authorized to %s %s resource %q in namespace %q",
+			userInfo.Username, verb, attrs.Resource, attrs.Name, attrs.Namespace,
 		)), nil
 	}
 	return nil, nil

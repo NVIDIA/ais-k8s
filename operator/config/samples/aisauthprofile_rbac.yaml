@@ -1,0 +1,49 @@
+# Examples for granting access to AIStoreAuthProfile resources. Adjust names,
+# namespaces, and subjects to match your deployment; none of these are applied by
+# the operator.
+---
+# An example service account to demonstrate granting access to edit profiles.
+# Referenced in the example ClusterRoleBinding below.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: authprofile-manager
+  namespace: ais-operator-system
+---
+# Bind the shipped editor ClusterRole to the example profile management ServiceAccount defined above.
+# Note that ServiceAccount would need "get" on every Secret and CA ConfigMap referenced by a profile,
+# since the validating webhook verifies the submitter's access to them before admitting.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: aisauthprofile-editors
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: ais-operator-aisauthprofile-editor-role
+subjects:
+- kind: ServiceAccount
+  name: authprofile-manager
+  namespace: ais-operator-system
+---
+# Example of a custom ClusterRole granting use of a single named profile `prod-auth-token-exchange`.
+# The default included ais-operator-aisauthprofile-user-role cannot do this,
+# since it covers every profile in the cluster.
+#
+# It must be a ClusterRole because AIStoreAuthProfile is cluster-scoped: a namespaced Role cannot
+# grant access to it, and a RoleBinding to this ClusterRole would grant nothing.
+#
+# Note that resourceNames only constrains verbs that address a single object, such as "use" and "get", never "list".
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: prod-authn-user-role
+rules:
+- apiGroups:
+  - auth.ais.nvidia.com
+  resources:
+  - aistoreauthprofiles
+  resourceNames:
+  - prod-auth-token-exchange
+  verbs:
+  - use
