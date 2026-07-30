@@ -30,8 +30,8 @@ func (r *Reconciler) reconcileTLSCertificate(ctx context.Context, authn *authv1a
 	return nil
 }
 
+// deleteCertificate removes the Certificate at the name the operator derives for this CR.
 func (r *Reconciler) deleteCertificate(ctx context.Context, authn *authv1alpha1.AIStoreAuth) error {
-	// Delete only the Certificate resource; cert-manager may or may not clean up the TLS Secret
 	_, err := r.client.DeleteResourceIfExists(ctx, authnres.TLSCertificate(authn))
 	return err
 }

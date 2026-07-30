@@ -2018,6 +2018,15 @@ spec:
                   Exactly one of storageClass or volumeName must be set. PersistentVolumes are
                   provisioned outside the operator. Required because there is no default storage mode.
                 properties:
+                  deletionPolicy:
+                    default: Retain
+                    description: |-
+                      DeletionPolicy controls what happens to the AuthN data when the AIStoreAuth resource is deleted.
+                      Defaults to keeping the data (e.g. for a future deployment).
+                    enum:
+                    - Retain
+                    - Delete
+                    type: string
                   size:
                     anyOf:
                     - type: integer

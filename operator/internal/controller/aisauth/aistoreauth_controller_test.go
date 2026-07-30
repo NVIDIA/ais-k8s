@@ -9,6 +9,7 @@ import (
 	"errors"
 	"testing"
 
+	aisapc "github.com/NVIDIA/aistore/api/apc"
 	authv1alpha1 "github.com/ais-operator/api/aisauth/v1alpha1"
 	aisclient "github.com/ais-operator/internal/client"
 	authnres "github.com/ais-operator/internal/resources/aisauth"
@@ -46,43 +47,9 @@ var _ = Describe("AIStoreAuthReconciler", Label("short"), func() {
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		scheme = runtime.NewScheme()
-		Expect(authv1alpha1.AddToScheme(scheme)).To(Succeed())
-		Expect(appsv1.AddToScheme(scheme)).To(Succeed())
-		Expect(corev1.AddToScheme(scheme)).To(Succeed())
-		Expect(certmanagerv1.AddToScheme(scheme)).To(Succeed())
-
-		sc := "openebs-hostpath"
-		authn = &authv1alpha1.AIStoreAuth{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "ais-authn",
-				Namespace: "ais",
-				UID:       types.UID("test-uid"),
-			},
-			Spec: authv1alpha1.AIStoreAuthSpec{
-				Persistence: authv1alpha1.PersistenceSpec{
-					StorageClass: &sc,
-				},
-				Deployment: authv1alpha1.DeploymentSpec{
-					Container: authv1alpha1.ContainerSpec{
-						Image: "docker.io/aistorage/authn:v4.5",
-					},
-				},
-			},
-		}
-
-		fakeClient := fake.NewClientBuilder().
-			WithScheme(scheme).
-			WithStatusSubresource(authn, &appsv1.Deployment{}).
-			WithObjects(authn).
-			Build()
-		recorder = events.NewFakeRecorder(8)
-		reconciler = &Reconciler{
-			client:   aisclient.NewClient(fakeClient, scheme),
-			scheme:   scheme,
-			log:      zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)),
-			recorder: recorder,
-		}
+		scheme = newTestScheme()
+		authn = newTestAuthN()
+		reconciler, recorder = newTestReconciler(scheme, authn)
 	})
 
 	It("creates an owned ConfigMap", func() {
@@ -272,7 +239,13 @@ var _ = Describe("AIStoreAuthReconciler", Label("short"), func() {
 	})
 
 	It("reports an apply failure on Ready", func() {
-		reconciler.client = clientWithApplyError(scheme, authn, errors.New("apply conflict"))
+		reconciler, _ = newTestReconciler(scheme, authn, interceptor.Funcs{
+			Apply: func(
+				_ context.Context, _ client.WithWatch, _ runtime.ApplyConfiguration, _ ...client.ApplyOption,
+			) error {
+				return errors.New("apply conflict")
+			},
+		})
 		req := ctrl.Request{NamespacedName: authnNSName(authn)}
 
 		_, err := reconciler.Reconcile(ctx, req)
@@ -311,27 +284,55 @@ func authnNSName(authn *authv1alpha1.AIStoreAuth) types.NamespacedName {
 	return types.NamespacedName{Name: authn.Name, Namespace: authn.Namespace}
 }
 
-// clientWithApplyError fails every server-side apply. Status writes go through the subresource
-// interceptor.
-func clientWithApplyError(
-	scheme *runtime.Scheme,
-	authn *authv1alpha1.AIStoreAuth,
-	applyErr error,
-) *aisclient.K8sClient {
-	fakeClient := fake.NewClientBuilder().
+// newTestScheme registers every API the AuthN controller touches.
+func newTestScheme() *runtime.Scheme {
+	GinkgoHelper()
+	scheme := runtime.NewScheme()
+	Expect(authv1alpha1.AddToScheme(scheme)).To(Succeed())
+	Expect(appsv1.AddToScheme(scheme)).To(Succeed())
+	Expect(corev1.AddToScheme(scheme)).To(Succeed())
+	Expect(certmanagerv1.AddToScheme(scheme)).To(Succeed())
+	return scheme
+}
+
+// newTestAuthN builds the AIStoreAuth the reconcile specs converge.
+func newTestAuthN() *authv1alpha1.AIStoreAuth {
+	return &authv1alpha1.AIStoreAuth{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       "ais-authn",
+			Namespace:  "ais",
+			UID:        types.UID("test-uid"),
+			Generation: 1,
+		},
+		Spec: authv1alpha1.AIStoreAuthSpec{
+			Persistence: authv1alpha1.PersistenceSpec{
+				StorageClass: aisapc.Ptr("openebs-hostpath"),
+			},
+			Deployment: authv1alpha1.DeploymentSpec{
+				Container: authv1alpha1.ContainerSpec{
+					Image: "docker.io/aistorage/authn:v4.5",
+				},
+			},
+		},
+	}
+}
+
+// newTestReconciler wires a Reconciler over a fake client already holding authn.
+func newTestReconciler(
+	scheme *runtime.Scheme, authn *authv1alpha1.AIStoreAuth, interceptors ...interceptor.Funcs,
+) (*Reconciler, *events.FakeRecorder) {
+	builder := fake.NewClientBuilder().
 		WithScheme(scheme).
 		WithStatusSubresource(authn, &appsv1.Deployment{}).
-		WithObjects(authn).
-		WithInterceptorFuncs(interceptor.Funcs{
-			Apply: func(
-				_ context.Context,
-				_ client.WithWatch,
-				_ runtime.ApplyConfiguration,
-				_ ...client.ApplyOption,
-			) error {
-				return applyErr
-			},
-		}).
-		Build()
-	return aisclient.NewClient(fakeClient, scheme)
+		WithObjects(authn)
+	for _, funcs := range interceptors {
+		builder = builder.WithInterceptorFuncs(funcs)
+	}
+	recorder := events.NewFakeRecorder(8)
+	return &Reconciler{
+		client:   aisclient.NewClient(builder.Build(), scheme),
+		scheme:   scheme,
+		log:      zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)),
+		recorder: recorder,
+	}, recorder
 }

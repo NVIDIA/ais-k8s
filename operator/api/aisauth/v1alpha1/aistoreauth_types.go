@@ -44,6 +44,9 @@ const (
 	// ReasonProgressDeadlineExceeded is set when the AuthN Deployment reports its own rollout as
 	// no longer progressing.
 	ReasonProgressDeadlineExceeded ConditionReason = "ProgressDeadlineExceeded"
+	// ReasonCleanupFailed is set when finalizer-driven cleanup failed. The resource stays in
+	// deletion, and the operator keeps retrying.
+	ReasonCleanupFailed ConditionReason = "CleanupFailed"
 )
 
 // ServerConfSpec configures token issuance, signing, and user storage.
@@ -232,6 +235,29 @@ type PersistenceSpec struct {
 	// +kubebuilder:validation:MaxLength=253
 	// +optional
 	VolumeName *string `json:"volumeName,omitempty"`
+
+	// DeletionPolicy controls what happens to the AuthN data when the AIStoreAuth resource is deleted.
+	// Defaults to keeping the data (e.g. for a future deployment).
+	// +kubebuilder:default=Retain
+	// +optional
+	DeletionPolicy PersistenceDeletionPolicy `json:"deletionPolicy,omitempty"`
+}
+
+// PersistenceDeletionPolicy names what happens to the AuthN data when the AIStoreAuth resource
+// is deleted.
+// +kubebuilder:validation:Enum=Retain;Delete
+type PersistenceDeletionPolicy string
+
+const (
+	// PersistenceRetain keeps the AuthN PVC, so that a later deployment can reuse the data it holds.
+	PersistenceRetain PersistenceDeletionPolicy = "Retain"
+	// PersistenceDelete deletes the AuthN PVC as part of cleanup, discarding the data it holds.
+	PersistenceDelete PersistenceDeletionPolicy = "Delete"
+)
+
+// ShouldDeletePVC reports whether the AuthN data PVC is deleted as part of cleanup.
+func (p *PersistenceSpec) ShouldDeletePVC() bool {
+	return p.DeletionPolicy == PersistenceDelete
 }
 
 // UsesStorageClass reports whether AuthN storage is a dynamically provisioned PVC.

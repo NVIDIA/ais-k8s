@@ -67,6 +67,21 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return reconcile.Result{}, err
 	}
 
+	if !authn.GetDeletionTimestamp().IsZero() {
+		return r.reconcileDeletion(ctx, authn)
+	}
+
+	if err := r.ensureFinalizer(ctx, authn); err != nil {
+		msg := "Failed to add AIStoreAuth finalizer"
+		logger.Error(err, msg)
+		statusBase := authn.DeepCopy()
+		r.recordError(authn, EventReasonFinalizerFailed, msg)
+		if statusErr := r.updateStatus(ctx, statusBase, authn); statusErr != nil {
+			logger.Error(statusErr, "Failed to update AIStoreAuth status")
+		}
+		return reconcile.Result{}, err
+	}
+
 	base := authn.DeepCopy()
 	reconcileErr := r.reconcileResources(ctx, authn)
 	if statusErr := r.updateStatus(ctx, base, authn); statusErr != nil {
