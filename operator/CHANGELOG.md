@@ -18,6 +18,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
   - Applies optional pod security context, node selector, tolerations, affinity, and image pull secrets to managed Deployments from `spec.deployment.pod`.
   - Reconciles an always-present in-cluster ClusterIP Service with optional NodePort and LoadBalancer Services from `spec.externalAccess`, and publishes the endpoint in `status.serviceURL`.
   - Configures cert-manager TLS for AuthN through `spec.tls.certificate`. The default `secret` mode reconciles a `Certificate` and mounts its generated Secret, while `mode: csi` requests and mounts a per-pod certificate through the cert-manager CSI driver. CSI mode omits resolved LoadBalancer endpoints from certificate SANs to avoid status-driven Deployment rollouts. Add externally used hostnames to `spec.tls.certificate.additionalDNSNames`.
+  - Reports the `Ready` status condition and manages the `status.observedGeneration` field. `Ready` is the aggregate state of the resource (the observed generation is applied and the AuthN deployment is available).
 
 - `AIStoreAuthProfile` resource providing RBAC-controlled configuration for client logins
 

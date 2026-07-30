@@ -17,6 +17,35 @@ const (
 	defaultPersistenceSize       = "256Mi"
 )
 
+type (
+	// ConditionType is a valid value for Condition.Type on AIStoreAuth status.
+	ConditionType string
+	// ConditionReason is a valid value for Condition.Reason on AIStoreAuth status.
+	ConditionReason string
+)
+
+// AIStoreAuth status condition types.
+const (
+	// ConditionReady is the aggregate state of the resource: the observed generation is applied
+	// and the AuthN Deployment is available.
+	ConditionReady ConditionType = "Ready"
+)
+
+// AIStoreAuth status condition reasons.
+const (
+	// ReasonAvailable is set once every managed resource is applied and the AuthN Deployment
+	// reports the expected ready replicas.
+	ReasonAvailable ConditionReason = "Available"
+	// ReasonReconcileFailed is set when applying a managed resource failed. The operator keeps
+	// retrying and the failing error is reported as an event.
+	ReasonReconcileFailed ConditionReason = "ReconcileFailed"
+	// ReasonDeploymentUnavailable is set while the AuthN Deployment has no ready replicas.
+	ReasonDeploymentUnavailable ConditionReason = "DeploymentUnavailable"
+	// ReasonProgressDeadlineExceeded is set when the AuthN Deployment reports its own rollout as
+	// no longer progressing.
+	ReasonProgressDeadlineExceeded ConditionReason = "ProgressDeadlineExceeded"
+)
+
 // ServerConfSpec configures token issuance, signing, and user storage.
 type ServerConfSpec struct {
 	// ExpirationTime is the default lifetime for issued JWTs.
@@ -361,20 +390,21 @@ type AIStoreAuthStatus struct {
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
+	// ObservedGeneration is the most recent spec generation the operator has observed.
+	// +optional
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+
 	// ServiceURL is the in-cluster base URL operators and clients should use.
 	// Example: https://ais-authn.ais.svc.cluster.local:52001
 	// +optional
 	ServiceURL string `json:"serviceURL,omitempty"`
-
-	// ReadyReplicas reflects the number of ready pods in the managed Deployment.
-	// +optional
-	ReadyReplicas int32 `json:"readyReplicas,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=aisauth
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].status"
+// +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].reason",priority=1
 // +kubebuilder:printcolumn:name="URL",type="string",JSONPath=".status.serviceURL"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 

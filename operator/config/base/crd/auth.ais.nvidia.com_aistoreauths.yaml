@@ -20,6 +20,10 @@ spec:
     - jsonPath: .status.conditions[?(@.type=="Ready")].status
       name: Ready
       type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].reason
+      name: Reason
+      priority: 1
+      type: string
     - jsonPath: .status.serviceURL
       name: URL
       type: string
@@ -2200,10 +2204,10 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
-              readyReplicas:
-                description: ReadyReplicas reflects the number of ready pods in the
-                  managed Deployment.
-                format: int32
+              observedGeneration:
+                description: ObservedGeneration is the most recent spec generation
+                  the operator has observed.
+                format: int64
                 type: integer
               serviceURL:
                 description: |-

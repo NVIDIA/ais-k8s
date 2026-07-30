@@ -6,6 +6,7 @@ package aisauth
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	authv1alpha1 "github.com/ais-operator/api/aisauth/v1alpha1"
@@ -17,11 +18,15 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
@@ -35,6 +40,7 @@ var _ = Describe("AIStoreAuthReconciler", Label("short"), func() {
 		ctx        context.Context
 		scheme     *runtime.Scheme
 		reconciler *Reconciler
+		recorder   *events.FakeRecorder
 		authn      *authv1alpha1.AIStoreAuth
 	)
 
@@ -67,13 +73,15 @@ var _ = Describe("AIStoreAuthReconciler", Label("short"), func() {
 
 		fakeClient := fake.NewClientBuilder().
 			WithScheme(scheme).
-			WithStatusSubresource(authn).
+			WithStatusSubresource(authn, &appsv1.Deployment{}).
 			WithObjects(authn).
 			Build()
+		recorder = events.NewFakeRecorder(8)
 		reconciler = &Reconciler{
-			client: aisclient.NewClient(fakeClient, scheme),
-			scheme: scheme,
-			log:    zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)),
+			client:   aisclient.NewClient(fakeClient, scheme),
+			scheme:   scheme,
+			log:      zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)),
+			recorder: recorder,
 		}
 	})
 
@@ -199,4 +207,131 @@ var _ = Describe("AIStoreAuthReconciler", Label("short"), func() {
 		Expect(deployment.Spec.Template.Annotations[authnres.ConfigChecksumAnnotation]).NotTo(Equal(originalChecksum))
 	})
 
+	It("tracks readiness across the Deployment lifecycle", func() {
+		req := ctrl.Request{NamespacedName: authnres.DeploymentNSName(authn)}
+
+		// Applied, but the rollout has not landed yet.
+		_, err := reconciler.Reconcile(ctx, req)
+		Expect(err).NotTo(HaveOccurred())
+
+		stored := &authv1alpha1.AIStoreAuth{}
+		Expect(reconciler.client.Get(ctx, req.NamespacedName, stored)).To(Succeed())
+		Expect(stored.Status.ObservedGeneration).To(Equal(stored.Generation))
+		Expect(stored.Status.ServiceURL).To(Equal(authnres.ServiceURL(authn)))
+		Expect(stored.Status.Conditions).To(HaveLen(1))
+		ready := meta.FindStatusCondition(stored.Status.Conditions, string(authv1alpha1.ConditionReady))
+		Expect(ready.Status).To(Equal(metav1.ConditionFalse))
+		Expect(ready.Reason).To(Equal(string(authv1alpha1.ReasonDeploymentUnavailable)))
+		Expect(ready.Message).To(Equal("Waiting for the AuthN deployment to become available"))
+		Expect(ready.ObservedGeneration).To(Equal(stored.Generation))
+
+		// The rollout lands.
+		markDeploymentAvailable(ctx, reconciler, authn)
+		_, err = reconciler.Reconcile(ctx, req)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(reconciler.client.Get(ctx, req.NamespacedName, stored)).To(Succeed())
+		Expect(meta.IsStatusConditionTrue(stored.Status.Conditions, string(authv1alpha1.ConditionReady))).To(BeTrue())
+		Expect(recorder.Events).To(Receive(ContainSubstring("Normal Ready")))
+
+		// The deployment loses its ready replica.
+		deployment := &appsv1.Deployment{}
+		Expect(reconciler.client.Get(ctx, authnres.DeploymentNSName(authn), deployment)).To(Succeed())
+		deployment.Status.AvailableReplicas = 0
+		deployment.Status.ReadyReplicas = 0
+		Expect(reconciler.client.Status().Update(ctx, deployment)).To(Succeed())
+
+		_, err = reconciler.Reconcile(ctx, req)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(reconciler.client.Get(ctx, req.NamespacedName, stored)).To(Succeed())
+		Expect(meta.IsStatusConditionFalse(stored.Status.Conditions, string(authv1alpha1.ConditionReady))).To(BeTrue())
+	})
+
+	It("reports the Deployment's verdict on a wedged rollout", func() {
+		req := ctrl.Request{NamespacedName: authnres.DeploymentNSName(authn)}
+		_, err := reconciler.Reconcile(ctx, req)
+		Expect(err).NotTo(HaveOccurred())
+
+		deployment := &appsv1.Deployment{}
+		Expect(reconciler.client.Get(ctx, authnres.DeploymentNSName(authn), deployment)).To(Succeed())
+		deployment.Status.Conditions = []appsv1.DeploymentCondition{{
+			Type:    appsv1.DeploymentProgressing,
+			Status:  corev1.ConditionFalse,
+			Reason:  "ProgressDeadlineExceeded",
+			Message: `ReplicaSet "ais-authn-7d9f" has timed out progressing.`,
+		}}
+		Expect(reconciler.client.Status().Update(ctx, deployment)).To(Succeed())
+
+		_, err = reconciler.Reconcile(ctx, req)
+		Expect(err).NotTo(HaveOccurred())
+
+		stored := &authv1alpha1.AIStoreAuth{}
+		Expect(reconciler.client.Get(ctx, req.NamespacedName, stored)).To(Succeed())
+		ready := meta.FindStatusCondition(stored.Status.Conditions, string(authv1alpha1.ConditionReady))
+		Expect(ready.Reason).To(Equal(string(authv1alpha1.ReasonProgressDeadlineExceeded)))
+		Expect(ready.Message).To(Equal(msgNotProgressing))
+	})
+
+	It("reports an apply failure on Ready", func() {
+		reconciler.client = clientWithApplyError(scheme, authn, errors.New("apply conflict"))
+		req := ctrl.Request{NamespacedName: authnNSName(authn)}
+
+		_, err := reconciler.Reconcile(ctx, req)
+		Expect(err).To(HaveOccurred())
+
+		stored := &authv1alpha1.AIStoreAuth{}
+		Expect(reconciler.client.Get(ctx, req.NamespacedName, stored)).To(Succeed())
+		ready := meta.FindStatusCondition(stored.Status.Conditions, string(authv1alpha1.ConditionReady))
+		Expect(ready.Status).To(Equal(metav1.ConditionFalse))
+		Expect(ready.Reason).To(Equal(string(authv1alpha1.ReasonReconcileFailed)))
+		Expect(ready.Message).To(Equal("Failed to reconcile ConfigMap"))
+		Expect(ready.ObservedGeneration).To(Equal(stored.Generation))
+		// The endpoint is derived from spec, so a failed apply does not withhold it.
+		Expect(stored.Status.ServiceURL).To(Equal(authnres.ServiceURL(authn)))
+	})
+
 })
+
+// markDeploymentAvailable makes the AuthN Deployment report a fully rolled out replica.
+// The fake client does not assign a generation on server-side apply, so it is set here.
+func markDeploymentAvailable(ctx context.Context, r *Reconciler, authn *authv1alpha1.AIStoreAuth) {
+	GinkgoHelper()
+	deployment := &appsv1.Deployment{}
+	Expect(r.client.Get(ctx, authnres.DeploymentNSName(authn), deployment)).To(Succeed())
+	deployment.Generation = 1
+	Expect(r.client.Update(ctx, deployment)).To(Succeed())
+	deployment.Status.ObservedGeneration = deployment.Generation
+	deployment.Status.Replicas = authnres.DeploymentReplicas
+	deployment.Status.UpdatedReplicas = authnres.DeploymentReplicas
+	deployment.Status.ReadyReplicas = authnres.DeploymentReplicas
+	deployment.Status.AvailableReplicas = authnres.DeploymentReplicas
+	Expect(r.client.Status().Update(ctx, deployment)).To(Succeed())
+}
+
+func authnNSName(authn *authv1alpha1.AIStoreAuth) types.NamespacedName {
+	return types.NamespacedName{Name: authn.Name, Namespace: authn.Namespace}
+}
+
+// clientWithApplyError fails every server-side apply. Status writes go through the subresource
+// interceptor.
+func clientWithApplyError(
+	scheme *runtime.Scheme,
+	authn *authv1alpha1.AIStoreAuth,
+	applyErr error,
+) *aisclient.K8sClient {
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithStatusSubresource(authn, &appsv1.Deployment{}).
+		WithObjects(authn).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Apply: func(
+				_ context.Context,
+				_ client.WithWatch,
+				_ runtime.ApplyConfiguration,
+				_ ...client.ApplyOption,
+			) error {
+				return applyErr
+			},
+		}).
+		Build()
+	return aisclient.NewClient(fakeClient, scheme)
+}

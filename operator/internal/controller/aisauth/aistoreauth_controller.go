@@ -6,7 +6,6 @@ package aisauth
 
 import (
 	"context"
-	"fmt"
 
 	authv1alpha1 "github.com/ais-operator/api/aisauth/v1alpha1"
 	aisclient "github.com/ais-operator/internal/client"
@@ -16,6 +15,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -24,11 +24,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-)
-
-const (
-	eventReasonFailed = "Failed"
-	actionReconcile   = "Reconciled"
 )
 
 // Reconciler reconciles an AIStoreAuth object.
@@ -72,33 +67,63 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return reconcile.Result{}, err
 	}
 
-	if err := r.reconcileConfigMap(ctx, authn); err != nil {
-		r.recordError(ctx, authn, err, "Failed to reconcile AuthN ConfigMap")
-		return reconcile.Result{}, err
+	base := authn.DeepCopy()
+	reconcileErr := r.reconcileResources(ctx, authn)
+	if statusErr := r.updateStatus(ctx, base, authn); statusErr != nil {
+		if reconcileErr == nil {
+			return reconcile.Result{}, statusErr
+		}
+		// The reconcile error is returned instead, so this one is only visible if logged here.
+		logger.Error(statusErr, "Failed to update AIStoreAuth status")
+	}
+	if reconcileErr != nil {
+		return reconcile.Result{}, reconcileErr
 	}
 
-	if err := r.reconcilePersistence(ctx, authn); err != nil {
-		r.recordError(ctx, authn, err, "Failed to reconcile AuthN persistence")
-		return reconcile.Result{}, err
-	}
-
-	if err := r.reconcileServices(ctx, authn); err != nil {
-		r.recordError(ctx, authn, err, "Failed to reconcile AuthN Services")
-		return reconcile.Result{}, err
-	}
-
-	if err := r.reconcileTLSCertificate(ctx, authn); err != nil {
-		r.recordError(ctx, authn, err, "Failed to reconcile AuthN TLS Certificate")
-		return reconcile.Result{}, err
-	}
-
-	if err := r.reconcileDeployment(ctx, authn); err != nil {
-		r.recordError(ctx, authn, err, "Failed to reconcile AuthN Deployment")
-		return reconcile.Result{}, err
-	}
-
-	logger.Info("Reconciled AIStoreAuth")
+	logger.V(1).Info("Reconciled AIStoreAuth")
 	return reconcile.Result{}, nil
+}
+
+// reconcileResources converges every operator-managed child object.
+func (r *Reconciler) reconcileResources(ctx context.Context, authn *authv1alpha1.AIStoreAuth) error {
+	logger := logf.FromContext(ctx)
+	if err := r.reconcileConfigMap(ctx, authn); err != nil {
+		msg := "Failed to reconcile ConfigMap"
+		logger.Error(err, msg)
+		r.recordError(authn, EventReasonConfigMapFailed, msg)
+		return err
+	}
+	if err := r.reconcilePersistence(ctx, authn); err != nil {
+		msg := "Failed to reconcile PersistentVolumeClaim"
+		logger.Error(err, msg)
+		r.recordError(authn, EventReasonPVCFailed, msg)
+		return err
+	}
+	if err := r.reconcileServices(ctx, authn); err != nil {
+		msg := "Failed to reconcile Services"
+		logger.Error(err, msg)
+		r.recordError(authn, EventReasonServicesFailed, msg)
+		return err
+	}
+	if err := r.reconcileTLSCertificate(ctx, authn); err != nil {
+		msg := "Failed to reconcile TLS Certificate"
+		logger.Error(err, msg)
+		r.recordError(authn, EventReasonCertificateFailed, msg)
+		return err
+	}
+	if err := r.reconcileDeployment(ctx, authn); err != nil {
+		msg := "Failed to reconcile Deployment"
+		logger.Error(err, msg)
+		r.recordError(authn, EventReasonDeploymentFailed, msg)
+		return err
+	}
+	return nil
+}
+
+// recordError records a failed apply and sets the ready condition false.
+func (r *Reconciler) recordError(authn *authv1alpha1.AIStoreAuth, eventReason, msg string) {
+	r.recorder.Eventf(authn, nil, corev1.EventTypeWarning, eventReason, ActionReconcile, "%s", msg)
+	setReadyCondition(authn, metav1.ConditionFalse, authv1alpha1.ReasonReconcileFailed, msg)
 }
 
 func (r *Reconciler) reconcileConfigMap(ctx context.Context, authn *authv1alpha1.AIStoreAuth) error {
@@ -109,7 +134,7 @@ func (r *Reconciler) reconcileConfigMap(ctx context.Context, authn *authv1alpha1
 	if err := r.client.Apply(ctx, cm); err != nil {
 		return err
 	}
-	logf.FromContext(ctx).Info("AuthN ConfigMap applied", "name", authnres.ConfigMapName(authn))
+	logf.FromContext(ctx).V(1).Info("AuthN ConfigMap applied", "name", authnres.ConfigMapName(authn))
 	return nil
 }
 
@@ -127,26 +152,8 @@ func (r *Reconciler) reconcilePersistence(ctx context.Context, authn *authv1alph
 	if err := r.client.Apply(ctx, pvc); err != nil {
 		return err
 	}
-	logf.FromContext(ctx).Info("AuthN PVC applied", "name", authnres.PVCName(authn))
+	logf.FromContext(ctx).V(1).Info("AuthN PVC applied", "name", authnres.PVCName(authn))
 	return nil
-}
-
-func (r *Reconciler) reconcileDeployment(ctx context.Context, authn *authv1alpha1.AIStoreAuth) error {
-	deployment, err := authnres.NewDeployment(ctx, authn)
-	if err != nil {
-		return err
-	}
-	if err := r.client.Apply(ctx, deployment); err != nil {
-		return err
-	}
-	logf.FromContext(ctx).Info("AuthN Deployment applied", "name", authnres.DeploymentName(authn))
-	return nil
-}
-
-func (r *Reconciler) recordError(ctx context.Context, authn *authv1alpha1.AIStoreAuth, err error, msg string) {
-	logf.FromContext(ctx).Error(err, msg)
-	r.recorder.Eventf(authn, nil, corev1.EventTypeWarning, eventReasonFailed, actionReconcile,
-		fmt.Sprintf("%s, err: %v", msg, err))
 }
 
 // SetupWithManager registers the reconciler with the manager.

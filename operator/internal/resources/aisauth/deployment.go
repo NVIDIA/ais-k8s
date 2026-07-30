@@ -23,6 +23,9 @@ const (
 	containerName = "authn"
 	portName      = "http"
 
+	// DeploymentReplicas is the fixed AuthN Deployment size.
+	DeploymentReplicas int32 = 1
+
 	// ConfigChecksumAnnotation rolls the pod when the startup-only authn.json changes.
 	ConfigChecksumAnnotation = "auth.ais.nvidia.com/config-checksum"
 )
@@ -60,7 +63,7 @@ func NewDeployment(ctx context.Context, authn *authv1alpha1.AIStoreAuth) (*appsv
 		WithOwnerReferences(ownerref.NewAIStoreAuthControllerRef(authn)).
 		WithLabels(resourceLabels(authn)).
 		WithSpec(appsv1ac.DeploymentSpec().
-			WithReplicas(1). // AuthN doesn't support multiple replicas
+			WithReplicas(DeploymentReplicas).
 			// AuthN is single-replica, so the rollout strategy is fixed to Recreate.
 			WithStrategy(appsv1ac.DeploymentStrategy().WithType(appsv1.RecreateDeploymentStrategyType)).
 			WithSelector(metav1ac.LabelSelector().WithMatchLabels(selectorLabels(authn))).

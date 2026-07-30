@@ -36,10 +36,7 @@ func (r *Reconciler) reconcileServices(ctx context.Context, authn *authv1alpha1.
 		return fmt.Errorf("reconcile LoadBalancer Service: %w", err)
 	}
 
-	if err := r.updateServiceURL(ctx, authn); err != nil {
-		return fmt.Errorf("update service URL status: %w", err)
-	}
-	logf.FromContext(ctx).Info("AuthN Services reconciled")
+	logf.FromContext(ctx).V(1).Info("AuthN Services reconciled")
 	return nil
 }
 
@@ -75,14 +72,4 @@ func (r *Reconciler) deleteOwnedService(
 	uid := service.UID
 	_, err := r.client.DeleteResourceIfExists(ctx, service, client.Preconditions{UID: &uid})
 	return err
-}
-
-func (r *Reconciler) updateServiceURL(ctx context.Context, authn *authv1alpha1.AIStoreAuth) error {
-	serviceURL := authnres.ServiceURL(authn)
-	if authn.Status.ServiceURL == serviceURL {
-		return nil
-	}
-	base := authn.DeepCopy()
-	authn.Status.ServiceURL = serviceURL
-	return r.client.Status().Patch(ctx, authn, client.MergeFrom(base))
 }
