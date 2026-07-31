@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
+	authv1alpha1 "github.com/ais-operator/api/aisauth/v1alpha1"
 	aisv1 "github.com/ais-operator/api/aistore/v1beta1"
 	webhookcmn "github.com/ais-operator/internal/webhook"
 	"github.com/go-test/deep"
@@ -46,13 +47,13 @@ var _ admission.Validator[*aisv1.AIStore] = &AIStoreWebhook{}
 // ValidateCreate implements admission.Validator.
 func (aisw *AIStoreWebhook) ValidateCreate(ctx context.Context, ais *aisv1.AIStore) (admission.Warnings, error) {
 	webhooklog.WithValues("name", ais.Name, "namespace", ais.Namespace).Info("Validate create")
-	return aisw.validateSpec(ctx, ais, nil)
+	return aisw.validateSpec(ctx, nil, ais)
 }
 
 // ValidateUpdate implements admission.Validator.
 func (aisw *AIStoreWebhook) ValidateUpdate(ctx context.Context, prev, ais *aisv1.AIStore) (admission.Warnings, error) {
 	webhooklog.WithValues("name", ais.Name, "namespace", ais.Namespace).Info("Validate update")
-	warnings, err := aisw.validateSpec(ctx, ais, prev)
+	warnings, err := aisw.validateSpec(ctx, prev, ais)
 	if err != nil {
 		return warnings, err
 	}
@@ -85,7 +86,7 @@ func (*AIStoreWebhook) ValidateDelete(_ context.Context, ais *aisv1.AIStore) (ad
 
 // validateSpec runs the spec-only validations defined on the AIStore type, then
 // runs webhook-only validations that require admission or cluster context.
-func (aisw *AIStoreWebhook) validateSpec(ctx context.Context, ais, prev *aisv1.AIStore) (admission.Warnings, error) {
+func (aisw *AIStoreWebhook) validateSpec(ctx context.Context, prev, ais *aisv1.AIStore) (admission.Warnings, error) {
 	allWarnings, err := ais.ValidateSpec(ctx)
 	if err != nil {
 		return allWarnings, err
@@ -108,7 +109,7 @@ func (aisw *AIStoreWebhook) validateSpec(ctx context.Context, ais, prev *aisv1.A
 		return allWarnings, err
 	}
 
-	err = aisw.validateAuthSecretAccess(ctx, ais, prev)
+	err = aisw.validateAuthAccess(ctx, prev, ais)
 	return allWarnings, err
 }
 
@@ -119,45 +120,91 @@ func authSecretNamespace(ais *aisv1.AIStore, up *aisv1.UsernamePasswordAuth) str
 	return ais.Namespace
 }
 
-// shouldVerifyAuthSecret checks if we must verify user access to the provided auth secret reference
-func shouldVerifyAuthSecret(prev, ais *aisv1.AIStore) bool {
-	// Nothing to verify
+// validateAuthSecret checks user access to spec.auth.usernamePassword:
+// requires "get" on the referenced credentials Secret, checked on every create and update when changed
+func (aisw *AIStoreWebhook) validateAuthSecret(ctx context.Context, prev, ais *aisv1.AIStore) error {
 	if ais.Spec.Auth == nil || ais.Spec.Auth.UsernamePassword == nil {
-		return false
-	}
-	// If no previous entry, we must verify access
-	if prev == nil || prev.Spec.Auth == nil || prev.Spec.Auth.UsernamePassword == nil {
-		return true
-	}
-	// Only require SubjectAccessReview if the reference changed from previous
-	prevUp := prev.Spec.Auth.UsernamePassword
-	currUp := ais.Spec.Auth.UsernamePassword
-	if prevUp.SecretName != currUp.SecretName {
-		return true
-	}
-	return authSecretNamespace(prev, prevUp) != authSecretNamespace(ais, currUp)
-}
-
-// validateAuthSecretAccess verifies the submitting user can get the auth credentials
-// Secret referenced by spec.auth.usernamePassword. The check runs at admission time
-// on create and on update only when the secret reference changes.
-func (aisw *AIStoreWebhook) validateAuthSecretAccess(ctx context.Context, ais, prev *aisv1.AIStore) error {
-	if !shouldVerifyAuthSecret(prev, ais) {
 		return nil
 	}
 	up := ais.Spec.Auth.UsernamePassword
-	path := field.NewPath("spec", "auth", "usernamePassword")
-	attrs := &authorizationv1.ResourceAttributes{
-		Resource:  "secrets",
-		Namespace: authSecretNamespace(ais, up),
-		Name:      up.SecretName,
+	previousEntryExists := prev != nil && prev.Spec.Auth != nil && prev.Spec.Auth.UsernamePassword != nil
+	// Skip SubjectAccessReview if the reference is unchanged
+	if previousEntryExists {
+		previousUP := prev.Spec.Auth.UsernamePassword
+		if previousUP.SecretName == up.SecretName && authSecretNamespace(prev, previousUP) == authSecretNamespace(ais, up) {
+			return nil
+		}
 	}
-	fieldErr, err := webhookcmn.AuthorizeGet(ctx, aisw.Client, path, attrs)
+	return aisw.authorize(ctx, ais, "get", field.NewPath("spec", "auth", "usernamePassword"),
+		&authorizationv1.ResourceAttributes{
+			Resource:  "secrets",
+			Namespace: authSecretNamespace(ais, up),
+			Name:      up.SecretName,
+		})
+}
+
+// validateAuthProfile checks user access to spec.auth.profileRef:
+// requires "use" on the referenced AIStoreAuthProfile, checked on every create and update when changed
+func (aisw *AIStoreWebhook) validateAuthProfile(ctx context.Context, prev, ais *aisv1.AIStore) error {
+	if ais.Spec.Auth == nil || ais.Spec.Auth.ProfileRef == nil {
+		return nil
+	}
+	ref := ais.Spec.Auth.ProfileRef
+	previousEntryExists := prev != nil && prev.Spec.Auth != nil && prev.Spec.Auth.ProfileRef != nil
+	// Skip SubjectAccessReview if the reference is unchanged
+	if previousEntryExists && prev.Spec.Auth.ProfileRef.Name == ref.Name {
+		return nil
+	}
+	path := field.NewPath("spec", "auth", "profileRef")
+	err := aisw.authorize(ctx, ais, "use", path,
+		&authorizationv1.ResourceAttributes{
+			Group:    authv1alpha1.GroupVersion.Group,
+			Version:  authv1alpha1.GroupVersion.Version,
+			Resource: "aistoreauthprofiles",
+			Name:     ref.Name,
+		})
 	if err != nil {
 		return err
 	}
-	if fieldErr == nil {
-		return nil
+	return aisw.validateAuthProfileExistence(ctx, path, ais.Name, ref.Name)
+}
+
+// validateAuthProfileExistence checks if a given AIStoreAuthProfile exists using operator permissions
+func (aisw *AIStoreWebhook) validateAuthProfileExistence(ctx context.Context, path *field.Path, aisName, profName string) error {
+	prof := &authv1alpha1.AIStoreAuthProfile{}
+	if err := aisw.Client.Get(ctx, client.ObjectKey{Name: profName}, prof); err != nil {
+		if apierrors.IsNotFound(err) {
+			return apierrors.NewInvalid(
+				aisv1.GroupVersion.WithKind("AIStore").GroupKind(),
+				aisName,
+				field.ErrorList{field.Invalid(path, profName, "referenced AIStoreAuthProfile does not exist")},
+			)
+		}
+		return apierrors.NewInternalError(
+			fmt.Errorf("checking AIStoreAuthProfile %q: %w", profName, err),
+		)
+	}
+	return nil
+}
+
+// validateAuthAccess verifies the submitting user may use the referenced auth configuration.
+func (aisw *AIStoreWebhook) validateAuthAccess(ctx context.Context, prev, ais *aisv1.AIStore) error {
+	if err := aisw.validateAuthProfile(ctx, prev, ais); err != nil {
+		return err
+	}
+	return aisw.validateAuthSecret(ctx, prev, ais)
+}
+
+func (aisw *AIStoreWebhook) authorize(
+	ctx context.Context,
+	ais *aisv1.AIStore,
+	verb string,
+	path *field.Path,
+	attrs *authorizationv1.ResourceAttributes,
+) error {
+	fieldErr, err := webhookcmn.Authorize(ctx, aisw.Client, verb, path, attrs)
+	if err != nil || fieldErr == nil {
+		return err
 	}
 	return apierrors.NewInvalid(
 		aisv1.GroupVersion.WithKind("AIStore").GroupKind(),

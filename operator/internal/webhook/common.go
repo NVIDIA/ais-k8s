@@ -40,7 +40,7 @@ func Authorize(
 	req, err := admission.RequestFromContext(ctx)
 	if err != nil {
 		return nil, apierrors.NewInternalError(
-			fmt.Errorf("cannot authorize %s reference: %w", attrs.Resource, err),
+			fmt.Errorf("cannot authorize %s: %w", describeResource(attrs), err),
 		)
 	}
 	userInfo := req.UserInfo
@@ -63,16 +63,24 @@ func Authorize(
 	}
 	if err := c.Create(ctx, sar); err != nil {
 		return nil, apierrors.NewInternalError(
-			fmt.Errorf("authorizing %s %q in namespace %q: %w", attrs.Resource, attrs.Name, attrs.Namespace, err),
+			fmt.Errorf("authorizing %s: %w", describeResource(attrs), err),
 		)
 	}
 	if !sar.Status.Allowed {
-		msg := fmt.Sprintf("Denied unauthorized access to resource %q in namespace %q", attrs.Resource, attrs.Namespace)
+		msg := fmt.Sprintf("Denied unauthorized access to %s", describeResource(attrs))
 		logf.FromContext(ctx).V(1).Info(msg, "user", userInfo.Username, "groups", userInfo.Groups)
 		return field.Forbidden(path, fmt.Sprintf(
-			"user %q is not authorized to %s %s resource %q in namespace %q",
-			userInfo.Username, verb, attrs.Resource, attrs.Name, attrs.Namespace,
+			"user %q is not authorized to %s %s",
+			userInfo.Username, verb, describeResource(attrs),
 		)), nil
 	}
 	return nil, nil
+}
+
+// describeResource names the reviewed object, omitting the namespace for cluster-scoped resources.
+func describeResource(attrs *authorizationv1.ResourceAttributes) string {
+	if attrs.Namespace == "" {
+		return fmt.Sprintf("%s resource %q", attrs.Resource, attrs.Name)
+	}
+	return fmt.Sprintf("%s resource %q in namespace %q", attrs.Resource, attrs.Name, attrs.Namespace)
 }

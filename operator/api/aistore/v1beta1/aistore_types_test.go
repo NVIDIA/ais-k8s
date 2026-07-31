@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2024-2026, NVIDIA CORPORATION. All rights reserved.
  */
 
 package v1beta1
@@ -15,6 +15,23 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/rand"
 )
+
+// minimalSpec returns the smallest spec the OpenAPI schema accepts.
+func minimalSpec() AIStoreSpec {
+	return AIStoreSpec{
+		InitImage: "init-image:tag",
+		NodeImage: "node-image:tag",
+		ProxySpec: DaemonSpec{
+			Size: aisapc.Ptr[int32](1),
+		},
+		TargetSpec: TargetSpec{
+			DaemonSpec: DaemonSpec{
+				Size: aisapc.Ptr[int32](1),
+			},
+			Mounts: []Mount{{Path: "/mnt"}},
+		},
+	}
+}
 
 var _ = Describe("AIStore", func() {
 	Describe("Validation", func() {
@@ -152,24 +169,62 @@ var _ = Describe("AIStore", func() {
 						Name:      "ais",
 						Namespace: namespace,
 					},
-					Spec: AIStoreSpec{
-						InitImage: "init-image:tag",
-						NodeImage: "node-image:tag",
-						ProxySpec: DaemonSpec{
-							Size: aisapc.Ptr[int32](1),
-						},
-						TargetSpec: TargetSpec{
-							DaemonSpec: DaemonSpec{
-								Size: aisapc.Ptr[int32](1),
-							},
-							Mounts: []Mount{{Path: "/mnt"}},
-						},
-					},
+					Spec: minimalSpec(),
 				}
 
 				err := k8sClient.Create(context.Background(), ais)
 				Expect(err).ToNot(HaveOccurred())
 			})
+
+			DescribeTable("auth", func(auth *AuthSpec, expectedMessage string) {
+				spec := minimalSpec()
+				spec.Auth = auth
+				ais := &AIStore{
+					ObjectMeta: metav1.ObjectMeta{Name: "ais", Namespace: namespace},
+					Spec:       spec,
+				}
+
+				err := k8sClient.Create(context.Background(), ais)
+				if expectedMessage == "" {
+					Expect(err).ToNot(HaveOccurred())
+					return
+				}
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring(expectedMessage))
+			},
+				Entry(
+					"accepts a profile reference on its own",
+					&AuthSpec{ProfileRef: &AuthProfileRef{Name: "prod-authn"}},
+					"",
+				),
+				Entry(
+					"accepts a profile reference alongside the deprecated fields",
+					&AuthSpec{
+						ProfileRef:       &AuthProfileRef{Name: "prod-authn"},
+						UsernamePassword: &UsernamePasswordAuth{SecretName: "creds"},
+						TokenExchange:    &TokenExchangeAuth{},
+					},
+					"",
+				),
+				Entry(
+					"rejects an empty profile name",
+					&AuthSpec{ProfileRef: &AuthProfileRef{}},
+					"spec.auth.profileRef.name in body should be at least 1 chars long",
+				),
+				Entry(
+					"rejects both auth methods without a profile reference",
+					&AuthSpec{
+						UsernamePassword: &UsernamePasswordAuth{SecretName: "creds"},
+						TokenExchange:    &TokenExchangeAuth{},
+					},
+					"exactly one of usernamePassword or tokenExchange must be specified when profileRef is not set",
+				),
+				Entry(
+					"rejects neither auth method without a profile reference",
+					&AuthSpec{},
+					"exactly one of usernamePassword or tokenExchange must be specified when profileRef is not set",
+				),
+			)
 		})
 
 		Describe("Custom validation", func() {

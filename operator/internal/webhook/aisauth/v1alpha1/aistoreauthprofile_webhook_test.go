@@ -348,7 +348,7 @@ func TestAIStoreAuthProfileWebhookSecretReferences(t *testing.T) {
 			name:    "requires an admission request to authorize",
 			ctx:     context.Background(),
 			profile: usernamePasswordProfile("credentials"),
-			wantErr: ContainSubstring("cannot authorize secrets reference"),
+			wantErr: ContainSubstring(`cannot authorize secrets resource "credentials" in namespace "ais-authn"`),
 		},
 		{
 			name:     "validates an unchanged Secret reference on update",

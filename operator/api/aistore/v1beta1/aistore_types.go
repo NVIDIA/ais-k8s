@@ -108,9 +108,17 @@ const (
 // IMPORTANT: Run "make" to regenerate code after modifying this file
 
 // AuthSpec defines the configuration for accessing AuthN service
-// Exactly one of UsernamePassword or TokenExchange must be specified
-// +kubebuilder:validation:XValidation:rule="(has(self.usernamePassword) && !has(self.tokenExchange)) || (!has(self.usernamePassword) && has(self.tokenExchange))",message="exactly one of usernamePassword or tokenExchange must be specified"
+// Either ProfileRef or exactly one of UsernamePassword and TokenExchange must be specified
+// +kubebuilder:validation:XValidation:rule="has(self.profileRef) || (has(self.usernamePassword) != has(self.tokenExchange))",message="exactly one of usernamePassword or tokenExchange must be specified when profileRef is not set"
 type AuthSpec struct {
+	// ProfileRef references the AIStoreAuthProfile holding the auth provider
+	// configuration the operator is allowed to authenticate against.
+	// When set, the operator resolves the provider from the profile and ignores the remaining
+	// fields of this spec.
+	// The submitting user must have "use" access to the referenced profile
+	// +optional
+	ProfileRef *AuthProfileRef `json:"profileRef,omitempty"`
+
 	// ServiceURL is the base URL of the AuthN service (scheme + host + optional port, no path)
 	// Supports formats: "http://hostname[:port]" or "https://hostname[:port]"
 	// TLS is determined from the URL scheme (https = TLS enabled)
@@ -131,6 +139,13 @@ type AuthSpec struct {
 	// TLS configuration for secure connections with Auth service
 	// +optional
 	TLS *AuthTLSConfig `json:"tls,omitempty"`
+}
+
+// AuthProfileRef references a cluster-scoped AIStoreAuthProfile
+type AuthProfileRef struct {
+	// Name of the AIStoreAuthProfile to use for fetching AIS tokens
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
 }
 
 // AuthTLSConfig defines TLS configuration for Auth connections

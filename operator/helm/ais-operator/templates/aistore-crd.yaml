@@ -1289,6 +1289,22 @@ spec:
                   Auth specifies the Auth service configuration for admin authentication
                   If not specified, the operator will look for configuration in the legacy ConfigMap
                 properties:
+                  profileRef:
+                    description: |-
+                      ProfileRef references the AIStoreAuthProfile holding the auth provider
+                      configuration the operator is allowed to authenticate against.
+                      When set, the operator resolves the provider from the profile and ignores the remaining
+                      fields of this spec.
+                      The submitting user must have "use" access to the referenced profile
+                    properties:
+                      name:
+                        description: Name of the AIStoreAuthProfile to use for fetching
+                          AIS tokens
+                        minLength: 1
+                        type: string
+                    required:
+                    - name
+                    type: object
                   serviceURL:
                     description: |-
                       ServiceURL is the base URL of the AuthN service (scheme + host + optional port, no path)
@@ -1368,9 +1384,8 @@ spec:
                 type: object
                 x-kubernetes-validations:
                 - message: exactly one of usernamePassword or tokenExchange must be
-                    specified
-                  rule: (has(self.usernamePassword) && !has(self.tokenExchange)) ||
-                    (!has(self.usernamePassword) && has(self.tokenExchange))
+                    specified when profileRef is not set
+                  rule: has(self.profileRef) || (has(self.usernamePassword) != has(self.tokenExchange))
               authNSecretName:
                 description: Secret name containing AuthN's JWT signing key
                 type: string

@@ -31,6 +31,10 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
     - Each covers all profiles in the cluster; use a role with `resourceNames` to grant a subset.
   - See `config/samples/aisauthprofile_rbac.yaml` for binding examples with a sample ServiceAccount.
 
+- `spec.auth.profileRef` on `AIStore` selects the `AIStoreAuthProfile` the operator uses for AIStore authentication.
+  - The submitting user's `use` access on the referenced profile is verified with a `SubjectAccessReview`.
+  - Takes precedence over the remaining `spec.auth` fields, which will be deprecated.
+
 ### Changed
 
 - AIStore TLS certificate SANs are now sorted and deduplicated before populating Certificate resources and CSI volume attributes.

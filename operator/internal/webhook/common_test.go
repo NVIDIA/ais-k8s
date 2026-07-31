@@ -88,14 +88,14 @@ func TestAuthorizeGet(t *testing.T) {
 			name:         "fails without an admission request to identify the user",
 			ctx:          context.Background(),
 			allowed:      true,
-			wantErrMsg:   "cannot authorize secrets reference",
+			wantErrMsg:   `cannot authorize secrets resource "creds" in namespace "tenant"`,
 			wantNoReview: true,
 		},
 		{
 			name:       "fails when the review cannot be created",
 			allowed:    true,
 			createErr:  errors.New("apiserver unavailable"),
-			wantErrMsg: `authorizing secrets "creds" in namespace "tenant"`,
+			wantErrMsg: `authorizing secrets resource "creds" in namespace "tenant"`,
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {

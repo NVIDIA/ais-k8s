@@ -27,6 +27,7 @@ subjects:
   namespace: ais-operator-system
 ---
 # Example of a custom ClusterRole granting use of a single named profile `prod-auth-token-exchange`.
+# Bind it to the subjects allowed to set `spec.auth.profileRef` to that profile on an AIStore resource.
 # The default included ais-operator-aisauthprofile-user-role cannot do this,
 # since it covers every profile in the cluster.
 #
