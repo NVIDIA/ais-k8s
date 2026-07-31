@@ -1,0 +1,15 @@
+# Grants the operator management of aistoreauthprofiles
+# "get" is required to read profiles referenced from AIStore resources
+# The editor role is required for the operator to manage aistoreauthprofiles for a managed AuthN deployment.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: aisauthprofile-editor-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: aisauthprofile-editor-role
+subjects:
+- kind: ServiceAccount
+  name: controller-manager
+  namespace: system

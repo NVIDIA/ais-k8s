@@ -25,6 +25,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
   - Provides RBAC-controlled configuration for client logins
   - ClusterRoles for `AIStoreAuthProfile` access: 
     - `aisauthprofile-editor-role` (manage profiles)
+      - Bound to the operator ServiceAccount to allow reading profile references and modifying profiles when reconciling `AIStoreAuth`
     - `aisauthprofile-viewer-role` (read profiles)
     - `aisauthprofile-user-role` (reference a profile via the `use` verb without reading it).
     - Each covers all profiles in the cluster; use a role with `resourceNames` to grant a subset.

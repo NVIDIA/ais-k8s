@@ -1,4 +1,5 @@
 resources:
 - aisauthprofile_editor_role.yaml
+- aisauthprofile_editor_role_binding.yaml
 - aisauthprofile_user_role.yaml
 - aisauthprofile_viewer_role.yaml
