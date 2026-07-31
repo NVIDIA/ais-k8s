@@ -27,24 +27,21 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+// Token exchange defaults
 const (
-	// Auth service API defaults
-	DefaultAuthNServiceURL = "http://ais-authn.ais:52001"
-	DefaultAuthCACertPath  = "/etc/ssl/certs/auth-ca/ca.crt"
-
-	AuthNSecretRefName = "SU-NAME"
-	AuthNSecretRefPass = "SU-PASS"
-
-	// Token exchange defaults
 	DefaultTokenPath             = "/var/run/secrets/kubernetes.io/serviceaccount/token" //nolint:gosec // This is a file path, not a credential
 	DefaultTokenExchangeEndpoint = "/token"
+)
 
-	// RFC 8693 OAuth 2.0 Token Exchange constants
+// RFC 8693 OAuth 2.0 Token Exchange constants
+const (
 	RFC8693GrantType           = "urn:ietf:params:oauth:grant-type:token-exchange"
 	RFC8693SubjectTokenTypeJWT = "urn:ietf:params:oauth:token-type:jwt" //nolint:gosec // This is a URN identifier, not a credential
+)
 
-	// TLS config cache defaults
-	// Environment variable to configure cache TTL: OPERATOR_AUTH_TLS_CACHE_TTL (e.g., "1h", "30m", "6h")
+// TLS config cache defaults
+const (
+	// AuthTLSCacheTTLEnv defines the Environment variable to configure cache TTL (e.g., "1h", "30m", "6h")
 	AuthTLSCacheTTLEnv       = "OPERATOR_AUTH_TLS_CACHE_TTL"
 	defaultTLSConfigCacheTTL = 6 * time.Hour // Default: refresh every 6 hours to pick up certificate rotations
 )
@@ -76,22 +73,31 @@ type (
 		IsTokenExchange() bool
 		GetTokenPath() string
 		GetTokenExchangeEndpoint() string
-		GetOAuthLoginConf() *aisv1.AuthServerLoginConf
+		GetOAuthLoginConf() *OAuthLoginConf
 		GetSecretName() string
 		GetSecretNamespace() string
-		GetCACertPath() string
-		GetInsecureSkipVerify() bool
+		GetUserKey() string
+		GetPassKey() string
 		GetTLSConfig(ctx context.Context) (*tls.Config, error)
 	}
 
-	// AuthSpecConfig wraps the CRD AuthSpec configuration
-	AuthSpecConfig struct {
-		spec      *aisv1.AuthSpec
-		namespace string // cluster namespace for default secret lookup
-		// TLS config caching
-		tlsConfig  *tls.Config
-		tlsCreated time.Time
-		tlsMu      sync.RWMutex
+	// OAuthLoginConf holds the parameters for an OAuth 2.0 password grant
+	OAuthLoginConf struct {
+		ClientID string
+		Scope    *string
+	}
+
+	// credentials holds the username and password read from the configured login Secret
+	credentials struct {
+		user string
+		pass string
+	}
+
+	// tlsCache holds a TLS config and rebuilds it after a TTL so CA/cert rotations take effect
+	tlsCache struct {
+		mu      sync.RWMutex
+		config  *tls.Config
+		created time.Time
 	}
 
 	// RFC 8693 Section 2.2 - Response format (REQUIRED fields only)
@@ -118,127 +124,61 @@ func NewAuthNClient(k8sClient *aisclient.K8sClient) *AuthNClient {
 	}
 }
 
-// AuthSpecConfig implements AuthConfig interface
-func (c *AuthSpecConfig) GetServiceURL() string {
-	serviceURL := DefaultAuthNServiceURL
-	if c.spec.ServiceURL != nil {
-		serviceURL = *c.spec.ServiceURL
+// caCertPaths returns the configured CA path, falling back to the operator's default mount
+// point when it exists (populated from an optional ConfigMap).
+func caCertPaths(configured string) []string {
+	if configured != "" {
+		return []string{configured}
 	}
-	return serviceURL
-}
-
-func (c *AuthSpecConfig) IsTokenExchange() bool {
-	return c.spec.TokenExchange != nil
-}
-
-func (c *AuthSpecConfig) GetTokenPath() string {
-	if c.spec.TokenExchange != nil && c.spec.TokenExchange.TokenPath != nil {
-		return *c.spec.TokenExchange.TokenPath
+	if _, err := os.Stat(DefaultAuthCACertPath); err == nil {
+		return []string{DefaultAuthCACertPath}
 	}
-	return DefaultTokenPath
+	return nil
 }
 
-func (c *AuthSpecConfig) GetTokenExchangeEndpoint() string {
-	if c.spec.TokenExchange != nil && c.spec.TokenExchange.TokenExchangeEndpoint != nil {
-		return *c.spec.TokenExchange.TokenExchangeEndpoint
-	}
-	return DefaultTokenExchangeEndpoint
-}
-
-func (c *AuthSpecConfig) GetOAuthLoginConf() *aisv1.AuthServerLoginConf {
-	if c.spec.UsernamePassword == nil {
-		return nil
-	}
-	return c.spec.UsernamePassword.LoginConf
-}
-
-func (c *AuthSpecConfig) GetSecretName() string {
-	if c.spec.UsernamePassword != nil {
-		return c.spec.UsernamePassword.SecretName
-	}
-	return ""
-}
-
-func (c *AuthSpecConfig) GetSecretNamespace() string {
-	if c.spec.UsernamePassword != nil && c.spec.UsernamePassword.SecretNamespace != nil {
-		return *c.spec.UsernamePassword.SecretNamespace
-	}
-	return c.namespace
-}
-
-func (c *AuthSpecConfig) GetCACertPath() string {
-	if c.spec.TLS != nil {
-		return c.spec.TLS.CACertPath
-	}
-	return ""
-}
-
-func (c *AuthSpecConfig) GetInsecureSkipVerify() bool {
-	if c.spec.TLS != nil {
-		return c.spec.TLS.InsecureSkipVerify
-	}
-	return false
-}
-
-func (c *AuthSpecConfig) GetTLSConfig(ctx context.Context) (*tls.Config, error) {
-	return getTLSConfigWithCache(ctx, &c.tlsMu, &c.tlsConfig, &c.tlsCreated, c.GetCACertPath(), c.GetInsecureSkipVerify())
-}
-
-// getTLSConfigWithCache is a helper function that implements the TLS config caching logic
-func getTLSConfigWithCache(ctx context.Context, mu *sync.RWMutex, cachedConfig **tls.Config, cachedTime *time.Time, caCertPath string, insecureSkipVerify bool) (*tls.Config, error) {
+// get returns the cached TLS config, rebuilding it from source once the cache TTL elapses
+func (c *tlsCache) get(
+	ctx context.Context,
+	source func(context.Context) (truststore.Config, error),
+	insecureSkipVerify bool,
+) (*tls.Config, error) {
 	logger := logf.FromContext(ctx)
 	cacheTTL := getTLSConfigCacheTTL(ctx)
 
-	mu.RLock()
-	// Check if we have a valid cached config
-	if *cachedConfig != nil && time.Since(*cachedTime) < cacheTTL {
-		tlsConfig := *cachedConfig
-		mu.RUnlock()
-		logger.V(2).Info("Using cached TLS config", "age", time.Since(*cachedTime), "ttl", cacheTTL)
+	c.mu.RLock()
+	if c.config != nil && time.Since(c.created) < cacheTTL {
+		tlsConfig := c.config
+		created := c.created
+		c.mu.RUnlock()
+		logger.V(2).Info("Using cached TLS config", "age", time.Since(created), "ttl", cacheTTL)
 		return tlsConfig, nil
 	}
-	mu.RUnlock()
+	c.mu.RUnlock()
 
-	// Need to create/refresh TLS config
-	mu.Lock()
-	defer mu.Unlock()
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
-	// Double-check after acquiring write lock (another goroutine might have created it)
-	if *cachedConfig != nil && time.Since(*cachedTime) < cacheTTL {
-		logger.V(2).Info("Using cached TLS config (after lock)", "age", time.Since(*cachedTime), "ttl", cacheTTL)
-		return *cachedConfig, nil
+	// Another goroutine may have refreshed the config while we waited for the write lock
+	if c.config != nil && time.Since(c.created) < cacheTTL {
+		logger.V(2).Info("Using cached TLS config (after lock)", "age", time.Since(c.created), "ttl", cacheTTL)
+		return c.config, nil
 	}
 
-	// Create new TLS config
-	var caCertPaths []string
-	if caCertPath == "" {
-		// Add a CA at the default path to the trusted list if and only if:
-		// 1. no CA cert is provided from config
-		// 2. the default CA cert path exists (mounted from an optional ConfigMap)
-		if _, err := os.Stat(DefaultAuthCACertPath); err == nil {
-			caCertPaths = []string{DefaultAuthCACertPath}
-		}
-	} else {
-		caCertPaths = []string{caCertPath}
+	trustConf, err := source(ctx)
+	if err != nil {
+		return nil, err
 	}
-
-	tlsConfig, err := truststore.NewTLSConfig(logger.WithName("truststore"), truststore.Config{
-		CACertPaths: caCertPaths,
-	})
+	tlsConfig, err := truststore.NewTLSConfig(logger.WithName("truststore"), trustConf)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create TLS config: %w", err)
 	}
-
-	// Apply insecureSkipVerify if configured
 	if insecureSkipVerify {
 		logger.Info("WARNING: TLS certificate verification disabled (insecureSkipVerify=true)")
 		tlsConfig.InsecureSkipVerify = true
 	}
 
-	// Cache the new config
-	*cachedConfig = tlsConfig
-	*cachedTime = time.Now()
-
+	c.config = tlsConfig
+	c.created = time.Now()
 	return tlsConfig, nil
 }
 
@@ -247,7 +187,7 @@ func (c *AuthNClient) getAdminToken(ctx context.Context, ais *aisv1.AIStore) (*T
 	if ais.Spec.Auth == nil {
 		return nil, nil
 	}
-	authConf, err := c.getAuthConfigFromCRD(ctx, ais)
+	authConf, err := c.getAuthConfig(ctx, ais)
 	if err != nil || authConf == nil {
 		return nil, err
 	}
@@ -266,22 +206,29 @@ func (c *AuthNClient) getAdminToken(ctx context.Context, ais *aisv1.AIStore) (*T
 	return c.getTokenViaPassword(ctx, baseParams, authConf)
 }
 
-// getAuthConfigFromCRD extracts auth configuration from the AIStore CRD spec
-func (*AuthNClient) getAuthConfigFromCRD(ctx context.Context, ais *aisv1.AIStore) (AuthConfig, error) {
+// getAuthConfig resolves the auth provider for the cluster, preferring the referenced
+// AIStoreAuthProfile over the inline spec.auth fields
+func (c *AuthNClient) getAuthConfig(ctx context.Context, ais *aisv1.AIStore) (AuthConfig, error) {
 	logger := logf.FromContext(ctx)
 	spec := ais.Spec.Auth
 
-	// Validate that exactly one auth method is configured
-	if spec.TokenExchange == nil && spec.UsernamePassword == nil {
-		return nil, fmt.Errorf("invalid auth service configuration: exactly one of usernamePassword or tokenExchange must be specified")
+	var config AuthConfig
+	if spec.ProfileRef != nil {
+		profile, err := c.k8sClient.GetAuthProfile(ctx, spec.ProfileRef.Name)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get AIStoreAuthProfile %q: %w", spec.ProfileRef.Name, err)
+		}
+		config = &AuthProfileConfig{profile: profile, k8sClient: c.k8sClient}
+	} else {
+		// Validate that exactly one auth method is configured
+		if spec.TokenExchange == nil && spec.UsernamePassword == nil {
+			return nil, fmt.Errorf("invalid auth service configuration: exactly one of usernamePassword or tokenExchange must be specified")
+		}
+		config = &AuthSpecConfig{spec: spec, namespace: ais.Namespace}
 	}
 
-	config := &AuthSpecConfig{
-		spec:      spec,
-		namespace: ais.Namespace,
-	}
-
-	logger.Info("Using auth service configuration from CRD",
+	logger.Info("Using auth service configuration",
+		"profileRef", spec.ProfileRef,
 		"serviceURL", config.GetServiceURL(),
 		"tokenExchange", config.IsTokenExchange())
 
@@ -311,23 +258,34 @@ func (c *AuthNClient) getTokenViaPassword(ctx context.Context, bp *api.BaseParam
 	if err != nil || secretData == nil {
 		return nil, err
 	}
+	userBytes, ok := secretData[authConf.GetUserKey()]
+	if !ok || len(userBytes) == 0 {
+		return nil, fmt.Errorf("auth Secret %s/%s missing key %q", authConf.GetSecretNamespace(), authConf.GetSecretName(), authConf.GetUserKey())
+	}
+	passBytes, ok := secretData[authConf.GetPassKey()]
+	if !ok || len(passBytes) == 0 {
+		return nil, fmt.Errorf("auth Secret %s/%s missing key %q", authConf.GetSecretNamespace(), authConf.GetSecretName(), authConf.GetPassKey())
+	}
+	creds := credentials{
+		user: string(userBytes),
+		pass: string(passBytes),
+	}
 	oauthConf := authConf.GetOAuthLoginConf()
 	if oauthConf == nil {
 		// Use AIS authN service if no OAuth configuration
-		return getTokenFromAuthN(ctx, bp, secretData)
+		return getTokenFromAuthN(ctx, bp, creds)
 	}
-	return getTokenFromOAuth(ctx, bp, secretData, oauthConf)
+	return getTokenFromOAuth(ctx, bp, creds, oauthConf)
 }
 
-// getTokenFromOAuth retrieves an admin token from an OAuth standard issuer using the username and password from the provided secret data
-func getTokenFromOAuth(ctx context.Context, params *api.BaseParams, secretData map[string][]byte, oauthConf *aisv1.AuthServerLoginConf) (*TokenInfo, error) {
-	user := string(secretData[AuthNSecretRefName])
+// getTokenFromOAuth retrieves an admin token from an OAuth standard issuer using the provided credentials
+func getTokenFromOAuth(ctx context.Context, params *api.BaseParams, creds credentials, oauthConf *OAuthLoginConf) (*TokenInfo, error) {
 	// Prepare form values; Scope is optional, omit if nil
 	form := url.Values{}
 	form.Set("grant_type", "password")
 	form.Set("client_id", oauthConf.ClientID)
-	form.Set("username", user)
-	form.Set("password", string(secretData[AuthNSecretRefPass]))
+	form.Set("username", creds.user)
+	form.Set("password", creds.pass)
 	if oauthConf.Scope != nil {
 		form.Set("scope", *oauthConf.Scope)
 	}
@@ -353,7 +311,7 @@ func getTokenFromOAuth(ctx context.Context, params *api.BaseParams, secretData m
 	if !strings.EqualFold(tokenResp.TokenType, "bearer") {
 		return nil, fmt.Errorf("unexpected token_type: %s", tokenResp.TokenType)
 	}
-	logf.FromContext(ctx).Info(fmt.Sprintf("Successfully fetched token for user %q from auth service", user))
+	logf.FromContext(ctx).Info(fmt.Sprintf("Successfully fetched token for user %q from auth service", creds.user))
 	expiresAt := time.Now().Add(time.Duration(tokenResp.ExpiresIn) * time.Second)
 	return &TokenInfo{
 		Token:     tokenResp.AccessToken,
@@ -361,18 +319,16 @@ func getTokenFromOAuth(ctx context.Context, params *api.BaseParams, secretData m
 	}, nil
 }
 
-// getTokenFromAuthN retrieves an admin token from AuthN using the username and password from the provided secret data
-func getTokenFromAuthN(ctx context.Context, params *api.BaseParams, secretData map[string][]byte) (*TokenInfo, error) {
+// getTokenFromAuthN retrieves an admin token from AuthN using the provided credentials
+func getTokenFromAuthN(ctx context.Context, params *api.BaseParams, creds credentials) (*TokenInfo, error) {
 	logger := logf.FromContext(ctx)
 	zeroDuration := time.Duration(0)
-	user := string(secretData[AuthNSecretRefName])
-	pass := string(secretData[AuthNSecretRefPass])
-	tokenMsg, err := authn.LoginUser(*params, user, pass, &zeroDuration)
+	tokenMsg, err := authn.LoginUser(*params, creds.user, creds.pass, &zeroDuration)
 	if err != nil {
-		return nil, fmt.Errorf("failed to login %q user to AuthN: %w", user, err)
+		return nil, fmt.Errorf("failed to login %q user to AuthN: %w", creds.user, err)
 	}
 
-	logger.Info(fmt.Sprintf("Successfully fetched token for user %q from AuthN", user))
+	logger.Info(fmt.Sprintf("Successfully fetched token for user %q from AuthN", creds.user))
 	// Username/password mode doesn't provide expiration info
 	return &TokenInfo{
 		Token:     tokenMsg.Token,

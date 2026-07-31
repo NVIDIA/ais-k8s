@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"reflect"
 
+	authv1alpha1 "github.com/ais-operator/api/aisauth/v1alpha1"
 	aisv1 "github.com/ais-operator/api/aistore/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -71,6 +72,12 @@ func (c *K8sClient) GetAIStoreCR(ctx context.Context, name types.NamespacedName)
 	aistore := &aisv1.AIStore{}
 	err := c.client.Get(ctx, name, aistore)
 	return aistore, err
+}
+
+// GetAuthProfile reads a cluster-scoped AIStoreAuthProfile from the informer cache.
+// Namespace-scoped watching still caches cluster-scoped objects via the multi-namespace clusterCache.
+func (c *K8sClient) GetAuthProfile(ctx context.Context, name string) (*authv1alpha1.AIStoreAuthProfile, error) {
+	return getResource[*authv1alpha1.AIStoreAuthProfile](c.client, ctx, types.NamespacedName{Name: name})
 }
 
 func (c *K8sClient) ListAIStoreCR(ctx context.Context, namespace string) (*aisv1.AIStoreList, error) {

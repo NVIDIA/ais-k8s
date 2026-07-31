@@ -19,6 +19,10 @@ type Config struct {
 	// These certificates will be added to the trust store for verifying connections
 	// Example: ["/etc/ssl/certs/custom-ca.crt", "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"]
 	CACertPaths []string
+
+	// CAPEMs is a list of PEM-encoded CA certificates held in memory, for trust that is read
+	// from the Kubernetes API rather than mounted into the operator.
+	CAPEMs [][]byte
 }
 
 // NewCertPool creates a new x509.CertPool with system CAs and custom CA certificates
@@ -26,8 +30,9 @@ type Config struct {
 // 1. System CA certificates (as the base)
 // 2. Custom CA certificates from configured paths
 //
-// Missing or invalid certificate files are logged as warnings but don't cause errors.
+// Missing or invalid certificate files from local paths are logged as warnings but don't cause errors.
 // This allows for graceful degradation and optional certificates.
+// Invalid in-memory certificates will return errors.
 func NewCertPool(logger logr.Logger, config Config) (*x509.CertPool, error) {
 	// Load system CA certificates as the base
 	var certPool *x509.CertPool
@@ -54,6 +59,13 @@ func NewCertPool(logger logr.Logger, config Config) (*x509.CertPool, error) {
 		}
 
 		logger.Info("Loaded CA certificate", "path", certPath)
+	}
+
+	for i, caCert := range config.CAPEMs {
+		if !certPool.AppendCertsFromPEM(caCert) {
+			return nil, fmt.Errorf("failed to parse in-memory CA certificate at index %d", i)
+		}
+		logger.Info("Loaded in-memory CA certificate")
 	}
 
 	return certPool, nil

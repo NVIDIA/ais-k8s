@@ -12,36 +12,25 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
-	"fmt"
 	"math/big"
 	"os"
 	"path/filepath"
-	"sync"
 	"time"
 
 	aisv1 "github.com/ais-operator/api/aistore/v1beta1"
 	"github.com/ais-operator/internal/truststore"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 var _ = Describe("AuthN Base Params", func() {
-	var ctx context.Context
-
-	BeforeEach(func() {
-		baseCtx := context.Background() //nolint:fatcontext // Test setup requires context creation in BeforeEach
-		ctx = logf.IntoContext(baseCtx, zap.New(zap.UseDevMode(true)))
-	})
-
 	Describe("HTTP vs HTTPS", func() {
 		It("should not configure TLS for HTTP URLs", func() {
 			conf := &mockAuthConfig{
 				serviceURL: "http://ais-authn.ais:52001",
 			}
 
-			baseParams, err := newAuthBaseParams(ctx, conf)
+			baseParams, err := newAuthBaseParams(context.Background(), conf)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(baseParams).NotTo(BeNil())
 
@@ -60,7 +49,7 @@ var _ = Describe("AuthN Base Params", func() {
 				serviceURL: "https://ais-authn.ais:52001",
 			}
 
-			baseParams, err := newAuthBaseParams(ctx, conf)
+			baseParams, err := newAuthBaseParams(context.Background(), conf)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(baseParams).NotTo(BeNil())
 
@@ -79,7 +68,7 @@ var _ = Describe("AuthN Base Params", func() {
 				serviceURL: "https://ais-authn.ais",
 			}
 
-			baseParams, err := newAuthBaseParams(ctx, conf)
+			baseParams, err := newAuthBaseParams(context.Background(), conf)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(baseParams).NotTo(BeNil())
 
@@ -98,7 +87,7 @@ var _ = Describe("AuthN Base Params", func() {
 				serviceURL: "http://ais-authn.ais",
 			}
 
-			baseParams, err := newAuthBaseParams(ctx, conf)
+			baseParams, err := newAuthBaseParams(context.Background(), conf)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(baseParams).NotTo(BeNil())
 
@@ -131,7 +120,7 @@ var _ = Describe("AuthN Base Params", func() {
 				caCertPath: caCertPath,
 			}
 
-			baseParams, err := newAuthBaseParams(ctx, conf)
+			baseParams, err := newAuthBaseParams(context.Background(), conf)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(baseParams).NotTo(BeNil())
 		})
@@ -142,7 +131,7 @@ var _ = Describe("AuthN Base Params", func() {
 				caCertPath: "/nonexistent/ca.crt",
 			}
 
-			baseParams, err := newAuthBaseParams(ctx, conf)
+			baseParams, err := newAuthBaseParams(context.Background(), conf)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(baseParams).NotTo(BeNil())
 		})
@@ -153,7 +142,7 @@ var _ = Describe("AuthN Base Params", func() {
 				caCertPath: "",
 			}
 
-			baseParams, err := newAuthBaseParams(ctx, conf)
+			baseParams, err := newAuthBaseParams(context.Background(), conf)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(baseParams).NotTo(BeNil())
 		})
@@ -164,7 +153,7 @@ var _ = Describe("AuthN Base Params", func() {
 				caCertPath: caCertPath,
 			}
 
-			baseParams, err := newAuthBaseParams(ctx, conf)
+			baseParams, err := newAuthBaseParams(context.Background(), conf)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(baseParams).NotTo(BeNil())
 		})
@@ -177,7 +166,7 @@ var _ = Describe("AuthN Base Params", func() {
 				insecureSkipVerify: false,
 			}
 
-			baseParams, err := newAuthBaseParams(ctx, conf)
+			baseParams, err := newAuthBaseParams(context.Background(), conf)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(baseParams).NotTo(BeNil())
 			Expect(baseParams.URL).To(Equal("https://ais-authn.ais:52001"))
@@ -189,7 +178,7 @@ var _ = Describe("AuthN Base Params", func() {
 				insecureSkipVerify: true,
 			}
 
-			baseParams, err := newAuthBaseParams(ctx, conf)
+			baseParams, err := newAuthBaseParams(context.Background(), conf)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(baseParams).NotTo(BeNil())
 			Expect(baseParams.URL).To(Equal("https://ais-authn.ais:52001"))
@@ -201,103 +190,10 @@ var _ = Describe("AuthN Base Params", func() {
 				insecureSkipVerify: true,
 			}
 
-			baseParams, err := newAuthBaseParams(ctx, conf)
+			baseParams, err := newAuthBaseParams(context.Background(), conf)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(baseParams).NotTo(BeNil())
 			Expect(baseParams.URL).To(Equal("http://ais-authn.ais:52001"))
-		})
-	})
-})
-
-var _ = Describe("AuthSpecConfig", func() {
-	Describe("GetServiceURL", func() {
-		It("should return custom URL when specified", func() {
-			customURL := "https://custom-authn.example.com:8443"
-			spec := &aisv1.AuthSpec{
-				ServiceURL: &customURL,
-			}
-			config := &AuthSpecConfig{spec: spec}
-
-			Expect(config.GetServiceURL()).To(Equal(customURL))
-		})
-
-		It("should return default URL when not specified", func() {
-			spec := &aisv1.AuthSpec{}
-			config := &AuthSpecConfig{spec: spec}
-
-			Expect(config.GetServiceURL()).To(Equal(DefaultAuthNServiceURL))
-		})
-	})
-
-	Describe("GetCACertPath", func() {
-		It("should return path when specified", func() {
-			path := "/etc/ssl/certs/ca.crt"
-			spec := &aisv1.AuthSpec{
-				TLS: &aisv1.AuthTLSConfig{
-					CACertPath: path,
-				},
-			}
-			config := &AuthSpecConfig{spec: spec}
-
-			Expect(config.GetCACertPath()).To(Equal(path))
-		})
-
-		It("should return empty string when no TLS config", func() {
-			spec := &aisv1.AuthSpec{}
-			config := &AuthSpecConfig{spec: spec}
-			Expect(config.GetCACertPath()).To(Equal(""))
-		})
-
-		It("should return empty string TLS config exists but CACertPath is empty", func() {
-			spec := &aisv1.AuthSpec{
-				TLS: &aisv1.AuthTLSConfig{
-					InsecureSkipVerify: false,
-				},
-			}
-			config := &AuthSpecConfig{spec: spec}
-			Expect(config.GetCACertPath()).To(Equal(""))
-		})
-	})
-
-	Describe("GetInsecureSkipVerify", func() {
-		It("should return true when configured", func() {
-			spec := &aisv1.AuthSpec{
-				TLS: &aisv1.AuthTLSConfig{
-					InsecureSkipVerify: true,
-				},
-			}
-			config := &AuthSpecConfig{spec: spec}
-
-			Expect(config.GetInsecureSkipVerify()).To(BeTrue())
-		})
-
-		It("should return false by default", func() {
-			spec := &aisv1.AuthSpec{}
-			config := &AuthSpecConfig{spec: spec}
-
-			Expect(config.GetInsecureSkipVerify()).To(BeFalse())
-		})
-	})
-
-	Describe("IsTokenExchange", func() {
-		It("should return true when TokenExchange is configured", func() {
-			spec := &aisv1.AuthSpec{
-				TokenExchange: &aisv1.TokenExchangeAuth{},
-			}
-			config := &AuthSpecConfig{spec: spec}
-
-			Expect(config.IsTokenExchange()).To(BeTrue())
-		})
-
-		It("should return false when UsernamePassword is configured", func() {
-			spec := &aisv1.AuthSpec{
-				UsernamePassword: &aisv1.UsernamePasswordAuth{
-					SecretName: "test-secret",
-				},
-			}
-			config := &AuthSpecConfig{spec: spec}
-
-			Expect(config.IsTokenExchange()).To(BeFalse())
 		})
 	})
 })
@@ -360,10 +256,7 @@ type mockAuthConfig struct {
 	secretNamespace    string
 	caCertPath         string
 	insecureSkipVerify bool
-	// TLS config caching
-	tlsConfig  *tls.Config
-	tlsCreated time.Time
-	tlsMu      sync.RWMutex
+	tls                tlsCache
 }
 
 func (m *mockAuthConfig) GetServiceURL() string {
@@ -388,9 +281,13 @@ func (m *mockAuthConfig) GetTokenExchangeEndpoint() string {
 	return m.tokenExchangeEP
 }
 
-func (*mockAuthConfig) GetOAuthLoginConf() *aisv1.AuthServerLoginConf {
+func (*mockAuthConfig) GetOAuthLoginConf() *OAuthLoginConf {
 	return nil
 }
+
+func (*mockAuthConfig) GetUserKey() string { return AuthNSecretRefName }
+
+func (*mockAuthConfig) GetPassKey() string { return AuthNSecretRefPass }
 
 func (m *mockAuthConfig) GetSecretName() string {
 	return m.secretName
@@ -409,54 +306,13 @@ func (m *mockAuthConfig) GetInsecureSkipVerify() bool {
 }
 
 func (m *mockAuthConfig) GetTLSConfig(ctx context.Context) (*tls.Config, error) {
-	logger := logf.FromContext(ctx)
-	cacheTTL := getTLSConfigCacheTTL(ctx)
-
-	m.tlsMu.RLock()
-	// Check if we have a valid cached config
-	if m.tlsConfig != nil && time.Since(m.tlsCreated) < cacheTTL {
-		tlsConfig := m.tlsConfig
-		m.tlsMu.RUnlock()
-		logger.V(2).Info("Using cached TLS config", "age", time.Since(m.tlsCreated), "ttl", cacheTTL)
-		return tlsConfig, nil
-	}
-	m.tlsMu.RUnlock()
-
-	// Need to create/refresh TLS config
-	m.tlsMu.Lock()
-	defer m.tlsMu.Unlock()
-
-	// Double-check after acquiring write lock (another goroutine might have created it)
-	if m.tlsConfig != nil && time.Since(m.tlsCreated) < cacheTTL {
-		logger.V(2).Info("Using cached TLS config (after lock)", "age", time.Since(m.tlsCreated), "ttl", cacheTTL)
-		return m.tlsConfig, nil
-	}
-
-	// Create new TLS config
-	caCertPath := m.GetCACertPath()
-	var caCertPaths []string
-	if caCertPath != "" {
-		caCertPaths = []string{caCertPath}
-	}
-	logger.V(1).Info("Creating new TLS config", "caCertPath", caCertPath)
-	tlsConfig, err := truststore.NewTLSConfig(logger.WithName("truststore"), truststore.Config{
-		CACertPaths: caCertPaths,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create TLS config: %w", err)
-	}
-
-	// Apply insecureSkipVerify if configured
-	if m.GetInsecureSkipVerify() {
-		logger.Info("WARNING: TLS certificate verification disabled (insecureSkipVerify=true)")
-		tlsConfig.InsecureSkipVerify = true
-	}
-
-	// Cache the new config
-	m.tlsConfig = tlsConfig
-	m.tlsCreated = time.Now()
-
-	return tlsConfig, nil
+	return m.tls.get(ctx, func(context.Context) (truststore.Config, error) {
+		var caCertPaths []string
+		if m.caCertPath != "" {
+			caCertPaths = []string{m.caCertPath}
+		}
+		return truststore.Config{CACertPaths: caCertPaths}, nil
+	}, m.insecureSkipVerify)
 }
 
 // Helper: createTestCACertPEM creates a test CA certificate in PEM format
