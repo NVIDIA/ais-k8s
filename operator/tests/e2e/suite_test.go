@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2025, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2026, NVIDIA CORPORATION. All rights reserved.
  */
 
 package e2e
@@ -13,8 +13,10 @@ import (
 	"testing"
 	"time"
 
+	authv1alpha1 "github.com/ais-operator/api/aisauth/v1alpha1"
 	aisv1 "github.com/ais-operator/api/aistore/v1beta1"
 	aisclient "github.com/ais-operator/internal/client"
+	authcontroller "github.com/ais-operator/internal/controller/aisauth"
 	aiscontroller "github.com/ais-operator/internal/controller/aistore"
 	"github.com/ais-operator/internal/services"
 	"github.com/ais-operator/tests/tutils"
@@ -76,6 +78,7 @@ var _ = SynchronizedBeforeSuite(
 
 		Expect(scheme.AddToScheme(scheme.Scheme)).To(Succeed())
 		Expect(aisv1.AddToScheme(scheme.Scheme)).To(Succeed())
+		Expect(authv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 		Expect(certmanagerv1.AddToScheme(scheme.Scheme)).To(Succeed())
 
 		// Cache K8s client and AISTestCfg for "run only once" cleanup on process #1
@@ -101,6 +104,7 @@ var _ = SynchronizedBeforeSuite(
 		By("Bootstrapping per-process test environment")
 		Expect(scheme.AddToScheme(scheme.Scheme)).To(Succeed())
 		Expect(aisv1.AddToScheme(scheme.Scheme)).To(Succeed())
+		Expect(authv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 		Expect(certmanagerv1.AddToScheme(scheme.Scheme)).To(Succeed())
 
 		// Deserialize AISTestCfg from process #1
@@ -142,6 +146,11 @@ var _ = SynchronizedBeforeSuite(
 			mgr,
 			tlsOpts,
 			ctrl.Log.WithName("controllers").WithName("AIStore"),
+		).SetupWithManager(mgr)).To(Succeed())
+
+		Expect(authcontroller.NewReconcilerFromMgr(
+			mgr,
+			ctrl.Log.WithName("controllers").WithName("AIStoreAuth"),
 		).SetupWithManager(mgr)).To(Succeed())
 
 		go func() {

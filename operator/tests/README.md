@@ -25,6 +25,7 @@ The following environment variables allow customization of the E2E test environm
 | `AIS_TEST_INIT_IMAGE`     | Init container image used during AIS deployment            | Latest released ais-init image                  |
 | `AIS_TEST_PREV_INIT_IMAGE`| Previous init container image for upgrade/downgrade testing| ais-init image one release behind latest        |
 | `AIS_TEST_API_MODE`       | API mode used for non-external LB clusters                 | Internal DNS (headless service)                 |
+| `AUTHN_TEST_IMAGE`        | AuthN server image deployed by the `AIStoreAuth` tests     | Latest released authn image                     |
 | `TEST_STORAGECLASS`       | Storage class to use for test volumes                      | `ais-operator-test-storage` (`standard` for GKE)|
 | `TEST_STORAGE_HOSTPATH`   | Host path to use for storage when using hostPath volumes   | `/etc/ais/<random>`                             |
 | `TEST_EPHEMERAL_CLUSTER`  | Indicates testing on ephemeral clusters                    | `false`                                         |

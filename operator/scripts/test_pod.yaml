@@ -28,3 +28,5 @@ spec:
           value: "${AIS_TEST_PREV_INIT_IMAGE}"
         - name: AIS_TEST_API_MODE
           value: "${AIS_TEST_API_MODE}"
+        - name: AUTHN_TEST_IMAGE
+          value: "${AUTHN_TEST_IMAGE}"

@@ -137,6 +137,7 @@ operator:test:kind:latest:
   variables:
     AIS_TEST_NODE_IMAGE: "docker.io/aistorage/aisnode:dev"
     AIS_TEST_INIT_IMAGE: "docker.io/aistorage/ais-init:dev"
+    AUTHN_TEST_IMAGE: "docker.io/aistorage/authn:dev"
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
     - if: $CI_PIPELINE_SOURCE == "schedule"

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2026, NVIDIA CORPORATION. All rights reserved.
  */
 
 package tutils
@@ -61,8 +61,9 @@ func CleanupOldTestClusters(ctx context.Context, c *aisclient.K8sClient) {
 			}
 			for i := range clusters.Items {
 				fmt.Fprintf(os.Stdout, "Destroying old cluster '%s' in namespace '%s'\n", clusters.Items[i].Name, ns.Name)
-				DestroyCluster(ctx, c, &clusters.Items[i])
+				DestroyResource(ctx, c, &clusters.Items[i])
 			}
+			cleanupAuthN(ctx, c, ns.Name)
 			cleanupPV(ctx, c, ns.Name)
 		}
 	}

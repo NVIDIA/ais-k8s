@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2025-2026, NVIDIA CORPORATION. All rights reserved.
  */
 
 package tutils
@@ -21,6 +21,7 @@ const (
 	EnvInitImage           = "AIS_TEST_INIT_IMAGE"
 	EnvPrevInitImage       = "AIS_TEST_PREV_INIT_IMAGE"
 	EnvAPIMode             = "AIS_TEST_API_MODE"
+	EnvAuthNImage          = "AUTHN_TEST_IMAGE"
 	EnvTestStorageClass    = "TEST_STORAGECLASS"
 	EnvTestStorageHostPath = "TEST_STORAGE_HOSTPATH"
 	EnvTestEphemeral       = "TEST_EPHEMERAL_CLUSTER"
@@ -41,6 +42,7 @@ type AISTestCfg struct {
 	PreviousNodeImage string
 	PreviousInitImage string
 	LogsImage         string
+	AuthNImage        string
 	Ephemeral         bool
 	APIMode           string
 }
@@ -60,6 +62,7 @@ func NewAISTestCfg(ctx context.Context, k8sClient *aisclient.K8sClient) (*AISTes
 		PreviousNodeImage: initPrevNodeImage(),
 		PreviousInitImage: initPrevInitImage(),
 		LogsImage:         DefaultLogsImage,
+		AuthNImage:        initAuthNImage(),
 		Ephemeral:         initEphemeral(),
 		APIMode:           initAPIMode(),
 	}, nil
@@ -101,6 +104,10 @@ func initPrevNodeImage() string {
 		return getOrDefaultEnv(EnvPrevNodeImage, DefaultNodeImage)
 	}
 	return getOrDefaultEnv(EnvPrevNodeImage, DefaultPrevNodeImage)
+}
+
+func initAuthNImage() string {
+	return getOrDefaultEnv(EnvAuthNImage, DefaultAuthNImage)
 }
 
 func initStorageClass(ctx context.Context, k8sClient *aisclient.K8sClient, k8sProvider string) string {

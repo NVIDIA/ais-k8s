@@ -43,15 +43,6 @@ type PVData struct {
 	size         resource.Quantity
 }
 
-func checkCRExists(ctx context.Context, client *aisclient.K8sClient, name types.NamespacedName) bool {
-	_, err := client.GetAIStoreCR(ctx, name)
-	if apierrors.IsNotFound(err) {
-		return false
-	}
-	Expect(err).To(BeNil())
-	return true
-}
-
 func CheckResExistence(ctx context.Context, cluster *aisv1.AIStore, aisCfg *AISTestCfg, k8sClient *aisclient.K8sClient, exists bool, intervals ...interface{}) {
 	condition := BeTrue()
 	if !exists {
@@ -102,18 +93,18 @@ func CheckResExistence(ctx context.Context, cluster *aisv1.AIStore, aisCfg *AIST
 	}
 }
 
-// DestroyCluster - Deletes the AISCluster resource, and waits for the resource to be cleaned up.
+// DestroyResource - Deletes the resource, and waits for it to be cleaned up.
 // `intervals` refer - `gomega.Eventually`
-func DestroyCluster(ctx context.Context, client *aisclient.K8sClient,
-	cluster *aisv1.AIStore, intervals ...interface{},
+func DestroyResource(ctx context.Context, client *aisclient.K8sClient,
+	obj clientpkg.Object, intervals ...interface{},
 ) {
 	if len(intervals) == 0 {
 		intervals = []interface{}{time.Minute, time.Second}
 	}
 
-	_, err := client.DeleteResourceIfExists(ctx, cluster)
+	_, err := client.DeleteResourceIfExists(ctx, obj)
 	Expect(err).Should(Succeed())
-	EventuallyCRNotExists(ctx, client, cluster, intervals...)
+	EventuallyResourceExists(ctx, client, obj, BeFalse(), intervals...)
 }
 
 // GetNodeNamesAndIPs returns names and primary IPs of nodes matching the given selector.
@@ -128,14 +119,6 @@ func GetNodeNamesAndIPs(ctx context.Context, c *aisclient.K8sClient, selector ma
 		}
 	}
 	return names, ips
-}
-
-func EventuallyCRNotExists(ctx context.Context, client *aisclient.K8sClient,
-	cluster *aisv1.AIStore, intervals ...interface{},
-) {
-	Eventually(func(ctx context.Context) bool {
-		return checkCRExists(ctx, client, cluster.NamespacedName())
-	}, intervals...).WithContext(ctx).Should(BeFalse())
 }
 
 func DestroyPV(ctx context.Context, client *aisclient.K8sClient, pvs []*corev1.PersistentVolume) {

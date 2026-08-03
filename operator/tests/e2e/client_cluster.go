@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2025-2026, NVIDIA CORPORATION. All rights reserved.
  */
 
 package e2e
@@ -42,6 +42,8 @@ const (
 	clusterDestroyTimeout     = 4 * time.Minute
 	clusterUpdateTimeout      = 2 * time.Minute
 	clusterUpdateInterval     = 2 * time.Second
+
+	logSidecarContainerName = "ais-logs"
 
 	urlTemplate = "http://%s:%s"
 )
@@ -329,7 +331,7 @@ func (cc *clientCluster) destroyAndCleanup() {
 }
 
 func (cc *clientCluster) destroyClusterOnly() {
-	tutils.DestroyCluster(context.Background(), cc.k8sClient, cc.cluster, clusterDestroyTimeout, clusterDestroyInterval)
+	tutils.DestroyResource(context.Background(), cc.k8sClient, cc.cluster, clusterDestroyTimeout, clusterDestroyInterval)
 }
 
 func (cc *clientCluster) scaleSpec(ctx context.Context, targetOnly bool, factor int32) *aisv1.AIStoreSpec {
@@ -556,7 +558,7 @@ func (cc *clientCluster) printLogs(ctx context.Context) {
 	for i := range podList.Items {
 		pod := &podList.Items[i]
 		fmt.Printf("Logs for pod %s in cluster %s:\n", pod.Name, clusterName)
-		err = printPodLogs(ctx, clusterName, cs, pod)
+		err = printPodLogs(ctx, cs, pod, logSidecarContainerName)
 		if err != nil {
 			_, _ = fmt.Fprintf(os.Stderr,
 				"error printing logs for pod %s in cluster %s: %v\n",
@@ -567,8 +569,8 @@ func (cc *clientCluster) printLogs(ctx context.Context) {
 	}
 }
 
-func printPodLogs(ctx context.Context, clusterName string, cs *kubernetes.Clientset, pod *corev1.Pod) error {
-	opts := &corev1.PodLogOptions{Container: "ais-logs"}
+func printPodLogs(ctx context.Context, cs *kubernetes.Clientset, pod *corev1.Pod, container string) error {
+	opts := &corev1.PodLogOptions{Container: container}
 	req := cs.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, opts)
 	stream, streamErr := req.Stream(ctx)
 	if streamErr != nil {
@@ -579,8 +581,8 @@ func printPodLogs(ctx context.Context, clusterName string, cs *kubernetes.Client
 		if cerr := stream.Close(); cerr != nil {
 			// Log close failure; do not change the function’s return value.
 			_, _ = fmt.Fprintf(os.Stderr,
-				"error closing log stream for pod %s in cluster %s: %v\n",
-				pod.Name, clusterName, cerr)
+				"error closing log stream for container %s of pod %s: %v\n",
+				container, pod.Name, cerr)
 		}
 	}()
 
