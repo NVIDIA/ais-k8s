@@ -7,6 +7,7 @@ This document provides guidance for deploying [AIStore](https://github.com/NVIDI
 1. [**Prerequisites**](#prerequisites)
 1. [**Deployment Steps**](#deployment-steps)
    - [Operator Deployment](#operator-deployment)
+   - [Node Selection](#node-selection)
    - [AIStore Deployment](#aistore-deployment)
 1. [**Post-Deployment Steps**](#post-deployment-steps)
    - [Setting Up a Debugging Pod](#setting-up-a-debugging-pod)
@@ -64,6 +65,14 @@ Optionally, use `kubectl` to check the status of the deployed pods:
 The AIS Operator pod should be in the `Running` state, indicating a successful deployment.
 
 Once deployed, the AIS Operator will reconcile the state of any deployed AIStore custom resources.
+
+### Node Selection
+
+AIS pods schedule onto nodes labeled `nvidia.com/ais-proxy=<cluster>` and `nvidia.com/ais-target=<cluster>`, matched by the `nodeSelector` in the AIS spec.
+The same target label is how PV creation discovers which nodes need volumes.
+Label the nodes that will host the cluster before deploying, and remove the labels when a cluster is retired so the nodes are free for another one.
+
+See [Node Labeling](../helm/ais/README.md#node-labeling) for the convenience script that manages both labels.
 
 ### AIStore Deployment
 

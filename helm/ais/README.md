@@ -18,6 +18,13 @@ These labels are used for scheduling via `nodeSelector` and by the `ais-create-p
 ./scripts/label-nodes.sh <cluster> <node1,node2,...|--all>
 ``` 
 
+Deleting the AIS cluster leaves these labels in place, so a redeployment schedules onto the same nodes.
+Pass `--remove` to strip both labels and release the nodes. With `--all`, this selects the nodes currently labeled for the cluster.
+
+```bash
+./scripts/label-nodes.sh --remove <cluster> <node1,node2,...|--all>
+```
+
 ### PV Creation
 
 The provided helmfile includes the [ais-create-pv](./charts/create-pv/) release, enabled by setting `createPV.enabled: true` for the environment.
@@ -26,6 +33,33 @@ See [Target Data Persistent Volumes](../../docs/storage_volumes.md) for details 
 
 If you want to use an existing set of PVs, set `createPV.enabled: false`.
 You can also change the `storageClass` option to instruct AIS target pods to mount a different existing storage class.
+
+### Scaling
+
+The `size` value in your AIS values file sets the number of proxy and target pods.
+`proxySpec.size` and `targetSpec.size` override it for that component, so a cluster can run a different number of proxies than targets.
+Pods schedule only onto nodes carrying the cluster's labels, and `ais-create-pv` discovers targets the same way, so [label](#node-labeling) any new nodes before raising a size.
+Then run `helmfile sync` again.
+
+Lowering a size removes the highest-ordinal pods.
+The operator decommissions them via the AIStore cluster API first, and `targetSpec.scaleDownMode` controls what happens to a removed target's data.
+
+### Shutdown and Removal
+
+`shutdownCluster`, `cleanupMetadata`, and `cleanupData` are read off the live custom resource, so set them in your values file and run `helmfile sync` before uninstalling.
+
+For a temporary stop, set `shutdownCluster: true` and sync.
+The operator scales the cluster to zero and leaves data and configuration intact.
+Set it back to `false` and sync to bring the cluster back.
+
+For permanent removal, set the cleanup options for the outcome you want, sync, then [uninstall](#running-the-deployment):
+
+```yaml
+cleanupMetadata: true  # decommission AIS and remove its state
+cleanupData: true      # also delete buckets and objects, requires cleanupMetadata
+```
+
+See the [redeployment guide](../../docs/redeployment.md) for what each option does and for the PVs and host path files left behind afterward.
 
 ## HTTPS deployment
 
