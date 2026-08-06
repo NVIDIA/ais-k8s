@@ -50,6 +50,15 @@ Refer to [Configure operator TLS and mTLS](../operator/README.md#configure-opera
 > Each client controls this on its own: `ais config cli set cluster.skip_verify_crt true` for the CLI, the `AIS_SKIP_VERIFY_CRT` environment variable for AIS admin client pods, `-k` for `curl`, and `spec.operatorSkipVerifyCrt: true` for the operator.
 > Skipping verification disables TLS protection and exposes clients to man-in-the-middle attacks, so it is *not* recommended for production.
 
+### Exporting the CA certificate
+
+Clients outside the cluster need the CA certificate as a local file.
+Every certificate secret issued by `ca-issuer` carries the root it chains to under `ca.crt`.
+
+```console
+kubectl get secret -n <namespace> <tls-secret> -o jsonpath='{.data.ca\.crt}' | base64 -d > ais_ca.crt
+```
+
 ## AIS cluster
 
 Proxies and targets serve the AIS API over HTTPS once TLS is enabled.
