@@ -1,0 +1,15 @@
+apiVersion: auth.ais.nvidia.com/v1alpha1
+kind: AIStoreAuthProfile
+metadata:
+  name: local-admin
+spec:
+  serviceURL: https://ais-authn.ais.svc.cluster.local:52001
+  usernamePassword:
+    secret:
+      name: ais-authn-su-creds
+      namespace: ais
+  tls:
+    caConfigMapRef:
+      namespace: ais
+      name: aistore.nvidia.com
+      key: ca.crt

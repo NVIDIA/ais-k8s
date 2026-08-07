@@ -165,6 +165,8 @@ deploy_authn() {
     (cd "${HELM_ROOT}/authn" && AUTHN_ADMIN_PASSWORD="$admin_password" helmfile sync -e local)
     echo "Waiting for AuthN deployment..."
     kubectl rollout status deployment/ais-authn -n ais --timeout=120s
+    echo "Creating AIStoreAuthProfile..."
+    kubectl apply -f "${SCRIPT_DIR}/manifests/auth-profile.yaml"
     echo "AuthN service is ready!"
 }
 

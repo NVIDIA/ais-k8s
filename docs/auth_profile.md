@@ -68,3 +68,8 @@ spec:
 ```
 
 The AIStore resource editor's `use` access will be checked by the validating webhook on submission.
+
+See the local deployment with auth for example usage: 
+
+- [AIStoreAuthProfile manifest](../local/manifests/auth-profile.yaml)
+- [Helm values](../helm/ais/config/ais/local-auth.yaml)

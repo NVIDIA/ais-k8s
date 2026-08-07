@@ -53,9 +53,8 @@ configToUpdate:
 
 # Client authN API config used by operator and admin client
 auth:
-  serviceURL: "https://ais-authn.ais.svc.cluster.local:52001"
-  usernamePassword:
-    secretName: ais-authn-su-creds
+  profileRef:
+    name: local-admin
 
 stateStorage:
   pvc:
