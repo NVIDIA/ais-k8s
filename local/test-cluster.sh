@@ -277,7 +277,7 @@ fi
 if $RESET; then
     echo "Re-running cluster setup (skipping cluster creation)..."
     install_prereqs
-elif kind get clusters 2>/dev/null | grep -qw "$CLUSTER_NAME"; then
+elif kind_cluster_exists "$CLUSTER_NAME"; then
     echo "Cluster '${CLUSTER_NAME}' already exists, skipping creation and setup."
 else
     setup_cluster "$CLUSTER_NAME"
