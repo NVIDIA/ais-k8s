@@ -67,6 +67,12 @@ cleanupData: true      # also delete buckets and objects, requires cleanupMetada
 
 See the [redeployment guide](../../docs/redeployment.md) for what each option does and for the PVs and host path files left behind afterward.
 
+### Multihome
+
+Set `multihome.networkAttachment` and `multihome.hostnameMap` in your AIS values file to run the cluster across multiple network interfaces.
+Multus, whereabouts, and the network attachment definitions themselves must already exist in the cluster.
+See the [multihome guide](../../docs/multihome.md).
+
 ## HTTPS deployment
 
 Enable TLS by setting `protocol: https` and a `tls` block in your AIS values file. To have cert-manager generate and manage the cert, enable the `https` release (`https.enabled: true`) in the [helmfile](./helmfile.yaml) with a [config/tls-cert](./config/tls-cert) values file. See the [TLS guide](../../docs/tls.md) for cert options and the self-signed-CA model.

@@ -1,0 +1,23 @@
+# nad-macvlan.yaml
+# This YAML file defines a multus NetworkAttachmentDefinition that gives each AIStore pod a
+# second interface on a macvlan bridge, with IPs assigned by whereabouts.
+# Replace the placeholder values with the host interface and the subnet it sits on.
+# Apply one definition per additional interface, each with its own metadata.name.
+# The namespace must match the AIS cluster namespace.
+apiVersion: "k8s.cni.cncf.io/v1"
+kind: NetworkAttachmentDefinition
+metadata:
+  name: macvlan-conf
+  namespace: ais
+spec:
+  config: '{
+      "cniVersion": "0.3.0",
+      "type": "macvlan",
+      "master": "<host-interface>",
+      "mode": "bridge",
+      "ipam": {
+        "type": "whereabouts",
+        "range": "<cidr>",
+        "gateway": "<gateway-ip>"
+      }
+    }'

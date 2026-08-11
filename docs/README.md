@@ -88,7 +88,7 @@ Again, there are a few deployment options:
 
 **Multihome Deployment**:
   - For a multihome deployment using multiple network interfaces, some extra configuration is required before deploying the cluster.
-  - Refer to the [multihome deployment doc](../playbooks/ais-deployment/docs/deploy_with_multihome.md) for details. 
+  - Refer to the [multihome deployment doc](./multihome.md) for details. 
 
 After deployment, verify all AIS pods are ready and running:
 ```
