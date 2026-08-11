@@ -19,6 +19,7 @@ import (
 func (ais *AIStore) ValidateSpec(_ context.Context) (admission.Warnings, error) {
 	var allWarnings admission.Warnings
 	validations := []func() (admission.Warnings, error){
+		ais.validateDeprecatedFields,
 		ais.validateSize,
 		ais.validateStateStorage,
 		ais.validateShutdownWithEmptyDir,
@@ -133,6 +134,37 @@ func (ais *AIStore) validateSafeDecommission() (admission.Warnings, error) {
 		return admission.Warnings{fmt.Sprintf("scaleDownMode is %q but rebalance is disabled; enable configToUpdate.rebalance.enabled so target data is migrated on scale-down", ScaleDownModeSafeDecommission)}, nil
 	}
 	return nil, nil
+}
+
+// validateDeprecatedFields warns on spec fields that are slated for removal.
+func (ais *AIStore) validateDeprecatedFields() (admission.Warnings, error) {
+	auth := ais.Spec.Auth
+	if auth == nil {
+		auth = &AuthSpec{}
+	}
+	deprecated := []struct {
+		inUse       bool
+		field       string
+		replacement string
+	}{
+		{auth.ServiceURL != nil, "spec.auth.serviceURL", "spec.auth.profileRef"},
+		{auth.UsernamePassword != nil, "spec.auth.usernamePassword", "spec.auth.profileRef"},
+		{auth.TokenExchange != nil, "spec.auth.tokenExchange", "spec.auth.profileRef"},
+		{auth.TLS != nil, "spec.auth.tls", "spec.auth.profileRef"},
+		{ais.Spec.HostpathPrefix != nil, "spec.hostpathPrefix", "spec.stateStorage.hostPath.prefix"},
+		{ais.Spec.StateStorageClass != nil, "spec.stateStorageClass", "spec.stateStorage.pvc.storageClass"},
+		{ais.Spec.EnableExternalLB, "spec.enableExternalLB", "spec.proxySpec.externalAccess and/or spec.targetSpec.externalAccess"},
+		{ais.Spec.ProxySpec.Capabilities != nil, "spec.proxySpec.capabilities", "spec.proxySpec.aisContainerSecurityContext"},
+		{ais.Spec.TargetSpec.Capabilities != nil, "spec.targetSpec.capabilities", "spec.targetSpec.aisContainerSecurityContext"},
+	}
+
+	var warnings admission.Warnings
+	for _, d := range deprecated {
+		if d.inUse {
+			warnings = append(warnings, fmt.Sprintf("%s is deprecated and will be removed in a future release; use %s instead", d.field, d.replacement))
+		}
+	}
+	return warnings, nil
 }
 
 func (ss *ServiceSpec) validate(path *field.Path) field.ErrorList {
