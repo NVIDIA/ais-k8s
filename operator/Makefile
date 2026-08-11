@@ -14,7 +14,7 @@ SEMVER_REGEX = ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-((0|[1-9][0-9
 
 OS = $(shell go env GOOS)
 ARCH = $(shell go env GOARCH)
-PODMAN_BUILDPLATFORM := $(OS)/$(ARCH)
+PODMAN_BUILDPLATFORM := linux/$(ARCH)
 
 REPO = https://github.com/NVIDIA/ais-k8s
 PAGES = https://NVIDIA.github.io/ais-k8s/charts
