@@ -930,7 +930,11 @@ func (r *Reconciler) removeClientDeployment(ctx context.Context, nsName *types.N
 }
 
 func (r *Reconciler) createClientDeployment(ctx context.Context, ais *aisv1.AIStore) error {
-	clientDeploy := adminclient.NewClientDeployment(ais)
+	authConf, err := r.resolveAuthConf(ctx, ais)
+	if err != nil {
+		return err
+	}
+	clientDeploy := adminclient.NewClientDeployment(ais, authConf)
 	if _, createErr := r.k8sClient.CreateOrUpdateResource(ctx, ais, clientDeploy); createErr != nil {
 		return createErr
 	}
@@ -940,7 +944,11 @@ func (r *Reconciler) createClientDeployment(ctx context.Context, ais *aisv1.AISt
 
 // Reconcile an existing admin client deployment to match the AIS spec
 func (r *Reconciler) reconcileClientDeployment(ctx context.Context, ais *aisv1.AIStore, existing *apiv1.Deployment) error {
-	desired := adminclient.NewClientDeployment(ais)
+	authConf, err := r.resolveAuthConf(ctx, ais)
+	if err != nil {
+		return err
+	}
+	desired := adminclient.NewClientDeployment(ais, authConf)
 	modified := existing.DeepCopy()
 	changed, reason := adminclient.SyncDeployment(desired, modified)
 	if !changed {
@@ -949,6 +957,13 @@ func (r *Reconciler) reconcileClientDeployment(ctx context.Context, ais *aisv1.A
 	logger := logf.FromContext(ctx)
 	logger.Info("Reconciled admin client deployment", "name", existing.Name, "reason", reason)
 	return r.k8sClient.Patch(ctx, modified, k8sclient.MergeFrom(existing))
+}
+
+func (r *Reconciler) resolveAuthConf(ctx context.Context, ais *aisv1.AIStore) (services.AuthConfig, error) {
+	if ais.Spec.Auth == nil {
+		return nil, nil
+	}
+	return services.NewAuthNClient(r.k8sClient).ResolveAuthConfig(ctx, ais)
 }
 
 func (r *Reconciler) disableRebalance(ctx context.Context, ais *aisv1.AIStore, reason aisv1.ClusterConditionReason, msg string) error {

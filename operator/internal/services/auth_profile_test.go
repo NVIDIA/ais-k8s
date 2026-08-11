@@ -154,7 +154,7 @@ var _ = Describe("getAuthConfig", func() {
 			},
 		}
 
-		config, err := client.getAuthConfig(context.Background(), ais)
+		config, err := client.ResolveAuthConfig(context.Background(), ais)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(config).To(BeAssignableToTypeOf(&AuthProfileConfig{}))
 		Expect(config.GetServiceURL()).To(Equal("https://auth-provider.ais.svc:52001"))
@@ -185,7 +185,7 @@ var _ = Describe("getAuthConfig", func() {
 			},
 		}
 
-		config, err := client.getAuthConfig(context.Background(), ais)
+		config, err := client.ResolveAuthConfig(context.Background(), ais)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(config).To(BeAssignableToTypeOf(&AuthProfileConfig{}))
 		Expect(config.GetServiceURL()).To(Equal("https://auth-provider.ais.svc:52001"))
@@ -204,7 +204,7 @@ var _ = Describe("getAuthConfig", func() {
 			},
 		}
 
-		_, err := client.getAuthConfig(context.Background(), ais)
+		_, err := client.ResolveAuthConfig(context.Background(), ais)
 		Expect(err).To(MatchError(ContainSubstring(`failed to get AIStoreAuthProfile "missing-profile"`)))
 		Expect(apierrors.IsNotFound(err)).To(BeTrue())
 	})
@@ -224,7 +224,7 @@ var _ = Describe("getAuthConfig", func() {
 			},
 		}
 
-		config, err := client.getAuthConfig(context.Background(), ais)
+		config, err := client.ResolveAuthConfig(context.Background(), ais)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(config).To(BeAssignableToTypeOf(&AuthSpecConfig{}))
 		Expect(config.GetServiceURL()).To(Equal(serviceURL))

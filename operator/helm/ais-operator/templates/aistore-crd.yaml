@@ -1000,7 +1000,7 @@ spec:
                     description: |-
                       Enabled controls whether the admin client deployment is created.
                       When AdminClient is specified without this field, it defaults to true.
-                      Set to false to disable the admin client while preserving other configuration.
+                      Set false to disable the admin client while preserving other configuration.
                     type: boolean
                   env:
                     description: Env allows specifying additional environment variables
@@ -1307,15 +1307,17 @@ spec:
                     type: object
                   serviceURL:
                     description: |-
+                      Deprecated: use profileRef to reference an existing AIStoreAuthProfile. See https://github.com/NVIDIA/ais-k8s/blob/main/docs/auth_profile.md.
                       ServiceURL is the base URL of the AuthN service (scheme + host + optional port, no path)
-                      Supports formats: "http://hostname[:port]" or "https://hostname[:port]"
+                      Format: "scheme://hostname[:port]"
                       TLS is determined from the URL scheme (https = TLS enabled)
                       Port defaults to 80 for http and 443 for https if not specified
-                      If not specified, defaults to "http://ais-authn.ais:52001"
+                      If not specified, defaults to "https://ais-authn.ais:52001"
                     type: string
                   tls:
-                    description: TLS configuration for secure connections with Auth
-                      service
+                    description: |-
+                      Deprecated: use profileRef to reference an existing AIStoreAuthProfile. See https://github.com/NVIDIA/ais-k8s/blob/main/docs/auth_profile.md.
+                      TLS configuration for secure connections with Auth service
                     properties:
                       caCertPath:
                         description: |-
@@ -1331,8 +1333,9 @@ spec:
                     type: object
                   tokenExchange:
                     description: |-
+                      Deprecated: use profileRef to reference an existing AIStoreAuthProfile. See https://github.com/NVIDIA/ais-k8s/blob/main/docs/auth_profile.md.
                       TokenExchange authentication configuration using RFC 8693 OAuth 2.0 Token Exchange
-                      This is the preferred method for workload identity and eliminates the need for static credentials
+                      This eliminates the need for static credentials, so is recommended over UsernamePassword for workload identity
                     properties:
                       tokenExchangeEndpoint:
                         description: |-
@@ -1346,8 +1349,9 @@ spec:
                         type: string
                     type: object
                   usernamePassword:
-                    description: UsernamePassword authentication configuration using
-                      static credentials
+                    description: |-
+                      Deprecated: use profileRef to reference an existing AIStoreAuthProfile. See https://github.com/NVIDIA/ais-k8s/blob/main/docs/auth_profile.md.
+                      UsernamePassword authentication configuration using static credentials
                     properties:
                       loginConf:
                         description: |-

@@ -45,6 +45,9 @@ Here’s how different components interact with AuthN:
 
 If AuthN is enabled for your AIStore cluster, AIS Operator requires a token since it frequently calls AIStore lifecycle APIs. 
 
+> **NOTE:** `spec.auth` fields described below are now **deprecated**.
+> See the [AIStoreAuthProfile profile guide](./auth_profile.md) and configure `spec.auth.profileRef` instead.
+
 The operator supports two authentication modes:
 
 #### Username/Password Authentication
@@ -105,10 +108,10 @@ Set the following environment variable to point to the appropriate AuthN server 
 
 ```bash
 # For external clients
-export AIS_AUTHN_URL=http://<NodePort-service-IP>:30001
+export AIS_AUTHN_URL=https://<NodePort-service-IP>:30001
 
 # For internal clients
-export AIS_AUTHN_URL=http://ais-authn.ais:52001
+export AIS_AUTHN_URL=https://ais-authn.ais:52001
 ```
 
 ## Switching Between HTTP and HTTPS (TLS) for the AuthN Server
@@ -120,7 +123,7 @@ This will automatically redeploy the AuthN server with the updated settings.
 
 We strongly recommend using the [AuthN Helm chart](../helm/authn/README.md) for this process.
 
-This will also require an update to the `auth.serviceURL` used for the operator. 
+This will also require an update to the `spec.auth` fields in the AIStore spec used for cluster-specific operator token issuance.
 See [AIS Operator section above](#ais-operator)
 
 ## Disabling AuthN in an Existing AIStore Deployment

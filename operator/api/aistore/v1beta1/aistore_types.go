@@ -107,8 +107,9 @@ const (
 // NOTE: json tags are required. Any new fields you add must have json tags for the fields to be serialized.
 // IMPORTANT: Run "make" to regenerate code after modifying this file
 
-// AuthSpec defines the configuration for accessing AuthN service
+// AuthSpec configures access to the auth service for this AIS cluster
 // Either ProfileRef or exactly one of UsernamePassword and TokenExchange must be specified
+// UsernamePassword and TokenExchange are deprecated
 // +kubebuilder:validation:XValidation:rule="has(self.profileRef) || (has(self.usernamePassword) != has(self.tokenExchange))",message="exactly one of usernamePassword or tokenExchange must be specified when profileRef is not set"
 type AuthSpec struct {
 	// ProfileRef references the AIStoreAuthProfile holding the auth provider
@@ -119,23 +120,27 @@ type AuthSpec struct {
 	// +optional
 	ProfileRef *AuthProfileRef `json:"profileRef,omitempty"`
 
+	// Deprecated: use profileRef to reference an existing AIStoreAuthProfile. See https://github.com/NVIDIA/ais-k8s/blob/main/docs/auth_profile.md.
 	// ServiceURL is the base URL of the AuthN service (scheme + host + optional port, no path)
-	// Supports formats: "http://hostname[:port]" or "https://hostname[:port]"
+	// Format: "scheme://hostname[:port]"
 	// TLS is determined from the URL scheme (https = TLS enabled)
 	// Port defaults to 80 for http and 443 for https if not specified
-	// If not specified, defaults to "http://ais-authn.ais:52001"
+	// If not specified, defaults to "https://ais-authn.ais:52001"
 	// +optional
 	ServiceURL *string `json:"serviceURL,omitempty"`
 
+	// Deprecated: use profileRef to reference an existing AIStoreAuthProfile. See https://github.com/NVIDIA/ais-k8s/blob/main/docs/auth_profile.md.
 	// UsernamePassword authentication configuration using static credentials
 	// +optional
 	UsernamePassword *UsernamePasswordAuth `json:"usernamePassword,omitempty"`
 
+	// Deprecated: use profileRef to reference an existing AIStoreAuthProfile. See https://github.com/NVIDIA/ais-k8s/blob/main/docs/auth_profile.md.
 	// TokenExchange authentication configuration using RFC 8693 OAuth 2.0 Token Exchange
-	// This is the preferred method for workload identity and eliminates the need for static credentials
+	// This eliminates the need for static credentials, so is recommended over UsernamePassword for workload identity
 	// +optional
 	TokenExchange *TokenExchangeAuth `json:"tokenExchange,omitempty"`
 
+	// Deprecated: use profileRef to reference an existing AIStoreAuthProfile. See https://github.com/NVIDIA/ais-k8s/blob/main/docs/auth_profile.md.
 	// TLS configuration for secure connections with Auth service
 	// +optional
 	TLS *AuthTLSConfig `json:"tls,omitempty"`
@@ -208,7 +213,7 @@ type TokenExchangeAuth struct {
 type AdminClientSpec struct {
 	// Enabled controls whether the admin client deployment is created.
 	// When AdminClient is specified without this field, it defaults to true.
-	// Set to false to disable the admin client while preserving other configuration.
+	// Set false to disable the admin client while preserving other configuration.
 	// +optional
 	Enabled *bool `json:"enabled,omitempty"`
 
@@ -916,21 +921,21 @@ func (ais *AIStore) GetDefaultProxyURL() string {
 	primaryProxy := ais.DefaultPrimaryName()
 	svcName := ais.ProxyStatefulSetName()
 	svcSuffix := ais.getControlSvcSuffix()
-	// Example: http://ais-proxy-0.ais-proxy.ais.svc.cluster.local:51080
+	// Example: https://ais-proxy-0.ais-proxy.ais.svc.cluster.local:51080
 	return fmt.Sprintf("%s://%s.%s.%s.%s", ais.getScheme(), primaryProxy, svcName, ais.Namespace, svcSuffix)
 }
 
 func (ais *AIStore) GetIntraClusterURL() string {
 	svcName := ais.ProxyStatefulSetName()
 	svcSuffix := ais.getPublicSvcSuffix()
-	// Example: http://ais-proxy.ais.svc.cluster.local:51080
+	// Example: https://ais-proxy.ais.svc.cluster.local:51080
 	return fmt.Sprintf("%s://%s.%s.%s", ais.getScheme(), svcName, ais.Namespace, svcSuffix)
 }
 
 func (ais *AIStore) GetDiscoveryProxyURL() string {
 	svcName := ais.ProxyStatefulSetName()
 	svcSuffix := ais.getControlSvcSuffix()
-	// Example: http://ais-proxy.ais.svc.cluster.local:51080
+	// Example: https://ais-proxy.ais.svc.cluster.local:51080
 	return fmt.Sprintf("%s://%s.%s.%s", ais.getScheme(), svcName, ais.Namespace, svcSuffix)
 }
 

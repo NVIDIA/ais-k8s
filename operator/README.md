@@ -99,9 +99,12 @@ spec:
 
 #### Auth Service TLS Configuration
 
-When using auth services with HTTPS, TLS certificate verification is **enabled automatically**. By default, the operator uses the system CA trust store. 
+When using auth services with HTTPS, TLS certificate verification is enabled automatically.
+By default, the operator uses the system CA trust store. 
 
-If your auth service uses an untrusted CA (not in the system trust store), you need to provide the CA certificate using Helm chart values:
+If your auth service uses an untrusted CA (not in the system trust store), there are two options to add trust: 
+1. Provide the CA certificate reference via the [AIStoreAuthProfile spec.tls.caConfigMapRef](../docs/auth_profile.md) (preferred). 
+1. Provide the CA certificate using Helm chart values:
 
 ```yaml
 controllerManager:
@@ -109,18 +112,12 @@ controllerManager:
     authCAConfigmapName: my-auth-ca-bundle  # Name of ConfigMap with auth service CA certificates
 ```
 
-The ConfigMap should contain `.crt` or `.pem` files with your CA certificates. The operator will automatically mount it to `/etc/ssl/certs/auth-ca` and use it for auth service connections.
+In both cases, the ConfigMap should contain `.crt` or `.pem` files with your CA certificates.
+The operator will automatically mount it to `/etc/ssl/certs/auth-ca` and use it for auth service connections.
 
-**For AIStore CRs**: When using auth with HTTPS URLs, the operator automatically uses the CA bundle configured via `authCAConfigmapName`. You typically don't need to set `spec.auth.tls.caCertPath` in the CR unless you have a custom certificate mount:
-
-```yaml
-spec:
-  auth:
-    serviceURL: https://my-auth-service:52001
-    # tls.caCertPath is optional - operator uses its configured CA bundle by default
-```
-
-**Note**: TLS configurations are cached for 6 hours by default to avoid repeated disk I/O. If you update an existing ConfigMap, changes propagate to running pods within ~60 seconds (kubelet sync), and the operator will use new certificates after the cache TTL expires. This can be adjusted via environment variable:
+**Note**: TLS configurations are cached for 6 hours by default to avoid repeated disk I/O. 
+If you update an existing ConfigMap, changes propagate to running pods within ~60 seconds (kubelet sync), and the operator will use new certificates after the cache TTL expires. 
+This can be adjusted via environment variable:
 
 ```yaml
 env:
@@ -201,13 +198,14 @@ spec:
       name: my-ca-bundle
 ```
 
-For clusters with AuthN enabled via `spec.auth.usernamePassword`, the admin client is pre-configured with the AuthN service URL and credentials:
+For clusters with a configured auth profile reference `spec.auth.profileRef`, the admin client is pre-configured with the environment variable `AIS_AUTHN_URL` set to the auth service URL.
 
-| Environment Variable | Source |
-|---|---|
-| `AIS_AUTHN_URL` | `spec.auth.serviceURL` (default: `http://ais-authn.ais:52001`) |
-| `AIS_AUTHN_USERNAME` | `SU-NAME` key from `spec.auth.usernamePassword.secretName` |
-| `AIS_AUTHN_PASSWORD` | `SU-PASS` key from `spec.auth.usernamePassword.secretName` |
+Export credentials:
+
+```bash
+export AIS_AUTHN_USERNAME=admin
+export AIS_AUTHN_PASSWORD=<your-password>
+```
 
 Log in from the client pod:
 

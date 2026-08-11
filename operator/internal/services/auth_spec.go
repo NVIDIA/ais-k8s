@@ -2,6 +2,7 @@
  * Copyright (c) 2024-2026, NVIDIA CORPORATION. All rights reserved.
  */
 
+//nolint:staticcheck // SA1019: AuthSpecConfig intentionally reads deprecated inline auth fields
 package services
 
 import (
@@ -14,7 +15,7 @@ import (
 
 // Auth service API defaults
 const (
-	DefaultAuthNServiceURL = "http://ais-authn.ais:52001"
+	DefaultAuthNServiceURL = "https://ais-authn.ais:52001"
 	DefaultAuthCACertPath  = "/etc/ssl/certs/auth-ca/ca.crt"
 
 	AuthNSecretRefName = "SU-NAME"

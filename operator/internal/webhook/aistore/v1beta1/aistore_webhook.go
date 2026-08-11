@@ -123,14 +123,14 @@ func authSecretNamespace(ais *aisv1.AIStore, up *aisv1.UsernamePasswordAuth) str
 // validateAuthSecret checks user access to spec.auth.usernamePassword:
 // requires "get" on the referenced credentials Secret, checked on every create and update when changed
 func (aisw *AIStoreWebhook) validateAuthSecret(ctx context.Context, prev, ais *aisv1.AIStore) error {
-	if ais.Spec.Auth == nil || ais.Spec.Auth.UsernamePassword == nil {
+	if ais.Spec.Auth == nil || ais.Spec.Auth.UsernamePassword == nil { //nolint:staticcheck // deprecated UsernamePassword field
 		return nil
 	}
-	up := ais.Spec.Auth.UsernamePassword
-	previousEntryExists := prev != nil && prev.Spec.Auth != nil && prev.Spec.Auth.UsernamePassword != nil
+	up := ais.Spec.Auth.UsernamePassword                                                                  //nolint:staticcheck // deprecated UsernamePassword field
+	previousEntryExists := prev != nil && prev.Spec.Auth != nil && prev.Spec.Auth.UsernamePassword != nil //nolint:staticcheck // deprecated UsernamePassword field
 	// Skip SubjectAccessReview if the reference is unchanged
 	if previousEntryExists {
-		previousUP := prev.Spec.Auth.UsernamePassword
+		previousUP := prev.Spec.Auth.UsernamePassword //nolint:staticcheck // deprecated UsernamePassword field
 		if previousUP.SecretName == up.SecretName && authSecretNamespace(prev, previousUP) == authSecretNamespace(ais, up) {
 			return nil
 		}

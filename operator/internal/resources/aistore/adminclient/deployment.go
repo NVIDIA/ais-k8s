@@ -13,6 +13,7 @@ import (
 	aisenv "github.com/NVIDIA/aistore/api/env"
 	aisv1 "github.com/ais-operator/api/aistore/v1beta1"
 	"github.com/ais-operator/internal/resources/aistore/cmn"
+	"github.com/ais-operator/internal/services"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -31,12 +32,6 @@ const (
 	ComponentLabelValue = "client"
 	// CAVolumeName is the name of the volume and volume mount for CA certificates
 	CAVolumeName = "ais-ca"
-
-	// DefaultAuthNServiceURL is the default URL for the AuthN service
-	DefaultAuthNServiceURL = "https://ais-authn.ais:52001"
-	// AuthN secret keys
-	authnSecretKeyUsername = "SU-NAME"
-	authnSecretKeyPassword = "SU-PASS"
 )
 
 func DeploymentNSName(ais *aisv1.AIStore) types.NamespacedName {
@@ -108,7 +103,7 @@ func selectorLabels(ais *aisv1.AIStore) map[string]string {
 	}
 }
 
-func NewClientDeployment(ais *aisv1.AIStore) *appsv1.Deployment {
+func NewClientDeployment(ais *aisv1.AIStore, authConf services.AuthConfig) *appsv1.Deployment {
 	clientSpec := ais.Spec.AdminClient
 	if clientSpec == nil {
 		return nil
@@ -130,7 +125,7 @@ func NewClientDeployment(ais *aisv1.AIStore) *appsv1.Deployment {
 		Name:         "ais-client",
 		Image:        image,
 		Command:      []string{"sleep", "infinity"},
-		Env:          buildClientEnv(ais),
+		Env:          buildClientEnv(ais, authConf),
 		Resources:    clientSpec.Resources,
 		VolumeMounts: volumeMounts,
 	}
@@ -171,48 +166,23 @@ func NewClientDeployment(ais *aisv1.AIStore) *appsv1.Deployment {
 }
 
 // authnEnvVars returns environment variables for AuthN configuration.
-func authnEnvVars(auth *aisv1.AuthSpec) []corev1.EnvVar {
-	if auth == nil || auth.UsernamePassword == nil {
+func authnEnvVars(authConf services.AuthConfig) []corev1.EnvVar {
+	if authConf == nil {
 		return nil
 	}
-	serviceURL := DefaultAuthNServiceURL
-	if auth.ServiceURL != nil {
-		serviceURL = *auth.ServiceURL
+	if url := authConf.GetServiceURL(); url != "" {
+		return []corev1.EnvVar{{Name: aisenv.AisAuthURL, Value: url}}
 	}
-	return []corev1.EnvVar{
-		{Name: "AIS_AUTHN_URL", Value: serviceURL},
-		{
-			Name: "AIS_AUTHN_USERNAME",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: auth.UsernamePassword.SecretName,
-					},
-					Key: authnSecretKeyUsername,
-				},
-			},
-		},
-		{
-			Name: "AIS_AUTHN_PASSWORD",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: auth.UsernamePassword.SecretName,
-					},
-					Key: authnSecretKeyPassword,
-				},
-			},
-		},
-	}
+	return nil
 }
 
-func buildClientEnv(ais *aisv1.AIStore) []corev1.EnvVar {
+func buildClientEnv(ais *aisv1.AIStore, authConf services.AuthConfig) []corev1.EnvVar {
 	clientSpec := ais.Spec.AdminClient
 	base := []corev1.EnvVar{
 		{Name: aisenv.AisEndpoint, Value: ais.GetIntraClusterURL()},
 	}
 	ca := caEnvVars(clientSpec.CAConfigMap)
-	authn := authnEnvVars(ais.Spec.Auth)
+	authn := authnEnvVars(authConf)
 
 	env := make([]corev1.EnvVar, 0, len(base)+len(clientSpec.Env)+len(ca)+len(authn))
 	env = append(env, base...)

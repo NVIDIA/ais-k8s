@@ -37,6 +37,8 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ### Changed
 
+- **BREAKING** Default value for `spec.auth.serviceURL` is now the `https` authN internal service name rather than `http`.
+- Removed automatic injection of admin credentials into the admin client pod.
 - AIStore TLS certificate SANs are now sorted and deduplicated before populating Certificate resources and CSI volume attributes.
 - AIStore TLS certificates are now provisioned consistently across `mode: secret` and `mode: csi` (both modes set the same key usages and apply `tls.certificate.duration` and `tls.certificate.renewBefore` when specified).
   - When those lifetime fields are unset, both modes use cert-manager's own defaults (the operator no longer substitutes an 8760h lifetime and a 720h renewal window in `mode: secret`).
@@ -48,6 +50,11 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 - Proxy controller now requires primary proxy candidates to be fully ready and on the latest revision before re-assigning the primary ahead of scale down. 
 - When autoscaling is enabled, the desired cluster size is now computed based on the union of (nodes where AIStore is currently running) and (nodes where AIStore is schedulable). This fixes an issue where marking a node unschedulable but not evicting the AIStore pods on it would cause the cluster to scale 
 down unnecessarily. Note that this will only take effect once a rollout to proxy and target statefulsets happens.
+
+### Deprecated
+
+- Deprecated individual `spec.auth` options in favor of the new `spec.auth.profileRef`. See [authn_profile](../docs/auth_profile.md)
+  - These will be removed in the next major release.
 
 ---
 

@@ -11,7 +11,7 @@ spec:
   # AuthN configuration using username/password
   auth:
     # AuthN service URL (scheme determines TLS: https = TLS enabled, http = TLS disabled)
-    serviceURL: https://ais-authn.ais:52001  # Optional, defaults to "http://ais-authn.ais:52001"
+    serviceURL: https://ais-authn.ais:52001  # Optional, defaults to "https://ais-authn.ais:52001"
     
     # Username/password authentication (exactly one of usernamePassword or tokenExchange must be set)
     usernamePassword:
@@ -53,7 +53,7 @@ spec:
   auth:
     # AuthN service URL (scheme determines TLS: https = TLS enabled, http = TLS disabled)
     # Port is optional: defaults to 443 for https, 80 for http
-    serviceURL: https://ais-authn.ais  # Optional, defaults to "http://ais-authn.ais:52001"
+    serviceURL: https://ais-authn.ais  # Optional, defaults to "https://ais-authn.ais:52001"
     
     # Token exchange authentication (exactly one of usernamePassword or tokenExchange must be set)
     tokenExchange:

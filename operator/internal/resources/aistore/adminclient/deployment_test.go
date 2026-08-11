@@ -5,8 +5,12 @@
 package adminclient
 
 import (
+	"context"
+	"crypto/tls"
+
 	"github.com/NVIDIA/aistore/api/apc"
 	aisv1 "github.com/ais-operator/api/aistore/v1beta1"
+	"github.com/ais-operator/internal/services"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -34,7 +38,7 @@ var _ = Describe("Admin Client Deployment", Label("short"), func() {
 			ais := baseAIS()
 			ais.Spec.ImagePullSecrets = []corev1.LocalObjectReference{{Name: "registry-creds"}}
 
-			deployment := NewClientDeployment(ais)
+			deployment := NewClientDeployment(ais, nil)
 			podSpec := deployment.Spec.Template.Spec
 
 			Expect(podSpec.ServiceAccountName).To(Equal("default"))
@@ -45,7 +49,7 @@ var _ = Describe("Admin Client Deployment", Label("short"), func() {
 		It("should reconcile service account security settings", func() {
 			ais := baseAIS()
 			ais.Spec.ImagePullSecrets = []corev1.LocalObjectReference{{Name: "registry-creds"}}
-			desired := NewClientDeployment(ais)
+			desired := NewClientDeployment(ais, nil)
 			current := desired.DeepCopy()
 			current.Spec.Template.Spec.ServiceAccountName = "test-ais-sa"
 			current.Spec.Template.Spec.AutomountServiceAccountToken = apc.Ptr(true)
@@ -61,78 +65,39 @@ var _ = Describe("Admin Client Deployment", Label("short"), func() {
 		})
 	})
 
-	Describe("authnEnvVars", func() {
-		It("should return nil when auth is nil", func() {
-			Expect(authnEnvVars(nil)).To(BeNil())
-		})
-
-		It("should return nil when auth uses tokenExchange only", func() {
-			auth := &aisv1.AuthSpec{
-				TokenExchange: &aisv1.TokenExchangeAuth{},
-			}
-			Expect(authnEnvVars(auth)).To(BeNil())
-		})
-
-		It("should return env vars when auth uses usernamePassword", func() {
-			auth := &aisv1.AuthSpec{
-				ServiceURL: apc.Ptr("https://authn.example.com:52001"),
-				UsernamePassword: &aisv1.UsernamePasswordAuth{ //nolint:gosec // test credentials
-					SecretName: "my-authn-creds",
-				},
-			}
-			envVars := authnEnvVars(auth)
-			Expect(envVars).To(HaveLen(3))
-			Expect(envVars[0]).To(Equal(corev1.EnvVar{
-				Name:  "AIS_AUTHN_URL",
-				Value: "https://authn.example.com:52001",
-			}))
-			Expect(envVars[1].Name).To(Equal("AIS_AUTHN_USERNAME"))
-			Expect(envVars[1].ValueFrom.SecretKeyRef.Name).To(Equal("my-authn-creds"))
-			Expect(envVars[1].ValueFrom.SecretKeyRef.Key).To(Equal("SU-NAME"))
-			Expect(envVars[2].Name).To(Equal("AIS_AUTHN_PASSWORD"))
-			Expect(envVars[2].ValueFrom.SecretKeyRef.Name).To(Equal("my-authn-creds"))
-			Expect(envVars[2].ValueFrom.SecretKeyRef.Key).To(Equal("SU-PASS"))
-		})
-
-		It("should use default URL when serviceURL is nil", func() {
-			auth := &aisv1.AuthSpec{
-				UsernamePassword: &aisv1.UsernamePasswordAuth{
-					SecretName: "creds",
-				},
-			}
-			envVars := authnEnvVars(auth)
-			Expect(envVars).To(HaveLen(3))
-			Expect(envVars[0].Value).To(Equal(DefaultAuthNServiceURL))
-		})
-	})
-
-	Describe("buildClientEnv with AuthN", func() {
-		It("should include authn env vars when auth is configured", func() {
+	Describe("NewClientDeployment AuthN env", func() {
+		It("should set AIS_AUTHN_URL from the resolved service URL", func() {
 			ais := baseAIS()
-			ais.Spec.Auth = &aisv1.AuthSpec{
-				ServiceURL: apc.Ptr("https://authn.test:52001"),
-				UsernamePassword: &aisv1.UsernamePasswordAuth{
-					SecretName: "test-creds",
-				},
-			}
-			env := buildClientEnv(ais)
-			envNames := make([]string, len(env))
-			for i, e := range env {
-				envNames[i] = e.Name
-			}
-			Expect(envNames).To(ContainElements("AIS_AUTHN_URL", "AIS_AUTHN_USERNAME", "AIS_AUTHN_PASSWORD"))
+			deploy := NewClientDeployment(ais, &fakeAuthConfig{serviceURL: "https://authn.test:52001"})
+			Expect(deploy.Spec.Template.Spec.Containers[0].Env).To(ContainElement(corev1.EnvVar{
+				Name:  "AIS_AUTHN_URL",
+				Value: "https://authn.test:52001",
+			}))
 		})
 
 		It("should not include authn env vars when auth is nil", func() {
 			ais := baseAIS()
-			env := buildClientEnv(ais)
-			envNames := make([]string, len(env))
-			for i, e := range env {
-				envNames[i] = e.Name
+			deploy := NewClientDeployment(ais, nil)
+			for _, e := range deploy.Spec.Template.Spec.Containers[0].Env {
+				Expect(e.Name).NotTo(Equal("AIS_AUTHN_URL"))
 			}
-			Expect(envNames).NotTo(ContainElement("AIS_AUTHN_URL"))
-			Expect(envNames).NotTo(ContainElement("AIS_AUTHN_USERNAME"))
-			Expect(envNames).NotTo(ContainElement("AIS_AUTHN_PASSWORD"))
 		})
 	})
 })
+
+// fakeAuthConfig is a test double for services.AuthConfig.
+type fakeAuthConfig struct {
+	serviceURL string
+}
+
+func (f *fakeAuthConfig) GetServiceURL() string                     { return f.serviceURL }
+func (*fakeAuthConfig) IsTokenExchange() bool                       { return false }
+func (*fakeAuthConfig) GetTokenPath() string                        { return "" }
+func (*fakeAuthConfig) GetTokenExchangeEndpoint() string            { return "" }
+func (*fakeAuthConfig) GetOAuthLoginConf() *services.OAuthLoginConf { return nil }
+func (*fakeAuthConfig) GetSecretName() string                       { return "" }
+func (*fakeAuthConfig) GetSecretNamespace() string                  { return "" }
+func (*fakeAuthConfig) GetUserKey() string                          { return "" }
+func (*fakeAuthConfig) GetPassKey() string                          { return "" }
+
+func (*fakeAuthConfig) GetTLSConfig(context.Context) (*tls.Config, error) { return nil, nil }

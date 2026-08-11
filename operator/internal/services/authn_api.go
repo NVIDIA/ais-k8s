@@ -187,7 +187,7 @@ func (c *AuthNClient) getAdminToken(ctx context.Context, ais *aisv1.AIStore) (*T
 	if ais.Spec.Auth == nil {
 		return nil, nil
 	}
-	authConf, err := c.getAuthConfig(ctx, ais)
+	authConf, err := c.ResolveAuthConfig(ctx, ais)
 	if err != nil || authConf == nil {
 		return nil, err
 	}
@@ -206,9 +206,9 @@ func (c *AuthNClient) getAdminToken(ctx context.Context, ais *aisv1.AIStore) (*T
 	return c.getTokenViaPassword(ctx, baseParams, authConf)
 }
 
-// getAuthConfig resolves the auth provider for the cluster, preferring the referenced
+// ResolveAuthConfig resolves the auth provider for the cluster, preferring the referenced
 // AIStoreAuthProfile over the inline spec.auth fields
-func (c *AuthNClient) getAuthConfig(ctx context.Context, ais *aisv1.AIStore) (AuthConfig, error) {
+func (c *AuthNClient) ResolveAuthConfig(ctx context.Context, ais *aisv1.AIStore) (AuthConfig, error) {
 	logger := logf.FromContext(ctx)
 	spec := ais.Spec.Auth
 
@@ -221,7 +221,7 @@ func (c *AuthNClient) getAuthConfig(ctx context.Context, ais *aisv1.AIStore) (Au
 		config = &AuthProfileConfig{profile: profile, k8sClient: c.k8sClient}
 	} else {
 		// Validate that exactly one auth method is configured
-		if spec.TokenExchange == nil && spec.UsernamePassword == nil {
+		if spec.TokenExchange == nil && spec.UsernamePassword == nil { //nolint:staticcheck // deprecated inline auth fields
 			return nil, fmt.Errorf("invalid auth service configuration: exactly one of usernamePassword or tokenExchange must be specified")
 		}
 		config = &AuthSpecConfig{spec: spec, namespace: ais.Namespace}
