@@ -125,12 +125,32 @@ deploy_operator_remote() {
     (cd "${HELM_ROOT}/operator" && helmfile sync -e local)
 }
 
+wait_for_webhook_endpoints() {
+    local deadline=$((SECONDS + 60))
+    echo "Waiting for AIS operator webhook endpoints..."
+    while true; do
+        if kubectl get endpoints ais-operator-webhook-service \
+            -n ais-operator-system -o jsonpath='{.subsets[*].addresses[*].ip}' 2>/dev/null \
+            | grep -q .; then
+            # Brief settle so kube-proxy can program the new endpoint before apply.
+            sleep 2
+            return 0
+        fi
+        if ((SECONDS >= deadline)); then
+            echo "Error: ais-operator-webhook-service has no ready endpoints" >&2
+            exit 1
+        fi
+        sleep 1
+    done
+}
+
 wait_for_operator() {
     echo "Waiting for AIS operator rollout to complete..."
     kubectl rollout status deployment/ais-operator-controller-manager \
         -n ais-operator-system --timeout=120s
     kubectl wait --for=condition=Available --timeout=120s \
         apiservice/v1beta1.ais.nvidia.com
+    wait_for_webhook_endpoints
     echo "AIS operator is ready!"
 }
 
