@@ -1,0 +1,47 @@
+#
+# Removes metadata from the AIS mountpaths on the given hosts. This covers the volume
+# metadata identifying a target's disks (.ais.vmd), the on-disk copies of the cluster
+# map (.ais.smap) and bucket metadata (.ais.bmd), and the operation markers
+# (.ais.markers).
+#
+# clean_data=true additionally removes the bucket directories and all objects held
+# on those mountpaths. This cannot be undone.
+#
+# clean_state=true additionally removes metadata under the state directory.
+#
+---
+- name: Remove AIS metadata from hosts
+  hosts: "{{ ais_hosts }}"
+  gather_facts: true
+  become: true
+  vars_files:
+    - "vars/ais_datafs.yml"
+
+  pre_tasks:
+    - name: Validate devices
+      include_role:
+        name: validate_devices
+
+    - name: Confirm cleanup
+      pause:
+        prompt: |
+          The following will be removed from every host in '{{ ais_hosts }}':
+
+            AIS metadata under {{ mpath_prefix }}/<device> for: {{ ais_devices | join(', ') }}
+          {% if clean_state | default(false) | bool %}
+            AIS metadata under {{ state_prefix }}
+          {% endif %}
+          {% if clean_data | default(false) | bool %}
+            ALL bucket data on those mountpaths. Objects are not recoverable.
+          {% endif %}
+
+          Type 'yes' to continue, or anything else to abort.
+      register: cleanup_confirm
+
+    - name: Verify cleanup confirmation
+      fail:
+        msg: "cleanup not confirmed"
+      when: cleanup_confirm.user_input | lower != "yes"
+
+  roles:
+    - ais_cleanup

@@ -11,15 +11,16 @@ For playbooks related to cloud configuration, see [cloud](../cloud/README.md)
 Each playbook is documented separately.
 See the links in the first column below.
 
-| Playbook(s)                                                    | Purpose                                                                                                                   |
-|----------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
-| [ais_host_config_common](docs/ais_host_config_common.md)       | Tune worker nodes                                                                                                         |
-| [ais_host_config_sysctl](docs/ais_host_config_sysctl.md)       | Tune worker node sysctl settings                                                                                          |
-| ais_host_config_pcm                                            | Install the [Intel PCM tool](https://github.com/intel/pcm)                                                                |
-| [ais_datafs_mkfs](docs/ais_datafs.md)                          | Create or recreate filesystems for AIStore                                                                                |
-| [config_kubelet](docs/config_kubelet.md)                       | Enable K8s settings that must be set at a kubelet service level, e.g. unsafe sysctls                                      |
-| ais_gpuhost_config                                             | Configure GPU compute nodes in the same cluster - install NVIDIA Docker 2, NVIDIA container runtime, etc.                 |
-| [ais_gpu_host_config (EXPERIMENTAL)](./ais_gpuhost_config.yml) | Additional setup to use Nvidia GPUs on hosts. This playbook is experimental, so check the roles and use at your own risk. |
+| Playbook(s)                                                    | Purpose                                                                                                                                 |
+|----------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------|
+| [ais_host_config_common](docs/ais_host_config_common.md)       | Tune worker nodes                                                                                                                       |
+| [ais_host_config_sysctl](docs/ais_host_config_sysctl.md)       | Tune worker node sysctl settings                                                                                                        |
+| ais_host_config_pcm                                            | Install the [Intel PCM tool](https://github.com/intel/pcm)                                                                              |
+| [ais_datafs_mkfs](docs/ais_datafs.md)                          | Create or recreate filesystems for AIStore                                                                                              |
+| [ais_cleanup](./ais_cleanup.yml)                               | Remove AIStore metadata from the AIS mountpaths, and optionally the state directory (destroys all cluster data with `clean_data=true`). |
+| [config_kubelet](docs/config_kubelet.md)                       | Enable K8s settings that must be set at a kubelet service level, e.g. unsafe sysctls                                                    |
+| ais_gpuhost_config                                             | Configure GPU compute nodes in the same cluster - install NVIDIA Docker 2, NVIDIA container runtime, etc.                               |
+| [ais_gpu_host_config (EXPERIMENTAL)](./ais_gpuhost_config.yml) | Additional setup to use Nvidia GPUs on hosts. This playbook is experimental, so check the roles and use at your own risk.               |
 
 The `ais_host_config_common` playbook includes a tagging scheme to allow
 more granular selection of tasks and to skip tasks that are likely site-specific.

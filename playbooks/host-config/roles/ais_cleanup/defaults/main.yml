@@ -1,0 +1,4 @@
+mpath_prefix: /ais
+state_prefix: /etc/ais
+clean_data: false
+clean_state: false

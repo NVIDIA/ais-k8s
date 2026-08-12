@@ -1,0 +1,8 @@
+---
+- name: Remove AIS metadata from mountpaths
+  ansible.builtin.script: >-
+    clean-mpaths.sh
+    -p {{ mpath_prefix | quote }}
+    {{ '-d' if clean_data | bool else '' }}
+    {{ ('-s ' ~ (state_prefix | quote)) if clean_state | bool else '' }}
+    {{ ais_devices | map('quote') | join(' ') }}
