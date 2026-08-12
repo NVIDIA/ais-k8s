@@ -64,3 +64,34 @@ Running `helm uninstall` will not delete them.
 
 To remove all PVs for a given cluster, delete them manually with `kubectl delete pv -l cluster=<cluster>`.
 Note that these are created as hostPath PVs, so the data on the underlying disks will not be deleted by PV deletion.
+
+## Target Indices
+
+Each PV is reserved for one target through its `claimRef`, so every node holding PVs owns a target index.
+The Job derives the taken indices by reading the `claimRef` names of existing PVs, then assigns the free indices in `0` to `N-1` in ascending order, where `N` is the number of labeled target nodes.
+Freed indices are reused, so an index released in the middle of the range is filled before the range grows.
+
+If every index is taken but a labeled node still lacks PVs, the Job reports the PVs to remove and exits with an error.
+
+### Freeing an index
+
+An index stays taken for as long as PVs claim it, including after the target's pod is gone.
+Deleting the PVCs alone is not enough: the PVs move to `Released` and keep the `claimRef` of the deleted PVC.
+
+To release index `<n>`, delete its PVCs and then its PVs:
+
+```bash
+kubectl delete pv -l cluster=<cluster>,target-index=<n>
+```
+
+PVs created before the `target-index` label was added do not match that selector.
+Their `claimRef` still names the claim, so select on it instead:
+
+```bash
+kubectl get pv -l cluster=<cluster> --no-headers \
+  -o custom-columns=NAME:.metadata.name,CLAIM:.spec.claimRef.name \
+  | awk '$2 ~ /-ais-target-<n>$/ {print $1}' \
+  | xargs -r kubectl delete pv
+```
+
+The next run assigns that index to a labeled node without PVs.

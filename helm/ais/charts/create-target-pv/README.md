@@ -50,6 +50,10 @@ The reclaim policy is `Retain`, so the data on the underlying disks is left in p
 
 ## PV Removal
 
+A node that is no longer discovered drops out of the rendered release, so the next sync deletes its PVs.
+This applies whether the node lost the target label or the Node object itself was deleted.
+A PV still bound to a target PVC stays in `Terminating` until that PVC is deleted, and will not accept a new claim in the meantime.
+
 To remove all PVs for a given cluster, delete them manually with `kubectl delete pv -l cluster=<cluster>`.
 [cleanup-data-pvs.sh](../../scripts/cleanup-data-pvs.sh) deletes the target PVCs first and then the released PVs.
 Re-running `helmfile sync` recreates the PVs so they can bind again.

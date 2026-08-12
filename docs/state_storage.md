@@ -17,3 +17,18 @@ This all leads to the introduction of `stateStorage.pvc.storageClass` as the rec
 
 When `stateStorage.pvc.storageClass` is set to a compatible storage class, the operator will automatically configure a _dynamic_ local volume.
 This simplifies volume management in our StatefulSets, as volumes are automatically created and deleted according to the required persistent volume claims (PVCs).
+
+## Node Affinity
+
+A local storage class, set through `stateStorage.pvc.storageClass`, ties its pod to a node.
+The provisioner creates the volume on a single node and sets a `nodeAffinity` on the PersistentVolume so it can only be used from there.
+The claim makes that placement permanent, since a bound PVC's spec is immutable and cannot be pointed at a volume on another node.
+
+Moving a pod to a different node therefore means deleting its state PVC.
+The StatefulSet recreates it, and a new volume is provisioned wherever the pod is next scheduled.
+
+Under this mode, every proxy and target has a state claim.
+A target is also held by a data volume per mount path, but for a proxy the state claim is the only thing tying it to a node.
+
+The other state storage modes place no such constraint.
+`stateStorage.hostPath.prefix` mounts a host directory directly and `stateStorage.emptyDir` is ephemeral, neither of which involves a claim.

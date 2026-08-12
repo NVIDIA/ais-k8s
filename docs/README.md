@@ -12,6 +12,7 @@ This document provides guidance for deploying [AIStore](https://github.com/NVIDI
 1. [**Post-Deployment Steps**](#post-deployment-steps)
    - [Setting Up a Debugging Pod](#setting-up-a-debugging-pod)
    - [Redeployment](#redeployment)
+   - [Node Replacement](#node-replacement)
    - [Monitoring](#monitoring)
    - [Performance Testing with aisloader](#performance-testing-with-aisloader)
 1. [**Troubleshooting Help**](#troubleshooting)
@@ -116,6 +117,10 @@ See the [operator documentation](../operator/README.md#deploying-an-admin-client
 ### Redeployment
 
 For guidance on decommissioning and redeploying an AIS cluster, see the [redeployment guide](redeployment.md).
+
+### Node Replacement
+
+To move a proxy and target off a failed or retired node onto a replacement, see the [node replacement guide](node_replacement.md).
 
 ### Monitoring
 

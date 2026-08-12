@@ -14,7 +14,6 @@ The playbooks are broken up into multiple sections, which should be executed in 
 1. [host-config](./host-config/README.md) playbooks configure K8s nodes to optimize the network and storage performance
 2. [cloud](./cloud/README.md) playbooks set up K8s secrets with static credentials for accessing cloud backends, e.g. s3 and gcp
 3. (optional) [security](./security/README.md) contains the [`os-hardening` playbook](security/os_hardening.yaml) to harden the OS for CISCAT scans. This includes various security measures such as configuring sysctl settings, journald, sshd, and ensuring audit logs and AIDE setup.
-4. [**DEPRECATED -- Use [Helm Charts](../helm)**] [ais-deployment](./ais-deployment/README.md) playbooks related to a deployed cluster and data cleanup
 
 An example hosts file is provided, [hosts-example.ini](./hosts-example.ini). You will need to set this up with your own hosts before running the playbooks.
 Make sure to specify the `controller` node in the `hosts.ini` file and configure the controller host with `kubectl` access.
