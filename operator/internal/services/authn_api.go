@@ -191,10 +191,15 @@ func (c *AuthNClient) getAdminToken(ctx context.Context, ais *aisv1.AIStore) (*T
 	if err != nil || authConf == nil {
 		return nil, err
 	}
+	logger := logf.FromContext(ctx)
+	logger.Info("Using auth service configuration",
+		"profileRef", ais.Spec.Auth.ProfileRef,
+		"serviceURL", authConf.GetServiceURL(),
+		"tokenExchange", authConf.IsTokenExchange())
 
 	baseParams, err := newAuthBaseParams(ctx, authConf)
 	if err != nil {
-		logf.FromContext(ctx).Error(err, "Failed to create auth service base params")
+		logger.Error(err, "Failed to create auth service base params")
 		return nil, fmt.Errorf("failed to create auth service base params: %w", err)
 	}
 
@@ -209,7 +214,6 @@ func (c *AuthNClient) getAdminToken(ctx context.Context, ais *aisv1.AIStore) (*T
 // ResolveAuthConfig resolves the auth provider for the cluster, preferring the referenced
 // AIStoreAuthProfile over the inline spec.auth fields
 func (c *AuthNClient) ResolveAuthConfig(ctx context.Context, ais *aisv1.AIStore) (AuthConfig, error) {
-	logger := logf.FromContext(ctx)
 	spec := ais.Spec.Auth
 
 	var config AuthConfig
@@ -226,12 +230,6 @@ func (c *AuthNClient) ResolveAuthConfig(ctx context.Context, ais *aisv1.AIStore)
 		}
 		config = &AuthSpecConfig{spec: spec, namespace: ais.Namespace}
 	}
-
-	logger.Info("Using auth service configuration",
-		"profileRef", spec.ProfileRef,
-		"serviceURL", config.GetServiceURL(),
-		"tokenExchange", config.IsTokenExchange())
-
 	return config, nil
 }
 
