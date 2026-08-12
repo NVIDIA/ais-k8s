@@ -1,3 +1,0 @@
-# Name of the Network Attachment Definition to be referenced as an annotation by the AIS stateful set
-# See the multus example: https://github.com/k8snetworkplumbingwg/multus-cni/blob/master/docs/quickstart.md#storing-a-configuration-as-a-custom-resource
-network_attachment: ""

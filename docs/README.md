@@ -80,11 +80,10 @@ With the AIS Operator deployed, the next step is to configure and deploy an AISt
 Again, there are a few deployment options:
 
 1. **Helm Charts (recommended)** -- See [AIS Helm Charts](../helm/README.md)
-2. **Ansible Playbooks (deprecated)** -- Refer to the [Ansible Playbook docs](../playbooks/ais-deployment/README.md) for details
-3. **Manual resource creation (advanced)**
+2. **Manual resource creation (advanced)**
     - If you want to manage everything yourself, it is possible to create the required namespace, PVs, secrets, and AIStore custom resource separately.
     - The AIS Operator will create all the other K8s resources based on the AIS spec (configmaps, statefulsets, services, pods, etc.).
-    - Reference our [samples](./samples), [helm template](../helm/ais/charts/ais-cluster/templates/ais.yaml), and commands used in the [ansible playbooks](../playbooks/ais-deployment).
+    - Reference the [charts](../helm/ais/charts) for the manifests behind each of these resources, and the [storage volumes doc](./storage_volumes.md) for PV creation guidance.
 
 **Multihome Deployment**:
   - For a multihome deployment using multiple network interfaces, some extra configuration is required before deploying the cluster.

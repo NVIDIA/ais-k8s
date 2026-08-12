@@ -1,3 +1,0 @@
-cluster_domain: cluster.local
-issuer_name: ca-issuer
-cert_name: ais-server-cert
