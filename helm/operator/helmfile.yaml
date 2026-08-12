@@ -1,65 +1,52 @@
 environments:
+  # Local / sample envs — values stay in ais-k8s
   default:
     values:
-    - valuesPath: ./config/operator/default.yaml
-    - createCert:
-        enabled: false
-        valuesPath: ./config/tls-cert/default.yaml
+      - valuesPath: ./config/operator/default.yaml
+        createCert:
+          enabled: false
+
   local:
     values:
       - valuesPath: ./config/operator/local.yaml
-      - createCert:
+        createCert:
           enabled: true
           valuesPath: ./config/tls-cert/local.yaml
+
   keycloak:
     values:
-    - valuesPath: ./config/operator/keycloak.yaml
-    - createCert:
-        enabled: false
-        valuesPath: ./config/tls-cert/keycloak.yaml
+      - valuesPath: ./config/operator/keycloak.yaml
+        createCert:
+          enabled: false
+
+  # Deployed envs — all env values (valuesPath, createCert, version) in ais-infra
   oci-iad:
     values:
-    - version: 3.2.0
-    - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/operator/config/operator/oci-iad.yaml?ref=main"
-    - createCert:
-        enabled: false
+      - "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/operator/config/env/oci-iad.yaml?ref=main"
+
   oci-ord:
     values:
-    - version: 2.19.0
-    - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/operator/config/operator/oci-ord.yaml?ref=main"
-    - createCert:
-        enabled: false
+      - "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/operator/config/env/oci-ord.yaml?ref=main"
+
   oci-nrt:
     values:
-    - version: 2.19.0
-    - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/operator/config/operator/oci-nrt.yaml?ref=main"
-    - createCert:
-        enabled: false
+      - "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/operator/config/env/oci-nrt.yaml?ref=main"
+
   sjc4-1000:
     values:
-      - valuesPath: ./config/operator/default.yaml
-      - createCert:
-          enabled: true
-          valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/operator/config/tls-cert/sjc4-1000.yaml?ref=main"
+      - "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/operator/config/env/sjc4-1000.yaml?ref=main"
+
   sjc11:
     values:
-    - valuesPath: ./config/operator/default.yaml
-    - createCert:
-        enabled: true
-        valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/operator/config/tls-cert/sjc11.yaml?ref=main"
+      - "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/operator/config/env/sjc11.yaml?ref=main"
+
   sjc4-dev:
     values:
-    - valuesPath: ./config/operator/default.yaml
-    - createCert:
-        enabled: true
-        valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/operator/config/tls-cert/sjc4-dev.yaml?ref=main"
+      - "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/operator/config/env/sjc4-dev.yaml?ref=main"
 
   sjc112:
     values:
-    - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/operator/config/operator/sjc112.yaml?ref=main"
-    - createCert:
-        enabled: true
-        valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/operator/config/tls-cert/sjc112.yaml?ref=main"
+      - "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/operator/config/env/sjc112.yaml?ref=main"
 ---
 repositories:
   - name: aistore
