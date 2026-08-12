@@ -53,62 +53,9 @@ class K8sManager:
             },
         }
 
-    def define_hostpath_pod_manifest(self, pod_config, node_name, volumes, command,
-                                      role=""):
-        volume_mounts = [{"name": name, "mountPath": path} for name, path in volumes]
-        volume_specs = [{"name": name, "hostPath": {"path": path}} for name, path in volumes]
-        safe_node = node_name.replace(".", "-")
-        return {
-            "apiVersion": "v1",
-            "kind": "Pod",
-            "metadata": {
-                "name": pod_config.name.format(role=role, node_name=safe_node),
-                "namespace": self.cluster_ns,
-                "labels": pod_config.labels,
-            },
-            "spec": {
-                "affinity": {
-                    "nodeAffinity": {
-                        "requiredDuringSchedulingIgnoredDuringExecution": {
-                            "nodeSelectorTerms": [
-                                {
-                                    "matchExpressions": [
-                                        {
-                                            "key": "kubernetes.io/hostname",
-                                            "operator": "In",
-                                            "values": [node_name],
-                                        }
-                                    ]
-                                }
-                            ]
-                        }
-                    }
-                },
-                "restartPolicy": "Never",
-                "containers": [
-                    {
-                        "name": pod_config.container_name,
-                        "image": pod_config.image,
-                        "command": ["sh", "-ce", command],
-                        "volumeMounts": volume_mounts,
-                    }
-                ],
-                "volumes": volume_specs,
-            },
-        }
-
     def create_pods(self, pod_config, pvc_names):
         for pvc in pvc_names:
             manifest = self.define_pod_manifest(pod_config, pvc)
-            self.k8s_client.create_namespaced_pod(
-                namespace=self.cluster_ns, body=manifest
-            )
-
-    def create_hostpath_pods(self, pod_config, nodes, volumes, command, role=""):
-        for node in nodes:
-            manifest = self.define_hostpath_pod_manifest(
-                pod_config, node, volumes, command, role=role
-            )
             self.k8s_client.create_namespaced_pod(
                 namespace=self.cluster_ns, body=manifest
             )
@@ -185,10 +132,6 @@ class K8sManager:
         else:
             print("Found pvcs: ", pvc_names)
         return pvc_names
-
-    def find_nodes_by_label(self, label_selector):
-        nodes = self.k8s_client.list_node(label_selector=label_selector)
-        return [node.metadata.name for node in nodes.items]
 
     def list_pods_matching_label(self, label_selector):
         return self.k8s_client.list_namespaced_pod(

@@ -56,4 +56,3 @@ Backup, delete, and restore work by checking for existing PVCs that are used for
 They create pods that mount those PVCs and then execute a specific command to access or modify the state data, then remove the pods when finished.
 
 Clean-pv follows the same pattern but targets data PVs by storage class.
-Clean-host discovers nodes by AIS labels, creates pods with hostPath mounts pinned to each node, and runs cleanup commands directly.

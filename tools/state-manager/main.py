@@ -8,13 +8,12 @@ from typing import List, Optional
 
 from ais_metadata import AISMetadata
 from backup_creator import BackupCreator
-from cleanup_runner import CleanupRunner
 from deletion_runner import DeletionRunner
 from k8s_manager import K8sManager
 from pod_config import PodConfig
 from restore_runner import RestoreRunner
 
-ACTIONS = ["backup", "delete", "restore", "clean-pv", "clean-host"]
+ACTIONS = ["backup", "delete", "restore", "clean-pv"]
 
 
 def backup(manager: K8sManager):
@@ -113,28 +112,6 @@ def clean_pv(manager: K8sManager, clean_state: bool, clean_data: bool,
     runner.delete()
 
 
-def clean_host(manager: K8sManager, clean_state: bool, clean_data: bool,
-               mount_paths: list, hostpath_prefix: Optional[str] = None):
-    """
-    Cleans state (.ais.*) and/or data (@*) from host disk paths.
-    :param manager: K8s manager for interfacing with k8s
-    :param clean_state: Whether to remove .ais.* state files
-    :param clean_data: Whether to remove @* data directories
-    :param mount_paths: Host mount paths for target data
-    :param hostpath_prefix: Host path prefix for proxy state
-    """
-    pod_config = PodConfig(
-        name=f"clean-host-{manager.cluster_name}-" + "{role}-{node_name}",
-        image="busybox:latest",
-        container_name="clean",
-        command=[],
-        exec_cmd="",
-        labels={"app.kubernetes.io/name": f"{manager.cluster_name}-clean"},
-    )
-    runner = CleanupRunner(manager, pod_config, clean_state, clean_data)
-    manager.delete_pods(pod_config)
-    runner.clean_host(mount_paths, hostpath_prefix=hostpath_prefix)
-
 
 def create_arg_parser():
     parser = argparse.ArgumentParser(
@@ -159,23 +136,15 @@ def create_arg_parser():
     )
     parser.add_argument(
         "--state", action="store_true",
-        help="(clean-pv/clean-host) Remove .ais.* state files",
+        help="(clean-pv) Remove .ais.* state files",
     )
     parser.add_argument(
         "--data", action="store_true",
-        help="(clean-pv/clean-host) Remove @* data/bucket directories",
+        help="(clean-pv) Remove @* data/bucket directories",
     )
     parser.add_argument(
         "--storage-class", type=str,
         help="(clean-pv) Storage class to identify PVs to clean",
-    )
-    parser.add_argument(
-        "--mount-paths", type=str,
-        help="(clean-host) Comma-separated host mount paths (e.g. /ais/sda,/ais/sdb)",
-    )
-    parser.add_argument(
-        "--hostpath-prefix", type=str,
-        help="(clean-host) Host path prefix for proxy state (e.g. /etc/ais)",
     )
     return parser
 
@@ -249,20 +218,6 @@ def process_clean_pv_args(args):
         sys.exit(1)
 
 
-def process_clean_host_args(args):
-    process_clean_state_data_args(args)
-    if not args.mount_paths:
-        args.mount_paths = input(
-            "Enter comma-separated mount paths (e.g. /ais/sda,/ais/sdb): "
-        ).strip()
-    if not args.mount_paths:
-        print("Error: mount paths cannot be empty.")
-        sys.exit(1)
-    if not args.hostpath_prefix:
-        args.hostpath_prefix = input(
-            "Enter host path prefix for state (optional, press enter to skip): "
-        ).strip() or None
-
 
 def process_restore_args(args) -> Path:
     if args.restore_src:
@@ -296,16 +251,6 @@ def main():
             clean_state=args.state,
             clean_data=args.data,
             storage_class=args.storage_class,
-        )
-    elif args.action == "clean-host":
-        process_clean_host_args(args)
-        mount_paths = [p.strip() for p in args.mount_paths.split(",") if p.strip()]
-        clean_host(
-            manager,
-            clean_state=args.state,
-            clean_data=args.data,
-            mount_paths=mount_paths,
-            hostpath_prefix=args.hostpath_prefix,
         )
 
 
