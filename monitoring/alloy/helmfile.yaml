@@ -49,6 +49,7 @@ releases:
     version: 1.8.0
     values:
       - ./config/alloy/default.yaml.gotmpl
+      - "{{ .Environment.Values.valuesPath }}"
 
     needs:
       - alloy-config

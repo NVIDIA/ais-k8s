@@ -8,6 +8,16 @@ scrape:
 ethtool:
   device_include: "^ens.*"
 
+# Optional Alloy chart values (excluded by default).
+# The ethtool collector reads driver-level NIC counters and needs NET_ADMIN.
+# Without it the ethtool settings above yield no metrics. The rest of the unix
+# exporter is unaffected.
+# alloy:
+#   securityContext:
+#     capabilities:
+#       add:
+#         - NET_ADMIN
+
 local:
   endpoint: "http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090/api/v1/otlp"
   logsEndpoint: "http://loki-gateway.monitoring.svc.cluster.local/otlp/v1/logs"

@@ -13,7 +13,8 @@ We deploy two charts for alloy:
 The default values template for the alloy deployment itself can be found in [config/alloy/](./config/alloy/).
 The full list of available helm values can be found [here](https://github.com/grafana/alloy/blob/main/operations/helm/charts/alloy/values.yaml).
 
-> **Note:** Currently, the only configurable option in the default values is the container runtime, which customizes some specific volume mounts the alloy container reads for cAdvisor metrics. Accepted values: `docker` | `crio` | `containerd`.
+> **Note:** `container_runtime` customizes cAdvisor volume mounts (accepted values are `docker`, `crio`, and `containerd`). 
+Additional Alloy chart Helm values can be set in the Helm values file linked in each Helmfile environment's `valuesPath`.
 
 The alloy-config chart contains the alloy specification for a full pipeline to scrape logs and metrics depending on the values provided.
 See the values for the [default environment](./config/alloy-config/default.yaml) for explanation of some options. 
@@ -21,6 +22,8 @@ Components will be created as needed depending on which local or remote exporter
 
 The `ethtool` value sets `device_include` on the unix exporter's ethtool collector (disabled when unset). 
 `metrics_include` is optional; when unset, the chart uses a default regex limited to NIC-health counters. 
+The collector reads driver-level NIC counters and needs the `NET_ADMIN` capability, which is not added by default. 
+See [the default alloy-config values](./config/alloy-config/default.yaml) for the values to set. 
 
 For internal deployment values, see the `ais-infra` repo.
 
