@@ -4,16 +4,14 @@
 import argparse
 import sys
 from pathlib import Path
-from typing import List, Optional
 
-from ais_metadata import AISMetadata
 from backup_creator import BackupCreator
 from deletion_runner import DeletionRunner
 from k8s_manager import K8sManager
 from pod_config import PodConfig
 from restore_runner import RestoreRunner
 
-ACTIONS = ["backup", "delete", "restore", "clean-pv"]
+ACTIONS = ["backup", "restore", "clean-pv"]
 
 
 def backup(manager: K8sManager):
@@ -34,26 +32,6 @@ def backup(manager: K8sManager):
     backup_creator = BackupCreator(manager, "backups", pod_config)
     manager.delete_pods(pod_config)
     return backup_creator.backup()
-
-
-def delete(manager: K8sManager, metadata: List[AISMetadata]):
-    """
-    Deletes specified AISMetadata objects from existing PVCs when a cluster does not currently exist.
-    :param manager: K8s manager for interfacing with k8s
-    :param metadata: Metadata files to delete, see AISMetadata
-    """
-    pod_config = PodConfig(
-        # pvc_name will be substituted per-pod
-        name="delete-{pvc_name}",
-        image="busybox:latest",
-        container_name="restore-container",
-        command=["sleep", "3600"],
-        exec_cmd="",
-        labels={"app.kubernetes.io/name": f"{manager.cluster_name}-restore"},
-    )
-    deletion_runner = DeletionRunner(manager, pod_config, metadata=metadata)
-    manager.delete_pods(pod_config)
-    deletion_runner.delete()
 
 
 def restore(manager: K8sManager, src: Path):
@@ -115,7 +93,7 @@ def clean_pv(manager: K8sManager, clean_state: bool, clean_data: bool,
 
 def create_arg_parser():
     parser = argparse.ArgumentParser(
-        description="Manage AIS cluster storage: backup, restore, delete metadata, and clean state/data"
+        description="Manage AIS cluster storage: backup, restore, and clean state/data"
     )
     parser.add_argument("--kube-context", type=str, help="Kubernetes context to use")
     parser.add_argument("--namespace", type=str, help="Namespace of the cluster")
@@ -125,11 +103,6 @@ def create_arg_parser():
         type=str,
         choices=ACTIONS,
         help="Action to perform",
-    )
-    parser.add_argument(
-        "--delete-md",
-        type=str,
-        help=f"Comma-separated metadata types ({AISMetadata.get_options_str()}) for deletion",
     )
     parser.add_argument(
         "--restore-src", type=str, help="Source backup tgz file to restore"
@@ -169,25 +142,6 @@ def prompt_missing(args):
                 args.action = action_input
                 break
             print(f"Error: Invalid action. Please enter one of: {actions_str}")
-
-
-def process_delete_args(args):
-    if args.delete_md:
-        selected = args.delete_md.split(",")
-    else:
-        print("\nSelect metadata to delete (comma-separated):")
-        print(f"Available options: {AISMetadata.get_options_str()}")
-        selected = input("Your choice: ").strip().lower().split(",")
-
-    selected = [s.strip() for s in selected]
-
-    if "all" in selected:
-        return [AISMetadata.all]
-    else:
-        for s in selected:
-            if s not in AISMetadata.get_options():
-                raise ValueError(f"Invalid metadata option: {s}")
-        return [AISMetadata[s] for s in selected if s != "all"]
 
 
 def process_clean_state_data_args(args):
@@ -238,9 +192,6 @@ def main():
 
     if args.action == "backup":
         backup(manager)
-    elif args.action == "delete":
-        md = process_delete_args(args)
-        delete(manager, md)
     elif args.action == "restore":
         src = process_restore_args(args)
         restore(manager, src)
