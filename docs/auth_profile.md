@@ -21,6 +21,7 @@ There are two mutually exclusive usage models:
 
 - `usernamePassword`
   - Configure secret references and any additional login metadata
+  - For OAuth 2.0 password-grant providers, set `loginConf.clientID` and `loginConf.endpoint` (the token endpoint path under `serviceURL`)
 - `tokenExchange`
   - Configure the token exchange endpoint for the provided `serviceURL`
 

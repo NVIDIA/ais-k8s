@@ -16,6 +16,7 @@ func (p *AIStoreAuthProfile) ValidateSpec() error {
 	allErrs := p.validateServiceURL()
 	allErrs = append(allErrs, p.validateAuthMethod()...)
 	allErrs = append(allErrs, p.validateTokenExchangeEndpoint()...)
+	allErrs = append(allErrs, p.validateLoginConfEndpoint()...)
 	if len(allErrs) == 0 {
 		return nil
 	}
@@ -65,7 +66,21 @@ func (p *AIStoreAuthProfile) validateTokenExchangeEndpoint() field.ErrorList {
 		return nil
 	}
 	path := field.NewPath("spec", "tokenExchange", "endpoint")
-	endpoint := p.TokenExchangeEndpoint()
+	return validateEndpointPath(path, p.TokenExchangeEndpoint())
+}
+
+// validateLoginConfEndpoint checks the optional OAuth token endpoint path used for password login.
+func (p *AIStoreAuthProfile) validateLoginConfEndpoint() field.ErrorList {
+	endpoint := p.LoginEndpoint()
+	if endpoint == "" {
+		return nil
+	}
+	path := field.NewPath("spec", "usernamePassword", "loginConf", "endpoint")
+	return validateEndpointPath(path, endpoint)
+}
+
+// validateEndpointPath requires an absolute path under the profile's serviceURL.
+func validateEndpointPath(path *field.Path, endpoint string) field.ErrorList {
 	u, err := url.Parse(endpoint)
 	if err != nil {
 		return field.ErrorList{field.Invalid(path, endpoint, err.Error())}

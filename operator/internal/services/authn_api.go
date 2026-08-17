@@ -84,6 +84,7 @@ type (
 	// OAuthLoginConf holds the parameters for an OAuth 2.0 password grant
 	OAuthLoginConf struct {
 		ClientID string
+		Endpoint string
 		Scope    *string
 	}
 
@@ -288,7 +289,16 @@ func getTokenFromOAuth(ctx context.Context, params *api.BaseParams, creds creden
 		form.Set("scope", *oauthConf.Scope)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, params.URL, strings.NewReader(form.Encode()))
+	requestURL := params.URL
+	if oauthConf.Endpoint != "" {
+		var err error
+		requestURL, err = url.JoinPath(params.URL, oauthConf.Endpoint)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create OAuth login request URL: %w", err)
+		}
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, requestURL, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create OAuth login request: %w", err)
 	}

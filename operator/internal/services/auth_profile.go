@@ -42,7 +42,7 @@ func (c *AuthProfileConfig) GetOAuthLoginConf() *OAuthLoginConf {
 		return nil
 	}
 	conf := c.profile.Spec.UsernamePassword.LoginConf
-	return &OAuthLoginConf{ClientID: conf.ClientID, Scope: conf.Scope}
+	return &OAuthLoginConf{ClientID: conf.ClientID, Endpoint: conf.Endpoint, Scope: conf.Scope}
 }
 
 func (c *AuthProfileConfig) GetSecretName() string {

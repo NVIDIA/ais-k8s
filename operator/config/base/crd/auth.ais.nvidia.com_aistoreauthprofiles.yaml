@@ -102,12 +102,20 @@ spec:
                   the authentication provider.
                 properties:
                   loginConf:
-                    description: LoginConf contains OAuth 2.0 password-grant login
-                      details for the authentication provider.
+                    description: |-
+                      LoginConf contains OAuth 2.0 password-grant login details for the authentication provider.
+                      Note these options are not supported by current AIS AuthN deployments.
                     properties:
                       clientID:
                         description: ClientID serves as a public identifier for the
                           client to pass to the auth provider
+                        minLength: 1
+                        type: string
+                      endpoint:
+                        description: |-
+                          Endpoint is the OAuth 2.0 token endpoint path appended to serviceURL
+                          If specified, it must be an absolute path.
+                          If not specified, the login request is sent to serviceURL itself.
                         minLength: 1
                         type: string
                       scope:

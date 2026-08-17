@@ -57,6 +57,7 @@ type AuthProfileUsernamePassword struct {
 	Secret AuthProfileSecret `json:"secret"`
 
 	// LoginConf contains OAuth 2.0 password-grant login details for the authentication provider.
+	// Note these options are not supported by current AIS AuthN deployments.
 	// +optional
 	LoginConf *AuthProfileLoginConf `json:"loginConf,omitempty"`
 }
@@ -91,6 +92,13 @@ type AuthProfileLoginConf struct {
 	// ClientID serves as a public identifier for the client to pass to the auth provider
 	// +kubebuilder:validation:MinLength=1
 	ClientID string `json:"clientID"`
+
+	// Endpoint is the OAuth 2.0 token endpoint path appended to serviceURL
+	// If specified, it must be an absolute path.
+	// If not specified, the login request is sent to serviceURL itself.
+	// +kubebuilder:validation:MinLength=1
+	// +optional
+	Endpoint string `json:"endpoint,omitempty"`
 
 	// Scope passed to the auth provider contains a space-delimited string listing permissions requested
 	// +optional
@@ -143,6 +151,14 @@ type AuthProfileTokenExchange struct {
 func (p *AIStoreAuthProfile) TokenExchangeEndpoint() string {
 	if p.Spec.TokenExchange != nil {
 		return p.Spec.TokenExchange.Endpoint
+	}
+	return ""
+}
+
+// LoginEndpoint returns the endpoint of the auth provider used for OAuth password login
+func (p *AIStoreAuthProfile) LoginEndpoint() string {
+	if p.Spec.UsernamePassword != nil && p.Spec.UsernamePassword.LoginConf != nil {
+		return p.Spec.UsernamePassword.LoginConf.Endpoint
 	}
 	return ""
 }

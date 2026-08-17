@@ -1,10 +1,11 @@
 ---
+# Token exchange example
 apiVersion: auth.ais.nvidia.com/v1alpha1
 kind: AIStoreAuthProfile
 metadata:
   name: prod-auth-token-exchange
 spec:
-  serviceURL: https://auth-provider.ais.svc:52001
+  serviceURL: https://auth-provider.ais.svc:8080
   tokenExchange:
     endpoint: /token
   tls:
@@ -13,18 +14,38 @@ spec:
       name: auth-provider-ca
       key: ca.crt
 ---
+# OAuth 2.0 password-based login example
 apiVersion: auth.ais.nvidia.com/v1alpha1
 kind: AIStoreAuthProfile
 metadata:
   name: prod-auth-username-password
 spec:
-  serviceURL: https://auth-provider.ais.svc:52001
+  serviceURL: https://auth-provider.ais.svc:8080
   usernamePassword:
     secret:
       name: auth-provider-admin
       namespace: auth-config
     loginConf:
       clientID: ais-operator
+      endpoint: /realms/aistore/protocol/openid-connect/token
+  tls:
+    caConfigMapRef:
+      namespace: auth-config
+      name: auth-provider-ca
+      key: ca.crt
+
+---
+# AIS AuthN password-based login example
+apiVersion: auth.ais.nvidia.com/v1alpha1
+kind: AIStoreAuthProfile
+metadata:
+  name: prod-auth-username-password
+spec:
+  serviceURL: https://ais-authn.ais.svc.cluster.local:52001
+  usernamePassword:
+    secret:
+      name: auth-provider-admin
+      namespace: auth-config
   tls:
     caConfigMapRef:
       namespace: auth-config

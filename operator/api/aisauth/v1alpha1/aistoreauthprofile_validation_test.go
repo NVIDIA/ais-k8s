@@ -44,6 +44,47 @@ func TestAIStoreAuthProfileValidateSpec(t *testing.T) {
 			wantErr: []string{"must not include a path"},
 		},
 		{
+			name: "accepts OAuth password-grant token endpoint",
+			spec: AIStoreAuthProfileSpec{
+				ServiceURL: "https://keycloak.example",
+				UsernamePassword: &AuthProfileUsernamePassword{
+					Secret: AuthProfileSecret{Name: "creds", Namespace: "ais"},
+					LoginConf: &AuthProfileLoginConf{
+						ClientID: "AIStore",
+						Endpoint: "/realms/aistore/protocol/openid-connect/token",
+					},
+				},
+			},
+		},
+		{
+			name: "rejects OAuth token endpoint URL",
+			spec: AIStoreAuthProfileSpec{
+				ServiceURL: "https://keycloak.example",
+				UsernamePassword: &AuthProfileUsernamePassword{
+					Secret: AuthProfileSecret{Name: "creds", Namespace: "ais"},
+					LoginConf: &AuthProfileLoginConf{
+						ClientID: "AIStore",
+						Endpoint: "https://keycloak.example/token",
+					},
+				},
+			},
+			wantErr: []string{"spec.usernamePassword.loginConf.endpoint", "must be a path, not a URL"},
+		},
+		{
+			name: "rejects relative OAuth token endpoint",
+			spec: AIStoreAuthProfileSpec{
+				ServiceURL: "https://keycloak.example",
+				UsernamePassword: &AuthProfileUsernamePassword{
+					Secret: AuthProfileSecret{Name: "creds", Namespace: "ais"},
+					LoginConf: &AuthProfileLoginConf{
+						ClientID: "AIStore",
+						Endpoint: "token",
+					},
+				},
+			},
+			wantErr: []string{"must be an absolute path without query or fragment"},
+		},
+		{
 			name: "rejects invalid scheme",
 			spec: AIStoreAuthProfileSpec{
 				ServiceURL:    "ftp://auth-provider.ais.svc",

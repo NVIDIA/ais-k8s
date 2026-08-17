@@ -64,17 +64,22 @@ var _ = Describe("AuthProfileConfig", func() {
 
 	It("should use the credential keys and login conf from the profile", func() {
 		scope := "read write"
+		endpoint := "/realms/aistore/protocol/openid-connect/token"
 		config := profileConfig(authv1alpha1.AIStoreAuthProfileSpec{
 			UsernamePassword: &authv1alpha1.AuthProfileUsernamePassword{
 				Secret: authv1alpha1.AuthProfileSecret{
 					Name: "admin", Namespace: "auth-config", UserKey: "username", PassKey: "password",
 				},
-				LoginConf: &authv1alpha1.AuthProfileLoginConf{ClientID: "ais-operator", Scope: &scope},
+				LoginConf: &authv1alpha1.AuthProfileLoginConf{
+					ClientID: "ais-operator", Endpoint: endpoint, Scope: &scope,
+				},
 			},
 		})
 		Expect(config.GetUserKey()).To(Equal("username"))
 		Expect(config.GetPassKey()).To(Equal("password"))
-		Expect(config.GetOAuthLoginConf()).To(Equal(&OAuthLoginConf{ClientID: "ais-operator", Scope: &scope}))
+		Expect(config.GetOAuthLoginConf()).To(Equal(
+			&OAuthLoginConf{ClientID: "ais-operator", Endpoint: endpoint, Scope: &scope},
+		))
 	})
 
 	It("should report no login secret for a token exchange profile", func() {

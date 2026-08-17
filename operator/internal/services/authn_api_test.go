@@ -13,10 +13,13 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"math/big"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"time"
 
+	"github.com/NVIDIA/aistore/api"
 	aisv1 "github.com/ais-operator/api/aistore/v1beta1"
 	"github.com/ais-operator/internal/truststore"
 	. "github.com/onsi/ginkgo/v2"
@@ -243,6 +246,45 @@ var _ = Describe("ReadTokenFromFile", func() {
 	It("should return error for non-existent token file", func() {
 		_, err := readTokenFromFile("/nonexistent/token")
 		Expect(err).To(HaveOccurred())
+	})
+})
+
+var _ = Describe("OAuth Password Login", func() {
+	var (
+		server      *httptest.Server
+		requestPath string
+	)
+
+	BeforeEach(func() {
+		requestPath = ""
+		server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			requestPath = r.URL.Path
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"access_token":"test-token","token_type":"Bearer","expires_in":300}`))
+		}))
+	})
+
+	AfterEach(func() {
+		server.Close()
+	})
+
+	login := func(conf *OAuthLoginConf) (*TokenInfo, error) {
+		params := &api.BaseParams{Client: server.Client(), URL: server.URL}
+		return getTokenFromOAuth(context.Background(), params, credentials{user: "admin", pass: "secret"}, conf)
+	}
+
+	It("should post to the token endpoint under the service URL", func() {
+		token, err := login(&OAuthLoginConf{ClientID: "AIStore", Endpoint: "/realms/aistore/protocol/openid-connect/token"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(token.Token).To(Equal("test-token"))
+		Expect(requestPath).To(Equal("/realms/aistore/protocol/openid-connect/token"))
+	})
+
+	It("should post to the service URL when no endpoint is configured", func() {
+		token, err := login(&OAuthLoginConf{ClientID: "AIStore"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(token.Token).To(Equal("test-token"))
+		Expect(requestPath).To(Equal("/"))
 	})
 })
 
