@@ -302,7 +302,7 @@
     },
     "stateStorage": {
       "type": ["object", "null"],
-      "description": "AIStore state storage configuration. Exactly one of hostPath or pvc should be set.",
+      "description": "AIStore state storage configuration. Exactly one of hostPath, pvc, or emptyDir should be set.",
       "allOf": [
         {
           "if": {
@@ -313,13 +313,19 @@
               {
                 "required": ["hostPath"],
                 "not": {
-                  "required": ["pvc"]
+                  "required": ["pvc", "emptyDir"]
                 }
               },
               {
                 "required": ["pvc"],
                 "not": {
-                  "required": ["hostPath"]
+                  "required": ["hostPath", "emptyDir"]
+                }
+              },
+              {
+                "required": ["emptyDir"],
+                "not": {
+                  "required": ["hostPath", "pvc"]
                 }
               }
             ]
@@ -348,6 +354,11 @@
             }
           },
           "required": ["storageClass"]
+        },
+        "emptyDir": {
+          "type": "object",
+          "description": "Ephemeral emptyDir volume for AIStore state. State is lost on pod restart.",
+          "additionalProperties": false
         }
       }
     },
