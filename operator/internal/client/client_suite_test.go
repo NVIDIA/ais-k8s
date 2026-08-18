@@ -38,10 +38,13 @@ var _ = BeforeSuite(func() {
 })
 
 func newFakeClient(objs []runtime.Object) client.Client {
+	return newFakeClientBuilder(objs).Build()
+}
+
+func newFakeClientBuilder(objs []runtime.Object) *fake.ClientBuilder {
 	return fake.NewClientBuilder().
 		WithRuntimeObjects(objs...).
 		WithScheme(scheme.Scheme).
 		WithTypeConverters(managedfields.NewDeducedTypeConverter()).
-		WithReturnManagedFields().
-		Build()
+		WithReturnManagedFields()
 }

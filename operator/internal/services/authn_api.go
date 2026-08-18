@@ -22,6 +22,7 @@ import (
 	"github.com/NVIDIA/aistore/cmn"
 	aisv1 "github.com/ais-operator/api/aistore/v1beta1"
 	aisclient "github.com/ais-operator/internal/client"
+	"github.com/ais-operator/internal/opinfo"
 	"github.com/ais-operator/internal/truststore"
 	"k8s.io/apimachinery/pkg/types"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -29,8 +30,11 @@ import (
 
 // Token exchange defaults
 const (
-	DefaultTokenPath             = "/var/run/secrets/kubernetes.io/serviceaccount/token" //nolint:gosec // This is a file path, not a credential
 	DefaultTokenExchangeEndpoint = "/token"
+
+	// subjectTokenExpiration is the lifetime requested for minted subject tokens.
+	// The API server rejects anything shorter than 10 minutes.
+	subjectTokenExpiration = 10 * time.Minute
 )
 
 // RFC 8693 OAuth 2.0 Token Exchange constants
@@ -72,6 +76,7 @@ type (
 		GetServiceURL() string
 		IsTokenExchange() bool
 		GetTokenPath() string
+		GetSubjectTokenAudience() string
 		GetTokenExchangeEndpoint() string
 		GetOAuthLoginConf() *OAuthLoginConf
 		GetSecretName() string
@@ -411,17 +416,16 @@ func getTLSConfigCacheTTL(ctx context.Context) time.Duration {
 	return tlsConfigCacheTTL
 }
 
-// getTokenViaExchange reads a token from filesystem and exchanges it with the configured auth service for an AIS token
-func (*AuthNClient) getTokenViaExchange(ctx context.Context, bp *api.BaseParams, ais *aisv1.AIStore, conf AuthConfig) (*TokenInfo, error) {
+// getTokenViaExchange either loads a fixed token or mints a subject token based on the operator's identity.
+// It then exchanges it with the configured auth service for an AIS token
+func (c *AuthNClient) getTokenViaExchange(ctx context.Context, bp *api.BaseParams, ais *aisv1.AIStore, conf AuthConfig) (*TokenInfo, error) {
 	logger := logf.FromContext(ctx)
 
-	tokenPath := conf.GetTokenPath()
 	endpoint := conf.GetTokenExchangeEndpoint()
 
-	sourceToken, err := readTokenFromFile(tokenPath)
+	sourceToken, err := c.getSubjectToken(ctx, conf)
 	if err != nil {
-		logger.Error(err, "Failed to read source token", "path", tokenPath)
-		return nil, fmt.Errorf("failed to read token from %s: %w", tokenPath, err)
+		return nil, err
 	}
 
 	// Get all audiences from the AIStore cluster's required claims configuration
@@ -434,8 +438,42 @@ func (*AuthNClient) getTokenViaExchange(ctx context.Context, bp *api.BaseParams,
 		return nil, err
 	}
 
-	logger.Info("Successfully exchanged token with auth service", "tokenPath", tokenPath, "audiences", audiences)
+	logger.Info("Successfully exchanged token with auth service", "audiences", audiences)
 	return tokenInfo, nil
+}
+
+// getSubjectToken returns the token the operator presents for exchange.
+func (c *AuthNClient) getSubjectToken(ctx context.Context, conf AuthConfig) (string, error) {
+	if tokenPath := conf.GetTokenPath(); tokenPath != "" {
+		return readProjectedToken(ctx, tokenPath)
+	}
+	return c.mintSubjectToken(ctx, conf.GetSubjectTokenAudience())
+}
+
+// readProjectedToken reads the token projected into the operator pod at the given path.
+func readProjectedToken(ctx context.Context, tokenPath string) (string, error) {
+	logger := logf.FromContext(ctx)
+	token, err := readTokenFromFile(tokenPath)
+	if err != nil {
+		logger.Error(err, "Failed to read source token", "path", tokenPath)
+		return "", fmt.Errorf("failed to read token from %s: %w", tokenPath, err)
+	}
+	logger.V(2).Info("Using projected service account token", "tokenPath", tokenPath)
+	return token, nil
+}
+
+// mintSubjectToken mints a short-lived token for the operator's ServiceAccount bound to the configured audience.
+func (c *AuthNClient) mintSubjectToken(ctx context.Context, audience string) (string, error) {
+	logger := logf.FromContext(ctx)
+	sa := opinfo.ServiceAccount()
+	req, err := c.k8sClient.CreateServiceAccountToken(ctx, sa, audience, subjectTokenExpiration)
+	if err != nil {
+		logger.Error(err, "Failed to mint source token", "serviceAccount", sa.String(), "audience", audience)
+		return "", fmt.Errorf("failed to mint token for ServiceAccount %s with audience %q: %w", sa, audience, err)
+	}
+	logger.V(2).Info("Minted service account token", "serviceAccount", sa.String(), "audience", audience,
+		"expiration", req.Status.ExpirationTimestamp)
+	return req.Status.Token, nil
 }
 
 // readTokenFromFile reads and returns a token from the specified file path

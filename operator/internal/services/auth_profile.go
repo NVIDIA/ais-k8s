@@ -26,9 +26,16 @@ func (c *AuthProfileConfig) GetServiceURL() string { return c.profile.Spec.Servi
 
 func (c *AuthProfileConfig) IsTokenExchange() bool { return c.profile.Spec.TokenExchange != nil }
 
-// GetTokenPath returns the operator's own service account token path, which is not
-// configurable per profile.
-func (*AuthProfileConfig) GetTokenPath() string { return DefaultTokenPath }
+// GetTokenPath returns an empty path because profiles do not define projected token location for clients.
+// Clients, including the operator, must configure their own token location.
+func (*AuthProfileConfig) GetTokenPath() string { return "" }
+
+func (c *AuthProfileConfig) GetSubjectTokenAudience() string {
+	if c.profile.Spec.TokenExchange == nil {
+		return ""
+	}
+	return c.profile.Spec.TokenExchange.SubjectTokenAudience
+}
 
 func (c *AuthProfileConfig) GetTokenExchangeEndpoint() string {
 	if endpoint := c.profile.TokenExchangeEndpoint(); endpoint != "" {

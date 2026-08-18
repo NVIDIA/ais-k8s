@@ -60,11 +60,15 @@ For examples of `auth.usernamePassword` see the auth section in the [provided co
 
 #### Token Exchange Authentication
 
-The operator also supports exchanging a token from the filesystem (e.g., Kubernetes service account token or OIDC token) with the authentication service for an AIS JWT token.
+The operator also supports exchanging a token with the authentication service for an AIS JWT token.
 This eliminates the need to store static admin credentials.
 
+On versions 3.3 and below, this token is read from the filesystem (e.g., Kubernetes service account token or OIDC token).
+Later versions request a short-lived token for the operator's own ServiceAccount.
+
 Defaults:
-- `tokenPath`: `/var/run/secrets/kubernetes.io/serviceaccount/token`
+- `tokenPath`: Empty -- the operator requests a short-lived token for its own ServiceAccount.
+  - For versions 3.3 and below: `/var/run/secrets/kubernetes.io/serviceaccount/token`
 - `tokenExchangeEndpoint`: `/token`
 
 **Mounting Custom Tokens:**
@@ -79,6 +83,8 @@ volumes:
         expirationSeconds: 3600
         audience: ais-authn
 ```
+
+Then set `tokenPath` to the projected path to tell the operator to reference it instead of minting a new token.
 
 This mode requires the authentication service to support a token exchange endpoint (default: `/token`).
 

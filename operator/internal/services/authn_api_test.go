@@ -21,9 +21,17 @@ import (
 
 	"github.com/NVIDIA/aistore/api"
 	aisv1 "github.com/ais-operator/api/aistore/v1beta1"
+	"github.com/ais-operator/internal/opinfo"
 	"github.com/ais-operator/internal/truststore"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	authenticationv1 "k8s.io/api/authentication/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
 
 var _ = Describe("AuthN Base Params", func() {
@@ -249,6 +257,88 @@ var _ = Describe("ReadTokenFromFile", func() {
 	})
 })
 
+var _ = Describe("Subject token", func() {
+	const (
+		operatorNamespace = "ais-operator-system"
+		operatorSA        = "ais-operator-controller-manager"
+	)
+
+	// reviewedAs answers every SelfSubjectReview with the given username.
+	reviewedAs := func(username string) client.Client {
+		return fake.NewClientBuilder().WithScheme(scheme.Scheme).WithInterceptorFuncs(interceptor.Funcs{
+			Create: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
+				review, ok := obj.(*authenticationv1.SelfSubjectReview)
+				if !ok {
+					return c.Create(ctx, obj, opts...)
+				}
+				review.Status.UserInfo = authenticationv1.UserInfo{Username: username}
+				return nil
+			},
+		}).Build()
+	}
+
+	BeforeEach(func() {
+		GinkgoT().Setenv("KUBERNETES_CLUSTER_DOMAIN", "cluster.local")
+		Expect(opinfo.Resolve(context.Background(),
+			reviewedAs("system:serviceaccount:"+operatorNamespace+":"+operatorSA))).To(Succeed())
+	})
+
+	It("should read the projected token when a token path is configured", func() {
+		tokenPath := filepath.Join(GinkgoT().TempDir(), "token")
+		Expect(os.WriteFile(tokenPath, []byte("projected-token"), 0o600)).To(Succeed())
+
+		authN := NewAuthNClient(newFakeK8sClient())
+		token, err := authN.getSubjectToken(context.Background(), &mockAuthConfig{tokenPath: tokenPath})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(token).To(Equal("projected-token"))
+	})
+
+	When("no token path is configured", func() {
+		var (
+			authN   *AuthNClient
+			request *authenticationv1.TokenRequest
+			minted  client.ObjectKey
+		)
+
+		BeforeEach(func() {
+			request = nil
+			minted = client.ObjectKey{}
+			sa := &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: operatorSA, Namespace: operatorNamespace}}
+			authN = NewAuthNClient(newFakeK8sClientWithInterceptors(&interceptor.Funcs{
+				SubResourceCreate: func(ctx context.Context, c client.Client, subResource string,
+					obj, body client.Object, opts ...client.SubResourceCreateOption,
+				) error {
+					minted = client.ObjectKeyFromObject(obj)
+					request = body.(*authenticationv1.TokenRequest).DeepCopy()
+					return c.SubResource(subResource).Create(ctx, obj, body, opts...)
+				},
+			}, sa))
+		})
+
+		It("should mint a token for the operator ServiceAccount", func() {
+			token, err := authN.getSubjectToken(context.Background(), &mockAuthConfig{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(token).NotTo(BeEmpty())
+			Expect(minted).To(Equal(client.ObjectKey{Namespace: operatorNamespace, Name: operatorSA}))
+		})
+
+		It("should mint with the audience the provider requires", func() {
+			token, err := authN.getSubjectToken(context.Background(), &mockAuthConfig{subjectTokenAud: "ais-authn"})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(token).NotTo(BeEmpty())
+			Expect(request).NotTo(BeNil())
+			Expect(request.Spec.Audiences).To(Equal([]string{"ais-authn"}))
+		})
+	})
+
+	It("should fail when the operator ServiceAccount does not exist", func() {
+		authN := NewAuthNClient(newFakeK8sClient())
+		_, err := authN.getSubjectToken(context.Background(), &mockAuthConfig{})
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("failed to mint token"))
+	})
+})
+
 var _ = Describe("OAuth Password Login", func() {
 	var (
 		server      *httptest.Server
@@ -293,6 +383,7 @@ type mockAuthConfig struct {
 	serviceURL         string
 	isTokenExchange    bool
 	tokenPath          string
+	subjectTokenAud    string
 	tokenExchangeEP    string
 	secretName         string
 	secretNamespace    string
@@ -310,10 +401,11 @@ func (m *mockAuthConfig) IsTokenExchange() bool {
 }
 
 func (m *mockAuthConfig) GetTokenPath() string {
-	if m.tokenPath == "" {
-		return DefaultTokenPath
-	}
 	return m.tokenPath
+}
+
+func (m *mockAuthConfig) GetSubjectTokenAudience() string {
+	return m.subjectTokenAud
 }
 
 func (m *mockAuthConfig) GetTokenExchangeEndpoint() string {

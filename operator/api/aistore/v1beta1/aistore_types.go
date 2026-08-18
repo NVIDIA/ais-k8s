@@ -197,8 +197,8 @@ type AuthServerLoginConf struct {
 
 // TokenExchangeAuth defines authentication using RFC 8693 OAuth 2.0 Token Exchange
 type TokenExchangeAuth struct {
-	// TokenPath is the path to the service account token file
-	// If not specified, defaults to "/var/run/secrets/kubernetes.io/serviceaccount/token"
+	// TokenPath is the path to the token to be exchanged
+	// If not specified, the operator requests a short-lived token for its own ServiceAccount
 	// +optional
 	TokenPath *string `json:"tokenPath,omitempty"`
 

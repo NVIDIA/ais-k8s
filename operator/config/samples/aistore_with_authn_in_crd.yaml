@@ -57,7 +57,9 @@ spec:
     
     # Token exchange authentication (exactly one of usernamePassword or tokenExchange must be set)
     tokenExchange:
-      tokenPath: /var/run/secrets/kubernetes.io/serviceaccount/token  # Optional, default shown
+      # Optional, if set the operator will use this directly
+      # If not set, the operator will request a short-lived token for its own ServiceAccount
+      # tokenPath: /var/run/secrets/kubernetes.io/serviceaccount/token
       tokenExchangeEndpoint: /token  # Optional, default shown
 
   # JWT signing key secret (required for AuthN verification)
@@ -136,7 +138,6 @@ spec:
     
     # Token exchange authentication
     tokenExchange:
-      tokenPath: /var/run/secrets/kubernetes.io/serviceaccount/token
       tokenExchangeEndpoint: /token
     
     # TLS configuration for secure connections to AuthN
@@ -151,7 +152,7 @@ spec:
       caCertPath: /etc/ssl/certs/authn-ca/ca.crt  # Mounted from ais-operator-authn-ca ConfigMap
       # insecureSkipVerify: false  # Optional, defaults to false (verify certificates)
 
-  # JWT signing key secret 
+  # JWT signing key secret
   authNSecretName: ais-authn-secret
 
   nodeImage: "docker.io/aistorage/aisnode:latest"

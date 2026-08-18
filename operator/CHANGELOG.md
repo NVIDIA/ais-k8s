@@ -25,6 +25,8 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
   - The operator exits at startup if the domain is neither configured nor discoverable.
 - Operator will do a `SelfSubjectReview` on startup; errors will cause operator pod to exit and restart.
   - This requires the `SelfSubjectReview` API, which was added to K8s GA in 1.28.
+- Operator token exchange with authentication providers mints a new subject token for exchange instead of passing its own projected ServiceAccount token.
+  - This requires an included new `subject-token-role` to allow for `serviceaccounts/token` creation in the operator namespace.
 
 --
 

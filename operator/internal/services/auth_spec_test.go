@@ -101,4 +101,32 @@ var _ = Describe("AuthSpecConfig", func() {
 			Expect(config.IsTokenExchange()).To(BeFalse())
 		})
 	})
+
+	Describe("GetTokenPath", func() {
+		It("should return the path configured in the spec", func() {
+			path := "/var/run/secrets/tokens/authn"
+			spec := &aisv1.AuthSpec{
+				TokenExchange: &aisv1.TokenExchangeAuth{TokenPath: &path},
+			}
+			config := &AuthSpecConfig{spec: spec}
+
+			Expect(config.GetTokenPath()).To(Equal(path))
+		})
+
+		It("should return no path when the spec leaves it empty, so the operator mints its own token", func() {
+			spec := &aisv1.AuthSpec{
+				TokenExchange: &aisv1.TokenExchangeAuth{},
+			}
+			config := &AuthSpecConfig{spec: spec}
+
+			Expect(config.GetTokenPath()).To(BeEmpty())
+		})
+
+		It("should return no path when token exchange is not configured", func() {
+			spec := &aisv1.AuthSpec{}
+			config := &AuthSpecConfig{spec: spec}
+
+			Expect(config.GetTokenPath()).To(BeEmpty())
+		})
+	})
 })

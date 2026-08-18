@@ -21,6 +21,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
 
 var _ = Describe("AuthProfileConfig", func() {
@@ -46,6 +47,27 @@ var _ = Describe("AuthProfileConfig", func() {
 			TokenExchange: &authv1alpha1.AuthProfileTokenExchange{Endpoint: "/exchange"},
 		})
 		Expect(config.GetTokenExchangeEndpoint()).To(Equal("/exchange"))
+	})
+
+	It("should use the subject token audience from the profile", func() {
+		config := profileConfig(authv1alpha1.AIStoreAuthProfileSpec{
+			TokenExchange: &authv1alpha1.AuthProfileTokenExchange{SubjectTokenAudience: "ais-authn"},
+		})
+		Expect(config.GetSubjectTokenAudience()).To(Equal("ais-authn"))
+	})
+
+	It("should report no subject token audience when the profile leaves it empty", func() {
+		config := profileConfig(authv1alpha1.AIStoreAuthProfileSpec{
+			TokenExchange: &authv1alpha1.AuthProfileTokenExchange{},
+		})
+		Expect(config.GetSubjectTokenAudience()).To(BeEmpty())
+	})
+
+	It("should never present a projected token path, so the operator mints its own", func() {
+		config := profileConfig(authv1alpha1.AIStoreAuthProfileSpec{
+			TokenExchange: &authv1alpha1.AuthProfileTokenExchange{SubjectTokenAudience: "ais-authn"},
+		})
+		Expect(config.GetTokenPath()).To(BeEmpty())
 	})
 
 	It("should default the credential keys to the AuthN admin secret format", func() {
@@ -239,9 +261,18 @@ var _ = Describe("getAuthConfig", func() {
 })
 
 func newFakeK8sClient(objs ...client.Object) *aisclient.K8sClient {
+	GinkgoHelper()
+	return newFakeK8sClientWithInterceptors(nil, objs...)
+}
+
+func newFakeK8sClientWithInterceptors(funcs *interceptor.Funcs, objs ...client.Object) *aisclient.K8sClient {
+	GinkgoHelper()
 	scheme := runtime.NewScheme()
 	Expect(clientgoscheme.AddToScheme(scheme)).To(Succeed())
 	Expect(authv1alpha1.AddToScheme(scheme)).To(Succeed())
-	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(objs...).Build()
-	return aisclient.NewClient(c, scheme)
+	builder := fake.NewClientBuilder().WithScheme(scheme).WithObjects(objs...)
+	if funcs != nil {
+		builder = builder.WithInterceptorFuncs(*funcs)
+	}
+	return aisclient.NewClient(builder.Build(), scheme)
 }

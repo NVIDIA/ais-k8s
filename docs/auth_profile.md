@@ -24,6 +24,8 @@ There are two mutually exclusive usage models:
   - For OAuth 2.0 password-grant providers, set `loginConf.clientID` and `loginConf.endpoint` (the token endpoint path under `serviceURL`)
 - `tokenExchange`
   - Configure the token exchange endpoint for the provided `serviceURL`
+  - The operator requests a short-lived token for its own ServiceAccount to present for exchange
+  - Set `subjectTokenAudience` to bind that token to the audience the provider requires on the subject token
 
 Both options share the common API configuration fields `spec.serviceURL` and `spec.tls`.
 

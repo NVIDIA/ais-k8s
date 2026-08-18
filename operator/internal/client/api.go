@@ -8,10 +8,12 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"time"
 
 	authv1alpha1 "github.com/ais-operator/api/aisauth/v1alpha1"
 	aisv1 "github.com/ais-operator/api/aistore/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
+	authenticationv1 "k8s.io/api/authentication/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
@@ -19,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -271,6 +274,30 @@ func (c *K8sClient) PatchIfExists(ctx context.Context, obj client.Object, patch 
 
 func (c *K8sClient) Create(ctx context.Context, obj client.Object, opts ...client.CreateOption) error {
 	return c.client.Create(ctx, obj, opts...)
+}
+
+// CreateServiceAccountToken requests a token for the given ServiceAccount, valid for the given
+// duration and bound to the requested audience if one is given. Without an audience the API server
+// issues a token for its own audience.
+func (c *K8sClient) CreateServiceAccountToken(
+	ctx context.Context, sa types.NamespacedName, audience string, expiration time.Duration,
+) (*authenticationv1.TokenRequest, error) {
+	expirationSeconds := int64(expiration.Seconds())
+	var audiences []string
+	if audience != "" {
+		audiences = []string{audience}
+	}
+	req := &authenticationv1.TokenRequest{
+		Spec: authenticationv1.TokenRequestSpec{
+			Audiences:         audiences,
+			ExpirationSeconds: &expirationSeconds,
+		},
+	}
+	target := &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: sa.Name, Namespace: sa.Namespace}}
+	if err := c.client.SubResource("token").Create(ctx, target, req); err != nil {
+		return nil, err
+	}
+	return req, nil
 }
 
 func (c *K8sClient) CreateResourceIfNotExists(ctx context.Context, owner *aisv1.AIStore, res client.Object) (exists bool, err error) {

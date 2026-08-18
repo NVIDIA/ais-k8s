@@ -419,8 +419,8 @@
           "properties": {
             "tokenPath": {
               "type": "string",
-              "description": "TokenPath is the path to the service account token file. Defaults to '/var/run/secrets/kubernetes.io/serviceaccount/token'.",
-              "examples": ["/var/run/secrets/kubernetes.io/serviceaccount/token"]
+              "description": "TokenPath is the path to the token used for exchange. Operator versions 3.3 and below default to '/var/run/secrets/kubernetes.io/serviceaccount/token'. Newer versions mint a new token.",
+              "examples": ["/projected/token/path"]
             },
             "tokenExchangeEndpoint": {
               "type": "string",

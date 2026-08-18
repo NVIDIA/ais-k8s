@@ -8,6 +8,7 @@ spec:
   serviceURL: https://auth-provider.ais.svc:8080
   tokenExchange:
     endpoint: /token
+    subjectTokenAudience: ais-authn
   tls:
     caConfigMapRef:
       namespace: auth-config

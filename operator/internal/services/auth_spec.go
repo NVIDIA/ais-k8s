@@ -45,8 +45,11 @@ func (c *AuthSpecConfig) GetTokenPath() string {
 	if c.spec.TokenExchange != nil && c.spec.TokenExchange.TokenPath != nil {
 		return *c.spec.TokenExchange.TokenPath
 	}
-	return DefaultTokenPath
+	return ""
 }
+
+// GetSubjectTokenAudience returns an empty string because there is no exposed spec option for token audience
+func (*AuthSpecConfig) GetSubjectTokenAudience() string { return "" }
 
 func (c *AuthSpecConfig) GetTokenExchangeEndpoint() string {
 	if c.spec.TokenExchange != nil && c.spec.TokenExchange.TokenExchangeEndpoint != nil {

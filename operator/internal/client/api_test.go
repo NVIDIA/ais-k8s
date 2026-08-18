@@ -6,15 +6,21 @@ package client
 
 import (
 	"context"
+	"time"
 
 	"github.com/NVIDIA/aistore/api/apc"
 	aisv1 "github.com/ais-operator/api/aistore/v1beta1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
+	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
 
 var _ = Describe("K8sClient", func() {
@@ -211,6 +217,64 @@ var _ = Describe("K8sClient", func() {
 
 			entry := findManagedField(fetchCM, FieldOwner)
 			Expect(entry).NotTo(BeNil(), "expected operator field manager to have taken ownership")
+		})
+	})
+
+	Describe("CreateServiceAccountToken", func() {
+		const (
+			saNamespace = "ais-operator-system"
+			saName      = "ais-operator-controller-manager"
+		)
+
+		var (
+			k8sClient *K8sClient
+			request   *authenticationv1.TokenRequest
+			minted    client.ObjectKey
+			sa        = types.NamespacedName{Namespace: saNamespace, Name: saName}
+			ctx       = context.TODO()
+		)
+
+		When("the ServiceAccount exists", func() {
+			BeforeEach(func() {
+				request = nil
+				minted = client.ObjectKey{}
+				account := &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: saName, Namespace: saNamespace}}
+				c := newFakeClientBuilder([]runtime.Object{account}).WithInterceptorFuncs(interceptor.Funcs{
+					// The fake client discards the TokenRequest spec, so record it on the way through
+					SubResourceCreate: func(ctx context.Context, c client.Client, subResource string,
+						obj, body client.Object, opts ...client.SubResourceCreateOption,
+					) error {
+						minted = client.ObjectKeyFromObject(obj)
+						request = body.(*authenticationv1.TokenRequest).DeepCopy()
+						return c.SubResource(subResource).Create(ctx, obj, body, opts...)
+					},
+				}).Build()
+				k8sClient = NewClient(c, c.Scheme())
+			})
+
+			It("should request a token for the given ServiceAccount", func() {
+				req, err := k8sClient.CreateServiceAccountToken(ctx, sa, "", 10*time.Minute)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(req).NotTo(BeNil())
+				Expect(minted).To(Equal(client.ObjectKey{Namespace: saNamespace, Name: saName}))
+				Expect(request).NotTo(BeNil())
+				Expect(request.Spec.Audiences).To(BeEmpty())
+				Expect(request.Spec.ExpirationSeconds).To(HaveValue(Equal(int64(600))))
+			})
+
+			It("should bind the token to the requested audience", func() {
+				_, err := k8sClient.CreateServiceAccountToken(ctx, sa, "ais-authn", 10*time.Minute)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(minted).To(Equal(client.ObjectKey{Namespace: saNamespace, Name: saName}))
+				Expect(request).NotTo(BeNil())
+				Expect(request.Spec.Audiences).To(Equal([]string{"ais-authn"}))
+			})
+		})
+
+		It("should fail when the ServiceAccount does not exist", func() {
+			k8sClient = NewClient(newFakeClient(nil), scheme.Scheme)
+			_, err := k8sClient.CreateServiceAccountToken(ctx, sa, "", 10*time.Minute)
+			Expect(err).To(HaveOccurred())
 		})
 	})
 })
