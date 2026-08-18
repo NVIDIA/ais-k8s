@@ -89,6 +89,13 @@ spec:
                       Endpoint is the authentication provider token exchange path.
                       If not specified, defaults to "/token".
                     type: string
+                  subjectTokenAudience:
+                    description: |-
+                      SubjectTokenAudience is the audience the authentication provider requires on the
+                      subject token presented for exchange.
+                      This is distinct from the audiences requested for the issued token, validated by AIS.
+                    minLength: 1
+                    type: string
                 type: object
               usernamePassword:
                 description: UsernamePassword configures static credential login against

@@ -130,6 +130,13 @@ type AuthProfileTokenExchange struct {
 	// +kubebuilder:default:=/token
 	// +optional
 	Endpoint string `json:"endpoint,omitempty"`
+
+	// SubjectTokenAudience is the audience the authentication provider requires on the
+	// subject token presented for exchange.
+	// This is distinct from the audiences requested for the issued token, validated by AIS.
+	// +kubebuilder:validation:MinLength=1
+	// +optional
+	SubjectTokenAudience string `json:"subjectTokenAudience,omitempty"`
 }
 
 // TokenExchangeEndpoint returns the endpoint of the auth provider used for token exchange

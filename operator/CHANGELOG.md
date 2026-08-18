@@ -8,6 +8,15 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ---
 
+## v3.4.0
+
+### Added 
+
+- `AIStoreAuthProfile`
+  - Support for `spec.tokenExchange.subjectTokenAudience` to be used when the auth provider requires an audience in the subject token.
+
+--
+
 ## v3.3.0
 
 ### Added
