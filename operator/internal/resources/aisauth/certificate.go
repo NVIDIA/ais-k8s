@@ -10,6 +10,7 @@ import (
 	"net/url"
 
 	authv1alpha1 "github.com/ais-operator/api/aisauth/v1alpha1"
+	"github.com/ais-operator/internal/opinfo"
 	certres "github.com/ais-operator/internal/resources/certificates"
 	"github.com/ais-operator/internal/resources/ownerref"
 	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
@@ -18,8 +19,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
-
-const clusterDomain = "cluster.local"
 
 // CertificateName returns the name of the cert-manager Certificate managed for AuthN.
 func CertificateName(authn *authv1alpha1.AIStoreAuth) string {
@@ -122,6 +121,6 @@ func appendServiceDNSNames(names []string, serviceName, namespace string) []stri
 		serviceName,
 		fmt.Sprintf("%s.%s", serviceName, namespace),
 		fmt.Sprintf("%s.%s.svc", serviceName, namespace),
-		fmt.Sprintf("%s.%s.svc.%s", serviceName, namespace, clusterDomain),
+		fmt.Sprintf("%s.%s.svc.%s", serviceName, namespace, opinfo.ClusterDomain()),
 	)
 }

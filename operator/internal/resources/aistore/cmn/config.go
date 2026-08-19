@@ -39,8 +39,8 @@ func GenerateGlobalConfig(ais *aisv1.AIStore) (*aiscmn.ConfigToSet, error) {
 }
 
 func newInitialConfig(ais *aisv1.AIStore) *aiscmn.ConfigToSet {
-	defaultURL := aisapc.Ptr(ais.GetDefaultProxyURL())
-	discoveryURL := aisapc.Ptr(ais.GetDiscoveryProxyURL())
+	defaultURL := aisapc.Ptr(DefaultProxyURL(ais))
+	discoveryURL := aisapc.Ptr(DiscoveryProxyURL(ais))
 	conf := &aiscmn.ConfigToSet{
 		Proxy: &aiscmn.ProxyConfToSet{
 			PrimaryURL:   defaultURL,

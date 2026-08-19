@@ -999,7 +999,7 @@ func (r *Reconciler) updateAutoScaleStatus(ctx context.Context, ais *aisv1.AISto
 }
 
 func (r *Reconciler) updateIntraClusterURLStatus(ctx context.Context, ais *aisv1.AIStore) error {
-	intraClusterURL := ais.GetIntraClusterURL()
+	intraClusterURL := cmn.IntraClusterURL(ais)
 	logf.FromContext(ctx).WithValues("intraClusterURL", intraClusterURL).Info("Updating AIS with intraClusterURL")
 	ais.Status.IntraClusterURL = intraClusterURL
 	return r.patchStatus(ctx, ais)

@@ -5,6 +5,7 @@
 package cmn
 
 import (
+	aisapc "github.com/NVIDIA/aistore/api/apc"
 	aisv1 "github.com/ais-operator/api/aistore/v1beta1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -19,6 +20,7 @@ var _ = Describe("buildCertificateSANs", func() {
 				Namespace: "test-ns",
 			},
 			Spec: aisv1.AIStoreSpec{
+				ClusterDomain: aisapc.Ptr("cluster.local"),
 				TLS: &aisv1.TLSSpec{
 					Certificate: &aisv1.TLSCertificateConfig{
 						AdditionalDNSNames: []string{"test-additional-dns-name", "test-additional-dns-name"},

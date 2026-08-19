@@ -1,0 +1,3 @@
+{{- /* kubernetesClusterDomain defaults to empty so the operator discovers the domain, but certificate DNS names need a concrete one. */ -}}
+{{- $content := file.Read (getenv "AIS_TARGET_TEMPLATE") -}}
+{{- regexp.Replace `\.Values\.kubernetesClusterDomain }}` `.Values.kubernetesClusterDomain | default "cluster.local" }}` $content -}}

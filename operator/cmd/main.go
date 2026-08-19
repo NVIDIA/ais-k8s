@@ -6,17 +6,20 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	authv1alpha1 "github.com/ais-operator/api/aisauth/v1alpha1"
 	aisv1 "github.com/ais-operator/api/aistore/v1beta1"
 	authcontroller "github.com/ais-operator/internal/controller/aisauth"
 	aiscontroller "github.com/ais-operator/internal/controller/aistore"
+	"github.com/ais-operator/internal/opinfo"
 	"github.com/ais-operator/internal/resources/aistore/cmn"
 	"github.com/ais-operator/internal/services"
 	authwebhookv1alpha1 "github.com/ais-operator/internal/webhook/aisauth/v1alpha1"
@@ -28,11 +31,13 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/certwatcher"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -185,7 +190,13 @@ func main() {
 
 	restrictNamespaces(watchNamespaces, &mgrOptions)
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), mgrOptions)
+	restConfig := ctrl.GetConfigOrDie()
+	if err := resolveOperatorInfo(restConfig); err != nil {
+		setupLog.Error(err, "unable to resolve the operator's own environment")
+		os.Exit(1)
+	}
+
+	mgr, err := ctrl.NewManager(restConfig, mgrOptions)
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
@@ -256,6 +267,22 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+// Total budget for resolving the operator's environment, retries included.
+const operatorInfoTimeout = 30 * time.Second
+
+// resolveOperatorInfo discovers the cluster domain and the operator's own identity.
+func resolveOperatorInfo(cfg *rest.Config) error {
+	c, err := client.New(cfg, client.Options{Scheme: scheme})
+	if err != nil {
+		return fmt.Errorf("failed to create a client to inspect the operator's own environment: %w", err)
+	}
+
+	ctx, cancel := context.WithTimeout(logf.IntoContext(context.Background(), setupLog), operatorInfoTimeout)
+	defer cancel()
+
+	return opinfo.Resolve(ctx, c)
 }
 
 // If namespace arg is provided, update config options to restrict which namespaces the manager watches

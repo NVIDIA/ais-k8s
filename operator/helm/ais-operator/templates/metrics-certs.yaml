@@ -9,7 +9,7 @@ spec:
   - '{{ include "ais-operator.fullname" . }}-controller-manager-metrics-service.{{ .Release.Namespace
     }}.svc'
   - '{{ include "ais-operator.fullname" . }}-controller-manager-metrics-service.{{ .Release.Namespace
-    }}.svc.{{ .Values.kubernetesClusterDomain }}'
+    }}.svc.{{ .Values.kubernetesClusterDomain | default "cluster.local" }}'
   issuerRef:
     kind: Issuer
     name: '{{ include "ais-operator.fullname" . }}-selfsigned-issuer'

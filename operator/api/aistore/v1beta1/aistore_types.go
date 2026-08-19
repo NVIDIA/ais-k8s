@@ -80,10 +80,9 @@ const (
 
 // Helper constants.
 const (
-	defaultClusterDomain = "cluster.local"
-	azureStorageAccount  = "AZURE_STORAGE_ACCOUNT"
-	azureStorageKey      = "AZURE_STORAGE_KEY"
-	aisAzureURL          = "AIS_AZURE_URL"
+	azureStorageAccount = "AZURE_STORAGE_ACCOUNT"
+	azureStorageKey     = "AZURE_STORAGE_KEY"
+	aisAzureURL         = "AIS_AZURE_URL"
 )
 
 // ExternalAccessSpec configures services for external client access.
@@ -444,7 +443,8 @@ type AIStoreSpec struct {
 	// +optional
 	CleanupData *bool `json:"cleanupData,omitempty"`
 
-	// Defines the cluster domain name for DNS. Default: cluster.local.
+	// Defines the cluster domain name for DNS.
+	// Defaults to the cluster domain the operator is configured with or discovers at startup.
 	// +optional
 	ClusterDomain *string `json:"clusterDomain,omitempty"`
 
@@ -848,13 +848,6 @@ func (ais *AIStore) NamespacedName() types.NamespacedName {
 	}
 }
 
-func (ais *AIStore) GetClusterDomain() string {
-	if ais.Spec.ClusterDomain == nil {
-		return defaultClusterDomain
-	}
-	return *ais.Spec.ClusterDomain
-}
-
 func (ais *AIStore) ProxyStatefulSetName() string {
 	return ais.Name + "-" + aisapc.Proxy
 }
@@ -917,28 +910,6 @@ func (ais *AIStore) GetTargetMaxUnavailable() int32 {
 	return ais.Spec.TargetSpec.autoScaleMaxUnavailable()
 }
 
-func (ais *AIStore) GetDefaultProxyURL() string {
-	primaryProxy := ais.DefaultPrimaryName()
-	svcName := ais.ProxyStatefulSetName()
-	svcSuffix := ais.getControlSvcSuffix()
-	// Example: https://ais-proxy-0.ais-proxy.ais.svc.cluster.local:51080
-	return fmt.Sprintf("%s://%s.%s.%s.%s", ais.getScheme(), primaryProxy, svcName, ais.Namespace, svcSuffix)
-}
-
-func (ais *AIStore) GetIntraClusterURL() string {
-	svcName := ais.ProxyStatefulSetName()
-	svcSuffix := ais.getPublicSvcSuffix()
-	// Example: https://ais-proxy.ais.svc.cluster.local:51080
-	return fmt.Sprintf("%s://%s.%s.%s", ais.getScheme(), svcName, ais.Namespace, svcSuffix)
-}
-
-func (ais *AIStore) GetDiscoveryProxyURL() string {
-	svcName := ais.ProxyStatefulSetName()
-	svcSuffix := ais.getControlSvcSuffix()
-	// Example: https://ais-proxy.ais.svc.cluster.local:51080
-	return fmt.Sprintf("%s://%s.%s.%s", ais.getScheme(), svcName, ais.Namespace, svcSuffix)
-}
-
 // GetPublicNetDNSMode returns the configured public network DNS mode,
 // defaulting to PubNetDNSModeIP when unset.
 func (ais *AIStore) GetPublicNetDNSMode() PubNetDNSMode {
@@ -964,23 +935,6 @@ func (ais *AIStore) TargetExternalAccessEnabled() bool {
 		return true
 	}
 	return ais.Spec.EnableExternalLB
-}
-
-func (ais *AIStore) getScheme() string {
-	if ais.UseHTTPS() {
-		return "https"
-	}
-	return "http"
-}
-
-func (ais *AIStore) getControlSvcSuffix() string {
-	intraCtrlPort := ais.Spec.ProxySpec.IntraControlPort.String()
-	return fmt.Sprintf("svc.%s:%s", ais.GetClusterDomain(), intraCtrlPort)
-}
-
-func (ais *AIStore) getPublicSvcSuffix() string {
-	pubPort := ais.Spec.ProxySpec.PublicPort.String()
-	return fmt.Sprintf("svc.%s:%s", ais.GetClusterDomain(), pubPort)
 }
 
 func (ais *AIStore) ShouldStartShutdown() bool {

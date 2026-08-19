@@ -1,3 +1,6 @@
+# Cluster DNS domain -- leave empty to let the operator discover it
+kubernetesClusterDomain: ""
+
 controllerManager:
   manager:
     # Optional ConfigMap names for CA certificates -- operator falls back to system CAs if not present

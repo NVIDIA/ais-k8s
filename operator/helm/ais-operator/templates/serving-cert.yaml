@@ -8,7 +8,7 @@ spec:
   dnsNames:
   - '{{ include "ais-operator.fullname" . }}-webhook-service.{{ .Release.Namespace }}.svc'
   - '{{ include "ais-operator.fullname" . }}-webhook-service.{{ .Release.Namespace }}.svc.{{
-    .Values.kubernetesClusterDomain }}'
+    .Values.kubernetesClusterDomain | default "cluster.local" }}'
   issuerRef:
     kind: Issuer
     name: '{{ include "ais-operator.fullname" . }}-selfsigned-issuer'

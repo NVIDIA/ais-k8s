@@ -1414,7 +1414,9 @@ spec:
                    - The reclamation behavior for PVs bound to the PVCs depends on the PVC's reclaim policy, or, if the PV was dynamically provisioned, on the reclaim policy of the associated StorageClass.
                 type: boolean
               clusterDomain:
-                description: 'Defines the cluster domain name for DNS. Default: cluster.local.'
+                description: |-
+                  Defines the cluster domain name for DNS.
+                  Defaults to the cluster domain the operator is configured with or discovers at startup.
                 type: string
               configToUpdate:
                 properties:

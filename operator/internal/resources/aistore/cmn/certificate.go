@@ -77,7 +77,7 @@ func addServiceDNSNames(names []string, svcName, namespace, clusterDomain string
 }
 
 func buildCertificateSANs(ais *aisv1.AIStore, publicHosts []string) (dnsNames, ipAddresses []string) {
-	clusterDomain := ais.GetClusterDomain()
+	clusterDomain := ClusterDomain(ais)
 
 	// Add DNS names for proxy service
 	dnsNames = addServiceDNSNames(dnsNames, fmt.Sprintf("%s-proxy", ais.Name), ais.Namespace, clusterDomain)

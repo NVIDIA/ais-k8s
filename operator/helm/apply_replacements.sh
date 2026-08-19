@@ -50,6 +50,21 @@ CLUSTER_ROLE_TMPL="${TEMPLATES_SOURCE_DIR}/add_cluster_rolebinding_option.gotmpl
 RBAC_TEMPLATE="${TEMPLATES_TARGET_DIR}/manager-rbac.yaml"
 apply_snippet "$CLUSTER_ROLE_SNIPPET" "$CLUSTER_ROLE_TMPL" "$RBAC_TEMPLATE"
 
+# Give certificate DNS names a concrete cluster domain
+CLUSTER_DOMAIN_TMPL="${TEMPLATES_SOURCE_DIR}/default_cluster_domain.gotmpl"
+# Explicitly skip the deployment template to allow an empty default
+for cert in "${TEMPLATES_TARGET_DIR}"/serving-cert.yaml "${TEMPLATES_TARGET_DIR}"/metrics-certs.yaml; do
+  [ -f "$cert" ] || continue
+  echo "Defaulting the cluster domain in $(basename "$cert")"
+  AIS_TARGET_TEMPLATE="$cert" \
+    ${GOMPLATE} -f "$CLUSTER_DOMAIN_TMPL" -o "${cert}.tmp"
+  mv "${cert}.tmp" "$cert"
+  if ! grep -q 'kubernetesClusterDomain | default' "$cert"; then
+    echo "ERROR: no cluster domain default applied to $(basename "$cert"), check how helmify renders kubernetesClusterDomain" >&2
+    exit 1
+  fi
+done
+
 # Strip helmify's top-level CRD status block
 STRIP_CRD_STATUS_TMPL="${TEMPLATES_SOURCE_DIR}/strip_crd_status.gotmpl"
 for crd in "${TEMPLATES_TARGET_DIR}"/*-crd.yaml; do

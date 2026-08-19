@@ -16,6 +16,16 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
   - Support for `spec.tokenExchange.subjectTokenAudience` to be used when the auth provider requires an audience in the subject token.
   - Support for user-provided OAuth 2.0 password-grant token endpoints.
 
+### Changed
+
+- Operator will now discover K8s cluster domain on startup. 
+  - Helm value `kubernetesClusterDomain` still sets `KUBERNETES_CLUSTER_DOMAIN` if configured, but the default value is now empty.
+  - `KUBERNETES_CLUSTER_DOMAIN` was previously ignored, but now takes precedence if set -- an empty value leads to Operator discovery from its own DNS config. 
+  - This becomes the new default cluster domain if not configured on custom resources. On AIStore resources, `spec.clusterDomain` still applies.
+  - The operator exits at startup if the domain is neither configured nor discoverable.
+- Operator will do a `SelfSubjectReview` on startup; errors will cause operator pod to exit and restart.
+  - This requires the `SelfSubjectReview` API, which was added to K8s GA in 1.28.
+
 --
 
 ## v3.3.0

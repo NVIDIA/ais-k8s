@@ -179,7 +179,7 @@ func authnEnvVars(authConf services.AuthConfig) []corev1.EnvVar {
 func buildClientEnv(ais *aisv1.AIStore, authConf services.AuthConfig) []corev1.EnvVar {
 	clientSpec := ais.Spec.AdminClient
 	base := []corev1.EnvVar{
-		{Name: aisenv.AisEndpoint, Value: ais.GetIntraClusterURL()},
+		{Name: aisenv.AisEndpoint, Value: cmn.IntraClusterURL(ais)},
 	}
 	ca := caEnvVars(clientSpec.CAConfigMap)
 	authn := authnEnvVars(authConf)

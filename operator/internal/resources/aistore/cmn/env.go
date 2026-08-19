@@ -48,7 +48,7 @@ func CommonEnv() []corev1.EnvVar {
 func CommonInitEnv(ais *aisv1.AIStore, externalAccessEnabled bool) []corev1.EnvVar {
 	initEnv := []corev1.EnvVar{
 		EnvFromFieldPath(EnvHostIPS, "status.hostIPs"),
-		EnvFromValue(EnvClusterDomain, ais.GetClusterDomain()),
+		EnvFromValue(EnvClusterDomain, ClusterDomain(ais)),
 		EnvFromValue(EnvEnableExternalAccess, strconv.FormatBool(externalAccessEnabled)),
 	}
 	if ais.Spec.PublicNetDNSMode != nil {

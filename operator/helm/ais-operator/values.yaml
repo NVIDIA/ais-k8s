@@ -42,7 +42,8 @@ controllerManager:
   # Annotations for the operator pods (optional)
   podAnnotations: {}
 imagePullSecrets: []
-kubernetesClusterDomain: cluster.local
+# Cluster DNS domain -- leave empty to let the operator discover it
+kubernetesClusterDomain: ""
 metricsService:
   ports:
     - name: https

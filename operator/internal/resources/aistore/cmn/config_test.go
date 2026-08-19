@@ -144,9 +144,9 @@ var _ = Describe("Config", Label("short"), func() {
 				},
 				Rebalance: &aiscmn.RebalanceConfToSet{Enabled: aisapc.Ptr(false)},
 				Proxy: &aiscmn.ProxyConfToSet{
-					PrimaryURL:   aisapc.Ptr(ais.GetDefaultProxyURL()),
-					OriginalURL:  aisapc.Ptr(ais.GetDefaultProxyURL()),
-					DiscoveryURL: aisapc.Ptr(ais.GetDiscoveryProxyURL()),
+					PrimaryURL:   aisapc.Ptr(DefaultProxyURL(ais)),
+					OriginalURL:  aisapc.Ptr(DefaultProxyURL(ais)),
+					DiscoveryURL: aisapc.Ptr(DiscoveryProxyURL(ais)),
 				},
 			}
 			conf, err := GenerateGlobalConfig(ais)
