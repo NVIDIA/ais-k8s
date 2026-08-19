@@ -40,6 +40,29 @@ Its PVs carry a `claimRef` naming the one target PVC allowed to bind, so every n
 
 > **Note:** It is not possible to in-place upgrade from `create-target-pv-job` to the new `create-target-pv` chart. The old Job-created PVs are not Helm-owned and collide by name, so moving an existing cluster to this chart will require redeploying the cluster *entirely*.
 
+### State Storage
+
+The `stateStorage` field controls where AIS stores its cluster configuration and metadata on each node.
+See the [state storage doc](../../docs/state_storage.md) for details.
+
+Example helm values:
+
+```yaml
+# emptyDir
+stateStorage:
+  emptyDir: {}
+
+# hostPath
+stateStorage:
+  hostPath:
+    prefix: /etc/ais
+
+# pvc
+stateStorage:
+  pvc:
+    storageClass: local-path
+```
+
 ### Scaling
 
 The `size` value in your AIS values file sets the number of proxy and target pods.
@@ -103,11 +126,13 @@ For OCI, setting the `OCI_COMPARTMENT_OCID` environment variable is necessary to
 
 ## Running the deployment 
 
-From the `ais` directory, run: 
+From the `helm/ais` directory, run: 
 
 ```bash 
 helmfile sync --environment <your-env>
 ```
+
+> **Note:** `helmfile sync` must be run from within the correct chart subdirectory (`helm/ais`, `helm/operator`, etc.). Running it from the wrong directory will produce a "no state file found" error.
 
 To uninstall:
 ```bash

@@ -14,12 +14,15 @@ This directory contains Helm charts for deploying the following:
 
 ## Prerequisites
 
-1. [**Local Kubectl configured to access the cluster**](#kubernetes-context)
-1. Kubernetes nodes configured with formatted drives
-   1. The [host-config playbooks](../playbooks/host-config/README.md) provide a good starting point for properly configuring your hosts and formatting drives.
-1. Helm installed locally
-    1. Helm-diff plugin: `helm plugin install https://github.com/databus23/helm-diff`
-    1. Helmfile: https://github.com/helmfile/helmfile?tab=readme-ov-file
+- [**Local Kubectl configured to access the cluster**](#kubernetes-context)
+- Kubernetes nodes configured with formatted drives
+   - The [host-config playbooks](../playbooks/host-config/README.md) provide a good starting point for properly configuring your hosts and formatting drives.
+- Helm installed locally
+   - Helm-diff plugin: `helm plugin install https://github.com/databus23/helm-diff`
+   - Helmfile: https://github.com/helmfile/helmfile?tab=readme-ov-file
+- [**cert-manager**](https://cert-manager.io/docs/installation/) installed and running in the cluster
+   - Required before deploying the operator: the operator helmfile checks for cert-manager as a presync step and will fail if it is not present.
+   - Verify: `kubectl get pods -n cert-manager`
 
 ### Kubernetes context
 1. Configure access to your cluster with a new context. See the [k8s docs](https://kubernetes.io/docs/tasks/access-application-cluster/configure-access-multiple-clusters/).
