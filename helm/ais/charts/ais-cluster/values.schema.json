@@ -261,7 +261,7 @@
     },
     "clusterDomain": {
       "type": ["string", "null"],
-      "description": "Kubernetes cluster DNS domain. Optional, defaults to cluster.local.",
+      "description": "Deprecated: Kubernetes cluster DNS domain. Optional, defaults to cluster.local with operator versions < 3.4. On later versions, defaults to the cluster domain the operator is configured with or discovers at startup.",
       "examples": ["cluster.local"]
     },
     "configToUpdate": {

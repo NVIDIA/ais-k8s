@@ -151,6 +151,7 @@ func (ais *AIStore) validateDeprecatedFields() (admission.Warnings, error) {
 		{auth.UsernamePassword != nil, "spec.auth.usernamePassword", "spec.auth.profileRef"},
 		{auth.TokenExchange != nil, "spec.auth.tokenExchange", "spec.auth.profileRef"},
 		{auth.TLS != nil, "spec.auth.tls", "spec.auth.profileRef"},
+		{ais.Spec.ClusterDomain != nil, "spec.clusterDomain", "the operator's configured or discovered cluster domain"},
 		{ais.Spec.HostpathPrefix != nil, "spec.hostpathPrefix", "spec.stateStorage.hostPath.prefix"},
 		{ais.Spec.StateStorageClass != nil, "spec.stateStorageClass", "spec.stateStorage.pvc.storageClass"},
 		{ais.Spec.EnableExternalLB, "spec.enableExternalLB", "spec.proxySpec.externalAccess and/or spec.targetSpec.externalAccess"},

@@ -45,6 +45,7 @@ var _ = Describe("ClusterDomain", Label("short"), func() {
 
 	It("should prefer the domain from the spec", func() {
 		ais := newURLTestAIS()
+		//nolint:staticcheck // ClusterDomain spec option will be removed in the next major release.
 		ais.Spec.ClusterDomain = aisapc.Ptr(urlTestDomain)
 
 		Expect(ClusterDomain(ais)).To(Equal(urlTestDomain))
@@ -56,6 +57,7 @@ var _ = Describe("Proxy URLs", Label("short"), func() {
 
 	BeforeEach(func() {
 		ais = newURLTestAIS()
+		//nolint:staticcheck // ClusterDomain spec option will be removed in the next major release.
 		ais.Spec.ClusterDomain = aisapc.Ptr(urlTestDomain)
 	})
 

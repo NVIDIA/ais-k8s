@@ -96,4 +96,3 @@ spec:
   initImage: "docker.io/aistorage/ais-init:latest"
   enableExternalLB: false
   logsDir: "/var/log/ais"
-  clusterDomain: "cluster.local"

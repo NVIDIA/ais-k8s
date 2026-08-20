@@ -444,7 +444,9 @@ type AIStoreSpec struct {
 	CleanupData *bool `json:"cleanupData,omitempty"`
 
 	// Defines the cluster domain name for DNS.
-	// Defaults to the cluster domain the operator is configured with or discovers at startup.
+	// If set, will override the cluster domain the operator is configured with or discovers at startup.
+	//
+	// Deprecated: Leave unset to use the cluster domain the operator is configured with or discovers at startup.
 	// +optional
 	ClusterDomain *string `json:"clusterDomain,omitempty"`
 

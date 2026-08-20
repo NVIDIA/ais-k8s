@@ -90,14 +90,12 @@ Again, there are a few deployment options:
   - For a multihome deployment using multiple network interfaces, some extra configuration is required before deploying the cluster.
   - Refer to the [multihome deployment doc](./multihome.md) for details. 
 
+[Multiple storage targets](multiple_targets_per_node.md) can also be deployed on a single K8s node for testing or higher availability.
+
 After deployment, verify all AIS pods are ready and running:
 ```
 $ watch kubectl get pods -n <cluster-namespace>
 ```
-
-> **Notes**
-> - In some Kubernetes deployments, the default cluster domain name might differ from `cluster.local` which can be overridden using the `clusterDomain` spec option.
-> - For production environments, it's recommended to operate one proxy and one target per Kubernetes (K8s) node as shown in the above playbooks. [Multiple storage targets](multiple_targets_per_node.md) can also be deployed on a single K8s node for testing or higher availability.
 
 ### Configuring access
 

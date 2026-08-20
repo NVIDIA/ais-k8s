@@ -28,6 +28,10 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 - Operator token exchange with authentication providers mints a new subject token for exchange instead of passing its own projected ServiceAccount token.
   - This requires an included new `subject-token-role` to allow for `serviceaccounts/token` creation in the operator namespace.
 
+### Deprecated
+
+- `spec.clusterDomain`-- When removed, AIS clusters will always use the cluster domain the operator is configured with or discovers at startup.
+
 --
 
 ## v3.3.0

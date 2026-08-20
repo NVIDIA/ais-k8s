@@ -13,10 +13,11 @@ import (
 
 // ClusterDomain returns the DNS domain the cluster's services are addressed under.
 func ClusterDomain(ais *aisv1.AIStore) string {
-	if ais.Spec.ClusterDomain == nil {
-		return opinfo.ClusterDomain()
+	//nolint:staticcheck // ClusterDomain spec option will be removed in the next major release.
+	if domain := ais.Spec.ClusterDomain; domain != nil {
+		return *domain
 	}
-	return *ais.Spec.ClusterDomain
+	return opinfo.ClusterDomain()
 }
 
 // DefaultProxyURL returns the URL of the proxy that starts out as primary.
