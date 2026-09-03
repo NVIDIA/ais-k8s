@@ -13,6 +13,7 @@ import (
 	webhookcmn "github.com/ais-operator/internal/webhook"
 	authorizationv1 "k8s.io/api/authorization/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -36,12 +37,12 @@ var _ admission.Validator[*authv1.AIStoreAuthProfile] = &AIStoreAuthProfileWebho
 
 func (w *AIStoreAuthProfileWebhook) ValidateCreate(ctx context.Context, profile *authv1.AIStoreAuthProfile) (admission.Warnings, error) {
 	warnings := securityWarnings(nil, profile)
-	return warnings, w.validate(ctx, profile, &warnings)
+	return warnings, w.validate(ctx, nil, profile, &warnings)
 }
 
 func (w *AIStoreAuthProfileWebhook) ValidateUpdate(ctx context.Context, previous, profile *authv1.AIStoreAuthProfile) (admission.Warnings, error) {
 	warnings := securityWarnings(previous, profile)
-	return warnings, w.validate(ctx, profile, &warnings)
+	return warnings, w.validate(ctx, previous, profile, &warnings)
 }
 
 func (*AIStoreAuthProfileWebhook) ValidateDelete(_ context.Context, _ *authv1.AIStoreAuthProfile) (admission.Warnings, error) {
@@ -50,15 +51,15 @@ func (*AIStoreAuthProfileWebhook) ValidateDelete(_ context.Context, _ *authv1.AI
 
 func (w *AIStoreAuthProfileWebhook) validate(
 	ctx context.Context,
-	profile *authv1.AIStoreAuthProfile,
+	previous, profile *authv1.AIStoreAuthProfile,
 	warnings *admission.Warnings,
 ) error {
+	// Writes with no spec changes must not be invalidated so finalizers and annotations can still be patched.
+	if previous != nil && equality.Semantic.DeepEqual(&previous.Spec, &profile.Spec) {
+		return nil
+	}
 	if err := profile.ValidateSpec(); err != nil {
 		return err
-	}
-	// Skip reference checks while terminating so a stale reference cannot block finalizer removal
-	if !profile.DeletionTimestamp.IsZero() {
-		return nil
 	}
 
 	var allErrs field.ErrorList

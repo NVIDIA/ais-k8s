@@ -255,6 +255,13 @@ func usernamePasswordProfile(secretName string) *authv1.AIStoreAuthProfile {
 	}
 }
 
+func terminatingProfile(secretName string) *authv1.AIStoreAuthProfile {
+	profile := usernamePasswordProfile(secretName)
+	profile.DeletionTimestamp = &metav1.Time{Time: time.Now()}
+	profile.Finalizers = []string{"example.com/hold"}
+	return profile
+}
+
 func caConfigMapProfile(configMapName, key string) *authv1.AIStoreAuthProfile {
 	return &authv1.AIStoreAuthProfile{
 		ObjectMeta: metav1.ObjectMeta{Name: "profile"},
@@ -297,8 +304,18 @@ func TestAIStoreAuthProfileWebhookSecretReferences(t *testing.T) {
 	insecureProfile := usernamePasswordProfile("missing")
 	insecureProfile.Spec.TLS = &authv1.AuthProfileTLSConfig{InsecureSkipVerify: true}
 
-	terminatingProfile := usernamePasswordProfile("missing")
-	terminatingProfile.DeletionTimestamp = &metav1.Time{Time: time.Now()}
+	finalizerRemoved := terminatingProfile("missing")
+	finalizerRemoved.Finalizers = nil
+
+	rerouted := terminatingProfile("credentials")
+	rerouted.Spec.ServiceURL = "https://other.example.com"
+
+	// staleSpec references a missing Secret and sets two auth methods, so it fails every check.
+	staleSpec := func() *authv1.AIStoreAuthProfile {
+		profile := usernamePasswordProfile("credentials")
+		profile.Spec.TokenExchange = &authv1.AuthProfileTokenExchange{Endpoint: "/token"}
+		return profile
+	}
 
 	runValidationCases(t, []validationCase{
 		{
@@ -351,9 +368,14 @@ func TestAIStoreAuthProfileWebhookSecretReferences(t *testing.T) {
 			wantErr: ContainSubstring(`cannot authorize secrets resource "credentials" in namespace "ais-authn"`),
 		},
 		{
-			name:     "validates an unchanged Secret reference on update",
+			name:     "accepts an unchanged spec that no longer passes validation",
+			previous: staleSpec(),
+			profile:  staleSpec(),
+		},
+		{
+			name:     "validates a changed Secret reference on update",
 			previous: usernamePasswordProfile("credentials"),
-			profile:  usernamePasswordProfile("credentials"),
+			profile:  usernamePasswordProfile("missing"),
 			wantErr:  ContainSubstring("referenced Secret does not exist"),
 		},
 		{
@@ -369,9 +391,17 @@ func TestAIStoreAuthProfileWebhookSecretReferences(t *testing.T) {
 			wantWarning: ContainSubstring("spec.tls.insecureSkipVerify is enabled"),
 		},
 		{
-			name:     "skips reference checks for a terminating profile",
-			previous: usernamePasswordProfile("missing"),
-			profile:  terminatingProfile,
+			name:         "accepts finalizer removal from a terminating profile with an unreadable Secret",
+			unauthorized: true,
+			previous:     terminatingProfile("missing"),
+			profile:      finalizerRemoved,
+		},
+		{
+			name:         "rejects an unauthorized serviceURL change on a terminating profile",
+			unauthorized: true,
+			previous:     terminatingProfile("credentials"),
+			profile:      rerouted,
+			wantErr:      ContainSubstring(`user "alice" is not authorized to get secrets resource "credentials"`),
 		},
 	})
 }
@@ -411,10 +441,11 @@ func TestAIStoreAuthProfileWebhookCAConfigMapReferences(t *testing.T) {
 			),
 		},
 		{
-			name:     "validates an unchanged ConfigMap reference on update",
+			name:     "validates a changed ConfigMap key on update",
+			objects:  []client.Object{caConfigMap(map[string]string{"ca.crt": "certificate"})},
 			previous: caConfigMapProfile("ca", "ca.crt"),
-			profile:  caConfigMapProfile("ca", "ca.crt"),
-			wantErr:  ContainSubstring("referenced ConfigMap does not exist"),
+			profile:  caConfigMapProfile("ca", "missing-ca.crt"),
+			wantErr:  ContainSubstring("key does not exist in referenced ConfigMap"),
 		},
 		{
 			name:                 "warns when the operator cannot get the ConfigMap",

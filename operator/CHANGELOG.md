@@ -17,6 +17,9 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 - When using token exchange for acquiring an auth token, the Operator will always include an `aud` field in the subject token to prevent it from being used for K8s API server requests if intercepted.
 - Drop SubjectAccessReview skip for unchanged `spec.auth.profileRef` -- every spec change re-submits it. 
 
+- `AIStoreAuthProfile`
+  - Webhook validation is skipped only for updates that leave `spec` unchanged, so finalizers and annotations can still be patched on a profile whose referenced Secret or ConfigMap is gone.
+
 ---
 
 ## v4.0.0
