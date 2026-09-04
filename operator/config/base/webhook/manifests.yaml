@@ -64,6 +64,7 @@ webhooks:
     operations:
     - CREATE
     - UPDATE
+    - DELETE
     resources:
     - aistoreauthprofiles
   sideEffects: None

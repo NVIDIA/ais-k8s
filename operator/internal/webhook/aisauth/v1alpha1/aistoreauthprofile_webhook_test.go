@@ -10,6 +10,7 @@ import (
 	"time"
 
 	authv1 "github.com/ais-operator/api/aisauth/v1alpha1"
+	aisv1 "github.com/ais-operator/api/aistore/v1beta1"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -145,7 +146,11 @@ func TestAIStoreAuthProfileWebhook(t *testing.T) {
 	}
 }
 
-const profileNamespace = "ais-authn"
+const (
+	profileNamespace = "ais-authn"
+	// profileName is the name of the profile every test helper builds.
+	profileName = "profile"
+)
 
 // newFakeWebhook builds a webhook over a fake client seeded with objects, where every
 // SubjectAccessReview is answered with the given decision. When reader is nil, the fake
@@ -156,6 +161,7 @@ func newFakeWebhook(t *testing.T, allowed bool, reader client.Reader, objects ..
 	scheme := runtime.NewScheme()
 	g.Expect(corev1.AddToScheme(scheme)).To(Succeed())
 	g.Expect(authorizationv1.AddToScheme(scheme)).To(Succeed())
+	g.Expect(aisv1.AddToScheme(scheme)).To(Succeed())
 	fakeClient := fake.NewClientBuilder().
 		WithScheme(scheme).
 		WithObjects(objects...).
@@ -183,6 +189,17 @@ func (forbiddenReader) Get(_ context.Context, key client.ObjectKey, obj client.O
 
 func (forbiddenReader) List(context.Context, client.ObjectList, ...client.ListOption) error {
 	panic("unexpected List")
+}
+
+// unavailableReader fails every List, simulating an unreachable API server.
+type unavailableReader struct{}
+
+func (unavailableReader) Get(context.Context, client.ObjectKey, client.Object, ...client.GetOption) error {
+	panic("unexpected Get")
+}
+
+func (unavailableReader) List(context.Context, client.ObjectList, ...client.ListOption) error {
+	return apierrors.NewServiceUnavailable("API server is unreachable")
 }
 
 // validationCase validates profile on create, or on update against previous when it is set.
@@ -245,7 +262,7 @@ func runValidationCases(t *testing.T, cases []validationCase) {
 
 func usernamePasswordProfile(secretName string) *authv1.AIStoreAuthProfile {
 	return &authv1.AIStoreAuthProfile{
-		ObjectMeta: metav1.ObjectMeta{Name: "profile"},
+		ObjectMeta: metav1.ObjectMeta{Name: profileName},
 		Spec: authv1.AIStoreAuthProfileSpec{
 			ServiceURL: "https://auth.example.com",
 			UsernamePassword: &authv1.AuthProfileUsernamePassword{
@@ -264,7 +281,7 @@ func terminatingProfile(secretName string) *authv1.AIStoreAuthProfile {
 
 func caConfigMapProfile(configMapName, key string) *authv1.AIStoreAuthProfile {
 	return &authv1.AIStoreAuthProfile{
-		ObjectMeta: metav1.ObjectMeta{Name: "profile"},
+		ObjectMeta: metav1.ObjectMeta{Name: profileName},
 		Spec: authv1.AIStoreAuthProfileSpec{
 			ServiceURL:    "https://auth.example.com",
 			TokenExchange: &authv1.AuthProfileTokenExchange{Endpoint: "/token"},
@@ -404,6 +421,68 @@ func TestAIStoreAuthProfileWebhookSecretReferences(t *testing.T) {
 			wantErr:      ContainSubstring(`user "alice" is not authorized to get secrets resource "credentials"`),
 		},
 	})
+}
+
+func referencingAIStore(namespace, name, ref string) *aisv1.AIStore {
+	ais := &aisv1.AIStore{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace}}
+	if ref != "" {
+		ais.Spec.Auth = &aisv1.AuthSpec{ProfileRef: &aisv1.AuthProfileRef{Name: ref}}
+	}
+	return ais
+}
+
+func TestAIStoreAuthProfileWebhookDelete(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		// objects seed the AIStore resources the webhook reads references from.
+		objects []client.Object
+		// unavailable makes the reference lookup fail.
+		unavailable bool
+		wantErr     types.GomegaMatcher
+	}{
+		{
+			name: "accepts a profile no AIStore references",
+			objects: []client.Object{
+				referencingAIStore("ais", "no-auth", ""),
+				referencingAIStore("ais", "other-profile", "staging-authn"),
+			},
+		},
+		{
+			name:    "rejects a referenced profile",
+			objects: []client.Object{referencingAIStore("ais", "prod", profileName)},
+			wantErr: ContainSubstring(`still referenced by AIStore ais/prod`),
+		},
+		{
+			name: "rejects a profile referenced from any namespace",
+			objects: []client.Object{
+				referencingAIStore("ais", "no-auth", ""),
+				referencingAIStore("tenant", "prod", profileName),
+			},
+			wantErr: ContainSubstring(`still referenced by AIStore tenant/prod`),
+		},
+		{
+			name:        "rejects deletion when references cannot be read",
+			unavailable: true,
+			wantErr:     ContainSubstring(`checking AIStore references to "profile"`),
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			g := NewWithT(t)
+			var reader client.Reader
+			if tc.unavailable {
+				reader = unavailableReader{}
+			}
+			webhook := newFakeWebhook(t, true, reader, tc.objects...)
+
+			warnings, err := webhook.ValidateDelete(authorContext("alice"), usernamePasswordProfile("credentials"))
+			g.Expect(warnings).To(BeEmpty())
+			if tc.wantErr == nil {
+				g.Expect(err).NotTo(HaveOccurred())
+				return
+			}
+			g.Expect(err).To(MatchError(tc.wantErr))
+		})
+	}
 }
 
 func TestAIStoreAuthProfileWebhookCAConfigMapReferences(t *testing.T) {

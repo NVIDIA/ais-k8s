@@ -12,6 +12,11 @@ metadata:
   labels:
   {{- include "ais-operator.labels" . | nindent 4 }}
 rules:
+# Admission of the cluster-scoped AIStoreAuthProfile requires reading AIStore resources
+# outside the watched namespaces
+- apiGroups: ["ais.nvidia.com"]
+  resources: ["aistores"]
+  verbs: ["get", "list"]
 - apiGroups: [""]
   resources: ["nodes"]
   verbs: ["get", "list", "watch"]

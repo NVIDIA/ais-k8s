@@ -10,6 +10,7 @@ import (
 	"net/url"
 
 	authv1 "github.com/ais-operator/api/aisauth/v1alpha1"
+	aisv1 "github.com/ais-operator/api/aistore/v1beta1"
 	webhookcmn "github.com/ais-operator/internal/webhook"
 	authorizationv1 "k8s.io/api/authorization/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -29,7 +30,7 @@ type AIStoreAuthProfileWebhook struct {
 	APIReader client.Reader
 }
 
-// +kubebuilder:webhook:path=/validate-auth-ais-nvidia-com-v1alpha1-aistoreauthprofile,mutating=false,failurePolicy=fail,sideEffects=None,groups=auth.ais.nvidia.com,resources=aistoreauthprofiles,verbs=create;update,versions=v1alpha1,name=vaistoreauthprofile.kb.io,admissionReviewVersions={v1,v1beta1}
+// +kubebuilder:webhook:path=/validate-auth-ais-nvidia-com-v1alpha1-aistoreauthprofile,mutating=false,failurePolicy=fail,sideEffects=None,groups=auth.ais.nvidia.com,resources=aistoreauthprofiles,verbs=create;update;delete,versions=v1alpha1,name=vaistoreauthprofile.kb.io,admissionReviewVersions={v1,v1beta1}
 // +kubebuilder:rbac:groups="",resources=configmaps;secrets,verbs=get
 // +kubebuilder:rbac:groups=authorization.k8s.io,resources=subjectaccessreviews,verbs=create
 
@@ -45,8 +46,31 @@ func (w *AIStoreAuthProfileWebhook) ValidateUpdate(ctx context.Context, previous
 	return warnings, w.validate(ctx, previous, profile, &warnings)
 }
 
-func (*AIStoreAuthProfileWebhook) ValidateDelete(_ context.Context, _ *authv1.AIStoreAuthProfile) (admission.Warnings, error) {
-	return nil, nil
+func (w *AIStoreAuthProfileWebhook) ValidateDelete(ctx context.Context, profile *authv1.AIStoreAuthProfile) (admission.Warnings, error) {
+	return nil, w.validateUnreferenced(ctx, profile)
+}
+
+// validateUnreferenced rejects deletion while an AIStore still references the profile
+func (w *AIStoreAuthProfileWebhook) validateUnreferenced(ctx context.Context, profile *authv1.AIStoreAuthProfile) error {
+	clusters := &aisv1.AIStoreList{}
+	// Read live: the cached client only covers the operator's watched namespaces
+	if err := w.APIReader.List(ctx, clusters); err != nil {
+		return apierrors.NewInternalError(
+			fmt.Errorf("checking AIStore references to %q: %w", profile.Name, err),
+		)
+	}
+	for i := range clusters.Items {
+		ref := clusters.Items[i].GetAuthProfileRef()
+		if ref == nil || ref.Name != profile.Name {
+			continue
+		}
+		return apierrors.NewForbidden(
+			authv1.GroupVersion.WithResource("aistoreauthprofiles").GroupResource(),
+			profile.Name,
+			fmt.Errorf("still referenced by AIStore %s", clusters.Items[i].NamespacedName()),
+		)
+	}
+	return nil
 }
 
 func (w *AIStoreAuthProfileWebhook) validate(
