@@ -89,9 +89,11 @@ Render the `externalAccess` block for one daemon spec. Takes the daemon's
 */}}
 {{- define "ais-cluster.externalAccess" -}}
 {{- $ea := default (dict) . -}}
+{{- if and $ea.loadBalancer (not $ea.enabled) }}{{- fail "externalAccess.loadBalancer requires externalAccess.enabled: true" }}{{- end -}}
 {{- if $ea.enabled -}}
 {{- $body := dict -}}
 {{- with $ea.annotations }}{{- $_ := set $body "annotations" . }}{{- end -}}
+{{- with $ea.loadBalancer }}{{- $_ := set $body "loadBalancer" . }}{{- end -}}
 {{- dict "externalAccess" $body | toYaml -}}
 {{- end -}}
 {{- end -}}

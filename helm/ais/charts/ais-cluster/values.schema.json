@@ -6,8 +6,60 @@
   "definitions": {
     "servicePort": {
       "type": ["integer", "string"],
-      "description": "Deprecated by operator >= 4.0.0 and required by earlier versions. Use portPublic for the port the daemon binds.",
+      "description": "Deprecated by operator >= 4.0.0 and required by earlier versions. Use portPublic for the port the daemon binds, and proxySpec.externalAccess.loadBalancer.port for the port a proxy LoadBalancer publishes.",
       "examples": [51080]
+    },
+    "affinity": {
+      "type": "object",
+      "description": "Scheduling constraints for the daemon pods, in core Kubernetes Affinity format."
+    },
+    "autoScale": {
+      "type": "object",
+      "description": "Tuning for auto-scaling, applied when size is -1.",
+      "properties": {
+        "sizeLimit": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Upper bound on the number of pods when auto-scaling.",
+          "examples": [10]
+        },
+        "maxUnavailable": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of pods allowed to be unavailable while auto-scaling. Defaults to 0.",
+          "examples": [1]
+        }
+      }
+    },
+    "probeSpec": {
+      "type": "object",
+      "minProperties": 1,
+      "description": "Timing overrides for one probe. HTTP endpoints and ports are managed by the operator.",
+      "properties": {
+        "periodSeconds": { "type": "integer", "minimum": 1 },
+        "timeoutSeconds": { "type": "integer", "minimum": 1 },
+        "failureThreshold": { "type": "integer", "minimum": 1 },
+        "initialDelaySeconds": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "probes": {
+      "type": "object",
+      "minProperties": 1,
+      "description": "Health probe timing overrides for the AIS daemon container. Unset probes use operator defaults.",
+      "properties": {
+        "liveness": { "$ref": "#/definitions/probeSpec" },
+        "readiness": { "$ref": "#/definitions/probeSpec" },
+        "startup": { "$ref": "#/definitions/probeSpec" }
+      }
+    },
+    "pvcRetentionPolicy": {
+      "type": "object",
+      "description": "StatefulSet PVC retention policy for the daemon. Honored by default on Kubernetes >= 1.27 and stable in 1.32.",
+      "properties": {
+        "whenDeleted": { "type": "string", "enum": ["Retain", "Delete"] },
+        "whenScaled": { "type": "string", "enum": ["Retain", "Delete"] }
+      },
+      "examples": [{ "whenDeleted": "Retain", "whenScaled": "Retain" }]
     }
   },
   "properties": {
@@ -480,6 +532,21 @@
       "description": "Logs directory on host to store AIS logs, mounted as a HostPath volume.",
       "examples": ["/var/log/ais"]
     },
+    "issuerCAConfigMap": {
+      "type": ["string", "null"],
+      "description": "ConfigMap holding the CA bundle used to verify OIDC issuer certificates. Must contain a 'ca.crt' key with the bundle in PEM format.",
+      "examples": ["oidc-issuer-ca"]
+    },
+    "priorityClassName": {
+      "type": ["string", "null"],
+      "description": "PriorityClass for proxy and target pods. A high priority class prevents eviction during node pressure.",
+      "examples": ["system-cluster-critical"]
+    },
+    "tracingTokenSecretName": {
+      "type": ["string", "null"],
+      "description": "Kubernetes secret containing the OTEL trace-exporter token.",
+      "examples": ["ais-tracing-token"]
+    },
     "proxySpec": {
       "type": "object",
       "description": "Proxy statefulset and pod configuration.",
@@ -551,6 +618,10 @@
           ]
         },
         "servicePort": { "$ref": "#/definitions/servicePort" },
+        "affinity": { "$ref": "#/definitions/affinity" },
+        "autoScale": { "$ref": "#/definitions/autoScale" },
+        "probes": { "$ref": "#/definitions/probes" },
+        "pvcRetentionPolicy": { "$ref": "#/definitions/pvcRetentionPolicy" },
         "externalAccess": {
           "type": "object",
           "description": "Configuration for cluster-external access to proxies, currently via a shared LoadBalancer.",
@@ -559,6 +630,19 @@
             "annotations": {
               "type": "object",
               "additionalProperties": { "type": "string" }
+            },
+            "loadBalancer": {
+              "type": "object",
+              "description": "Tuning for the shared proxy LoadBalancer service.",
+              "properties": {
+                "port": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 65535,
+                  "description": "Port the proxy LoadBalancer service listens on. Defaults to proxySpec.portPublic.",
+                  "examples": [51080]
+                }
+              }
             }
           }
         }
@@ -670,7 +754,16 @@
           "enum": ["safe_decommission", "decommission", "retain"],
           "examples": ["safe_decommission", "decommission", "retain"]
         },
+        "disablePodAntiAffinity": {
+          "type": "boolean",
+          "description": "Allow more than one target pod to be scheduled on the same Kubernetes node.",
+          "examples": [false]
+        },
         "servicePort": { "$ref": "#/definitions/servicePort" },
+        "affinity": { "$ref": "#/definitions/affinity" },
+        "autoScale": { "$ref": "#/definitions/autoScale" },
+        "probes": { "$ref": "#/definitions/probes" },
+        "pvcRetentionPolicy": { "$ref": "#/definitions/pvcRetentionPolicy" },
         "externalAccess": {
           "type": "object",
           "description": "Configuration for cluster-external access to targets, currently via per-target LoadBalancer services.",

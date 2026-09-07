@@ -24,6 +24,9 @@ shutdownCluster: false
 cleanupData: false
 cleanupMetadata: false
 apiMode: 
+issuerCAConfigMap:
+priorityClassName:
+tracingTokenSecretName:
 stateStorage:
 authNSecretName:
 # auth configures how the operator provisions tokens for its AIS API client.
@@ -48,6 +51,8 @@ proxySpec:
   externalAccess:
     enabled: false
     annotations: {}
+    # loadBalancer:
+    #   port: 443
 
 targetSpec:
   tolerations:

@@ -91,6 +91,9 @@ spec:
     resources:
       {{- toYaml .Values.proxySpec.resources | nindent 6 }}
     {{- end }}
+    {{- with pick .Values.proxySpec "affinity" "autoScale" "probes" "pvcRetentionPolicy" }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
     {{- with include "ais-cluster.externalAccess" .Values.proxySpec.externalAccess }}
     {{- . | nindent 4 }}
     {{- end }}
@@ -131,6 +134,9 @@ spec:
     {{- end }}
     {{- if hasKey .Values.targetSpec "hostNetwork" }}
     hostNetwork: {{ .Values.targetSpec.hostNetwork }}
+    {{- end }}
+    {{- if hasKey .Values.targetSpec "disablePodAntiAffinity" }}
+    disablePodAntiAffinity: {{ .Values.targetSpec.disablePodAntiAffinity }}
     {{- end }}
     {{- with .Values.targetSpec.aisContainerSecurityContext }}
     aisContainerSecurityContext:
@@ -187,6 +193,9 @@ spec:
     {{- end }}
     {{- with .Values.targetSpec.scaleDownMode }}
     scaleDownMode: {{ . }}
+    {{- end }}
+    {{- with pick .Values.targetSpec "affinity" "autoScale" "probes" "pvcRetentionPolicy" }}
+    {{- toYaml . | nindent 4 }}
     {{- end }}
     {{- with include "ais-cluster.externalAccess" .Values.targetSpec.externalAccess }}
     {{- . | nindent 4 }}
@@ -278,6 +287,15 @@ spec:
   {{- end }}
   {{- with .Values.clusterDomain }}
   clusterDomain: {{ . }}
+  {{- end }}
+  {{- with .Values.issuerCAConfigMap }}
+  issuerCAConfigMap: {{ . }}
+  {{- end }}
+  {{- with .Values.priorityClassName }}
+  priorityClassName: {{ . }}
+  {{- end }}
+  {{- with .Values.tracingTokenSecretName }}
+  tracingTokenSecretName: {{ . }}
   {{- end }}
   {{- with .Values.adminClient }}
   adminClient:
