@@ -7,8 +7,31 @@ $ helm get all {{ .Release.Name }} -n {{ .Release.Namespace }}
 WARNING: The value `logSidecarImage` is no longer supported with operator versions > 3.0.0.
 {{- end }}
 {{- if .Values.enableExternalLB }}
-WARNING: The value `enableExternalLB` is deprecated. With operator >= 3.1.0, prefer `proxySpec.externalAccess` and `targetSpec.externalAccess`.
+WARNING: The value `enableExternalLB` was removed in operator 4.0.0 and applies only to earlier versions. Use `proxySpec.externalAccess` and/or `targetSpec.externalAccess`.
 {{- end }}
 {{- if .Values.proxyLB.enabled }}
 WARNING: The value `proxyLB` is deprecated. With operator >= 3.1.0, set `proxySpec.externalAccess.enabled: true` (and `proxySpec.externalAccess.annotations`) for the equivalent shared proxy LoadBalancer.
+{{- end }}
+{{- if .Values.clusterDomain }}
+WARNING: The value `clusterDomain` was removed in operator 4.0.0 and applies only to earlier versions. Later versions use the cluster domain the operator is configured with or discovers at startup.
+{{- end }}
+{{- if .Values.hostpathPrefix }}
+WARNING: The value `hostpathPrefix` is rejected by operator >= 4.0.0 on cluster creation and on any spec update. Use `stateStorage.hostPath.prefix`.
+{{- end }}
+{{- if .Values.stateStorageClass }}
+WARNING: The value `stateStorageClass` is rejected by operator >= 4.0.0 on cluster creation and on any spec update. Use `stateStorage.pvc.storageClass`.
+{{- end }}
+{{- /* Keep these defaults in sync with the servicePort defaults in values.yaml. */}}
+{{- with (.Values.proxySpec).servicePort }}
+{{- if ne (toString .) "51080" }}
+WARNING: The value `proxySpec.servicePort` is deprecated by operator >= 4.0.0 and required by earlier versions. Use `proxySpec.portPublic` for the port the proxy binds.
+{{- end }}
+{{- end }}
+{{- with (.Values.targetSpec).servicePort }}
+{{- if ne (toString .) "51081" }}
+WARNING: The value `targetSpec.servicePort` is deprecated by operator >= 4.0.0 and required by earlier versions. Use `targetSpec.portPublic` for the port the target binds.
+{{- end }}
+{{- end }}
+{{- if or (.Values.auth).serviceURL (.Values.auth).usernamePassword (.Values.auth).tokenExchange }}
+WARNING: The values `auth.serviceURL`, `auth.usernamePassword` and `auth.tokenExchange` were removed in operator 4.0.0 and apply only to earlier versions. Use `auth.profileRef` to reference an AIStoreAuthProfile. See https://github.com/NVIDIA/ais-k8s/blob/main/docs/COMPATIBILITY.md#migrating-aistore-custom-resources-with-auth for migration steps.
 {{- end }}

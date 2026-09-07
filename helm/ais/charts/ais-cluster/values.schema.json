@@ -3,6 +3,13 @@
   "title": "AIS Cluster Values",
   "description": "Schema for configuring ais-cluster Helm Chart. Contains required and optional values, with examples and descriptions.",
   "type": "object",
+  "definitions": {
+    "servicePort": {
+      "type": ["integer", "string"],
+      "description": "Deprecated by operator >= 4.0.0 and required by earlier versions. Use portPublic for the port the daemon binds.",
+      "examples": [51080]
+    }
+  },
   "properties": {
     "cluster": {
       "type": "string",
@@ -25,9 +32,12 @@
     },
     "size": {
       "type": "integer",
-      "description": "Number of nodes in the AIS cluster.",
-      "examples": [3],
-      "minimum": 1
+      "description": "Number of nodes in the AIS cluster. Set to -1 to auto-scale to the nodes matching proxySpec.nodeSelector and targetSpec.nodeSelector.",
+      "examples": [3, -1],
+      "anyOf": [
+        { "const": -1 },
+        { "minimum": 1 }
+      ]
     },
     "mpathInfo": {
       "type": "object",
@@ -267,7 +277,7 @@
     },
     "clusterDomain": {
       "type": ["string", "null"],
-      "description": "Deprecated: Kubernetes cluster DNS domain. Optional, defaults to cluster.local with operator versions < 3.4. On later versions, defaults to the cluster domain the operator is configured with or discovers at startup.",
+      "description": "Removed in operator 4.0.0 and applies only to earlier versions. Kubernetes cluster DNS domain, defaulting to cluster.local with operator versions < 3.4. Later versions use the cluster domain the operator is configured with or discovers at startup.",
       "examples": ["cluster.local"]
     },
     "configToUpdate": {
@@ -370,12 +380,12 @@
     },
     "hostpathPrefix": {
       "type": ["string", "null"],
-      "description": "Deprecated: use stateStorage.hostPath.prefix.",
+      "description": "Rejected by operator >= 4.0.0 on cluster creation and on any spec update. Use stateStorage.hostPath.prefix.",
       "examples": ["/etc/ais"]
     },
     "stateStorageClass": {
       "type": ["string", "null"],
-      "description": "Deprecated: use stateStorage.pvc.storageClass.",
+      "description": "Rejected by operator >= 4.0.0 on cluster creation and on any spec update. Use stateStorage.pvc.storageClass.",
       "examples": ["local-path"]
     },
     "cleanupData": {
@@ -398,7 +408,7 @@
       "description": "Auth specifies the Auth service configuration for admin authentication.",
       "properties": {
         "profileRef": {
-          "type": "object",
+          "type": ["object", "null"],
           "description": "ProfileRef references the cluster-scoped AIStoreAuthProfile holding the auth provider configuration (operator >= 3.3.0). When set, the remaining auth fields are ignored. The submitting user must have 'use' access to the referenced profile.",
           "properties": {
             "name": {
@@ -411,13 +421,13 @@
           "required": ["name"]
         },
         "serviceURL": {
-          "type": "string",
-          "description": "Deprecated: use profileRef to reference an existing AIStoreAuthProfile. See https://github.com/NVIDIA/ais-k8s/blob/main/docs/auth_profile.md. ServiceURL is the base URL of the AuthN service (scheme + host + optional port, no path). Defaults to 'http://ais-authn.ais:52001'.",
+          "type": ["string", "null"],
+          "description": "Removed in operator 4.0.0 and applies only to earlier versions. Use profileRef to reference an existing AIStoreAuthProfile. See https://github.com/NVIDIA/ais-k8s/blob/main/docs/auth_profile.md. ServiceURL is the base URL of the AuthN service (scheme + host + optional port, no path). Defaults to 'http://ais-authn.ais:52001'.",
           "examples": ["https://ais-authn.ais:52001", "http://ais-authn.ais:52001"]
         },
         "usernamePassword": {
-          "type": "object",
-          "description": "Deprecated: use profileRef to reference an existing AIStoreAuthProfile. See https://github.com/NVIDIA/ais-k8s/blob/main/docs/auth_profile.md. UsernamePassword authentication configuration using static credentials.",
+          "type": ["object", "null"],
+          "description": "Removed in operator 4.0.0 and applies only to earlier versions. Use profileRef to reference an existing AIStoreAuthProfile. See https://github.com/NVIDIA/ais-k8s/blob/main/docs/auth_profile.md. UsernamePassword authentication configuration using static credentials.",
           "properties": {
             "secretName": {
               "type": "string",
@@ -433,8 +443,8 @@
           "required": ["secretName"]
         },
         "tokenExchange": {
-          "type": "object",
-          "description": "Deprecated: use profileRef to reference an existing AIStoreAuthProfile. See https://github.com/NVIDIA/ais-k8s/blob/main/docs/auth_profile.md. TokenExchange authentication configuration using RFC 8693 OAuth 2.0 Token Exchange. This is the preferred method for workload identity.",
+          "type": ["object", "null"],
+          "description": "Removed in operator 4.0.0 and applies only to earlier versions. Use profileRef to reference an existing AIStoreAuthProfile. See https://github.com/NVIDIA/ais-k8s/blob/main/docs/auth_profile.md. TokenExchange authentication configuration using RFC 8693 OAuth 2.0 Token Exchange.",
           "properties": {
             "tokenPath": {
               "type": "string",
@@ -457,7 +467,7 @@
     },
     "enableExternalLB": {
       "type": ["boolean", "null"],
-      "description": "Deprecated: enables operator-managed LoadBalancer services for proxies and targets. Prefer proxySpec.externalAccess and/or targetSpec.externalAccess.",
+      "description": "Removed in operator 4.0.0 and applies only to earlier versions. Enables operator-managed LoadBalancer services for proxies and targets. Use proxySpec.externalAccess and/or targetSpec.externalAccess.",
       "examples": [true, false]
     },
     "publicNetDNSMode": {
@@ -476,8 +486,12 @@
       "properties": {
         "size": {
           "type": "integer",
-          "description": "Number of proxy pods to deploy. If not set, uses cluster size.",
-          "examples": [3]
+          "description": "Number of proxy pods to deploy. If not set, uses cluster size. Set to -1 to auto-scale to the nodes matching proxySpec.nodeSelector.",
+          "examples": [3, -1],
+          "anyOf": [
+            { "const": -1 },
+            { "minimum": 1 }
+          ]
         },
         "annotations": {
           "type": "object",
@@ -536,6 +550,7 @@
             }
           ]
         },
+        "servicePort": { "$ref": "#/definitions/servicePort" },
         "externalAccess": {
           "type": "object",
           "description": "Configuration for cluster-external access to proxies, currently via a shared LoadBalancer.",
@@ -555,8 +570,12 @@
       "properties": {
         "size": {
           "type": "integer",
-          "description": "Number of target pods to deploy.",
-          "examples": [3]
+          "description": "Number of target pods to deploy. If not set, uses cluster size. Set to -1 to auto-scale to the nodes matching targetSpec.nodeSelector.",
+          "examples": [3, -1],
+          "anyOf": [
+            { "const": -1 },
+            { "minimum": 1 }
+          ]
         },
         "annotations": {
           "type": "object",
@@ -651,6 +670,7 @@
           "enum": ["safe_decommission", "decommission", "retain"],
           "examples": ["safe_decommission", "decommission", "retain"]
         },
+        "servicePort": { "$ref": "#/definitions/servicePort" },
         "externalAccess": {
           "type": "object",
           "description": "Configuration for cluster-external access to targets, currently via per-target LoadBalancer services.",

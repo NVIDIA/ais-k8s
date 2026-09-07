@@ -14,12 +14,23 @@ deprecated flat `logSidecarImage` override the corresponding fields from
   {{- with .resources }}{{- $resources = . }}{{- end -}}
 {{- end -}}
 {{- if and $name $tag -}}
-logSidecar:
-  image: "{{ $name }}:{{ $tag }}"
-  {{- with $resources }}
-  resources:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
+{{- $sidecar := dict "image" (printf "%s:%s" $name $tag) -}}
+{{- with $resources }}{{- $_ := set $sidecar "resources" . }}{{- end -}}
+{{- dict "logSidecar" $sidecar | toYaml -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Render the `auth` block on the AIStore spec, dropping entries that carry no
+value. Renders nothing when no entry is left.
+*/}}
+{{- define "ais-cluster.auth" -}}
+{{- $auth := dict -}}
+{{- range $key, $value := (.Values.auth | default dict) -}}
+{{- if $value }}{{- $_ := set $auth $key $value }}{{- end -}}
+{{- end -}}
+{{- with $auth }}
+{{- toYaml . }}
 {{- end -}}
 {{- end -}}
 
@@ -36,22 +47,22 @@ Return the effective state storage class used for validation.
 {{- end -}}
 
 {{/*
-Render state storage on the AIStore spec. If the new stateStorage value is set,
-render it as-is so it takes precedence over legacy fields. Otherwise, render the
-legacy fields for backwards compatibility.
+Render state storage on the AIStore spec. Renders nothing when no state storage
+value is set.
 */}}
 {{- define "ais-cluster.stateStorage" -}}
 {{- $stateStorage := .Values.stateStorage | default dict -}}
-{{- if or (hasKey $stateStorage "hostPath") (hasKey $stateStorage "pvc") }}
-stateStorage:
-{{- toYaml $stateStorage | nindent 2 }}
-{{- else }}
-{{- with .Values.hostpathPrefix }}
-hostpathPrefix: {{ . }}
-{{- end }}
-{{- with .Values.stateStorageClass }}
-stateStorageClass: {{ . }}
-{{- end }}
+{{- $modes := dict -}}
+{{- range $mode := list "hostPath" "pvc" "emptyDir" -}}
+{{- if hasKey $stateStorage $mode }}{{- $_ := set $modes $mode (get $stateStorage $mode) }}{{- end -}}
+{{- end -}}
+{{- $legacy := dict -}}
+{{- with .Values.hostpathPrefix }}{{- $_ := set $legacy "hostpathPrefix" . }}{{- end -}}
+{{- with .Values.stateStorageClass }}{{- $_ := set $legacy "stateStorageClass" . }}{{- end -}}
+{{- if $modes -}}
+{{- dict "stateStorage" $modes | toYaml -}}
+{{- else if $legacy -}}
+{{- toYaml $legacy -}}
 {{- end -}}
 {{- end -}}
 
@@ -72,40 +83,15 @@ is skipped during templating (e.g. `helm template`).
 {{- end }}
 {{- end -}}
 
-{{- define "ais-cluster.proxyExternalAccessEnabled" -}}
-{{- $proxyEA := default (dict) .Values.proxySpec.externalAccess -}}
-{{- if $proxyEA.enabled -}}true{{- end -}}
-{{- end -}}
-
-{{- define "ais-cluster.targetExternalAccessEnabled" -}}
-{{- $targetEA := default (dict) .Values.targetSpec.externalAccess -}}
-{{- if $targetEA.enabled -}}true{{- end -}}
-{{- end -}}
-
-{{- define "ais-cluster.proxyExternalAccess" -}}
-{{- if include "ais-cluster.proxyExternalAccessEnabled" . | trim -}}
-{{- $proxyEA := default (dict) .Values.proxySpec.externalAccess -}}
-{{- $ann := $proxyEA.annotations | default dict -}}
-{{- if $ann }}
-externalAccess:
-  annotations:
-{{ toYaml $ann | indent 4 }}
-{{- else }}
-externalAccess: {}
-{{- end }}
-{{- end -}}
-{{- end -}}
-
-{{- define "ais-cluster.targetExternalAccess" -}}
-{{- if include "ais-cluster.targetExternalAccessEnabled" . | trim -}}
-{{- $targetEA := default (dict) .Values.targetSpec.externalAccess -}}
-{{- $ann := $targetEA.annotations | default dict -}}
-{{- if $ann }}
-externalAccess:
-  annotations:
-{{ toYaml $ann | indent 4 }}
-{{- else }}
-externalAccess: {}
-{{- end }}
+{{/*
+Render the `externalAccess` block for one daemon spec. Takes the daemon's
+`externalAccess` value as the context.
+*/}}
+{{- define "ais-cluster.externalAccess" -}}
+{{- $ea := default (dict) . -}}
+{{- if $ea.enabled -}}
+{{- $body := dict -}}
+{{- with $ea.annotations }}{{- $_ := set $body "annotations" . }}{{- end -}}
+{{- dict "externalAccess" $body | toYaml -}}
 {{- end -}}
 {{- end -}}

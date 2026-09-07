@@ -24,9 +24,7 @@ shutdownCluster: false
 cleanupData: false
 cleanupMetadata: false
 apiMode: 
-clusterDomain:
 stateStorage:
-stateStorageClass:
 authNSecretName:
 # auth configures how the operator provisions tokens for its AIS API client.
 auth:
@@ -41,6 +39,8 @@ proxySpec:
       operator: "Exists"
       effect: "NoExecute"
   hostPort: 51080
+  # servicePort is deprecated by operator >= 4.0.0 and required by earlier versions.
+  # Set it to an empty string ("") to omit it from the spec.
   servicePort: 51080
   portPublic: 51080
   portIntraControl: 51082
@@ -55,6 +55,8 @@ targetSpec:
       operator: "Exists"
       effect: "NoExecute"
   hostPort: 51081
+  # servicePort is deprecated by operator >= 4.0.0 and required by earlier versions.
+  # Set it to an empty string ("") to omit it from the spec.
   servicePort: 51081
   portPublic: 51081
   portIntraControl: 51082
