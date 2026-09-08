@@ -140,7 +140,8 @@ func newPodSpec(ctx context.Context, authn *authv1alpha1.AIStoreAuth) (*corev1ac
 	}
 	pod := corev1ac.PodSpec().
 		WithContainers(container).
-		WithVolumes(volumes(ctx, authn)...)
+		WithVolumes(volumes(ctx, authn)...).
+		WithEnableServiceLinks(false)
 	podSpec := spec.Pod
 	if podSpec == nil {
 		return pod, nil

@@ -28,6 +28,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 - `AIStoreAuth`
   - Webhook validates secret access for all secrets defined in spec before determining existence.
+  - Service links are disabled on the AuthN Deployment pod template, fixing AuthN crash looping on startup when the resource is named `ais-authn`.
 
 ---
 
