@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/NVIDIA/aistore/api"
@@ -18,8 +19,9 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-// defaultAuthCACertPath is the location for any statically mounted custom Auth CA trust
-const defaultAuthCACertPath = "/etc/ssl/certs/auth-ca/ca.crt"
+// defaultAuthCADir is the directory scanned for any statically mounted custom Auth CA trust.
+// Matches the directory mounted to the operator deployment by helm value "authCAConfigmapName"
+const defaultAuthCADir = "/etc/ssl/certs/auth-ca"
 
 // authProfileConfig wraps an AIStoreAuthProfile, the administrator-approved auth provider
 type authProfileConfig struct {
@@ -124,11 +126,11 @@ func (c *authProfileConfig) loginSecret() *authv1alpha1.AuthProfileSecret {
 	return &c.profile.Spec.UsernamePassword.Secret
 }
 
-// trustStoreConfig resolves the profile's CA certificate, which lives in a ConfigMap rather
-// than on the operator's filesystem.
+// trustStoreConfig resolves the profile's CA certificate. It prefers the ConfigMap referenced
+// by the profile; otherwise it falls back to any CA files mounted under defaultAuthCADir.
 func (c *authProfileConfig) trustStoreConfig(ctx context.Context) (truststore.Config, error) {
 	if c.profile.Spec.TLS == nil || c.profile.Spec.TLS.CAConfigMapRef == nil {
-		return truststore.Config{CACertPaths: []string{defaultAuthCACertPath}}, nil
+		return authCATrustStoreConfig(ctx, defaultAuthCADir)
 	}
 	ref := c.profile.Spec.TLS.CAConfigMapRef
 	name := types.NamespacedName{Namespace: ref.Namespace, Name: ref.Name}
@@ -141,4 +143,20 @@ func (c *authProfileConfig) trustStoreConfig(ctx context.Context) (truststore.Co
 		return truststore.Config{}, fmt.Errorf("CA ConfigMap %s has no key %q", name, ref.Key)
 	}
 	return truststore.Config{CAPEMs: [][]byte{[]byte(caPEM)}}, nil
+}
+
+// authCATrustStoreConfig scans caDir for .crt/.pem CA files.
+func authCATrustStoreConfig(ctx context.Context, caDir string) (truststore.Config, error) {
+	logger := logf.FromContext(ctx)
+	if _, err := os.Stat(caDir); os.IsNotExist(err) {
+		logger.Info("No path found with additional Auth CA certs", "path", caDir)
+		return truststore.Config{}, nil
+	} else if err != nil {
+		return truststore.Config{}, fmt.Errorf("failed to stat Auth CA dir %s: %w", caDir, err)
+	}
+	certPaths, err := findCerts(caDir, []string{".crt", ".pem"})
+	if err != nil {
+		return truststore.Config{}, fmt.Errorf("failed to search Auth CA dir %s: %w", caDir, err)
+	}
+	return truststore.Config{CACertPaths: certPaths}, nil
 }

@@ -19,6 +19,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 - `spec.configToUpdate.auth.required_claims.aud`
   - Webhook requires any spec with a `required_claims.aud` list to include the cluster's `<namespace>/<name>` when using a profileRef that specifies token exchange.
   - Webhook will reject a `required_claims.aud` entry in `<namespace>/<name>` form that is not the cluster's own.
+- When the `AIStoreAuthProfile` referenced by an AIStore spec does not provide CA details, the operator searches the fallback directory `"/etc/ssl/certs/auth-ca"` for any statically mounted certificates, including both `pem` and `crt` format.
 
 - `AIStoreAuthProfile`
   - Webhook validation is skipped only for updates that leave `spec` unchanged, so finalizers and annotations can still be patched on a profile whose referenced Secret or ConfigMap is gone.
