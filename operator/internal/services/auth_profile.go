@@ -27,7 +27,6 @@ const defaultAuthCADir = "/etc/ssl/certs/auth-ca"
 type authProfileConfig struct {
 	profile   *authv1alpha1.AIStoreAuthProfile
 	k8sClient *aisclient.K8sClient
-	tls       tlsCache
 }
 
 func (c *authProfileConfig) GetServiceURL() string { return c.profile.Spec.ServiceURL }
@@ -100,8 +99,18 @@ func (c *authProfileConfig) GetPassKey() string {
 }
 
 func (c *authProfileConfig) tlsConfig(ctx context.Context) (*tls.Config, error) {
-	insecureSkipVerify := c.profile.Spec.TLS != nil && c.profile.Spec.TLS.InsecureSkipVerify
-	return c.tls.get(ctx, c.trustStoreConfig, insecureSkipVerify)
+	trustConf, err := c.trustStoreConfig(ctx)
+	if err != nil {
+		return nil, err
+	}
+	tlsConf, err := truststore.NewTLSConfig(logf.FromContext(ctx).WithName("truststore"), trustConf)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create TLS config: %w", err)
+	}
+	if c.profile.Spec.TLS != nil && c.profile.Spec.TLS.InsecureSkipVerify {
+		tlsConf.InsecureSkipVerify = true
+	}
+	return tlsConf, nil
 }
 
 func (c *authProfileConfig) logNewClient(ctx context.Context, tlsConf *tls.Config) {

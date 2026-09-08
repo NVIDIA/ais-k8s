@@ -13,9 +13,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/NVIDIA/aistore/api"
@@ -24,7 +22,6 @@ import (
 	aisv1 "github.com/ais-operator/api/aistore/v1beta1"
 	aisclient "github.com/ais-operator/internal/client"
 	"github.com/ais-operator/internal/opinfo"
-	"github.com/ais-operator/internal/truststore"
 	"k8s.io/apimachinery/pkg/types"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -45,19 +42,6 @@ const (
 const (
 	RFC8693GrantType           = "urn:ietf:params:oauth:grant-type:token-exchange"
 	RFC8693SubjectTokenTypeJWT = "urn:ietf:params:oauth:token-type:jwt" //nolint:gosec // This is a URN identifier, not a credential
-)
-
-// TLS config cache defaults
-const (
-	// AuthTLSCacheTTLEnv defines the Environment variable to configure cache TTL (e.g., "1h", "30m", "6h")
-	AuthTLSCacheTTLEnv       = "OPERATOR_AUTH_TLS_CACHE_TTL"
-	defaultTLSConfigCacheTTL = 6 * time.Hour // Default: refresh every 6 hours to pick up certificate rotations
-)
-
-// Global TLS config cache TTL configuration
-var (
-	tlsConfigCacheTTL time.Duration // Configured TTL for cache entries
-	tlsCacheTTLOnce   sync.Once     // Initialize TTL once
 )
 
 // TokenInfo contains token and optional expiration information
@@ -100,13 +84,6 @@ type (
 		pass string
 	}
 
-	// tlsCache holds a TLS config and rebuilds it after a TTL so CA/cert rotations take effect
-	tlsCache struct {
-		mu      sync.RWMutex
-		config  *tls.Config
-		created time.Time
-	}
-
 	// RFC 8693 Section 2.2 - Response format (REQUIRED fields only)
 	oauthTokenResponse struct {
 		// Required by RFC
@@ -129,51 +106,6 @@ func NewAuthClient(k8sClient *aisclient.K8sClient) *AuthClient {
 	return &AuthClient{
 		k8sClient: k8sClient,
 	}
-}
-
-// get returns the cached TLS config, rebuilding it from source once the cache TTL elapses
-func (c *tlsCache) get(
-	ctx context.Context,
-	source func(context.Context) (truststore.Config, error),
-	insecureSkipVerify bool,
-) (*tls.Config, error) {
-	logger := logf.FromContext(ctx)
-	cacheTTL := getTLSConfigCacheTTL(ctx)
-
-	c.mu.RLock()
-	if c.config != nil && time.Since(c.created) < cacheTTL {
-		tlsConfig := c.config
-		created := c.created
-		c.mu.RUnlock()
-		logger.V(2).Info("Using cached TLS config", "age", time.Since(created), "ttl", cacheTTL)
-		return tlsConfig, nil
-	}
-	c.mu.RUnlock()
-
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	// Another goroutine may have refreshed the config while we waited for the write lock
-	if c.config != nil && time.Since(c.created) < cacheTTL {
-		logger.V(2).Info("Using cached TLS config (after lock)", "age", time.Since(c.created), "ttl", cacheTTL)
-		return c.config, nil
-	}
-
-	trustConf, err := source(ctx)
-	if err != nil {
-		return nil, err
-	}
-	tlsConfig, err := truststore.NewTLSConfig(logger.WithName("truststore"), trustConf)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create TLS config: %w", err)
-	}
-	if insecureSkipVerify {
-		tlsConfig.InsecureSkipVerify = true
-	}
-
-	c.config = tlsConfig
-	c.created = time.Now()
-	return tlsConfig, nil
 }
 
 // getAdminToken Gets an admin token for the given cluster using token exchange or configured credentials secret
@@ -341,39 +273,6 @@ func newAuthBaseParams(serviceURL string, tlsConf *tls.Config) *api.BaseParams {
 		URL: serviceURL,
 		UA:  userAgent,
 	}
-}
-
-// getTLSConfigCacheTTL returns the configured cache TTL, reading from environment if set
-// The TTL is initialized once and cached for the lifetime of the process
-func getTLSConfigCacheTTL(ctx context.Context) time.Duration {
-	tlsCacheTTLOnce.Do(func() {
-		logger := logf.FromContext(ctx)
-		ttlStr := os.Getenv(AuthTLSCacheTTLEnv)
-		if ttlStr == "" {
-			tlsConfigCacheTTL = defaultTLSConfigCacheTTL
-			logger.Info("Using default TLS cache TTL", "ttl", tlsConfigCacheTTL)
-			return
-		}
-
-		ttl, err := time.ParseDuration(ttlStr)
-		if err != nil {
-			logger.Error(err, "Invalid OPERATOR_AUTH_TLS_CACHE_TTL, using default",
-				"value", ttlStr, "default", defaultTLSConfigCacheTTL)
-			tlsConfigCacheTTL = defaultTLSConfigCacheTTL
-			return
-		}
-
-		if ttl < time.Minute {
-			logger.Info("OPERATOR_AUTH_TLS_CACHE_TTL too short, using minimum 1 minute",
-				"requested", ttl, "using", time.Minute)
-			tlsConfigCacheTTL = time.Minute
-			return
-		}
-
-		tlsConfigCacheTTL = ttl
-		logger.Info("Using configured TLS cache TTL", "ttl", tlsConfigCacheTTL)
-	})
-	return tlsConfigCacheTTL
 }
 
 // getTokenViaExchange either loads a fixed token or mints a subject token based on the operator's identity.

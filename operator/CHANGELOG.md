@@ -20,6 +20,10 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
   - Webhook requires any spec with a `required_claims.aud` list to include the cluster's `<namespace>/<name>` when using a profileRef that specifies token exchange.
   - Webhook will reject a `required_claims.aud` entry in `<namespace>/<name>` form that is not the cluster's own.
 - When the `AIStoreAuthProfile` referenced by an AIStore spec does not provide CA details, the operator searches the fallback directory `"/etc/ssl/certs/auth-ca"` for any statically mounted certificates, including both `pem` and `crt` format.
+- Authentication service clients no longer cache TLS configuration.
+  - Each AIS API client caches its fetched token until invalid or expired, so new token requests rebuild the TLS client from the latest `AIStoreAuthProfile` information.
+- Fixed a bug where a cluster failing health check with `apiMode: public` would cause the operator to acquire a new auth token on every reconcile.
+  - With `apiMode: public`, a cached AIS API client now updates its endpoint in place when the operator selects a different ready proxy pod.
 
 - `AIStoreAuthProfile`
   - Webhook validation is skipped only for updates that leave `spec` unchanged, so finalizers and annotations can still be patched on a profile whose referenced Secret or ConfigMap is gone.
@@ -29,6 +33,10 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 - `AIStoreAuth`
   - Webhook validates secret access for all secrets defined in spec before determining existence.
   - Service links are disabled on the AuthN Deployment pod template, fixing AuthN crash looping on startup when the resource is named `ais-authn`.
+
+### Removed
+
+- `OPERATOR_AUTH_TLS_CACHE_TTL` is now ignored and can be removed from operator deployment.
 
 ---
 

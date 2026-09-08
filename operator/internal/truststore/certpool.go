@@ -58,14 +58,14 @@ func NewCertPool(logger logr.Logger, config Config) (*x509.CertPool, error) {
 			continue
 		}
 
-		logger.Info("Loaded CA certificate", "path", certPath)
+		logger.V(1).Info("Loaded CA certificate", "path", certPath)
 	}
 
 	for i, caCert := range config.CAPEMs {
 		if !certPool.AppendCertsFromPEM(caCert) {
 			return nil, fmt.Errorf("failed to parse in-memory CA certificate at index %d", i)
 		}
-		logger.Info("Loaded in-memory CA certificate")
+		logger.V(1).Info("Loaded in-memory CA certificate")
 	}
 
 	return certPool, nil

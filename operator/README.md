@@ -107,15 +107,9 @@ controllerManager:
 In both cases, the ConfigMap should contain `.crt` or `.pem` files with your CA certificates.
 The operator will automatically mount it to `/etc/ssl/certs/auth-ca` and use it for auth service connections.
 
-**Note**: TLS configurations are cached for 6 hours by default to avoid repeated disk I/O. 
-If you update an existing ConfigMap, changes propagate to running pods within ~60 seconds (kubelet sync), and the operator will use new certificates after the cache TTL expires. 
-This can be adjusted via environment variable:
-
-```yaml
-env:
-  - name: OPERATOR_AUTH_TLS_CACHE_TTL
-    value: "1h"  # Adjust for frequent certificate rotations
-```
+**Note**: The operator reads the CA certificates each time it builds an auth service client.
+If you update an existing ConfigMap mounted at `/etc/ssl/certs/auth-ca`, changes propagate to running pods within ~60 seconds (kubelet sync).
+A ConfigMap referenced by `spec.tls.caConfigMapRef` takes effect as soon as the operator observes the update.
 
 #### Mutual TLS / Client Auth
 

@@ -85,8 +85,11 @@ func (m *AISClientManager) GetClient(ctx context.Context,
 	}
 
 	// Check if the client params are valid
-	if exists && client.HasValidBaseParams(ctx, ais, url) {
-		return client, nil
+	if exists {
+		client.syncPublicURL(ctx, url)
+		if client.HasValidBaseParams(ctx, ais, url) {
+			return client, nil
+		}
 	}
 
 	// Attempt to get an authN token using the spec.auth field

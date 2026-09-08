@@ -95,14 +95,6 @@ func (c *AIStoreClient) HasValidBaseParams(ctx context.Context, ais *aisv1.AISto
 	if c.mode != ais.GetAPIMode() {
 		return false
 	}
-	// If using public API, no k8s service to automate changing endpoints, verify params still valid
-	if c.mode == APIModePublic {
-		err := c.Health(false)
-		if err != nil {
-			logf.FromContext(ctx).Info("AIS API health check failed", "url", c.params.URL, "err", err.Error())
-			return false
-		}
-	}
 
 	// Check if token is expired
 	if c.isTokenExpired() {
@@ -121,6 +113,20 @@ func (c *AIStoreClient) HasValidBaseParams(ctx context.Context, ais *aisv1.AISto
 		return c.params.Token != ""
 	}
 	return c.params.Token == ""
+}
+
+// syncPublicURL adopts discoveredURL as the client's endpoint in public API mode, where the endpoint
+// follows whichever proxy pod is ready.
+func (c *AIStoreClient) syncPublicURL(ctx context.Context, discoveredURL string) {
+	if c.params == nil || c.mode != APIModePublic || c.params.URL == discoveredURL {
+		return
+	}
+	// A scheme change needs a new transport, so leave the URL to be rejected later
+	if cos.IsHTTPS(c.params.URL) != cos.IsHTTPS(discoveredURL) {
+		return
+	}
+	logf.FromContext(ctx).Info("Updating public AIS API endpoint", "previous", c.params.URL, "current", discoveredURL)
+	c.params.URL = discoveredURL
 }
 
 // isTokenExpired checks if the token is expired or expiring soon (within the refresh margin)
