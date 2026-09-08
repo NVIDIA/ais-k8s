@@ -43,17 +43,17 @@ func sarInterceptor(allowed bool) interceptor.Funcs {
 }
 
 // authorContext carries the identity of the profile author for SubjectAccessReview.
-func authorContext(user string) context.Context {
+func authorContext() context.Context {
 	return admission.NewContextWithRequest(context.Background(), admission.Request{
 		AdmissionRequest: admissionv1.AdmissionRequest{
-			UserInfo: authenticationv1.UserInfo{Username: user},
+			UserInfo: authenticationv1.UserInfo{Username: "alice"},
 		},
 	})
 }
 
 func TestAIStoreAuthProfileWebhook(t *testing.T) {
 	webhook := newFakeWebhook(t, true, nil)
-	ctx := authorContext("alice")
+	ctx := authorContext()
 
 	t.Run("accepts https without warnings", func(t *testing.T) {
 		g := NewWithT(t)
@@ -228,7 +228,7 @@ func runValidationCases(t *testing.T, cases []validationCase) {
 			g := NewWithT(t)
 			ctx := tc.ctx
 			if ctx == nil {
-				ctx = authorContext("alice")
+				ctx = authorContext()
 			}
 			var reader client.Reader
 			if tc.operatorUnauthorized {
@@ -474,7 +474,7 @@ func TestAIStoreAuthProfileWebhookDelete(t *testing.T) {
 			}
 			webhook := newFakeWebhook(t, true, reader, tc.objects...)
 
-			warnings, err := webhook.ValidateDelete(authorContext("alice"), usernamePasswordProfile("credentials"))
+			warnings, err := webhook.ValidateDelete(authorContext(), usernamePasswordProfile("credentials"))
 			g.Expect(warnings).To(BeEmpty())
 			if tc.wantErr == nil {
 				g.Expect(err).NotTo(HaveOccurred())

@@ -5,13 +5,13 @@
 package v1alpha1
 
 import (
-	"context"
 	"errors"
 	"slices"
 	"testing"
 	"time"
 
 	authv1alpha1 "github.com/ais-operator/api/aisauth/v1alpha1"
+	authorizationv1 "k8s.io/api/authorization/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,13 +25,17 @@ func secretRef(name string) *corev1.LocalObjectReference {
 	return &corev1.LocalObjectReference{Name: name}
 }
 
-// newValidator builds a validator whose cached client already holds the named Secrets.
-func newValidator(existing ...string) *AIStoreAuthCustomValidator {
+// newValidator builds a validator whose cached client already holds the named Secrets and
+// answers every SubjectAccessReview with the given decision.
+func newValidator(allowed bool, existing ...string) *AIStoreAuthCustomValidator {
 	scheme := runtime.NewScheme()
 	if err := corev1.AddToScheme(scheme); err != nil {
 		panic(err)
 	}
-	b := fake.NewClientBuilder().WithScheme(scheme)
+	if err := authorizationv1.AddToScheme(scheme); err != nil {
+		panic(err)
+	}
+	b := fake.NewClientBuilder().WithScheme(scheme).WithInterceptorFuncs(sarInterceptor(allowed))
 	for _, n := range existing {
 		b = b.WithObjects(&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace, Name: n}})
 	}
@@ -85,6 +89,7 @@ func TestValidateSecretRefs(t *testing.T) {
 		admin, hmac, rsa *corev1.LocalObjectReference
 		podAnnotations   map[string]string
 		existingSecrets  []string
+		denyAccess       bool
 		wantFields       []string // empty means the spec is admitted
 	}{
 		{
@@ -166,6 +171,14 @@ func TestValidateSecretRefs(t *testing.T) {
 			podAnnotations: map[string]string{},
 			wantFields:     []string{"spec.adminSecret"},
 		},
+		{
+			name:            "a user without get access to the referenced Secrets is rejected",
+			admin:           secretRef("admin"),
+			hmac:            secretRef("hmac"),
+			existingSecrets: []string{"admin", "hmac"},
+			denyAccess:      true,
+			wantFields:      []string{"spec.adminSecret", "spec.hmacSecret"},
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -173,7 +186,8 @@ func TestValidateSecretRefs(t *testing.T) {
 			if tc.podAnnotations != nil {
 				authn.Spec.Deployment.Pod = &authv1alpha1.PodSpec{Annotations: tc.podAnnotations}
 			}
-			_, err := newValidator(tc.existingSecrets...).ValidateCreate(context.Background(), authn)
+			v := newValidator(!tc.denyAccess, tc.existingSecrets...)
+			_, err := v.ValidateCreate(authorContext(), authn)
 			assertResult(t, err, tc.wantFields)
 		})
 	}
@@ -214,7 +228,7 @@ func TestValidateConfig(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			authn := newAuthN(secretRef("admin"), nil, nil)
 			authn.Spec.Config = tc.config
-			_, err := newValidator("admin").ValidateCreate(context.Background(), authn)
+			_, err := newValidator(true, "admin").ValidateCreate(authorContext(), authn)
 			assertResult(t, err, tc.wantFields)
 		})
 	}
@@ -224,10 +238,11 @@ func TestValidateConfig(t *testing.T) {
 // that delete is a no-op.
 func TestValidateUpdateAndDelete(t *testing.T) {
 	authn := newAuthN(nil, secretRef("hmac"), nil) // referenced Secret does not exist
-	v := newValidator()
-	_, err := v.ValidateUpdate(context.Background(), authn, authn)
+	v := newValidator(true)
+	ctx := authorContext()
+	_, err := v.ValidateUpdate(ctx, authn, authn)
 	assertResult(t, err, []string{"spec.adminSecret", "spec.hmacSecret"})
-	if _, err := v.ValidateDelete(context.Background(), authn); err != nil {
+	if _, err := v.ValidateDelete(ctx, authn); err != nil {
 		t.Errorf("expected delete to be a no-op, got %v", err)
 	}
 }

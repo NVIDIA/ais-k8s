@@ -22,6 +22,9 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
   - Webhook validation now rejects deletion of a profile that any `AIStore` still references. Clear `spec.auth.profileRef` on the referencing clusters first.
     - Deleting a profile now requires a reachable webhook. To remove one while the operator is down, set `failurePolicy: Ignore` on the `vaistoreauthprofile.kb.io` entry of the operator's `ValidatingWebhookConfiguration` first.
 
+- `AIStoreAuth`
+  - Webhook validates secret access for all secrets defined in spec before determining existence.
+
 ---
 
 ## v4.0.0

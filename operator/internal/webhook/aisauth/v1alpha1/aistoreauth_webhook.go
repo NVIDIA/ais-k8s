@@ -11,6 +11,8 @@ import (
 
 	authv1alpha1 "github.com/ais-operator/api/aisauth/v1alpha1"
 	authnres "github.com/ais-operator/internal/resources/aisauth"
+	webhookcmn "github.com/ais-operator/internal/webhook"
+	authorizationv1 "k8s.io/api/authorization/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -32,6 +34,7 @@ type AIStoreAuthCustomValidator struct {
 
 // +kubebuilder:webhook:path=/validate-auth-ais-nvidia-com-v1alpha1-aistoreauth,mutating=false,failurePolicy=fail,sideEffects=None,groups=auth.ais.nvidia.com,resources=aistoreauths,verbs=create;update,versions=v1alpha1,name=vaistoreauth.kb.io,admissionReviewVersions={v1,v1beta1}
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get
+// +kubebuilder:rbac:groups=authorization.k8s.io,resources=subjectaccessreviews,verbs=create
 
 var _ admission.Validator[*authv1alpha1.AIStoreAuth] = &AIStoreAuthCustomValidator{}
 
@@ -110,10 +113,17 @@ func (v *AIStoreAuthCustomValidator) validate(ctx context.Context, authn *authv1
 		authv1alpha1.GroupVersion.WithKind("AIStoreAuth").GroupKind(), authn.Name, allErrs)
 }
 
-// requireSecret checks that the named Secret exists. A missing Secret yields a
-// field error (the spec references something that isn't there). Any other lookup
-// failure is returned as an internal error.
+// requireSecret checks that the submitting user may get the named Secret and that it exists.
 func (v *AIStoreAuthCustomValidator) requireSecret(ctx context.Context, namespace, name string, path *field.Path) (*field.Error, error) {
+	fieldErr, err := webhookcmn.AuthorizeGet(ctx, v.Client, path, &authorizationv1.ResourceAttributes{
+		Resource:  "secrets",
+		Namespace: namespace,
+		Name:      name,
+	})
+	if err != nil || fieldErr != nil {
+		return fieldErr, err
+	}
+
 	secret := &corev1.Secret{}
 	if err := v.Client.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, secret); err != nil {
 		if apierrors.IsNotFound(err) {
