@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2025-2026, NVIDIA CORPORATION. All rights reserved.
  */
 
 package services
@@ -52,16 +52,16 @@ var _ = Describe("Subject token", func() {
 
 	When("the operator ServiceAccount exists", func() {
 		var (
-			authN   *AuthNClient
-			request *authenticationv1.TokenRequest
-			minted  client.ObjectKey
+			authClient *AuthClient
+			request    *authenticationv1.TokenRequest
+			minted     client.ObjectKey
 		)
 
 		BeforeEach(func() {
 			request = nil
 			minted = client.ObjectKey{}
 			sa := &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: operatorSA, Namespace: operatorNamespace}}
-			authN = NewAuthNClient(NewFakeK8sClientWithInterceptors(&interceptor.Funcs{
+			authClient = NewAuthClient(NewFakeK8sClientWithInterceptors(&interceptor.Funcs{
 				SubResourceCreate: func(ctx context.Context, c client.Client, subResource string,
 					obj, body client.Object, opts ...client.SubResourceCreateOption,
 				) error {
@@ -73,22 +73,22 @@ var _ = Describe("Subject token", func() {
 		})
 
 		It("should mint a token for the operator ServiceAccount", func() {
-			token, err := authN.mintSubjectToken(context.Background(), "ais-authn")
+			token, err := authClient.mintSubjectToken(context.Background(), "ais-auth")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(token).NotTo(BeEmpty())
 			Expect(minted).To(Equal(client.ObjectKey{Namespace: operatorNamespace, Name: operatorSA}))
 		})
 
 		It("should mint with the audience the provider requires", func() {
-			token, err := authN.mintSubjectToken(context.Background(), "ais-authn")
+			token, err := authClient.mintSubjectToken(context.Background(), "ais-auth")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(token).NotTo(BeEmpty())
 			Expect(request).NotTo(BeNil())
-			Expect(request.Spec.Audiences).To(Equal([]string{"ais-authn"}))
+			Expect(request.Spec.Audiences).To(Equal([]string{"ais-auth"}))
 		})
 
 		It("should refuse to mint without an audience", func() {
-			_, err := authN.mintSubjectToken(context.Background(), "")
+			_, err := authClient.mintSubjectToken(context.Background(), "")
 			Expect(err).To(MatchError(ContainSubstring("audience is required")))
 			Expect(request).To(BeNil())
 		})
@@ -108,7 +108,7 @@ var _ = Describe("Subject token", func() {
 			}}
 			params := &api.BaseParams{Client: server.Client(), URL: server.URL}
 
-			tokenInfo, err := authN.getTokenViaExchange(context.Background(), params, &aisv1.AIStore{}, conf)
+			tokenInfo, err := authClient.getTokenViaExchange(context.Background(), params, &aisv1.AIStore{}, conf)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(tokenInfo.Token).To(Equal("exchanged"))
 			Expect(request).NotTo(BeNil())
@@ -117,8 +117,8 @@ var _ = Describe("Subject token", func() {
 	})
 
 	It("should fail when the operator ServiceAccount does not exist", func() {
-		authN := NewAuthNClient(NewFakeK8sClient())
-		_, err := authN.mintSubjectToken(context.Background(), "ais-authn")
+		authClient := NewAuthClient(NewFakeK8sClient())
+		_, err := authClient.mintSubjectToken(context.Background(), "ais-auth")
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("failed to mint token"))
 	})
@@ -176,117 +176,5 @@ var _ = Describe("OAuth Password Login", func() {
 		token, err := login(&OAuthLoginConf{ClientID: "AIStore"})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(token.ExpiresAt.IsZero()).To(BeTrue())
-	})
-})
-
-var _ = Describe("RequiredAudiences", func() {
-	It("should return nil when ConfigToUpdate is nil", func() {
-		ais := &aisv1.AIStore{
-			Spec: aisv1.AIStoreSpec{},
-		}
-
-		audiences := ais.RequiredAudiences()
-		Expect(audiences).To(BeNil())
-	})
-
-	It("should return nil when Auth is nil", func() {
-		ais := &aisv1.AIStore{
-			Spec: aisv1.AIStoreSpec{
-				ConfigToUpdate: &aisv1.ConfigToUpdate{},
-			},
-		}
-
-		audiences := ais.RequiredAudiences()
-		Expect(audiences).To(BeNil())
-	})
-
-	It("should return nil when RequiredClaims is nil", func() {
-		ais := &aisv1.AIStore{
-			Spec: aisv1.AIStoreSpec{
-				ConfigToUpdate: &aisv1.ConfigToUpdate{
-					Auth: &aisv1.AuthConfToUpdate{},
-				},
-			},
-		}
-
-		audiences := ais.RequiredAudiences()
-		Expect(audiences).To(BeNil())
-	})
-
-	It("should return nil when Aud slice is nil", func() {
-		ais := &aisv1.AIStore{
-			Spec: aisv1.AIStoreSpec{
-				ConfigToUpdate: &aisv1.ConfigToUpdate{
-					Auth: &aisv1.AuthConfToUpdate{
-						RequiredClaims: &aisv1.RequiredClaimsConfToUpdate{
-							Aud: nil,
-						},
-					},
-				},
-			},
-		}
-
-		audiences := ais.RequiredAudiences()
-		Expect(audiences).To(BeNil())
-	})
-
-	It("should return empty slice when Aud slice is empty", func() {
-		var emptyAud []string
-		ais := &aisv1.AIStore{
-			Spec: aisv1.AIStoreSpec{
-				ConfigToUpdate: &aisv1.ConfigToUpdate{
-					Auth: &aisv1.AuthConfToUpdate{
-						RequiredClaims: &aisv1.RequiredClaimsConfToUpdate{
-							Aud: &emptyAud,
-						},
-					},
-				},
-			},
-		}
-
-		audiences := ais.RequiredAudiences()
-		Expect(audiences).To(Equal(emptyAud))
-	})
-
-	It("should return single audience when one is configured", func() {
-		expectedAudience := "namespace/cluster-name"
-		ais := &aisv1.AIStore{
-			Spec: aisv1.AIStoreSpec{
-				ConfigToUpdate: &aisv1.ConfigToUpdate{
-					Auth: &aisv1.AuthConfToUpdate{
-						RequiredClaims: &aisv1.RequiredClaimsConfToUpdate{
-							Aud: &[]string{expectedAudience},
-						},
-					},
-				},
-			},
-		}
-
-		audiences := ais.RequiredAudiences()
-		Expect(audiences).To(HaveLen(1))
-		Expect(audiences[0]).To(Equal(expectedAudience))
-	})
-
-	It("should return all audiences when multiple are configured", func() {
-		expectedAudiences := []string{
-			"namespace/cluster-name",
-			"admin",
-			"global-access",
-		}
-		ais := &aisv1.AIStore{
-			Spec: aisv1.AIStoreSpec{
-				ConfigToUpdate: &aisv1.ConfigToUpdate{
-					Auth: &aisv1.AuthConfToUpdate{
-						RequiredClaims: &aisv1.RequiredClaimsConfToUpdate{
-							Aud: &expectedAudiences,
-						},
-					},
-				},
-			},
-		}
-
-		audiences := ais.RequiredAudiences()
-		Expect(audiences).To(HaveLen(3))
-		Expect(audiences).To(Equal(expectedAudiences))
 	})
 })

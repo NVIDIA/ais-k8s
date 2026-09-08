@@ -69,11 +69,11 @@ type TokenInfo struct {
 }
 
 type (
-	AuthNClient struct {
+	AuthClient struct {
 		k8sClient *aisclient.K8sClient
 	}
 
-	// AuthConfig interface for getting AuthN configuration
+	// AuthConfig interface for getting the configuration for the authentication service
 	AuthConfig interface {
 		Client(ctx context.Context) (*api.BaseParams, error)
 		GetServiceURL() string
@@ -125,8 +125,8 @@ type (
 	}
 )
 
-func NewAuthNClient(k8sClient *aisclient.K8sClient) *AuthNClient {
-	return &AuthNClient{
+func NewAuthClient(k8sClient *aisclient.K8sClient) *AuthClient {
+	return &AuthClient{
 		k8sClient: k8sClient,
 	}
 }
@@ -177,7 +177,7 @@ func (c *tlsCache) get(
 }
 
 // getAdminToken Gets an admin token for the given cluster using token exchange or configured credentials secret
-func (c *AuthNClient) getAdminToken(ctx context.Context, ais *aisv1.AIStore) (*TokenInfo, error) {
+func (c *AuthClient) getAdminToken(ctx context.Context, ais *aisv1.AIStore) (*TokenInfo, error) {
 	authConf, err := c.ResolveAuthConfig(ctx, ais)
 	if err != nil || authConf == nil {
 		return nil, err
@@ -196,23 +196,16 @@ func (c *AuthNClient) getAdminToken(ctx context.Context, ais *aisv1.AIStore) (*T
 }
 
 // ResolveAuthConfig resolves the auth provider from the referenced AIStoreAuthProfile
-func (c *AuthNClient) ResolveAuthConfig(ctx context.Context, ais *aisv1.AIStore) (AuthConfig, error) {
-	if ais.Spec.Auth == nil {
-		return nil, nil
-	}
-	ref := ais.GetAuthProfileRef()
-	if ref == nil {
-		return nil, errors.New("no profileRef specified")
-	}
-	profile, err := c.k8sClient.GetAuthProfile(ctx, ref.Name)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get AIStoreAuthProfile %q: %w", ref.Name, err)
+func (c *AuthClient) ResolveAuthConfig(ctx context.Context, ais *aisv1.AIStore) (AuthConfig, error) {
+	profile, err := c.k8sClient.GetReferencedAuthProfile(ctx, ais)
+	if err != nil || profile == nil {
+		return nil, err
 	}
 	return &authProfileConfig{profile: profile, k8sClient: c.k8sClient}, nil
 }
 
 // getSecretData Get the secret data from the specified secret name and namespace
-func (c *AuthNClient) getSecretData(ctx context.Context, namespace, secretName string) (map[string][]byte, error) {
+func (c *AuthClient) getSecretData(ctx context.Context, namespace, secretName string) (map[string][]byte, error) {
 	logger := logf.FromContext(ctx)
 	// Look up the secret credentials and use them to obtain a token
 	secret, err := c.k8sClient.GetSecret(ctx, types.NamespacedName{Name: secretName, Namespace: namespace})
@@ -226,7 +219,7 @@ func (c *AuthNClient) getSecretData(ctx context.Context, namespace, secretName s
 	return secret.Data, nil
 }
 
-func (c *AuthNClient) getTokenViaPassword(ctx context.Context, bp *api.BaseParams, authConf AuthConfig) (*TokenInfo, error) {
+func (c *AuthClient) getTokenViaPassword(ctx context.Context, bp *api.BaseParams, authConf AuthConfig) (*TokenInfo, error) {
 	if authConf.GetSecretName() == "" {
 		return nil, nil
 	}
@@ -385,7 +378,7 @@ func getTLSConfigCacheTTL(ctx context.Context) time.Duration {
 
 // getTokenViaExchange either loads a fixed token or mints a subject token based on the operator's identity.
 // It then exchanges it with the configured auth service for an AIS token
-func (c *AuthNClient) getTokenViaExchange(ctx context.Context, bp *api.BaseParams, ais *aisv1.AIStore, conf AuthConfig) (*TokenInfo, error) {
+func (c *AuthClient) getTokenViaExchange(ctx context.Context, bp *api.BaseParams, ais *aisv1.AIStore, conf AuthConfig) (*TokenInfo, error) {
 	logger := logf.FromContext(ctx)
 
 	endpoint := conf.GetTokenExchangeEndpoint()
@@ -420,7 +413,7 @@ func (c *AuthNClient) getTokenViaExchange(ctx context.Context, bp *api.BaseParam
 }
 
 // mintSubjectToken mints a short-lived token for the operator's ServiceAccount bound to the configured audience.
-func (c *AuthNClient) mintSubjectToken(ctx context.Context, audience string) (string, error) {
+func (c *AuthClient) mintSubjectToken(ctx context.Context, audience string) (string, error) {
 	logger := logf.FromContext(ctx)
 	if audience == "" {
 		return "", errors.New("audience is required to mint subject token")

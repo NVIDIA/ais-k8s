@@ -13,7 +13,6 @@ import (
 	aisenv "github.com/NVIDIA/aistore/api/env"
 	aisv1 "github.com/ais-operator/api/aistore/v1beta1"
 	"github.com/ais-operator/internal/resources/aistore/cmn"
-	"github.com/ais-operator/internal/services"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -103,7 +102,9 @@ func selectorLabels(ais *aisv1.AIStore) map[string]string {
 	}
 }
 
-func NewClientDeployment(ais *aisv1.AIStore, authConf services.AuthConfig) *appsv1.Deployment {
+// NewClientDeployment builds the admin client deployment for the cluster. Returns nil when the
+// cluster requests no admin client. An empty authServiceURL leaves the auth service env unset in the pod.
+func NewClientDeployment(ais *aisv1.AIStore, authServiceURL string) *appsv1.Deployment {
 	clientSpec := ais.Spec.AdminClient
 	if clientSpec == nil {
 		return nil
@@ -125,7 +126,7 @@ func NewClientDeployment(ais *aisv1.AIStore, authConf services.AuthConfig) *apps
 		Name:         "ais-client",
 		Image:        image,
 		Command:      []string{"sleep", "infinity"},
-		Env:          buildClientEnv(ais, authConf),
+		Env:          buildClientEnv(ais, authServiceURL),
 		Resources:    clientSpec.Resources,
 		VolumeMounts: volumeMounts,
 	}
@@ -166,23 +167,20 @@ func NewClientDeployment(ais *aisv1.AIStore, authConf services.AuthConfig) *apps
 }
 
 // authnEnvVars returns environment variables for AuthN configuration.
-func authnEnvVars(authConf services.AuthConfig) []corev1.EnvVar {
-	if authConf == nil {
+func authnEnvVars(authServiceURL string) []corev1.EnvVar {
+	if authServiceURL == "" {
 		return nil
 	}
-	if url := authConf.GetServiceURL(); url != "" {
-		return []corev1.EnvVar{{Name: aisenv.AisAuthURL, Value: url}}
-	}
-	return nil
+	return []corev1.EnvVar{{Name: aisenv.AisAuthURL, Value: authServiceURL}}
 }
 
-func buildClientEnv(ais *aisv1.AIStore, authConf services.AuthConfig) []corev1.EnvVar {
+func buildClientEnv(ais *aisv1.AIStore, authServiceURL string) []corev1.EnvVar {
 	clientSpec := ais.Spec.AdminClient
 	base := []corev1.EnvVar{
 		{Name: aisenv.AisEndpoint, Value: cmn.IntraClusterURL(ais)},
 	}
 	ca := caEnvVars(clientSpec.CAConfigMap)
-	authn := authnEnvVars(authConf)
+	authn := authnEnvVars(authServiceURL)
 
 	env := make([]corev1.EnvVar, 0, len(base)+len(clientSpec.Env)+len(ca)+len(authn))
 	env = append(env, base...)

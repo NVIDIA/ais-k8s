@@ -907,11 +907,11 @@ func (r *Reconciler) removeClientDeployment(ctx context.Context, nsName *types.N
 }
 
 func (r *Reconciler) createClientDeployment(ctx context.Context, ais *aisv1.AIStore) error {
-	authConf, err := r.resolveAuthConf(ctx, ais)
+	authServiceURL, err := r.authServiceURL(ctx, ais)
 	if err != nil {
 		return err
 	}
-	clientDeploy := adminclient.NewClientDeployment(ais, authConf)
+	clientDeploy := adminclient.NewClientDeployment(ais, authServiceURL)
 	if _, createErr := r.k8sClient.CreateOrUpdateResource(ctx, ais, clientDeploy); createErr != nil {
 		return createErr
 	}
@@ -921,11 +921,11 @@ func (r *Reconciler) createClientDeployment(ctx context.Context, ais *aisv1.AISt
 
 // Reconcile an existing admin client deployment to match the AIS spec
 func (r *Reconciler) reconcileClientDeployment(ctx context.Context, ais *aisv1.AIStore, existing *apiv1.Deployment) error {
-	authConf, err := r.resolveAuthConf(ctx, ais)
+	authServiceURL, err := r.authServiceURL(ctx, ais)
 	if err != nil {
 		return err
 	}
-	desired := adminclient.NewClientDeployment(ais, authConf)
+	desired := adminclient.NewClientDeployment(ais, authServiceURL)
 	modified := existing.DeepCopy()
 	changed, reason := adminclient.SyncDeployment(desired, modified)
 	if !changed {
@@ -936,8 +936,14 @@ func (r *Reconciler) reconcileClientDeployment(ctx context.Context, ais *aisv1.A
 	return r.k8sClient.Patch(ctx, modified, k8sclient.MergeFrom(existing))
 }
 
-func (r *Reconciler) resolveAuthConf(ctx context.Context, ais *aisv1.AIStore) (services.AuthConfig, error) {
-	return services.NewAuthNClient(r.k8sClient).ResolveAuthConfig(ctx, ais)
+// authServiceURL returns the URL of the auth service the cluster's profile names, or an empty
+// string for a cluster that requests no authentication.
+func (r *Reconciler) authServiceURL(ctx context.Context, ais *aisv1.AIStore) (string, error) {
+	profile, err := r.k8sClient.GetReferencedAuthProfile(ctx, ais)
+	if err != nil || profile == nil {
+		return "", err
+	}
+	return profile.Spec.ServiceURL, nil
 }
 
 func (r *Reconciler) disableRebalance(ctx context.Context, ais *aisv1.AIStore, reason aisv1.ClusterConditionReason, msg string) error {

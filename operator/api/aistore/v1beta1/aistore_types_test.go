@@ -467,4 +467,98 @@ var _ = Describe("AIStore", func() {
 			Entry("retain", TargetSpec{ScaleDownMode: ScaleDownModeRetain}, true),
 		)
 	})
+
+	Describe("RequiredAudiences", func() {
+		It("should return nil when ConfigToUpdate is nil", func() {
+			ais := &AIStore{
+				Spec: AIStoreSpec{},
+			}
+
+			audiences := ais.RequiredAudiences()
+			Expect(audiences).To(BeNil())
+		})
+
+		It("should return nil when Auth is nil", func() {
+			ais := &AIStore{
+				Spec: AIStoreSpec{
+					ConfigToUpdate: &ConfigToUpdate{},
+				},
+			}
+
+			audiences := ais.RequiredAudiences()
+			Expect(audiences).To(BeNil())
+		})
+
+		It("should return nil when RequiredClaims is nil", func() {
+			ais := &AIStore{
+				Spec: AIStoreSpec{
+					ConfigToUpdate: &ConfigToUpdate{
+						Auth: &AuthConfToUpdate{},
+					},
+				},
+			}
+
+			audiences := ais.RequiredAudiences()
+			Expect(audiences).To(BeNil())
+		})
+
+		It("should return nil when Aud slice is nil", func() {
+			ais := &AIStore{
+				Spec: AIStoreSpec{
+					ConfigToUpdate: &ConfigToUpdate{
+						Auth: &AuthConfToUpdate{
+							RequiredClaims: &RequiredClaimsConfToUpdate{
+								Aud: nil,
+							},
+						},
+					},
+				},
+			}
+
+			audiences := ais.RequiredAudiences()
+			Expect(audiences).To(BeNil())
+		})
+
+		It("should return single audience when one is configured", func() {
+			expectedAudience := "namespace/cluster-name"
+			ais := &AIStore{
+				Spec: AIStoreSpec{
+					ConfigToUpdate: &ConfigToUpdate{
+						Auth: &AuthConfToUpdate{
+							RequiredClaims: &RequiredClaimsConfToUpdate{
+								Aud: &[]string{expectedAudience},
+							},
+						},
+					},
+				},
+			}
+
+			audiences := ais.RequiredAudiences()
+			Expect(audiences).To(HaveLen(1))
+			Expect(audiences[0]).To(Equal(expectedAudience))
+		})
+
+		It("should return all audiences when multiple are configured", func() {
+			expectedAudiences := []string{
+				"namespace/cluster-name",
+				"admin",
+				"global-access",
+			}
+			ais := &AIStore{
+				Spec: AIStoreSpec{
+					ConfigToUpdate: &ConfigToUpdate{
+						Auth: &AuthConfToUpdate{
+							RequiredClaims: &RequiredClaimsConfToUpdate{
+								Aud: &expectedAudiences,
+							},
+						},
+					},
+				},
+			}
+
+			audiences := ais.RequiredAudiences()
+			Expect(audiences).To(HaveLen(3))
+			Expect(audiences).To(Equal(expectedAudiences))
+		})
+	})
 })

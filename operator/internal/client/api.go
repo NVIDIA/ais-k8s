@@ -6,6 +6,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"time"
@@ -81,6 +82,25 @@ func (c *K8sClient) GetAIStoreCR(ctx context.Context, name types.NamespacedName)
 // Namespace-scoped watching still caches cluster-scoped objects via the multi-namespace clusterCache.
 func (c *K8sClient) GetAuthProfile(ctx context.Context, name string) (*authv1alpha1.AIStoreAuthProfile, error) {
 	return getResource[*authv1alpha1.AIStoreAuthProfile](c.client, ctx, types.NamespacedName{Name: name})
+}
+
+// GetReferencedAuthProfile reads the AIStoreAuthProfile the given cluster references.
+// It returns a nil profile for a cluster that defines no auth.
+func (c *K8sClient) GetReferencedAuthProfile(ctx context.Context,
+	ais *aisv1.AIStore,
+) (*authv1alpha1.AIStoreAuthProfile, error) {
+	if ais.Spec.Auth == nil {
+		return nil, nil
+	}
+	ref := ais.GetAuthProfileRef()
+	if ref == nil {
+		return nil, errors.New("no profileRef specified")
+	}
+	profile, err := c.GetAuthProfile(ctx, ref.Name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get AIStoreAuthProfile %q: %w", ref.Name, err)
+	}
+	return profile, nil
 }
 
 func (c *K8sClient) ListAIStoreCR(ctx context.Context, namespace string) (*aisv1.AIStoreList, error) {

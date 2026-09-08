@@ -44,20 +44,20 @@ type (
 	}
 
 	AISClientManager struct {
-		mu        sync.RWMutex
-		k8sClient *aisclient.K8sClient
-		tlsOpts   AISClientTLSOpts
-		authN     *AuthNClient
-		clientMap map[string]*AIStoreClient
+		mu         sync.RWMutex
+		k8sClient  *aisclient.K8sClient
+		tlsOpts    AISClientTLSOpts
+		authClient *AuthClient
+		clientMap  map[string]*AIStoreClient
 	}
 )
 
 func NewAISClientManager(k8sClient *aisclient.K8sClient, tlsOpts AISClientTLSOpts) *AISClientManager {
 	return &AISClientManager{
-		k8sClient: k8sClient,
-		tlsOpts:   tlsOpts,
-		authN:     NewAuthNClient(k8sClient),
-		clientMap: make(map[string]*AIStoreClient, 16),
+		k8sClient:  k8sClient,
+		tlsOpts:    tlsOpts,
+		authClient: NewAuthClient(k8sClient),
+		clientMap:  make(map[string]*AIStoreClient, 16),
 	}
 }
 
@@ -90,7 +90,7 @@ func (m *AISClientManager) GetClient(ctx context.Context,
 	}
 
 	// Attempt to get an authN token using the spec.auth field
-	tokenInfo, err := m.authN.getAdminToken(ctx, ais)
+	tokenInfo, err := m.authClient.getAdminToken(ctx, ais)
 	if err != nil {
 		logger.Error(err, "Failed to get admin token for AuthN")
 		return nil, err
@@ -118,7 +118,7 @@ func (m *AISClientManager) ensureValidToken(ctx context.Context, ais *aisv1.AISt
 		profile = profileRef.Name
 	}
 	logger := logf.FromContext(ctx).WithValues("cluster", ais.NamespacedName().String(), "profile", profile)
-	tokenInfo, err := m.authN.getAdminToken(ctx, ais)
+	tokenInfo, err := m.authClient.getAdminToken(ctx, ais)
 	if err != nil {
 		logger.Error(err, "Failed to get admin token for refresh")
 		return err
