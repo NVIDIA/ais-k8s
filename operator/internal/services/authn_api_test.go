@@ -179,13 +179,13 @@ var _ = Describe("OAuth Password Login", func() {
 	})
 })
 
-var _ = Describe("GetRequiredAudiences", func() {
+var _ = Describe("RequiredAudiences", func() {
 	It("should return nil when ConfigToUpdate is nil", func() {
 		ais := &aisv1.AIStore{
 			Spec: aisv1.AIStoreSpec{},
 		}
 
-		audiences := ais.GetRequiredAudiences()
+		audiences := ais.RequiredAudiences()
 		Expect(audiences).To(BeNil())
 	})
 
@@ -196,7 +196,7 @@ var _ = Describe("GetRequiredAudiences", func() {
 			},
 		}
 
-		audiences := ais.GetRequiredAudiences()
+		audiences := ais.RequiredAudiences()
 		Expect(audiences).To(BeNil())
 	})
 
@@ -209,7 +209,7 @@ var _ = Describe("GetRequiredAudiences", func() {
 			},
 		}
 
-		audiences := ais.GetRequiredAudiences()
+		audiences := ais.RequiredAudiences()
 		Expect(audiences).To(BeNil())
 	})
 
@@ -226,7 +226,7 @@ var _ = Describe("GetRequiredAudiences", func() {
 			},
 		}
 
-		audiences := ais.GetRequiredAudiences()
+		audiences := ais.RequiredAudiences()
 		Expect(audiences).To(BeNil())
 	})
 
@@ -244,7 +244,7 @@ var _ = Describe("GetRequiredAudiences", func() {
 			},
 		}
 
-		audiences := ais.GetRequiredAudiences()
+		audiences := ais.RequiredAudiences()
 		Expect(audiences).To(Equal(emptyAud))
 	})
 
@@ -262,7 +262,7 @@ var _ = Describe("GetRequiredAudiences", func() {
 			},
 		}
 
-		audiences := ais.GetRequiredAudiences()
+		audiences := ais.RequiredAudiences()
 		Expect(audiences).To(HaveLen(1))
 		Expect(audiences[0]).To(Equal(expectedAudience))
 	})
@@ -285,7 +285,7 @@ var _ = Describe("GetRequiredAudiences", func() {
 			},
 		}
 
-		audiences := ais.GetRequiredAudiences()
+		audiences := ais.RequiredAudiences()
 		Expect(audiences).To(HaveLen(3))
 		Expect(audiences).To(Equal(expectedAudiences))
 	})

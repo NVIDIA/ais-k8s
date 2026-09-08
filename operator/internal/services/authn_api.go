@@ -407,7 +407,7 @@ func (c *AuthNClient) getTokenViaExchange(ctx context.Context, bp *api.BaseParam
 
 	// Get all audiences from the AIStore cluster's required claims configuration
 	// If not configured, we pass an empty slice (don't request audiences if cluster doesn't require them)
-	audiences := ais.GetRequiredAudiences()
+	audiences := ais.RequiredAudiences()
 
 	tokenInfo, err := exchangeTokenWithAuthSvc(ctx, bp, subjectToken, endpoint, audiences)
 	if err != nil {

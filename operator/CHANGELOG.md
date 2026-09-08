@@ -16,6 +16,9 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
   - Avoid upgrading mid host-cleanup; pre-upgrade Jobs lack the owner reference and may need manual deletion.
 - When using token exchange for acquiring an auth token, the Operator will always include an `aud` field in the subject token to prevent it from being used for K8s API server requests if intercepted.
 - Drop SubjectAccessReview skip for unchanged `spec.auth.profileRef` -- every spec change re-submits it. 
+- `spec.configToUpdate.auth.required_claims.aud`
+  - Webhook requires any spec with a `required_claims.aud` list to include the cluster's `<namespace>/<name>` when using a profileRef that specifies token exchange.
+  - Webhook will reject a `required_claims.aud` entry in `<namespace>/<name>` form that is not the cluster's own.
 
 - `AIStoreAuthProfile`
   - Webhook validation is skipped only for updates that leave `spec` unchanged, so finalizers and annotations can still be patched on a profile whose referenced Secret or ConfigMap is gone.

@@ -9,6 +9,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
@@ -23,6 +24,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -118,47 +120,102 @@ func (aisw *AIStoreWebhook) validateSpec(ctx context.Context, prev, ais *aisv1.A
 		return allWarnings, err
 	}
 
+	err = validateRequiredAudiences(ais)
+	if err != nil {
+		return allWarnings, err
+	}
+
 	err = aisw.validateAuthProfile(ctx, ais)
 	return allWarnings, err
 }
 
-// validateAuthProfile checks user access to spec.auth.profileRef:
-// requires "use" on the referenced AIStoreAuthProfile
+// requiredAudiencesPath locates auth.required_claims.aud in an AIStore spec.
+func requiredAudiencesPath() *field.Path {
+	return field.NewPath("spec", "configToUpdate", "auth", "required_claims", "aud")
+}
+
+// isClusterAudience reports whether aud has the <namespace>/<name> form the operator uses to
+// identify an AIStore cluster.
+func isClusterAudience(aud string) bool {
+	ns, name, found := strings.Cut(aud, "/")
+	return found && len(validation.IsDNS1123Label(ns)) == 0 && len(validation.IsDNS1123Subdomain(name)) == 0
+}
+
+// validateRequiredAudiences rejects an audience that could potentially identify an AIStore cluster
+// other than this one.
+func validateRequiredAudiences(ais *aisv1.AIStore) error {
+	own := ais.TokenAudience()
+	for i, aud := range ais.RequiredAudiences() {
+		if aud == own || !isClusterAudience(aud) {
+			continue
+		}
+		return apiInvalidError(ais, field.Invalid(requiredAudiencesPath().Index(i), aud,
+			fmt.Sprintf("an audience in <namespace>/<name> form identifies an AIStore cluster. Only %q is allowed", own)))
+	}
+	return nil
+}
+
+// validateAuthProfile fetches and validates the referenced authentication profile
 func (aisw *AIStoreWebhook) validateAuthProfile(ctx context.Context, ais *aisv1.AIStore) error {
+	profRefPath := field.NewPath("spec", "auth", "profileRef")
 	ref := ais.GetAuthProfileRef()
 	if ref == nil {
 		return nil
 	}
-	path := field.NewPath("spec", "auth", "profileRef")
-	err := aisw.authorize(ctx, ais, "use", path,
+	if err := aisw.validateAuthProfileRef(ctx, ais, profRefPath, ref.Name); err != nil {
+		return err
+	}
+	prof, err := aisw.getAuthProfile(ctx, ais, profRefPath, ref.Name)
+	if err != nil {
+		return err
+	}
+	return validateTokenExchangeAud(ais, prof)
+}
+
+// validateAuthProfileRef checks the editor has access to the referenced spec.auth.profileRef
+func (aisw *AIStoreWebhook) validateAuthProfileRef(ctx context.Context, ais *aisv1.AIStore, path *field.Path, refName string) error {
+	// Requires "use" on the referenced AIStoreAuthProfile
+	return aisw.authorize(ctx, ais, "use", path,
 		&authorizationv1.ResourceAttributes{
 			Group:    authv1alpha1.GroupVersion.Group,
 			Version:  authv1alpha1.GroupVersion.Version,
 			Resource: "aistoreauthprofiles",
-			Name:     ref.Name,
+			Name:     refName,
 		})
-	if err != nil {
-		return err
-	}
-	return aisw.validateAuthProfileExistence(ctx, path, ais.Name, ref.Name)
 }
 
-// validateAuthProfileExistence checks if a given AIStoreAuthProfile exists using operator permissions
-func (aisw *AIStoreWebhook) validateAuthProfileExistence(ctx context.Context, path *field.Path, aisName, profName string) error {
+// getAuthProfile fetches the referenced AIStoreAuthProfile using operator permissions
+func (aisw *AIStoreWebhook) getAuthProfile(ctx context.Context, ais *aisv1.AIStore, path *field.Path, refName string) (*authv1alpha1.AIStoreAuthProfile, error) {
 	prof := &authv1alpha1.AIStoreAuthProfile{}
-	if err := aisw.Client.Get(ctx, client.ObjectKey{Name: profName}, prof); err != nil {
+	if err := aisw.Client.Get(ctx, client.ObjectKey{Name: refName}, prof); err != nil {
 		if apierrors.IsNotFound(err) {
-			return apierrors.NewInvalid(
-				aisv1.GroupVersion.WithKind("AIStore").GroupKind(),
-				aisName,
-				field.ErrorList{field.Invalid(path, profName, "referenced AIStoreAuthProfile does not exist")},
-			)
+			apiErr := field.Invalid(path, refName, "referenced AIStoreAuthProfile does not exist")
+			return nil, apiInvalidError(ais, apiErr)
 		}
-		return apierrors.NewInternalError(
-			fmt.Errorf("checking AIStoreAuthProfile %q: %w", profName, err),
+		return nil, apierrors.NewInternalError(
+			fmt.Errorf("checking AIStoreAuthProfile %q: %w", refName, err),
 		)
 	}
-	return nil
+	return prof, nil
+}
+
+// validateTokenExchangeAud requires the cluster's own token audience in auth.required_claims.aud
+// when the referenced profile uses token exchange.
+func validateTokenExchangeAud(ais *aisv1.AIStore, prof *authv1alpha1.AIStoreAuthProfile) error {
+	if prof.Spec.TokenExchange == nil {
+		return nil
+	}
+	// AIS only validates the claim when at least one audience is listed
+	required := ais.RequiredAudiences()
+	if len(required) == 0 {
+		return nil
+	}
+	if slices.Contains(required, ais.TokenAudience()) {
+		return nil
+	}
+	apiErr := field.Invalid(requiredAudiencesPath(), required, fmt.Sprintf(
+		"must include %q when the referenced AIStoreAuthProfile uses token exchange", ais.TokenAudience()))
+	return apiInvalidError(ais, apiErr)
 }
 
 func (aisw *AIStoreWebhook) authorize(
@@ -172,11 +229,7 @@ func (aisw *AIStoreWebhook) authorize(
 	if err != nil || fieldErr == nil {
 		return err
 	}
-	return apierrors.NewInvalid(
-		aisv1.GroupVersion.WithKind("AIStore").GroupKind(),
-		ais.Name,
-		field.ErrorList{fieldErr},
-	)
+	return apiInvalidError(ais, fieldErr)
 }
 
 // allowDaemonSpecUpdates copies fields from `ais` onto `prev` that are allowed
@@ -338,7 +391,9 @@ func validateStateStorageUpdate(prev, ais *aisv1.AIStore) error {
 // SetupAIStoreWebhookWithManager registers the AIStore validating webhook with the manager.
 func SetupAIStoreWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr, &aisv1.AIStore{}).
-		WithValidator(&AIStoreWebhook{Client: mgr.GetClient()}).
+		WithValidator(&AIStoreWebhook{
+			Client: mgr.GetClient(),
+		}).
 		Complete()
 }
 
@@ -348,4 +403,12 @@ func errCannotUpdateSpec(specName string, diff ...string) error {
 		return fmt.Errorf("cannot update spec %q for an existing cluster, diff: [%s]", specName, strings.Join(diff, ", "))
 	}
 	return fmt.Errorf("cannot update spec %q for an existing cluster", specName)
+}
+
+func apiInvalidError(ais *aisv1.AIStore, err *field.Error) *apierrors.StatusError {
+	return apierrors.NewInvalid(
+		aisv1.GroupVersion.WithKind("AIStore").GroupKind(),
+		ais.Name,
+		field.ErrorList{err},
+	)
 }

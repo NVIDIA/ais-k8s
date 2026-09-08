@@ -420,7 +420,12 @@ func newSARWebhook(t *testing.T, allowed bool, objs ...client.Object) (*AIStoreW
 	return &AIStoreWebhook{Client: c}, reviews
 }
 
-const tenantNS = "tenant"
+const (
+	tenantNS    = "tenant"
+	profileName = "prod-authn"
+	// The audience of the cluster built by profileAIS
+	ownAud = tenantNS + "/cluster"
+)
 
 func admissionCtx() context.Context {
 	return admission.NewContextWithRequest(context.Background(), admission.Request{
@@ -436,12 +441,32 @@ func authProfile(name string) *authv1alpha1.AIStoreAuthProfile {
 	}
 }
 
-func profileAIS(profileName string) *aisv1.AIStore {
+func tokenExchangeProfile() *authv1alpha1.AIStoreAuthProfile {
+	prof := authProfile(profileName)
+	prof.Spec.TokenExchange = &authv1alpha1.AuthProfileTokenExchange{}
+	return prof
+}
+
+func profileAIS() *aisv1.AIStore {
 	ais := &aisv1.AIStore{}
 	ais.Name = "cluster"
 	ais.Namespace = tenantNS
 	ais.Spec.Auth = &aisv1.AuthSpec{
 		ProfileRef: &aisv1.AuthProfileRef{Name: profileName},
+	}
+	return ais
+}
+
+// audAIS returns a profileAIS cluster with auth.required_claims.aud set, leaving the
+// enclosing config unset when aud is nil.
+func audAIS(aud *[]string) *aisv1.AIStore {
+	ais := profileAIS()
+	if aud != nil {
+		ais.Spec.ConfigToUpdate = &aisv1.ConfigToUpdate{
+			Auth: &aisv1.AuthConfToUpdate{
+				RequiredClaims: &aisv1.RequiredClaimsConfToUpdate{Aud: aud},
+			},
+		}
 	}
 	return ais
 }
@@ -478,8 +503,8 @@ func TestValidateAuthProfile(t *testing.T) {
 		},
 		{
 			name:       "profile ref",
-			ais:        profileAIS("prod-authn"),
-			wantReview: profileAttrs("prod-authn"),
+			ais:        profileAIS(),
+			wantReview: profileAttrs(profileName),
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -498,28 +523,31 @@ func TestValidateAuthProfile(t *testing.T) {
 	t.Run("profile ref is rejected when unauthorized", func(t *testing.T) {
 		g := NewWithT(t)
 		webhook, reviews := newSARWebhook(t, false)
-		err := webhook.validateAuthProfile(ctx, profileAIS("prod-authn"))
+		err := webhook.validateAuthProfile(ctx, profileAIS())
 		g.Expect(*reviews).To(HaveLen(1))
-		g.Expect((*reviews)[0].Spec.ResourceAttributes).To(Equal(profileAttrs("prod-authn")))
+		g.Expect((*reviews)[0].Spec.ResourceAttributes).To(Equal(profileAttrs(profileName)))
 		g.Expect(apierrors.IsInvalid(err)).To(BeTrue())
 		g.Expect(err).To(MatchError(ContainSubstring(`is not authorized to use aistoreauthprofiles resource "prod-authn"`)))
 	})
 }
 
-func TestValidateAuthProfileExistence(t *testing.T) {
+func TestGetAuthProfile(t *testing.T) {
 	ctx := context.Background()
 	path := field.NewPath("spec", "auth", "profileRef")
+	ais := profileAIS()
 
-	t.Run("existing profile is admitted", func(t *testing.T) {
+	t.Run("existing profile is returned", func(t *testing.T) {
 		g := NewWithT(t)
-		webhook, _ := newSARWebhook(t, true, authProfile("prod-authn"))
-		g.Expect(webhook.validateAuthProfileExistence(ctx, path, "cluster", "prod-authn")).To(Succeed())
+		webhook, _ := newSARWebhook(t, true, authProfile(profileName))
+		prof, err := webhook.getAuthProfile(ctx, ais, path, profileName)
+		g.Expect(err).To(Succeed())
+		g.Expect(prof.Name).To(Equal("prod-authn"))
 	})
 
 	t.Run("missing profile is rejected with a field error", func(t *testing.T) {
 		g := NewWithT(t)
 		webhook, _ := newSARWebhook(t, true)
-		err := webhook.validateAuthProfileExistence(ctx, path, "cluster", "missing-authn")
+		_, err := webhook.getAuthProfile(ctx, ais, path, "missing-authn")
 		g.Expect(apierrors.IsInvalid(err)).To(BeTrue())
 		g.Expect(err).To(MatchError(ContainSubstring("spec.auth.profileRef")))
 		g.Expect(err).To(MatchError(ContainSubstring("referenced AIStoreAuthProfile does not exist")))
@@ -536,8 +564,100 @@ func TestValidateAuthProfileExistence(t *testing.T) {
 			},
 		}).Build()
 		webhook := &AIStoreWebhook{Client: c}
-		err := webhook.validateAuthProfileExistence(ctx, path, "cluster", "prod-authn")
+		_, err := webhook.getAuthProfile(ctx, ais, path, profileName)
 		g.Expect(apierrors.IsInternalError(err)).To(BeTrue())
 		g.Expect(err).To(MatchError(ContainSubstring(`checking AIStoreAuthProfile "prod-authn"`)))
+	})
+}
+
+func TestValidateTokenExchangeAud(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		aud  *[]string
+		prof *authv1alpha1.AIStoreAuthProfile
+	}{
+		{
+			name: "no token exchange",
+			aud:  &[]string{"other-ns/other"},
+			prof: authProfile(profileName),
+		},
+		{
+			name: "aud unset",
+			prof: tokenExchangeProfile(),
+		},
+		{
+			name: "aud empty",
+			aud:  &[]string{},
+			prof: tokenExchangeProfile(),
+		},
+		{
+			name: "aud is the cluster's own",
+			aud:  &[]string{ownAud},
+			prof: tokenExchangeProfile(),
+		},
+		{
+			name: "aud includes the cluster's own",
+			aud:  &[]string{"other-ns/other", ownAud},
+			prof: tokenExchangeProfile(),
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
+			g.Expect(validateTokenExchangeAud(audAIS(tt.aud), tt.prof)).To(Succeed())
+		})
+	}
+
+	t.Run("aud without the cluster's own is rejected", func(t *testing.T) {
+		g := NewWithT(t)
+		ais := audAIS(&[]string{"other-ns/other"})
+		err := validateTokenExchangeAud(ais, tokenExchangeProfile())
+		g.Expect(apierrors.IsInvalid(err)).To(BeTrue())
+		g.Expect(err).To(MatchError(ContainSubstring("spec.configToUpdate.auth.required_claims.aud")))
+		g.Expect(err).To(MatchError(ContainSubstring(`must include "tenant/cluster"`)))
+		g.Expect(err).To(MatchError(ContainSubstring("other-ns/other")))
+	})
+
+	t.Run("a profile using token exchange rejects a non-compliant spec on admission", func(t *testing.T) {
+		g := NewWithT(t)
+		ais := audAIS(&[]string{"other-ns/other"})
+		webhook, _ := newSARWebhook(t, true, tokenExchangeProfile())
+		err := webhook.validateAuthProfile(admissionCtx(), ais)
+		g.Expect(apierrors.IsInvalid(err)).To(BeTrue())
+		g.Expect(err).To(MatchError(ContainSubstring(`must include "tenant/cluster"`)))
+	})
+}
+
+func TestValidateRequiredAudiences(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		aud  *[]string
+	}{
+		{name: "aud unset"},
+		{name: "aud empty", aud: &[]string{}},
+		{name: "aud is the cluster's own", aud: &[]string{ownAud}},
+		{name: "aud has no namespace", aud: &[]string{ownAud, "shared-fleet"}},
+		{name: "aud is a URL", aud: &[]string{ownAud, "https://idp.example.com/tenant/cluster"}},
+		{name: "aud is not a namespaced name", aud: &[]string{ownAud, "Other_NS/other"}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
+			g.Expect(validateRequiredAudiences(audAIS(tt.aud))).To(Succeed())
+		})
+	}
+
+	// No cluster exists under either audience, so admission cannot report whether one does.
+	t.Run("an audience in another namespace is rejected", func(t *testing.T) {
+		g := NewWithT(t)
+		err := validateRequiredAudiences(audAIS(&[]string{ownAud, "other-ns/other"}))
+		g.Expect(apierrors.IsInvalid(err)).To(BeTrue())
+		g.Expect(err).To(MatchError(ContainSubstring("spec.configToUpdate.auth.required_claims.aud[1]")))
+		g.Expect(err).To(MatchError(ContainSubstring(`Only "tenant/cluster" is allowed`)))
+	})
+
+	t.Run("an audience in the cluster's own namespace is rejected", func(t *testing.T) {
+		g := NewWithT(t)
+		err := validateRequiredAudiences(audAIS(&[]string{tenantNS + "/other"}))
+		g.Expect(apierrors.IsInvalid(err)).To(BeTrue())
+		g.Expect(err).To(MatchError(ContainSubstring("tenant/other")))
 	})
 }

@@ -369,6 +369,14 @@ func (c *ConfigToUpdate) IntraClusterSet() bool {
 	return c != nil && c.Auth != nil && c.Auth.IntraCluster != nil
 }
 
+// RequiredAudiences returns auth.required_claims.aud if set, or nil if not configured.
+func (c *ConfigToUpdate) RequiredAudiences() []string {
+	if c == nil || c.Auth == nil || c.Auth.RequiredClaims == nil || c.Auth.RequiredClaims.Aud == nil {
+		return nil
+	}
+	return *c.Auth.RequiredClaims.Aud
+}
+
 // DeprecatedAuthMessages returns a message for each deprecated auth option set.
 func (c *ConfigToUpdate) DeprecatedAuthMessages() []string {
 	if c == nil || c.Auth == nil {

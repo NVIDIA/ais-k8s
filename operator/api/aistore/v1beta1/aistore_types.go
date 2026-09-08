@@ -1234,16 +1234,15 @@ func (ais *AIStore) GetAuthProfileRef() *AuthProfileRef {
 	return ais.Spec.Auth.ProfileRef
 }
 
-// GetRequiredAudiences extracts all audiences from the AIStore cluster's required claims if set.
+// TokenAudience returns the audience identifying this cluster in the tokens the operator obtains for it.
+func (ais *AIStore) TokenAudience() string {
+	return ais.NamespacedName().String()
+}
+
+// RequiredAudiences extracts all audiences from the AIStore cluster's required claims if set.
 // Returns nil if not configured
-func (ais *AIStore) GetRequiredAudiences() []string {
-	if ais.Spec.ConfigToUpdate == nil ||
-		ais.Spec.ConfigToUpdate.Auth == nil ||
-		ais.Spec.ConfigToUpdate.Auth.RequiredClaims == nil ||
-		ais.Spec.ConfigToUpdate.Auth.RequiredClaims.Aud == nil {
-		return nil
-	}
-	return *ais.Spec.ConfigToUpdate.Auth.RequiredClaims.Aud
+func (ais *AIStore) RequiredAudiences() []string {
+	return ais.Spec.ConfigToUpdate.RequiredAudiences()
 }
 
 func (s *DaemonSpec) autoScaleMaxUnavailable() int32 {
