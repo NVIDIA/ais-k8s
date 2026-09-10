@@ -19,6 +19,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("AIS client manager token handling", func() {
@@ -28,54 +29,142 @@ var _ = Describe("AIS client manager token handling", func() {
 		namespace   = "tenant"
 	)
 
-	It("should replace a rejected token on the cached client", func() {
-		ctx := context.Background()
-		var logins atomic.Int32
-		// Every login gets its own token, so the test can tell one fetch from the next
-		authSvc := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			issued := logins.Add(1)
+	var (
+		ctx      context.Context
+		requests atomic.Int32
+		server   *httptest.Server
+	)
+
+	BeforeEach(func() {
+		ctx = context.Background()
+		requests.Store(0)
+		// Every login gets its own token, so a test can tell one fetch from the next
+		server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			issued := requests.Add(1)
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = fmt.Fprintf(w, `{"access_token":"token-%d","token_type":"Bearer","expires_in":3600}`, issued)
 		}))
-		defer authSvc.Close()
+	})
 
-		profile := &authv1alpha1.AIStoreAuthProfile{
+	AfterEach(func() {
+		server.Close()
+	})
+
+	newProfile := func(serviceURL string) *authv1alpha1.AIStoreAuthProfile {
+		return &authv1alpha1.AIStoreAuthProfile{
 			ObjectMeta: metav1.ObjectMeta{Name: profileName},
 			Spec: authv1alpha1.AIStoreAuthProfileSpec{
-				ServiceURL: authSvc.URL,
+				ServiceURL: serviceURL,
 				UsernamePassword: &authv1alpha1.AuthProfileUsernamePassword{
 					Secret:    authv1alpha1.AuthProfileSecret{Name: secretName, Namespace: namespace},
 					LoginConf: &authv1alpha1.AuthProfileLoginConf{ClientID: "AIStore", Endpoint: "/token"},
 				},
 			},
 		}
-		secret := &corev1.Secret{
+	}
+
+	newSecret := func() *corev1.Secret {
+		return &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{Name: secretName, Namespace: namespace},
 			Data: map[string][]byte{
 				authv1alpha1.DefaultAuthProfileUserKey: []byte("admin"),
 				authv1alpha1.DefaultAuthProfilePassKey: []byte("secret"),
 			},
 		}
+	}
+
+	newCluster := func(withAuth bool) *aisv1.AIStore {
 		ais := &aisv1.AIStore{
 			ObjectMeta: metav1.ObjectMeta{Name: "cluster", Namespace: namespace},
-			Spec: aisv1.AIStoreSpec{
-				Auth: &aisv1.AuthSpec{ProfileRef: &aisv1.AuthProfileRef{Name: profileName}},
-			},
 		}
-		manager := NewAISClientManager(NewFakeK8sClient(profile, secret), AISClientTLSOpts{})
+		if withAuth {
+			ais.Spec.Auth = &aisv1.AuthSpec{ProfileRef: &aisv1.AuthProfileRef{Name: profileName}}
+		}
+		return ais
+	}
 
-		// Cache a client that AIS has rejected, as an earlier reconcile would leave it
+	newManager := func(objs ...client.Object) *AISClientManager {
+		return NewAISClientManager(NewFakeK8sClient(objs...), AISClientTLSOpts{})
+	}
+
+	// cacheClient puts a client reaching url and holding tokenInfo in the manager's cache, as an
+	// earlier reconcile would
+	cacheClient := func(m *AISClientManager, ais *aisv1.AIStore, url string, tokenInfo *TokenInfo) *AIStoreClient {
+		cached := NewAIStoreClient(ctx, url, tokenInfo, ais.GetAPIMode(), nil)
+		m.clientMap[ais.NamespacedName().String()] = cached
+		return cached
+	}
+
+	currentToken := func() *TokenInfo {
 		obtainedAt := time.Now()
-		rejected := &TokenInfo{Token: "token-0", ObtainedAt: obtainedAt, ExpiresAt: obtainedAt.Add(time.Hour)}
-		cached := NewAIStoreClient(ctx, cmn.IntraClusterURL(ais), rejected, ais.GetAPIMode(), nil)
-		manager.clientMap[ais.NamespacedName().String()] = cached
+		return &TokenInfo{Token: "token-0", ObtainedAt: obtainedAt, ExpiresAt: obtainedAt.Add(time.Hour)}
+	}
+
+	It("should replace a rejected token on the cached client", func() {
+		ais := newCluster(true)
+		m := newManager(newProfile(server.URL), newSecret())
+		cached := cacheClient(m, ais, cmn.IntraClusterURL(ais), currentToken())
 		cached.tokenRejected.Store(true)
 
-		got, err := manager.GetClient(ctx, ais)
+		got, err := m.GetClient(ctx, ais)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(got).To(BeIdenticalTo(cached))
 		Expect(cached.params.Token).To(Equal("token-1"))
 		Expect(cached.tokenRejected.Load()).To(BeFalse())
-		Expect(logins.Load()).To(BeEquivalentTo(1))
+		Expect(requests.Load()).To(BeEquivalentTo(1))
+	})
+
+	It("should drop the token when the cluster stops requesting auth", func() {
+		ais := newCluster(false)
+		m := newManager()
+		cached := cacheClient(m, ais, cmn.IntraClusterURL(ais), currentToken())
+
+		got, err := m.GetClient(ctx, ais)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).To(BeIdenticalTo(cached))
+		Expect(cached.params.Token).To(BeEmpty())
+		Expect(requests.Load()).To(BeZero())
+	})
+
+	It("should keep the current token when the auth service rejects the login", func() {
+		failing := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+		}))
+		defer failing.Close()
+		ais := newCluster(true)
+		m := newManager(newProfile(failing.URL), newSecret())
+		cached := cacheClient(m, ais, cmn.IntraClusterURL(ais), currentToken())
+		cached.tokenRejected.Store(true)
+
+		_, err := m.GetClient(ctx, ais)
+		Expect(err).To(HaveOccurred())
+		Expect(cached.params.Token).To(Equal("token-0"))
+	})
+
+	It("should fetch a single token when it replaces a client the spec invalidated", func() {
+		ais := newCluster(true)
+		m := newManager(newProfile(server.URL), newSecret())
+		obtainedAt := time.Now().Add(-time.Hour)
+		expired := &TokenInfo{Token: "token-0", ObtainedAt: obtainedAt, ExpiresAt: time.Now().Add(-time.Minute)}
+		// An endpoint the spec no longer resolves to forces a replacement rather than a refresh
+		stale := cacheClient(m, ais, "http://stale.example:51080", expired)
+
+		got, err := m.GetClient(ctx, ais)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).NotTo(BeIdenticalTo(stale))
+		Expect(m.clientMap[ais.NamespacedName().String()].params.Token).To(Equal("token-1"))
+		Expect(requests.Load()).To(BeEquivalentTo(1))
+	})
+
+	It("should reuse a cached client while its token remains usable", func() {
+		ais := newCluster(true)
+		m := newManager(newProfile(server.URL), newSecret())
+		cached := cacheClient(m, ais, cmn.IntraClusterURL(ais), currentToken())
+
+		got, err := m.GetClient(ctx, ais)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).To(BeIdenticalTo(cached))
+		Expect(cached.params.Token).To(Equal("token-0"))
+		Expect(requests.Load()).To(BeZero())
 	})
 })

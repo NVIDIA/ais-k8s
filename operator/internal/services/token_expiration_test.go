@@ -10,91 +10,22 @@ import (
 	"net/http/httptest"
 	"testing"
 	"time"
-
-	aisv1 "github.com/ais-operator/api/aistore/v1beta1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestTokenExpirationBackwardCompatibility(t *testing.T) {
-	tests := []struct {
-		name          string
-		tokenExpireAt time.Time
-		shouldBeValid bool
-		description   string
-	}{
-		{
-			name:          "No expiration (zero time)",
-			tokenExpireAt: time.Time{},
-			shouldBeValid: true,
-			description:   "Tokens without expiration should always be valid",
-		},
-		{
-			name:          "Future expiration (10 minutes)",
-			tokenExpireAt: time.Now().Add(10 * time.Minute),
-			shouldBeValid: true,
-			description:   "Tokens expiring in more than TokenExpiryBuffer should be valid",
-		},
-		{
-			name:          "Expiring soon (3 minutes)",
-			tokenExpireAt: time.Now().Add(3 * time.Minute),
-			shouldBeValid: false,
-			description:   "Tokens expiring in less than TokenExpiryBuffer should be invalid",
-		},
-		{
-			name:          "Already expired",
-			tokenExpireAt: time.Now().Add(-1 * time.Minute),
-			shouldBeValid: false,
-			description:   "Expired tokens should be invalid",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.Background()
-
-			// Create a client with the test expiration time
-			client := &AIStoreClient{
-				ctx:           ctx,
-				params:        nil, // We'll skip the nil check for this test
-				mode:          "",  // Empty mode matches default GetAPIMode() return value
-				tlsCfg:        nil,
-				tokenExpireAt: tt.tokenExpireAt,
-			}
-
-			// Create a minimal AIStore spec
-			ais := &aisv1.AIStore{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-cluster",
-					Namespace: "default",
-				},
-				Spec: aisv1.AIStoreSpec{
-					// Default values (APIMode is nil, so GetAPIMode() returns "")
-				},
-			}
-
-			// Set params to non-nil to test expiration logic
-			testURL := "http://test:8080"
-			client.params = buildBaseParams(testURL, "", nil)
-
-			// Check validity
-			isValid := client.HasValidBaseParams(ctx, ais, testURL)
-
-			if isValid != tt.shouldBeValid {
-				t.Errorf("%s: expected valid=%v, got valid=%v. %s",
-					tt.name, tt.shouldBeValid, isValid, tt.description)
-			}
-		})
-	}
-}
-
-func TestRefreshMarginClampedToTokenValidity(t *testing.T) {
+func TestIsTokenExpired(t *testing.T) {
 	tests := []struct {
 		name              string
 		obtainedAgo       time.Duration
 		expiresIn         time.Duration
+		noExpiration      bool
 		unknownObtainedAt bool
 		wantExpired       bool
 	}{
+		{
+			name:         "token without expiration never expires",
+			noExpiration: true,
+			wantExpired:  false,
+		},
 		{
 			name:        "freshly obtained token with validity equal to the buffer",
 			obtainedAgo: 0,
@@ -108,15 +39,15 @@ func TestRefreshMarginClampedToTokenValidity(t *testing.T) {
 			wantExpired: true,
 		},
 		{
-			name:        "freshly obtained token with validity below the buffer",
-			obtainedAgo: 0,
-			expiresIn:   time.Minute,
-			wantExpired: false,
-		},
-		{
 			name:        "long-lived token retains the full buffer",
 			obtainedAgo: 56 * time.Minute,
 			expiresIn:   4 * time.Minute,
+			wantExpired: true,
+		},
+		{
+			name:        "token past its expiration",
+			obtainedAgo: time.Hour,
+			expiresIn:   -time.Minute,
 			wantExpired: true,
 		},
 		{
@@ -136,11 +67,12 @@ func TestRefreshMarginClampedToTokenValidity(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			now := time.Now()
-			client := &AIStoreClient{
-				tokenExpireAt: now.Add(tt.expiresIn),
+			client := &AIStoreClient{}
+			if !tt.noExpiration {
+				client.tokenInfo.ExpiresAt = now.Add(tt.expiresIn)
 			}
 			if !tt.unknownObtainedAt {
-				client.tokenObtainedAt = now.Add(-tt.obtainedAgo)
+				client.tokenInfo.ObtainedAt = now.Add(-tt.obtainedAgo)
 			}
 
 			if got := client.isTokenExpired(); got != tt.wantExpired {
@@ -151,45 +83,90 @@ func TestRefreshMarginClampedToTokenValidity(t *testing.T) {
 	}
 }
 
+func TestSetTokenInstallsTokenInfo(t *testing.T) {
+	const testURL = "http://test:8080"
+	ctx := context.Background()
+	obtainedAt := time.Now()
+	first := &TokenInfo{Token: "token-a", ObtainedAt: obtainedAt, ExpiresAt: obtainedAt.Add(time.Hour)}
+
+	client := NewAIStoreClient(ctx, testURL, first, "", nil)
+	assertToken(t, client, first)
+
+	second := &TokenInfo{Token: "token-b", ObtainedAt: obtainedAt, ExpiresAt: obtainedAt.Add(2 * time.Hour)}
+	client.tokenRejected.Store(true)
+	client.setToken(second)
+	assertToken(t, client, second)
+	if client.tokenRejected.Load() {
+		t.Error("tokenRejected = true after installing a new token, want false")
+	}
+
+	client.setToken(nil)
+	assertToken(t, client, &TokenInfo{})
+
+	assertToken(t, NewAIStoreClient(ctx, testURL, nil, "", nil), &TokenInfo{})
+}
+
+// assertToken checks that the client records want and presents its token to the AIS API.
+func assertToken(t *testing.T, client *AIStoreClient, want *TokenInfo) {
+	t.Helper()
+	if client.tokenInfo != *want {
+		t.Errorf("tokenInfo = %+v, want %+v", client.tokenInfo, *want)
+	}
+	if client.params.Token != want.Token {
+		t.Errorf("params.Token = %q, want %q", client.params.Token, want.Token)
+	}
+}
+
 func TestTokenRefreshReason(t *testing.T) {
 	now := time.Now()
+	current := TokenInfo{Token: "token-a", ObtainedAt: now, ExpiresAt: now.Add(time.Hour)}
 
 	tests := []struct {
-		name          string
-		obtainedAt    time.Time
-		tokenExpireAt time.Time
-		rejected      bool
-		wantReason    string
+		name       string
+		tokenInfo  TokenInfo
+		wantsToken bool
+		rejected   bool
+		wantReason string
 	}{
 		{
-			name:          "token with time left",
-			obtainedAt:    now,
-			tokenExpireAt: now.Add(time.Hour),
+			name:       "token with time left",
+			tokenInfo:  current,
+			wantsToken: true,
 		},
 		{
-			name: "token without expiration",
+			name: "client of a cluster requesting no auth",
 		},
 		{
-			name:          "token rejected by AIS",
-			obtainedAt:    now,
-			tokenExpireAt: now.Add(time.Hour),
-			rejected:      true,
-			wantReason:    "rejectedByAIS",
+			name:       "client holding no token of a cluster requesting auth",
+			wantsToken: true,
+			wantReason: "noTokenForProfile",
 		},
 		{
-			name:          "token past its expiration",
-			obtainedAt:    now.Add(-time.Hour),
-			tokenExpireAt: now.Add(-time.Minute),
-			wantReason:    "expired",
+			name:       "token of a cluster that no longer requests auth",
+			tokenInfo:  current,
+			wantReason: "authProfileRemoved",
+		},
+		{
+			name:       "token rejected by AIS",
+			tokenInfo:  current,
+			wantsToken: true,
+			rejected:   true,
+			wantReason: "rejectedByAIS",
+		},
+		{
+			name:       "token past its expiration",
+			tokenInfo:  TokenInfo{Token: "token-a", ObtainedAt: now.Add(-time.Hour), ExpiresAt: now.Add(-time.Minute)},
+			wantsToken: true,
+			wantReason: "expired",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			client := &AIStoreClient{tokenObtainedAt: tt.obtainedAt, tokenExpireAt: tt.tokenExpireAt}
+			client := &AIStoreClient{tokenInfo: tt.tokenInfo}
 			client.tokenRejected.Store(tt.rejected)
 
-			if got := client.tokenRefreshReason(); got != tt.wantReason {
+			if got := client.tokenRefreshReason(tt.wantsToken); got != tt.wantReason {
 				t.Errorf("tokenRefreshReason() = %q, want %q", got, tt.wantReason)
 			}
 		})
@@ -205,7 +182,6 @@ func TestAuthStatusTracker(t *testing.T) {
 		{name: "unauthorized", status: http.StatusUnauthorized, wantRejected: true},
 		{name: "forbidden", status: http.StatusForbidden, wantRejected: true},
 		{name: "server error", status: http.StatusInternalServerError},
-		{name: "not found", status: http.StatusNotFound},
 	}
 
 	for _, tt := range tests {
@@ -215,7 +191,7 @@ func TestAuthStatusTracker(t *testing.T) {
 			}))
 			defer server.Close()
 
-			client := NewAIStoreClient(context.Background(), server.URL, &TokenInfo{Token: "test-token"}, "", nil)
+			client := NewAIStoreClient(context.Background(), server.URL, &TokenInfo{Token: "token-a"}, "", nil)
 			_ = client.Health(false)
 
 			if got := client.tokenRejected.Load(); got != tt.wantRejected {

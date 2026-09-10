@@ -43,12 +43,11 @@ type (
 	}
 
 	AIStoreClient struct {
-		ctx             context.Context
-		params          *api.BaseParams
-		mode            string
-		tlsCfg          *tls.Config
-		tokenObtainedAt time.Time
-		tokenExpireAt   time.Time
+		ctx    context.Context
+		params *api.BaseParams
+		mode   string
+		// tokenInfo describes the token currently in params.
+		tokenInfo TokenInfo
 		// tokenRejected records that AIS answered an API call with 401 or 403.
 		tokenRejected atomic.Bool
 	}
@@ -76,8 +75,8 @@ func (t *authStatusTracker) RoundTrip(req *http.Request) (*http.Response, error)
 	return resp, err
 }
 
-// HasValidBaseParams checks if the client has valid params for the given AIS cluster configuration
-func (c *AIStoreClient) HasValidBaseParams(ctx context.Context, ais *aisv1.AIStore, expectedURL string) bool {
+// HasValidBaseParams checks if the client can still reach the given AIS cluster.
+func (c *AIStoreClient) HasValidBaseParams(_ context.Context, ais *aisv1.AIStore, expectedURL string) bool {
 	if c.params == nil {
 		return false
 	}
@@ -90,24 +89,7 @@ func (c *AIStoreClient) HasValidBaseParams(ctx context.Context, ais *aisv1.AISto
 	if c.mode != ais.GetAPIMode() {
 		return false
 	}
-
-	// Check if token is expired
-	if c.isTokenExpired() {
-		logf.FromContext(ctx).Info("Token expired or expiring soon", "expiresAt", c.tokenExpireAt)
-		return false
-	}
-
-	// Determine whether HTTPS should be used based on the presence of a TLS secret / TLS issuer and
-	// verify if the URL's protocol matches the expected protocol (HTTPS or HTTP)
-	if cos.IsHTTPS(c.params.URL) != ais.UseHTTPS() {
-		return false
-	}
-
-	// Check if the client parameters are aligned with the requested auth
-	if ais.GetAuthProfileRef() != nil {
-		return c.params.Token != ""
-	}
-	return c.params.Token == ""
+	return cos.IsHTTPS(c.params.URL) == ais.UseHTTPS()
 }
 
 // syncPublicURL adopts discoveredURL as the client's endpoint in public API mode, where the endpoint
@@ -127,44 +109,45 @@ func (c *AIStoreClient) syncPublicURL(ctx context.Context, discoveredURL string)
 // isTokenExpired checks if the token is expired or expiring soon (within the refresh margin)
 func (c *AIStoreClient) isTokenExpired() bool {
 	// Zero time means no expiration tracking
-	if c.tokenExpireAt.IsZero() {
+	if c.tokenInfo.ExpiresAt.IsZero() {
 		return false
 	}
-	return time.Now().Add(c.refreshMargin()).After(c.tokenExpireAt)
+	return time.Now().Add(c.refreshMargin()).After(c.tokenInfo.ExpiresAt)
 }
 
 // refreshMargin returns how long before expiration a token is treated as expired: half the validity
 // the token had when obtained, capped at TokenExpiryBuffer, or the full cap when that is unknown.
 func (c *AIStoreClient) refreshMargin() time.Duration {
-	if c.tokenObtainedAt.IsZero() {
+	if c.tokenInfo.ObtainedAt.IsZero() {
 		return TokenExpiryBuffer
 	}
-	return min(c.tokenExpireAt.Sub(c.tokenObtainedAt)/2, TokenExpiryBuffer)
+	return min(c.tokenInfo.ExpiresAt.Sub(c.tokenInfo.ObtainedAt)/2, TokenExpiryBuffer)
 }
 
 // tokenRefreshReason reports why the client needs another token, or an empty string while the
-// current one remains usable.
-func (c *AIStoreClient) tokenRefreshReason() string {
-	if c.tokenRejected.Load() {
+// current one remains usable. wantsToken tells whether the cluster requests authentication.
+func (c *AIStoreClient) tokenRefreshReason(wantsToken bool) string {
+	switch {
+	case wantsToken && c.tokenInfo.Token == "":
+		return "noTokenForProfile"
+	case !wantsToken && c.tokenInfo.Token != "":
+		return "authProfileRemoved"
+	case c.tokenRejected.Load():
 		return "rejectedByAIS"
-	}
-	if c.isTokenExpired() {
+	case c.isTokenExpired():
 		return "expired"
 	}
 	return ""
 }
 
-// refreshToken updates the token and expiration time in-place
-func (c *AIStoreClient) refreshToken(tokenInfo *TokenInfo) {
+// setToken makes tokenInfo the client's token. A nil tokenInfo leaves the client with no token.
+func (c *AIStoreClient) setToken(tokenInfo *TokenInfo) {
 	if tokenInfo == nil {
-		c.params.Token = ""
-		c.tokenObtainedAt = time.Time{}
-		c.tokenExpireAt = time.Time{}
+		c.tokenInfo = TokenInfo{}
 	} else {
-		c.params.Token = tokenInfo.Token
-		c.tokenObtainedAt = tokenInfo.ObtainedAt
-		c.tokenExpireAt = tokenInfo.ExpiresAt
+		c.tokenInfo = *tokenInfo
 	}
+	c.params.Token = c.tokenInfo.Token
 	c.tokenRejected.Store(false)
 }
 
@@ -218,23 +201,13 @@ func (c *AIStoreClient) StartMaintenance(actValue *apc.ActValRmNode) (string, er
 }
 
 func NewAIStoreClient(ctx context.Context, url string, tokenInfo *TokenInfo, mode string, tlsCfg *tls.Config) *AIStoreClient {
-	var token string
-	var tokenObtainedAt, tokenExpireAt time.Time
-	if tokenInfo != nil {
-		token = tokenInfo.Token
-		tokenObtainedAt = tokenInfo.ObtainedAt
-		tokenExpireAt = tokenInfo.ExpiresAt
-	}
-
 	client := &AIStoreClient{
-		ctx:             ctx,
-		params:          buildBaseParams(url, token, tlsCfg),
-		mode:            mode,
-		tlsCfg:          tlsCfg,
-		tokenObtainedAt: tokenObtainedAt,
-		tokenExpireAt:   tokenExpireAt,
+		ctx:    ctx,
+		params: buildBaseParams(url, "", tlsCfg),
+		mode:   mode,
 	}
 	client.params.Client.Transport = &authStatusTracker{base: client.params.Client.Transport, client: client}
+	client.setToken(tokenInfo)
 	return client
 }
 

@@ -56,12 +56,6 @@ func (m *AISClientManager) GetClient(ctx context.Context,
 	client, exists := m.clientMap[ais.NamespacedName().String()]
 	m.mu.RUnlock()
 
-	if exists {
-		if err := m.ensureValidToken(ctx, ais, client); err != nil {
-			return nil, err
-		}
-	}
-
 	url, err := m.getAISAPIEndpoint(ctx, ais)
 	if err != nil {
 		logger.Error(err, "Failed to get AIS API parameters")
@@ -72,6 +66,9 @@ func (m *AISClientManager) GetClient(ctx context.Context,
 	if exists {
 		client.syncPublicURL(ctx, url)
 		if client.HasValidBaseParams(ctx, ais, url) {
+			if tokErr := m.ensureValidToken(ctx, ais, client); tokErr != nil {
+				return nil, tokErr
+			}
 			return client, nil
 		}
 	}
@@ -98,12 +95,13 @@ func (m *AISClientManager) GetClient(ctx context.Context,
 
 // ensureValidToken replaces the token of a cached client when that token is no longer usable.
 func (m *AISClientManager) ensureValidToken(ctx context.Context, ais *aisv1.AIStore, client *AIStoreClient) error {
-	reason := client.tokenRefreshReason()
+	profileRef := ais.GetAuthProfileRef()
+	reason := client.tokenRefreshReason(profileRef != nil)
 	if reason == "" {
 		return nil
 	}
 	profile := "none"
-	if profileRef := ais.GetAuthProfileRef(); profileRef != nil {
+	if profileRef != nil {
 		profile = profileRef.Name
 	}
 	logger := logf.FromContext(ctx).WithValues("cluster", ais.NamespacedName().String(), "profile", profile)
@@ -115,7 +113,7 @@ func (m *AISClientManager) ensureValidToken(ctx context.Context, ais *aisv1.AISt
 
 	hasExpiration := tokenInfo != nil && !tokenInfo.ExpiresAt.IsZero()
 	logger.Info("Refreshing AIS API token", "reason", reason, "tokenExpires", hasExpiration)
-	client.refreshToken(tokenInfo)
+	client.setToken(tokenInfo)
 	return nil
 }
 
