@@ -16,13 +16,13 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 
 {{- define "aisauth-secrets.adminSecretName" -}}
-{{- .Values.adminSecretName | default (printf "%s-su-creds" .Release.Name) -}}
+{{- .Values.adminSecretName | default "ais-authn-su-creds" -}}
 {{- end -}}
 
 {{- define "aisauth-secrets.hmacSecretName" -}}
-{{- .Values.hmacSecretName | default (printf "%s-jwt-signing-key" .Release.Name) -}}
+{{- .Values.hmacSecretName | default "ais-authn-jwt-signing-key" -}}
 {{- end -}}
 
 {{- define "aisauth-secrets.rsaPassphraseSecretName" -}}
-{{- .Values.rsaPassphraseSecretName | default (printf "%s-rsa-passphrase" .Release.Name) -}}
+{{- .Values.rsaPassphraseSecretName | default "ais-authn-rsa-passphrase" -}}
 {{- end -}}

@@ -1,43 +1,56 @@
 environments:
   default:
     values:
-      - valuesPath: "./config/authn/default.yaml.gotmpl"
+      - release: &authn-release
+          authn:
+            enabled: true
+          aisauth:
+            enabled: false
+        valuesPath: "./config/authn/default.yaml.gotmpl"
         cert:
           valuesPath: "./config/authn/cert/default.yaml"
   local:
     values:
-      - valuesPath: "./config/authn/local.yaml.gotmpl"
-        cert:
-          valuesPath: "./config/authn/cert/local.yaml"
+      - release:
+          authn:
+            enabled: false
+          aisauth:
+            enabled: true
 
   tls:
     values:
-      - valuesPath: "./config/authn/tls.yaml.gotmpl"
+      - release: *authn-release
+        valuesPath: "./config/authn/tls.yaml.gotmpl"
         cert:
           valuesPath: "./config/authn/cert/tls.yaml"
   oci-ord:
     values:
-      - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/oci-ord.yaml.gotmpl?ref=main"
+      - release: *authn-release
+        valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/oci-ord.yaml.gotmpl?ref=main"
         cert:
           valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/cert/oci-ord.yaml?ref=main"
   oci-iad:
     values:
-      - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/oci-iad.yaml.gotmpl?ref=main"
+      - release: *authn-release
+        valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/oci-iad.yaml.gotmpl?ref=main"
         cert:
           valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/cert/oci-iad.yaml?ref=main"
   oci-nrt:
     values:
-      - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/oci-nrt.yaml.gotmpl?ref=main"
+      - release: *authn-release
+        valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/oci-nrt.yaml.gotmpl?ref=main"
         cert:
           valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/cert/oci-nrt.yaml?ref=main"
   sjc4-dev:
     values:
-      - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/nvidia.yaml.gotmpl?ref=main"
+      - release: *authn-release
+        valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/nvidia.yaml.gotmpl?ref=main"
         cert:
           valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/cert/sjc4-dev.yaml?ref=main"
   sjc112:
     values:
-      - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/nvidia.yaml.gotmpl?ref=main"
+      - release: *authn-release
+        valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/nvidia.yaml.gotmpl?ref=main"
         cert:
           valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/cert/sjc112.yaml?ref=main"
 ---
@@ -56,8 +69,18 @@ releases:
     namespace: "{{ .Values | get \"namespace\" \"ais\" }}"
     createNamespace: true
     chart: charts/authn
-    version: 0.5.0
+    version: 0.11.0
+    condition: release.authn.enabled
     values:
       - "./charts/authn/values.yaml.gotmpl"
-      - "{{ .Environment.Values.valuesPath }}"
-      - "{{ .Environment.Values.cert.valuesPath }}"
+      - "{{ .Values | get \"valuesPath\" \"\" }}"
+      - "{{ .Values | get \"cert.valuesPath\" \"\" }}"
+
+  - name: aisauth
+    namespace: "{{ .Values | get \"namespace\" \"ais\" }}"
+    createNamespace: true
+    chart: charts/aisauth
+    version: 0.2.0
+    condition: release.aisauth.enabled
+    values:
+      - "./config/aisauth/{{ .Environment.Name }}.yaml"

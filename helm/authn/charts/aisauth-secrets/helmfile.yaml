@@ -1,0 +1,14 @@
+hooks:
+  - events: ["prepare"]
+    showlogs: true
+    command: bash
+    args: ["../../../confirm.sh", "{{ .Environment.Name }}"]
+
+releases:
+  - name: ais-authn-secrets
+    namespace: "{{ .Values | get \"namespace\" \"ais\" }}"
+    createNamespace: true
+    chart: ./
+    version: 0.1.1
+    values:
+      - "./values.yaml.gotmpl"

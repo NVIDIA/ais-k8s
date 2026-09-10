@@ -12,9 +12,7 @@ Install it when Helm should own AuthN's credentials. `adminPassword` is required
 
 ## Install order
 
-Install this chart **before** the `aisauth` chart: the `AIStoreAuth` webhook resolves every referenced `Secret` at admission and rejects the resource when one is missing.
-
-A supporting helmfile is a follow-up to enable this chart to be ran optionally ahead of the `aisauth` helmfile.
+Use [`helmfile.yaml`](./helmfile.yaml) to install this chart before the `aisauth` chart. The `AIStoreAuth` webhook resolves every referenced `Secret` at admission and rejects the resource when one is missing.
 
 ## Values
 
@@ -24,11 +22,9 @@ A supporting helmfile is a follow-up to enable this chart to be ran optionally a
 | `adminUsername`           | Superuser name. Defaults to `admin`.                                             |
 | `hmacKey`                 | HMAC signing key. Renders a Secret.                                              |
 | `rsaPassphrase`           | Passphrase protecting the RSA private key. Renders a Secret.                     |
-| `adminSecretName`         | Rename the admin Secret. Defaults to `<release>-su-creds`.                       |
-| `hmacSecretName`          | Rename the HMAC Secret. Defaults to `<release>-jwt-signing-key`.                 |
-| `rsaPassphraseSecretName` | Rename the RSA passphrase Secret. Defaults to `<release>-rsa-passphrase`.        |
-
-`<release>` is the release name of **this** chart, which is not the release name of the `aisauth` chart when the two are installed separately.
+| `adminSecretName`         | Rename the admin Secret. Defaults to `ais-authn-su-creds`.                       |
+| `hmacSecretName`          | Rename the HMAC Secret. Defaults to `ais-authn-jwt-signing-key`.                 |
+| `rsaPassphraseSecretName` | Rename the RSA passphrase Secret. Defaults to `ais-authn-rsa-passphrase`.        |
 
 The `*SecretName` values rename `Secret`s this chart owns. Never point one at a `Secret` owned by anything else: Helm fails the install on an ownership conflict rather than adopting it.
 
@@ -42,18 +38,17 @@ export JWT_SIGNING_KEY=...        # optional, renders the HMAC Secret
 export AUTHN_RSA_PASSPHRASE=...   # optional, renders the RSA passphrase Secret
 ```
 
-Reference that file from the helmfile release, alongside any non-secret overrides:
+Then, run the helmfile of this chart from `helm/authn`.
 
-```yaml
-values:
-  - "./charts/aisauth-secrets/values.yaml.gotmpl"
+```console
+helmfile -f charts/aisauth-secrets/helmfile.yaml sync
 ```
 
-With only `AUTHN_ADMIN_PASSWORD` set this renders a `Secret` named `<release>-su-creds` holding `SU-NAME` and `SU-PASS`. Reference it from the `aisauth` chart:
+With only `AUTHN_ADMIN_PASSWORD` set this renders a `Secret` named `ais-authn-su-creds` holding `SU-NAME` and `SU-PASS`. Reference it from the `aisauth` chart:
 
 ```yaml
 adminSecret:
-  name: <release>-su-creds
+  name: ais-authn-su-creds
 ```
 
 ## Signing keys

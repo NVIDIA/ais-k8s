@@ -1,0 +1,33 @@
+deployment:
+  container:
+    image: docker.io/aistorage/authn:v5.0
+
+adminSecret:
+  name: ais-authn-su-creds
+
+config:
+  net:
+    externalURL: "https://aisauth.ais.svc.cluster.local:52001"
+    http:
+      port: 52001
+
+tls:
+  certificate:
+    issuerRef:
+      name: ca-issuer
+      kind: ClusterIssuer
+    additionalDNSNames:
+      - "aisauth-lb.ais.svc.cluster.local"
+      - "local-test-worker"
+      - "local-test-worker2"
+      - "local-test-worker3"
+
+persistence:
+  size: 256Mi
+  storageClass: openebs-hostpath
+
+externalAccess:
+  nodePort:
+    port: 30001
+  loadBalancer:
+    port: 52001

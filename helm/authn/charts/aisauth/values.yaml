@@ -15,7 +15,7 @@ persistence: {}
 externalAccess: {}
 deployment:
   container:
-    image: docker.io/aistorage/authn:v4.9
+    image: docker.io/aistorage/authn:v5.0
 
 # Chart-only values.
 

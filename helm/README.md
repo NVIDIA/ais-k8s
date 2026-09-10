@@ -63,7 +63,10 @@ Check it worked: for a `ClusterIssuer`, `kubectl get clusterissuer` should show 
 
 You only need AuthN if you want authentication/authorization for your AIS cluster. If you don't want AuthN, skip this step.
 
-**Important:** Run AuthN server before the operator or AIS deployment. AuthN creates resources that the operator needs to talk to the AuthN server and AIS.
+Deployment order depends on which chart you use:
+
+- **`authn` chart** — deploy before the operator and AIS. It creates the resources the operator needs to reach the AuthN server and AIS.
+- **`aisauth` chart** — install the operator first, since the operator reconciles AuthN from an `AIStoreAuth` resource.
 
 See the [`authn`](./authn/) directory for instructions on deploying the AuthN server, including all options for deploying with HTTPS and other configurations.
 

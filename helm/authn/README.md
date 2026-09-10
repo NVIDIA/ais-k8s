@@ -1,40 +1,41 @@
-# AIS AuthN Helm Chart
+# AIS AuthN Helm Charts
 
->  **NOTE**: AuthN and its related Helm chart are under development. Breaking changes are to be expected, and it has NOT gone through a complete security audit.
+> **NOTE**: AuthN and its related Helm charts are under development. Breaking changes are to be expected, and it has NOT gone through a complete security audit.
 Please review your deployment carefully and follow [our security policy](https://github.com/NVIDIA/ais-k8s/blob/main/SECURITY.md) to report any issues.
 
-This directory contains a Helm chart and associated Helmfile for deploying the AIS AuthN service in K8s.
+This directory contains the Helm charts and associated Helmfile for deploying the AIS AuthN service in K8s.
 
-The exact resources deployed by this chart can be found in the [chart templates](./charts/authn/templates).
+The Helmfile deploys AuthN with one of two charts. Each environment enables one of them through its `release` value.
 
-Values available to override are provided in the [chart values](./charts/authn/values.yaml.gotmpl) and [schema](./charts/authn/values.schema.json).
+| Chart | Release | Condition | Deploys |
+| ----- | ------- | --------- | ------- |
+| [`authn`](./charts/authn)     | `ais-authn` | `release.authn.enabled`   | AuthN directly. |
+| [`aisauth`](./charts/aisauth) | `aisauth`   | `release.aisauth.enabled` | An `AIStoreAuth` resource that the AIS operator reconciles. |
+
+Each chart documents its own values and required environment in its README, [`authn`](./charts/authn/README.md) and [`aisauth`](./charts/aisauth/README.md).
 
 ### Set up your environment config
 
-We provide 2 reference environment types for deployment: `default` and `tls`.
+We provide 3 reference environments: `default`, `tls` and `local`.
 
-You can override the variables for these environments in the Helmfile command or create a new environment with its own config values template. 
+You can override the variables for these environments in the Helmfile command or create a new environment with its own config values template.
 
-Reference the [Helmfile](./helmfile.yaml) for configuring these values. 
-Each environment can use a common environment file along with an additional [cert values file](./config/authn/cert) specific to their environment name (can be empty if not using TLS).
-
-### TLS
-
-See [docs/tls.md](../../docs/tls.md) for the TLS overview and how AuthN fits in. In this chart, set `tls.enabled: true` to serve HTTPS. With `tls.createCert: true` a cert-manager `Certificate` is created from the `issuerRef` and DNS names in the [cert values file](./config/authn/cert); otherwise point `tls.secretName` at an existing certificate secret.
-
-### Required Env
-
-The following environment variables MUST be provided at runtime to deploy:
-
-- `AUTHN_ADMIN_PASSWORD`
-- `JWT_SIGNING_KEY`
+Reference the [Helmfile](./helmfile.yaml) for configuring these values.
+The `ais-authn` release reads the environment values file and the [cert values file](./config/authn/cert) set by `valuesPath` and `cert.valuesPath`. The `aisauth` release reads its environment file from [config/aisauth](./config/aisauth).
 
 ### Sync
 
-Export the required values then run `helmfile sync` with your env: 
+Export the values the chart requires then run `helmfile sync` with your env:
 
 ```console
 helmfile sync -e default
+```
+
+For the `aisauth` chart, install the AIS operator first. Then, install the Secrets. Then, install AuthN:
+
+```console
+helmfile -f charts/aisauth-secrets/helmfile.yaml sync
+helmfile sync -e local
 ```
 
 ### Removing a Deployment
@@ -45,3 +46,8 @@ Run `helmfile destroy` with your env:
 helmfile destroy -e default
 ```
 
+That removes the AuthN release only. With the `aisauth` chart the credential Secrets belong to a separate release:
+
+```console
+helmfile -f charts/aisauth-secrets/helmfile.yaml destroy
+```

@@ -66,7 +66,7 @@ When `--aws` is supplied the script creates a Kubernetes secret named `aws-creds
 2. **Install prerequisites** (`prereq-helmfile.yaml`) — OpenEBS for local storage, cert-manager with its CSI driver, and trust-manager for CA distribution.
 3. **Configure the cluster** — deploys the cluster issuer, creates the `ais` and `ais-operator-system` namespaces, labels nodes for AIS scheduling, and applies the trust-manager bundle that distributes the CA certificate to labeled namespaces.
 4. **Deploy the AIS operator** — either built from source (`--build`), pulled from a registry (`--image`), or installed via current release helm chart and default image.
-5. **Deploy AuthN** (optional, `--auth`) — installs the authentication service with a generated admin password.
+5. **Deploy AuthN** (optional, `--auth`) — creates the AuthN credential Secrets with a generated admin password. The script then applies an `AIStoreAuth` resource, and the operator deploys AuthN.
 6. **Deploy AIStore** — applies the AIS helmfile and waits for the `aistore/ais` resource to reach `Ready` state.
 
 On subsequent runs the script detects the existing cluster and skips creation. Use `--reset` to re-run the prerequisite and namespace setup without destroying the cluster.

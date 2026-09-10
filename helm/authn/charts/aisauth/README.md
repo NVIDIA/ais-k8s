@@ -9,6 +9,25 @@ Credential and signing `Secret`s are not created by this chart. `adminSecret`, `
 
 Everything else (ConfigMap, PVC, Deployment, Services, Certificate) is reconciled by the operator from the CR.
 
+## Install
+
+Install the AIS operator first. Then, run the commands below from `helm/authn`.
+
+If Helm must own the credentials of AuthN, install the [Secrets](#secrets) first:
+
+```console
+export AUTHN_ADMIN_PASSWORD=...
+helmfile -f charts/aisauth-secrets/helmfile.yaml sync
+```
+
+Then, deploy AuthN:
+
+```console
+helmfile sync -e local
+```
+
+The file `helm/authn/config/aisauth/<environment>.yaml` holds the values for the environment.
+
 ## Values
 
 `adminSecret`, `hmacSecret`, `rsaPassphraseSecret`, `config`, `tls`, `persistence`, `externalAccess` and `deployment` are passed through to `AIStoreAuthSpec` unchanged.

@@ -1,8 +1,0 @@
-# Default values for the aisauth-secrets chart.
-# Secret material comes from ./values.yaml.gotmpl. See ./README.md.
-
-adminUsername: admin
-
-adminSecretName: ""
-hmacSecretName: ""
-rsaPassphraseSecretName: ""
