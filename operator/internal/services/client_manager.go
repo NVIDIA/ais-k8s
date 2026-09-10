@@ -95,13 +95,18 @@ func (m *AISClientManager) GetClient(ctx context.Context,
 
 // ensureValidToken replaces the token of a cached client when that token is no longer usable.
 func (m *AISClientManager) ensureValidToken(ctx context.Context, ais *aisv1.AIStore, client *AIStoreClient) error {
-	profileRef := ais.GetAuthProfileRef()
-	reason := client.tokenRefreshReason(profileRef != nil)
+	profileGen, err := m.authClient.profileGeneration(ctx, ais)
+	if err != nil {
+		logf.FromContext(ctx).Error(err, "Failed to resolve auth profile generation",
+			"cluster", ais.NamespacedName().String())
+		return err
+	}
+	reason := client.tokenRefreshReason(profileGen)
 	if reason == "" {
 		return nil
 	}
 	profile := "none"
-	if profileRef != nil {
+	if profileRef := ais.GetAuthProfileRef(); profileRef != nil {
 		profile = profileRef.Name
 	}
 	logger := logf.FromContext(ctx).WithValues("cluster", ais.NamespacedName().String(), "profile", profile)

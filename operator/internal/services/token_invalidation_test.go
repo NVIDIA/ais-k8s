@@ -87,12 +87,22 @@ func TestSetTokenInstallsTokenInfo(t *testing.T) {
 	const testURL = "http://test:8080"
 	ctx := context.Background()
 	obtainedAt := time.Now()
-	first := &TokenInfo{Token: "token-a", ObtainedAt: obtainedAt, ExpiresAt: obtainedAt.Add(time.Hour)}
+	first := &TokenInfo{
+		Token:      "token-a",
+		ObtainedAt: obtainedAt,
+		ExpiresAt:  obtainedAt.Add(time.Hour),
+		ProfileGen: "prod-auth@1",
+	}
 
 	client := NewAIStoreClient(ctx, testURL, first, "", nil)
 	assertToken(t, client, first)
 
-	second := &TokenInfo{Token: "token-b", ObtainedAt: obtainedAt, ExpiresAt: obtainedAt.Add(2 * time.Hour)}
+	second := &TokenInfo{
+		Token:      "token-b",
+		ObtainedAt: obtainedAt,
+		ExpiresAt:  obtainedAt.Add(2 * time.Hour),
+		ProfileGen: "prod-auth@2",
+	}
 	client.tokenRejected.Store(true)
 	client.setToken(second)
 	assertToken(t, client, second)
@@ -118,45 +128,53 @@ func assertToken(t *testing.T, client *AIStoreClient, want *TokenInfo) {
 }
 
 func TestTokenRefreshReason(t *testing.T) {
+	const profileGen = "prod-auth@1"
 	now := time.Now()
-	current := TokenInfo{Token: "token-a", ObtainedAt: now, ExpiresAt: now.Add(time.Hour)}
 
 	tests := []struct {
 		name       string
 		tokenInfo  TokenInfo
-		wantsToken bool
+		profileGen string
 		rejected   bool
 		wantReason string
 	}{
 		{
-			name:       "token with time left",
-			tokenInfo:  current,
-			wantsToken: true,
+			name:       "token from the current profile with time left",
+			tokenInfo:  TokenInfo{ObtainedAt: now, ExpiresAt: now.Add(time.Hour), ProfileGen: profileGen},
+			profileGen: profileGen,
 		},
 		{
-			name: "client of a cluster requesting no auth",
+			name:       "client of a cluster requesting no auth",
+			profileGen: "",
 		},
 		{
-			name:       "client holding no token of a cluster requesting auth",
-			wantsToken: true,
+			name:       "token from a superseded profile",
+			tokenInfo:  TokenInfo{ObtainedAt: now, ExpiresAt: now.Add(time.Hour), ProfileGen: "prod-auth@0"},
+			profileGen: profileGen,
+			wantReason: "authProfileChanged",
+		},
+		{
+			name:       "client holding no token of the cluster profile",
+			profileGen: profileGen,
 			wantReason: "noTokenForProfile",
 		},
 		{
-			name:       "token of a cluster that no longer requests auth",
-			tokenInfo:  current,
+			name:       "token of a profile the cluster no longer references",
+			tokenInfo:  TokenInfo{ObtainedAt: now, ExpiresAt: now.Add(time.Hour), ProfileGen: profileGen},
+			profileGen: "",
 			wantReason: "authProfileRemoved",
 		},
 		{
 			name:       "token rejected by AIS",
-			tokenInfo:  current,
-			wantsToken: true,
+			tokenInfo:  TokenInfo{ObtainedAt: now, ExpiresAt: now.Add(time.Hour), ProfileGen: profileGen},
+			profileGen: profileGen,
 			rejected:   true,
 			wantReason: "rejectedByAIS",
 		},
 		{
 			name:       "token past its expiration",
-			tokenInfo:  TokenInfo{Token: "token-a", ObtainedAt: now.Add(-time.Hour), ExpiresAt: now.Add(-time.Minute)},
-			wantsToken: true,
+			tokenInfo:  TokenInfo{ObtainedAt: now.Add(-time.Hour), ExpiresAt: now.Add(-time.Minute), ProfileGen: profileGen},
+			profileGen: profileGen,
 			wantReason: "expired",
 		},
 	}
@@ -166,7 +184,7 @@ func TestTokenRefreshReason(t *testing.T) {
 			client := &AIStoreClient{tokenInfo: tt.tokenInfo}
 			client.tokenRejected.Store(tt.rejected)
 
-			if got := client.tokenRefreshReason(tt.wantsToken); got != tt.wantReason {
+			if got := client.tokenRefreshReason(tt.profileGen); got != tt.wantReason {
 				t.Errorf("tokenRefreshReason() = %q, want %q", got, tt.wantReason)
 			}
 		})

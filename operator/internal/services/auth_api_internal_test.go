@@ -178,3 +178,47 @@ var _ = Describe("OAuth Password Login", func() {
 		Expect(token.ExpiresAt.IsZero()).To(BeTrue())
 	})
 })
+
+var _ = Describe("Auth profile generation", func() {
+	const profileName = "prod-auth"
+
+	newProfile := func() *authv1alpha1.AIStoreAuthProfile {
+		return &authv1alpha1.AIStoreAuthProfile{
+			ObjectMeta: metav1.ObjectMeta{Name: profileName, UID: "8c1d1f2e-5a44-4c9b-8f1e-6d2a0b3c9d10", Generation: 1},
+			Spec: authv1alpha1.AIStoreAuthProfileSpec{
+				ServiceURL:    "https://prod-auth.ais.svc:52001",
+				TokenExchange: &authv1alpha1.AuthProfileTokenExchange{Endpoint: "/exchange"},
+			},
+		}
+	}
+
+	newCluster := func(ref string) *aisv1.AIStore {
+		ais := &aisv1.AIStore{ObjectMeta: metav1.ObjectMeta{Name: "cluster", Namespace: "tenant"}}
+		if ref != "" {
+			ais.Spec.Auth = &aisv1.AuthSpec{ProfileRef: &aisv1.AuthProfileRef{Name: ref}}
+		}
+		return ais
+	}
+
+	It("should be empty for a cluster with no auth", func() {
+		authClient := NewAuthClient(NewFakeK8sClient())
+
+		gen, err := authClient.profileGeneration(context.Background(), newCluster(""))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(gen).To(BeEmpty())
+	})
+
+	It("should change when the profile is recreated under the same name", func() {
+		ctx := context.Background()
+		ais := newCluster(profileName)
+
+		before, err := NewAuthClient(NewFakeK8sClient(newProfile())).profileGeneration(ctx, ais)
+		Expect(err).NotTo(HaveOccurred())
+
+		recreated := newProfile()
+		recreated.UID = "f4b0a6c7-9e83-4d52-bb17-2c7f5a1e4408"
+		after, err := NewAuthClient(NewFakeK8sClient(recreated)).profileGeneration(ctx, ais)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(after).NotTo(Equal(before))
+	})
+})

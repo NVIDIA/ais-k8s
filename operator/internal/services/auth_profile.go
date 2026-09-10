@@ -98,6 +98,18 @@ func (c *authProfileConfig) GetPassKey() string {
 	return ""
 }
 
+func (c *authProfileConfig) GetProfileGeneration() string { return authProfileGeneration(c.profile) }
+
+// authProfileGeneration identifies a profile object together with the version of its spec. A spec
+// update or a recreated profile gives a new value, metadata-only updates keep it, and a nil profile
+// has an empty one.
+func authProfileGeneration(profile *authv1alpha1.AIStoreAuthProfile) string {
+	if profile == nil {
+		return ""
+	}
+	return fmt.Sprintf("%s/%s@%d", profile.Name, profile.UID, profile.Generation)
+}
+
 func (c *authProfileConfig) tlsConfig(ctx context.Context) (*tls.Config, error) {
 	trustConf, err := c.trustStoreConfig(ctx)
 	if err != nil {

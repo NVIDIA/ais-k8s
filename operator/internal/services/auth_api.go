@@ -50,6 +50,8 @@ type TokenInfo struct {
 	// ObtainedAt is when the operator got the token, not the token's own iat claim
 	ObtainedAt time.Time
 	ExpiresAt  time.Time
+	// ProfileGen identifies the AIStoreAuthProfile object and generation that issued the token
+	ProfileGen string
 }
 
 type (
@@ -69,6 +71,7 @@ type (
 		GetSecretNamespace() string
 		GetUserKey() string
 		GetPassKey() string
+		GetProfileGeneration() string
 	}
 
 	// OAuthLoginConf holds the parameters for an OAuth 2.0 password grant
@@ -119,12 +122,33 @@ func (c *AuthClient) getAdminToken(ctx context.Context, ais *aisv1.AIStore) (*To
 		return nil, fmt.Errorf("failed to create auth service client: %w", err)
 	}
 
+	tokenInfo, err := c.fetchToken(ctx, baseParams, ais, authConf)
+	if err != nil || tokenInfo == nil {
+		return nil, err
+	}
+	tokenInfo.ProfileGen = authConf.GetProfileGeneration()
+	return tokenInfo, nil
+}
+
+// fetchToken obtains a token using the login method the auth configuration specifies.
+func (c *AuthClient) fetchToken(ctx context.Context, bp *api.BaseParams, ais *aisv1.AIStore,
+	authConf AuthConfig,
+) (*TokenInfo, error) {
 	// Token exchange mode
 	if authConf.IsTokenExchange() {
-		return c.getTokenViaExchange(ctx, baseParams, ais, authConf)
+		return c.getTokenViaExchange(ctx, bp, ais, authConf)
 	}
 	// Username/password mode
-	return c.getTokenViaPassword(ctx, baseParams, authConf)
+	return c.getTokenViaPassword(ctx, bp, authConf)
+}
+
+// profileGeneration reads the generation-stamped identity of the AIStoreAuthProfile the cluster references.
+func (c *AuthClient) profileGeneration(ctx context.Context, ais *aisv1.AIStore) (string, error) {
+	profile, err := c.k8sClient.GetReferencedAuthProfile(ctx, ais)
+	if err != nil {
+		return "", err
+	}
+	return authProfileGeneration(profile), nil
 }
 
 // ResolveAuthConfig resolves the auth provider from the referenced AIStoreAuthProfile

@@ -25,6 +25,7 @@ import (
 var _ = Describe("AIS client manager token handling", func() {
 	const (
 		profileName = "prod-auth"
+		profileUID  = "3f0a8b0e-2c1d-4f7a-9a51-1b6d0c4e77aa"
 		secretName  = "auth-creds" //nolint:gosec // name of a Secret, not a credential
 		namespace   = "tenant"
 	)
@@ -50,9 +51,9 @@ var _ = Describe("AIS client manager token handling", func() {
 		server.Close()
 	})
 
-	newProfile := func(serviceURL string) *authv1alpha1.AIStoreAuthProfile {
+	newProfile := func(serviceURL string, generation int64) *authv1alpha1.AIStoreAuthProfile {
 		return &authv1alpha1.AIStoreAuthProfile{
-			ObjectMeta: metav1.ObjectMeta{Name: profileName},
+			ObjectMeta: metav1.ObjectMeta{Name: profileName, UID: profileUID, Generation: generation},
 			Spec: authv1alpha1.AIStoreAuthProfileSpec{
 				ServiceURL: serviceURL,
 				UsernamePassword: &authv1alpha1.AuthProfileUsernamePassword{
@@ -95,14 +96,38 @@ var _ = Describe("AIS client manager token handling", func() {
 		return cached
 	}
 
+	// profileGen is the value the operator stamps onto a token that this generation of the profile issued
+	profileGen := func(generation int64) string {
+		return fmt.Sprintf("%s/%s@%d", profileName, profileUID, generation)
+	}
+
+	// currentToken describes a token that the first generation of the profile issued
 	currentToken := func() *TokenInfo {
 		obtainedAt := time.Now()
-		return &TokenInfo{Token: "token-0", ObtainedAt: obtainedAt, ExpiresAt: obtainedAt.Add(time.Hour)}
+		return &TokenInfo{
+			Token:      "token-0",
+			ObtainedAt: obtainedAt,
+			ExpiresAt:  obtainedAt.Add(time.Hour),
+			ProfileGen: profileGen(1),
+		}
 	}
+
+	It("should refetch the token after the profile generation advances", func() {
+		ais := newCluster(true)
+		m := newManager(newProfile(server.URL, 2), newSecret())
+		cached := cacheClient(m, ais, cmn.IntraClusterURL(ais), currentToken())
+
+		got, err := m.GetClient(ctx, ais)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).To(BeIdenticalTo(cached))
+		Expect(cached.params.Token).To(Equal("token-1"))
+		Expect(cached.tokenInfo.ProfileGen).To(Equal(profileGen(2)))
+		Expect(requests.Load()).To(BeEquivalentTo(1))
+	})
 
 	It("should replace a rejected token on the cached client", func() {
 		ais := newCluster(true)
-		m := newManager(newProfile(server.URL), newSecret())
+		m := newManager(newProfile(server.URL, 1), newSecret())
 		cached := cacheClient(m, ais, cmn.IntraClusterURL(ais), currentToken())
 		cached.tokenRejected.Store(true)
 
@@ -132,20 +157,35 @@ var _ = Describe("AIS client manager token handling", func() {
 		}))
 		defer failing.Close()
 		ais := newCluster(true)
-		m := newManager(newProfile(failing.URL), newSecret())
+		m := newManager(newProfile(failing.URL, 2), newSecret())
 		cached := cacheClient(m, ais, cmn.IntraClusterURL(ais), currentToken())
-		cached.tokenRejected.Store(true)
 
 		_, err := m.GetClient(ctx, ais)
 		Expect(err).To(HaveOccurred())
 		Expect(cached.params.Token).To(Equal("token-0"))
 	})
 
+	It("should fail without a login attempt when the referenced profile is gone", func() {
+		ais := newCluster(true)
+		m := newManager(newSecret())
+		cached := cacheClient(m, ais, cmn.IntraClusterURL(ais), currentToken())
+
+		_, err := m.GetClient(ctx, ais)
+		Expect(err).To(MatchError(ContainSubstring(`failed to get AIStoreAuthProfile "prod-auth"`)))
+		Expect(cached.params.Token).To(Equal("token-0"))
+		Expect(requests.Load()).To(BeZero())
+	})
+
 	It("should fetch a single token when it replaces a client the spec invalidated", func() {
 		ais := newCluster(true)
-		m := newManager(newProfile(server.URL), newSecret())
+		m := newManager(newProfile(server.URL, 1), newSecret())
 		obtainedAt := time.Now().Add(-time.Hour)
-		expired := &TokenInfo{Token: "token-0", ObtainedAt: obtainedAt, ExpiresAt: time.Now().Add(-time.Minute)}
+		expired := &TokenInfo{
+			Token:      "token-0",
+			ObtainedAt: obtainedAt,
+			ExpiresAt:  time.Now().Add(-time.Minute),
+			ProfileGen: profileGen(1),
+		}
 		// An endpoint the spec no longer resolves to forces a replacement rather than a refresh
 		stale := cacheClient(m, ais, "http://stale.example:51080", expired)
 
@@ -156,15 +196,21 @@ var _ = Describe("AIS client manager token handling", func() {
 		Expect(requests.Load()).To(BeEquivalentTo(1))
 	})
 
-	It("should reuse a cached client while its token remains usable", func() {
+	It("should create and cache a client stamped with the profile generation", func() {
 		ais := newCluster(true)
-		m := newManager(newProfile(server.URL), newSecret())
-		cached := cacheClient(m, ais, cmn.IntraClusterURL(ais), currentToken())
+		m := newManager(newProfile(server.URL, 3), newSecret())
 
-		got, err := m.GetClient(ctx, ais)
+		created, err := m.GetClient(ctx, ais)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(got).To(BeIdenticalTo(cached))
-		Expect(cached.params.Token).To(Equal("token-0"))
-		Expect(requests.Load()).To(BeZero())
+		cached := m.clientMap[ais.NamespacedName().String()]
+		Expect(created).To(BeIdenticalTo(cached))
+		Expect(cached.params.Token).To(Equal("token-1"))
+		Expect(cached.tokenInfo.ProfileGen).To(Equal(profileGen(3)))
+		Expect(requests.Load()).To(BeEquivalentTo(1))
+
+		reused, err := m.GetClient(ctx, ais)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(reused).To(BeIdenticalTo(cached))
+		Expect(requests.Load()).To(BeEquivalentTo(1))
 	})
 })

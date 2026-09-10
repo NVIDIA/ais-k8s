@@ -125,13 +125,19 @@ func (c *AIStoreClient) refreshMargin() time.Duration {
 }
 
 // tokenRefreshReason reports why the client needs another token, or an empty string while the
-// current one remains usable. wantsToken tells whether the cluster requests authentication.
-func (c *AIStoreClient) tokenRefreshReason(wantsToken bool) string {
+// current one remains usable. profileGen is the generation-stamped identity of the cluster's auth profile.
+func (c *AIStoreClient) tokenRefreshReason(profileGen string) string {
+	if c.tokenInfo.ProfileGen != profileGen {
+		switch {
+		case c.tokenInfo.ProfileGen == "":
+			return "noTokenForProfile"
+		case profileGen == "":
+			return "authProfileRemoved"
+		default:
+			return "authProfileChanged"
+		}
+	}
 	switch {
-	case wantsToken && c.tokenInfo.Token == "":
-		return "noTokenForProfile"
-	case !wantsToken && c.tokenInfo.Token != "":
-		return "authProfileRemoved"
 	case c.tokenRejected.Load():
 		return "rejectedByAIS"
 	case c.isTokenExpired():
