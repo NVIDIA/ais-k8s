@@ -47,7 +47,7 @@ func NewAISClientManager(k8sClient *aisclient.K8sClient, tlsOpts AISClientTLSOpt
 
 // GetClient gets an AIStoreClientInterface for making requests to the given AIS cluster.
 // Gets a cached object if exists, else creates a new one.
-// If the token is expired, refreshes it in-place.
+// It replaces the token of a cached client when that token is no longer usable.
 func (m *AISClientManager) GetClient(ctx context.Context,
 	ais *aisv1.AIStore,
 ) (AIStoreClientInterface, error) {
@@ -96,8 +96,10 @@ func (m *AISClientManager) GetClient(ctx context.Context,
 	return client, nil
 }
 
+// ensureValidToken replaces the token of a cached client when that token is no longer usable.
 func (m *AISClientManager) ensureValidToken(ctx context.Context, ais *aisv1.AIStore, client *AIStoreClient) error {
-	if !client.isTokenExpired() {
+	reason := client.tokenRefreshReason()
+	if reason == "" {
 		return nil
 	}
 	profile := "none"
@@ -112,7 +114,7 @@ func (m *AISClientManager) ensureValidToken(ctx context.Context, ais *aisv1.AISt
 	}
 
 	hasExpiration := tokenInfo != nil && !tokenInfo.ExpiresAt.IsZero()
-	logger.Info("Refreshing expired token", "tokenExpires", hasExpiration)
+	logger.Info("Refreshing AIS API token", "reason", reason, "tokenExpires", hasExpiration)
 	client.refreshToken(tokenInfo)
 	return nil
 }

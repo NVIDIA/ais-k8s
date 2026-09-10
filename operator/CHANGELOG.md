@@ -24,6 +24,8 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
   - Each AIS API client caches its fetched token until invalid or expired, so new token requests rebuild the TLS client from the latest `AIStoreAuthProfile` information.
 - Fixed a bug where a cluster failing health check with `apiMode: public` would cause the operator to acquire a new auth token on every reconcile.
   - With `apiMode: public`, a cached AIS API client now updates its endpoint in place when the operator selects a different ready proxy pod.
+- An AIS API client detects a token that AIS rejects with 401 or 403 from the response itself, rather than from the error of each API call.
+  - The operator refetches the rejected token in place, so a rejection costs one token request and keeps the cached API client.
 
 - `AIStoreAuthProfile`
   - Webhook validation is skipped only for updates that leave `spec` unchanged, so finalizers and annotations can still be patched on a profile whose referenced Secret or ConfigMap is gone.

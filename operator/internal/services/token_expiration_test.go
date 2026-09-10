@@ -6,12 +6,11 @@ package services
 
 import (
 	"context"
-	"errors"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
-	"github.com/NVIDIA/aistore/cmn"
 	aisv1 "github.com/ais-operator/api/aistore/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -152,185 +151,76 @@ func TestRefreshMarginClampedToTokenValidity(t *testing.T) {
 	}
 }
 
-func TestTokenInfoStructure(t *testing.T) {
-	// Test that TokenInfo correctly handles both cases
-	t.Run("With expiration", func(t *testing.T) {
-		expiresAt := time.Now().Add(1 * time.Hour)
-		tokenInfo := &TokenInfo{
-			Token:     "test-token",
-			ExpiresAt: expiresAt,
-		}
+func TestTokenRefreshReason(t *testing.T) {
+	now := time.Now()
 
-		if tokenInfo.Token != "test-token" {
-			t.Errorf("Expected token 'test-token', got '%s'", tokenInfo.Token)
-		}
-
-		if tokenInfo.ExpiresAt.IsZero() {
-			t.Error("Expected non-zero expiration time")
-		}
-	})
-
-	t.Run("Without expiration", func(t *testing.T) {
-		tokenInfo := &TokenInfo{
-			Token:     "test-token",
-			ExpiresAt: time.Time{}, // Zero value
-		}
-
-		if tokenInfo.Token != "test-token" {
-			t.Errorf("Expected token 'test-token', got '%s'", tokenInfo.Token)
-		}
-
-		if !tokenInfo.ExpiresAt.IsZero() {
-			t.Error("Expected zero expiration time for tokens without expiration")
-		}
-	})
-}
-
-func TestIsAuthError(t *testing.T) {
 	tests := []struct {
-		name     string
-		err      error
-		expected bool
+		name          string
+		obtainedAt    time.Time
+		tokenExpireAt time.Time
+		rejected      bool
+		wantReason    string
 	}{
 		{
-			name:     "nil error",
-			err:      nil,
-			expected: false,
+			name:          "token with time left",
+			obtainedAt:    now,
+			tokenExpireAt: now.Add(time.Hour),
 		},
 		{
-			name:     "non-HTTP error",
-			err:      errors.New("connection refused"),
-			expected: false,
+			name: "token without expiration",
 		},
 		{
-			name: "401 Unauthorized",
-			err: &cmn.ErrHTTP{
-				Status: http.StatusUnauthorized,
-			},
-			expected: true,
+			name:          "token rejected by AIS",
+			obtainedAt:    now,
+			tokenExpireAt: now.Add(time.Hour),
+			rejected:      true,
+			wantReason:    "rejectedByAIS",
 		},
 		{
-			name: "403 Forbidden",
-			err: &cmn.ErrHTTP{
-				Status: http.StatusForbidden,
-			},
-			expected: true,
-		},
-		{
-			name: "404 Not Found",
-			err: &cmn.ErrHTTP{
-				Status: http.StatusNotFound,
-			},
-			expected: false,
-		},
-		{
-			name: "503 Service Unavailable",
-			err: &cmn.ErrHTTP{
-				Status: http.StatusServiceUnavailable,
-			},
-			expected: false,
-		},
-		{
-			name: "500 Internal Server Error",
-			err: &cmn.ErrHTTP{
-				Status: http.StatusInternalServerError,
-			},
-			expected: false,
+			name:          "token past its expiration",
+			obtainedAt:    now.Add(-time.Hour),
+			tokenExpireAt: now.Add(-time.Minute),
+			wantReason:    "expired",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := IsAuthError(tt.err)
-			if result != tt.expected {
-				t.Errorf("IsAuthError(%v) = %v, want %v", tt.err, result, tt.expected)
+			client := &AIStoreClient{tokenObtainedAt: tt.obtainedAt, tokenExpireAt: tt.tokenExpireAt}
+			client.tokenRejected.Store(tt.rejected)
+
+			if got := client.tokenRefreshReason(); got != tt.wantReason {
+				t.Errorf("tokenRefreshReason() = %q, want %q", got, tt.wantReason)
 			}
 		})
 	}
 }
 
-func TestAuthFailedInvalidatesClient(t *testing.T) {
-	ctx := context.Background()
-	testURL := "http://test:8080"
-
-	ais := &aisv1.AIStore{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-cluster",
-			Namespace: "default",
-		},
-		Spec: aisv1.AIStoreSpec{},
+func TestAuthStatusTracker(t *testing.T) {
+	tests := []struct {
+		name         string
+		status       int
+		wantRejected bool
+	}{
+		{name: "unauthorized", status: http.StatusUnauthorized, wantRejected: true},
+		{name: "forbidden", status: http.StatusForbidden, wantRejected: true},
+		{name: "server error", status: http.StatusInternalServerError},
+		{name: "not found", status: http.StatusNotFound},
 	}
 
-	t.Run("client valid before auth failure", func(t *testing.T) {
-		client := &AIStoreClient{
-			ctx:    ctx,
-			params: buildBaseParams(testURL, "", nil),
-			mode:   "",
-		}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(tt.status)
+			}))
+			defer server.Close()
 
-		if !client.HasValidBaseParams(ctx, ais, testURL) {
-			t.Error("Expected client to be valid before any auth failure")
-		}
-	})
+			client := NewAIStoreClient(context.Background(), server.URL, &TokenInfo{Token: "test-token"}, "", nil)
+			_ = client.Health(false)
 
-	t.Run("client invalid after auth failure", func(t *testing.T) {
-		client := &AIStoreClient{
-			ctx:    ctx,
-			params: buildBaseParams(testURL, "", nil),
-			mode:   "",
-		}
-
-		// Simulate receiving a 401 error
-		authErr := &cmn.ErrHTTP{Status: http.StatusUnauthorized}
-		client.checkAuthErr(authErr)
-
-		if client.HasValidBaseParams(ctx, ais, testURL) {
-			t.Error("Expected client to be invalid after 401 error")
-		}
-	})
-
-	t.Run("non-auth error does not invalidate client", func(t *testing.T) {
-		client := &AIStoreClient{
-			ctx:    ctx,
-			params: buildBaseParams(testURL, "", nil),
-			mode:   "",
-		}
-
-		// Simulate receiving a 500 error
-		serverErr := &cmn.ErrHTTP{Status: http.StatusInternalServerError}
-		client.checkAuthErr(serverErr)
-
-		if !client.HasValidBaseParams(ctx, ais, testURL) {
-			t.Error("Expected client to remain valid after non-auth error")
-		}
-	})
-
-	t.Run("nil error does not invalidate client", func(t *testing.T) {
-		client := &AIStoreClient{
-			ctx:    ctx,
-			params: buildBaseParams(testURL, "", nil),
-			mode:   "",
-		}
-
-		client.checkAuthErr(nil)
-
-		if !client.HasValidBaseParams(ctx, ais, testURL) {
-			t.Error("Expected client to remain valid after nil error")
-		}
-	})
-
-	t.Run("403 Forbidden invalidates client", func(t *testing.T) {
-		client := &AIStoreClient{
-			ctx:    ctx,
-			params: buildBaseParams(testURL, "", nil),
-			mode:   "",
-		}
-
-		authErr := &cmn.ErrHTTP{Status: http.StatusForbidden}
-		client.checkAuthErr(authErr)
-
-		if client.HasValidBaseParams(ctx, ais, testURL) {
-			t.Error("Expected client to be invalid after 403 error")
-		}
-	})
+			if got := client.tokenRejected.Load(); got != tt.wantRejected {
+				t.Errorf("tokenRejected = %v, want %v", got, tt.wantRejected)
+			}
+		})
+	}
 }
