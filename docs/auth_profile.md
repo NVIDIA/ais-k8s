@@ -26,6 +26,7 @@ There are two mutually exclusive usage models:
   - Configure the token exchange endpoint for the provided `serviceURL`
   - The operator requests a short-lived token for its own ServiceAccount to present for exchange
   - Set `subjectTokenAudience` to bind that token to the audience the provider requires on the subject token
+  - Set `scope` when the provider requires a scope for the issued token
 
 Both options share the common API configuration fields `spec.serviceURL` and `spec.tls`.
 

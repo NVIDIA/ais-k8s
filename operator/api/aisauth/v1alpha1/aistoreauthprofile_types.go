@@ -145,6 +145,10 @@ type AuthProfileTokenExchange struct {
 	// +kubebuilder:validation:MinLength=1
 	// +optional
 	SubjectTokenAudience string `json:"subjectTokenAudience,omitempty"`
+
+	// Scope is the access requested for the issued token as defined by RFC 8693 Section 2.1.
+	// +optional
+	Scope string `json:"scope,omitempty"`
 }
 
 // TokenExchangeEndpoint returns the endpoint of the auth provider used for token exchange

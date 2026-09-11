@@ -10,6 +10,11 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ## Unreleased
 
+### Added
+
+- `AIStoreAuthProfile`
+  - Support for `spec.tokenExchange.scope`.
+
 ### Changed
 
 - Host-cleanup Jobs now carry an owner reference to their `AIStore` CR, and only owned Jobs are waited on or deleted on cluster deletion.

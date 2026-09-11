@@ -66,6 +66,7 @@ type (
 		IsTokenExchange() bool
 		GetSubjectTokenAudience() string
 		GetTokenExchangeEndpoint() string
+		GetTokenExchangeScope() string
 		GetOAuthLoginConf() *OAuthLoginConf
 		GetSecretName() string
 		GetSecretNamespace() string
@@ -305,6 +306,7 @@ func (c *AuthClient) getTokenViaExchange(ctx context.Context, bp *api.BaseParams
 	logger := logf.FromContext(ctx)
 
 	endpoint := conf.GetTokenExchangeEndpoint()
+	scope := conf.GetTokenExchangeScope()
 
 	aud := conf.GetSubjectTokenAudience()
 	if aud == "" {
@@ -325,7 +327,7 @@ func (c *AuthClient) getTokenViaExchange(ctx context.Context, bp *api.BaseParams
 	// If not configured, we pass an empty slice (don't request audiences if cluster doesn't require them)
 	audiences := ais.RequiredAudiences()
 
-	tokenInfo, err := exchangeTokenWithAuthSvc(ctx, bp, subjectToken, endpoint, audiences)
+	tokenInfo, err := exchangeTokenWithAuthSvc(ctx, bp, subjectToken, endpoint, scope, audiences)
 	if err != nil {
 		logger.Error(err, "Failed to exchange token with auth service", "audiences", audiences)
 		return nil, err
@@ -355,7 +357,7 @@ func (c *AuthClient) mintSubjectToken(ctx context.Context, audience string) (str
 // exchangeTokenWithAuthSvc exchanges a subject token (e.g., K8s SA token) for an AIS JWT token
 // Implements RFC 8693 OAuth 2.0 Token Exchange specification
 // See: https://datatracker.ietf.org/doc/html/rfc8693
-func exchangeTokenWithAuthSvc(ctx context.Context, params *api.BaseParams, subjectToken, endpoint string, audiences []string) (*TokenInfo, error) {
+func exchangeTokenWithAuthSvc(ctx context.Context, params *api.BaseParams, subjectToken, endpoint, scope string, audiences []string) (*TokenInfo, error) {
 	logger := logf.FromContext(ctx)
 
 	// RFC 8693 Section 2.1 - Request format (form-encoded)
@@ -363,6 +365,9 @@ func exchangeTokenWithAuthSvc(ctx context.Context, params *api.BaseParams, subje
 	formData.Set("grant_type", RFC8693GrantType)                   // REQUIRED
 	formData.Set("subject_token", subjectToken)                    // REQUIRED
 	formData.Set("subject_token_type", RFC8693SubjectTokenTypeJWT) // REQUIRED
+	if scope != "" {
+		formData.Set("scope", scope)
+	}
 	// RFC 8693 Section 2.1 - audience parameter (OPTIONAL but recommended)
 	// Specifies the target audience(s) for the issued token
 	// Per RFC 8693, the audience parameter can appear multiple times

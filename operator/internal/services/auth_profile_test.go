@@ -44,9 +44,13 @@ var _ = Describe("AuthProfileConfig", func() {
 
 	It("should use the token exchange endpoint from the profile", func() {
 		config := profileConfig(authv1alpha1.AIStoreAuthProfileSpec{
-			TokenExchange: &authv1alpha1.AuthProfileTokenExchange{Endpoint: "/exchange"},
+			TokenExchange: &authv1alpha1.AuthProfileTokenExchange{
+				Endpoint: "/exchange", SubjectTokenAudience: "token-service", Scope: "k8sSA:Admin",
+			},
 		})
 		Expect(config.GetTokenExchangeEndpoint()).To(Equal("/exchange"))
+		Expect(config.GetSubjectTokenAudience()).To(Equal("token-service"))
+		Expect(config.GetTokenExchangeScope()).To(Equal("k8sSA:Admin"))
 	})
 
 	It("should use the subject token audience from the profile", func() {

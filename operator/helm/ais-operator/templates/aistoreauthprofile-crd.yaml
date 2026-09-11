@@ -90,6 +90,10 @@ spec:
                       Endpoint is the authentication provider token exchange path.
                       If not specified, defaults to "/token".
                     type: string
+                  scope:
+                    description: Scope is the access requested for the issued token
+                      as defined by RFC 8693 Section 2.1.
+                    type: string
                   subjectTokenAudience:
                     description: |-
                       SubjectTokenAudience is the audience the authentication provider requires on the

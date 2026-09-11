@@ -9,6 +9,7 @@ spec:
   tokenExchange:
     endpoint: /token
     subjectTokenAudience: ais-authn
+    scope: k8sSA:Admin
   tls:
     caConfigMapRef:
       namespace: auth-config

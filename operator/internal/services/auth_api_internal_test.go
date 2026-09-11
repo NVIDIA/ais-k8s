@@ -114,6 +114,7 @@ var _ = Describe("Subject token", func() {
 			Expect(request).NotTo(BeNil())
 			Expect(request.Spec.Audiences).To(Equal([]string{DefaultSubjectTokenAudience}))
 		})
+
 	})
 
 	It("should fail when the operator ServiceAccount does not exist", func() {
@@ -122,6 +123,28 @@ var _ = Describe("Subject token", func() {
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("failed to mint token"))
 	})
+})
+
+var _ = Describe("Token exchange scope", func() {
+	DescribeTable("should send the configured scope",
+		func(configured, expected string) {
+			var exchangedScope string
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				exchangedScope = r.FormValue("scope")
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{"access_token":"exchanged","token_type":"Bearer",` +
+					`"issued_token_type":"urn:ietf:params:oauth:token-type:jwt"}`))
+			}))
+			defer server.Close()
+
+			params := &api.BaseParams{Client: server.Client(), URL: server.URL}
+			_, err := exchangeTokenWithAuthSvc(context.Background(), params, "subject-token", "/token", configured, nil)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(exchangedScope).To(Equal(expected))
+		},
+		Entry("when omitted", "", ""),
+		Entry("when provided", "k8sSA:Admin", "k8sSA:Admin"),
+	)
 })
 
 var _ = Describe("OAuth Password Login", func() {

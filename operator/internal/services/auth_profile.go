@@ -62,6 +62,13 @@ func (c *authProfileConfig) GetTokenExchangeEndpoint() string {
 	return DefaultTokenExchangeEndpoint
 }
 
+func (c *authProfileConfig) GetTokenExchangeScope() string {
+	if c.profile.Spec.TokenExchange == nil {
+		return ""
+	}
+	return c.profile.Spec.TokenExchange.Scope
+}
+
 func (c *authProfileConfig) GetOAuthLoginConf() *OAuthLoginConf {
 	if c.profile.Spec.UsernamePassword == nil || c.profile.Spec.UsernamePassword.LoginConf == nil {
 		return nil
