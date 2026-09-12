@@ -32,7 +32,13 @@ type (
 		k8sClient  *aisclient.K8sClient
 		tlsOpts    AISClientTLSOpts
 		authClient *AuthClient
-		clientMap  map[string]*AIStoreClient
+		clientMap  map[string]*cachedClient
+	}
+
+	// cachedClient is a client for one AIS cluster, with the TLS settings it was built for.
+	cachedClient struct {
+		client      *AIStoreClient
+		tlsSettings string
 	}
 )
 
@@ -41,7 +47,7 @@ func NewAISClientManager(k8sClient *aisclient.K8sClient, tlsOpts AISClientTLSOpt
 		k8sClient:  k8sClient,
 		tlsOpts:    tlsOpts,
 		authClient: NewAuthClient(k8sClient),
-		clientMap:  make(map[string]*AIStoreClient, 16),
+		clientMap:  make(map[string]*cachedClient, 16),
 	}
 }
 
@@ -53,7 +59,7 @@ func (m *AISClientManager) GetClient(ctx context.Context,
 ) (AIStoreClientInterface, error) {
 	logger := logf.FromContext(ctx).WithValues("cluster", ais.NamespacedName().String())
 	m.mu.RLock()
-	client, exists := m.clientMap[ais.NamespacedName().String()]
+	cached, exists := m.clientMap[ais.NamespacedName().String()]
 	m.mu.RUnlock()
 
 	url, err := m.getAISAPIEndpoint(ctx, ais)
@@ -62,14 +68,16 @@ func (m *AISClientManager) GetClient(ctx context.Context,
 		return nil, err
 	}
 
+	settings := tlsSettings(ais)
+
 	// Check if the client params are valid
-	if exists {
-		client.syncPublicURL(ctx, url)
-		if client.HasValidBaseParams(ctx, ais, url) {
-			if tokErr := m.ensureValidToken(ctx, ais, client); tokErr != nil {
+	if exists && cached.tlsSettings == settings {
+		cached.client.syncPublicURL(ctx, url)
+		if cached.client.HasValidBaseParams(ctx, ais, url) {
+			if tokErr := m.ensureValidToken(ctx, ais, cached.client); tokErr != nil {
 				return nil, tokErr
 			}
-			return client, nil
+			return cached.client, nil
 		}
 	}
 
@@ -86,9 +94,9 @@ func (m *AISClientManager) GetClient(ctx context.Context,
 	}
 
 	logNewClient(logger, tokenInfo, tlsConf, url)
-	client = NewAIStoreClient(ctx, url, tokenInfo, ais.GetAPIMode(), tlsConf)
+	client := NewAIStoreClient(ctx, url, tokenInfo, ais.GetAPIMode(), tlsConf)
 	m.mu.Lock()
-	m.clientMap[ais.NamespacedName().String()] = client
+	m.clientMap[ais.NamespacedName().String()] = &cachedClient{client: client, tlsSettings: settings}
 	m.mu.Unlock()
 	return client, nil
 }

@@ -46,9 +46,19 @@ func (m *AISClientManager) getTLSConfig(ctx context.Context, ais *aisv1.AIStore)
 	return tlsConf, nil
 }
 
+// tlsSettings describes the TLS settings the operator uses to call one cluster. It covers the spec
+// fields, not the certificate files themselves.
+func tlsSettings(ais *aisv1.AIStore) string {
+	if !ais.UseHTTPS() {
+		return ""
+	}
+	return fmt.Sprintf("skipVerify=%t;clientCert=%t",
+		ais.ShouldSkipVerifyCrt(), ais.ShouldIncludeClientCert())
+}
+
 func configureCAVerification(ctx context.Context, ais *aisv1.AIStore, tlsConf *tls.Config, tlsDir string) error {
 	logger := logf.FromContext(ctx)
-	if ais.Spec.OperatorSkipVerifyCrt != nil && *ais.Spec.OperatorSkipVerifyCrt {
+	if ais.ShouldSkipVerifyCrt() {
 		tlsConf.InsecureSkipVerify = true
 		return nil
 	}

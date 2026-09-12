@@ -889,6 +889,10 @@ func (ais *AIStore) UseHostNetwork() bool {
 	return ais.Spec.TargetSpec.HostNetwork != nil && *ais.Spec.TargetSpec.HostNetwork
 }
 
+func (ais *AIStore) ShouldSkipVerifyCrt() bool {
+	return ais.Spec.OperatorSkipVerifyCrt != nil && *ais.Spec.OperatorSkipVerifyCrt
+}
+
 func (ais *AIStore) ShouldIncludeClientCert() bool {
 	if ais.Spec.ConfigToUpdate == nil ||
 		ais.Spec.ConfigToUpdate.Net == nil ||

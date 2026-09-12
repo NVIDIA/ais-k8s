@@ -6,12 +6,14 @@ package services
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
 	"time"
 
+	aisapc "github.com/NVIDIA/aistore/api/apc"
 	authv1alpha1 "github.com/ais-operator/api/aisauth/v1alpha1"
 	aisv1 "github.com/ais-operator/api/aistore/v1beta1"
 	"github.com/ais-operator/internal/resources/aistore/cmn"
@@ -92,7 +94,7 @@ var _ = Describe("AIS client manager token handling", func() {
 	// earlier reconcile would
 	cacheClient := func(m *AISClientManager, ais *aisv1.AIStore, url string, tokenInfo *TokenInfo) *AIStoreClient {
 		cached := NewAIStoreClient(ctx, url, tokenInfo, ais.GetAPIMode(), nil)
-		m.clientMap[ais.NamespacedName().String()] = cached
+		m.clientMap[ais.NamespacedName().String()] = &cachedClient{client: cached, tlsSettings: tlsSettings(ais)}
 		return cached
 	}
 
@@ -192,7 +194,7 @@ var _ = Describe("AIS client manager token handling", func() {
 		got, err := m.GetClient(ctx, ais)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(got).NotTo(BeIdenticalTo(stale))
-		Expect(m.clientMap[ais.NamespacedName().String()].params.Token).To(Equal("token-1"))
+		Expect(m.clientMap[ais.NamespacedName().String()].client.params.Token).To(Equal("token-1"))
 		Expect(requests.Load()).To(BeEquivalentTo(1))
 	})
 
@@ -202,7 +204,7 @@ var _ = Describe("AIS client manager token handling", func() {
 
 		created, err := m.GetClient(ctx, ais)
 		Expect(err).NotTo(HaveOccurred())
-		cached := m.clientMap[ais.NamespacedName().String()]
+		cached := m.clientMap[ais.NamespacedName().String()].client
 		Expect(created).To(BeIdenticalTo(cached))
 		Expect(cached.params.Token).To(Equal("token-1"))
 		Expect(cached.tokenInfo.ProfileGen).To(Equal(profileGen(3)))
@@ -212,5 +214,67 @@ var _ = Describe("AIS client manager token handling", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(reused).To(BeIdenticalTo(cached))
 		Expect(requests.Load()).To(BeEquivalentTo(1))
+	})
+})
+
+var _ = Describe("AIS client manager TLS handling", func() {
+	var ctx context.Context
+
+	BeforeEach(func() {
+		ctx = context.Background()
+	})
+
+	newCluster := func(skipVerify bool) *aisv1.AIStore {
+		ais := httpsCluster()
+		ais.ObjectMeta = metav1.ObjectMeta{Name: "cluster", Namespace: "tenant"}
+		ais.Spec.OperatorSkipVerifyCrt = aisapc.Ptr(skipVerify)
+		return ais
+	}
+
+	newManager := func() *AISClientManager {
+		return NewAISClientManager(NewFakeK8sClient(), AISClientTLSOpts{CertPath: "/etc/ais/certs"})
+	}
+
+	// cacheClient puts a client built from the cluster's current TLS settings in the manager's
+	// cache, as an earlier reconcile would
+	cacheClient := func(m *AISClientManager, ais *aisv1.AIStore) *AIStoreClient {
+		tlsConf, err := m.getTLSConfig(ctx, ais)
+		Expect(err).NotTo(HaveOccurred())
+		cached := NewAIStoreClient(ctx, cmn.IntraClusterURL(ais), nil, ais.GetAPIMode(), tlsConf)
+		m.clientMap[ais.NamespacedName().String()] = &cachedClient{client: cached, tlsSettings: tlsSettings(ais)}
+		return cached
+	}
+
+	It("should replace the cached client when certificate verification tightens", func() {
+		ais := newCluster(true)
+		m := newManager()
+		cached := cacheClient(m, ais)
+
+		ais.Spec.OperatorSkipVerifyCrt = aisapc.Ptr(false)
+		got, err := m.GetClient(ctx, ais)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).NotTo(BeIdenticalTo(cached))
+		Expect(m.clientMap[ais.NamespacedName().String()].tlsSettings).To(Equal(tlsSettings(ais)))
+	})
+
+	It("should replace the cached client when it starts presenting a certificate", func() {
+		ais := newCluster(false)
+		m := newManager()
+		cached := cacheClient(m, ais)
+
+		ais.Spec.ConfigToUpdate.Net.HTTP.ClientAuthTLS = aisapc.Ptr(int(tls.RequireAndVerifyClientCert))
+		got, err := m.GetClient(ctx, ais)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).NotTo(BeIdenticalTo(cached))
+	})
+
+	It("should reuse the cached client while the TLS settings hold", func() {
+		ais := newCluster(false)
+		m := newManager()
+		cached := cacheClient(m, ais)
+
+		got, err := m.GetClient(ctx, ais)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).To(BeIdenticalTo(cached))
 	})
 })
