@@ -342,36 +342,38 @@ func findAISNodeByPodName(nodeMap aismeta.NodeMap, podName string) (*aismeta.Sno
 	return nil, fmt.Errorf("no matching AIS node found for pod %q", podName)
 }
 
-// statefulsetScalingNeeded determines whether a daemon StatefulSet should be scaled.
-func statefulsetScalingNeeded(ss *appsv1.StatefulSet, desired, maxUnavailable int32, autoScaling bool) bool {
-	specReplicas := *ss.Spec.Replicas
-	// Always scale UP the statefulset to match spec
-	if desired > specReplicas {
-		return true
-	}
-	// Already at the desired size
-	if desired == specReplicas {
-		return false
-	}
-	// Scaling down: a fixed-size cluster scales to exactly the desired size
+// statefulSetScaleDownAllowed reports whether a proxy or target StatefulSet may begin scaling down.
+// A fixed-size cluster scales to exactly the requested size. Autoscaling holds off while unavailable
+// pods are within the budget, and while pod counts are settling, so the decision is never made on
+// stale or churning status (e.g. while a pod is being recreated).
+func statefulSetScaleDownAllowed(ss *appsv1.StatefulSet, maxUnavailable int32, autoScaling bool) bool {
 	if !autoScaling {
 		return true
 	}
-	// Autoscaling scale-down: only trust the status when it is settled, otherwise wait so
-	// we don't act on a stale or in-flight pod count (e.g. a pod being recreated).
-	if isRolloutInProgress(ss) || isScalingInProgress(ss) {
+	if isRolloutInProgress(ss) || replicasSettling(ss) {
 		return false
 	}
-	// Defer scale-down while unavailable pods are within the budget.
-	unavailable := specReplicas - ss.Status.ReadyReplicas
+	unavailable := *ss.Spec.Replicas - ss.Status.ReadyReplicas
 	return unavailable == 0 || unavailable > maxUnavailable
 }
 
-// confirmScalingNeeded re-checks an autoscale scale-down against a non-cached read of the
+// statefulsetScalingNeeded determines whether a proxy or target StatefulSet should be scaled.
+func statefulsetScalingNeeded(ss *appsv1.StatefulSet, desired, maxUnavailable int32, autoScaling bool) bool {
+	if desired == *ss.Spec.Replicas {
+		return false
+	}
+	// Scale-up is not subject to the scale-down availability policy.
+	if desired > *ss.Spec.Replicas {
+		return true
+	}
+	return statefulSetScaleDownAllowed(ss, maxUnavailable, autoScaling)
+}
+
+// confirmScaleDownAllowed re-checks an autoscale scale-down against a non-cached read of the
 // StatefulSet. The informer can lag a disruption (a pod going unready) and still show full
 // readiness, which would let statefulsetScalingNeeded green-light a scale-down that
-// decommissions a healthy daemon.
-func (r *Reconciler) confirmScalingNeeded(ctx context.Context, key types.NamespacedName, cached *appsv1.StatefulSet, desired, maxUnavailable int32, autoScaling bool) (bool, error) {
+// decommissions a healthy proxy or target.
+func (r *Reconciler) confirmScaleDownAllowed(ctx context.Context, key types.NamespacedName, cached *appsv1.StatefulSet, desired, maxUnavailable int32, autoScaling bool) (bool, error) {
 	if !autoScaling || desired >= *cached.Spec.Replicas {
 		return true, nil
 	}
@@ -412,10 +414,10 @@ func isRolloutInProgress(ss *appsv1.StatefulSet) bool {
 	return true
 }
 
-// isScalingInProgress returns true if pods are actively being created or terminated
+// replicasSettling returns true if pods are actively being created or terminated
 // to match the spec replica count. Returns false during a rollout to avoid confusing
 // pod churn during rollout with scaling.
-func isScalingInProgress(ss *appsv1.StatefulSet) bool {
+func replicasSettling(ss *appsv1.StatefulSet) bool {
 	if isRolloutInProgress(ss) {
 		return false
 	}
@@ -506,7 +508,7 @@ func (r *Reconciler) isStatefulSetReady(ss *appsv1.StatefulSet, desired, minRead
 	}
 	// When autoscaling enabled, tolerate configured amount of unavailable pods
 	// if there is no ongoing rollout or scale operation.
-	if isRolloutInProgress(ss) || isScalingInProgress(ss) {
+	if isRolloutInProgress(ss) || replicasSettling(ss) {
 		return false
 	}
 	return ss.Status.ReadyReplicas >= minReady

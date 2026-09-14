@@ -140,7 +140,7 @@ func (r *Reconciler) handleProxyState(ctx context.Context, ais *aisv1.AIStore) (
 	}
 
 	rolling := isRolloutInProgress(ss)
-	scaling := isScalingInProgress(ss)
+	settling := replicasSettling(ss)
 	rolloutNeeded, _ := shouldUpdatePodTemplate(&proxy.NewProxyStatefulSet(ais, ais.GetProxySize()).Spec.Template, &ss.Spec.Template)
 	scalingNeeded := isProxyScalingNeeded(ais, ss)
 
@@ -148,12 +148,12 @@ func (r *Reconciler) handleProxyState(ctx context.Context, ais *aisv1.AIStore) (
 		"statefulset", ss.Name,
 		"specReplicas", *ss.Spec.Replicas, "statusReplicas", ss.Status.Replicas,
 		"readyReplicas", ss.Status.ReadyReplicas, "desiredSize", ais.GetProxySize(),
-		"rolling", rolling, "scaling", scaling,
+		"rolling", rolling, "settling", settling,
 		"rolloutNeeded", rolloutNeeded, "scalingNeeded", scalingNeeded,
 	)
 
 	// Apply template update (blocked by scaling in progress)
-	if rolloutNeeded && !scaling {
+	if rolloutNeeded && !settling {
 		if updated, err := r.syncProxyPodSpec(ctx, ais, ss); err != nil {
 			return ctrl.Result{}, err
 		} else if updated {
@@ -169,12 +169,12 @@ func (r *Reconciler) handleProxyState(ctx context.Context, ais *aisv1.AIStore) (
 
 	// Apply scaling (blocked by rollout in progress)
 	if scalingNeeded && !rolling {
-		proceed, cErr := r.confirmScalingNeeded(ctx, proxy.StatefulSetNSName(ais), ss,
+		scaleDownAllowed, cErr := r.confirmScaleDownAllowed(ctx, proxy.StatefulSetNSName(ais), ss,
 			ais.GetProxySize(), ais.GetProxyMaxUnavailable(), ais.IsProxyAutoScaling())
 		if cErr != nil {
 			return ctrl.Result{}, cErr
 		}
-		if !proceed {
+		if !scaleDownAllowed {
 			logger.Info("Deferring proxy scale-down; fresh status shows unavailable replicas within maxUnavailable budget")
 			return ctrl.Result{RequeueAfter: proxyStartupInterval}, nil
 		}
@@ -191,7 +191,7 @@ func (r *Reconciler) handleProxyState(ctx context.Context, ais *aisv1.AIStore) (
 		return ctrl.Result{RequeueAfter: proxyStartupInterval}, nil
 	}
 	// Drive ongoing scaling
-	if scaling {
+	if settling {
 		return ctrl.Result{RequeueAfter: proxyStartupInterval}, nil
 	}
 	// Wait for readiness

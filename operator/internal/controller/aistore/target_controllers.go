@@ -132,7 +132,7 @@ func (r *Reconciler) handleTargetState(ctx context.Context, ais *aisv1.AIStore) 
 	}
 
 	rolling := isRolloutInProgress(ss)
-	scaling := isScalingInProgress(ss)
+	settling := replicasSettling(ss)
 	rolloutNeeded, _ := shouldUpdatePodTemplate(&target.NewTargetSS(ais, ais.GetTargetSize()).Spec.Template, &ss.Spec.Template)
 	scalingNeeded := isTargetScalingNeeded(ais, ss)
 
@@ -140,7 +140,7 @@ func (r *Reconciler) handleTargetState(ctx context.Context, ais *aisv1.AIStore) 
 		"statefulset", ss.Name,
 		"specReplicas", *ss.Spec.Replicas, "statusReplicas", ss.Status.Replicas,
 		"readyReplicas", ss.Status.ReadyReplicas, "desiredSize", ais.GetTargetSize(),
-		"rolling", rolling, "scaling", scaling,
+		"rolling", rolling, "settling", settling,
 		"rolloutNeeded", rolloutNeeded, "scalingNeeded", scalingNeeded,
 	)
 
@@ -150,8 +150,8 @@ func (r *Reconciler) handleTargetState(ctx context.Context, ais *aisv1.AIStore) 
 		return ctrl.Result{RequeueAfter: statefulsetRequeueDelay}, nil
 	}
 
-	// Apply template update (blocked by scaling in progress)
-	if rolloutNeeded && !scaling {
+	// Apply a template update only after the StatefulSet replica counts have settled.
+	if rolloutNeeded && !settling {
 		if updated, err := r.syncTargetPodSpec(ctx, ais, ss); err != nil {
 			return ctrl.Result{}, err
 		} else if updated {
@@ -172,8 +172,8 @@ func (r *Reconciler) handleTargetState(ctx context.Context, ais *aisv1.AIStore) 
 		return ctrl.Result{RequeueAfter: targetLongRequeueDelay}, nil
 	}
 
-	// Drive ongoing scaling
-	if scaling {
+	// Wait for Kubernetes to finish applying the latest replica-count change.
+	if settling {
 		return ctrl.Result{RequeueAfter: targetLongRequeueDelay}, nil
 	}
 
@@ -187,20 +187,69 @@ func (r *Reconciler) handleTargetState(ctx context.Context, ais *aisv1.AIStore) 
 
 // handleTargetScaling applies a pending target scale-up or scale-down.
 func (r *Reconciler) handleTargetScaling(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) (ctrl.Result, error) {
+	if *ss.Spec.Replicas < ais.GetTargetSize() {
+		if err := r.scaleUpTargets(ctx, ais, ss); err != nil {
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{RequeueAfter: targetLongRequeueDelay}, nil
+	}
+	return r.scaleDownTargets(ctx, ais, ss)
+}
+
+// scaleUpTargets adds the external services for the incoming targets and grows the StatefulSet.
+func (r *Reconciler) scaleUpTargets(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) error {
 	logger := logf.FromContext(ctx)
-	proceed, err := r.confirmScalingNeeded(ctx, target.StatefulSetNSName(ais), ss,
-		ais.GetTargetSize(), ais.GetTargetMaxUnavailable(), ais.IsTargetAutoScaling())
+	currentSize := *ss.Spec.Replicas
+	expectedSize := ais.GetTargetSize()
+	// Adding several targets at once rebalances once they have all joined, rather than per target.
+	if currentSize > 0 && expectedSize > currentSize+1 {
+		apiClient, err := r.clientManager.GetClient(ctx, ais)
+		if err != nil {
+			return err
+		}
+		if err = apiClient.Health(true /*readyToRebalance*/); err != nil {
+			logger.Info("Waiting for cluster to be healthy before target scale-up")
+			return fmt.Errorf("cannot disable rebalance before target scale-up: cluster is not healthy")
+		}
+		logger.Info("Disabling rebalance before target scale-up of > 1 new nodes")
+		if err = r.disableRebalance(ctx, ais, aisv1.ReasonScaling, "Disabled due to target scale-up"); err != nil {
+			logger.Error(err, "Failed to disable rebalance before target scale-up")
+			return err
+		}
+	}
+	if err := r.addTargetLoadBalancers(ctx, ais); err != nil {
+		return err
+	}
+	logger.Info("Scaling up target statefulset to match AIS cluster spec size", "desiredSize", expectedSize)
+	return r.setTargetReplicas(ctx, ais, expectedSize)
+}
+
+// scaleDownTargets takes the outgoing targets out of the cluster and shrinks the StatefulSet once
+// they are gone.
+func (r *Reconciler) scaleDownTargets(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) (ctrl.Result, error) {
+	logger := logf.FromContext(ctx)
+	currentSize := *ss.Spec.Replicas
+	expectedSize := ais.GetTargetSize()
+	scaleDownAllowed, err := r.confirmScaleDownAllowed(ctx, target.StatefulSetNSName(ais), ss,
+		expectedSize, ais.GetTargetMaxUnavailable(), ais.IsTargetAutoScaling())
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	if !proceed {
+	if !scaleDownAllowed {
 		logger.Info("Deferring target scale-down; fresh status shows unavailable replicas within maxUnavailable budget")
 		return ctrl.Result{RequeueAfter: targetLongRequeueDelay}, nil
 	}
-	if err = r.startTargetScaling(ctx, ais, ss); err != nil {
+	if err = r.removeTargetLoadBalancers(ctx, ais, ss); err != nil {
 		return ctrl.Result{}, err
 	}
-	if err = r.resolveStatefulSetScaling(ctx, ais); err != nil {
+	if err = r.prepareTargetsForScaleDown(ctx, ais, currentSize); err != nil {
+		return ctrl.Result{}, err
+	}
+	if ready, readyErr := r.targetsReadyForScaleDown(ctx, ais, currentSize); readyErr != nil || !ready {
+		return ctrl.Result{RequeueAfter: targetLongRequeueDelay}, readyErr
+	}
+	logger.Info("Scaling down target statefulset to match AIS cluster spec size", "desiredSize", expectedSize)
+	if err = r.setTargetReplicas(ctx, ais, expectedSize); err != nil {
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{RequeueAfter: targetLongRequeueDelay}, nil
@@ -214,50 +263,18 @@ func (r *Reconciler) isTargetStatefulSetReady(ais *aisv1.AIStore, ss *appsv1.Sta
 	return r.isStatefulSetReady(ss, ais.GetTargetSize(), ais.GetMinReadyTargets(), ais.IsTargetAutoScaling())
 }
 
-func (r *Reconciler) resolveStatefulSetScaling(ctx context.Context, ais *aisv1.AIStore) error {
-	logger := logf.FromContext(ctx)
-	expectedSize := ais.GetTargetSize()
-	current, ssErr := r.k8sClient.GetStatefulSet(ctx, target.StatefulSetNSName(ais))
-	if ssErr != nil {
-		return ssErr
+// setTargetReplicas writes the target StatefulSet replica count.
+func (r *Reconciler) setTargetReplicas(ctx context.Context, ais *aisv1.AIStore, size int32) error {
+	if _, err := r.k8sClient.UpdateStatefulSetReplicas(ctx, target.StatefulSetNSName(ais), size); err != nil {
+		return err
 	}
-	currentSize := *current.Spec.Replicas
-	// Scaling up
-	if expectedSize > currentSize {
-		// If we have an existing cluster, check health and disable rebalance before adding multiple targets
-		if expectedSize > currentSize+1 && currentSize > 0 {
-			apiClient, err := r.clientManager.GetClient(ctx, ais)
-			if err != nil {
-				return err
-			}
-			if err = apiClient.Health(true /*readyToRebalance*/); err != nil {
-				logger.Info("Waiting for cluster to be healthy before scaling")
-				return fmt.Errorf("cannot disable rebalance before target scaling, cluster not healthy")
-			}
-			logger.Info("Disabling rebalance before target scale-up of > 1 new nodes")
-			err = r.disableRebalance(ctx, ais, aisv1.ReasonScaling, "Disabled due to target scale-up")
-			if err != nil {
-				logger.Error(err, "Failed to disable rebalance before scaling")
-				return err
-			}
-		}
-		logger.Info("Scaling up target statefulset to match AIS cluster spec size", "desiredSize", expectedSize)
-	} else if expectedSize < currentSize {
-		// If applicable, wait for decommission to complete before scaling the StatefulSet down
-		if ready, scaleErr := r.isReadyToScaleDown(ctx, ais, currentSize); scaleErr != nil || !ready {
-			return scaleErr
-		}
-		logger.Info("Scaling down target statefulset to match AIS cluster spec size", "desiredSize", expectedSize)
-	}
-	_, ssErr = r.k8sClient.UpdateStatefulSetReplicas(ctx, target.StatefulSetNSName(ais), expectedSize)
-	if ssErr != nil {
-		return ssErr
-	}
-	logger.Info("Updated replica count for target statefulset")
+	logf.FromContext(ctx).Info("Updated replica count for target statefulset")
 	return nil
 }
 
-func (r *Reconciler) isReadyToScaleDown(ctx context.Context, ais *aisv1.AIStore, currentSize int32) (ready bool, err error) {
+// targetsReadyForScaleDown reports whether AIS has completed the membership transition for every
+// target that the StatefulSet will remove.
+func (r *Reconciler) targetsReadyForScaleDown(ctx context.Context, ais *aisv1.AIStore, currentSize int32) (ready bool, err error) {
 	apiClient, err := r.clientManager.GetClient(ctx, ais)
 	if err != nil {
 		return
@@ -267,14 +284,14 @@ func (r *Reconciler) isReadyToScaleDown(ctx context.Context, ais *aisv1.AIStore,
 		return
 	}
 	if ais.Spec.TargetSpec.RetainOnScaleDown() {
-		return isReadyToScaleDownRetain(ctx, ais, smap, currentSize), nil
+		return retainedTargetsReadyForScaleDown(ctx, ais, smap, currentSize), nil
 	}
-	return isReadyToScaleDownDecommission(ctx, smap, currentSize), nil
+	return decommissionedTargetsReadyForScaleDown(ctx, smap, currentSize), nil
 }
 
-// isReadyToScaleDownRetain reports whether every target being removed is in maintenance. Maintenance is a
-// persistent flag that keeps the node in the cluster map, so readiness is checked per removed target.
-func isReadyToScaleDownRetain(ctx context.Context, ais *aisv1.AIStore, smap *aismeta.Smap, currentSize int32) bool {
+// retainedTargetsReadyForScaleDown reports whether every outgoing target is in maintenance.
+// Maintenance keeps the target in the cluster map, so readiness is checked per target.
+func retainedTargetsReadyForScaleDown(ctx context.Context, ais *aisv1.AIStore, smap *aismeta.Smap, currentSize int32) bool {
 	logger := logf.FromContext(ctx)
 	for idx := currentSize; idx > ais.GetTargetSize(); idx-- {
 		podName := target.PodName(ais, idx-1)
@@ -285,40 +302,33 @@ func isReadyToScaleDownRetain(ctx context.Context, ais *aisv1.AIStore, smap *ais
 			continue
 		}
 		if !smap.InMaint(node) {
-			logger.Info("Delaying scaling. Target not yet in maintenance", "nodeID", node.ID())
+			logger.Info("Deferring target scale-down; target is not yet in maintenance", "nodeID", node.ID())
 			return false
 		}
 	}
 	return true
 }
 
-// isReadyToScaleDownDecommission reports whether a decommission-path scale-down can proceed. A
-// decommissioned target leaves the cluster map, so wait until none are mid-decommission and the node
-// count has dropped.
-func isReadyToScaleDownDecommission(ctx context.Context, smap *aismeta.Smap, currentSize int32) bool {
+// decommissionedTargetsReadyForScaleDown reports whether a decommission-path scale-down can proceed.
+func decommissionedTargetsReadyForScaleDown(ctx context.Context, smap *aismeta.Smap, currentSize int32) bool {
 	logger := logf.FromContext(ctx)
-	// If any targets are still in the smap as decommissioning, delay scaling
+	// Wait while any target remains in the cluster map as decommissioning.
 	for _, targetNode := range smap.Tmap {
 		if smap.InMaintOrDecomm(targetNode.ID()) && !smap.InMaint(targetNode) {
-			logger.Info("Delaying scaling. Target still in decommissioning state", "target", targetNode.ID())
+			logger.Info("Deferring target scale-down; target is still decommissioning", "target", targetNode.ID())
 			return false
 		}
 	}
-	// If we have the same number of target nodes as current replicas and none showed as decommissioned, don't scale
 	if int32(len(smap.Tmap)) == currentSize {
-		logger.Info("Delaying scaling. All target nodes are still listed as active")
+		logger.Info("Deferring target scale-down; all target nodes are still listed as active")
 		return false
 	}
 	return true
 }
 
-func (r *Reconciler) startTargetScaling(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) error {
-	if *ss.Spec.Replicas < ais.GetTargetSize() {
-		// Current SS has fewer replicas than expected size - scale up.
-		return r.scaleUpLB(ctx, ais)
-	}
-
-	// Otherwise - scale down.
+// prepareTargetsForScaleDown starts the AIS membership transition for each target whose
+// StatefulSet ordinal is above the desired size.
+func (r *Reconciler) prepareTargetsForScaleDown(ctx context.Context, ais *aisv1.AIStore, currentSize int32) error {
 	if !ais.Spec.TargetSpec.RetainOnScaleDown() {
 		// Ensure rebalance is enabled before decommissioning so data can migrate
 		// off the targets being decommissioned.
@@ -329,16 +339,6 @@ func (r *Reconciler) startTargetScaling(ctx context.Context, ais *aisv1.AIStore,
 			return err
 		}
 	}
-
-	err := r.scaleDownLB(ctx, ais, ss)
-	if err != nil {
-		return err
-	}
-	// Prepare targets for scale down either via maintenance mode or decommission.
-	return r.prepareTargetsForScaleDown(ctx, ais, *ss.Spec.Replicas)
-}
-
-func (r *Reconciler) prepareTargetsForScaleDown(ctx context.Context, ais *aisv1.AIStore, actualSize int32) error {
 	logger := logf.FromContext(ctx)
 	apiClient, err := r.clientManager.GetClient(ctx, ais)
 	if err != nil {
@@ -348,10 +348,10 @@ func (r *Reconciler) prepareTargetsForScaleDown(ctx context.Context, ais *aisv1.
 	if err != nil {
 		return err
 	}
-	logger.Info("Preparing targets for scale down", "Smap version", smap.Version)
-	for idx := actualSize; idx > ais.GetTargetSize(); idx-- {
+	logger.Info("Preparing targets for scale-down", "Smap version", smap.Version)
+	for idx := currentSize; idx > ais.GetTargetSize(); idx-- {
 		podName := target.PodName(ais, idx-1)
-		logger.Info("Attempting to prepare target for scale down", "podName", podName)
+		logger.Info("Attempting to prepare target for scale-down", "podName", podName)
 		node, err := findAISNodeByPodName(smap.Tmap, podName)
 		if err != nil {
 			// If target is not in the cluster map, fetch the pod and inspect state.
@@ -586,14 +586,14 @@ func (r *Reconciler) prepareTargetForRollout(ctx context.Context, ais *aisv1.AIS
 	return false, nil
 }
 
-func (r *Reconciler) scaleUpLB(ctx context.Context, ais *aisv1.AIStore) error {
+func (r *Reconciler) addTargetLoadBalancers(ctx context.Context, ais *aisv1.AIStore) error {
 	if !ais.TargetExternalAccessEnabled() {
 		return nil
 	}
 	return r.createTargetExternalServices(ctx, ais)
 }
 
-func (r *Reconciler) scaleDownLB(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) error {
+func (r *Reconciler) removeTargetLoadBalancers(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) error {
 	if !ais.TargetExternalAccessEnabled() {
 		return nil
 	}

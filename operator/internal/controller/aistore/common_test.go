@@ -194,10 +194,10 @@ var _ = Describe("isRolloutInProgress", func() {
 	})
 })
 
-var _ = Describe("isScalingInProgress", func() {
+var _ = Describe("replicasSettling", func() {
 	DescribeTable("should correctly detect scaling state",
 		func(ss *appsv1.StatefulSet, expected bool) {
-			Expect(isScalingInProgress(ss)).To(Equal(expected))
+			Expect(replicasSettling(ss)).To(Equal(expected))
 		},
 		Entry("status matches spec (no scaling)",
 			makeSS(3, 3, 3, 3, "rev-1", "rev-1", appsv1.RollingUpdateStatefulSetStrategyType),
@@ -843,7 +843,7 @@ var _ = Describe("isStatefulSetFullyReady", func() {
 			makeSS(3, 3, 2, 3, "rev-1", "rev-2", appsv1.RollingUpdateStatefulSetStrategyType), int32(3),
 			false,
 		),
-		Entry("scaling in progress",
+		Entry("replica counts settling",
 			makeSS(5, 3, 3, 3, "rev-1", "rev-1", appsv1.RollingUpdateStatefulSetStrategyType), int32(5),
 			false,
 		),
@@ -894,6 +894,38 @@ var _ = Describe("statefulsetScalingNeeded", func() {
 		Entry("auto: rollout in flight defers scale down",
 			makeSS(3, 3, 2, 3, "rev-1", "rev-2", appsv1.RollingUpdateStatefulSetStrategyType),
 			int32(2), int32(1), true, false,
+		),
+	)
+})
+
+var _ = Describe("statefulSetScaleDownAllowed", func() {
+	DescribeTable("should decide whether a StatefulSet may begin scaling down",
+		func(ss *appsv1.StatefulSet, maxUnavailable int32, autoScaling, expected bool) {
+			Expect(statefulSetScaleDownAllowed(ss, maxUnavailable, autoScaling)).To(Equal(expected))
+		},
+		Entry("fixed: always allowed",
+			makeSS(3, 3, 3, 1, "rev-1", "rev-1", appsv1.RollingUpdateStatefulSetStrategyType),
+			int32(0), false, true,
+		),
+		Entry("auto: all replicas ready",
+			makeSS(3, 3, 3, 3, "rev-1", "rev-1", appsv1.RollingUpdateStatefulSetStrategyType),
+			int32(1), true, true,
+		),
+		Entry("auto: unavailable within the budget",
+			makeSS(3, 3, 3, 2, "rev-1", "rev-1", appsv1.RollingUpdateStatefulSetStrategyType),
+			int32(1), true, false,
+		),
+		Entry("auto: unavailable exceeds the budget",
+			makeSS(3, 3, 3, 1, "rev-1", "rev-1", appsv1.RollingUpdateStatefulSetStrategyType),
+			int32(1), true, true,
+		),
+		Entry("auto: replicas still settling",
+			makeSS(3, 2, 2, 2, "rev-1", "rev-1", appsv1.RollingUpdateStatefulSetStrategyType),
+			int32(1), true, false,
+		),
+		Entry("auto: rollout in flight",
+			makeSS(3, 3, 2, 3, "rev-1", "rev-2", appsv1.RollingUpdateStatefulSetStrategyType),
+			int32(1), true, false,
 		),
 	)
 })

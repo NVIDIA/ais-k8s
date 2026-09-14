@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -185,15 +184,7 @@ var _ = Describe("scaleDownMode", func() {
 		mockCtrl.Finish()
 	})
 
-	makeSS := func(replicas int32) *appsv1.StatefulSet {
-		return &appsv1.StatefulSet{
-			Spec: appsv1.StatefulSetSpec{
-				Replicas: &replicas,
-			},
-		}
-	}
-
-	Describe("isReadyToScaleDown", func() {
+	Describe("targetsReadyForScaleDown", func() {
 		Context("when scaleDownMode is decommission", func() {
 			BeforeEach(func() {
 				ais.Spec.TargetSpec.ScaleDownMode = aisv1.ScaleDownModeDecommission
@@ -209,7 +200,7 @@ var _ = Describe("scaleDownMode", func() {
 				apiClient.EXPECT().GetClusterMap().Return(smap, nil)
 
 				// 2 targets in smap but currentSize is 3, so safe to scale down by 1.
-				ready, err := r.isReadyToScaleDown(ctx, ais, 3)
+				ready, err := r.targetsReadyForScaleDown(ctx, ais, 3)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(ready).To(BeTrue())
 			})
@@ -223,7 +214,7 @@ var _ = Describe("scaleDownMode", func() {
 				}
 				apiClient.EXPECT().GetClusterMap().Return(smap, nil)
 
-				ready, err := r.isReadyToScaleDown(ctx, ais, 3)
+				ready, err := r.targetsReadyForScaleDown(ctx, ais, 3)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(ready).To(BeFalse())
 			})
@@ -243,7 +234,7 @@ var _ = Describe("scaleDownMode", func() {
 					Tmap: aismeta.NodeMap{"t1": t1, "t2": t2, "t3": t3},
 				}
 				apiClient.EXPECT().GetClusterMap().Return(smap, nil)
-				ready, err := r.isReadyToScaleDown(ctx, ais, 3)
+				ready, err := r.targetsReadyForScaleDown(ctx, ais, 3)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(ready).To(BeTrue())
 			})
@@ -256,7 +247,7 @@ var _ = Describe("scaleDownMode", func() {
 					Tmap: aismeta.NodeMap{"t1": t1, "t2": t2, "t3": t3},
 				}
 				apiClient.EXPECT().GetClusterMap().Return(smap, nil)
-				ready, err := r.isReadyToScaleDown(ctx, ais, 3)
+				ready, err := r.targetsReadyForScaleDown(ctx, ais, 3)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(ready).To(BeFalse())
 			})
@@ -268,14 +259,14 @@ var _ = Describe("scaleDownMode", func() {
 					Tmap: aismeta.NodeMap{"t1": t1, "t2": t2},
 				}
 				apiClient.EXPECT().GetClusterMap().Return(smap, nil)
-				ready, err := r.isReadyToScaleDown(ctx, ais, 3)
+				ready, err := r.targetsReadyForScaleDown(ctx, ais, 3)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(ready).To(BeTrue())
 			})
 		})
 	})
 
-	Describe("startTargetScaling", func() {
+	Describe("prepareTargetsForScaleDown", func() {
 		BeforeEach(func() {
 			// Pre-set rebalance condition so enableRebalanceCondition is a no-op
 			ais.SetCondition(aisv1.ConditionReadyRebalance)
@@ -286,7 +277,6 @@ var _ = Describe("scaleDownMode", func() {
 			ais.Spec.TargetSpec.ScaleDownMode = mode
 			Expect(k8sClient.Update(ctx, ais)).To(Succeed())
 
-			ss := makeSS(3)
 			apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any()).Return(nil)
 			t3 := &aismeta.Snode{DaeID: "t3", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-2"}}
 			smap := &aismeta.Smap{Tmap: aismeta.NodeMap{"t3": t3}}
@@ -295,7 +285,7 @@ var _ = Describe("scaleDownMode", func() {
 				Expect(act.RmUserData).To(Equal(rmUserData))
 				return "xid", nil
 			})
-			Expect(r.startTargetScaling(ctx, ais, ss)).To(Succeed())
+			Expect(r.prepareTargetsForScaleDown(ctx, ais, 3)).To(Succeed())
 		}
 
 		It("decommissions targets with RmUserData=true when scaleDownMode is decommission", func() {
@@ -313,8 +303,6 @@ var _ = Describe("scaleDownMode", func() {
 			})
 
 			It("puts targets in maintenance with SkipRebalance=true", func() {
-				ss := makeSS(3)
-
 				t3 := &aismeta.Snode{DaeID: "t3", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-2"}}
 				smap := &aismeta.Smap{
 					Tmap: aismeta.NodeMap{"t3": t3},
@@ -327,7 +315,7 @@ var _ = Describe("scaleDownMode", func() {
 					return "xid", nil
 				})
 
-				err := r.startTargetScaling(ctx, ais, ss)
+				err := r.prepareTargetsForScaleDown(ctx, ais, 3)
 				Expect(err).NotTo(HaveOccurred())
 			})
 		})
