@@ -36,6 +36,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
   - Clusters referencing a deleted profile will fail to reconcile rather than continuing with the cached token.
     - A cluster whose profile is force-deleted will fail decommission API calls and fail deletion. Recreate the profile to finish decommission.
   - Clients are replaced when the cluster's TLS settings change, including `spec.operatorSkipVerifyCrt` and `spec.configToUpdate.net.http.client_auth_tls`.
+  - Clients reload the CA from disk on the next reconcile when presented with an AIS certificate that the loaded CA cannot verify.
 
 - `AIStoreAuthProfile`
   - Webhook validation is skipped only for updates that leave `spec` unchanged, so finalizers and annotations can still be patched on a profile whose referenced Secret or ConfigMap is gone.

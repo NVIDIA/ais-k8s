@@ -7,6 +7,8 @@ package services
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
+	"errors"
 	"net/http"
 	"sync/atomic"
 	"time"
@@ -46,22 +48,27 @@ type (
 		ctx    context.Context
 		params *api.BaseParams
 		mode   string
+		// tlsConf is the client config used by the client transport, set when using HTTPS.
+		tlsConf *tls.Config
 		// tokenInfo describes the token currently in params.
 		tokenInfo TokenInfo
 		// tokenRejected records that AIS answered an API call with 401 or 403.
 		tokenRejected atomic.Bool
+		// untrustedCA records that a handshake received an AIS certificate the loaded CA cannot verify.
+		untrustedCA atomic.Bool
 	}
 
-	// authStatusTracker observes the auth status of the AIS API responses to a single client.
-	authStatusTracker struct {
+	// callStatusTracker observes the failures reported by a single client's AIS API calls.
+	callStatusTracker struct {
 		base   http.RoundTripper
 		client *AIStoreClient
 	}
 )
 
-func (t *authStatusTracker) RoundTrip(req *http.Request) (*http.Response, error) {
+func (t *callStatusTracker) RoundTrip(req *http.Request) (*http.Response, error) {
 	resp, err := t.base.RoundTrip(req)
 	if resp == nil {
+		t.client.trackCertVerification(err)
 		return resp, err
 	}
 	if resp.StatusCode != http.StatusUnauthorized && resp.StatusCode != http.StatusForbidden {
@@ -73,6 +80,32 @@ func (t *authStatusTracker) RoundTrip(req *http.Request) (*http.Response, error)
 			"status", resp.StatusCode)
 	}
 	return resp, err
+}
+
+// trackCertVerification records err when it reports an AIS certificate the loaded CA cannot verify.
+func (c *AIStoreClient) trackCertVerification(err error) {
+	if !isUntrustedCAError(err) {
+		return
+	}
+	// Log the first failure only, so a cluster failing every call does not flood the log
+	if !c.untrustedCA.Swap(true) {
+		logf.FromContext(c.ctx).Error(err, "Failed to verify the AIS certificate, the CA will be reloaded on the next reconcile")
+	}
+}
+
+// isUntrustedCAError reports whether err describes an AIS certificate that the loaded CA cannot
+// verify, either because it signed nothing in the chain or because it has expired itself.
+func isUntrustedCAError(err error) bool {
+	var unknownAuthority x509.UnknownAuthorityError
+	if errors.As(err, &unknownAuthority) {
+		return true
+	}
+	// A CA renewed under its existing key expires rather than becoming unknown
+	var invalidCert x509.CertificateInvalidError
+	if !errors.As(err, &invalidCert) {
+		return false
+	}
+	return invalidCert.Reason == x509.Expired && invalidCert.Cert != nil && invalidCert.Cert.IsCA
 }
 
 // HasValidBaseParams checks if the client can still reach the given AIS cluster.
@@ -146,6 +179,15 @@ func (c *AIStoreClient) tokenRefreshReason(profileGen string) string {
 	return ""
 }
 
+// setTrustedCA makes caPool the trust the client verifies the AIS certificate against.
+func (c *AIStoreClient) setTrustedCA(caPool *x509.CertPool) {
+	c.untrustedCA.Store(false)
+	if c.tlsConf == nil {
+		return
+	}
+	c.tlsConf.RootCAs = caPool
+}
+
 // setToken makes tokenInfo the client's token. A nil tokenInfo leaves the client with no token.
 func (c *AIStoreClient) setToken(tokenInfo *TokenInfo) {
 	if tokenInfo == nil {
@@ -208,11 +250,12 @@ func (c *AIStoreClient) StartMaintenance(actValue *apc.ActValRmNode) (string, er
 
 func NewAIStoreClient(ctx context.Context, url string, tokenInfo *TokenInfo, mode string, tlsCfg *tls.Config) *AIStoreClient {
 	client := &AIStoreClient{
-		ctx:    ctx,
-		params: buildBaseParams(url, "", tlsCfg),
-		mode:   mode,
+		ctx:     ctx,
+		params:  buildBaseParams(url, "", tlsCfg),
+		mode:    mode,
+		tlsConf: tlsCfg,
 	}
-	client.params.Client.Transport = &authStatusTracker{base: client.params.Client.Transport, client: client}
+	client.params.Client.Transport = &callStatusTracker{base: client.params.Client.Transport, client: client}
 	client.setToken(tokenInfo)
 	return client
 }

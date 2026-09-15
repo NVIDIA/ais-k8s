@@ -74,6 +74,9 @@ func (m *AISClientManager) GetClient(ctx context.Context,
 	if exists && cached.tlsSettings == settings {
 		cached.client.syncPublicURL(ctx, url)
 		if cached.client.HasValidBaseParams(ctx, ais, url) {
+			if caErr := m.reloadCAIfUntrusted(ctx, ais, cached.client); caErr != nil {
+				return nil, caErr
+			}
 			if tokErr := m.ensureValidToken(ctx, ais, cached.client); tokErr != nil {
 				return nil, tokErr
 			}
@@ -99,6 +102,20 @@ func (m *AISClientManager) GetClient(ctx context.Context,
 	m.clientMap[ais.NamespacedName().String()] = &cachedClient{client: client, tlsSettings: settings}
 	m.mu.Unlock()
 	return client, nil
+}
+
+// reloadCAIfUntrusted reloads the AIS CA for a given client if the cluster's certificate issuer was not trusted.
+func (m *AISClientManager) reloadCAIfUntrusted(ctx context.Context, ais *aisv1.AIStore, client *AIStoreClient) error {
+	if !client.untrustedCA.Load() {
+		return nil
+	}
+	caPool, err := loadClusterCA(ctx, m.getTLSPath(ais))
+	if err != nil {
+		return err
+	}
+	logf.FromContext(ctx).Info("Reloading the AIS CA", "cluster", ais.NamespacedName().String())
+	client.setTrustedCA(caPool)
+	return nil
 }
 
 // ensureValidToken replaces the token of a cached client when that token is no longer usable.

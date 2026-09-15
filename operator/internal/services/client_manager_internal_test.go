@@ -6,10 +6,20 @@ package services
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
 	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
 	"fmt"
+	"math/big"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"sync/atomic"
 	"time"
 
@@ -278,3 +288,140 @@ var _ = Describe("AIS client manager TLS handling", func() {
 		Expect(got).To(BeIdenticalTo(cached))
 	})
 })
+
+var _ = Describe("AIS client manager CA reload", func() {
+	const servingCN = "serving-ca"
+
+	var (
+		ctx        context.Context
+		ais        *aisv1.AIStore
+		m          *AISClientManager
+		caDir      string
+		server     *httptest.Server
+		serving    []byte
+		servingKey *ecdsa.PrivateKey
+	)
+
+	BeforeEach(func() {
+		ctx = context.Background()
+		ais = httpsCluster()
+		caDir = GinkgoT().TempDir()
+		m = NewAISClientManager(NewFakeK8sClient(), AISClientTLSOpts{CertPath: caDir})
+
+		var err error
+		servingKey, err = ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		Expect(err).NotTo(HaveOccurred())
+		var serverCert tls.Certificate
+		serving, serverCert = issueTestCA(servingCN, servingKey, time.Now().Add(time.Hour))
+		server = httptest.NewUnstartedServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+		server.TLS = &tls.Config{Certificates: []tls.Certificate{serverCert}, MinVersion: tls.VersionTLS12}
+		server.StartTLS()
+	})
+
+	AfterEach(func() {
+		server.Close()
+	})
+
+	writeCA := func(caPEM []byte) {
+		GinkgoHelper()
+		Expect(os.WriteFile(filepath.Join(caDir, ClientCAFile), caPEM, 0o600)).To(Succeed())
+	}
+
+	// newClient builds a client for url from the CA currently on disk, as an earlier reconcile would
+	newClient := func(url string) *AIStoreClient {
+		GinkgoHelper()
+		tlsConf, err := m.getTLSConfig(ctx, ais)
+		Expect(err).NotTo(HaveOccurred())
+		return NewAIStoreClient(ctx, url, nil, ais.GetAPIMode(), tlsConf)
+	}
+
+	It("should trust a replaced CA on the next reconcile", func() {
+		writeCA(newRetiredCA())
+		client := newClient(server.URL)
+		Expect(client.Health(false)).NotTo(Succeed())
+		Expect(client.untrustedCA.Load()).To(BeTrue())
+
+		writeCA(serving)
+		Expect(m.reloadCAIfUntrusted(ctx, ais, client)).To(Succeed())
+		Expect(client.untrustedCA.Load()).To(BeFalse())
+		Expect(client.Health(false)).To(Succeed())
+	})
+
+	// A renewal under the existing key keeps the subject, so the retired copy on disk fails
+	// verification as expired rather than as unknown
+	It("should trust a CA renewed under its existing key", func() {
+		expired, _ := issueTestCA(servingCN, servingKey, time.Now().Add(-time.Minute))
+		writeCA(expired)
+		client := newClient(server.URL)
+		Expect(client.Health(false)).NotTo(Succeed())
+		Expect(client.untrustedCA.Load()).To(BeTrue())
+
+		writeCA(serving)
+		Expect(m.reloadCAIfUntrusted(ctx, ais, client)).To(Succeed())
+		Expect(client.Health(false)).To(Succeed())
+	})
+
+	It("should keep the trusted CA while the client verifies the cluster", func() {
+		writeCA(serving)
+		client := newClient(server.URL)
+		writeCA(newRetiredCA())
+
+		Expect(m.reloadCAIfUntrusted(ctx, ais, client)).To(Succeed())
+		Expect(client.Health(false)).To(Succeed())
+	})
+
+	// Only a cached client the spec still resolves to reaches the reload
+	It("should reload the CA before it hands back a cached client", func() {
+		writeCA(newRetiredCA())
+		cached := newClient(cmn.IntraClusterURL(ais))
+		cached.untrustedCA.Store(true)
+		m.clientMap[ais.NamespacedName().String()] = &cachedClient{client: cached, tlsSettings: tlsSettings(ais)}
+
+		writeCA(serving)
+		got, err := m.GetClient(ctx, ais)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).To(BeIdenticalTo(cached))
+		Expect(cached.untrustedCA.Load()).To(BeFalse())
+	})
+})
+
+// newRetiredCA returns the PEM of a CA certificate that signed nothing the test serves.
+func newRetiredCA() []byte {
+	GinkgoHelper()
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	Expect(err).NotTo(HaveOccurred())
+	caPEM, _ := issueTestCA("retired-ca", key, time.Now().Add(time.Hour))
+	return caPEM
+}
+
+// issueTestCA returns a CA certificate valid until notAfter in PEM form, and a certificate for
+// 127.0.0.1 that it signs. The signed certificate stays valid past the expiration of the CA.
+func issueTestCA(commonName string, key *ecdsa.PrivateKey, notAfter time.Time) (caPEM []byte, serverCert tls.Certificate) {
+	GinkgoHelper()
+	notBefore := time.Now().Add(-time.Hour)
+	caTmpl := &x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: commonName},
+		NotBefore:             notBefore,
+		NotAfter:              notAfter,
+		KeyUsage:              x509.KeyUsageCertSign,
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+	}
+	caDER, err := x509.CreateCertificate(rand.Reader, caTmpl, caTmpl, &key.PublicKey, key)
+	Expect(err).NotTo(HaveOccurred())
+	caCert, err := x509.ParseCertificate(caDER)
+	Expect(err).NotTo(HaveOccurred())
+
+	serverTmpl := &x509.Certificate{
+		SerialNumber: big.NewInt(2),
+		NotBefore:    notBefore,
+		NotAfter:     time.Now().Add(time.Hour),
+		IPAddresses:  []net.IP{net.ParseIP("127.0.0.1")},
+	}
+	serverDER, err := x509.CreateCertificate(rand.Reader, serverTmpl, caCert, &key.PublicKey, key)
+	Expect(err).NotTo(HaveOccurred())
+
+	caPEM = pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: caDER})
+	return caPEM, tls.Certificate{Certificate: [][]byte{serverDER}, PrivateKey: key}
+}

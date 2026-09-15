@@ -57,21 +57,29 @@ func tlsSettings(ais *aisv1.AIStore) string {
 }
 
 func configureCAVerification(ctx context.Context, ais *aisv1.AIStore, tlsConf *tls.Config, tlsDir string) error {
-	logger := logf.FromContext(ctx)
 	if ais.ShouldSkipVerifyCrt() {
 		tlsConf.InsecureSkipVerify = true
 		return nil
 	}
+	caPool, err := loadClusterCA(ctx, tlsDir)
+	if err != nil {
+		return err
+	}
+	tlsConf.RootCAs = caPool
+	return nil
+}
 
+// loadClusterCA returns the trust the operator verifies an AIS certificate against.
+func loadClusterCA(ctx context.Context, tlsDir string) (*x509.CertPool, error) {
+	logger := logf.FromContext(ctx)
 	// Add CA from our specified TLS config dir to the system trusted CA pool
 	providedCA := filepath.Join(tlsDir, ClientCAFile)
 	caPool, err := loadOptionalProvidedCA(logger, providedCA)
 	if err != nil {
 		logger.Error(err, "Failed to load AIS CA", "location", providedCA)
-		return err
+		return nil, err
 	}
-	tlsConf.RootCAs = caPool
-	return nil
+	return caPool, nil
 }
 
 func addClientCertIfRequested(ais *aisv1.AIStore, tlsConf *tls.Config, tlsDir string) {
