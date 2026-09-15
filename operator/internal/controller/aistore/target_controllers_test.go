@@ -218,6 +218,36 @@ var _ = Describe("scaleDownMode", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(ready).To(BeFalse())
 			})
+
+			It("delays scaling until every target being removed has left the cluster map", func() {
+				t1 := &aismeta.Snode{DaeID: "t1", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-0"}}
+				t2 := &aismeta.Snode{DaeID: "t2", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-1"}}
+				t3 := &aismeta.Snode{DaeID: "t3", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-2"}}
+				smap := &aismeta.Smap{
+					Tmap: aismeta.NodeMap{"t1": t1, "t2": t2, "t3": t3},
+				}
+				apiClient.EXPECT().GetClusterMap().Return(smap, nil)
+
+				// Scaling from 4 to 2, so ais-target-2 leaving is not enough.
+				ready, err := r.targetsReadyForScaleDown(ctx, ais, 4)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(ready).To(BeFalse())
+			})
+
+			It("scales when an unrelated target lingers in the cluster map", func() {
+				t1 := &aismeta.Snode{DaeID: "t1", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-0"}}
+				t2 := &aismeta.Snode{DaeID: "t2", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-1"}}
+				// Left in maintenance by an earlier retain-mode scale-down, so it never leaves the map.
+				t4 := &aismeta.Snode{DaeID: "t4", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-3"}, Flags: aismeta.SnodeMaint}
+				smap := &aismeta.Smap{
+					Tmap: aismeta.NodeMap{"t1": t1, "t2": t2, "t4": t4},
+				}
+				apiClient.EXPECT().GetClusterMap().Return(smap, nil)
+
+				ready, err := r.targetsReadyForScaleDown(ctx, ais, 3)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(ready).To(BeTrue())
+			})
 		})
 
 		Context("when scaleDownMode is retain", func() {
@@ -294,6 +324,57 @@ var _ = Describe("scaleDownMode", func() {
 
 		It("keeps target data with RmUserData=false when scaleDownMode is safe_decommission", func() {
 			expectDecommission(aisv1.ScaleDownModeSafeDecommission, false)
+		})
+
+		It("decommissions a target that has finished maintenance rebalance", func() {
+			ais.Spec.TargetSpec.ScaleDownMode = aisv1.ScaleDownModeDecommission
+			Expect(k8sClient.Update(ctx, ais)).To(Succeed())
+
+			apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any()).Return(nil)
+			t3 := &aismeta.Snode{DaeID: "t3", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-2"}, Flags: aismeta.SnodeMaint | aismeta.SnodeMaintPostReb}
+			smap := &aismeta.Smap{Tmap: aismeta.NodeMap{"t3": t3}}
+			apiClient.EXPECT().GetClusterMap().Return(smap, nil)
+			apiClient.EXPECT().DecommissionNode(gomock.Any()).DoAndReturn(func(act *apc.ActValRmNode) (string, error) {
+				Expect(act.DaemonID).To(Equal("t3"))
+				Expect(act.RmUserData).To(BeTrue())
+				return "xid", nil
+			})
+			Expect(r.prepareTargetsForScaleDown(ctx, ais, 3)).To(Succeed())
+		})
+
+		It("refuses to decommission a target in maintenance without the post-rebalance flag", func() {
+			ais.Spec.TargetSpec.ScaleDownMode = aisv1.ScaleDownModeDecommission
+			Expect(k8sClient.Update(ctx, ais)).To(Succeed())
+
+			apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any()).Return(nil)
+			t3 := &aismeta.Snode{DaeID: "t3", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-2"}, Flags: aismeta.SnodeMaint}
+			smap := &aismeta.Smap{Tmap: aismeta.NodeMap{"t3": t3}}
+			apiClient.EXPECT().GetClusterMap().Return(smap, nil)
+			err := r.prepareTargetsForScaleDown(ctx, ais, 3)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("post-rebalance"))
+		})
+
+		It("skips a target that is already decommissioning", func() {
+			ais.Spec.TargetSpec.ScaleDownMode = aisv1.ScaleDownModeDecommission
+			Expect(k8sClient.Update(ctx, ais)).To(Succeed())
+
+			apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any()).Return(nil)
+			t3 := &aismeta.Snode{DaeID: "t3", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-2"}, Flags: aismeta.SnodeDecomm}
+			smap := &aismeta.Smap{Tmap: aismeta.NodeMap{"t3": t3}}
+			apiClient.EXPECT().GetClusterMap().Return(smap, nil)
+			Expect(r.prepareTargetsForScaleDown(ctx, ais, 3)).To(Succeed())
+		})
+
+		It("skips a target that has both maintenance and decommission flags", func() {
+			ais.Spec.TargetSpec.ScaleDownMode = aisv1.ScaleDownModeDecommission
+			Expect(k8sClient.Update(ctx, ais)).To(Succeed())
+
+			apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any()).Return(nil)
+			t3 := &aismeta.Snode{DaeID: "t3", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-2"}, Flags: aismeta.SnodeMaint | aismeta.SnodeDecomm}
+			smap := &aismeta.Smap{Tmap: aismeta.NodeMap{"t3": t3}}
+			apiClient.EXPECT().GetClusterMap().Return(smap, nil)
+			Expect(r.prepareTargetsForScaleDown(ctx, ais, 3)).To(Succeed())
 		})
 
 		Context("when scaleDownMode is retain", func() {

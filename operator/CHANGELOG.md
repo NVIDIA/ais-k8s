@@ -13,6 +13,8 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 ### Changed
 
 - All user-provided secret references must pass a SubjectAccessReview.
+- Target decommission scale-down waits until each outgoing target has left the cluster map before shrinking the StatefulSet. A target already in maintenance is decommissioned only once it has the post-rebalance flag (`InMaintPostReb`).
+  - A target whose maintenance skipped rebalance, or whose rebalance aborted, never gets that flag, and AIS does not rebalance on its own when decommissioning a node that is already in maintenance. Scale-down blocks on such a target until it is taken out of maintenance. See [Incomplete Transitions](https://github.com/NVIDIA/aistore/blob/main/docs/lifecycle_node.md#incomplete-transitions).
 
 ---
 

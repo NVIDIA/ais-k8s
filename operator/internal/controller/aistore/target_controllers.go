@@ -286,7 +286,7 @@ func (r *Reconciler) targetsReadyForScaleDown(ctx context.Context, ais *aisv1.AI
 	if ais.Spec.TargetSpec.RetainOnScaleDown() {
 		return retainedTargetsReadyForScaleDown(ctx, ais, smap, currentSize), nil
 	}
-	return decommissionedTargetsReadyForScaleDown(ctx, smap, currentSize), nil
+	return decommissionedTargetsReadyForScaleDown(ctx, ais, smap, currentSize), nil
 }
 
 // retainedTargetsReadyForScaleDown reports whether every outgoing target is in maintenance.
@@ -310,17 +310,17 @@ func retainedTargetsReadyForScaleDown(ctx context.Context, ais *aisv1.AIStore, s
 }
 
 // decommissionedTargetsReadyForScaleDown reports whether a decommission-path scale-down can proceed.
-func decommissionedTargetsReadyForScaleDown(ctx context.Context, smap *aismeta.Smap, currentSize int32) bool {
+func decommissionedTargetsReadyForScaleDown(ctx context.Context, ais *aisv1.AIStore, smap *aismeta.Smap, currentSize int32) bool {
 	logger := logf.FromContext(ctx)
-	// Wait while any target remains in the cluster map as decommissioning.
-	for _, targetNode := range smap.Tmap {
-		if smap.InMaintOrDecomm(targetNode.ID()) && !smap.InMaint(targetNode) {
-			logger.Info("Deferring target scale-down; target is still decommissioning", "target", targetNode.ID())
-			return false
+	// A decommissioned target leaves the cluster map, so check the outgoing targets by pod name.
+	// Counting members instead would stall on unrelated nodes that linger in the map.
+	for idx := currentSize; idx > ais.GetTargetSize(); idx-- {
+		podName := target.PodName(ais, idx-1)
+		node, nodeErr := findAISNodeByPodName(smap.Tmap, podName)
+		if nodeErr != nil {
+			continue
 		}
-	}
-	if int32(len(smap.Tmap)) == currentSize {
-		logger.Info("Deferring target scale-down; all target nodes are still listed as active")
+		logger.Info("Deferring target scale-down; target being removed is still in cluster map", "nodeID", node.ID())
 		return false
 	}
 	return true
@@ -354,9 +354,8 @@ func (r *Reconciler) prepareTargetsForScaleDown(ctx context.Context, ais *aisv1.
 		logger.Info("Attempting to prepare target for scale-down", "podName", podName)
 		node, err := findAISNodeByPodName(smap.Tmap, podName)
 		if err != nil {
-			// If target is not in the cluster map, fetch the pod and inspect state.
-			// Skip decommission if the pod is unschedulable or in CrashLoopBackOff.
-			// Otherwise, wait for the pod to start and register in the cluster map.
+			// Not in the cluster map. Skip if the pod is unschedulable or in CrashLoopBackOff.
+			// Otherwise wait for it to start and join the cluster.
 			pod, podErr := r.k8sClient.GetPod(ctx, types.NamespacedName{Name: podName, Namespace: ais.Namespace})
 			switch {
 			case k8serrors.IsNotFound(podErr):
@@ -373,26 +372,35 @@ func (r *Reconciler) prepareTargetsForScaleDown(ctx context.Context, ais *aisv1.
 			}
 			return fmt.Errorf("waiting for target %s to register in smap", podName)
 		}
-		if !smap.InMaintOrDecomm(node.ID()) {
-			if ais.Spec.TargetSpec.RetainOnScaleDown() {
-				logger.Info("Putting target in maintenance mode", "nodeID", node.ID())
-				_, err = apiClient.StartMaintenance(&aisapc.ActValRmNode{DaemonID: node.ID(), SkipRebalance: true})
-				if err != nil {
-					logger.Error(err, "Failed to put node in maintenance", "nodeID", node.ID())
-					return err
-				}
-			} else {
-				// safe_decommission keeps the target's on-disk data while plain decommission removes it.
-				rmUserData := !ais.Spec.TargetSpec.SafeDecommissionOnScaleDown()
-				logger.Info("Decommissioning target", "nodeID", node.ID(), "rmUserData", rmUserData)
-				_, err = apiClient.DecommissionNode(&aisapc.ActValRmNode{DaemonID: node.ID(), RmUserData: rmUserData})
-				if err != nil {
-					logger.Error(err, "Failed to decommission node", "nodeID", node.ID())
-					return err
-				}
+		if ais.Spec.TargetSpec.RetainOnScaleDown() {
+			if smap.InMaintOrDecomm(node.ID()) {
+				logger.Info("AIS target is already in maintenance or decommissioning state", "nodeID", node.ID())
+				continue
 			}
-		} else {
-			logger.Info("AIS target is already in maintenance or decommissioning state", "nodeID", node.ID())
+			logger.Info("Putting target in maintenance mode", "nodeID", node.ID())
+			_, err = apiClient.StartMaintenance(&aisapc.ActValRmNode{DaemonID: node.ID(), SkipRebalance: true})
+			if err != nil {
+				logger.Error(err, "Failed to put node in maintenance", "nodeID", node.ID())
+				return err
+			}
+			continue
+		}
+		if node.Flags.IsSet(aismeta.SnodeDecomm) {
+			logger.Info("AIS target is already decommissioning", "nodeID", node.ID())
+			continue
+		}
+		// A target already in maintenance is not an active member, so AIS will not
+		// rebalance it out: decommission only unregisters it, and wipes its data when
+		// RmUserData is set. SnodeMaintPostReb is the one signal that its data moved.
+		if node.InMaint() && !node.InMaintPostReb() {
+			return fmt.Errorf("waiting for target %s in maintenance to set post-rebalance", podName)
+		}
+		rmUserData := !ais.Spec.TargetSpec.SafeDecommissionOnScaleDown()
+		logger.Info("Decommissioning target", "nodeID", node.ID(), "rmUserData", rmUserData)
+		_, err = apiClient.DecommissionNode(&aisapc.ActValRmNode{DaemonID: node.ID(), RmUserData: rmUserData})
+		if err != nil {
+			logger.Error(err, "Failed to decommission node", "nodeID", node.ID())
+			return err
 		}
 	}
 	return nil
