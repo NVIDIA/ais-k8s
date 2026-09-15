@@ -146,6 +146,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 - `AIStoreAuthProfile`
   - Support for `spec.tokenExchange.subjectTokenAudience` to be used when the auth provider requires an audience in the subject token.
   - Support for user-provided OAuth 2.0 password-grant token endpoints.
+- Admin clients project a dedicated service account token for token-exchange profiles.
 
 ### Changed
 

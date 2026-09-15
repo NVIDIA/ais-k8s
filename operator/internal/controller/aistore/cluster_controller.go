@@ -863,69 +863,114 @@ func (r *Reconciler) reconcileTLSCertificate(ctx context.Context, ais *aisv1.AIS
 // If a deployment with the expected name already exists but is not owned by this AIStore CR
 // (e.g. deployed via Helm), the operator will skip reconciliation to avoid conflicts.
 func (r *Reconciler) reconcileAdminClient(ctx context.Context, ais *aisv1.AIStore) error {
-	logger := logf.FromContext(ctx)
 	nsName := adminclient.DeploymentNSName(ais)
-
 	existing, err := r.k8sClient.GetDeployment(ctx, nsName)
-	enabled := ais.AdminClientEnabled()
 	if err != nil {
-		// Continue only if the error is a missing deployment
 		if !k8serrors.IsNotFound(err) {
 			return err
 		}
-		if enabled {
-			return r.createClientDeployment(ctx, ais)
-		}
-		// Missing and not enabled: done
-		return nil
+		existing = nil
 	}
 
-	if !metav1.IsControlledBy(existing, ais) {
+	enabled := ais.AdminClientEnabled()
+	if existing != nil && !metav1.IsControlledBy(existing, ais) {
 		if enabled {
-			logger.Info("Admin client deployment exists but is not managed by this AIStore CR, skipping", "deployment", nsName)
+			logf.FromContext(ctx).Info("Admin client deployment exists but is not managed by this AIStore CR, skipping", "deployment", nsName)
 		}
 		return nil
 	}
 
-	if enabled {
-		return r.reconcileClientDeployment(ctx, ais, existing)
+	if !enabled {
+		_, err := r.removeAdminClientResources(ctx, ais)
+		return err
 	}
-	return r.removeClientDeployment(ctx, &nsName)
+
+	return r.applyAdminClientResources(ctx, ais, existing)
 }
 
-// Delete the operator-managed client deployment
-func (r *Reconciler) removeClientDeployment(ctx context.Context, nsName *types.NamespacedName) error {
-	logger := logf.FromContext(ctx)
-	deleted, err := r.k8sClient.DeleteDeploymentIfExists(ctx, *nsName)
+// applyAdminClientResources creates or updates the admin client ServiceAccount and deployment.
+// A nil existing deployment means none is present yet.
+func (r *Reconciler) applyAdminClientResources(ctx context.Context, ais *aisv1.AIStore, existing *apiv1.Deployment) error {
+	config, err := r.adminClientAuthConfig(ctx, ais)
 	if err != nil {
 		return err
+	}
+	if err = r.reconcileClientServiceAccount(ctx, ais, config); err != nil {
+		return err
+	}
+	return r.reconcileClientDeployment(ctx, ais, existing, config)
+}
+
+func (r *Reconciler) removeAdminClientResources(ctx context.Context, ais *aisv1.AIStore) (bool, error) {
+	return cmn.AnyFunc(
+		func() (bool, error) {
+			nsName := adminclient.DeploymentNSName(ais)
+			deleted, err := r.k8sClient.DeleteDeploymentIfExists(ctx, nsName)
+			if deleted {
+				logf.FromContext(ctx).Info("Deleted admin client deployment", "name", nsName.Name)
+			}
+			return deleted, err
+		},
+		func() (bool, error) { return r.removeClientServiceAccount(ctx, ais) },
+	)
+}
+
+func (r *Reconciler) reconcileClientServiceAccount(ctx context.Context, ais *aisv1.AIStore, config adminclient.Config) error {
+	if !config.UsesSubjectToken() {
+		_, err := r.removeClientServiceAccount(ctx, ais)
+		return err
+	}
+	serviceAccount := adminclient.ServiceAccount(ais)
+	saName := types.NamespacedName{Name: serviceAccount.Name, Namespace: serviceAccount.Namespace}
+	existing := &corev1.ServiceAccount{}
+	err := r.k8sClient.Get(ctx, saName, existing)
+	if err == nil {
+		if !metav1.IsControlledBy(existing, ais) {
+			return fmt.Errorf("admin client ServiceAccount %s exists but is not managed by this AIStore CR", saName)
+		}
+	} else if !k8serrors.IsNotFound(err) {
+		return err
+	}
+	_, err = r.k8sClient.CreateOrUpdateResource(ctx, ais, serviceAccount)
+	return err
+}
+
+// Delete the admin client ServiceAccount, leaving any same-named account the operator does not own
+func (r *Reconciler) removeClientServiceAccount(ctx context.Context, ais *aisv1.AIStore) (bool, error) {
+	logger := logf.FromContext(ctx)
+	saName := adminclient.DeploymentNSName(ais)
+	existing := &corev1.ServiceAccount{}
+	if err := r.k8sClient.Get(ctx, saName, existing); err != nil {
+		if !k8serrors.IsNotFound(err) {
+			return false, err
+		}
+		return false, nil
+	}
+	if !metav1.IsControlledBy(existing, ais) {
+		logger.Info("Admin client ServiceAccount exists but is not managed by this AIStore CR, skipping",
+			"serviceAccount", saName)
+		return false, nil
+	}
+	deleted, err := r.k8sClient.DeleteResourceIfExists(ctx, existing)
+	if err != nil {
+		return false, err
 	}
 	if deleted {
-		logger.Info("Deleted admin client deployment", "name", nsName.Name)
+		logger.Info("Deleted admin client ServiceAccount", "name", saName.Name)
 	}
-	return nil
+	return deleted, nil
 }
 
-func (r *Reconciler) createClientDeployment(ctx context.Context, ais *aisv1.AIStore) error {
-	authServiceURL, err := r.authServiceURL(ctx, ais)
-	if err != nil {
-		return err
+// reconcileClientDeployment creates or updates an admin client deployment to match the AIS spec.
+func (r *Reconciler) reconcileClientDeployment(ctx context.Context, ais *aisv1.AIStore, existing *apiv1.Deployment, config adminclient.Config) error {
+	desired := adminclient.NewClientDeployment(ais, config)
+	if existing == nil {
+		if _, err := r.k8sClient.CreateOrUpdateResource(ctx, ais, desired); err != nil {
+			return err
+		}
+		logf.FromContext(ctx).Info("Created admin client deployment", "name", desired.Name)
+		return nil
 	}
-	clientDeploy := adminclient.NewClientDeployment(ais, authServiceURL)
-	if _, createErr := r.k8sClient.CreateOrUpdateResource(ctx, ais, clientDeploy); createErr != nil {
-		return createErr
-	}
-	logf.FromContext(ctx).Info("Created admin client deployment", "name", clientDeploy.Name)
-	return nil
-}
-
-// Reconcile an existing admin client deployment to match the AIS spec
-func (r *Reconciler) reconcileClientDeployment(ctx context.Context, ais *aisv1.AIStore, existing *apiv1.Deployment) error {
-	authServiceURL, err := r.authServiceURL(ctx, ais)
-	if err != nil {
-		return err
-	}
-	desired := adminclient.NewClientDeployment(ais, authServiceURL)
 	modified := existing.DeepCopy()
 	changed, reason := adminclient.SyncDeployment(desired, modified)
 	if !changed {
@@ -936,14 +981,19 @@ func (r *Reconciler) reconcileClientDeployment(ctx context.Context, ais *aisv1.A
 	return r.k8sClient.Patch(ctx, modified, k8sclient.MergeFrom(existing))
 }
 
-// authServiceURL returns the URL of the auth service the cluster's profile names, or an empty
-// string for a cluster that requests no authentication.
-func (r *Reconciler) authServiceURL(ctx context.Context, ais *aisv1.AIStore) (string, error) {
+func (r *Reconciler) adminClientAuthConfig(ctx context.Context, ais *aisv1.AIStore) (adminclient.Config, error) {
 	profile, err := r.k8sClient.GetReferencedAuthProfile(ctx, ais)
 	if err != nil || profile == nil {
-		return "", err
+		return adminclient.Config{}, err
 	}
-	return profile.Spec.ServiceURL, nil
+	config := adminclient.Config{ServiceURL: profile.Spec.ServiceURL}
+	if profile.Spec.TokenExchange != nil {
+		config.SubjectTokenAudience = profile.Spec.TokenExchange.SubjectTokenAudience
+		if config.SubjectTokenAudience == "" {
+			config.SubjectTokenAudience = services.DefaultSubjectTokenAudience
+		}
+	}
+	return config, nil
 }
 
 func (r *Reconciler) disableRebalance(ctx context.Context, ais *aisv1.AIStore, reason aisv1.ClusterConditionReason, msg string) error {

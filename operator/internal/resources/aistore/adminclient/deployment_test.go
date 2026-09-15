@@ -35,7 +35,7 @@ var _ = Describe("Admin Client Deployment", Label("short"), func() {
 			ais := baseAIS()
 			ais.Spec.ImagePullSecrets = []corev1.LocalObjectReference{{Name: "registry-creds"}}
 
-			deployment := adminclient.NewClientDeployment(ais, "")
+			deployment := adminclient.NewClientDeployment(ais, adminclient.Config{})
 			podSpec := deployment.Spec.Template.Spec
 
 			Expect(podSpec.ServiceAccountName).To(Equal("default"))
@@ -46,7 +46,7 @@ var _ = Describe("Admin Client Deployment", Label("short"), func() {
 		It("should reconcile service account security settings", func() {
 			ais := baseAIS()
 			ais.Spec.ImagePullSecrets = []corev1.LocalObjectReference{{Name: "registry-creds"}}
-			desired := adminclient.NewClientDeployment(ais, "")
+			desired := adminclient.NewClientDeployment(ais, adminclient.Config{})
 			current := desired.DeepCopy()
 			current.Spec.Template.Spec.ServiceAccountName = "test-ais-sa"
 			current.Spec.Template.Spec.AutomountServiceAccountToken = apc.Ptr(true)
@@ -60,12 +60,44 @@ var _ = Describe("Admin Client Deployment", Label("short"), func() {
 			Expect(reason).To(ContainSubstring("imagePullSecrets"))
 			Expect(current.Spec.Template.Spec).To(Equal(desired.Spec.Template.Spec))
 		})
+
+		It("should project a profile-scoped service account token", func() {
+			ais := baseAIS()
+			config := adminclient.Config{SubjectTokenAudience: "token-service"}
+
+			deployment := adminclient.NewClientDeployment(ais, config)
+			podSpec := deployment.Spec.Template.Spec
+
+			Expect(podSpec.ServiceAccountName).To(Equal(ais.AdminClientName()))
+			Expect(podSpec.AutomountServiceAccountToken).To(HaveValue(BeFalse()))
+			Expect(podSpec.Volumes).To(HaveLen(1))
+			projection := podSpec.Volumes[0].Projected.Sources[0].ServiceAccountToken
+			Expect(projection.Audience).To(Equal("token-service"))
+			Expect(projection.Path).To(Equal("token"))
+			Expect(podSpec.Containers[0].VolumeMounts).To(ContainElement(corev1.VolumeMount{
+				Name: "auth-subject-token", MountPath: "/var/run/secrets/ais/auth", ReadOnly: true,
+			}))
+		})
+	})
+
+	Describe("ServiceAccount", func() {
+		It("should use the admin client name and standard resource labels", func() {
+			ais := baseAIS()
+			serviceAccount := adminclient.ServiceAccount(ais)
+
+			Expect(serviceAccount.Name).To(Equal(ais.AdminClientName()))
+			Expect(serviceAccount.Labels).To(SatisfyAll(
+				HaveKeyWithValue("app.kubernetes.io/name", ais.AdminClientName()),
+				HaveKeyWithValue("app.kubernetes.io/component", "client"),
+				HaveKeyWithValue("app.kubernetes.io/managed-by", "ais-operator"),
+			))
+		})
 	})
 
 	Describe("NewClientDeployment AuthN env", func() {
 		It("should set AIS_AUTHN_URL from the resolved service URL", func() {
 			ais := baseAIS()
-			deploy := adminclient.NewClientDeployment(ais, "https://authn.test:52001")
+			deploy := adminclient.NewClientDeployment(ais, adminclient.Config{ServiceURL: "https://authn.test:52001"})
 			Expect(deploy.Spec.Template.Spec.Containers[0].Env).To(ContainElement(corev1.EnvVar{
 				Name:  "AIS_AUTHN_URL",
 				Value: "https://authn.test:52001",
@@ -74,7 +106,7 @@ var _ = Describe("Admin Client Deployment", Label("short"), func() {
 
 		It("should not include authn env vars when no auth service is resolved", func() {
 			ais := baseAIS()
-			deploy := adminclient.NewClientDeployment(ais, "")
+			deploy := adminclient.NewClientDeployment(ais, adminclient.Config{})
 			for _, e := range deploy.Spec.Template.Spec.Containers[0].Env {
 				Expect(e.Name).NotTo(Equal("AIS_AUTHN_URL"))
 			}

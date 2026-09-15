@@ -30,14 +30,59 @@ const (
 	// ComponentLabelValue is the value for the component labels
 	ComponentLabelValue = "client"
 	// CAVolumeName is the name of the volume and volume mount for CA certificates
-	CAVolumeName = "ais-ca"
+	CAVolumeName           = "ais-ca"
+	subjectTokenVolumeName = "auth-subject-token"        //nolint:gosec // This is a volume name, not a credential
+	subjectTokenMountPath  = "/var/run/secrets/ais/auth" //nolint:gosec // This is a file path, not a credential
+	subjectTokenFileName   = "token"
+	subjectTokenTTL        = int64(3600)
 )
+
+type Config struct {
+	ServiceURL           string
+	SubjectTokenAudience string
+}
 
 func DeploymentNSName(ais *aisv1.AIStore) types.NamespacedName {
 	return types.NamespacedName{
 		Name:      ais.AdminClientName(),
 		Namespace: ais.Namespace,
 	}
+}
+
+// ServiceAccount returns the dedicated service account used by the admin client.
+func ServiceAccount(ais *aisv1.AIStore) *corev1.ServiceAccount {
+	nsName := DeploymentNSName(ais)
+	labels := selectorLabels(ais)
+	labels[cmn.LabelManagedBy] = cmn.LabelManagedByValue
+	return &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{
+		Name: nsName.Name, Namespace: nsName.Namespace, Labels: labels,
+	}}
+}
+
+// UsesSubjectToken reports whether the admin client requires a projected subject token.
+func (c *Config) UsesSubjectToken() bool {
+	return c.SubjectTokenAudience != ""
+}
+
+func subjectTokenVolumes(config Config) []corev1.Volume {
+	if !config.UsesSubjectToken() {
+		return nil
+	}
+	return []corev1.Volume{{
+		Name: subjectTokenVolumeName,
+		VolumeSource: corev1.VolumeSource{Projected: &corev1.ProjectedVolumeSource{
+			Sources: []corev1.VolumeProjection{{ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
+				Audience: config.SubjectTokenAudience, ExpirationSeconds: aisapc.Ptr(subjectTokenTTL), Path: subjectTokenFileName,
+			}}},
+		}},
+	}}
+}
+
+func subjectTokenVolumeMounts(config Config) []corev1.VolumeMount {
+	if !config.UsesSubjectToken() {
+		return nil
+	}
+	return []corev1.VolumeMount{{Name: subjectTokenVolumeName, MountPath: subjectTokenMountPath, ReadOnly: true}}
 }
 
 func caVolumes(caConfigMap *aisv1.CAConfigMapRef) []corev1.Volume {
@@ -103,8 +148,8 @@ func selectorLabels(ais *aisv1.AIStore) map[string]string {
 }
 
 // NewClientDeployment builds the admin client deployment for the cluster. Returns nil when the
-// cluster requests no admin client. An empty authServiceURL leaves the auth service env unset in the pod.
-func NewClientDeployment(ais *aisv1.AIStore, authServiceURL string) *appsv1.Deployment {
+// cluster requests no admin client. An empty service URL leaves the auth service env unset in the pod.
+func NewClientDeployment(ais *aisv1.AIStore, config Config) *appsv1.Deployment {
 	clientSpec := ais.Spec.AdminClient
 	if clientSpec == nil {
 		return nil
@@ -119,14 +164,18 @@ func NewClientDeployment(ais *aisv1.AIStore, authServiceURL string) *appsv1.Depl
 	podLabels := selectorLabels(ais)
 	maps.Copy(podLabels, clientSpec.Labels)
 
-	volumes := caVolumes(clientSpec.CAConfigMap)
-	volumeMounts := caVolumeMounts(clientSpec.CAConfigMap)
+	volumes := append(caVolumes(clientSpec.CAConfigMap), subjectTokenVolumes(config)...)
+	volumeMounts := append(caVolumeMounts(clientSpec.CAConfigMap), subjectTokenVolumeMounts(config)...)
+	serviceAccountName := "default"
+	if config.UsesSubjectToken() {
+		serviceAccountName = ais.AdminClientName()
+	}
 
 	container := corev1.Container{
 		Name:         "ais-client",
 		Image:        image,
 		Command:      []string{"sleep", "infinity"},
-		Env:          buildClientEnv(ais, authServiceURL),
+		Env:          buildClientEnv(ais, config.ServiceURL),
 		Resources:    clientSpec.Resources,
 		VolumeMounts: volumeMounts,
 	}
@@ -152,7 +201,7 @@ func NewClientDeployment(ais *aisv1.AIStore, authServiceURL string) *appsv1.Depl
 					Annotations: clientSpec.Annotations,
 				},
 				Spec: corev1.PodSpec{
-					ServiceAccountName:           "default",
+					ServiceAccountName:           serviceAccountName,
 					AutomountServiceAccountToken: aisapc.Ptr(false),
 					ImagePullSecrets:             ais.Spec.ImagePullSecrets,
 					NodeSelector:                 clientSpec.NodeSelector,

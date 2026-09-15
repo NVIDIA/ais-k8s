@@ -185,6 +185,7 @@ spec:
 ```
 
 For clusters with a configured auth profile reference `spec.auth.profileRef`, the admin client is pre-configured with the environment variable `AIS_AUTHN_URL` set to the auth service URL.
+Token-exchange profiles also create a dedicated service account and project its token at `/var/run/secrets/ais/auth/token`.
 
 Export credentials:
 

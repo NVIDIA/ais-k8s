@@ -14,6 +14,7 @@ import (
 	"github.com/NVIDIA/aistore/cmn/cos"
 	aisv1 "github.com/ais-operator/api/aistore/v1beta1"
 	aisclient "github.com/ais-operator/internal/client"
+	"github.com/ais-operator/internal/resources/aistore/adminclient"
 	"github.com/ais-operator/internal/resources/aistore/cmn"
 	"github.com/ais-operator/internal/resources/aistore/proxy"
 	"github.com/ais-operator/internal/resources/aistore/target"
@@ -37,6 +38,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 var _ = Describe("AIStoreController", func() {
@@ -1149,6 +1151,89 @@ var _ = Describe("AIStoreController", func() {
 			hosts, err := r.targetPublicHosts(ctx, ais, aisv1.PubNetDNSModeNode)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(hosts).To(ContainElements(nodeName, lbIP, lbHostname))
+		})
+	})
+
+	Describe("client ServiceAccount lifecycle", func() {
+		const (
+			aisName   = "ais"
+			namespace = "ais-ns"
+		)
+
+		newAIS := func() *aisv1.AIStore {
+			return &aisv1.AIStore{ObjectMeta: metav1.ObjectMeta{
+				Name: aisName, Namespace: namespace, UID: "ais-uid",
+			}}
+		}
+		newServiceAccount := func(ais *aisv1.AIStore) *corev1.ServiceAccount {
+			nsName := adminclient.DeploymentNSName(ais)
+			return &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{
+				Name: nsName.Name, Namespace: nsName.Namespace,
+			}}
+		}
+
+		reconcilerWithSA := func(sa *corev1.ServiceAccount) *Reconciler {
+			builder := fake.NewClientBuilder().WithScheme(scheme.Scheme)
+			if sa != nil {
+				builder = builder.WithObjects(sa)
+			}
+			return &Reconciler{k8sClient: aisclient.NewClient(builder.Build(), scheme.Scheme)}
+		}
+
+		It("deletes an account owned by the CR", func(ctx SpecContext) {
+			ais := newAIS()
+			sa := newServiceAccount(ais)
+			Expect(controllerutil.SetControllerReference(ais, sa, scheme.Scheme)).To(Succeed())
+			r := reconcilerWithSA(sa)
+
+			deleted, err := r.removeClientServiceAccount(ctx, ais)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(deleted).To(BeTrue())
+
+			err = r.k8sClient.Get(ctx, adminclient.DeploymentNSName(ais), &corev1.ServiceAccount{})
+			Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+		})
+
+		It("preserves a same-named account the CR does not own", func(ctx SpecContext) {
+			ais := newAIS()
+			r := reconcilerWithSA(newServiceAccount(ais))
+
+			deleted, err := r.removeClientServiceAccount(ctx, ais)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(deleted).To(BeFalse())
+
+			err = r.k8sClient.Get(ctx, adminclient.DeploymentNSName(ais), &corev1.ServiceAccount{})
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("rejects a same-named account when reconciling the admin client", func(ctx SpecContext) {
+			ais := newAIS()
+			r := reconcilerWithSA(newServiceAccount(ais))
+
+			err := r.reconcileClientServiceAccount(ctx, ais, adminclient.Config{SubjectTokenAudience: "token-service"})
+
+			Expect(err).To(MatchError(ContainSubstring("exists but is not managed by this AIStore CR")))
+		})
+
+		It("reconciles labels on an owned account", func(ctx SpecContext) {
+			ais := newAIS()
+			sa := newServiceAccount(ais)
+			Expect(controllerutil.SetControllerReference(ais, sa, scheme.Scheme)).To(Succeed())
+			r := reconcilerWithSA(sa)
+
+			err := r.reconcileClientServiceAccount(ctx, ais, adminclient.Config{SubjectTokenAudience: "token-service"})
+			Expect(err).ToNot(HaveOccurred())
+
+			updated := &corev1.ServiceAccount{}
+			Expect(r.k8sClient.Get(ctx, adminclient.DeploymentNSName(ais), updated)).To(Succeed())
+			Expect(updated.Labels).To(HaveKeyWithValue(cmn.LabelManagedBy, cmn.LabelManagedByValue))
+			Expect(updated.Labels).To(HaveKeyWithValue(cmn.LabelComponentPrefixed, adminclient.ComponentLabelValue))
+		})
+
+		It("reports nothing deleted when no account exists", func(ctx SpecContext) {
+			deleted, err := reconcilerWithSA(nil).removeClientServiceAccount(ctx, newAIS())
+			Expect(err).ToNot(HaveOccurred())
+			Expect(deleted).To(BeFalse())
 		})
 	})
 

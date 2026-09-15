@@ -10,7 +10,6 @@ import (
 	"time"
 
 	aisv1 "github.com/ais-operator/api/aistore/v1beta1"
-	"github.com/ais-operator/internal/resources/aistore/adminclient"
 	"github.com/ais-operator/internal/resources/aistore/cmn"
 	"github.com/ais-operator/internal/resources/aistore/proxy"
 	"github.com/ais-operator/internal/resources/aistore/target"
@@ -143,7 +142,7 @@ func (r *Reconciler) cleanupRBAC(ctx context.Context, ais *aisv1.AIStore) (anyUp
 }
 
 func (r *Reconciler) cleanupAdminClient(ctx context.Context, ais *aisv1.AIStore) (bool, error) {
-	return r.k8sClient.DeleteDeploymentIfExists(ctx, adminclient.DeploymentNSName(ais))
+	return r.removeAdminClientResources(ctx, ais)
 }
 
 func (r *Reconciler) cleanupTLS(ctx context.Context, ais *aisv1.AIStore) (bool, error) {
