@@ -206,6 +206,13 @@ spec:
                           grpc:
                             description: GRPC specifies a GRPC HealthCheckRequest.
                             properties:
+                              mode:
+                                description: |-
+                                  mode specifies the connection mode for the gRPC health probe.
+                                  Set to "TLS" to use TLS without certificate verification.
+                                  Set to "Plaintext" to use a plaintext (insecure) connection explicitly.
+                                  If not specified, the probe uses a plaintext (insecure) connection.
+                                type: string
                               port:
                                 description: Port number of the gRPC service. Number
                                   must be in the range 1 to 65535.
@@ -264,6 +271,11 @@ spec:
                                   Number must be in the range 1 to 65535.
                                   Name must be an IANA_SVC_NAME.
                                 x-kubernetes-int-or-string: true
+                              protocol:
+                                description: |-
+                                  Protocol selects the wire protocol for the probe connection.
+                                  Nil defaults to HTTP/1.1.
+                                type: string
                               scheme:
                                 description: |-
                                   Scheme to use for connecting to the host.
@@ -361,6 +373,13 @@ spec:
                           grpc:
                             description: GRPC specifies a GRPC HealthCheckRequest.
                             properties:
+                              mode:
+                                description: |-
+                                  mode specifies the connection mode for the gRPC health probe.
+                                  Set to "TLS" to use TLS without certificate verification.
+                                  Set to "Plaintext" to use a plaintext (insecure) connection explicitly.
+                                  If not specified, the probe uses a plaintext (insecure) connection.
+                                type: string
                               port:
                                 description: Port number of the gRPC service. Number
                                   must be in the range 1 to 65535.
@@ -419,6 +438,11 @@ spec:
                                   Number must be in the range 1 to 65535.
                                   Name must be an IANA_SVC_NAME.
                                 x-kubernetes-int-or-string: true
+                              protocol:
+                                description: |-
+                                  Protocol selects the wire protocol for the probe connection.
+                                  Nil defaults to HTTP/1.1.
+                                type: string
                               scheme:
                                 description: |-
                                   Scheme to use for connecting to the host.
@@ -1796,11 +1820,8 @@ spec:
                               Eligible volumes are in-tree FibreChannel and iSCSI volumes, and all CSI volumes
                               whose CSI driver announces SELinux support by setting spec.seLinuxMount: true in their
                               CSIDriver instance. Other volumes are always re-labelled recursively.
-                              "MountOption" value is allowed only when SELinuxMount feature gate is enabled.
 
-                              If not specified and SELinuxMount feature gate is enabled, "MountOption" is used.
-                              If not specified and SELinuxMount feature gate is disabled, "MountOption" is used for ReadWriteOncePod volumes
-                              and "Recursive" for all other volumes.
+                              If not specified, "MountOption" is used.
 
                               This field affects only Pods that have SELinux label set, either in PodSecurityContext or in SecurityContext of all containers.
 

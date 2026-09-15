@@ -17,6 +17,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ### Changed
 
+- Updated dependency minor versions.
 - Host-cleanup Jobs now carry an owner reference to their `AIStore` CR, and only owned Jobs are waited on or deleted on cluster deletion.
   - Avoid upgrading mid host-cleanup; pre-upgrade Jobs lack the owner reference and may need manual deletion.
 - When using token exchange for acquiring an auth token, the Operator will always include an `aud` field in the subject token to prevent it from being used for K8s API server requests if intercepted.
