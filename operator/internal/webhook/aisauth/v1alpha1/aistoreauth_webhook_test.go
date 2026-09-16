@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	aisapc "github.com/NVIDIA/aistore/api/apc"
 	authv1alpha1 "github.com/ais-operator/api/aisauth/v1alpha1"
 	authorizationv1 "k8s.io/api/authorization/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -105,11 +106,6 @@ func TestValidateSecretRefs(t *testing.T) {
 			existingSecrets: []string{"admin", "hmac"},
 		},
 		{
-			name:       "hmac mode with a missing signing secret is rejected",
-			hmac:       secretRef("hmac"),
-			wantFields: []string{"spec.adminSecret", "spec.hmacSecret"},
-		},
-		{
 			name:            "setting both hmac and rsa passphrase secrets is rejected",
 			admin:           secretRef("admin"),
 			hmac:            secretRef("hmac"),
@@ -118,18 +114,9 @@ func TestValidateSecretRefs(t *testing.T) {
 			wantFields:      []string{"spec.rsaPassphraseSecret"},
 		},
 		{
-			name:       "neither signing secret is rejected only for the missing admin secret (external or unprotected RSA key)",
-			wantFields: []string{"spec.adminSecret"},
-		},
-		{
-			name:            "rsa mode without a passphrase reference is admitted",
+			name:            "neither signing secret is admitted (external or unprotected RSA key)",
 			admin:           secretRef("admin"),
 			existingSecrets: []string{"admin"},
-		},
-		{
-			name:       "rsa mode with a missing passphrase secret is rejected",
-			rsa:        secretRef("rsa-pass"),
-			wantFields: []string{"spec.adminSecret", "spec.rsaPassphraseSecret"},
 		},
 		{
 			name:            "missing admin secret is rejected",
@@ -162,11 +149,6 @@ func TestValidateSecretRefs(t *testing.T) {
 			wantFields: []string{"spec.adminSecret"},
 		},
 		{
-			name:            "admin secret unset but pod annotations present is admitted",
-			podAnnotations:  map[string]string{"vault.hashicorp.com/agent-inject": "true"},
-			existingSecrets: nil,
-		},
-		{
 			name:           "empty pod annotations map does not satisfy the admin credential requirement",
 			podAnnotations: map[string]string{},
 			wantFields:     []string{"spec.adminSecret"},
@@ -191,6 +173,81 @@ func TestValidateSecretRefs(t *testing.T) {
 			assertResult(t, err, tc.wantFields)
 		})
 	}
+}
+
+// TestValidateNonCredentialSecretRefs covers the Secret references that are access-reviewed
+// but not required to exist, unlike the credential Secrets.
+func TestValidateNonCredentialSecretRefs(t *testing.T) {
+	tests := []struct {
+		name        string
+		tls         *authv1alpha1.TLSSpec
+		pullSecrets []corev1.LocalObjectReference
+		denyAccess  bool
+		wantFields  []string // empty means the spec is admitted
+	}{
+		{
+			name:        "empty names are treated as unset and admitted",
+			tls:         &authv1alpha1.TLSSpec{SecretName: aisapc.Ptr("")},
+			pullSecrets: []corev1.LocalObjectReference{{}},
+			denyAccess:  true,
+		},
+		{
+			name: "a cert-manager certificate names no secret and is admitted",
+			tls: &authv1alpha1.TLSSpec{Certificate: &authv1alpha1.TLSCertificateConfig{
+				IssuerRef: authv1alpha1.CertIssuerRef{Name: "issuer"},
+			}},
+			denyAccess: true,
+		},
+		{
+			name:        "references the user may get are admitted even though the secrets do not exist",
+			tls:         &authv1alpha1.TLSSpec{SecretName: aisapc.Ptr("authn-tls")},
+			pullSecrets: []corev1.LocalObjectReference{{Name: "registry-a"}, {Name: "registry-b"}},
+		},
+		{
+			name:        "references the user may not get are rejected together",
+			tls:         &authv1alpha1.TLSSpec{SecretName: aisapc.Ptr("authn-tls")},
+			pullSecrets: []corev1.LocalObjectReference{{Name: "registry-a"}, {Name: "registry-b"}},
+			denyAccess:  true,
+			wantFields: []string{
+				"spec.tls.secretName",
+				"spec.deployment.pod.imagePullSecrets[0].name",
+				"spec.deployment.pod.imagePullSecrets[1].name",
+			},
+		},
+		{
+			name:        "a name shared with another field is reported once, under that field",
+			tls:         &authv1alpha1.TLSSpec{SecretName: aisapc.Ptr("shared")},
+			pullSecrets: []corev1.LocalObjectReference{{Name: "shared"}},
+			denyAccess:  true,
+			wantFields:  []string{"spec.tls.secretName"},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// pod annotations carry the admin credentials so that no credential Secret is reviewed
+			authn := newAuthN(nil, nil, nil)
+			authn.Spec.Deployment.Pod = &authv1alpha1.PodSpec{
+				Annotations:      map[string]string{"vault.hashicorp.com/agent-inject": "true"},
+				ImagePullSecrets: tc.pullSecrets,
+			}
+			authn.Spec.TLS = tc.tls
+			v := newValidator(!tc.denyAccess)
+			_, err := v.ValidateCreate(authorContext(), authn)
+			assertResult(t, err, tc.wantFields)
+		})
+	}
+}
+
+// A Secret that a credential field shares with a review-only field must still exist.
+func TestValidateSharedSecretMustExist(t *testing.T) {
+	authn := newAuthN(secretRef("shared"), nil, nil)
+	authn.Spec.TLS = &authv1alpha1.TLSSpec{SecretName: aisapc.Ptr("shared")}
+
+	_, err := newValidator(true).ValidateCreate(authorContext(), authn)
+	assertResult(t, err, []string{"spec.adminSecret"})
+
+	_, err = newValidator(true, "shared").ValidateCreate(authorContext(), authn)
+	assertResult(t, err, nil)
 }
 
 // TestValidateConfig covers the AuthN config constraints the CRD schema cannot express.
