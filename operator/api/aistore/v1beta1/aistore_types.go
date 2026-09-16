@@ -1243,12 +1243,6 @@ func (ais *AIStore) TokenAudience() string {
 	return ais.NamespacedName().String()
 }
 
-// RequiredAudiences extracts all audiences from the AIStore cluster's required claims if set.
-// Returns nil if not configured
-func (ais *AIStore) RequiredAudiences() []string {
-	return ais.Spec.ConfigToUpdate.RequiredAudiences()
-}
-
 func (s *DaemonSpec) autoScaleMaxUnavailable() int32 {
 	if s.AutoScaleConf == nil || s.AutoScaleConf.MaxUnavailable == nil {
 		return 0

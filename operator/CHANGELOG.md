@@ -10,8 +10,13 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ## Unreleased
 
+>**IMPORTANT**: AIStore specs setting the optional `spec.configToUpdate.auth.required_claims.aud` must include the cluster's `<namespace>/<name>` **before** upgrading to this version. 
+> This is enforced on any changed spec in the `v4.1.0` webhook, but prior operator versions used the config field directly to determine the operator's included token audience.
+> Clusters upgraded without this must revert to an older operator version or set the `required_claims.aud` config manually via AIS CLI. 
+
 ### Changed
 
+- Operator now only includes the cluster's `<namespace>/<name>` in the AIStore token audience when using token exchange, if an audience is required by the AIS cluster.
 - All user-provided secret references must pass a SubjectAccessReview.
 - Target decommission scale-down waits until each outgoing target has left the cluster map before shrinking the StatefulSet. A target already in maintenance is decommissioned only once it has the post-rebalance flag (`InMaintPostReb`).
   - A target whose maintenance skipped rebalance, or whose rebalance aborted, never gets that flag, and AIS does not rebalance on its own when decommissioning a node that is already in maintenance. Scale-down blocks on such a target until it is taken out of maintenance. See [Incomplete Transitions](https://github.com/NVIDIA/aistore/blob/main/docs/lifecycle_node.md#incomplete-transitions).

@@ -234,7 +234,7 @@ func isClusterAudience(aud string) bool {
 // other than this one.
 func validateRequiredAudiences(ais *aisv1.AIStore) error {
 	own := ais.TokenAudience()
-	for i, aud := range ais.RequiredAudiences() {
+	for i, aud := range ais.Spec.ConfigToUpdate.RequiredAudiences() {
 		if aud == own || !isClusterAudience(aud) {
 			continue
 		}
@@ -295,7 +295,7 @@ func validateTokenExchangeAud(ais *aisv1.AIStore, prof *authv1alpha1.AIStoreAuth
 		return nil
 	}
 	// AIS only validates the claim when at least one audience is listed
-	required := ais.RequiredAudiences()
+	required := ais.Spec.ConfigToUpdate.RequiredAudiences()
 	if len(required) == 0 {
 		return nil
 	}

@@ -67,3 +67,38 @@ func TestConfigToUpdateRequiresClientAuth(t *testing.T) {
 		})
 	}
 }
+
+func TestConfigToUpdateRequiredAudiences(t *testing.T) {
+	audConf := func(aud *[]string) *ConfigToUpdate {
+		return &ConfigToUpdate{Auth: &AuthConfToUpdate{
+			RequiredClaims: &RequiredClaimsConfToUpdate{Aud: aud},
+		}}
+	}
+	tests := []struct {
+		name string
+		conf *ConfigToUpdate
+		want []string
+	}{
+		{name: "nil config"},
+		{name: "no auth section", conf: &ConfigToUpdate{}},
+		{name: "no required claims", conf: &ConfigToUpdate{Auth: &AuthConfToUpdate{}}},
+		{name: "aud unset", conf: audConf(nil)},
+		{name: "aud empty", conf: audConf(&[]string{}), want: []string{}},
+		{
+			name: "single audience",
+			conf: audConf(&[]string{"namespace/cluster-name"}),
+			want: []string{"namespace/cluster-name"},
+		},
+		{
+			name: "multiple audiences",
+			conf: audConf(&[]string{"namespace/cluster-name", "admin", "global-access"}),
+			want: []string{"namespace/cluster-name", "admin", "global-access"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(subT *testing.T) {
+			g := NewWithT(subT)
+			g.Expect(tt.conf.RequiredAudiences()).To(Equal(tt.want))
+		})
+	}
+}

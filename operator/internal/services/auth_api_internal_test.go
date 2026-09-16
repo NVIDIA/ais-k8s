@@ -115,6 +115,44 @@ var _ = Describe("Subject token", func() {
 			Expect(request.Spec.Audiences).To(Equal([]string{DefaultSubjectTokenAudience}))
 		})
 
+		audConf := func(aud *[]string) *aisv1.ConfigToUpdate {
+			return &aisv1.ConfigToUpdate{Auth: &aisv1.AuthConfToUpdate{
+				RequiredClaims: &aisv1.RequiredClaimsConfToUpdate{Aud: aud},
+			}}
+		}
+
+		DescribeTable("should request the cluster's own audience only when the cluster requires one",
+			func(clusterConf *aisv1.ConfigToUpdate, expected []string) {
+				var exchangedAud []string
+				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					Expect(r.ParseForm()).To(Succeed())
+					exchangedAud = r.Form["audience"]
+					w.Header().Set("Content-Type", "application/json")
+					_, _ = w.Write([]byte(`{"access_token":"exchanged","token_type":"Bearer",` +
+						`"issued_token_type":"urn:ietf:params:oauth:token-type:jwt"}`))
+				}))
+				defer server.Close()
+
+				conf := &authProfileConfig{profile: &authv1alpha1.AIStoreAuthProfile{
+					Spec: authv1alpha1.AIStoreAuthProfileSpec{
+						TokenExchange: &authv1alpha1.AuthProfileTokenExchange{},
+					},
+				}}
+				params := &api.BaseParams{Client: server.Client(), URL: server.URL}
+				ais := &aisv1.AIStore{ObjectMeta: metav1.ObjectMeta{Name: "cluster", Namespace: "tenant"}}
+				ais.Spec.ConfigToUpdate = clusterConf
+
+				_, err := authClient.getTokenViaExchange(context.Background(), params, ais, conf)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(exchangedAud).To(Equal(expected))
+			},
+			Entry("no cluster config", nil, nil),
+			Entry("no required audiences", audConf(nil), nil),
+			Entry("empty required audiences", audConf(&[]string{}), nil),
+			Entry("own audience required", audConf(&[]string{"tenant/cluster"}), []string{"tenant/cluster"}),
+			Entry("several audiences required",
+				audConf(&[]string{"tenant/cluster", "https://idp.example.com"}), []string{"tenant/cluster"}),
+		)
 	})
 
 	It("should fail when the operator ServiceAccount does not exist", func() {
@@ -138,7 +176,7 @@ var _ = Describe("Token exchange scope", func() {
 			defer server.Close()
 
 			params := &api.BaseParams{Client: server.Client(), URL: server.URL}
-			_, err := exchangeTokenWithAuthSvc(context.Background(), params, "subject-token", "/token", configured, nil)
+			_, err := exchangeTokenWithAuthSvc(context.Background(), params, "subject-token", "/token", configured, "tenant/cluster")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(exchangedScope).To(Equal(expected))
 		},

@@ -308,32 +308,34 @@ func (c *AuthClient) getTokenViaExchange(ctx context.Context, bp *api.BaseParams
 	endpoint := conf.GetTokenExchangeEndpoint()
 	scope := conf.GetTokenExchangeScope()
 
-	aud := conf.GetSubjectTokenAudience()
-	if aud == "" {
+	subjectTokenAud := conf.GetSubjectTokenAudience()
+	if subjectTokenAud == "" {
 		logger.Info("WARNING: no subject token audience provided for exchange, using default audience", "audience", DefaultSubjectTokenAudience)
 		// An empty audience is filled in by the K8s API server to allow requests to the API server itself.
 		// This default is provided to ensure the token the operator mints can ONLY be used with an auth service
 		// that does not validate audiences.
 		//
 		// If the auth service DOES validate audience, the required audience must be added to the AIStoreAuthProfile.
-		aud = DefaultSubjectTokenAudience
+		subjectTokenAud = DefaultSubjectTokenAudience
 	}
-	subjectToken, err := c.mintSubjectToken(ctx, aud)
+	subjectToken, err := c.mintSubjectToken(ctx, subjectTokenAud)
 	if err != nil {
 		return nil, err
 	}
 
-	// Get all audiences from the AIStore cluster's required claims configuration
-	// If not configured, we pass an empty slice (don't request audiences if cluster doesn't require them)
-	audiences := ais.RequiredAudiences()
-
-	tokenInfo, err := exchangeTokenWithAuthSvc(ctx, bp, subjectToken, endpoint, scope, audiences)
+	// Audience is fixed so that an AIStore editor can never request a token valid for anything else
+	// Only request if required by the cluster config -- may be validated by auth service
+	aud := ""
+	if len(ais.Spec.ConfigToUpdate.RequiredAudiences()) > 0 {
+		aud = ais.TokenAudience()
+	}
+	tokenInfo, err := exchangeTokenWithAuthSvc(ctx, bp, subjectToken, endpoint, scope, aud)
 	if err != nil {
-		logger.Error(err, "Failed to exchange token with auth service", "audiences", audiences)
+		logger.Error(err, "Failed to exchange token with auth service", "audience", aud)
 		return nil, err
 	}
 
-	logger.Info("Successfully exchanged token with auth service", "audiences", audiences)
+	logger.Info("Successfully exchanged token with auth service", "audience", aud)
 	return tokenInfo, nil
 }
 
@@ -357,7 +359,7 @@ func (c *AuthClient) mintSubjectToken(ctx context.Context, audience string) (str
 // exchangeTokenWithAuthSvc exchanges a subject token (e.g., K8s SA token) for an AIS JWT token
 // Implements RFC 8693 OAuth 2.0 Token Exchange specification
 // See: https://datatracker.ietf.org/doc/html/rfc8693
-func exchangeTokenWithAuthSvc(ctx context.Context, params *api.BaseParams, subjectToken, endpoint, scope string, audiences []string) (*TokenInfo, error) {
+func exchangeTokenWithAuthSvc(ctx context.Context, params *api.BaseParams, subjectToken, endpoint, scope, audience string) (*TokenInfo, error) {
 	logger := logf.FromContext(ctx)
 
 	// RFC 8693 Section 2.1 - Request format (form-encoded)
@@ -365,16 +367,12 @@ func exchangeTokenWithAuthSvc(ctx context.Context, params *api.BaseParams, subje
 	formData.Set("grant_type", RFC8693GrantType)                   // REQUIRED
 	formData.Set("subject_token", subjectToken)                    // REQUIRED
 	formData.Set("subject_token_type", RFC8693SubjectTokenTypeJWT) // REQUIRED
+	if audience != "" {
+		// RFC 8693 Section 2.1 - audience parameter (OPTIONAL but recommended)
+		formData.Set("audience", audience)
+	}
 	if scope != "" {
 		formData.Set("scope", scope)
-	}
-	// RFC 8693 Section 2.1 - audience parameter (OPTIONAL but recommended)
-	// Specifies the target audience(s) for the issued token
-	// Per RFC 8693, the audience parameter can appear multiple times
-	for _, audience := range audiences {
-		if audience != "" {
-			formData.Add("audience", audience)
-		}
 	}
 
 	requestURL, err := url.JoinPath(params.URL, endpoint)
