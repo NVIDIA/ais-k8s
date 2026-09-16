@@ -17,6 +17,7 @@ import (
 	authenticationv1 "k8s.io/api/authentication/v1"
 	authorizationv1 "k8s.io/api/authorization/v1"
 	corev1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -411,6 +412,13 @@ func newSARWebhook(t *testing.T, allowed bool, objs ...client.Object) (*AIStoreW
 	if err := authv1alpha1.AddToScheme(scheme); err != nil {
 		t.Fatalf("failed to add aisauth scheme: %v", err)
 	}
+	// validateSpec lists Nodes and StorageClasses before it reaches the Secret references
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("failed to add core scheme: %v", err)
+	}
+	if err := storagev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("failed to add storage scheme: %v", err)
+	}
 	reviews := &[]*authorizationv1.SubjectAccessReview{}
 	c := fake.NewClientBuilder().
 		WithScheme(scheme).
@@ -529,6 +537,214 @@ func TestValidateAuthProfile(t *testing.T) {
 		g.Expect(apierrors.IsInvalid(err)).To(BeTrue())
 		g.Expect(err).To(MatchError(ContainSubstring(`is not authorized to use aistoreauthprofiles resource "prod-authn"`)))
 	})
+}
+
+func secretGetAttrs(name string) *authorizationv1.ResourceAttributes {
+	return &authorizationv1.ResourceAttributes{
+		Verb:      "get",
+		Resource:  "secrets",
+		Namespace: tenantNS,
+		Name:      name,
+	}
+}
+
+// secretEnv returns an env var sourced from the named Secret.
+func secretEnv(secretName string) corev1.EnvVar {
+	return corev1.EnvVar{
+		Name: "SECRET_VALUE",
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{Name: secretName},
+				Key:                  "token",
+			},
+		},
+	}
+}
+
+// nonSecretEnv returns env vars that reference no Secret, covering every other way to set
+// valueFrom so that reading one cannot dereference a nil SecretKeyRef.
+func nonSecretEnv() []corev1.EnvVar {
+	return []corev1.EnvVar{
+		{Name: "LITERAL_VALUE", Value: "plain"},
+		{Name: "CONFIGMAP_VALUE", ValueFrom: &corev1.EnvVarSource{
+			ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{Name: "settings"},
+				Key:                  "token",
+			},
+		}},
+		{Name: "FIELD_VALUE", ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+		}},
+		{Name: "RESOURCE_VALUE", ValueFrom: &corev1.EnvVarSource{
+			ResourceFieldRef: &corev1.ResourceFieldSelector{Resource: "limits.memory"},
+		}},
+	}
+}
+
+// paddedSecretEnv returns env vars whose only Secret reference is the last entry.
+func paddedSecretEnv(secretName string) []corev1.EnvVar {
+	return append(nonSecretEnv(), secretEnv(secretName))
+}
+
+// secretEnvPath names the field of the Secret entry that paddedSecretEnv appends.
+func secretEnvPath(component string) string {
+	return field.NewPath("spec", component, "env").
+		Index(len(nonSecretEnv())).
+		Child("valueFrom", "secretKeyRef", "name").String()
+}
+
+// secretAIS returns a cluster in tenantNS with every user-provided Secret field set.
+func secretAIS() *aisv1.AIStore {
+	ais := &aisv1.AIStore{}
+	ais.Namespace = tenantNS
+	ais.Spec.GCPSecretName = aisapc.Ptr("gcp-creds")
+	ais.Spec.AWSSecretName = aisapc.Ptr("aws-creds")
+	ais.Spec.OCISecretName = aisapc.Ptr("oci-creds")
+	ais.Spec.TracingTokenSecretName = aisapc.Ptr("tracing-token")
+	ais.Spec.AuthNSecretName = aisapc.Ptr("authn-signing-key")
+	ais.Spec.TLS = &aisv1.TLSSpec{SecretName: aisapc.Ptr("tls-cert")}
+	ais.Spec.ImagePullSecrets = []corev1.LocalObjectReference{{Name: "registry-a"}, {Name: "registry-b"}}
+	ais.Spec.ProxySpec.Env = []corev1.EnvVar{secretEnv("proxy-env-creds")}
+	ais.Spec.TargetSpec.Env = []corev1.EnvVar{secretEnv("target-env-creds")}
+	ais.Spec.AdminClient = &aisv1.AdminClientSpec{Env: []corev1.EnvVar{secretEnv("admin-env-creds")}}
+	return ais
+}
+
+func TestValidateSecretRefs(t *testing.T) {
+	ctx := admissionCtx()
+
+	for _, tt := range []struct {
+		name        string
+		ais         *aisv1.AIStore
+		wantReviews []*authorizationv1.ResourceAttributes
+	}{
+		{
+			// spec.tls stays unset to exercise its nil guard
+			name: "references without a secret name are not reviewed",
+			ais: &aisv1.AIStore{Spec: aisv1.AIStoreSpec{
+				AWSSecretName:    aisapc.Ptr(""),
+				ImagePullSecrets: []corev1.LocalObjectReference{{}},
+				ProxySpec:        aisv1.DaemonSpec{Env: nonSecretEnv()},
+			}},
+		},
+		{
+			name: "a repeated secret name is reviewed once",
+			ais: &aisv1.AIStore{
+				ObjectMeta: metav1.ObjectMeta{Namespace: tenantNS},
+				Spec: aisv1.AIStoreSpec{
+					AWSSecretName: aisapc.Ptr("shared-creds"),
+					ProxySpec:     aisv1.DaemonSpec{Env: []corev1.EnvVar{secretEnv("shared-creds")}},
+					TargetSpec: aisv1.TargetSpec{
+						DaemonSpec: aisv1.DaemonSpec{Env: []corev1.EnvVar{secretEnv("shared-creds")}},
+					},
+				},
+			},
+			wantReviews: []*authorizationv1.ResourceAttributes{secretGetAttrs("shared-creds")},
+		},
+		{
+			name: "every secret ref is reviewed",
+			ais:  secretAIS(),
+			wantReviews: []*authorizationv1.ResourceAttributes{
+				secretGetAttrs("gcp-creds"),
+				secretGetAttrs("aws-creds"),
+				secretGetAttrs("oci-creds"),
+				secretGetAttrs("tracing-token"),
+				secretGetAttrs("authn-signing-key"),
+				secretGetAttrs("tls-cert"),
+				secretGetAttrs("registry-a"),
+				secretGetAttrs("registry-b"),
+				secretGetAttrs("proxy-env-creds"),
+				secretGetAttrs("target-env-creds"),
+				secretGetAttrs("admin-env-creds"),
+			},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
+			webhook, reviews := newSARWebhook(t, true)
+			g.Expect(webhook.validateSecretRefs(ctx, tt.ais)).To(Succeed())
+			g.Expect(*reviews).To(HaveLen(len(tt.wantReviews)))
+			for i, want := range tt.wantReviews {
+				g.Expect((*reviews)[i].Spec.ResourceAttributes).To(Equal(want))
+			}
+		})
+	}
+
+	t.Run("an unauthorized secret ref is rejected", func(t *testing.T) {
+		g := NewWithT(t)
+		webhook, reviews := newSARWebhook(t, false)
+		err := webhook.validateSecretRefs(ctx, secretAIS())
+		g.Expect(apierrors.IsInvalid(err)).To(BeTrue())
+		g.Expect(err).To(MatchError(ContainSubstring(
+			`spec.gcpSecretName: Forbidden: user "alice" is not authorized to get secrets resource "gcp-creds" in namespace "tenant"`)))
+		// the remaining references are not reviewed after the first denial
+		g.Expect(*reviews).To(HaveLen(1))
+	})
+
+	for _, tt := range []struct {
+		name     string
+		setRef   func(spec *aisv1.AIStoreSpec)
+		wantPath string
+	}{
+		{
+			name: "an unauthorized image pull secret names its index",
+			setRef: func(spec *aisv1.AIStoreSpec) {
+				spec.ImagePullSecrets = []corev1.LocalObjectReference{{Name: "registry-a"}}
+			},
+			wantPath: "spec.imagePullSecrets[0].name",
+		},
+		{
+			name:     "an unauthorized proxy env secret names its index",
+			setRef:   func(spec *aisv1.AIStoreSpec) { spec.ProxySpec.Env = paddedSecretEnv("proxy-env-creds") },
+			wantPath: secretEnvPath("proxySpec"),
+		},
+		{
+			name:     "an unauthorized target env secret names its index",
+			setRef:   func(spec *aisv1.AIStoreSpec) { spec.TargetSpec.Env = paddedSecretEnv("target-env-creds") },
+			wantPath: secretEnvPath("targetSpec"),
+		},
+		{
+			name: "an unauthorized admin client env secret names its index",
+			setRef: func(spec *aisv1.AIStoreSpec) {
+				spec.AdminClient = &aisv1.AdminClientSpec{Env: paddedSecretEnv("admin-env-creds")}
+			},
+			wantPath: secretEnvPath("adminClient"),
+		},
+		{
+			name: "a repeated secret name reports its first field path",
+			setRef: func(spec *aisv1.AIStoreSpec) {
+				spec.AWSSecretName = aisapc.Ptr("shared-creds")
+				spec.ProxySpec.Env = []corev1.EnvVar{secretEnv("shared-creds")}
+			},
+			wantPath: "spec.awsSecretName",
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
+			ais := &aisv1.AIStore{}
+			tt.setRef(&ais.Spec)
+			webhook, reviews := newSARWebhook(t, false)
+			err := webhook.validateSecretRefs(ctx, ais)
+			g.Expect(apierrors.IsInvalid(err)).To(BeTrue())
+			g.Expect(err).To(MatchError(ContainSubstring(tt.wantPath)))
+			g.Expect(*reviews).To(HaveLen(1))
+		})
+	}
+}
+
+// The references must be reviewed on admission, not only when validateSecretRefs is called directly.
+func TestValidateSpecReviewsSecretRefs(t *testing.T) {
+	g := NewWithT(t)
+	ais := secretAIS()
+	ais.Spec.Size = aisapc.Ptr[int32](1)
+	ais.Spec.StateStorage = &aisv1.StateStorage{EmptyDir: &aisv1.StateEmptyDirConfig{}}
+
+	webhook, reviews := newSARWebhook(t, false)
+	_, err := webhook.validateSpec(admissionCtx(), nil, ais)
+
+	g.Expect(apierrors.IsInvalid(err)).To(BeTrue())
+	g.Expect(err).To(MatchError(ContainSubstring("spec.gcpSecretName")))
+	g.Expect(*reviews).To(HaveLen(1))
 }
 
 func TestGetAuthProfile(t *testing.T) {

@@ -125,8 +125,97 @@ func (aisw *AIStoreWebhook) validateSpec(ctx context.Context, prev, ais *aisv1.A
 		return allWarnings, err
 	}
 
+	err = aisw.validateSecretRefs(ctx, ais)
+	if err != nil {
+		return allWarnings, err
+	}
+
 	err = aisw.validateAuthProfile(ctx, ais)
 	return allWarnings, err
+}
+
+// secretRef pairs a referenced Secret name with the spec field that names it.
+type secretRef struct {
+	path *field.Path
+	name string
+}
+
+// userSecretRefs lists the user-provided Secrets that the spec references in the AIStore namespace.
+// Each Secret appears once, under the first field that names it.
+func userSecretRefs(ais *aisv1.AIStore) []secretRef {
+	candidates := append(namedSecretRefs(ais), envSecretRefs(ais)...)
+	refs := make([]secretRef, 0, len(candidates))
+	// Reviewing a name once keeps a Secret that many fields share from costing an API call each.
+	seen := make(map[string]bool)
+	for _, ref := range candidates {
+		if ref.name == "" || seen[ref.name] {
+			continue
+		}
+		seen[ref.name] = true
+		refs = append(refs, ref)
+	}
+	return refs
+}
+
+// namedSecretRefs lists the Secrets that a spec field names directly.
+func namedSecretRefs(ais *aisv1.AIStore) []secretRef {
+	specPath := field.NewPath("spec")
+	refs := make([]secretRef, 0, 6+len(ais.Spec.ImagePullSecrets))
+	add := func(path *field.Path, name *string) {
+		if name != nil {
+			refs = append(refs, secretRef{path: path, name: *name})
+		}
+	}
+	add(specPath.Child("gcpSecretName"), ais.Spec.GCPSecretName)
+	add(specPath.Child("awsSecretName"), ais.Spec.AWSSecretName)
+	add(specPath.Child("ociSecretName"), ais.Spec.OCISecretName)
+	add(specPath.Child("tracingTokenSecretName"), ais.Spec.TracingTokenSecretName)
+	add(specPath.Child("authNSecretName"), ais.Spec.AuthNSecretName)
+	if ais.Spec.TLS != nil {
+		add(specPath.Child("tls", "secretName"), ais.Spec.TLS.SecretName)
+	}
+	pullPath := specPath.Child("imagePullSecrets")
+	for i := range ais.Spec.ImagePullSecrets {
+		add(pullPath.Index(i).Child("name"), &ais.Spec.ImagePullSecrets[i].Name)
+	}
+	return refs
+}
+
+// envSecretRefs lists the Secrets that a container environment variable sources its value from.
+func envSecretRefs(ais *aisv1.AIStore) []secretRef {
+	specPath := field.NewPath("spec")
+	var refs []secretRef
+	addEnv := func(path *field.Path, env []corev1.EnvVar) {
+		for i := range env {
+			if src := env[i].ValueFrom; src != nil && src.SecretKeyRef != nil {
+				refs = append(refs, secretRef{
+					path: path.Index(i).Child("valueFrom", "secretKeyRef", "name"),
+					name: src.SecretKeyRef.Name,
+				})
+			}
+		}
+	}
+	addEnv(specPath.Child("proxySpec", "env"), ais.Spec.ProxySpec.Env)
+	addEnv(specPath.Child("targetSpec", "env"), ais.Spec.TargetSpec.Env)
+	if ais.Spec.AdminClient != nil {
+		addEnv(specPath.Child("adminClient", "env"), ais.Spec.AdminClient.Env)
+	}
+	return refs
+}
+
+// validateSecretRefs checks the editor has access to every user-provided Secret the spec references.
+func (aisw *AIStoreWebhook) validateSecretRefs(ctx context.Context, ais *aisv1.AIStore) error {
+	for _, ref := range userSecretRefs(ais) {
+		err := aisw.authorize(ctx, ais, "get", ref.path, &authorizationv1.ResourceAttributes{
+			Resource:  "secrets",
+			Namespace: ais.Namespace,
+			Name:      ref.name,
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // requiredAudiencesPath locates auth.required_claims.aud in an AIStore spec.

@@ -8,6 +8,14 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ---
 
+## Unreleased
+
+### Changed
+
+- All user-provided secret references must pass a SubjectAccessReview.
+
+---
+
 ## v4.1.0
 
 ### Added
