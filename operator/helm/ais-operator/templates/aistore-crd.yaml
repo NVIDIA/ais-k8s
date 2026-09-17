@@ -5883,6 +5883,72 @@ spec:
                     required:
                     - issuerRef
                     type: object
+                  public:
+                    description: |-
+                      Public overrides the certificate AIS serves on the public network. Every client
+                      reaching a daemon on its public port is served this certificate.
+                    properties:
+                      certificate:
+                        description: Certificate configures cert-manager certificate
+                          generation
+                        properties:
+                          additionalDNSNames:
+                            description: AdditionalDNSNames are extra DNS names to include
+                              in the certificate
+                            items:
+                              type: string
+                            type: array
+                          duration:
+                            description: |-
+                              Duration is the lifetime of the certificate.
+                              When unset, cert-manager's own default applies in both secret and csi modes.
+                            type: string
+                          issuerRef:
+                            description: IssuerRef references a cert-manager issuer
+                            properties:
+                              kind:
+                                default: ClusterIssuer
+                                description: 'Kind is Issuer or ClusterIssuer (default:
+                                  ClusterIssuer)'
+                                enum:
+                                - Issuer
+                                - ClusterIssuer
+                                type: string
+                              name:
+                                description: Name of the issuer
+                                minLength: 1
+                                type: string
+                            required:
+                            - name
+                            type: object
+                          mode:
+                            default: secret
+                            description: 'Mode specifies how certificates are delivered:
+                              "secret" (default) or "csi"'
+                            enum:
+                            - secret
+                            - csi
+                            type: string
+                          renewBefore:
+                            description: |-
+                              RenewBefore is when to start renewing.
+                              When unset, cert-manager's own default applies in both secret and csi modes.
+                            type: string
+                        required:
+                        - issuerRef
+                        type: object
+                      secretName:
+                        description: SecretName references an existing TLS secret
+                        type: string
+                    type: object
+                    x-kubernetes-validations:
+                    - message: 'specify exactly one: secretName or certificate'
+                      rule: '[has(self.secretName), has(self.certificate)].filter(x,
+                        x).size() == 1'
+                    - message: certificate.mode csi is not supported for the public
+                        network certificate
+                      rule: '!has(self.certificate) || !has(self.certificate.mode) ||
+                        self.certificate.mode != ''csi'''
                   secretName:
                     description: SecretName references an existing TLS secret
                     type: string
@@ -5891,6 +5957,8 @@ spec:
                 - message: 'specify only one: secretName or certificate'
                   rule: '[has(self.secretName), has(self.certificate)].filter(x, x).size()
                     <= 1'
+                - message: public requires secretName or certificate
+                  rule: '!has(self.public) || has(self.secretName) || has(self.certificate)'
               tracingTokenSecretName:
                 description: Secret name containing OTEL trace-exporter token.
                 type: string

@@ -245,7 +245,26 @@ const (
 
 // TLSSpec configures TLS certificate provisioning
 // +kubebuilder:validation:XValidation:rule="[has(self.secretName), has(self.certificate)].filter(x, x).size() <= 1",message="specify only one: secretName or certificate"
+// +kubebuilder:validation:XValidation:rule="!has(self.public) || has(self.secretName) || has(self.certificate)",message="public requires secretName or certificate"
 type TLSSpec struct {
+	// SecretName references an existing TLS secret
+	// +optional
+	SecretName *string `json:"secretName,omitempty"`
+
+	// Certificate configures cert-manager certificate generation
+	// +optional
+	Certificate *TLSCertificateConfig `json:"certificate,omitempty"`
+
+	// Public overrides the certificate AIS serves on the public network. Every client
+	// reaching a daemon on its public port is served this certificate.
+	// +optional
+	Public *PublicTLSSpec `json:"public,omitempty"`
+}
+
+// PublicTLSSpec configures provisioning of the public network certificate
+// +kubebuilder:validation:XValidation:rule="[has(self.secretName), has(self.certificate)].filter(x, x).size() == 1",message="specify exactly one: secretName or certificate"
+// +kubebuilder:validation:XValidation:rule="!has(self.certificate) || !has(self.certificate.mode) || self.certificate.mode != 'csi'",message="certificate.mode csi is not supported for the public network certificate"
+type PublicTLSSpec struct {
 	// SecretName references an existing TLS secret
 	// +optional
 	SecretName *string `json:"secretName,omitempty"`
@@ -1177,6 +1196,11 @@ func (ais *AIStore) UseHTTPS() bool {
 // HasTLSEnabled returns true if any TLS configuration is specified
 func (ais *AIStore) HasTLSEnabled() bool {
 	return ais.Spec.TLS != nil
+}
+
+// HasPublicTLS returns true if a separate public network certificate is specified
+func (ais *AIStore) HasPublicTLS() bool {
+	return ais.Spec.TLS != nil && ais.Spec.TLS.Public != nil
 }
 
 // GetTLSCertificate returns the TLS certificate config if present

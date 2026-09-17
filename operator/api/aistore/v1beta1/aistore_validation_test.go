@@ -5,6 +5,7 @@
 package v1beta1
 
 import (
+	"context"
 	"testing"
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
@@ -324,6 +325,84 @@ func TestValidateTLSCertPaths(t *testing.T) {
 			}
 		})
 	}
+}
+
+func allPubCertPaths() *TLSConfToUpdate {
+	return &TLSConfToUpdate{
+		Certificate: aisapc.Ptr("/etc/ais/pub.crt"),
+		CertKey:     aisapc.Ptr("/etc/ais/pub.key"),
+		ClientCA:    aisapc.Ptr("/etc/ais/pub-ca.crt"),
+	}
+}
+
+func TestValidatePublicTLSCertPaths(t *testing.T) {
+	tests := []struct {
+		name   string
+		public bool
+		pub    *TLSConfToUpdate
+		// wantErrMsg is a substring the rejection must name
+		wantErrMsg string
+	}{
+		{
+			name:   "public tls without pub config is valid",
+			public: true,
+		},
+		{
+			name:   "public tls with client_auth_tls is valid",
+			public: true,
+			pub:    &TLSConfToUpdate{ClientAuthTLS: aisapc.Ptr(4)},
+		},
+		{
+			name: "pub cert paths without public tls are valid",
+			pub:  allPubCertPaths(),
+		},
+		{
+			name:       "public tls with pub cert paths errors",
+			public:     true,
+			pub:        allPubCertPaths(),
+			wantErrMsg: "configToUpdate.net.http.pub.[server_crt,server_key,client_ca_tls]",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(subT *testing.T) {
+			g := NewWithT(subT)
+			ais := &AIStore{}
+			ais.Spec.TLS = &TLSSpec{SecretName: aisapc.Ptr("tls-certs")}
+			if tt.public {
+				ais.Spec.TLS.Public = &PublicTLSSpec{SecretName: aisapc.Ptr("pub-tls-certs")}
+			}
+			if tt.pub != nil {
+				ais.Spec.ConfigToUpdate = &ConfigToUpdate{
+					Net: &NetConfToUpdate{HTTP: &HTTPConfToUpdate{Pub: tt.pub}},
+				}
+			}
+			_, err := ais.validatePublicTLSCertPaths()
+			if tt.wantErrMsg == "" {
+				g.Expect(err).ToNot(HaveOccurred())
+				return
+			}
+			g.Expect(err).To(MatchError(ContainSubstring(tt.wantErrMsg)))
+		})
+	}
+}
+
+func TestValidateSpecRejectsPublicTLSCertPaths(t *testing.T) {
+	g := NewWithT(t)
+	ais := &AIStore{
+		Spec: AIStoreSpec{
+			Size:         aisapc.Ptr[int32](1),
+			StateStorage: &StateStorage{HostPath: &StateHostPathConfig{Prefix: "/mnt"}},
+			TLS: &TLSSpec{
+				SecretName: aisapc.Ptr("tls-certs"),
+				Public:     &PublicTLSSpec{SecretName: aisapc.Ptr("pub-tls-certs")},
+			},
+			ConfigToUpdate: &ConfigToUpdate{
+				Net: &NetConfToUpdate{HTTP: &HTTPConfToUpdate{Pub: allPubCertPaths()}},
+			},
+		},
+	}
+	_, err := ais.ValidateSpec(context.Background())
+	g.Expect(err).To(MatchError(ContainSubstring("configToUpdate.net.http.pub.")))
 }
 
 func newSafeDecommAIS(mode ScaleDownMode, rebalance *bool) *AIStore {

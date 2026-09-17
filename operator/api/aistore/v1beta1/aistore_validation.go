@@ -30,6 +30,7 @@ func (ais *AIStore) ValidateSpec(_ context.Context) (admission.Warnings, error) 
 		ais.validateHostPort,
 		ais.validateCleanupConfig,
 		ais.validateTLSCertPaths,
+		ais.validatePublicTLSCertPaths,
 		ais.validateSafeDecommission,
 		ais.validateAuthConfig,
 		ais.validateAuth,
@@ -226,20 +227,45 @@ func (ais *AIStore) validateTLSCertPaths() (admission.Warnings, error) {
 		return nil, nil
 	}
 	http := ais.Spec.ConfigToUpdate.Net.HTTP
-	var conflicts []string
-	if http.Certificate != nil {
-		conflicts = append(conflicts, "server_crt")
-	}
-	if http.CertKey != nil {
-		conflicts = append(conflicts, "server_key")
-	}
-	if http.ClientCA != nil {
-		conflicts = append(conflicts, "client_ca_tls")
-	}
+	conflicts := getConfiguredCertPaths(http.Certificate, http.CertKey, http.ClientCA)
 	if len(conflicts) == 0 {
 		return nil, nil
 	}
 	return nil, fmt.Errorf("configToUpdate.net.http.[%s] cannot be set together with spec.tls; the operator manages cert paths under /var/certs", strings.Join(conflicts, ","))
+}
+
+// validatePublicTLSCertPaths rejects specs that set both spec.tls.public and any of the cert path
+// fields in configToUpdate.net.http.pub, since the operator manages those paths under
+// /var/certs-pub and would silently override them.
+func (ais *AIStore) validatePublicTLSCertPaths() (admission.Warnings, error) {
+	if !ais.HasPublicTLS() || ais.Spec.ConfigToUpdate == nil || ais.Spec.ConfigToUpdate.Net == nil || ais.Spec.ConfigToUpdate.Net.HTTP == nil {
+		return nil, nil
+	}
+	pub := ais.Spec.ConfigToUpdate.Net.HTTP.Pub
+	if pub == nil {
+		return nil, nil
+	}
+	conflicts := getConfiguredCertPaths(pub.Certificate, pub.CertKey, pub.ClientCA)
+	if len(conflicts) == 0 {
+		return nil, nil
+	}
+	return nil, fmt.Errorf("configToUpdate.net.http.pub.[%s] cannot be set together with spec.tls.public; the operator manages cert paths under /var/certs-pub", strings.Join(conflicts, ","))
+}
+
+// getConfiguredCertPaths names the cert path options that are set. The operator writes every one of them for
+// each TLS section it manages, so both sections reject the same set.
+func getConfiguredCertPaths(certificate, certKey, clientCA *string) []string {
+	var set []string
+	if certificate != nil {
+		set = append(set, "server_crt")
+	}
+	if certKey != nil {
+		set = append(set, "server_key")
+	}
+	if clientCA != nil {
+		set = append(set, "client_ca_tls")
+	}
+	return set
 }
 
 func (ais *AIStore) validateCleanupConfig() (admission.Warnings, error) {
