@@ -26,10 +26,12 @@ The AIS K8s Operator is the only supported component in this repository. Helm ch
 
 ### Threat Model
 
-1. **Unauthorized cluster changes:** The Operator reconciles `AIStore` and `AIStoreAuth` custom resources into workloads, services, storage, and RBAC resources. Access to create or update those resources must be restricted.
-2. **Credential or data exposure:** TLS, AuthN, external services, and Secret references are deployment-configurable. Unsafe settings can expose credentials, management endpoints, or stored data.
-3. **Privileged administrative actions:** The playbooks and `tools/state-manager` can change hosts, storage, and cluster state. Incorrect or untrusted inputs can damage or delete data.
-4. **Untrusted deployment artifacts:** Container images, charts, manifests, and dependencies execute with cluster privileges and must come from trusted sources.
+- **Unauthorized cluster changes:** The Operator reconciles `AIStore` and `AIStoreAuth` custom resources into workloads, services, storage, and RBAC resources. Access to create or update those resources must be restricted.
+  - The Operator creates a `<cluster-name>-sa` ServiceAccount with a K8s RoleBinding granting pod and service management access for the ETL feature. This SA is scoped to the minimal required K8s privileges to support ETL and will be restricted in a future update when no longer required for AIS-managed ETL pods. Consider this access when granting `aistore-editor-role` to trusted users. 
+- **Credential or data exposure:** TLS, AuthN, external services, and Secret references are deployment-configurable. Unsafe settings can expose credentials, management endpoints, or stored data.
+- **Privileged administrative actions:** The playbooks and `tools/state-manager` can change hosts, storage, and cluster state. Incorrect or untrusted inputs can damage or delete data. 
+- **Untrusted deployment artifacts:** Container images, charts, manifests, and dependencies execute with cluster privileges and must come from trusted sources. 
+- **GitHub workflows:** All GitHub worfklows including those with `workflow_dispatch` are restricted to repository maintainers and any input is trusted.
 
 ### Critical Security Assumptions
 
@@ -37,3 +39,4 @@ The AIS K8s Operator is the only supported component in this repository. Helm ch
 - Operators enable appropriate TLS, AuthN, and network restrictions for their environment.
 - Kubernetes, the container runtime, worker hosts, and storage enforce their isolation and access controls.
 - Administrative tools and playbooks are run only by trusted administrators against the intended cluster.
+- CI/CD workflows that publish images trust only repository collaborators with write access; they are not reachable by external input.

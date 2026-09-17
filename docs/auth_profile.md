@@ -56,6 +56,11 @@ To allow an account to `use` an existing `AIStoreAuthProfile`, simply bind the u
 
 If you want to control individual access to profiles, see [aisauthprofile_rbac.yaml](../operator/config/samples/aisauthprofile_rbac.yaml) for a sample restricted role.
 
+## Trust model
+
+Anyone who can create or edit an `AIStoreAuthProfile` is trusted at the same level as an operator administrator, not at the level of an AIStore client or resource editor. 
+Grant the `aisauthprofile-editor-role` accordingly.
+
 ## Usage
 
 `AIStoreAuthProfile` can be referenced by any account with RBAC permissions and used by any client to determine auth server connection details.
