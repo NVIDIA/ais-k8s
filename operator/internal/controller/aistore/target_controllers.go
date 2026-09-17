@@ -228,25 +228,37 @@ func (r *Reconciler) scaleUpTargets(ctx context.Context, ais *aisv1.AIStore, ss 
 // they are gone.
 func (r *Reconciler) scaleDownTargets(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) (ctrl.Result, error) {
 	logger := logf.FromContext(ctx)
-	currentSize := *ss.Spec.Replicas
+	specReplicas := *ss.Spec.Replicas
 	expectedSize := ais.GetTargetSize()
-	scaleDownAllowed, err := r.confirmScaleDownAllowed(ctx, target.StatefulSetNSName(ais), ss,
+	removalAllowed, err := r.confirmScaleDownAllowed(ctx, target.StatefulSetNSName(ais), ss,
 		expectedSize, ais.GetTargetMaxUnavailable(), ais.IsTargetAutoScaling())
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	if !scaleDownAllowed {
-		logger.Info("Deferring target scale-down; fresh status shows unavailable replicas within maxUnavailable budget")
+	if removalAllowed {
+		started, startErr := r.startTargetRemoval(ctx, ais, specReplicas)
+		if startErr != nil {
+			return ctrl.Result{}, startErr
+		}
+		if !started {
+			return ctrl.Result{RequeueAfter: targetLongRequeueDelay}, nil
+		}
+	}
+	ready, err := r.targetsReadyForScaleDown(ctx, ais, specReplicas)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if !ready {
+		// Nothing was started, so there is no transition to come back for. Report an empty
+		// result to keep the cluster Ready rather than Upgrading.
+		if !removalAllowed {
+			logger.Info("Deferring target removal; fresh status shows unavailable replicas within maxUnavailable")
+			return ctrl.Result{}, nil
+		}
 		return ctrl.Result{RequeueAfter: targetLongRequeueDelay}, nil
 	}
 	if err = r.removeTargetLoadBalancers(ctx, ais, ss); err != nil {
 		return ctrl.Result{}, err
-	}
-	if err = r.prepareTargetsForScaleDown(ctx, ais, currentSize); err != nil {
-		return ctrl.Result{}, err
-	}
-	if ready, readyErr := r.targetsReadyForScaleDown(ctx, ais, currentSize); readyErr != nil || !ready {
-		return ctrl.Result{RequeueAfter: targetLongRequeueDelay}, readyErr
 	}
 	logger.Info("Scaling down target statefulset to match AIS cluster spec size", "desiredSize", expectedSize)
 	if err = r.setTargetReplicas(ctx, ais, expectedSize); err != nil {
@@ -256,11 +268,89 @@ func (r *Reconciler) scaleDownTargets(ctx context.Context, ais *aisv1.AIStore, s
 }
 
 func isTargetScalingNeeded(ais *aisv1.AIStore, ss *appsv1.StatefulSet) bool {
-	return statefulsetScalingNeeded(ss, ais.GetTargetSize(), ais.GetTargetMaxUnavailable(), ais.IsTargetAutoScaling())
+	return ais.GetTargetSize() != *ss.Spec.Replicas
 }
 
 func (r *Reconciler) isTargetStatefulSetReady(ais *aisv1.AIStore, ss *appsv1.StatefulSet) bool {
 	return r.isStatefulSetReady(ss, ais.GetTargetSize(), ais.GetMinReadyTargets(), ais.IsTargetAutoScaling())
+}
+
+// startTargetRemoval takes each outgoing target out of the AIS cluster. It reports false when an
+// outgoing pod is in a state that makes its cluster map entry unreliable.
+func (r *Reconciler) startTargetRemoval(ctx context.Context, ais *aisv1.AIStore, specReplicas int32) (bool, error) {
+	apiClient, err := r.clientManager.GetClient(ctx, ais)
+	if err != nil {
+		return false, err
+	}
+	smap, err := apiClient.GetClusterMap()
+	if err != nil {
+		return false, err
+	}
+	settled, err := r.outgoingTargetsSettled(ctx, ais, smap, specReplicas)
+	if err != nil || !settled {
+		return false, err
+	}
+	return true, r.prepareTargetsForScaleDown(ctx, ais, smap, specReplicas)
+}
+
+// outgoingTargetsSettled reports whether every outgoing target is in a state where its cluster
+// map entry, or its absence from the map, can be acted on.
+func (r *Reconciler) outgoingTargetsSettled(ctx context.Context, ais *aisv1.AIStore, smap *aismeta.Smap, specReplicas int32) (bool, error) {
+	logger := logf.FromContext(ctx)
+	for idx := specReplicas; idx > ais.GetTargetSize(); idx-- {
+		podName := target.PodName(ais, idx-1)
+		pod, err := r.k8sClient.GetPod(ctx, types.NamespacedName{Name: podName, Namespace: ais.Namespace})
+		if k8serrors.IsNotFound(err) {
+			logger.Info("Deferring target removal", "podName", podName, "reason", "pod is missing")
+			return false, nil
+		} else if err != nil {
+			return false, fmt.Errorf("failed to get pod %s: %w", podName, err)
+		}
+		var reason string
+		if node, nodeErr := findAISNodeByPodName(smap.Tmap, podName); nodeErr == nil {
+			reason = memberWaitReason(ais, node, pod)
+		} else {
+			reason = nonMemberWaitReason(pod)
+		}
+		if reason != "" {
+			logger.Info("Deferring target removal", "podName", podName, "reason", reason)
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+// memberWaitReason returns why an outgoing target in the cluster map is not ready to be removed,
+// or "" if it is.
+func memberWaitReason(ais *aisv1.AIStore, node *aismeta.Snode, pod *corev1.Pod) string {
+	switch {
+	// A maintenance rebalance has already moved the target's data off.
+	case node.InMaintPostReb():
+		return ""
+	case node.InMaint() && ais.Spec.TargetSpec.RetainOnScaleDown():
+		return ""
+	case node.InMaint():
+		return "target is in maintenance without post-rebalance"
+	case isPodUnrecoverable(pod):
+		return ""
+	case !isAISContainerStarted(pod):
+		return "pod is still starting"
+	case !isPodReady(pod):
+		return "pod is not ready"
+	}
+	return ""
+}
+
+// nonMemberWaitReason returns why an outgoing target absent from the cluster map is not ready to
+// be removed, or "" if it is.
+func nonMemberWaitReason(pod *corev1.Pod) string {
+	switch {
+	case isPodUnrecoverable(pod):
+		return ""
+	case !isAISContainerStarted(pod):
+		return "pod is still starting"
+	}
+	return "target is still joining the cluster map"
 }
 
 // setTargetReplicas writes the target StatefulSet replica count.
@@ -274,7 +364,7 @@ func (r *Reconciler) setTargetReplicas(ctx context.Context, ais *aisv1.AIStore, 
 
 // targetsReadyForScaleDown reports whether AIS has completed the membership transition for every
 // target that the StatefulSet will remove.
-func (r *Reconciler) targetsReadyForScaleDown(ctx context.Context, ais *aisv1.AIStore, currentSize int32) (ready bool, err error) {
+func (r *Reconciler) targetsReadyForScaleDown(ctx context.Context, ais *aisv1.AIStore, specReplicas int32) (ready bool, err error) {
 	apiClient, err := r.clientManager.GetClient(ctx, ais)
 	if err != nil {
 		return
@@ -284,16 +374,16 @@ func (r *Reconciler) targetsReadyForScaleDown(ctx context.Context, ais *aisv1.AI
 		return
 	}
 	if ais.Spec.TargetSpec.RetainOnScaleDown() {
-		return retainedTargetsReadyForScaleDown(ctx, ais, smap, currentSize), nil
+		return retainedTargetsReadyForScaleDown(ctx, ais, smap, specReplicas), nil
 	}
-	return decommissionedTargetsReadyForScaleDown(ctx, ais, smap, currentSize), nil
+	return decommissionedTargetsReadyForScaleDown(ctx, ais, smap, specReplicas), nil
 }
 
 // retainedTargetsReadyForScaleDown reports whether every outgoing target is in maintenance.
 // Maintenance keeps the target in the cluster map, so readiness is checked per target.
-func retainedTargetsReadyForScaleDown(ctx context.Context, ais *aisv1.AIStore, smap *aismeta.Smap, currentSize int32) bool {
+func retainedTargetsReadyForScaleDown(ctx context.Context, ais *aisv1.AIStore, smap *aismeta.Smap, specReplicas int32) bool {
 	logger := logf.FromContext(ctx)
-	for idx := currentSize; idx > ais.GetTargetSize(); idx-- {
+	for idx := specReplicas; idx > ais.GetTargetSize(); idx-- {
 		podName := target.PodName(ais, idx-1)
 		node, nodeErr := findAISNodeByPodName(smap.Tmap, podName)
 		if nodeErr != nil {
@@ -310,11 +400,11 @@ func retainedTargetsReadyForScaleDown(ctx context.Context, ais *aisv1.AIStore, s
 }
 
 // decommissionedTargetsReadyForScaleDown reports whether a decommission-path scale-down can proceed.
-func decommissionedTargetsReadyForScaleDown(ctx context.Context, ais *aisv1.AIStore, smap *aismeta.Smap, currentSize int32) bool {
+func decommissionedTargetsReadyForScaleDown(ctx context.Context, ais *aisv1.AIStore, smap *aismeta.Smap, specReplicas int32) bool {
 	logger := logf.FromContext(ctx)
 	// A decommissioned target leaves the cluster map, so check the outgoing targets by pod name.
 	// Counting members instead would stall on unrelated nodes that linger in the map.
-	for idx := currentSize; idx > ais.GetTargetSize(); idx-- {
+	for idx := specReplicas; idx > ais.GetTargetSize(); idx-- {
 		podName := target.PodName(ais, idx-1)
 		node, nodeErr := findAISNodeByPodName(smap.Tmap, podName)
 		if nodeErr != nil {
@@ -328,7 +418,7 @@ func decommissionedTargetsReadyForScaleDown(ctx context.Context, ais *aisv1.AISt
 
 // prepareTargetsForScaleDown starts the AIS membership transition for each target whose
 // StatefulSet ordinal is above the desired size.
-func (r *Reconciler) prepareTargetsForScaleDown(ctx context.Context, ais *aisv1.AIStore, currentSize int32) error {
+func (r *Reconciler) prepareTargetsForScaleDown(ctx context.Context, ais *aisv1.AIStore, smap *aismeta.Smap, specReplicas int32) error {
 	if !ais.Spec.TargetSpec.RetainOnScaleDown() {
 		// Ensure rebalance is enabled before decommissioning so data can migrate
 		// off the targets being decommissioned.
@@ -344,33 +434,14 @@ func (r *Reconciler) prepareTargetsForScaleDown(ctx context.Context, ais *aisv1.
 	if err != nil {
 		return err
 	}
-	smap, err := apiClient.GetClusterMap()
-	if err != nil {
-		return err
-	}
 	logger.Info("Preparing targets for scale-down", "Smap version", smap.Version)
-	for idx := currentSize; idx > ais.GetTargetSize(); idx-- {
+	for idx := specReplicas; idx > ais.GetTargetSize(); idx-- {
 		podName := target.PodName(ais, idx-1)
 		logger.Info("Attempting to prepare target for scale-down", "podName", podName)
 		node, err := findAISNodeByPodName(smap.Tmap, podName)
 		if err != nil {
-			// Not in the cluster map. Skip if the pod is unschedulable or in CrashLoopBackOff.
-			// Otherwise wait for it to start and join the cluster.
-			pod, podErr := r.k8sClient.GetPod(ctx, types.NamespacedName{Name: podName, Namespace: ais.Namespace})
-			switch {
-			case k8serrors.IsNotFound(podErr):
-				logger.Info("Target pod not found, skipping scale-down preparation", "podName", podName)
-				continue
-			case podErr != nil:
-				return fmt.Errorf("failed to get pod %s: %w", podName, podErr)
-			case isPodUnschedulable(pod):
-				logger.Info("Target pod is unschedulable, skipping scale-down preparation", "podName", podName)
-				continue
-			case isPodInCrashLoopBackOff(pod):
-				logger.Info("Target pod is in CrashLoopBackOff, skipping scale-down preparation", "podName", podName)
-				continue
-			}
-			return fmt.Errorf("waiting for target %s to register in smap", podName)
+			logger.Info("Target is absent from cluster map, skipping scale-down preparation", "podName", podName)
+			continue
 		}
 		if ais.Spec.TargetSpec.RetainOnScaleDown() {
 			if smap.InMaintOrDecomm(node.ID()) {

@@ -18,12 +18,17 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 - `spec.nodeJoin.secretName` to mount a Secret for AIS's node-join authentication. The operator points `auth.intra_cluster.node_join_secret_path` at the mounted credential automatically.
 
+### Fixed
+
+- Autoscale target scale-down can finish after decommission when the extra pods have already left the cluster map but `maxUnavailable` would otherwise defer shrinking the StatefulSet.
+
 ### Changed
 
 - Operator now only includes the cluster's `<namespace>/<name>` in the AIStore token audience when using token exchange, if an audience is required by the AIS cluster.
 - All user-provided secret references must pass a SubjectAccessReview.
 - Target decommission scale-down waits until each outgoing target has left the cluster map before shrinking the StatefulSet. A target already in maintenance is decommissioned only once it has the post-rebalance flag (`InMaintPostReb`).
   - A target whose maintenance skipped rebalance, or whose rebalance aborted, never gets that flag, and AIS does not rebalance on its own when decommissioning a node that is already in maintenance. Scale-down blocks on such a target until it is taken out of maintenance. See [Incomplete Transitions](https://github.com/NVIDIA/aistore/blob/main/docs/lifecycle_node.md#incomplete-transitions).
+- Target scale-down does not start taking a target out of the cluster while its pod is missing, still starting, or still joining the cluster map, so a pod being replaced during an image rollout is no longer mistaken for a finished decommission. A pod that cannot recover on its own (unschedulable or in `CrashLoopBackOff`) does not block scale-down.
 
 
 - `AIStoreAuth`

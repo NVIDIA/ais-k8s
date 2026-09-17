@@ -465,6 +465,20 @@ func isPodInCrashLoopBackOff(pod *corev1.Pod) bool {
 	return false
 }
 
+func isPodUnrecoverable(pod *corev1.Pod) bool {
+	return isPodUnschedulable(pod) || isPodInCrashLoopBackOff(pod)
+}
+
+func isAISContainerStarted(pod *corev1.Pod) bool {
+	for i := range pod.Status.ContainerStatuses {
+		cs := &pod.Status.ContainerStatuses[i]
+		if cs.Name == cmn.AISContainerName {
+			return cs.Started != nil && *cs.Started
+		}
+	}
+	return false
+}
+
 func shouldUpdatePVCRetentionPolicy(desired, current *appsv1.StatefulSetPersistentVolumeClaimRetentionPolicy) bool {
 	// If desired is unset then we want current to be either unset or the default value.
 	if desired == nil {
