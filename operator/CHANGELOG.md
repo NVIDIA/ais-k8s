@@ -17,6 +17,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 ### Added
 
 - `spec.nodeJoin.secretName` to mount a Secret for AIS's node-join authentication. The operator points `auth.intra_cluster.node_join_secret_path` at the mounted credential automatically.
+- `spec.tls.public` to configure a separate TLS certificate for the public interface on which AIStore listens.
 
 ### Fixed
 

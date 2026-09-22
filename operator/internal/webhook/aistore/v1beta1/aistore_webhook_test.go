@@ -603,7 +603,10 @@ func secretAIS() *aisv1.AIStore {
 	ais.Spec.TracingTokenSecretName = aisapc.Ptr("tracing-token")
 	ais.Spec.NodeJoin = &aisv1.NodeJoinSpec{SecretName: aisapc.Ptr("node-join-creds")}
 	ais.Spec.AuthNSecretName = aisapc.Ptr("authn-signing-key")
-	ais.Spec.TLS = &aisv1.TLSSpec{SecretName: aisapc.Ptr("tls-cert")}
+	ais.Spec.TLS = &aisv1.TLSSpec{
+		SecretName: aisapc.Ptr("tls-cert"),
+		Public:     &aisv1.PublicTLSSpec{SecretName: aisapc.Ptr("pub-tls-cert")},
+	}
 	ais.Spec.ImagePullSecrets = []corev1.LocalObjectReference{{Name: "registry-a"}, {Name: "registry-b"}}
 	ais.Spec.ProxySpec.Env = []corev1.EnvVar{secretEnv("proxy-env-creds")}
 	ais.Spec.TargetSpec.Env = []corev1.EnvVar{secretEnv("target-env-creds")}
@@ -653,6 +656,7 @@ func TestValidateSecretRefs(t *testing.T) {
 				secretGetAttrs("node-join-creds"),
 				secretGetAttrs("authn-signing-key"),
 				secretGetAttrs("tls-cert"),
+				secretGetAttrs("pub-tls-cert"),
 				secretGetAttrs("registry-a"),
 				secretGetAttrs("registry-b"),
 				secretGetAttrs("proxy-env-creds"),

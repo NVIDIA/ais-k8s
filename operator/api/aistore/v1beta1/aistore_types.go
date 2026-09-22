@@ -266,6 +266,7 @@ type TLSSpec struct {
 // +kubebuilder:validation:XValidation:rule="!has(self.certificate) || !has(self.certificate.mode) || self.certificate.mode != 'csi'",message="certificate.mode csi is not supported for the public network certificate"
 type PublicTLSSpec struct {
 	// SecretName references an existing TLS secret
+	// +kubebuilder:validation:MinLength=1
 	// +optional
 	SecretName *string `json:"secretName,omitempty"`
 
@@ -1221,11 +1222,6 @@ func (s *AIStoreSpec) NodeJoinSecretName() *string {
 	return s.NodeJoin.SecretName
 }
 
-// HasPublicTLS returns true if a separate public network certificate is specified
-func (ais *AIStore) HasPublicTLS() bool {
-	return ais.Spec.TLS != nil && ais.Spec.TLS.Public != nil
-}
-
 // GetTLSCertificate returns the TLS certificate config if present
 func (ais *AIStore) GetTLSCertificate() *TLSCertificateConfig {
 	if ais.Spec.TLS != nil {
@@ -1252,6 +1248,28 @@ func (ais *AIStore) UseTLSCSI() bool {
 		return false
 	}
 	return certConfig.Mode == TLSCertificateModeCSI
+}
+
+// UsePublicTLS returns true if the spec defines a public network certificate to mount.
+func (ais *AIStore) UsePublicTLS() bool {
+	return ais.GetPublicTLSSecretName() != ""
+}
+
+// GetPublicTLSSecretName returns the secret holding the public network certificate
+func (ais *AIStore) GetPublicTLSSecretName() string {
+	if ais.Spec.TLS == nil {
+		return ""
+	}
+	if pub := ais.Spec.TLS.Public; pub != nil {
+		if pub.Certificate != nil {
+			// Secret name is fixed if using operator-controlled certificate
+			return fmt.Sprintf("%s-tls-pub", ais.Name)
+		}
+		if pub.SecretName != nil && *pub.SecretName != "" {
+			return *pub.SecretName
+		}
+	}
+	return ""
 }
 
 func (ais *AIStore) GetTLSSecretName() string {

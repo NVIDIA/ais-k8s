@@ -261,4 +261,38 @@ var _ = Describe("Statefulset", Label("short"), func() {
 			Expect(vol.CSI.VolumeAttributes).To(HaveKeyWithValue(csiapisv1.RenewBeforeKey, "360h0m0s"))
 		})
 	})
+
+	// wantSecret is empty for a public spec that resolves no secret
+	DescribeTable("should mount the public TLS secret alongside the internal one",
+		func(public *aisv1.PublicTLSSpec, wantSecret string) {
+			ais := &aisv1.AIStore{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-cluster", Namespace: "test-ns"},
+				Spec: aisv1.AIStoreSpec{
+					TLS: &aisv1.TLSSpec{SecretName: aisapc.Ptr("my-tls-secret"), Public: public},
+				},
+			}
+			volumes, mounts := NewAISVolumes(ais, aisapc.Proxy), NewAISVolumeMounts(ais, aisapc.Proxy)
+			if wantSecret == "" {
+				Expect(volumes).ToNot(ContainElement(HaveField("Name", tlsPubSecretVolume)))
+				Expect(mounts).ToNot(ContainElement(HaveField("Name", tlsPubSecretVolume)))
+				return
+			}
+			Expect(volumes).To(ContainElement(SatisfyAll(
+				HaveField("Name", tlsPubSecretVolume),
+				HaveField("Secret.SecretName", wantSecret),
+			)))
+			Expect(mounts).To(ContainElements(
+				SatisfyAll(HaveField("Name", tlsSecretVolume), HaveField("MountPath", certsDir)),
+				SatisfyAll(HaveField("Name", tlsPubSecretVolume), HaveField("MountPath", pubCertsDir)),
+			))
+		},
+		Entry("spec.tls.public unset", nil, ""),
+		Entry("empty spec.tls.public.secretName", &aisv1.PublicTLSSpec{SecretName: aisapc.Ptr("")}, ""),
+		Entry("spec.tls.public.secretName",
+			&aisv1.PublicTLSSpec{SecretName: aisapc.Ptr("my-pub-tls-secret")}, "my-pub-tls-secret"),
+		Entry("spec.tls.public.certificate",
+			&aisv1.PublicTLSSpec{Certificate: &aisv1.TLSCertificateConfig{
+				IssuerRef: aisv1.CertIssuerRef{Name: "test-issuer"},
+			}}, "test-cluster-tls-pub"),
+	)
 })

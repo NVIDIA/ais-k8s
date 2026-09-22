@@ -394,19 +394,19 @@ func TestValidatePublicTLSCertPaths(t *testing.T) {
 			public: true,
 		},
 		{
-			name:   "public tls with client_auth_tls is valid",
+			name:   "public tls with client_auth_tls and client_ca_tls is valid",
 			public: true,
-			pub:    &TLSConfToUpdate{ClientAuthTLS: aisapc.Ptr(4)},
+			pub:    &TLSConfToUpdate{ClientAuthTLS: aisapc.Ptr(4), ClientCA: aisapc.Ptr("/var/certs/ca.crt")},
 		},
 		{
 			name: "pub cert paths without public tls are valid",
 			pub:  allPubCertPaths(),
 		},
 		{
-			name:       "public tls with pub cert paths errors",
+			name:       "public tls with pub server cert paths errors",
 			public:     true,
 			pub:        allPubCertPaths(),
-			wantErrMsg: "configToUpdate.net.http.pub.[server_crt,server_key,client_ca_tls]",
+			wantErrMsg: "configToUpdate.net.http.pub.[server_crt,server_key]",
 		},
 	}
 	for _, tt := range tests {

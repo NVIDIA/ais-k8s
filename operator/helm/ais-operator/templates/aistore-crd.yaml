@@ -5951,6 +5951,7 @@ spec:
                         type: object
                       secretName:
                         description: SecretName references an existing TLS secret
+                        minLength: 1
                         type: string
                     type: object
                     x-kubernetes-validations:

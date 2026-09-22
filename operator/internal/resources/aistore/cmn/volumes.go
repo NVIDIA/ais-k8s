@@ -21,6 +21,7 @@ var (
 	SecretDefaultMode = corev1.SecretVolumeSourceDefaultMode
 )
 
+// Container mount directories
 const (
 	// StateDir Container-internal location of configs and current state of the aisnode
 	StateDir = "/etc/ais"
@@ -30,27 +31,37 @@ const (
 	AisConfigDir      = "/var/ais_config"
 	LogsDir           = "/var/log/ais"
 	InitGlobalConfDir = "/var/global_config"
+	nodeJoinDir       = "/var/node_join_secret"
+	tracesDir         = "/var/traces"
+)
 
-	// Other container mount locations
-	certsDir               = "/var/certs"
-	tracesDir              = "/var/traces"
-	nodeJoinDir            = "/var/node_join_secret"
+// TLS-related mounts and filenames
+const (
+	certsDir        = "/var/certs"
+	pubCertsDir     = "/var/certs_pub"
+	TLSCertFileName = "tls.crt"
+	TLSKeyFileName  = "tls.key"
+	TLSCAFileName   = "ca.crt"
+	OIDCCAFileName  = "ca.crt"
+	OIDCCAMountPath = "/etc/ais/oidc-ca"
+)
+
+// Static filenames
+const (
 	NodeJoinSecretFileName = "node_join_secret"
-	TLSCertFileName        = "tls.crt"
-	TLSKeyFileName         = "tls.key"
-	TLSCAFileName          = "ca.crt"
-	OIDCCAFileName         = "ca.crt"
-	OIDCCAMountPath        = "/etc/ais/oidc-ca"
+	hostnameMapFileName    = "hostname_map.json"
+	AISGlobalConfigName    = "ais.json"
+	AISLocalConfigName     = "ais_local.json"
+)
 
-	hostnameMapFileName = "hostname_map.json"
-	AISGlobalConfigName = "ais.json"
-	AISLocalConfigName  = "ais_local.json"
-
+// Volume names
+const (
 	configTemplateVolume = "config-template"
 	configVolume         = "config-mount"
 	configGlobalVolume   = "config-global"
 	stateVolume          = "state-mount"
 	tlsSecretVolume      = "tls-certs"
+	tlsPubSecretVolume   = "tls-certs-pub" //nolint:gosec // Volume name, not a credential
 	tracingSecretVolume  = "tracing-token"
 	nodeJoinSecretVolume = "node-join-secret"
 	logsVolume           = "logs-dir"
@@ -129,6 +140,13 @@ func NewAISVolumes(ais *v1beta1.AIStore, daeType string) []corev1.Volume {
 		volumes = append(volumes, *tlsVol)
 	}
 
+	if ais.UsePublicTLS() {
+		volumes = append(volumes, corev1.Volume{
+			Name:         tlsPubSecretVolume,
+			VolumeSource: newTLSSecretVolumeSource(ais.GetPublicTLSSecretName()),
+		})
+	}
+
 	if ais.Spec.TracingTokenSecretName != nil {
 		volumes = append(volumes, corev1.Volume{
 			Name: tracingSecretVolume,
@@ -183,7 +201,7 @@ func getTLSVolume(ais *v1beta1.AIStore, daeType string) *corev1.Volume {
 	case ais.UseTLSCSI():
 		source = getTLSCSIVolumeSource(ais, daeType)
 	case ais.UseTLSCertificate(), ais.UseTLSSecret():
-		source = getTLSSecretVolumeSource(ais)
+		source = newTLSSecretVolumeSource(ais.GetTLSSecretName())
 	default:
 		return nil
 	}
@@ -226,10 +244,10 @@ func getTLSCSIVolumeSource(ais *v1beta1.AIStore, daeType string) corev1.VolumeSo
 	}
 }
 
-func getTLSSecretVolumeSource(ais *v1beta1.AIStore) corev1.VolumeSource {
+func newTLSSecretVolumeSource(secretName string) corev1.VolumeSource {
 	return corev1.VolumeSource{
 		Secret: &corev1.SecretVolumeSource{
-			SecretName:  ais.GetTLSSecretName(),
+			SecretName:  secretName,
 			DefaultMode: &SecretDefaultMode,
 		},
 	}
@@ -269,6 +287,9 @@ func NewAISVolumeMounts(ais *v1beta1.AIStore, daeType string) []corev1.VolumeMou
 
 	if ais.HasTLSEnabled() {
 		volumeMounts = AppendSimpleReadOnlyMount(volumeMounts, tlsSecretVolume, certsDir)
+	}
+	if ais.UsePublicTLS() {
+		volumeMounts = AppendSimpleReadOnlyMount(volumeMounts, tlsPubSecretVolume, pubCertsDir)
 	}
 	if spec.TracingTokenSecretName != nil {
 		volumeMounts = AppendSimpleReadOnlyMount(volumeMounts, tracingSecretVolume, tracesDir)

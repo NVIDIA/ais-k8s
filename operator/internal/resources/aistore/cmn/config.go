@@ -6,6 +6,7 @@ package cmn
 
 import (
 	"crypto/sha256"
+	"crypto/tls"
 	"encoding/hex"
 	"path/filepath"
 
@@ -63,15 +64,7 @@ func GenerateConfigToSet(ais *aisv1.AIStore) (*aiscmn.ConfigToSet, error) {
 		specConfig = ais.Spec.ConfigToUpdate.DeepCopy()
 	}
 	if ais.HasTLSEnabled() {
-		if specConfig.Net == nil {
-			specConfig.Net = &aisv1.NetConfToUpdate{}
-		}
-		if specConfig.Net.HTTP == nil {
-			specConfig.Net.HTTP = &aisv1.HTTPConfToUpdate{}
-		}
-		specConfig.Net.HTTP.Certificate = aisapc.Ptr(filepath.Join(certsDir, TLSCertFileName))
-		specConfig.Net.HTTP.CertKey = aisapc.Ptr(filepath.Join(certsDir, TLSKeyFileName))
-		specConfig.Net.HTTP.ClientCA = aisapc.Ptr(filepath.Join(certsDir, TLSCAFileName))
+		setManagedCertPaths(ais, specConfig)
 	}
 
 	// Override rebalance if the cluster is not ready for it (starting up, scaling, upgrading)
@@ -91,6 +84,34 @@ func GenerateConfigToSet(ais *aisv1.AIStore) (*aiscmn.ConfigToSet, error) {
 	buildSpecConfigAuth(ais, specConfig)
 
 	return specConfig.Convert()
+}
+
+// setManagedCertPaths points the AIS TLS options at the cert files the operator mounts.
+func setManagedCertPaths(ais *aisv1.AIStore, specConfig *aisv1.ConfigToUpdate) {
+	if specConfig.Net == nil {
+		specConfig.Net = &aisv1.NetConfToUpdate{}
+	}
+	if specConfig.Net.HTTP == nil {
+		specConfig.Net.HTTP = &aisv1.HTTPConfToUpdate{}
+	}
+	http := specConfig.Net.HTTP
+	http.Certificate = aisapc.Ptr(filepath.Join(certsDir, TLSCertFileName))
+	http.CertKey = aisapc.Ptr(filepath.Join(certsDir, TLSKeyFileName))
+	http.ClientCA = aisapc.Ptr(filepath.Join(certsDir, TLSCAFileName))
+
+	if !ais.UsePublicTLS() {
+		return
+	}
+	if http.Pub == nil {
+		http.Pub = &aisv1.TLSConfToUpdate{}
+	}
+	http.Pub.Certificate = aisapc.Ptr(filepath.Join(pubCertsDir, TLSCertFileName))
+	http.Pub.CertKey = aisapc.Ptr(filepath.Join(pubCertsDir, TLSKeyFileName))
+	// Only configure a client CA path if it's configured to be verified.
+	if http.Pub.ClientCA == nil && http.Pub.ClientAuthTLS != nil &&
+		*http.Pub.ClientAuthTLS >= int(tls.VerifyClientCertIfGiven) {
+		http.Pub.ClientCA = aisapc.Ptr(filepath.Join(pubCertsDir, TLSCAFileName))
+	}
 }
 
 func buildSpecConfigAuth(ais *aisv1.AIStore, specConfig *aisv1.ConfigToUpdate) {

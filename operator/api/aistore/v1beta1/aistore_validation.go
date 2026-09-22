@@ -235,22 +235,23 @@ func (ais *AIStore) validateTLSCertPaths() (admission.Warnings, error) {
 	return nil, fmt.Errorf("configToUpdate.net.http.[%s] cannot be set together with spec.tls; the operator manages cert paths under /var/certs", strings.Join(conflicts, ","))
 }
 
-// validatePublicTLSCertPaths rejects specs that set both spec.tls.public and any of the cert path
+// validatePublicTLSCertPaths rejects specs that set both spec.tls.public and the server cert path
 // fields in configToUpdate.net.http.pub, since the operator manages those paths under
-// /var/certs-pub and would silently override them.
+// /var/certs_pub and would silently override them.
 func (ais *AIStore) validatePublicTLSCertPaths() (admission.Warnings, error) {
-	if !ais.HasPublicTLS() || ais.Spec.ConfigToUpdate == nil || ais.Spec.ConfigToUpdate.Net == nil || ais.Spec.ConfigToUpdate.Net.HTTP == nil {
+	if !ais.UsePublicTLS() || ais.Spec.ConfigToUpdate == nil || ais.Spec.ConfigToUpdate.Net == nil || ais.Spec.ConfigToUpdate.Net.HTTP == nil {
 		return nil, nil
 	}
 	pub := ais.Spec.ConfigToUpdate.Net.HTTP.Pub
 	if pub == nil {
 		return nil, nil
 	}
-	conflicts := getConfiguredCertPaths(pub.Certificate, pub.CertKey, pub.ClientCA)
+	// The operator writes client_ca_tls under pub only when the user leaves it unset.
+	conflicts := getConfiguredCertPaths(pub.Certificate, pub.CertKey, nil)
 	if len(conflicts) == 0 {
 		return nil, nil
 	}
-	return nil, fmt.Errorf("configToUpdate.net.http.pub.[%s] cannot be set together with spec.tls.public; the operator manages cert paths under /var/certs-pub", strings.Join(conflicts, ","))
+	return nil, fmt.Errorf("configToUpdate.net.http.pub.[%s] cannot be set together with spec.tls.public; the operator manages cert paths under /var/certs_pub", strings.Join(conflicts, ","))
 }
 
 // validateNodeJoinSecretPath rejects specs that set both spec.nodeJoin.secretName and
@@ -263,8 +264,8 @@ func (ais *AIStore) validateNodeJoinSecretPath() (admission.Warnings, error) {
 	return nil, fmt.Errorf("configToUpdate.auth.intra_cluster.node_join_secret_path cannot be set together with spec.nodeJoin.secretName; the operator manages this path")
 }
 
-// getConfiguredCertPaths names the cert path options that are set. The operator writes every one of them for
-// each TLS section it manages, so both sections reject the same set.
+// getConfiguredCertPaths names the cert path options that are set. Pass nil for an option the
+// caller permits the user to set.
 func getConfiguredCertPaths(certificate, certKey, clientCA *string) []string {
 	var set []string
 	if certificate != nil {

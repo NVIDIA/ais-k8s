@@ -154,10 +154,17 @@ var _ = Describe("Config", Label("short"), func() {
 				Expect(*conf.Net.HTTP.Certificate).To(Equal("/var/certs/tls.crt"))
 				Expect(*conf.Net.HTTP.CertKey).To(Equal("/var/certs/tls.key"))
 				Expect(*conf.Net.HTTP.ClientCA).To(Equal("/var/certs/ca.crt"))
+				Expect(conf.Net.HTTP.Pub).To(BeNil())
 			},
 			Entry("spec.tls.secretName", aisv1.AIStoreSpec{
 				TLS: &aisv1.TLSSpec{
 					SecretName: aisapc.Ptr("my-tls-secret"),
+				},
+			}),
+			Entry("empty spec.tls.public.secretName", aisv1.AIStoreSpec{
+				TLS: &aisv1.TLSSpec{
+					SecretName: aisapc.Ptr("my-tls-secret"),
+					Public:     &aisv1.PublicTLSSpec{SecretName: aisapc.Ptr("")},
 				},
 			}),
 			Entry("spec.tls.certificate (secret mode)", aisv1.AIStoreSpec{
@@ -187,6 +194,47 @@ var _ = Describe("Config", Label("short"), func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(conf.Net).To(BeNil())
 		})
+
+		DescribeTable("should auto-configure pub TLS paths",
+			func(pub *aisv1.TLSConfToUpdate, wantClientCA string) {
+				ais := &aisv1.AIStore{
+					ObjectMeta: metav1.ObjectMeta{Name: "test-cluster", Namespace: "test-ns"},
+					Spec: aisv1.AIStoreSpec{
+						TLS: &aisv1.TLSSpec{
+							SecretName: aisapc.Ptr("my-tls-secret"),
+							Public:     &aisv1.PublicTLSSpec{SecretName: aisapc.Ptr("my-pub-tls-secret")},
+						},
+					},
+				}
+				if pub != nil {
+					ais.Spec.ConfigToUpdate = &aisv1.ConfigToUpdate{
+						Net: &aisv1.NetConfToUpdate{HTTP: &aisv1.HTTPConfToUpdate{Pub: pub}},
+					}
+				}
+				conf, err := GenerateConfigToSet(ais)
+				Expect(err).ToNot(HaveOccurred())
+				// The common paths stay on the internal cert
+				Expect(*conf.Net.HTTP.Certificate).To(Equal("/var/certs/tls.crt"))
+				Expect(*conf.Net.HTTP.Pub.Certificate).To(Equal("/var/certs_pub/tls.crt"))
+				Expect(*conf.Net.HTTP.Pub.CertKey).To(Equal("/var/certs_pub/tls.key"))
+				if pub != nil {
+					Expect(conf.Net.HTTP.Pub.ClientAuthTLS).To(Equal(pub.ClientAuthTLS))
+				}
+				if wantClientCA == "" {
+					Expect(conf.Net.HTTP.Pub.ClientCA).To(BeNil())
+					return
+				}
+				Expect(*conf.Net.HTTP.Pub.ClientCA).To(Equal(wantClientCA))
+			},
+			Entry("no pub config", nil, ""),
+			Entry("client_auth_tls below verification",
+				&aisv1.TLSConfToUpdate{ClientAuthTLS: aisapc.Ptr(1)}, ""),
+			Entry("client_auth_tls requires verification",
+				&aisv1.TLSConfToUpdate{ClientAuthTLS: aisapc.Ptr(4)}, "/var/certs_pub/ca.crt"),
+			Entry("spec client_ca_tls",
+				&aisv1.TLSConfToUpdate{ClientAuthTLS: aisapc.Ptr(4), ClientCA: aisapc.Ptr("/var/certs/ca.crt")},
+				"/var/certs/ca.crt"),
+		)
 
 		DescribeTable("should build the auth config",
 			func(spec aisv1.AIStoreSpec, want *aiscmn.AuthConfToSet) {
