@@ -126,6 +126,40 @@ Node-derived SANs are not auto-included in CSI mode, so use `spec.tls.certificat
 
 ## AuthN
 
+The two AuthN deployment methods configure TLS differently. 
+See [Deploying AuthN in Kubernetes](./authn.md#deploying-authn-in-kubernetes) for more information on the available AuthN deployment methods.
+
+### Operator-managed AuthN (`AIStoreAuth`)
+
+TLS is active when `spec.tls` sets `secretName` or `certificate`.
+
+To have the operator provision the certificate, set an `issuerRef`:
+
+```yaml
+spec:
+  tls:
+    certificate:
+      issuerRef:
+        name: ca-issuer
+        kind: ClusterIssuer
+      # secret (default) or csi
+      mode: secret
+      additionalDNSNames:
+        - "<external-hostname>"
+```
+
+The operator derives the DNS names from the AuthN Services, so you do not list them. 
+It always includes `localhost`, the Service DNS names, and the host of `spec.config.net.externalURL`.
+Use `additionalDNSNames` only for names the operator cannot derive.
+
+`duration` and `renewBefore` are optional. When unset, the cert-manager defaults apply in both modes.
+
+To use an existing certificate instead, point `spec.tls.secretName` at a `kubernetes.io/tls` Secret and omit `certificate`.
+
+> **Note:** In `csi` mode the operator does not discover LoadBalancer endpoints. If you expose AuthN through a LoadBalancer and use `csi` mode, list the external hostname in `additionalDNSNames`.
+
+### Chart-managed AuthN (`authn` chart)
+
 Enable HTTPS on AuthN with `tls.enabled: true`.
 With `tls.createCert: true`, the chart creates a cert-manager `Certificate` from the configured `issuerRef` and DNS names:
 

@@ -11,26 +11,88 @@ For more information on AuthN, visit the [AIStore AuthN documentation](https://g
 
 ### Deploy with Helm
 
-The best way to deploy authN is to use our [provided Helm chart](../helm/authn/README.md)
+The best way to deploy AuthN is to use our [provided Helm charts](../helm/authn/README.md).
 
-### AuthN Resources in Kubernetes
+There are two deployment models, and each Helm chart covers one of them:
 
-- **Static Resources**
-  - **Signing Key Secret**  
-     - This secret holds the key used to sign JWT tokens, which is used by both the AuthN server and AIStore pods.
-  - **Admin Credentials Secret**
-     - This secret contains the admin user and password as entries, mapped to `SU-NAME` and `SU-PASS`.
-  - **AuthN Configuration ConfigMap**  
-     - The ConfigMap stores the non-sensitive default configuration of the AuthN server.
-  - **Persistent Storage (PV and PVC)**  
-     - User information and configuration data for AuthN are stored in a Persistent Volume (PV), which is connected to the AuthN deployment via a Persistent Volume Claim (PVC).
-- **Services**
-  - **External Service for AuthN**
-    - This service exposes the AuthN server to external clients. You can choose to use either a `NodePort` or `LoadBalancer` service, depending on your access requirements.
-  - **Internal Service for AuthN**
-     - This service facilitates internal communication between the AuthN server and other pods, including the AIS-Operator, within the cluster.
-- **AuthN Deployment**  
-   - This runs the AuthN pod and connects it with the other resources.
+| Model | Chart | Who creates the resources |
+| ----- | ----- | ------------------------- |
+| Operator managed | [`aisauth`](../helm/authn/charts/aisauth/README.md) | The chart creates an `AIStoreAuth` custom resource. The operator reconciles it into the ConfigMap, PVC, Deployment, Services, and Certificate. |
+| Chart managed | [`authn`](../helm/authn/charts/authn/README.md) | The chart creates every resource directly. |
+
+The rest of this section covers the operator-managed model.
+
+### AIStoreAuth Custom Resource
+
+`AIStoreAuth` is a namespaced resource in API group `auth.ais.nvidia.com/v1alpha1`, with the short name `aisauth`.
+
+For the spec fields, run `kubectl explain aistoreauth.spec`, or read the annotated [sample resource](../operator/config/samples/ais_v1alpha1_aistoreauth.yaml).
+For the chart values that map onto the spec, see the [`aisauth` chart README](../helm/authn/charts/aisauth/README.md).
+
+Run `kubectl describe` to check the state of a deployment through the `Ready` condition:
+
+```console
+kubectl get aistoreauth -n ais -o wide
+kubectl describe aistoreauth -n ais <name>
+```
+
+### Operator Resources
+
+The operator derives every name from the name of the `AIStoreAuth` resource. 
+For a resource named `ais-authn`:
+
+| Resource | Name | Purpose |
+|----------|------|---------|
+| Deployment | `ais-authn` | Runs the AuthN pod. |
+| ConfigMap | `ais-authn-config` | Holds the rendered `authn.json`, mounted read-only. |
+| PersistentVolumeClaim | `ais-authn-storage` | Holds the user database and the RSA keys. |
+| Service (ClusterIP) | `ais-authn` | The in-cluster endpoint. Always created. |
+| Service (NodePort) | `ais-authn-nodeport` | Created only when `spec.externalAccess.nodePort` is set. |
+| Service (LoadBalancer) | `ais-authn-lb` | Created only when `spec.externalAccess.loadBalancer` is set. |
+| Certificate | `ais-authn-authn-tls-cert` | Created only in `secret` TLS mode. Writes the Secret `ais-authn-authn-tls`. |
+
+The operator publishes the in-cluster endpoint in `status.serviceURL`. 
+Use that value for `spec.serviceURL` in the [AIStoreAuthProfile](./auth_profile.md) and for `AIS_AUTHN_URL` in clients.
+
+The pod mounts the data volume at `/etc/ais/authn` and the TLS certificate at `/var/certs`.
+
+The operator does not create the credential Secrets or the `PersistentVolume`. 
+Create those first.
+
+### Token Signing
+
+The AuthN server signs tokens with RSA or with HMAC. 
+`spec.hmacSecret` selects between them:
+
+- **RSA (default).** Leave `spec.hmacSecret` unset. AuthN generates the key pair on the data volume. Set `spec.rsaPassphraseSecret` to protect the private key with a passphrase.
+- **HMAC.** Set `spec.hmacSecret`. AuthN signs with the shared key that Secret holds.
+
+Each Secret maps to an environment variable on the AuthN container:
+
+| Spec field | Secret key | Environment variable |
+|------------|------------|----------------------|
+| `spec.adminSecret` | `SU-NAME` | `AIS_AUTHN_SU_NAME` |
+| `spec.adminSecret` | `SU-PASS` | `AIS_AUTHN_SU_PASS` |
+| `spec.hmacSecret` | `SIGNING-KEY` | `AIS_AUTHN_SECRET_KEY` |
+| `spec.rsaPassphraseSecret` | `RSA-PASSPHRASE` | `AIS_AUTHN_PRIVATE_KEY_PASS` |
+
+### Wiring OIDC Discovery to AIStore
+
+When the AIStore cluster looks up the issuer through OIDC, the proxies fetch the public key from the AuthN discovery endpoint.
+Set `spec.config.net.externalURL` to the URL the proxies use to reach AuthN:
+
+```yaml
+spec:
+  config:
+    net:
+      externalURL: https://ais-authn.ais.svc.cluster.local:52001
+```
+
+Then list that same URL in `spec.configToUpdate.auth.oidc.allowed_iss` on the AIStore resource.
+The two values must match exactly.
+
+If AuthN serves HTTPS with a private CA, the proxies must also trust that CA. 
+Set `spec.issuerCAConfigMap` on the AIStore resource.
 
 ## AuthN Clients
 
@@ -52,13 +114,24 @@ export AIS_AUTHN_URL=https://<NodePort-service-IP>:30001
 export AIS_AUTHN_URL=https://ais-authn.ais:52001
 ```
 
+When deployed as an AIStoreAuth custom resource, read the in-cluster URL from the resource:
+
+```console
+kubectl get aistoreauth -n ais <name> -o jsonpath='{.status.serviceURL}'
+```
+
 ## Switching Between HTTP and HTTPS (TLS) for the AuthN Server
 
 For how AuthN certificates are issued and trusted, see the [TLS guide](./tls.md).
 
-To switch the protocol of an existing AuthN server from HTTP to HTTPS (or vice versa), you can apply the new configuration specification over the current deployment.
-This will automatically redeploy the AuthN server with the updated settings.
+To switch the protocol of an existing AuthN server, apply the new configuration over the current deployment.
+This redeploys the AuthN server with the updated settings.
 
-We recommend using the [AuthN Helm chart](../helm/authn/README.md) for this process.
+When deployed as an AIStoreAuth custom resource, add or remove `spec.tls` in the `AIStoreAuth` spec.
+See [AuthN TLS](./tls.md#authn) on how to configure it.
+The operator reconciles the change and updates `status.serviceURL`.
 
-This will require an update to `spec.serviceURL` and potentially `spec.tls` in the `AIStoreAuthProfile` referenced by the AIStore spec.
+Each protocol switch also needs two updates outside the `AIStoreAuth` resource:
+
+1. Update `spec.serviceURL`, and if needed `spec.tls`, in the [AIStoreAuthProfile](./auth_profile.md) that the AIStore spec references.
+2. If the AIStore cluster looks up the issuer through OIDC, update the issuer URLs to match. See [Wiring OIDC Discovery to AIStore](#wiring-oidc-discovery-to-aistore).
