@@ -459,6 +459,20 @@ func (c *ConfigToUpdate) ConfigureOIDCIssuer(issuerCAPath string) {
 	c.Auth.OIDC.IssuerCA = &issuerCAPath
 }
 
+func (c *ConfigToUpdate) HasNodeJoinSecretPath() bool {
+	return c != nil && c.Auth != nil && c.Auth.IntraCluster != nil && c.Auth.IntraCluster.NodeJoinSecretPath != nil
+}
+
+func (c *ConfigToUpdate) ConfigureNodeJoin(secretPath string) {
+	if c.Auth == nil {
+		c.Auth = &AuthConfToUpdate{}
+	}
+	if c.Auth.IntraCluster == nil {
+		c.Auth.IntraCluster = &IntraClusterConfToUpdate{}
+	}
+	c.Auth.IntraCluster.NodeJoinSecretPath = &secretPath
+}
+
 func (c *ConfigToUpdate) Convert() (toUpdate *aiscmn.ConfigToSet, err error) {
 	toUpdate = &aiscmn.ConfigToSet{}
 	err = aiscos.MorphMarshal(c, toUpdate)

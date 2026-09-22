@@ -327,6 +327,52 @@ func TestValidateTLSCertPaths(t *testing.T) {
 	}
 }
 
+func TestValidateNodeJoinSecretPath(t *testing.T) {
+	tests := []struct {
+		name       string
+		secretName bool
+		secretPath *string
+		wantErr    bool
+	}{
+		{
+			name:       "secretName without a configured path is valid",
+			secretName: true,
+		},
+		{
+			name:       "secretPath without secretName is valid",
+			secretPath: aisapc.Ptr("/custom/path/secret"),
+		},
+		{
+			name:       "secretName with a configured path errors",
+			secretName: true,
+			secretPath: aisapc.Ptr("/custom/path/secret"),
+			wantErr:    true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			RegisterTestingT(t)
+			ais := &AIStore{}
+			if tt.secretName {
+				ais.Spec.NodeJoin = &NodeJoinSpec{SecretName: aisapc.Ptr("node-join-creds")}
+			}
+			if tt.secretPath != nil {
+				ais.Spec.ConfigToUpdate = &ConfigToUpdate{
+					Auth: &AuthConfToUpdate{
+						IntraCluster: &IntraClusterConfToUpdate{NodeJoinSecretPath: tt.secretPath},
+					},
+				}
+			}
+			_, err := ais.validateNodeJoinSecretPath()
+			if tt.wantErr {
+				Expect(err).To(HaveOccurred())
+			} else {
+				Expect(err).ToNot(HaveOccurred())
+			}
+		})
+	}
+}
+
 func allPubCertPaths() *TLSConfToUpdate {
 	return &TLSConfToUpdate{
 		Certificate: aisapc.Ptr("/etc/ais/pub.crt"),

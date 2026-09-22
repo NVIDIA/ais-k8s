@@ -160,7 +160,7 @@ func userSecretRefs(ais *aisv1.AIStore) []secretRef {
 // namedSecretRefs lists the Secrets that a spec field names directly.
 func namedSecretRefs(ais *aisv1.AIStore) []secretRef {
 	specPath := field.NewPath("spec")
-	refs := make([]secretRef, 0, 6+len(ais.Spec.ImagePullSecrets))
+	refs := make([]secretRef, 0, 7+len(ais.Spec.ImagePullSecrets))
 	add := func(path *field.Path, name *string) {
 		if name != nil {
 			refs = append(refs, secretRef{path: path, name: *name})
@@ -170,6 +170,7 @@ func namedSecretRefs(ais *aisv1.AIStore) []secretRef {
 	add(specPath.Child("awsSecretName"), ais.Spec.AWSSecretName)
 	add(specPath.Child("ociSecretName"), ais.Spec.OCISecretName)
 	add(specPath.Child("tracingTokenSecretName"), ais.Spec.TracingTokenSecretName)
+	add(specPath.Child("nodeJoin", "secretName"), ais.Spec.NodeJoinSecretName())
 	add(specPath.Child("authNSecretName"), ais.Spec.AuthNSecretName)
 	if ais.Spec.TLS != nil {
 		add(specPath.Child("tls", "secretName"), ais.Spec.TLS.SecretName)

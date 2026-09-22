@@ -601,6 +601,7 @@ func secretAIS() *aisv1.AIStore {
 	ais.Spec.AWSSecretName = aisapc.Ptr("aws-creds")
 	ais.Spec.OCISecretName = aisapc.Ptr("oci-creds")
 	ais.Spec.TracingTokenSecretName = aisapc.Ptr("tracing-token")
+	ais.Spec.NodeJoin = &aisv1.NodeJoinSpec{SecretName: aisapc.Ptr("node-join-creds")}
 	ais.Spec.AuthNSecretName = aisapc.Ptr("authn-signing-key")
 	ais.Spec.TLS = &aisv1.TLSSpec{SecretName: aisapc.Ptr("tls-cert")}
 	ais.Spec.ImagePullSecrets = []corev1.LocalObjectReference{{Name: "registry-a"}, {Name: "registry-b"}}
@@ -649,6 +650,7 @@ func TestValidateSecretRefs(t *testing.T) {
 				secretGetAttrs("aws-creds"),
 				secretGetAttrs("oci-creds"),
 				secretGetAttrs("tracing-token"),
+				secretGetAttrs("node-join-creds"),
 				secretGetAttrs("authn-signing-key"),
 				secretGetAttrs("tls-cert"),
 				secretGetAttrs("registry-a"),
@@ -717,6 +719,13 @@ func TestValidateSecretRefs(t *testing.T) {
 				spec.ProxySpec.Env = []corev1.EnvVar{secretEnv("shared-creds")}
 			},
 			wantPath: "spec.awsSecretName",
+		},
+		{
+			name: "an unauthorized node join secret is rejected",
+			setRef: func(spec *aisv1.AIStoreSpec) {
+				spec.NodeJoin = &aisv1.NodeJoinSpec{SecretName: aisapc.Ptr("node-join-creds")}
+			},
+			wantPath: "spec.nodeJoin.secretName",
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {

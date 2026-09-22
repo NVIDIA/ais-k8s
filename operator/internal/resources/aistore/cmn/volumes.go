@@ -32,13 +32,15 @@ const (
 	InitGlobalConfDir = "/var/global_config"
 
 	// Other container mount locations
-	certsDir        = "/var/certs"
-	tracesDir       = "/var/traces"
-	TLSCertFileName = "tls.crt"
-	TLSKeyFileName  = "tls.key"
-	TLSCAFileName   = "ca.crt"
-	OIDCCAFileName  = "ca.crt"
-	OIDCCAMountPath = "/etc/ais/oidc-ca"
+	certsDir               = "/var/certs"
+	tracesDir              = "/var/traces"
+	nodeJoinDir            = "/var/node_join_secret"
+	NodeJoinSecretFileName = "node_join_secret"
+	TLSCertFileName        = "tls.crt"
+	TLSKeyFileName         = "tls.key"
+	TLSCAFileName          = "ca.crt"
+	OIDCCAFileName         = "ca.crt"
+	OIDCCAMountPath        = "/etc/ais/oidc-ca"
 
 	hostnameMapFileName = "hostname_map.json"
 	AISGlobalConfigName = "ais.json"
@@ -50,8 +52,12 @@ const (
 	stateVolume          = "state-mount"
 	tlsSecretVolume      = "tls-certs"
 	tracingSecretVolume  = "tracing-token"
+	nodeJoinSecretVolume = "node-join-secret"
 	logsVolume           = "logs-dir"
 )
+
+// nodeJoinSecretDefaultMode restricts the node-join credential file to owner read only.
+var nodeJoinSecretDefaultMode int32 = 0o400
 
 // StateHostPath returns the host directory holding a cluster's on-disk state,
 // scoped under the configured hostpath prefix. Pass a daeType to select that
@@ -130,6 +136,18 @@ func NewAISVolumes(ais *v1beta1.AIStore, daeType string) []corev1.Volume {
 				Secret: &corev1.SecretVolumeSource{
 					SecretName:  *ais.Spec.TracingTokenSecretName,
 					DefaultMode: &SecretDefaultMode,
+				},
+			},
+		})
+	}
+
+	if secretName := ais.Spec.NodeJoinSecretName(); secretName != nil {
+		volumes = append(volumes, corev1.Volume{
+			Name: nodeJoinSecretVolume,
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName:  *secretName,
+					DefaultMode: &nodeJoinSecretDefaultMode,
 				},
 			},
 		})
@@ -254,6 +272,9 @@ func NewAISVolumeMounts(ais *v1beta1.AIStore, daeType string) []corev1.VolumeMou
 	}
 	if spec.TracingTokenSecretName != nil {
 		volumeMounts = AppendSimpleReadOnlyMount(volumeMounts, tracingSecretVolume, tracesDir)
+	}
+	if spec.NodeJoinSecretName() != nil {
+		volumeMounts = AppendSimpleReadOnlyMount(volumeMounts, nodeJoinSecretVolume, nodeJoinDir)
 	}
 	return volumeMounts
 }

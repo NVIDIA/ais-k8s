@@ -31,6 +31,7 @@ func (ais *AIStore) ValidateSpec(_ context.Context) (admission.Warnings, error) 
 		ais.validateCleanupConfig,
 		ais.validateTLSCertPaths,
 		ais.validatePublicTLSCertPaths,
+		ais.validateNodeJoinSecretPath,
 		ais.validateSafeDecommission,
 		ais.validateAuthConfig,
 		ais.validateAuth,
@@ -250,6 +251,16 @@ func (ais *AIStore) validatePublicTLSCertPaths() (admission.Warnings, error) {
 		return nil, nil
 	}
 	return nil, fmt.Errorf("configToUpdate.net.http.pub.[%s] cannot be set together with spec.tls.public; the operator manages cert paths under /var/certs-pub", strings.Join(conflicts, ","))
+}
+
+// validateNodeJoinSecretPath rejects specs that set both spec.nodeJoin.secretName and
+// configToUpdate.auth.intra_cluster.node_join_secret_path, since the operator points that
+// path at the mounted secret and would silently override it.
+func (ais *AIStore) validateNodeJoinSecretPath() (admission.Warnings, error) {
+	if ais.Spec.NodeJoinSecretName() == nil || !ais.Spec.ConfigToUpdate.HasNodeJoinSecretPath() {
+		return nil, nil
+	}
+	return nil, fmt.Errorf("configToUpdate.auth.intra_cluster.node_join_secret_path cannot be set together with spec.nodeJoin.secretName; the operator manages this path")
 }
 
 // getConfiguredCertPaths names the cert path options that are set. The operator writes every one of them for

@@ -14,6 +14,10 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 > This is enforced on any changed spec in the `v4.1.0` webhook, but prior operator versions used the config field directly to determine the operator's included token audience.
 > Clusters upgraded without this must revert to an older operator version or set the `required_claims.aud` config manually via AIS CLI. 
 
+### Added
+
+- `spec.nodeJoin.secretName` to mount a Secret for AIS's node-join authentication. The operator points `auth.intra_cluster.node_join_secret_path` at the mounted credential automatically.
+
 ### Changed
 
 - Operator now only includes the cluster's `<namespace>/<name>` in the AIStore token audience when using token exchange, if an audience is required by the AIS cluster.

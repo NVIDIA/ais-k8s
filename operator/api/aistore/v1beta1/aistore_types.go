@@ -313,6 +313,16 @@ type CertIssuerRef struct {
 	Kind string `json:"kind,omitempty"`
 }
 
+// NodeJoinSpec configures AIS node-join authentication, available in AIStore v5.0 and later.
+// More info: https://github.com/NVIDIA/aistore/blob/main/docs/auth_node_join.md
+type NodeJoinSpec struct {
+	// SecretName names a Secret containing the node-join credential in a data key named
+	// "node_join_secret". The operator automatically updates "node_join_secret_path" in the
+	// AIStore config to use this value.
+	// +optional
+	SecretName *string `json:"secretName,omitempty"`
+}
+
 // AIStoreSpec defines the desired state of AIStore
 // +kubebuilder:validation:XValidation:rule="(has(self.targetSpec.size) && has(self.proxySpec.size)) || has(self.size)",message="Invalid cluster size, it is either not specified or value is not valid"
 // +kubebuilder:validation:XValidation:rule="!has(self.cleanupData) || !self.cleanupData || (has(self.cleanupMetadata) && self.cleanupMetadata)",message="cleanupData requires cleanupMetadata to be enabled"
@@ -414,6 +424,11 @@ type AIStoreSpec struct {
 
 	// Secret name containing OTEL trace-exporter token.
 	TracingTokenSecretName *string `json:"tracingTokenSecretName,omitempty"`
+
+	// NodeJoin configures AIS node-join authentication, available in AIStore v5.0 and later.
+	// More info: https://github.com/NVIDIA/aistore/blob/main/docs/auth_node_join.md
+	// +optional
+	NodeJoin *NodeJoinSpec `json:"nodeJoin,omitempty"`
 
 	// Secret name containing AuthN's JWT signing key
 	// +optional
@@ -1196,6 +1211,14 @@ func (ais *AIStore) UseHTTPS() bool {
 // HasTLSEnabled returns true if any TLS configuration is specified
 func (ais *AIStore) HasTLSEnabled() bool {
 	return ais.Spec.TLS != nil
+}
+
+// NodeJoinSecretName returns the configured node-join credential Secret name, or nil if unset.
+func (s *AIStoreSpec) NodeJoinSecretName() *string {
+	if s.NodeJoin == nil {
+		return nil
+	}
+	return s.NodeJoin.SecretName
 }
 
 // HasPublicTLS returns true if a separate public network certificate is specified

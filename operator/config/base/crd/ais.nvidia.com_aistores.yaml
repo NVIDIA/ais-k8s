@@ -2012,6 +2012,18 @@ spec:
                 description: Container image used for `aisnode` container.
                 minLength: 1
                 type: string
+              nodeJoin:
+                description: |-
+                  NodeJoin configures AIS node-join authentication, available in AIStore v5.0 and later.
+                  More info: https://github.com/NVIDIA/aistore/blob/main/docs/auth_node_join.md
+                properties:
+                  secretName:
+                    description: |-
+                      SecretName names a Secret containing the node-join credential in a data key named
+                      "node_join_secret". The operator automatically updates "node_join_secret_path" in the
+                      AIStore config to use this value.
+                    type: string
+                type: object
               ociSecretName:
                 description: Secret name containing OCI config and credentials
                 type: string

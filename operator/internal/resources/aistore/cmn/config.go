@@ -97,6 +97,9 @@ func buildSpecConfigAuth(ais *aisv1.AIStore, specConfig *aisv1.ConfigToUpdate) {
 	if ais.Spec.AuthNSecretName != nil && !specConfig.HasOIDCIssuers() {
 		specConfig.EnsureHMACSignature()
 	}
+	if ais.Spec.NodeJoinSecretName() != nil {
+		specConfig.ConfigureNodeJoin(filepath.Join(nodeJoinDir, NodeJoinSecretFileName))
+	}
 	// AIStore is not configured to use auth in any way
 	if specConfig.Auth == nil {
 		return

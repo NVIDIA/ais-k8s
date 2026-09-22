@@ -275,6 +275,14 @@ var _ = Describe("Config", Label("short"), func() {
 					Signature: &aiscmn.AuthSignatureConfToSet{Method: aisapc.Ptr("RSA")},
 				},
 			),
+			Entry("node join secret alone",
+				aisv1.AIStoreSpec{NodeJoin: &aisv1.NodeJoinSpec{SecretName: aisapc.Ptr("node-join-creds")}},
+				&aiscmn.AuthConfToSet{
+					IntraCluster: &aiscmn.IntraClusterConfToSet{
+						NodeJoinSecretPath: aisapc.Ptr("/var/node_join_secret/node_join_secret"),
+					},
+				},
+			),
 			Entry("hmac secret with OIDC issuers",
 				aisv1.AIStoreSpec{
 					AuthNSecretName: aisapc.Ptr("hmac-secret"),
