@@ -32,7 +32,12 @@ make manifests  # regenerate CRD/RBAC/webhook YAML from kubebuilder markers
 make generate   # regenerate deepcopy/mock code
 ```
 
-`build`, `run`, `test`, and `test-e2e` each depend on `manifests` and `generate`, so they rewrite generated files. `build` and `run` also depend on `fmt` and `vet`, so they reformat the tree.
+`build`, `run`, `test`, and `test-e2e` each depend on `manifests` and `generate`, so they rewrite generated files. `build` and `run` also depend on `fmt` and `vet`, so they reformat the tree. While you edit, call the Go tools directly instead, so unrelated generated files stay out of the diff:
+
+```bash
+go build ./...   # compile check
+go vet ./...
+```
 
 If you change types under `api/`, run `make generate` and `make manifests`, then regenerate the Helm chart. Pass the version the chart already declares:
 
@@ -41,6 +46,17 @@ make build-installer-helm VERSION=<current version in helm/ais-operator/Chart.ya
 ```
 
 `build-installer-helm` rewrites `.version` and `.appVersion` in `helm/ais-operator/Chart.yaml` and the image tag in `config/overlays/default/kustomization.yaml`. Pass a different version only during a release. `make build-installer` writes `dist/ais-operator.yaml`, which is gitignored and needed only at release time.
+
+### Adding a Spec Field
+
+1. Add the field and its validation markers to the type under `api/`. The doc comment on the field becomes the CRD description.
+2. Add any cross-field or update-only rule to the matching package under `internal/webhook/`.
+3. If the field names a Secret, the webhook must enforce that the CR editor has access via `SubjectAccessReview`.
+4. Use the field where the operator builds the workload, under `internal/resources/`.
+5. Run `make generate` and `make manifests`, then `make build-installer-helm` as described above.
+6. Add a one-line entry to `CHANGELOG.md` under `Unreleased`.
+
+Update the Helm chart in `../helm/ais/charts/ais-cluster/` and its `values.schema.json` only when the request asks for it. The chart passes the value through and sets no default.
 
 ## Testing Instructions
 
@@ -68,7 +84,9 @@ ginkgo ./internal/services                          # one package
 ginkgo --focus "<spec text>" ./internal/services    # one spec
 ```
 
-The suites in `internal/controller/aistore/` and `api/aistore/v1beta1/` start envtest and need `KUBEBUILDER_ASSETS`; use `make test` for those.
+Only the suites in `internal/controller/aistore/` and `api/aistore/v1beta1/` start envtest and need `KUBEBUILDER_ASSETS`; use `make test` for those. Every other unit package runs under a direct `ginkgo` or `go test` call.
+
+Run the full suite when the change is broad, or before you commit. Do not start an E2E run or a kind cluster unless the request asks for it.
 
 ## Code Style Guidelines
 
@@ -82,10 +100,9 @@ make fmt-fix    # gofmt -s -w only
 make check-gen  # verify config/ and helm/ais-operator/ match the generators
 ```
 
-`make fmt-fix` fixes nothing that `make fmt-check` reports. Fix those by hand: run `go mod tidy`, add the file header, or collapse the blank lines in the `import` block.
+`make fmt-fix` fixes nothing that `make fmt-check` reports. Fix those by hand: run `go mod tidy`, add the file header, or collapse the blank lines in the `import` block. See [CONVENTIONS.md](CONVENTIONS.md) for the file-style and comment rules these commands check, and for the scope, API, deprecation, logging, and test rules this project applies.
 
-- Every `.go` file needs a `Copyright ... NVIDIA CORPORATION. All rights reserved.` line within its first 10 lines, or `// no-copyright`. Copy the header from a neighboring file.
-- An `import` block may hold at most one blank line.
+`make lint` installs a pinned `golangci-lint` into `bin/`. After it runs once, call that binary on one package to check a single edit.
 
 `make check-gen` diffs `config/` and `helm/ais-operator/` against `HEAD`, so commit regenerated manifests before you run it.
 
@@ -97,33 +114,3 @@ CI runs `make lint`, `make fmt-check`, and `make check-gen` on every operator ch
 - `../pages/` holds the published Helm chart repo.
 - Release process: `../docs/operator_release.md`. `VERSION=<x.y.z> make release` also creates the release commit, so do not run it unless you intend that.
 - Changing the supported AIStore or Kubernetes versions also requires an update to `../docs/COMPATIBILITY.md`.
-
-## Comments
-
-Write a comment only to state intent or a constraint the code cannot show. Never narrate what the code does.
-
-Doc comments (package, type, function, method) describe only that entity's own responsibility:
-
-- Never describe internals, precedence/fallback order, or what the code inside them does — that detail changes and the comment goes stale.
-- Never make claims about callers, deployment, external tooling, or where a value is consumed later.
-- Never justify a design or a change, and never reference obsolete or unimplemented behavior.
-
-Comment specific confusing code inline, immediately above the line it explains, not in the doc comment. Keep each comment to the shortest form that still carries the constraint, and match the surrounding file's comment density and style.
-
-```go
-// BAD: describes internals, fallbacks, and callers
-// Resolve determines the domain and identity, logging each value and its source. Neither failure is
-// fatal: the domain falls back to the default, and callers that never need the identity keep running.
-
-// GOOD: states its own responsibility and contract
-// Resolve determines the cluster domain and the operator's own identity. It reports failures through
-// the logger rather than to the caller.
-```
-
-Write comments in [ASD-STE100 Simplified Technical English](https://www.asd-ste100.org/):
-
-- Use the active voice. Use simple present, simple past, or simple future tense.
-- Write one instruction per sentence. Keep instruction sentences to 20 words or fewer and descriptive sentences to 25 words or fewer.
-- Use each approved word in one part of speech and one meaning only. Use the same word for the same thing every time.
-- Do not use noun clusters of more than three words.
-- Do not omit articles or other words that make the sentence clear.

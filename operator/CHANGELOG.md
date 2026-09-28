@@ -19,12 +19,9 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 - `spec.nodeJoin.secretName` to mount a Secret for AIS's node-join authentication. The operator points `auth.intra_cluster.node_join_secret_path` at the mounted credential automatically.
 - `spec.tls.public` to configure a separate TLS certificate for the public interface on which AIStore listens.
 
-### Fixed
-
-- Autoscale target scale-down can finish after decommission when the extra pods have already left the cluster map but `maxUnavailable` would otherwise defer shrinking the StatefulSet.
-
 ### Changed
 
+- Autoscale target scale-down can finish after decommission when the extra pods have already left the cluster map but `maxUnavailable` would otherwise defer shrinking the StatefulSet.
 - Operator now only includes the cluster's `<namespace>/<name>` in the AIStore token audience when using token exchange, if an audience is required by the AIS cluster.
 - All user-provided secret references must pass a SubjectAccessReview.
 - Target decommission scale-down waits until each outgoing target has left the cluster map before shrinking the StatefulSet. A target already in maintenance is decommissioned only once it has the post-rebalance flag (`InMaintPostReb`).
