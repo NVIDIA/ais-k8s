@@ -2,4 +2,4 @@ apiVersion: v2
 name: aisauth
 description: AIS AuthN server, deployed and managed by the AIS operator
 version: 0.2.0
-appVersion: v5.0
+appVersion: v5.1

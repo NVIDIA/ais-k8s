@@ -5,10 +5,10 @@ imagePullSecrets:
 # - name:
 nodeImage:
   name: docker.io/aistorage/aisnode
-  tag: v5.0
+  tag: v5.1
 initImage:
   name: docker.io/aistorage/ais-init
-  tag: v5.0
+  tag: v5.1
 # logSidecar configures the log-collection sidecar (image + resources).
 # `logSidecarImage` is deprecated.
 logSidecar:
