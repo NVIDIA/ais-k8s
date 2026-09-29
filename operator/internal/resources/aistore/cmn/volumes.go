@@ -140,11 +140,8 @@ func NewAISVolumes(ais *v1beta1.AIStore, daeType string) []corev1.Volume {
 		volumes = append(volumes, *tlsVol)
 	}
 
-	if ais.UsePublicTLS() {
-		volumes = append(volumes, corev1.Volume{
-			Name:         tlsPubSecretVolume,
-			VolumeSource: newTLSSecretVolumeSource(ais.GetPublicTLSSecretName()),
-		})
+	if pubTLSVol := getPublicTLSVolume(ais); pubTLSVol != nil {
+		volumes = append(volumes, *pubTLSVol)
 	}
 
 	if ais.Spec.TracingTokenSecretName != nil {
@@ -218,27 +215,46 @@ func getTLSCSIVolumeSource(ais *v1beta1.AIStore, daeType string) corev1.VolumeSo
 		return corev1.VolumeSource{}
 	}
 	name := ais.Name + "-" + daeType
-	issuerRef := certConfig.IssuerRef
 	// CSI mode intentionally omits cluster-node SANs: those hosts are derived
 	// from selector-matched nodes, and threading that list into the pod template
 	// would force a StatefulSet rollout on every node-list change. Operators
 	// needing node-level SANs in CSI mode must populate Spec.HostnameMap or
 	// AdditionalDNSNames explicitly, or use the non-CSI Certificate path.
 	dnsNames, _ := buildCertificateSANs(ais, nil)
-	volumeAttributes := (&certres.CSIConfig{
-		IssuerName:  issuerRef.Name,
-		IssuerKind:  issuerRef.Kind,
-		CommonName:  fmt.Sprintf("%s.%s", name, ais.Namespace),
-		DNSNames:    dnsNames,
-		Duration:    certConfig.Duration,
-		RenewBefore: certConfig.RenewBefore,
-		Usages:      certUsages(),
-	}).ToVolumeAttributes()
+	commonName := fmt.Sprintf("%s.%s", name, ais.Namespace)
+	return newCSIVolumeSource(newCSIConfig(certConfig, commonName, dnsNames, certUsages()))
+}
 
+// getPublicTLSVolume returns the volume holding the certificate AIS serves on the public network.
+func getPublicTLSVolume(ais *v1beta1.AIStore) *corev1.Volume {
+	var source corev1.VolumeSource
+
+	switch {
+	case ais.UsePublicTLSCSI():
+		source = getPublicTLSCSIVolumeSource(ais)
+	case ais.GetPublicTLSSecretName() != "":
+		source = newTLSSecretVolumeSource(ais.GetPublicTLSSecretName())
+	default:
+		return nil
+	}
+
+	return &corev1.Volume{
+		Name:         tlsPubSecretVolume,
+		VolumeSource: source,
+	}
+}
+
+func getPublicTLSCSIVolumeSource(ais *v1beta1.AIStore) corev1.VolumeSource {
+	return newCSIVolumeSource(newCSIConfig(
+		ais.GetPublicTLSCertificate(), "", buildPublicCertificateSANs(ais), publicCertUsages(),
+	))
+}
+
+func newCSIVolumeSource(config *certres.CSIConfig) corev1.VolumeSource {
 	return corev1.VolumeSource{
 		CSI: &corev1.CSIVolumeSource{
 			Driver:           csiapis.GroupName,
-			VolumeAttributes: volumeAttributes,
+			VolumeAttributes: config.ToVolumeAttributes(),
 			ReadOnly:         aisapc.Ptr(true),
 		},
 	}

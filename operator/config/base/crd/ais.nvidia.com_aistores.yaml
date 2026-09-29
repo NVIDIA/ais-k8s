@@ -5911,7 +5911,7 @@ spec:
                     properties:
                       certificate:
                         description: Certificate configures cert-manager certificate
-                          generation
+                          generation.
                         properties:
                           additionalDNSNames:
                             description: AdditionalDNSNames are extra DNS names to
@@ -5962,15 +5962,19 @@ spec:
                         description: SecretName references an existing TLS secret
                         minLength: 1
                         type: string
+                      serverName:
+                        description: |-
+                          ServerName is the DNS name clients use to reach AIS on the public network.
+                          With the 'certificate' option, the operator includes it in the certificate SANs.
+                        minLength: 1
+                        type: string
+                    required:
+                    - serverName
                     type: object
                     x-kubernetes-validations:
                     - message: 'specify exactly one: secretName or certificate'
                       rule: '[has(self.secretName), has(self.certificate)].filter(x,
                         x).size() == 1'
-                    - message: certificate.mode csi is not supported for the public
-                        network certificate
-                      rule: '!has(self.certificate) || !has(self.certificate.mode)
-                        || self.certificate.mode != ''csi'''
                   secretName:
                     description: SecretName references an existing TLS secret
                     type: string

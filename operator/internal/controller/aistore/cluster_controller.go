@@ -846,6 +846,13 @@ func (r *Reconciler) externalEndpoints(ctx context.Context, ais *aisv1.AIStore, 
 }
 
 func (r *Reconciler) reconcileTLSCertificate(ctx context.Context, ais *aisv1.AIStore) error {
+	if err := r.reconcileClusterTLSCertificate(ctx, ais); err != nil {
+		return err
+	}
+	return r.reconcilePublicTLSCertificate(ctx, ais)
+}
+
+func (r *Reconciler) reconcileClusterTLSCertificate(ctx context.Context, ais *aisv1.AIStore) error {
 	// Create a Certificate if configured in spec (not using csi-driver or pre-existing secret)
 	if ais.UseTLSCertificate() {
 		publicHosts, err := r.discoverPublicNetHosts(ctx, ais)
@@ -856,6 +863,14 @@ func (r *Reconciler) reconcileTLSCertificate(ctx context.Context, ais *aisv1.AIS
 	}
 	// Delete Certificate if it exists
 	_, err := r.k8sClient.DeleteResourceIfExists(ctx, cmn.TLSCertificate(ais))
+	return err
+}
+
+func (r *Reconciler) reconcilePublicTLSCertificate(ctx context.Context, ais *aisv1.AIStore) error {
+	if ais.UsePublicTLSCertificate() {
+		return r.k8sClient.Apply(ctx, cmn.NewPublicCertificate(ais))
+	}
+	_, err := r.k8sClient.DeleteResourceIfExists(ctx, cmn.PublicTLSCertificate(ais))
 	return err
 }
 

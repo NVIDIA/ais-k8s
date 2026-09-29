@@ -99,7 +99,11 @@ func (aisw *AIStoreWebhook) validateSpec(ctx context.Context, prev, ais *aisv1.A
 		return nil, err
 	}
 
-	if err := validateAdditionalDNSNames(prev, ais); err != nil {
+	if err := validateCertConfigDNSNames(prev, ais); err != nil {
+		return nil, err
+	}
+
+	if err := validatePublicServerName(ais); err != nil {
 		return nil, err
 	}
 
@@ -480,10 +484,11 @@ func validateDeprecatedStateStorage(ais *aisv1.AIStore) error {
 var (
 	certificateDNSNamesPath       = field.NewPath("spec", "tls", "certificate", "additionalDNSNames")
 	publicCertificateDNSNamesPath = field.NewPath("spec", "tls", "public", "certificate", "additionalDNSNames")
+	publicServerNamePath          = field.NewPath("spec", "tls", "public", "serverName")
 )
 
-// validateAdditionalDNSNames rejects invalid certificate DNS names that prev does not already list.
-func validateAdditionalDNSNames(prev, ais *aisv1.AIStore) error {
+// validateCertConfigDNSNames rejects invalid DNS names in the certificate configs that prev does not already list.
+func validateCertConfigDNSNames(prev, ais *aisv1.AIStore) error {
 	if prev == nil {
 		prev = &aisv1.AIStore{}
 	}
@@ -499,6 +504,18 @@ func validateAdditionalDNSNames(prev, ais *aisv1.AIStore) error {
 	return apiInvalidError(ais, allErrs...)
 }
 
+// validatePublicServerName rejects a public serverName that is not a plain DNS name.
+func validatePublicServerName(ais *aisv1.AIStore) error {
+	name := ais.GetPublicTLSServerName()
+	if name == "" {
+		return nil
+	}
+	if err := validateDNSName(publicServerNamePath, name, false); err != nil {
+		return apiInvalidError(ais, err)
+	}
+	return nil
+}
+
 // validateAddedDNSNames validates the names in current that are absent from prev.
 func validateAddedDNSNames(path *field.Path, prev, current []string) field.ErrorList {
 	var allErrs field.ErrorList
@@ -506,17 +523,21 @@ func validateAddedDNSNames(path *field.Path, prev, current []string) field.Error
 		if slices.Contains(prev, name) {
 			continue
 		}
-		if err := validateDNSName(path.Index(i), name); err != nil {
+		if err := validateDNSName(path.Index(i), name, true); err != nil {
 			allErrs = append(allErrs, err)
 		}
 	}
 	return allErrs
 }
 
-// validateDNSName accepts a DNS name, optionally prefixed by a single "*." wildcard label.
+// validateDNSName accepts a DNS name, prefixed by a single "*." wildcard label only if allowWildcard is set.
 // IP addresses are rejected: a certificate needs them as IP SANs, not DNS SANs.
-func validateDNSName(path *field.Path, name string) *field.Error {
-	host := strings.ToLower(strings.TrimPrefix(name, "*."))
+func validateDNSName(path *field.Path, name string, allowWildcard bool) *field.Error {
+	host := name
+	if allowWildcard {
+		host = strings.TrimPrefix(host, "*.")
+	}
+	host = strings.ToLower(host)
 	if net.ParseIP(host) != nil {
 		return field.Invalid(path, name, "must be a DNS name, not an IP address")
 	}

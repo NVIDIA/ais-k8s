@@ -222,7 +222,7 @@ func TestValidateAddedDNSNames(t *testing.T) {
 	}
 }
 
-func TestValidateAdditionalDNSNames(t *testing.T) {
+func TestValidateCertConfigDNSNames(t *testing.T) {
 	regularCert := func(names ...string) *aisv1.AIStore {
 		return &aisv1.AIStore{Spec: aisv1.AIStoreSpec{TLS: &aisv1.TLSSpec{
 			Certificate: &aisv1.TLSCertificateConfig{AdditionalDNSNames: names},
@@ -235,38 +235,80 @@ func TestValidateAdditionalDNSNames(t *testing.T) {
 	}
 
 	t.Run("no TLS is accepted", func(subT *testing.T) {
-		NewWithT(subT).Expect(validateAdditionalDNSNames(nil, &aisv1.AIStore{})).To(Succeed())
+		NewWithT(subT).Expect(validateCertConfigDNSNames(nil, &aisv1.AIStore{})).To(Succeed())
 	})
 
 	t.Run("regular certificate names are validated", func(subT *testing.T) {
 		g := NewWithT(subT)
-		err := validateAdditionalDNSNames(nil, regularCert("a_b.com"))
+		err := validateCertConfigDNSNames(nil, regularCert("a_b.com"))
 		g.Expect(err).To(MatchError(ContainSubstring(certificateDNSNamesPath.String())))
 		g.Expect(err).ToNot(MatchError(ContainSubstring(publicCertificateDNSNamesPath.String())))
 	})
 
 	t.Run("public certificate names are validated", func(subT *testing.T) {
 		g := NewWithT(subT)
-		err := validateAdditionalDNSNames(nil, publicCert("a_b.com"))
+		err := validateCertConfigDNSNames(nil, publicCert("a_b.com"))
 		g.Expect(err).To(MatchError(ContainSubstring(publicCertificateDNSNamesPath.String())))
 	})
 
 	t.Run("names are compared against the same certificate", func(subT *testing.T) {
 		g := NewWithT(subT)
 		// A name listed on the regular certificate is not grandfathered on the public one.
-		err := validateAdditionalDNSNames(regularCert("a_b.com"), publicCert("a_b.com"))
+		err := validateCertConfigDNSNames(regularCert("a_b.com"), publicCert("a_b.com"))
 		g.Expect(err).To(MatchError(ContainSubstring(publicCertificateDNSNamesPath.String())))
 	})
 }
 
-func TestValidateSpecRejectsInvalidDNSNames(t *testing.T) {
-	g := NewWithT(t)
-	ais := &aisv1.AIStore{Spec: aisv1.AIStoreSpec{TLS: &aisv1.TLSSpec{
-		Certificate: &aisv1.TLSCertificateConfig{AdditionalDNSNames: []string{"a_b.com"}},
-	}}}
+func TestValidatePublicServerName(t *testing.T) {
+	withServerName := func(name string) *aisv1.AIStore {
+		return &aisv1.AIStore{Spec: aisv1.AIStoreSpec{TLS: &aisv1.TLSSpec{
+			Public: &aisv1.PublicTLSSpec{ServerName: name},
+		}}}
+	}
 
-	_, err := (&AIStoreWebhook{}).validateSpec(context.Background(), nil, ais)
-	g.Expect(err).To(MatchError(ContainSubstring(certificateDNSNamesPath.String())))
+	t.Run("unset public TLS is accepted", func(subT *testing.T) {
+		NewWithT(subT).Expect(validatePublicServerName(&aisv1.AIStore{})).To(Succeed())
+	})
+
+	t.Run("hostname is accepted", func(subT *testing.T) {
+		NewWithT(subT).Expect(validatePublicServerName(withServerName("ais.example.com"))).To(Succeed())
+	})
+
+	for _, name := range []string{"a_b.com", "10.0.0.1", "*.example.com"} {
+		t.Run("rejects "+name, func(subT *testing.T) {
+			err := validatePublicServerName(withServerName(name))
+			NewWithT(subT).Expect(err).To(MatchError(ContainSubstring(publicServerNamePath.String())))
+		})
+	}
+}
+
+func TestValidateSpecRejectsInvalidDNSNames(t *testing.T) {
+	tests := []struct {
+		name string
+		tls  *aisv1.TLSSpec
+		path *field.Path
+	}{
+		{
+			name: "certificate additionalDNSNames",
+			tls: &aisv1.TLSSpec{
+				Certificate: &aisv1.TLSCertificateConfig{AdditionalDNSNames: []string{"a_b.com"}},
+			},
+			path: certificateDNSNamesPath,
+		},
+		{
+			name: "public serverName",
+			tls:  &aisv1.TLSSpec{Public: &aisv1.PublicTLSSpec{ServerName: "a_b.com"}},
+			path: publicServerNamePath,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(subT *testing.T) {
+			ais := &aisv1.AIStore{Spec: aisv1.AIStoreSpec{TLS: tt.tls}}
+
+			_, err := (&AIStoreWebhook{}).validateSpec(context.Background(), nil, ais)
+			NewWithT(subT).Expect(err).To(MatchError(ContainSubstring(tt.path.String())))
+		})
+	}
 }
 
 func TestValidateUpdatePorts(t *testing.T) {

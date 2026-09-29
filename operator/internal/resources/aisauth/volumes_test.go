@@ -10,6 +10,7 @@ import (
 
 	authv1alpha1 "github.com/ais-operator/api/aisauth/v1alpha1"
 	authnres "github.com/ais-operator/internal/resources/aisauth"
+	csiapis "github.com/cert-manager/csi-driver/pkg/apis"
 	csiapisv1 "github.com/cert-manager/csi-driver/pkg/apis/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -97,7 +98,7 @@ var _ = Describe("Volumes", func() {
 		spec := newPodSpec(authn)
 		volume := spec.Volumes[2]
 		Expect(volume.Secret).To(BeNil())
-		Expect(volume.CSI.Driver).To(HaveValue(Equal("csi.cert-manager.io")))
+		Expect(volume.CSI.Driver).To(HaveValue(Equal(csiapis.GroupName)))
 		Expect(volume.CSI.ReadOnly).To(HaveValue(BeTrue()))
 		Expect(volume.CSI.VolumeAttributes).To(Equal(map[string]string{
 			csiapisv1.IssuerNameKey:  "issuer",

@@ -208,6 +208,64 @@ var _ = Describe("AIStore", func() {
 					"spec.auth.profileRef: Required value",
 				),
 			)
+
+			DescribeTable("tls", func(tls *TLSSpec, expectedMessage string) {
+				spec := minimalSpec()
+				spec.TLS = tls
+				ais := &AIStore{
+					ObjectMeta: metav1.ObjectMeta{Name: "ais", Namespace: namespace},
+					Spec:       spec,
+				}
+
+				err := k8sClient.Create(context.Background(), ais)
+				if expectedMessage == "" {
+					Expect(err).ToNot(HaveOccurred())
+					return
+				}
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring(expectedMessage))
+			},
+				Entry(
+					"accepts a public certificate with a server name",
+					&TLSSpec{
+						SecretName: aisapc.Ptr("tls-cert"),
+						Public: &PublicTLSSpec{
+							ServerName:  "ais.example.com",
+							Certificate: &TLSCertificateConfig{IssuerRef: CertIssuerRef{Name: "test-issuer"}},
+						},
+					},
+					"",
+				),
+				Entry(
+					"accepts a public secret with a server name",
+					&TLSSpec{
+						SecretName: aisapc.Ptr("tls-cert"),
+						Public: &PublicTLSSpec{
+							SecretName: aisapc.Ptr("pub-tls-cert"),
+							ServerName: "ais.example.com",
+						},
+					},
+					"",
+				),
+				Entry(
+					"rejects a public section with an empty server name",
+					&TLSSpec{
+						SecretName: aisapc.Ptr("tls-cert"),
+						Public:     &PublicTLSSpec{SecretName: aisapc.Ptr("pub-tls-cert")},
+					},
+					"spec.tls.public.serverName in body should be at least 1 chars long",
+				),
+				Entry(
+					"rejects a public section without a source",
+					&TLSSpec{SecretName: aisapc.Ptr("tls-cert"), Public: &PublicTLSSpec{ServerName: "ais.example.com"}},
+					"specify exactly one: secretName or certificate",
+				),
+				Entry(
+					"rejects a public section without a cluster certificate",
+					&TLSSpec{Public: &PublicTLSSpec{SecretName: aisapc.Ptr("pub-tls-cert"), ServerName: "ais.example.com"}},
+					"public requires secretName or certificate",
+				),
+			)
 		})
 
 		Describe("Custom validation", func() {

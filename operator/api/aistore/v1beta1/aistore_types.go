@@ -263,16 +263,20 @@ type TLSSpec struct {
 
 // PublicTLSSpec configures provisioning of the public network certificate
 // +kubebuilder:validation:XValidation:rule="[has(self.secretName), has(self.certificate)].filter(x, x).size() == 1",message="specify exactly one: secretName or certificate"
-// +kubebuilder:validation:XValidation:rule="!has(self.certificate) || !has(self.certificate.mode) || self.certificate.mode != 'csi'",message="certificate.mode csi is not supported for the public network certificate"
 type PublicTLSSpec struct {
 	// SecretName references an existing TLS secret
 	// +kubebuilder:validation:MinLength=1
 	// +optional
 	SecretName *string `json:"secretName,omitempty"`
 
-	// Certificate configures cert-manager certificate generation
+	// Certificate configures cert-manager certificate generation.
 	// +optional
 	Certificate *TLSCertificateConfig `json:"certificate,omitempty"`
+
+	// ServerName is the DNS name clients use to reach AIS on the public network.
+	// With the 'certificate' option, the operator includes it in the certificate SANs.
+	// +kubebuilder:validation:MinLength=1
+	ServerName string `json:"serverName"`
 }
 
 // TLSCertificateConfig configures cert-manager certificate generation
@@ -1230,14 +1234,6 @@ func (ais *AIStore) GetTLSCertificate() *TLSCertificateConfig {
 	return nil
 }
 
-// GetPublicTLSCertificate returns the public network TLS certificate config if present
-func (ais *AIStore) GetPublicTLSCertificate() *TLSCertificateConfig {
-	if ais.Spec.TLS != nil && ais.Spec.TLS.Public != nil {
-		return ais.Spec.TLS.Public.Certificate
-	}
-	return nil
-}
-
 // GetAdditionalDNSNames returns the extra DNS names of the certificate, or nil if c is nil.
 func (c *TLSCertificateConfig) GetAdditionalDNSNames() []string {
 	if c == nil {
@@ -1268,24 +1264,56 @@ func (ais *AIStore) UseTLSCSI() bool {
 
 // UsePublicTLS returns true if the spec defines a public network certificate to mount.
 func (ais *AIStore) UsePublicTLS() bool {
-	return ais.GetPublicTLSSecretName() != ""
+	return ais.UsePublicTLSCSI() || ais.GetPublicTLSSecretName() != ""
+}
+
+// UsePublicTLSCertificate returns true if cert-manager writes the public network certificate to a secret
+func (ais *AIStore) UsePublicTLSCertificate() bool {
+	certConfig := ais.GetPublicTLSCertificate()
+	if certConfig == nil {
+		return false
+	}
+	return certConfig.Mode != TLSCertificateModeCSI
+}
+
+// UsePublicTLSCSI returns true if the cert-manager CSI driver delivers the public network certificate
+func (ais *AIStore) UsePublicTLSCSI() bool {
+	certConfig := ais.GetPublicTLSCertificate()
+	if certConfig == nil {
+		return false
+	}
+	return certConfig.Mode == TLSCertificateModeCSI
 }
 
 // GetPublicTLSSecretName returns the secret holding the public network certificate
 func (ais *AIStore) GetPublicTLSSecretName() string {
-	if ais.Spec.TLS == nil {
+	if ais.Spec.TLS == nil || ais.Spec.TLS.Public == nil {
 		return ""
 	}
-	if pub := ais.Spec.TLS.Public; pub != nil {
-		if pub.Certificate != nil {
-			// Secret name is fixed if using operator-controlled certificate
-			return fmt.Sprintf("%s-tls-pub", ais.Name)
-		}
-		if pub.SecretName != nil && *pub.SecretName != "" {
-			return *pub.SecretName
-		}
+	if ais.UsePublicTLSCertificate() {
+		// Secret name is fixed if using operator-controlled certificate
+		return fmt.Sprintf("%s-tls-pub", ais.Name)
+	}
+	if secretName := ais.Spec.TLS.Public.SecretName; secretName != nil && *secretName != "" {
+		return *secretName
 	}
 	return ""
+}
+
+// GetPublicTLSCertificate returns the public network certificate config if present
+func (ais *AIStore) GetPublicTLSCertificate() *TLSCertificateConfig {
+	if ais.Spec.TLS == nil || ais.Spec.TLS.Public == nil {
+		return nil
+	}
+	return ais.Spec.TLS.Public.Certificate
+}
+
+// GetPublicTLSServerName returns the name AIS serves the public certificate under
+func (ais *AIStore) GetPublicTLSServerName() string {
+	if ais.Spec.TLS == nil || ais.Spec.TLS.Public == nil {
+		return ""
+	}
+	return ais.Spec.TLS.Public.ServerName
 }
 
 func (ais *AIStore) GetTLSSecretName() string {

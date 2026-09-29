@@ -146,6 +146,9 @@ func (r *Reconciler) cleanupAdminClient(ctx context.Context, ais *aisv1.AIStore)
 }
 
 func (r *Reconciler) cleanupTLS(ctx context.Context, ais *aisv1.AIStore) (bool, error) {
-	// Delete the Certificate resource; cert-manager may or may not clean up the Secret
-	return r.k8sClient.DeleteResourceIfExists(ctx, cmn.TLSCertificate(ais))
+	// Delete the Certificate resources; cert-manager may or may not clean up the Secrets
+	return cmn.AnyFunc(
+		func() (bool, error) { return r.k8sClient.DeleteResourceIfExists(ctx, cmn.TLSCertificate(ais)) },
+		func() (bool, error) { return r.k8sClient.DeleteResourceIfExists(ctx, cmn.PublicTLSCertificate(ais)) },
+	)
 }
