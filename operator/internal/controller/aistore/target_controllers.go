@@ -230,8 +230,7 @@ func (r *Reconciler) scaleDownTargets(ctx context.Context, ais *aisv1.AIStore, s
 	logger := logf.FromContext(ctx)
 	specReplicas := *ss.Spec.Replicas
 	expectedSize := ais.GetTargetSize()
-	removalAllowed, err := r.confirmScaleDownAllowed(ctx, target.StatefulSetNSName(ais), ss,
-		expectedSize, ais.GetTargetMaxUnavailable(), ais.IsTargetAutoScaling())
+	removalAllowed, err := r.targetRemovalAllowed(ctx, ais)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -252,7 +251,7 @@ func (r *Reconciler) scaleDownTargets(ctx context.Context, ais *aisv1.AIStore, s
 		// Nothing was started, so there is no transition to come back for. Report an empty
 		// result to keep the cluster Ready rather than Upgrading.
 		if !removalAllowed {
-			logger.Info("Deferring target removal; fresh status shows unavailable replicas within maxUnavailable")
+			logger.Info("Deferring target removal; unavailable targets that the StatefulSet keeps are within maxUnavailable")
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{RequeueAfter: targetLongRequeueDelay}, nil
@@ -265,6 +264,38 @@ func (r *Reconciler) scaleDownTargets(ctx context.Context, ais *aisv1.AIStore, s
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{RequeueAfter: targetLongRequeueDelay}, nil
+}
+
+// targetRemovalAllowed reports whether a target scale-down can start to remove targets. Only the
+// targets that the StatefulSet keeps count against maxUnavailable.
+func (r *Reconciler) targetRemovalAllowed(ctx context.Context, ais *aisv1.AIStore) (bool, error) {
+	if !ais.IsTargetAutoScaling() {
+		return true, nil
+	}
+	// The informer cache can show a pod as ready after the pod becomes unready.
+	ss, err := r.k8sClient.GetStatefulSetDirect(ctx, target.StatefulSetNSName(ais))
+	if err != nil {
+		return false, err
+	}
+	if isRolloutInProgress(ss) || replicasSettling(ss) {
+		return false, nil
+	}
+	podList, err := r.k8sClient.ListPodsDirect(ctx, ais, target.SelectorLabels(ais))
+	if err != nil {
+		return false, err
+	}
+	podMap := make(map[string]*corev1.Pod, len(podList.Items))
+	for i := range podList.Items {
+		pod := &podList.Items[i]
+		podMap[pod.Name] = pod
+	}
+	var unavailable int32
+	for idx := range ais.GetTargetSize() {
+		if !isPodReady(podMap[target.PodName(ais, idx)]) {
+			unavailable++
+		}
+	}
+	return scaleDownBudgetAllows(unavailable, ais.GetTargetMaxUnavailable()), nil
 }
 
 func isTargetScalingNeeded(ais *aisv1.AIStore, ss *appsv1.StatefulSet) bool {

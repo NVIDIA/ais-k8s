@@ -21,6 +21,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/tools/events"
@@ -465,6 +466,40 @@ var _ = Describe("scaleDownMode", func() {
 	Describe("scaleDownTargets", func() {
 		var ss *appsv1.StatefulSet
 
+		readyStatus := func() corev1.PodStatus {
+			return corev1.PodStatus{
+				Conditions:        []corev1.PodCondition{{Type: corev1.PodReady, Status: corev1.ConditionTrue}},
+				ContainerStatuses: []corev1.ContainerStatus{{Name: cmn.AISContainerName, Started: apc.Ptr(true)}},
+			}
+		}
+		unreadyStatus := func() corev1.PodStatus {
+			return corev1.PodStatus{
+				ContainerStatuses: []corev1.ContainerStatus{{Name: cmn.AISContainerName, Started: apc.Ptr(true)}},
+			}
+		}
+		crashLoopStatus := func() corev1.PodStatus {
+			return corev1.PodStatus{
+				ContainerStatuses: []corev1.ContainerStatus{{
+					Name:  cmn.AISContainerName,
+					State: corev1.ContainerState{Waiting: &corev1.ContainerStateWaiting{Reason: "CrashLoopBackOff"}},
+				}},
+			}
+		}
+		setTargetPodStatus := func(idx int32, status corev1.PodStatus) {
+			pod := &corev1.Pod{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: target.PodName(ais, idx), Namespace: namespace}, pod)).To(Succeed())
+			pod.Status = status
+			Expect(k8sClient.Status().Update(ctx, pod)).To(Succeed())
+		}
+		createTargetPod := func(idx int32, status corev1.PodStatus) {
+			pod := &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{Name: target.PodName(ais, idx), Namespace: namespace, Labels: target.SelectorLabels(ais)},
+				Spec:       corev1.PodSpec{Containers: []corev1.Container{{Name: cmn.AISContainerName, Image: "aisnode:test"}}},
+			}
+			Expect(k8sClient.Create(ctx, pod)).To(Succeed())
+			setTargetPodStatus(idx, status)
+		}
+
 		BeforeEach(func() {
 			ais.Spec.TargetSpec.Size = apc.Ptr[int32](-1)
 			ais.Spec.TargetSpec.AutoScaleConf = &aisv1.AutoScaleConf{
@@ -494,12 +529,21 @@ var _ = Describe("scaleDownMode", func() {
 			ss.Status.ObservedGeneration = ss.Generation
 			Expect(k8sClient.Status().Update(ctx, ss)).To(Succeed())
 			Expect(k8sClient.Get(ctx, target.StatefulSetNSName(ais), ss)).To(Succeed())
+
+			createTargetPod(0, readyStatus())
+			createTargetPod(1, readyStatus())
 		})
 
-		It("shrinks the StatefulSet when outgoing targets have left even if unready pods are within maxUnavailable", func() {
+		It("shrinks the StatefulSet once outgoing targets have left the cluster map", func() {
+			ais.SetCondition(aisv1.ConditionReadyRebalance)
+			Expect(k8sClient.Status().Update(ctx, ais)).To(Succeed())
+			ais.Status.AutoScaleStatus.ExpectedTargetNodes = []string{"n0", "n1"}
+			createTargetPod(2, crashLoopStatus())
+
 			t1 := &aismeta.Snode{DaeID: "t1", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-0"}}
 			t2 := &aismeta.Snode{DaeID: "t2", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-1"}}
-			apiClient.EXPECT().GetClusterMap().Return(&aismeta.Smap{Tmap: aismeta.NodeMap{"t1": t1, "t2": t2}}, nil)
+			apiClient.EXPECT().GetClusterMap().Return(&aismeta.Smap{Tmap: aismeta.NodeMap{"t1": t1, "t2": t2}}, nil).Times(2)
+			apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any()).Return(nil)
 
 			result, err := r.scaleDownTargets(ctx, ais, ss)
 			Expect(err).NotTo(HaveOccurred())
@@ -510,7 +554,10 @@ var _ = Describe("scaleDownMode", func() {
 			Expect(*updated.Spec.Replicas).To(Equal(int32(2)))
 		})
 
-		It("does not start decommission when unavailable replicas are within maxUnavailable", func() {
+		It("does not start decommission when unavailable targets that the StatefulSet keeps are within maxUnavailable", func() {
+			setTargetPodStatus(1, unreadyStatus())
+			createTargetPod(2, readyStatus())
+
 			t1 := &aismeta.Snode{DaeID: "t1", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-0"}}
 			t2 := &aismeta.Snode{DaeID: "t2", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-1"}}
 			t3 := &aismeta.Snode{DaeID: "t3", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-2"}}
@@ -524,6 +571,38 @@ var _ = Describe("scaleDownMode", func() {
 			Expect(k8sClient.Get(ctx, target.StatefulSetNSName(ais), updated)).To(Succeed())
 			Expect(*updated.Spec.Replicas).To(Equal(int32(3)))
 		})
+
+		It("decommissions the next outgoing target when only outgoing targets are unavailable", func() {
+			ais.SetCondition(aisv1.ConditionReadyRebalance)
+			Expect(k8sClient.Status().Update(ctx, ais)).To(Succeed())
+			ais.Status.AutoScaleStatus.ExpectedTargetNodes = []string{"n0", "n1"}
+
+			// The scale-down goes from 4 to 2 targets. ais-target-3 left the cluster map, and ais-target-2 is next.
+			ss.Spec.Replicas = apc.Ptr[int32](4)
+			Expect(k8sClient.Update(ctx, ss)).To(Succeed())
+			ss.Status.Replicas = 4
+			ss.Status.ReadyReplicas = 3
+			ss.Status.ObservedGeneration = ss.Generation
+			Expect(k8sClient.Status().Update(ctx, ss)).To(Succeed())
+			Expect(k8sClient.Get(ctx, target.StatefulSetNSName(ais), ss)).To(Succeed())
+			createTargetPod(2, readyStatus())
+			createTargetPod(3, crashLoopStatus())
+
+			t1 := &aismeta.Snode{DaeID: "t1", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-0"}}
+			t2 := &aismeta.Snode{DaeID: "t2", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-1"}}
+			t3 := &aismeta.Snode{DaeID: "t3", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-2"}}
+			apiClient.EXPECT().GetClusterMap().Return(&aismeta.Smap{Tmap: aismeta.NodeMap{"t1": t1, "t2": t2, "t3": t3}}, nil).Times(2)
+			apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any()).Return(nil)
+			apiClient.EXPECT().DecommissionNode(gomock.Any()).DoAndReturn(func(act *apc.ActValRmNode) (string, error) {
+				Expect(act.DaemonID).To(Equal("t3"))
+				return "xid", nil
+			})
+
+			result, err := r.scaleDownTargets(ctx, ais, ss)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.RequeueAfter).NotTo(BeZero())
+		})
+
 		It("shrinks in the same reconcile once retain-mode removal starts", func() {
 			ais.Spec.TargetSpec.ScaleDownMode = aisv1.ScaleDownModeRetain
 			Expect(k8sClient.Update(ctx, ais)).To(Succeed())

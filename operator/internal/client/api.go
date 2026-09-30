@@ -115,6 +115,13 @@ func (c *K8sClient) ListPods(ctx context.Context, ais *aisv1.AIStore, labels map
 	return podList, err
 }
 
+// ListPodsDirect reads the pods from the API server and does not use the informer cache.
+func (c *K8sClient) ListPodsDirect(ctx context.Context, ais *aisv1.AIStore, labels map[string]string) (*corev1.PodList, error) {
+	podList := &corev1.PodList{}
+	err := c.apiReader.List(ctx, podList, client.InNamespace(ais.Namespace), client.MatchingLabels(labels))
+	return podList, err
+}
+
 func (c *K8sClient) ListReadyPods(ctx context.Context, ais *aisv1.AIStore, labels map[string]string) (*corev1.PodList, error) {
 	allPods, err := c.ListPods(ctx, ais, labels)
 	if err != nil {

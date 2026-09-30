@@ -353,7 +353,11 @@ func statefulSetScaleDownAllowed(ss *appsv1.StatefulSet, maxUnavailable int32, a
 	if isRolloutInProgress(ss) || replicasSettling(ss) {
 		return false
 	}
-	unavailable := *ss.Spec.Replicas - ss.Status.ReadyReplicas
+	return scaleDownBudgetAllows(*ss.Spec.Replicas-ss.Status.ReadyReplicas, maxUnavailable)
+}
+
+// scaleDownBudgetAllows reports whether a number of unavailable pods lets a scale-down start.
+func scaleDownBudgetAllows(unavailable, maxUnavailable int32) bool {
 	return unavailable == 0 || unavailable > maxUnavailable
 }
 
