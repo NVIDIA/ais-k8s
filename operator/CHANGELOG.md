@@ -21,6 +21,8 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ### Changed
 
+- `spec.tls.certificate.additionalDNSNames` and `spec.tls.public.certificate.additionalDNSNames`
+  - Webhook rejects newly added entries that are not valid DNS names, including IP addresses. A leading `*.` wildcard is allowed.
 - Autoscale target scale-down can finish after decommission when the extra pods have already left the cluster map but `maxUnavailable` would otherwise defer shrinking the StatefulSet.
 - Operator now only includes the cluster's `<namespace>/<name>` in the AIStore token audience when using token exchange, if an audience is required by the AIS cluster.
 - All user-provided secret references must pass a SubjectAccessReview.

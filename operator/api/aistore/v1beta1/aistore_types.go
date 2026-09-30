@@ -1230,6 +1230,22 @@ func (ais *AIStore) GetTLSCertificate() *TLSCertificateConfig {
 	return nil
 }
 
+// GetPublicTLSCertificate returns the public network TLS certificate config if present
+func (ais *AIStore) GetPublicTLSCertificate() *TLSCertificateConfig {
+	if ais.Spec.TLS != nil && ais.Spec.TLS.Public != nil {
+		return ais.Spec.TLS.Public.Certificate
+	}
+	return nil
+}
+
+// GetAdditionalDNSNames returns the extra DNS names of the certificate, or nil if c is nil.
+func (c *TLSCertificateConfig) GetAdditionalDNSNames() []string {
+	if c == nil {
+		return nil
+	}
+	return c.AdditionalDNSNames
+}
+
 func (ais *AIStore) UseTLSSecret() bool {
 	return ais.Spec.TLS != nil && ais.Spec.TLS.SecretName != nil && *ais.Spec.TLS.SecretName != ""
 }

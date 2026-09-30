@@ -7,6 +7,7 @@ package v1beta1
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
@@ -184,6 +185,88 @@ func TestValidateSpecUnchangedSpec(t *testing.T) {
 		_, err := aisw.validateSpec(context.Background(), legacy, &aisv1.AIStore{})
 		g.Expect(err).To(MatchError(ContainSubstring("cluster size is not specified")))
 	})
+}
+
+func TestValidateAddedDNSNames(t *testing.T) {
+	tests := []struct {
+		name         string
+		prev         []string
+		current      []string
+		wantRejected []string
+	}{
+		{name: "hostnames and wildcards are accepted", current: []string{"ais.example.com", "*.Example.com", "localhost"}},
+		{name: "empty name", current: []string{""}, wantRejected: []string{""}},
+		{name: "whitespace", current: []string{"a.com", " "}, wantRejected: []string{" "}},
+		{name: "underscore", current: []string{"a_b.com"}, wantRejected: []string{"a_b.com"}},
+		{name: "trailing dot", current: []string{"a.com."}, wantRejected: []string{"a.com."}},
+		{name: "IPv4 address", current: []string{"10.0.0.1"}, wantRejected: []string{"10.0.0.1"}},
+		{name: "IPv6 address", current: []string{"fd00::1"}, wantRejected: []string{"fd00::1"}},
+		{name: "bare wildcard", current: []string{"*."}, wantRejected: []string{"*."}},
+		{name: "wildcard past the first label", current: []string{"a.*.com"}, wantRejected: []string{"a.*.com"}},
+		{name: "over 253 characters", current: []string{strings.Repeat("a.", 127) + "a"}, wantRejected: []string{strings.Repeat("a.", 127) + "a"}},
+		{name: "every invalid name is reported", current: []string{"a_b.com", "ok.com", "c d.com"}, wantRejected: []string{"a_b.com", "c d.com"}},
+		{name: "invalid names already listed are accepted", prev: []string{"a_b.com"}, current: []string{"a_b.com", "new.example.com"}},
+		{name: "invalid names added to a list are rejected", prev: []string{"a_b.com"}, current: []string{"a_b.com", "c_d.com"}, wantRejected: []string{"c_d.com"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(subT *testing.T) {
+			g := NewWithT(subT)
+			errs := validateAddedDNSNames(certificateDNSNamesPath, tt.prev, tt.current)
+
+			rejected := make([]string, 0, len(errs))
+			for _, err := range errs {
+				rejected = append(rejected, err.BadValue.(string))
+			}
+			g.Expect(rejected).To(ConsistOf(tt.wantRejected))
+		})
+	}
+}
+
+func TestValidateAdditionalDNSNames(t *testing.T) {
+	regularCert := func(names ...string) *aisv1.AIStore {
+		return &aisv1.AIStore{Spec: aisv1.AIStoreSpec{TLS: &aisv1.TLSSpec{
+			Certificate: &aisv1.TLSCertificateConfig{AdditionalDNSNames: names},
+		}}}
+	}
+	publicCert := func(names ...string) *aisv1.AIStore {
+		return &aisv1.AIStore{Spec: aisv1.AIStoreSpec{TLS: &aisv1.TLSSpec{
+			Public: &aisv1.PublicTLSSpec{Certificate: &aisv1.TLSCertificateConfig{AdditionalDNSNames: names}},
+		}}}
+	}
+
+	t.Run("no TLS is accepted", func(subT *testing.T) {
+		NewWithT(subT).Expect(validateAdditionalDNSNames(nil, &aisv1.AIStore{})).To(Succeed())
+	})
+
+	t.Run("regular certificate names are validated", func(subT *testing.T) {
+		g := NewWithT(subT)
+		err := validateAdditionalDNSNames(nil, regularCert("a_b.com"))
+		g.Expect(err).To(MatchError(ContainSubstring(certificateDNSNamesPath.String())))
+		g.Expect(err).ToNot(MatchError(ContainSubstring(publicCertificateDNSNamesPath.String())))
+	})
+
+	t.Run("public certificate names are validated", func(subT *testing.T) {
+		g := NewWithT(subT)
+		err := validateAdditionalDNSNames(nil, publicCert("a_b.com"))
+		g.Expect(err).To(MatchError(ContainSubstring(publicCertificateDNSNamesPath.String())))
+	})
+
+	t.Run("names are compared against the same certificate", func(subT *testing.T) {
+		g := NewWithT(subT)
+		// A name listed on the regular certificate is not grandfathered on the public one.
+		err := validateAdditionalDNSNames(regularCert("a_b.com"), publicCert("a_b.com"))
+		g.Expect(err).To(MatchError(ContainSubstring(publicCertificateDNSNamesPath.String())))
+	})
+}
+
+func TestValidateSpecRejectsInvalidDNSNames(t *testing.T) {
+	g := NewWithT(t)
+	ais := &aisv1.AIStore{Spec: aisv1.AIStoreSpec{TLS: &aisv1.TLSSpec{
+		Certificate: &aisv1.TLSCertificateConfig{AdditionalDNSNames: []string{"a_b.com"}},
+	}}}
+
+	_, err := (&AIStoreWebhook{}).validateSpec(context.Background(), nil, ais)
+	g.Expect(err).To(MatchError(ContainSubstring(certificateDNSNamesPath.String())))
 }
 
 func TestValidateUpdatePorts(t *testing.T) {

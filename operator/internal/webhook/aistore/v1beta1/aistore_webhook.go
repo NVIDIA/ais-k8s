@@ -9,6 +9,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"slices"
 	"strings"
 
@@ -95,6 +96,10 @@ func (aisw *AIStoreWebhook) validateSpec(ctx context.Context, prev, ais *aisv1.A
 	}
 
 	if err := validateDeprecatedStateStorage(ais); err != nil {
+		return nil, err
+	}
+
+	if err := validateAdditionalDNSNames(prev, ais); err != nil {
 		return nil, err
 	}
 
@@ -472,6 +477,55 @@ func validateDeprecatedStateStorage(ais *aisv1.AIStore) error {
 	return nil
 }
 
+var (
+	certificateDNSNamesPath       = field.NewPath("spec", "tls", "certificate", "additionalDNSNames")
+	publicCertificateDNSNamesPath = field.NewPath("spec", "tls", "public", "certificate", "additionalDNSNames")
+)
+
+// validateAdditionalDNSNames rejects invalid certificate DNS names that prev does not already list.
+func validateAdditionalDNSNames(prev, ais *aisv1.AIStore) error {
+	if prev == nil {
+		prev = &aisv1.AIStore{}
+	}
+	allErrs := validateAddedDNSNames(certificateDNSNamesPath,
+		prev.GetTLSCertificate().GetAdditionalDNSNames(),
+		ais.GetTLSCertificate().GetAdditionalDNSNames())
+	allErrs = append(allErrs, validateAddedDNSNames(publicCertificateDNSNamesPath,
+		prev.GetPublicTLSCertificate().GetAdditionalDNSNames(),
+		ais.GetPublicTLSCertificate().GetAdditionalDNSNames())...)
+	if len(allErrs) == 0 {
+		return nil
+	}
+	return apiInvalidError(ais, allErrs...)
+}
+
+// validateAddedDNSNames validates the names in current that are absent from prev.
+func validateAddedDNSNames(path *field.Path, prev, current []string) field.ErrorList {
+	var allErrs field.ErrorList
+	for i, name := range current {
+		if slices.Contains(prev, name) {
+			continue
+		}
+		if err := validateDNSName(path.Index(i), name); err != nil {
+			allErrs = append(allErrs, err)
+		}
+	}
+	return allErrs
+}
+
+// validateDNSName accepts a DNS name, optionally prefixed by a single "*." wildcard label.
+// IP addresses are rejected: a certificate needs them as IP SANs, not DNS SANs.
+func validateDNSName(path *field.Path, name string) *field.Error {
+	host := strings.ToLower(strings.TrimPrefix(name, "*."))
+	if net.ParseIP(host) != nil {
+		return field.Invalid(path, name, "must be a DNS name, not an IP address")
+	}
+	if problems := validation.IsDNS1123Subdomain(host); len(problems) > 0 {
+		return field.Invalid(path, name, strings.Join(problems, "; "))
+	}
+	return nil
+}
+
 func validateStateStorageUpdate(prev, ais *aisv1.AIStore) error {
 	// We can't change volumeClaimTemplates in the statefulset, and therefore can't migrate to a state storage PVC
 	// or change the storage class of an existing PVC. However, we can migrate to and from other storage methods.
@@ -498,10 +552,10 @@ func errCannotUpdateSpec(specName string, diff ...string) error {
 	return fmt.Errorf("cannot update spec %q for an existing cluster", specName)
 }
 
-func apiInvalidError(ais *aisv1.AIStore, err *field.Error) *apierrors.StatusError {
+func apiInvalidError(ais *aisv1.AIStore, errs ...*field.Error) *apierrors.StatusError {
 	return apierrors.NewInvalid(
 		aisv1.GroupVersion.WithKind("AIStore").GroupKind(),
 		ais.Name,
-		field.ErrorList{err},
+		errs,
 	)
 }
