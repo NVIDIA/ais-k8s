@@ -29,6 +29,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 - Target decommission scale-down waits until each outgoing target has left the cluster map before shrinking the StatefulSet. A target already in maintenance is decommissioned only once it has the post-rebalance flag (`InMaintPostReb`).
   - A target whose maintenance skipped rebalance, or whose rebalance aborted, never gets that flag, and AIS does not rebalance on its own when decommissioning a node that is already in maintenance. Scale-down blocks on such a target until it is taken out of maintenance. See [Incomplete Transitions](https://github.com/NVIDIA/aistore/blob/main/docs/lifecycle_node.md#incomplete-transitions).
 - Target scale-down does not start taking a target out of the cluster while its pod is missing, still starting, or still joining the cluster map, so a pod being replaced during an image rollout is no longer mistaken for a finished decommission. A pod that cannot recover on its own (unschedulable or in `CrashLoopBackOff`) does not block scale-down.
+- Operator caps auth service response reads (OAuth login and token exchange) at 1MiB.
 
 
 - `AIStoreAuth`

@@ -36,6 +36,9 @@ const (
 	// subjectTokenExpiration is the lifetime requested for minted subject tokens.
 	// The API server rejects anything shorter than 10 minutes.
 	subjectTokenExpiration = 10 * time.Minute
+
+	// maxAuthRespBodySize caps the bytes read from one auth service response.
+	maxAuthRespBodySize = 1 << 20 // 1MiB
 )
 
 // RFC 8693 OAuth 2.0 Token Exchange constants
@@ -235,12 +238,12 @@ func getTokenFromOAuth(ctx context.Context, params *api.BaseParams, creds creden
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		bodyBytes, _ := io.ReadAll(resp.Body)
+		bodyBytes, _ := io.ReadAll(io.LimitReader(resp.Body, maxAuthRespBodySize))
 		return nil, fmt.Errorf("OAuth login failed: %s", string(bodyBytes))
 	}
 
 	var tokenResp oauthTokenResponse
-	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
+	if err := json.NewDecoder(io.LimitReader(resp.Body, maxAuthRespBodySize)).Decode(&tokenResp); err != nil {
 		return nil, fmt.Errorf("failed to decode OAuth token response: %w", err)
 	}
 	if !strings.EqualFold(tokenResp.TokenType, "bearer") {
@@ -390,12 +393,12 @@ func exchangeTokenWithAuthSvc(ctx context.Context, params *api.BaseParams, subje
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, maxAuthRespBodySize))
 		return nil, fmt.Errorf("token exchange failed with status %d: %s", resp.StatusCode, string(body))
 	}
 
 	var result tokenExchangeResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	if err := json.NewDecoder(io.LimitReader(resp.Body, maxAuthRespBodySize)).Decode(&result); err != nil {
 		return nil, fmt.Errorf("failed to decode exchange response: %w", err)
 	}
 
