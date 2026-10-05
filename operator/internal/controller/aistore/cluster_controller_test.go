@@ -220,7 +220,7 @@ var _ = Describe("AIStoreController", func() {
 				It("should send the API the same config bytes it writes to the config map", func() {
 					By("Set an auth option AIS renamed in v5.0.0")
 					ais.Spec.ConfigToUpdate.Auth = &aisv1.AuthConfToUpdate{
-						ClusterKey: &aisv1.ClusterKeyConfToUpdate{Enabled: apc.Ptr(true)}, //nolint:staticcheck // exercising the deprecated option
+						ClusterKey: &aisv1.ClusterKeyConfToUpdate{Enabled: apc.Ptr(true)},
 					}
 					Expect(c.Update(ctx, ais)).To(Succeed())
 

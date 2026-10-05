@@ -340,7 +340,7 @@ func TestValidateUpdatePorts(t *testing.T) {
 			IntraDataPort:    aisapc.Ptr(intstr.FromInt32(51083)),
 		}
 		legacy := explicitDefaults
-		legacy.ServicePort = aisapc.Ptr(intstr.FromInt32(d.public)) //nolint:staticcheck // exercising the migration off the deprecated option
+		legacy.ServicePort = aisapc.Ptr(intstr.FromInt32(d.public))
 		tests := []struct {
 			name    string
 			prev    *aisv1.AIStore

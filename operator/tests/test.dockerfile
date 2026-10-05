@@ -1,4 +1,4 @@
-ARG GO_VERSION=1.26
+ARG GO_VERSION=1.27
 FROM docker.io/library/golang:${GO_VERSION}-alpine
 
 RUN apk add --no-cache bash curl git make which

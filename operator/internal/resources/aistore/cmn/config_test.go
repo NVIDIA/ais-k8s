@@ -126,7 +126,7 @@ var _ = Describe("Config", Label("short"), func() {
 			toUpdate := &aisv1.ConfigToUpdate{
 				Auth: &aisv1.AuthConfToUpdate{
 					Enabled: aisapc.Ptr(true),
-					ClusterKey: &aisv1.ClusterKeyConfToUpdate{ //nolint:staticcheck // exercising the deprecated option
+					ClusterKey: &aisv1.ClusterKeyConfToUpdate{
 						Enabled: aisapc.Ptr(true),
 						TTL:     (*aisv1.Duration)(aisapc.Ptr[int64](60)),
 					},
@@ -439,7 +439,7 @@ var _ = Describe("Config", Label("short"), func() {
 			),
 			Entry("deprecated auth.cluster_key",
 				&aisv1.ConfigToUpdate{Auth: &aisv1.AuthConfToUpdate{
-					ClusterKey: &aisv1.ClusterKeyConfToUpdate{ //nolint:staticcheck // exercising the deprecated option
+					ClusterKey: &aisv1.ClusterKeyConfToUpdate{
 						Enabled:       aisapc.Ptr(true),
 						TTL:           (*aisv1.Duration)(aisapc.Ptr(int64(time.Hour))),
 						NonceWindow:   (*aisv1.Duration)(aisapc.Ptr(int64(time.Minute))),
@@ -542,7 +542,7 @@ var _ = Describe("Config", Label("short"), func() {
 			},
 			Entry("deprecated names", &aisv1.ConfigToUpdate{Auth: &aisv1.AuthConfToUpdate{
 				Enabled:    aisapc.Ptr(true),
-				ClusterKey: &aisv1.ClusterKeyConfToUpdate{Enabled: aisapc.Ptr(true)}, //nolint:staticcheck // exercising the deprecated option
+				ClusterKey: &aisv1.ClusterKeyConfToUpdate{Enabled: aisapc.Ptr(true)},
 				Signature:  &aisv1.AuthSignatureConfToUpdate{Method: aisapc.Ptr("HS256")},
 			}}),
 			Entry("current names", &aisv1.ConfigToUpdate{Auth: &aisv1.AuthConfToUpdate{
