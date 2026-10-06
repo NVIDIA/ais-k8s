@@ -32,7 +32,7 @@ func (r *Reconciler) reconcileDeployment(ctx context.Context, authn *authv1alpha
 	if err != nil {
 		return err
 	}
-	if err := r.client.Apply(ctx, deployment); err != nil {
+	if err := r.client.ApplyDeployment(ctx, deployment); err != nil {
 		return err
 	}
 	r.setReadyFromDeployment(authn, deployment)

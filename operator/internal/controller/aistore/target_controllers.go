@@ -34,14 +34,14 @@ func (r *Reconciler) ensureTargetPrereqs(ctx context.Context, ais *aisv1.AIStore
 		return
 	}
 
-	if err = r.k8sClient.Apply(ctx, cm); err != nil {
+	if err = r.k8sClient.ApplyConfigMap(ctx, cm); err != nil {
 		r.recordError(ctx, ais, err, "Failed to deploy target ConfigMap")
 		return
 	}
 
 	// 2. Deploy services
 	svc := target.NewTargetHeadlessSvc(ais)
-	if err = r.k8sClient.Apply(ctx, svc); err != nil {
+	if err = r.k8sClient.ApplyService(ctx, svc); err != nil {
 		r.recordError(ctx, ais, err, "Failed to deploy target SVC")
 		return
 	}
@@ -730,7 +730,7 @@ func (r *Reconciler) removeTargetLoadBalancers(ctx context.Context, ais *aisv1.A
 // createTargetExternalServices creates a LoadBalancer service per target.
 func (r *Reconciler) createTargetExternalServices(ctx context.Context, ais *aisv1.AIStore) error {
 	for _, svc := range target.NewLoadBalancerSVCList(ais) {
-		if err := r.k8sClient.Apply(ctx, svc); err != nil {
+		if err := r.k8sClient.ApplyService(ctx, svc); err != nil {
 			return err
 		}
 	}

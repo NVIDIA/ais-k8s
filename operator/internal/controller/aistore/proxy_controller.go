@@ -37,13 +37,13 @@ func (r *Reconciler) ensureProxyPrereqs(ctx context.Context, ais *aisv1.AIStore)
 		return
 	}
 
-	if err = r.k8sClient.Apply(ctx, cm); err != nil {
+	if err = r.k8sClient.ApplyConfigMap(ctx, cm); err != nil {
 		r.recordError(ctx, ais, err, "Failed to deploy ConfigMap")
 		return
 	}
 
 	svc := proxy.NewProxyHeadlessSvc(ais)
-	if err = r.k8sClient.Apply(ctx, svc); err != nil {
+	if err = r.k8sClient.ApplyService(ctx, svc); err != nil {
 		r.recordError(ctx, ais, err, "Failed to deploy SVC")
 		return
 	}
@@ -504,7 +504,7 @@ func decommissionProxies(ctx context.Context, ais *aisv1.AIStore, smap *aismeta.
 // NOTE: As opposed to `target` external services, where we have a separate LoadBalancer service per pod,
 // `proxies` have a single LoadBalancer service across all the proxy pods.
 func (r *Reconciler) createProxyExternalService(ctx context.Context, ais *aisv1.AIStore) error {
-	return r.k8sClient.Apply(ctx, proxy.NewProxyLoadBalancerSVC(ais))
+	return r.k8sClient.ApplyService(ctx, proxy.NewProxyLoadBalancerSVC(ais))
 }
 
 // proxyExternalSvcReady reports whether the proxy LoadBalancer service has ingress allocated.

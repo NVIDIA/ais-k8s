@@ -13,12 +13,15 @@ import (
 
 	authv1alpha1 "github.com/ais-operator/api/aisauth/v1alpha1"
 	aisv1 "github.com/ais-operator/api/aistore/v1beta1"
+	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
+	cmapiv1ac "github.com/cert-manager/cert-manager/pkg/client/applyconfigurations/certmanager/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
 	policyv1 "k8s.io/api/policy/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -27,6 +30,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
+	appsv1ac "k8s.io/client-go/applyconfigurations/apps/v1"
+	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
+	metav1ac "k8s.io/client-go/applyconfigurations/meta/v1"
+	rbacv1ac "k8s.io/client-go/applyconfigurations/rbac/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -231,12 +238,70 @@ func NodePrimaryIP(node *corev1.Node) string {
 //      Create/Update resources     //
 //////////////////////////////////////
 
-// Apply performs a Server-Side Apply under the operator's field manager.
+func (c *K8sClient) ApplyConfigMap(ctx context.Context, cm *corev1ac.ConfigMapApplyConfiguration) error {
+	return c.applyOwned(ctx, &corev1.ConfigMap{}, cm, cm.ObjectMetaApplyConfiguration)
+}
+
+func (c *K8sClient) ApplyService(ctx context.Context, svc *corev1ac.ServiceApplyConfiguration) error {
+	return c.applyOwned(ctx, &corev1.Service{}, svc, svc.ObjectMetaApplyConfiguration)
+}
+
+func (c *K8sClient) ApplyServiceAccount(ctx context.Context, sa *corev1ac.ServiceAccountApplyConfiguration) error {
+	return c.applyOwned(ctx, &corev1.ServiceAccount{}, sa, sa.ObjectMetaApplyConfiguration)
+}
+
+func (c *K8sClient) ApplyPVC(ctx context.Context, pvc *corev1ac.PersistentVolumeClaimApplyConfiguration) error {
+	return c.applyOwned(ctx, &corev1.PersistentVolumeClaim{}, pvc, pvc.ObjectMetaApplyConfiguration)
+}
+
+func (c *K8sClient) ApplyRole(ctx context.Context, role *rbacv1ac.RoleApplyConfiguration) error {
+	return c.applyOwned(ctx, &rbacv1.Role{}, role, role.ObjectMetaApplyConfiguration)
+}
+
+func (c *K8sClient) ApplyRoleBinding(ctx context.Context, rb *rbacv1ac.RoleBindingApplyConfiguration) error {
+	return c.applyOwned(ctx, &rbacv1.RoleBinding{}, rb, rb.ObjectMetaApplyConfiguration)
+}
+
+func (c *K8sClient) ApplyDeployment(ctx context.Context, deployment *appsv1ac.DeploymentApplyConfiguration) error {
+	return c.applyOwned(ctx, &appsv1.Deployment{}, deployment, deployment.ObjectMetaApplyConfiguration)
+}
+
+func (c *K8sClient) ApplyCertificate(ctx context.Context, cert *cmapiv1ac.CertificateApplyConfiguration) error {
+	return c.applyOwned(ctx, &certmanagerv1.Certificate{}, cert, cert.ObjectMetaApplyConfiguration)
+}
+
+// applyOwned performs a Server-Side Apply under the operator's field manager.
 // ForceOwnership lets reconciles overwrite external changes (e.g. a kubectl
-// edit) to fields we declare. Builders set any OwnerReference on the apply
-// config.
-func (c *K8sClient) Apply(ctx context.Context, obj runtime.ApplyConfiguration) error {
-	return c.client.Apply(ctx, obj, client.FieldOwner(FieldOwner), client.ForceOwnership)
+// edit) to fields we declare. applyOwned fails for an existing object whose
+// controller is not the controller in objMeta.
+func (c *K8sClient) applyOwned(ctx context.Context, existing client.Object, ac runtime.ApplyConfiguration, objMeta *metav1ac.ObjectMetaApplyConfiguration) error {
+	key := types.NamespacedName{Name: *objMeta.Name, Namespace: *objMeta.Namespace}
+	err := c.client.Get(ctx, key, existing)
+	switch {
+	case apierrors.IsNotFound(err):
+	case err != nil:
+		return err
+	case !isControlledBy(existing, objMeta.OwnerReferences):
+		return fmt.Errorf("%s exists but is not controlled by its declared controller", key)
+	default:
+		// The API server rejects the apply if the object changed after the check.
+		objMeta.WithResourceVersion(existing.GetResourceVersion())
+	}
+	return c.client.Apply(ctx, ac, client.FieldOwner(FieldOwner), client.ForceOwnership)
+}
+
+// isControlledBy reports whether the controller of obj is the controller in refs.
+func isControlledBy(obj metav1.Object, refs []metav1ac.OwnerReferenceApplyConfiguration) bool {
+	controller := metav1.GetControllerOfNoCopy(obj)
+	if controller == nil {
+		return false
+	}
+	for i := range refs {
+		if refs[i].Controller != nil && *refs[i].Controller && refs[i].UID != nil && *refs[i].UID == controller.UID {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *K8sClient) Update(ctx context.Context, obj client.Object, opts ...client.UpdateOption) error {

@@ -21,7 +21,7 @@ import (
 
 // reconcileServices applies and converges services for AIStoreAuth.
 func (r *Reconciler) reconcileServices(ctx context.Context, authn *authv1alpha1.AIStoreAuth) error {
-	if err := r.client.Apply(ctx, authnres.NewService(authn)); err != nil {
+	if err := r.client.ApplyService(ctx, authnres.NewService(authn)); err != nil {
 		return fmt.Errorf("apply in-cluster Service: %w", err)
 	}
 
@@ -47,7 +47,7 @@ func (r *Reconciler) applyOrDeleteService(
 	name types.NamespacedName,
 ) error {
 	if service != nil {
-		return r.client.Apply(ctx, service)
+		return r.client.ApplyService(ctx, service)
 	}
 	return r.deleteOwnedService(ctx, authn, name)
 }

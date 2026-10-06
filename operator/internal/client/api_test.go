@@ -10,6 +10,7 @@ import (
 
 	"github.com/NVIDIA/aistore/api/apc"
 	aisv1 "github.com/ais-operator/api/aistore/v1beta1"
+	"github.com/ais-operator/internal/resources/ownerref"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	authenticationv1 "k8s.io/api/authentication/v1"
@@ -149,7 +150,7 @@ var _ = Describe("K8sClient", func() {
 		})
 	})
 
-	Describe("Apply", func() {
+	Describe("ApplyConfigMap", func() {
 		const (
 			cmName = "test-configmap"
 			nsName = "apply-ns"
@@ -160,6 +161,7 @@ var _ = Describe("K8sClient", func() {
 			k8sClient *K8sClient
 			cmKey     = client.ObjectKey{Namespace: nsName, Name: cmName}
 			ctx       = context.TODO()
+			ais       = &aisv1.AIStore{ObjectMeta: metav1.ObjectMeta{Name: "ais", Namespace: nsName, UID: "ais-uid"}}
 		)
 
 		BeforeEach(func() {
@@ -171,6 +173,7 @@ var _ = Describe("K8sClient", func() {
 
 		newCM := func() *corev1ac.ConfigMapApplyConfiguration {
 			return corev1ac.ConfigMap(cmName, nsName).
+				WithOwnerReferences(ownerref.NewControllerRef(ais)).
 				WithData(map[string]string{"test-key": "test-value"})
 		}
 
@@ -184,7 +187,7 @@ var _ = Describe("K8sClient", func() {
 		}
 
 		It("should create the object if not exists", func() {
-			Expect(k8sClient.Apply(ctx, newCM())).To(Succeed())
+			Expect(k8sClient.ApplyConfigMap(ctx, newCM())).To(Succeed())
 
 			fetchCM := &corev1.ConfigMap{}
 			Expect(c.Get(ctx, cmKey, fetchCM)).To(Succeed())
@@ -192,7 +195,7 @@ var _ = Describe("K8sClient", func() {
 		})
 
 		It("should record the operator field manager with operation Apply", func() {
-			Expect(k8sClient.Apply(ctx, newCM())).To(Succeed())
+			Expect(k8sClient.ApplyConfigMap(ctx, newCM())).To(Succeed())
 
 			fetchCM := &corev1.ConfigMap{}
 			Expect(c.Get(ctx, cmKey, fetchCM)).To(Succeed())
@@ -204,12 +207,12 @@ var _ = Describe("K8sClient", func() {
 
 		It("should take over fields owned by another manager (ForceOwnership)", func() {
 			const otherManager = "other-manager"
+			Expect(k8sClient.ApplyConfigMap(ctx, newCM())).To(Succeed())
 			otherApply := corev1ac.ConfigMap(cmName, nsName).
 				WithData(map[string]string{"test-key": "other-value"})
-
 			Expect(c.Apply(ctx, otherApply, client.FieldOwner(otherManager), client.ForceOwnership)).To(Succeed())
 
-			Expect(k8sClient.Apply(ctx, newCM())).To(Succeed())
+			Expect(k8sClient.ApplyConfigMap(ctx, newCM())).To(Succeed())
 
 			fetchCM := &corev1.ConfigMap{}
 			Expect(c.Get(ctx, cmKey, fetchCM)).To(Succeed())
@@ -217,6 +220,49 @@ var _ = Describe("K8sClient", func() {
 
 			entry := findManagedField(fetchCM, FieldOwner)
 			Expect(entry).NotTo(BeNil(), "expected operator field manager to have taken ownership")
+		})
+
+		DescribeTable("should not modify an existing object that the owner does not control",
+			func(ownerRefs []metav1.OwnerReference) {
+				existing := &corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{Name: cmName, Namespace: nsName, OwnerReferences: ownerRefs},
+					Data:       map[string]string{"test-key": "existing-value"},
+				}
+				Expect(c.Create(ctx, existing)).To(Succeed())
+
+				Expect(k8sClient.ApplyConfigMap(ctx, newCM())).NotTo(Succeed())
+
+				fetchCM := &corev1.ConfigMap{}
+				Expect(c.Get(ctx, cmKey, fetchCM)).To(Succeed())
+				Expect(fetchCM.Data).To(HaveKeyWithValue("test-key", "existing-value"))
+				Expect(fetchCM.OwnerReferences).To(Equal(ownerRefs))
+			},
+			Entry("without a controller", nil),
+			Entry("with another controller", []metav1.OwnerReference{{
+				APIVersion: aisv1.GroupVersion.String(), Kind: "AIStore", Name: "other", UID: "other-uid",
+				Controller: apc.Ptr(true),
+			}}),
+		)
+
+		It("should not modify an object that changed after the check", func() {
+			Expect(k8sClient.ApplyConfigMap(ctx, newCM())).To(Succeed())
+			checked := &corev1.ConfigMap{}
+			Expect(c.Get(ctx, cmKey, checked)).To(Succeed())
+			changed := checked.DeepCopy()
+			changed.OwnerReferences = nil
+			Expect(c.Update(ctx, changed)).To(Succeed())
+			staleClient := interceptor.NewClient(c.(client.WithWatch), interceptor.Funcs{
+				Get: func(_ context.Context, _ client.WithWatch, _ client.ObjectKey, obj client.Object, _ ...client.GetOption) error {
+					checked.DeepCopyInto(obj.(*corev1.ConfigMap))
+					return nil
+				},
+			})
+
+			Expect(NewClient(staleClient, c.Scheme()).ApplyConfigMap(ctx, newCM())).NotTo(Succeed())
+
+			fetchCM := &corev1.ConfigMap{}
+			Expect(c.Get(ctx, cmKey, fetchCM)).To(Succeed())
+			Expect(fetchCM.OwnerReferences).To(BeEmpty())
 		})
 	})
 

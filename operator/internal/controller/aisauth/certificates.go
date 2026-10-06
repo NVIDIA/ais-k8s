@@ -23,7 +23,7 @@ func (r *Reconciler) reconcileTLSCertificate(ctx context.Context, authn *authv1a
 		return err
 	}
 	certificate := authnres.NewCertificate(ctx, authn, externalEndpoints)
-	if err := r.client.Apply(ctx, certificate); err != nil {
+	if err := r.client.ApplyCertificate(ctx, certificate); err != nil {
 		return err
 	}
 	logf.FromContext(ctx).V(1).Info("AuthN TLS Certificate applied", "name", authnres.CertificateName(authn))

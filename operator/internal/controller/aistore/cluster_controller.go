@@ -466,7 +466,7 @@ func (r *Reconciler) reconcileResources(ctx context.Context, ais *aisv1.AIStore)
 	}
 
 	// 3. Deploy global cluster ConfigMap.
-	if err = r.k8sClient.Apply(ctx, globalCM); err != nil {
+	if err = r.k8sClient.ApplyConfigMap(ctx, globalCM); err != nil {
 		r.recordError(ctx, ais, err, "Failed to deploy global cluster ConfigMap")
 		return err
 	}
@@ -748,21 +748,21 @@ func calcRestartConfigAnnotation(annot string, conf *aiscmn.ConfigToSet) (string
 func (r *Reconciler) createOrUpdateRBACResources(ctx context.Context, ais *aisv1.AIStore) (err error) {
 	// 1. Create service account if not exists
 	sa := cmn.NewAISServiceAccount(ais)
-	if err = r.k8sClient.Apply(ctx, sa); err != nil {
+	if err = r.k8sClient.ApplyServiceAccount(ctx, sa); err != nil {
 		r.recordError(ctx, ais, err, "Failed to create ServiceAccount")
 		return
 	}
 
 	// 2. Create AIS Role
 	role := cmn.NewAISRBACRole(ais)
-	if err = r.k8sClient.Apply(ctx, role); err != nil {
+	if err = r.k8sClient.ApplyRole(ctx, role); err != nil {
 		r.recordError(ctx, ais, err, "Failed to create Role")
 		return
 	}
 
 	// 3. Create binding for the Role
 	rb := cmn.NewAISRBACRoleBinding(ais)
-	if err = r.k8sClient.Apply(ctx, rb); err != nil {
+	if err = r.k8sClient.ApplyRoleBinding(ctx, rb); err != nil {
 		r.recordError(ctx, ais, err, "Failed to create RoleBinding")
 		return
 	}
@@ -859,7 +859,7 @@ func (r *Reconciler) reconcileClusterTLSCertificate(ctx context.Context, ais *ai
 		if err != nil {
 			return err
 		}
-		return r.k8sClient.Apply(ctx, cmn.NewCertificate(ais, publicHosts))
+		return r.k8sClient.ApplyCertificate(ctx, cmn.NewCertificate(ais, publicHosts))
 	}
 	// Delete Certificate if it exists
 	_, err := r.k8sClient.DeleteResourceIfExists(ctx, cmn.TLSCertificate(ais))
@@ -868,7 +868,7 @@ func (r *Reconciler) reconcileClusterTLSCertificate(ctx context.Context, ais *ai
 
 func (r *Reconciler) reconcilePublicTLSCertificate(ctx context.Context, ais *aisv1.AIStore) error {
 	if ais.UsePublicTLSCertificate() {
-		return r.k8sClient.Apply(ctx, cmn.NewPublicCertificate(ais))
+		return r.k8sClient.ApplyCertificate(ctx, cmn.NewPublicCertificate(ais))
 	}
 	_, err := r.k8sClient.DeleteResourceIfExists(ctx, cmn.PublicTLSCertificate(ais))
 	return err

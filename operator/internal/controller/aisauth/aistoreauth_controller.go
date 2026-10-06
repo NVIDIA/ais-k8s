@@ -146,7 +146,7 @@ func (r *Reconciler) reconcileConfigMap(ctx context.Context, authn *authv1alpha1
 	if err != nil {
 		return err
 	}
-	if err := r.client.Apply(ctx, cm); err != nil {
+	if err := r.client.ApplyConfigMap(ctx, cm); err != nil {
 		return err
 	}
 	logf.FromContext(ctx).V(1).Info("AuthN ConfigMap applied", "name", authnres.ConfigMapName(authn))
@@ -164,7 +164,7 @@ func (r *Reconciler) reconcilePersistence(ctx context.Context, authn *authv1alph
 	if err != nil {
 		return err
 	}
-	if err := r.client.Apply(ctx, pvc); err != nil {
+	if err := r.client.ApplyPVC(ctx, pvc); err != nil {
 		return err
 	}
 	logf.FromContext(ctx).V(1).Info("AuthN PVC applied", "name", authnres.PVCName(authn))

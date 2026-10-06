@@ -34,6 +34,8 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 - Target scale-down with `scaleDownMode` `decommission` or `safe_decommission` decommissions one target at a time, after any running rebalance finishes.
 - Operator caps auth service response reads (OAuth login and token exchange) at 1MiB.
 - Operator always calls the AIS API through the proxy headless Service, even when `proxySpec.externalAccess` is set.
+- Operator no longer overwrites an existing object that its `AIStore` or `AIStoreAuth` CR does not control, and fails the reconcile instead.
+  - Upgrades from an operator older than v2.18.0 must first go through a version from v2.18.0 to v4.1.0, which adds the missing controller reference to existing resources.
 
 
 - `AIStoreAuth`
