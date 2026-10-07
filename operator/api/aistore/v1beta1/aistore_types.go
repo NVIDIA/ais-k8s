@@ -274,6 +274,7 @@ type PublicTLSSpec struct {
 	Certificate *TLSCertificateConfig `json:"certificate,omitempty"`
 
 	// ServerName is the DNS name clients use to reach AIS on the public network.
+	// It is the name the operator verifies the public certificate against when calling the AIS API.
 	// With the 'certificate' option, the operator includes it in the certificate SANs.
 	// +kubebuilder:validation:MinLength=1
 	ServerName string `json:"serverName"`

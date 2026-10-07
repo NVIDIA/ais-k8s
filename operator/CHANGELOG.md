@@ -18,6 +18,8 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 - `spec.nodeJoin.secretName` to mount a Secret for AIS's node-join authentication. The operator points `auth.intra_cluster.node_join_secret_path` at the mounted credential automatically.
 - `spec.tls.public` to configure a separate TLS certificate for the public interface on which AIStore listens. Requires `serverName` and one of `secretName` or `certificate`.
+  - The operator verifies the public certificate against `spec.tls.public.serverName`. This must be set to a SAN contained in a user-provided public certificate.
+  - If using `spec.tls.public.certificate`, the operator includes `spec.tls.public.serverName` in the provisioned certificate's SAN list.
 
 ### Changed
 
@@ -31,6 +33,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 - Target scale-down does not start taking a target out of the cluster while its pod is missing, still starting, or still joining the cluster map, so a pod being replaced during an image rollout is no longer mistaken for a finished decommission. A pod that cannot recover on its own (unschedulable or in `CrashLoopBackOff`) does not block scale-down.
 - Target scale-down with `scaleDownMode` `decommission` or `safe_decommission` decommissions one target at a time, after any running rebalance finishes.
 - Operator caps auth service response reads (OAuth login and token exchange) at 1MiB.
+- Operator always calls the AIS API through the proxy headless Service, even when `proxySpec.externalAccess` is set.
 
 
 - `AIStoreAuth`

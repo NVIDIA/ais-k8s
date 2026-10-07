@@ -5965,6 +5965,7 @@ spec:
                       serverName:
                         description: |-
                           ServerName is the DNS name clients use to reach AIS on the public network.
+                          It is the name the operator verifies the public certificate against when calling the AIS API.
                           With the 'certificate' option, the operator includes it in the certificate SANs.
                         minLength: 1
                         type: string

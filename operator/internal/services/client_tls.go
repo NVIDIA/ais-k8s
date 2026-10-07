@@ -43,6 +43,8 @@ func (m *AISClientManager) getTLSConfig(ctx context.Context, ais *aisv1.AIStore)
 		return nil, err
 	}
 	addClientCertIfRequested(ais, tlsConf, tlsDir)
+	// The public certificate carries the public server name, not the in-cluster service names.
+	tlsConf.ServerName = ais.GetPublicTLSServerName()
 	return tlsConf, nil
 }
 
@@ -52,8 +54,8 @@ func tlsSettings(ais *aisv1.AIStore) string {
 	if !ais.UseHTTPS() {
 		return ""
 	}
-	return fmt.Sprintf("skipVerify=%t;clientCert=%t",
-		ais.ShouldSkipVerifyCrt(), ais.ShouldIncludeClientCert())
+	return fmt.Sprintf("skipVerify=%t;clientCert=%t;serverName=%s",
+		ais.ShouldSkipVerifyCrt(), ais.ShouldIncludeClientCert(), ais.GetPublicTLSServerName())
 }
 
 func configureCAVerification(ctx context.Context, ais *aisv1.AIStore, tlsConf *tls.Config, tlsDir string) error {

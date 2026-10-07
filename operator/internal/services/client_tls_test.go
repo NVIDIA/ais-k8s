@@ -11,6 +11,7 @@ import (
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
 	aisv1 "github.com/ais-operator/api/aistore/v1beta1"
+	"github.com/ais-operator/internal/resources/aistore/cmn"
 )
 
 func TestConfigureCAVerification_SpecFalseVerifies(t *testing.T) {
@@ -102,6 +103,60 @@ func TestTLSSettings_ChangesWithClientCert(t *testing.T) {
 
 	if withCert == withoutCert {
 		t.Error("expected new TLS settings after the client certificate was requested")
+	}
+}
+
+func TestTLSSettings_ChangesWithPublicServerName(t *testing.T) {
+	ais := httpsCluster()
+
+	without := tlsSettings(ais)
+	ais.Spec.TLS = &aisv1.TLSSpec{Public: &aisv1.PublicTLSSpec{ServerName: "ais.example.com"}}
+	named := tlsSettings(ais)
+	ais.Spec.TLS.Public.ServerName = "other.example.com"
+
+	if named == without {
+		t.Error("expected new TLS settings after the public server name was set")
+	}
+	if renamed := tlsSettings(ais); renamed == named {
+		t.Error("expected new TLS settings after the public server name changed")
+	}
+}
+
+func TestGetTLSConfig_ServerName(t *testing.T) {
+	m := &AISClientManager{tlsOpts: AISClientTLSOpts{CertPath: t.TempDir()}}
+	ais := httpsCluster()
+
+	tlsConf, err := m.getTLSConfig(context.Background(), ais)
+	if err != nil {
+		t.Fatalf("getTLSConfig returned error: %v", err)
+	}
+	if tlsConf.ServerName != "" {
+		t.Errorf("ServerName = %q, want empty without a public certificate", tlsConf.ServerName)
+	}
+
+	ais.Spec.TLS = &aisv1.TLSSpec{Public: &aisv1.PublicTLSSpec{ServerName: "ais.example.com"}}
+	tlsConf, err = m.getTLSConfig(context.Background(), ais)
+	if err != nil {
+		t.Fatalf("getTLSConfig returned error: %v", err)
+	}
+	if tlsConf.ServerName != "ais.example.com" || tlsConf.InsecureSkipVerify {
+		t.Errorf("ServerName = %q, InsecureSkipVerify = %t; want a verified connection to ais.example.com",
+			tlsConf.ServerName, tlsConf.InsecureSkipVerify)
+	}
+}
+
+func TestGetAISAPIEndpoint_ExternalAccessUsesService(t *testing.T) {
+	m := &AISClientManager{}
+	ais := httpsCluster()
+	ais.Name, ais.Namespace = "cluster", "tenant"
+	ais.Spec.ProxySpec.ExternalAccess = &aisv1.ExternalAccessSpec{}
+
+	url, err := m.getAISAPIEndpoint(context.Background(), ais)
+	if err != nil {
+		t.Fatalf("getAISAPIEndpoint returned error: %v", err)
+	}
+	if want := cmn.IntraClusterURL(ais); url != want {
+		t.Errorf("URL = %q, want %q", url, want)
 	}
 }
 
