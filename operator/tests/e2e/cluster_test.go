@@ -6,6 +6,7 @@ package e2e
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -488,9 +489,10 @@ var _ = Describe("Run Controller", func() {
 			tutils.ObjectsShouldExist(cc.getBaseParams(ctx), bck, names...)
 		})
 
-		It("Cluster scale down should ensure data safety", func(ctx context.Context) {
-			By("Deploy new cluster of size 2")
-			cluArgs.Size = 2
+		// scaleDownShouldRetainData fills a cluster of cluArgs.Size with objects, scales it down
+		// by delta targets, and verifies every object survives.
+		scaleDownShouldRetainData := func(ctx context.Context, bckName string, delta int32) {
+			By(fmt.Sprintf("Deploy new cluster of size %d", cluArgs.Size))
 			cc := newClientCluster(ctx, AISTestCfg, WorkerCfg.K8sClient, cluArgs)
 			defer func() {
 				cc.printLogs(ctx)
@@ -499,7 +501,7 @@ var _ = Describe("Run Controller", func() {
 			cc.create(ctx)
 			By("Create a bucket and put objects")
 			var (
-				bck        = aiscmn.Bck{Name: "TEST_BCK_SCALE_DOWN", Provider: aisapc.AIS}
+				bck        = aiscmn.Bck{Name: bckName, Provider: aisapc.AIS}
 				objPrefix  = "test-opr/"
 				baseParams = cc.getBaseParams(ctx)
 			)
@@ -520,10 +522,22 @@ var _ = Describe("Run Controller", func() {
 			Expect(failCnt).To(Equal(0))
 			By("Validate the objects exist")
 			tutils.ObjectsShouldExist(baseParams, bck, names...)
-			By("Scale down cluster to size 1")
-			cc.scale(ctx, false, -1)
+			By(fmt.Sprintf("Scale down cluster to size %d", cluArgs.Size-delta))
+			cc.scale(ctx, false, -delta)
 			By("Validate objects exist after scaling")
 			tutils.ObjectsShouldExist(cc.getBaseParams(ctx), bck, names...)
+		}
+
+		It("Cluster scale down should ensure data safety", func(ctx context.Context) {
+			cluArgs.Size = 2
+			scaleDownShouldRetainData(ctx, "TEST_BCK_SCALE_DOWN", 1)
+		})
+
+		It("Cluster multi-node scale down should ensure data safety in pre-v5.0", func(ctx context.Context) {
+			cluArgs.NodeImage = "docker.io/aistorage/aisnode:v4.9"
+			cluArgs.InitImage = "docker.io/aistorage/ais-init:v4.9"
+			cluArgs.Size = 3
+			scaleDownShouldRetainData(ctx, "TEST_BCK_MULTI_SCALE_DOWN", 2)
 		})
 
 		It("Upgrade and scale-down in same patch should succeed and retain data", func(ctx context.Context) {

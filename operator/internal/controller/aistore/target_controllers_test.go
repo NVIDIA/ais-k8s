@@ -6,6 +6,7 @@ package aistore
 
 import (
 	"context"
+	"errors"
 
 	"github.com/NVIDIA/aistore/api/apc"
 	"github.com/NVIDIA/aistore/cmn/cos"
@@ -377,6 +378,7 @@ var _ = Describe("scaleDownMode", func() {
 			apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any()).Return(nil)
 			t3 := &aismeta.Snode{DaeID: "t3", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-2"}}
 			smap := &aismeta.Smap{Tmap: aismeta.NodeMap{"t3": t3}}
+			apiClient.EXPECT().IsRebalancing().Return(false, nil)
 			apiClient.EXPECT().DecommissionNode(gomock.Any()).DoAndReturn(func(act *apc.ActValRmNode) (string, error) {
 				Expect(act.RmUserData).To(Equal(rmUserData))
 				return "xid", nil
@@ -399,6 +401,7 @@ var _ = Describe("scaleDownMode", func() {
 			apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any()).Return(nil)
 			t3 := &aismeta.Snode{DaeID: "t3", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-2"}, Flags: aismeta.SnodeMaint | aismeta.SnodeMaintPostReb}
 			smap := &aismeta.Smap{Tmap: aismeta.NodeMap{"t3": t3}}
+			apiClient.EXPECT().IsRebalancing().Return(false, nil)
 			apiClient.EXPECT().DecommissionNode(gomock.Any()).DoAndReturn(func(act *apc.ActValRmNode) (string, error) {
 				Expect(act.DaemonID).To(Equal("t3"))
 				Expect(act.RmUserData).To(BeTrue())
@@ -419,25 +422,37 @@ var _ = Describe("scaleDownMode", func() {
 			Expect(err.Error()).To(ContainSubstring("post-rebalance"))
 		})
 
-		It("skips a target that is already decommissioning", func() {
-			ais.Spec.TargetSpec.ScaleDownMode = aisv1.ScaleDownModeDecommission
-			Expect(k8sClient.Update(ctx, ais)).To(Succeed())
-
-			apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any()).Return(nil)
-			t3 := &aismeta.Snode{DaeID: "t3", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-2"}, Flags: aismeta.SnodeDecomm}
-			smap := &aismeta.Smap{Tmap: aismeta.NodeMap{"t3": t3}}
-			Expect(r.prepareTargetsForScaleDown(ctx, ais, smap, 3)).To(Succeed())
-		})
-
-		It("skips a target that has both maintenance and decommission flags", func() {
-			ais.Spec.TargetSpec.ScaleDownMode = aisv1.ScaleDownModeDecommission
-			Expect(k8sClient.Update(ctx, ais)).To(Succeed())
-
-			apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any()).Return(nil)
-			t3 := &aismeta.Snode{DaeID: "t3", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-2"}, Flags: aismeta.SnodeMaint | aismeta.SnodeDecomm}
-			smap := &aismeta.Smap{Tmap: aismeta.NodeMap{"t3": t3}}
-			Expect(r.prepareTargetsForScaleDown(ctx, ais, smap, 3)).To(Succeed())
-		})
+		errUnavailable := errors.New("unavailable")
+		DescribeTable("with two outgoing targets",
+			func(highestFlags cos.BitFlags, rebalancing *bool, rebalancingErr error, wantDecommissioned string) {
+				ais.Spec.TargetSpec.ScaleDownMode = aisv1.ScaleDownModeDecommission
+				Expect(k8sClient.Update(ctx, ais)).To(Succeed())
+				apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any()).Return(nil)
+				t3 := &aismeta.Snode{DaeID: "t3", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-2"}}
+				t4 := &aismeta.Snode{DaeID: "t4", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-3"}, Flags: highestFlags}
+				smap := &aismeta.Smap{Tmap: aismeta.NodeMap{"t3": t3, "t4": t4}}
+				if rebalancing != nil {
+					apiClient.EXPECT().IsRebalancing().Return(*rebalancing, rebalancingErr)
+				}
+				if wantDecommissioned != "" {
+					apiClient.EXPECT().DecommissionNode(gomock.Any()).DoAndReturn(func(act *apc.ActValRmNode) (string, error) {
+						Expect(act.DaemonID).To(Equal(wantDecommissioned))
+						return "xid", nil
+					})
+				}
+				err := r.prepareTargetsForScaleDown(ctx, ais, smap, 4)
+				if rebalancingErr != nil {
+					Expect(err).To(MatchError(rebalancingErr))
+				} else {
+					Expect(err).NotTo(HaveOccurred())
+				}
+			},
+			Entry("decommissions only the highest target", cos.BitFlags(0), apc.Ptr(false), nil, "t4"),
+			Entry("defers while the highest target is still decommissioning", aismeta.SnodeDecomm, nil, nil, ""),
+			Entry("defers while the highest target has maintenance and decommission flags", aismeta.SnodeMaint|aismeta.SnodeDecomm, nil, nil, ""),
+			Entry("defers while a rebalance is running", cos.BitFlags(0), apc.Ptr(true), nil, ""),
+			Entry("returns the error when the rebalance status is unavailable", cos.BitFlags(0), apc.Ptr(false), errUnavailable, ""),
+		)
 
 		Context("when scaleDownMode is retain", func() {
 			BeforeEach(func() {
@@ -593,6 +608,7 @@ var _ = Describe("scaleDownMode", func() {
 			t3 := &aismeta.Snode{DaeID: "t3", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-2"}}
 			apiClient.EXPECT().GetClusterMap().Return(&aismeta.Smap{Tmap: aismeta.NodeMap{"t1": t1, "t2": t2, "t3": t3}}, nil).Times(2)
 			apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any()).Return(nil)
+			apiClient.EXPECT().IsRebalancing().Return(false, nil)
 			apiClient.EXPECT().DecommissionNode(gomock.Any()).DoAndReturn(func(act *apc.ActValRmNode) (string, error) {
 				Expect(act.DaemonID).To(Equal("t3"))
 				return "xid", nil

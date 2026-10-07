@@ -116,6 +116,21 @@ func (mr *MockAIStoreClientInterfaceMockRecorder) Health(readyToRebalance any) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Health", reflect.TypeOf((*MockAIStoreClientInterface)(nil).Health), readyToRebalance)
 }
 
+// IsRebalancing mocks base method.
+func (m *MockAIStoreClientInterface) IsRebalancing() (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsRebalancing")
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsRebalancing indicates an expected call of IsRebalancing.
+func (mr *MockAIStoreClientInterfaceMockRecorder) IsRebalancing() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsRebalancing", reflect.TypeOf((*MockAIStoreClientInterface)(nil).IsRebalancing))
+}
+
 // SetClusterConfigUsingMsg mocks base method.
 func (m *MockAIStoreClientInterface) SetClusterConfigUsingMsg(config jsoniter.RawMessage) error {
 	m.ctrl.T.Helper()

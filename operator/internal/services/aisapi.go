@@ -18,6 +18,7 @@ import (
 	"github.com/NVIDIA/aistore/cmn"
 	"github.com/NVIDIA/aistore/cmn/cos"
 	"github.com/NVIDIA/aistore/core/meta"
+	"github.com/NVIDIA/aistore/xact"
 	aisv1 "github.com/ais-operator/api/aistore/v1beta1"
 	jsoniter "github.com/json-iterator/go"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -37,6 +38,7 @@ type (
 		DecommissionNode(actValue *apc.ActValRmNode) (xid string, err error)
 		GetClusterMap() (smap *meta.Smap, err error)
 		Health(readyToRebalance bool) error
+		IsRebalancing() (running bool, err error)
 		SetClusterConfigUsingMsg(config jsoniter.RawMessage) error
 		SetPrimaryProxy(newPrimaryID, newPrimaryURL string, force bool) error
 		ShutdownCluster() error
@@ -213,6 +215,19 @@ func (c *AIStoreClient) GetClusterMap() (smap *meta.Smap, err error) {
 
 func (c *AIStoreClient) Health(readyToRebalance bool) error {
 	return api.Health(*c.params, readyToRebalance)
+}
+
+// IsRebalancing reports whether a rebalance is currently running.
+func (c *AIStoreClient) IsRebalancing() (running bool, err error) {
+	status, err := api.GetOneXactionStatus(*c.params, &xact.ArgsMsg{Kind: apc.ActRebalance, OnlyRunning: true})
+	if err != nil {
+		// AIS answers 404 when there is no running rebalance.
+		if cmn.IsStatusNotFound(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	return status.UUID != "" && !status.IsFinished(), nil
 }
 
 // SetClusterConfigUsingMsg applies config serialized as JSON to the cluster.

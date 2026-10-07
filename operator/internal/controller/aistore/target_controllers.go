@@ -447,8 +447,8 @@ func decommissionedTargetsReadyForScaleDown(ctx context.Context, ais *aisv1.AISt
 	return true
 }
 
-// prepareTargetsForScaleDown starts the AIS membership transition for each target whose
-// StatefulSet ordinal is above the desired size.
+// prepareTargetsForScaleDown starts the AIS membership transition for the targets whose
+// StatefulSet ordinal is above the desired size. It decommissions at most one target per call.
 func (r *Reconciler) prepareTargetsForScaleDown(ctx context.Context, ais *aisv1.AIStore, smap *aismeta.Smap, specReplicas int32) error {
 	if !ais.Spec.TargetSpec.RetainOnScaleDown() {
 		// Ensure rebalance is enabled before decommissioning so data can migrate
@@ -487,9 +487,11 @@ func (r *Reconciler) prepareTargetsForScaleDown(ctx context.Context, ais *aisv1.
 			}
 			continue
 		}
+		// Before AIS v5.0, a new decommission stops a running rebalance, and AIS keeps the
+		// earlier target in the cluster map.
 		if node.Flags.IsSet(aismeta.SnodeDecomm) {
-			logger.Info("AIS target is already decommissioning", "nodeID", node.ID())
-			continue
+			logger.V(1).Info("Deferring decommission; target is still decommissioning", "nodeID", node.ID())
+			return nil
 		}
 		// A target already in maintenance is not an active member, so AIS will not
 		// rebalance it out: decommission only unregisters it, and wipes its data when
@@ -497,13 +499,21 @@ func (r *Reconciler) prepareTargetsForScaleDown(ctx context.Context, ais *aisv1.
 		if node.InMaint() && !node.InMaintPostReb() {
 			return fmt.Errorf("waiting for target %s in maintenance to set post-rebalance", podName)
 		}
+		rebalancing, err := apiClient.IsRebalancing()
+		if err != nil {
+			return err
+		}
+		if rebalancing {
+			logger.V(1).Info("Deferring decommission; a rebalance is running", "nodeID", node.ID())
+			return nil
+		}
 		rmUserData := !ais.Spec.TargetSpec.SafeDecommissionOnScaleDown()
 		logger.Info("Decommissioning target", "nodeID", node.ID(), "rmUserData", rmUserData)
 		_, err = apiClient.DecommissionNode(&aisapc.ActValRmNode{DaemonID: node.ID(), RmUserData: rmUserData})
 		if err != nil {
 			logger.Error(err, "Failed to decommission node", "nodeID", node.ID())
-			return err
 		}
+		return err
 	}
 	return nil
 }
