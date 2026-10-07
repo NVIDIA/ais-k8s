@@ -532,15 +532,6 @@ func (cc *clientCluster) hasPendingTargetPod(ctx context.Context, ordinal int) b
 }
 
 func (cc *clientCluster) makeTargetUnschedulable(ctx context.Context, ordinal int) {
-	pod := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-%d", target.StatefulSetNSName(cc.cluster).Name, ordinal),
-			Namespace: cc.cluster.Namespace,
-		},
-	}
-	_, err := cc.k8sClient.DeleteResIfExistsWithGracePeriod(ctx, pod, 0)
-	Expect(err).To(BeNil())
-
 	targetSuffix := fmt.Sprintf("target-%d", ordinal)
 	var pvs []*corev1.PersistentVolume
 	for _, pv := range cc.pvs {
@@ -549,7 +540,18 @@ func (cc *clientCluster) makeTargetUnschedulable(ctx context.Context, ordinal in
 		}
 	}
 	Expect(pvs).NotTo(BeEmpty())
-	tutils.DestroyPV(ctx, cc.k8sClient, pvs)
+	// Delete the storage before the pod, so the replacement pod cannot use the old claims.
+	tutils.DeletePV(ctx, cc.k8sClient, pvs)
+
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-%d", target.StatefulSetNSName(cc.cluster).Name, ordinal),
+			Namespace: cc.cluster.Namespace,
+		},
+	}
+	_, err := cc.k8sClient.DeleteResIfExistsWithGracePeriod(ctx, pod, 0)
+	Expect(err).To(BeNil())
+	tutils.EventuallyPVsDeleted(ctx, cc.k8sClient, pvs)
 
 	Eventually(func(ctx context.Context) bool {
 		return cc.hasPendingTargetPod(ctx, ordinal)

@@ -122,8 +122,13 @@ func GetNodeNamesAndIPs(ctx context.Context, c *aisclient.K8sClient, selector ma
 }
 
 func DestroyPV(ctx context.Context, client *aisclient.K8sClient, pvs []*corev1.PersistentVolume) {
+	DeletePV(ctx, client, pvs)
+	EventuallyPVsDeleted(ctx, client, pvs)
+}
+
+// DeletePV deletes the given PVs and their claims without waiting for them to be removed.
+func DeletePV(ctx context.Context, client *aisclient.K8sClient, pvs []*corev1.PersistentVolume) {
 	const pvDeletionGracePeriodSeconds = int64(20)
-	const pvExistenceInterval = 90 * time.Second
 	for _, pv := range pvs {
 		err := deleteAssociatedPVCs(ctx, pv, client)
 		Expect(err).Should(Succeed())
@@ -135,6 +140,11 @@ func DestroyPV(ctx context.Context, client *aisclient.K8sClient, pvs []*corev1.P
 		}
 		Expect(err).Should(Succeed())
 	}
+}
+
+// EventuallyPVsDeleted waits until none of the given PVs exist.
+func EventuallyPVsDeleted(ctx context.Context, client *aisclient.K8sClient, pvs []*corev1.PersistentVolume) {
+	const pvExistenceInterval = 90 * time.Second
 	Eventually(func(ctx context.Context) bool {
 		return checkPVsExist(ctx, client, pvs)
 	}, pvExistenceInterval).WithContext(ctx).Should(BeFalse())
