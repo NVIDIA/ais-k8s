@@ -671,11 +671,9 @@ type TargetSpec struct {
 	PodDisruptionBudget *PDBSpec `json:"pdb,omitempty"`
 
 	// ScaleDownMode controls how targets are scaled down.
-	// "safe_decommission" (default) rebalances data off the node and removes the target, keeping its on-disk data.
-	// Rebalance should be enabled so data is migrated before a target is removed, and a warning is issued when it is
-	// not. Recommended for local AIS buckets, whose data cannot be recovered if lost.
-	// "decommission" rebalances data off the node, then removes the target and deletes its on-disk data. When rebalance
-	// is disabled the data is deleted without being migrated.
+	// "safe_decommission" (default) and "decommission" put each target into maintenance mode, which rebalances data off
+	// the node, and remove the target only after the rebalance succeeds. "safe_decommission" keeps the on-disk data of
+	// the target, and "decommission" deletes it. While the spec disables rebalance, both modes wait to remove targets.
 	// "retain" leaves data on the node by putting the target into maintenance mode. This is useful when you expect
 	// another pod to be immediately scheduled on the node. Note that if this is not the case then any data on the node
 	// will become inaccessible.
@@ -941,6 +939,12 @@ func (ais *AIStore) ShouldIncludeClientCert() bool {
 		return false
 	}
 	return tls.ClientAuthType(*ais.Spec.ConfigToUpdate.Net.HTTP.ClientAuthTLS) > tls.NoClientCert
+}
+
+// RebalanceEnabled reports whether the spec config leaves rebalance enabled.
+func (ais *AIStore) RebalanceEnabled() bool {
+	config := ais.Spec.ConfigToUpdate
+	return config == nil || !config.IsRebalanceEnabledSet() || *config.Rebalance.Enabled
 }
 
 func (ais *AIStore) IsTargetAutoScaling() bool {

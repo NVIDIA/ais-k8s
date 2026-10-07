@@ -175,6 +175,7 @@ var _ = Describe("scaleDownMode", func() {
 		ais       *aisv1.AIStore
 		mockCtrl  *gomock.Controller
 		apiClient *mocks.MockAIStoreClientInterface
+		recorder  *events.FakeRecorder
 		namespace string
 		ctx       = context.TODO()
 	)
@@ -219,7 +220,8 @@ var _ = Describe("scaleDownMode", func() {
 		apiClient = mocks.NewMockAIStoreClientInterface(mockCtrl)
 		clientManager := mocks.NewMockAISClientManagerInterface(mockCtrl)
 		clientManager.EXPECT().GetClient(gomock.Any(), gomock.Any()).Return(apiClient, nil).AnyTimes()
-		r = NewReconciler(tmpClient, &events.FakeRecorder{}, ctrl.Log, clientManager)
+		recorder = events.NewFakeRecorder(8)
+		r = NewReconciler(tmpClient, recorder, ctrl.Log, clientManager)
 	})
 
 	AfterEach(func() {
@@ -371,44 +373,55 @@ var _ = Describe("scaleDownMode", func() {
 			Expect(k8sClient.Status().Update(ctx, ais)).To(Succeed())
 		})
 
-		expectDecommission := func(mode aisv1.ScaleDownMode, rmUserData bool) {
-			ais.Spec.TargetSpec.ScaleDownMode = mode
-			Expect(k8sClient.Update(ctx, ais)).To(Succeed())
+		DescribeTable("with one outgoing target",
+			func(mode aisv1.ScaleDownMode, rebalanceEnabled *bool, flags cos.BitFlags, wantMaintenance bool, wantRmUserData *bool) {
+				ais.Spec.TargetSpec.ScaleDownMode = mode
+				if rebalanceEnabled != nil {
+					ais.Spec.ConfigToUpdate = &aisv1.ConfigToUpdate{}
+					ais.Spec.ConfigToUpdate.UpdateRebalanceEnabled(rebalanceEnabled)
+				}
+				Expect(k8sClient.Update(ctx, ais)).To(Succeed())
 
-			apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any()).Return(nil)
-			t3 := &aismeta.Snode{DaeID: "t3", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-2"}}
-			smap := &aismeta.Smap{Tmap: aismeta.NodeMap{"t3": t3}}
-			apiClient.EXPECT().IsRebalancing().Return(false, nil)
-			apiClient.EXPECT().DecommissionNode(gomock.Any()).DoAndReturn(func(act *apc.ActValRmNode) (string, error) {
-				Expect(act.RmUserData).To(Equal(rmUserData))
-				return "xid", nil
-			})
-			Expect(r.prepareTargetsForScaleDown(ctx, ais, smap, 3)).To(Succeed())
-		}
-
-		It("decommissions targets with RmUserData=true when scaleDownMode is decommission", func() {
-			expectDecommission(aisv1.ScaleDownModeDecommission, true)
-		})
-
-		It("keeps target data with RmUserData=false when scaleDownMode is safe_decommission", func() {
-			expectDecommission(aisv1.ScaleDownModeSafeDecommission, false)
-		})
-
-		It("decommissions a target that has finished maintenance rebalance", func() {
-			ais.Spec.TargetSpec.ScaleDownMode = aisv1.ScaleDownModeDecommission
-			Expect(k8sClient.Update(ctx, ais)).To(Succeed())
-
-			apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any()).Return(nil)
-			t3 := &aismeta.Snode{DaeID: "t3", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-2"}, Flags: aismeta.SnodeMaint | aismeta.SnodeMaintPostReb}
-			smap := &aismeta.Smap{Tmap: aismeta.NodeMap{"t3": t3}}
-			apiClient.EXPECT().IsRebalancing().Return(false, nil)
-			apiClient.EXPECT().DecommissionNode(gomock.Any()).DoAndReturn(func(act *apc.ActValRmNode) (string, error) {
-				Expect(act.DaemonID).To(Equal("t3"))
-				Expect(act.RmUserData).To(BeTrue())
-				return "xid", nil
-			})
-			Expect(r.prepareTargetsForScaleDown(ctx, ais, smap, 3)).To(Succeed())
-		})
+				apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any()).Return(nil)
+				t3 := &aismeta.Snode{DaeID: "t3", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-2"}, Flags: flags}
+				smap := &aismeta.Smap{Tmap: aismeta.NodeMap{"t3": t3}}
+				if wantMaintenance || wantRmUserData != nil {
+					apiClient.EXPECT().IsRebalancing().Return(false, nil)
+				}
+				if wantMaintenance {
+					apiClient.EXPECT().StartMaintenance(gomock.Any()).DoAndReturn(func(act *apc.ActValRmNode) (string, error) {
+						Expect(act.DaemonID).To(Equal("t3"))
+						Expect(act.SkipRebalance).To(BeFalse())
+						return "xid", nil
+					})
+				}
+				if wantRmUserData != nil {
+					apiClient.EXPECT().DecommissionNode(gomock.Any()).DoAndReturn(func(act *apc.ActValRmNode) (string, error) {
+						Expect(act.DaemonID).To(Equal("t3"))
+						Expect(act.RmUserData).To(Equal(*wantRmUserData))
+						return "xid", nil
+					})
+				}
+				Expect(r.prepareTargetsForScaleDown(ctx, ais, smap, 3)).To(Succeed())
+				if !wantMaintenance && wantRmUserData == nil {
+					Expect(recorder.Events).To(Receive(ContainSubstring("Warning " + EventReasonWaiting)))
+				} else {
+					Expect(recorder.Events).To(BeEmpty())
+				}
+			},
+			Entry("decommission mode puts an active target in maintenance with rebalance",
+				aisv1.ScaleDownModeDecommission, nil, cos.BitFlags(0), true, nil),
+			Entry("safe_decommission mode puts an active target in maintenance with rebalance",
+				aisv1.ScaleDownModeSafeDecommission, nil, cos.BitFlags(0), true, nil),
+			Entry("defers an active target while the spec disables rebalance",
+				aisv1.ScaleDownModeSafeDecommission, apc.Ptr(false), cos.BitFlags(0), false, nil),
+			Entry("decommission mode decommissions a target that finished maintenance rebalance with RmUserData=true",
+				aisv1.ScaleDownModeDecommission, nil, aismeta.SnodeMaint|aismeta.SnodeMaintPostReb, false, apc.Ptr(true)),
+			Entry("safe_decommission mode decommissions a target that finished maintenance rebalance with RmUserData=false",
+				aisv1.ScaleDownModeSafeDecommission, nil, aismeta.SnodeMaint|aismeta.SnodeMaintPostReb, false, apc.Ptr(false)),
+			Entry("decommissions a target that finished maintenance rebalance while the spec disables rebalance",
+				aisv1.ScaleDownModeSafeDecommission, apc.Ptr(false), aismeta.SnodeMaint|aismeta.SnodeMaintPostReb, false, apc.Ptr(false)),
+		)
 
 		It("refuses to decommission a target in maintenance without the post-rebalance flag", func() {
 			ais.Spec.TargetSpec.ScaleDownMode = aisv1.ScaleDownModeDecommission
@@ -424,7 +437,7 @@ var _ = Describe("scaleDownMode", func() {
 
 		errUnavailable := errors.New("unavailable")
 		DescribeTable("with two outgoing targets",
-			func(highestFlags cos.BitFlags, rebalancing *bool, rebalancingErr error, wantDecommissioned string) {
+			func(highestFlags cos.BitFlags, rebalancing *bool, rebalancingErr error, wantMaintenance string) {
 				ais.Spec.TargetSpec.ScaleDownMode = aisv1.ScaleDownModeDecommission
 				Expect(k8sClient.Update(ctx, ais)).To(Succeed())
 				apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any()).Return(nil)
@@ -434,9 +447,9 @@ var _ = Describe("scaleDownMode", func() {
 				if rebalancing != nil {
 					apiClient.EXPECT().IsRebalancing().Return(*rebalancing, rebalancingErr)
 				}
-				if wantDecommissioned != "" {
-					apiClient.EXPECT().DecommissionNode(gomock.Any()).DoAndReturn(func(act *apc.ActValRmNode) (string, error) {
-						Expect(act.DaemonID).To(Equal(wantDecommissioned))
+				if wantMaintenance != "" {
+					apiClient.EXPECT().StartMaintenance(gomock.Any()).DoAndReturn(func(act *apc.ActValRmNode) (string, error) {
+						Expect(act.DaemonID).To(Equal(wantMaintenance))
 						return "xid", nil
 					})
 				}
@@ -447,7 +460,7 @@ var _ = Describe("scaleDownMode", func() {
 					Expect(err).NotTo(HaveOccurred())
 				}
 			},
-			Entry("decommissions only the highest target", cos.BitFlags(0), apc.Ptr(false), nil, "t4"),
+			Entry("puts only the highest target in maintenance", cos.BitFlags(0), apc.Ptr(false), nil, "t4"),
 			Entry("defers while the highest target is still decommissioning", aismeta.SnodeDecomm, nil, nil, ""),
 			Entry("defers while the highest target has maintenance and decommission flags", aismeta.SnodeMaint|aismeta.SnodeDecomm, nil, nil, ""),
 			Entry("defers while a rebalance is running", cos.BitFlags(0), apc.Ptr(true), nil, ""),
@@ -587,7 +600,7 @@ var _ = Describe("scaleDownMode", func() {
 			Expect(*updated.Spec.Replicas).To(Equal(int32(3)))
 		})
 
-		It("decommissions the next outgoing target when only outgoing targets are unavailable", func() {
+		It("puts the next outgoing target in maintenance when only outgoing targets are unavailable", func() {
 			ais.SetCondition(aisv1.ConditionReadyRebalance)
 			Expect(k8sClient.Status().Update(ctx, ais)).To(Succeed())
 			ais.Status.AutoScaleStatus.ExpectedTargetNodes = []string{"n0", "n1"}
@@ -609,7 +622,7 @@ var _ = Describe("scaleDownMode", func() {
 			apiClient.EXPECT().GetClusterMap().Return(&aismeta.Smap{Tmap: aismeta.NodeMap{"t1": t1, "t2": t2, "t3": t3}}, nil).Times(2)
 			apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any()).Return(nil)
 			apiClient.EXPECT().IsRebalancing().Return(false, nil)
-			apiClient.EXPECT().DecommissionNode(gomock.Any()).DoAndReturn(func(act *apc.ActValRmNode) (string, error) {
+			apiClient.EXPECT().StartMaintenance(gomock.Any()).DoAndReturn(func(act *apc.ActValRmNode) (string, error) {
 				Expect(act.DaemonID).To(Equal("t3"))
 				return "xid", nil
 			})

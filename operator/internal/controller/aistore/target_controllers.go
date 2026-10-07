@@ -448,7 +448,7 @@ func decommissionedTargetsReadyForScaleDown(ctx context.Context, ais *aisv1.AISt
 }
 
 // prepareTargetsForScaleDown starts the AIS membership transition for the targets whose
-// StatefulSet ordinal is above the desired size. It decommissions at most one target per call.
+// StatefulSet ordinal is above the desired size. It starts at most one transition per call.
 func (r *Reconciler) prepareTargetsForScaleDown(ctx context.Context, ais *aisv1.AIStore, smap *aismeta.Smap, specReplicas int32) error {
 	if !ais.Spec.TargetSpec.RetainOnScaleDown() {
 		// Ensure rebalance is enabled before decommissioning so data can migrate
@@ -499,6 +499,13 @@ func (r *Reconciler) prepareTargetsForScaleDown(ctx context.Context, ais *aisv1.
 		if node.InMaint() && !node.InMaintPostReb() {
 			return fmt.Errorf("waiting for target %s in maintenance to set post-rebalance", podName)
 		}
+		// Maintenance with rebalance disabled never sets SnodeMaintPostReb.
+		if !node.InMaint() && !ais.RebalanceEnabled() {
+			logger.Info("Deferring target removal; rebalance is disabled in the spec", "nodeID", node.ID())
+			r.recorder.Eventf(ais, nil, corev1.EventTypeWarning, EventReasonWaiting, ActionScaleDownTargets,
+				"Deferring removal of target %s; rebalance is disabled in the spec", node.ID())
+			return nil
+		}
 		rebalancing, err := apiClient.IsRebalancing()
 		if err != nil {
 			return err
@@ -506,6 +513,15 @@ func (r *Reconciler) prepareTargetsForScaleDown(ctx context.Context, ais *aisv1.
 		if rebalancing {
 			logger.V(1).Info("Deferring decommission; a rebalance is running", "nodeID", node.ID())
 			return nil
+		}
+		// Maintenance sets SnodeMaintPostReb only after its rebalance succeeds.
+		if !node.InMaint() {
+			logger.Info("Putting target in maintenance mode", "nodeID", node.ID())
+			_, err = apiClient.StartMaintenance(&aisapc.ActValRmNode{DaemonID: node.ID()})
+			if err != nil {
+				logger.Error(err, "Failed to put node in maintenance", "nodeID", node.ID())
+			}
+			return err
 		}
 		rmUserData := !ais.Spec.TargetSpec.SafeDecommissionOnScaleDown()
 		logger.Info("Decommissioning target", "nodeID", node.ID(), "rmUserData", rmUserData)

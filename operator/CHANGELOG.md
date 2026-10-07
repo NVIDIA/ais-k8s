@@ -32,6 +32,8 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
   - A target whose maintenance skipped rebalance, or whose rebalance aborted, never gets that flag, and AIS does not rebalance on its own when decommissioning a node that is already in maintenance. Scale-down blocks on such a target until it is taken out of maintenance. See [Incomplete Transitions](https://github.com/NVIDIA/aistore/blob/main/docs/lifecycle_node.md#incomplete-transitions).
 - Target scale-down does not start taking a target out of the cluster while its pod is missing, still starting, or still joining the cluster map, so a pod being replaced during an image rollout is no longer mistaken for a finished decommission. A pod that cannot recover on its own (unschedulable or in `CrashLoopBackOff`) does not block scale-down.
 - Target scale-down with `scaleDownMode` `decommission` or `safe_decommission` decommissions one target at a time, after any running rebalance finishes.
+- Target scale-down with `scaleDownMode` `decommission` or `safe_decommission` puts each target in maintenance and decommissions it only after the maintenance rebalance finishes.
+- Target scale-down with `scaleDownMode` `decommission` or `safe_decommission` waits while `spec.configToUpdate.rebalance.enabled` is `false`, instead of removing targets without migrating their data.
 - Operator caps auth service response reads (OAuth login and token exchange) at 1MiB.
 - Operator always calls the AIS API through the proxy headless Service, even when `proxySpec.externalAccess` is set.
 - Operator no longer overwrites an existing object that its `AIStore` or `AIStoreAuth` CR does not control, and fails the reconcile instead.

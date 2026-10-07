@@ -29,4 +29,5 @@ const (
 	ActionInitExternalSvc   = "InitExternalService"
 	ActionInitTargets       = "InitTargets"
 	ActionInitProxies       = "InitProxies"
+	ActionScaleDownTargets  = "ScaleDownTargets"
 )

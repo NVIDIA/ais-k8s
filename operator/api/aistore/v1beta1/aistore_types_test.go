@@ -525,4 +525,14 @@ var _ = Describe("AIStore", func() {
 			Entry("retain", TargetSpec{ScaleDownMode: ScaleDownModeRetain}, true),
 		)
 	})
+
+	DescribeTable("RebalanceEnabled", func(enabled *bool, want bool) {
+		ais := AIStore{Spec: AIStoreSpec{ConfigToUpdate: &ConfigToUpdate{}}}
+		ais.Spec.ConfigToUpdate.UpdateRebalanceEnabled(enabled)
+		Expect(ais.RebalanceEnabled()).To(Equal(want))
+	},
+		Entry("unset", nil, true),
+		Entry("enabled", aisapc.Ptr(true), true),
+		Entry("disabled", aisapc.Ptr(false), false),
+	)
 })
