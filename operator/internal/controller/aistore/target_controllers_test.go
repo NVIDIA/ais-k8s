@@ -7,6 +7,7 @@ package aistore
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/NVIDIA/aistore/api/apc"
 	"github.com/NVIDIA/aistore/cmn/cos"
@@ -21,6 +22,7 @@ import (
 	"go.uber.org/mock/gomock"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -139,6 +141,9 @@ var _ = Describe("target removal wait reasons", func() {
 		readyPod         = &corev1.Pod{Status: corev1.PodStatus{Conditions: []corev1.PodCondition{{Type: corev1.PodReady, Status: corev1.ConditionTrue}}, ContainerStatuses: []corev1.ContainerStatus{{Name: cmn.AISContainerName, Started: apc.Ptr(true)}}}}
 		unschedulablePod = &corev1.Pod{Status: corev1.PodStatus{Conditions: []corev1.PodCondition{{Type: corev1.PodScheduled, Status: corev1.ConditionFalse, Reason: corev1.PodReasonUnschedulable}}}}
 		crashLoopPod     = &corev1.Pod{Status: corev1.PodStatus{ContainerStatuses: []corev1.ContainerStatus{{Name: cmn.AISContainerName, State: corev1.ContainerState{Waiting: &corev1.ContainerStateWaiting{Reason: "CrashLoopBackOff"}}}}}}
+		decommissioned   = metav1.ObjectMeta{Annotations: map[string]string{decommissionedAnnotation: "t3"}}
+		decommStartedPod = &corev1.Pod{ObjectMeta: decommissioned, Status: startedPod.Status}
+		decommCrashPod   = &corev1.Pod{ObjectMeta: decommissioned, Status: crashLoopPod.Status}
 	)
 
 	DescribeTable("memberWaitReason",
@@ -159,13 +164,19 @@ var _ = Describe("target removal wait reasons", func() {
 	)
 
 	DescribeTable("nonMemberWaitReason",
-		func(pod *corev1.Pod, wait bool) {
-			Expect(nonMemberWaitReason(pod) != "").To(Equal(wait))
+		func(mode aisv1.ScaleDownMode, pod *corev1.Pod, wait bool) {
+			ais := &aisv1.AIStore{Spec: aisv1.AIStoreSpec{TargetSpec: aisv1.TargetSpec{ScaleDownMode: mode}}}
+			Expect(nonMemberWaitReason(ais, pod) != "").To(Equal(wait))
 		},
-		Entry("starting pod", startingPod, true),
-		Entry("started pod not yet in the cluster map", startedPod, true),
-		Entry("unschedulable pod", unschedulablePod, false),
-		Entry("CrashLoopBackOff pod", crashLoopPod, false),
+		Entry("starting pod", aisv1.ScaleDownModeDecommission, startingPod, true),
+		Entry("started pod not yet in the cluster map", aisv1.ScaleDownModeDecommission, startedPod, true),
+		Entry("unschedulable pod", aisv1.ScaleDownModeDecommission, unschedulablePod, true),
+		Entry("CrashLoopBackOff pod", aisv1.ScaleDownModeSafeDecommission, crashLoopPod, true),
+		Entry("decommissioned started pod", aisv1.ScaleDownModeDecommission, decommStartedPod, false),
+		Entry("decommissioned CrashLoopBackOff pod", aisv1.ScaleDownModeSafeDecommission, decommCrashPod, false),
+		Entry("retain, unschedulable pod", aisv1.ScaleDownModeRetain, unschedulablePod, false),
+		Entry("retain, CrashLoopBackOff pod", aisv1.ScaleDownModeRetain, crashLoopPod, false),
+		Entry("retain, started pod not yet in the cluster map", aisv1.ScaleDownModeRetain, startedPod, true),
 	)
 })
 
@@ -252,6 +263,58 @@ var _ = Describe("scaleDownMode", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(settled).To(BeTrue())
 		})
+
+		DescribeTable("for an unschedulable target that left the cluster map without a decommission",
+			func(pvcPhases []corev1.PersistentVolumeClaimPhase, boundStatePVC, hostPath, wantSettled bool, wantEvent string) {
+				pod := &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{Name: "ais-target-2", Namespace: namespace},
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{{Name: cmn.AISContainerName, Image: "aisnode:test"}},
+					},
+				}
+				addPVC := func(volumeName string, phase corev1.PersistentVolumeClaimPhase) {
+					pvc := &corev1.PersistentVolumeClaim{
+						ObjectMeta: metav1.ObjectMeta{Name: volumeName + "-ais-target-2", Namespace: namespace},
+						Spec: corev1.PersistentVolumeClaimSpec{
+							AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+							Resources:   corev1.VolumeResourceRequirements{Requests: corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("1Gi")}},
+						},
+					}
+					Expect(k8sClient.Create(ctx, pvc)).To(Succeed())
+					pvc.Status.Phase = phase
+					Expect(k8sClient.Status().Update(ctx, pvc)).To(Succeed())
+					pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
+						Name:         volumeName,
+						VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: pvc.Name}},
+					})
+				}
+				for i, phase := range pvcPhases {
+					addPVC(fmt.Sprintf("data%d", i), phase)
+				}
+				if boundStatePVC {
+					addPVC(cmn.StatePVCName(ais), corev1.ClaimBound)
+				}
+				Expect(k8sClient.Create(ctx, pod)).To(Succeed())
+				pod.Status.Conditions = []corev1.PodCondition{{Type: corev1.PodScheduled, Status: corev1.ConditionFalse, Reason: corev1.PodReasonUnschedulable}}
+				Expect(k8sClient.Status().Update(ctx, pod)).To(Succeed())
+				ais.Spec.TargetSpec.Mounts[0].UseHostPath = &hostPath
+
+				settled, err := r.outgoingTargetsSettled(ctx, ais, &aismeta.Smap{Tmap: aismeta.NodeMap{}}, 3)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(settled).To(Equal(wantSettled))
+				if wantEvent == "" {
+					Expect(recorder.Events).To(BeEmpty())
+				} else {
+					Expect(recorder.Events).To(Receive(ContainSubstring("Warning " + wantEvent)))
+				}
+			},
+			Entry("waits with a bound PVC", []corev1.PersistentVolumeClaimPhase{corev1.ClaimBound}, false, false, false, EventReasonWaiting),
+			Entry("waits with a bound PVC beside a pending PVC",
+				[]corev1.PersistentVolumeClaimPhase{corev1.ClaimPending, corev1.ClaimBound}, false, false, false, EventReasonWaiting),
+			Entry("proceeds with a PVC that never bound", []corev1.PersistentVolumeClaimPhase{corev1.ClaimPending}, false, false, true, ""),
+			Entry("proceeds with a warning on hostPath mounts", nil, false, true, true, EventReasonUnconfirmedRemoval),
+			Entry("proceeds with a warning on hostPath mounts beside a bound state PVC", nil, true, true, true, EventReasonUnconfirmedRemoval),
+		)
 	})
 
 	Describe("targetsReadyForScaleDown", func() {
@@ -395,14 +458,25 @@ var _ = Describe("scaleDownMode", func() {
 						return "xid", nil
 					})
 				}
+				pod := &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{Name: "ais-target-2", Namespace: namespace},
+					Spec:       corev1.PodSpec{Containers: []corev1.Container{{Name: cmn.AISContainerName, Image: "aisnode:test"}}},
+				}
+				Expect(k8sClient.Create(ctx, pod)).To(Succeed())
 				if wantRmUserData != nil {
 					apiClient.EXPECT().DecommissionNode(gomock.Any()).DoAndReturn(func(act *apc.ActValRmNode) (string, error) {
 						Expect(act.DaemonID).To(Equal("t3"))
 						Expect(act.RmUserData).To(Equal(*wantRmUserData))
+						Expect(k8sClient.Get(ctx, types.NamespacedName{Name: pod.Name, Namespace: namespace}, pod)).To(Succeed())
+						Expect(pod.Annotations).To(HaveKeyWithValue(decommissionedAnnotation, "t3"))
 						return "xid", nil
 					})
 				}
 				Expect(r.prepareTargetsForScaleDown(ctx, ais, smap, 3)).To(Succeed())
+				if wantRmUserData == nil {
+					Expect(k8sClient.Get(ctx, types.NamespacedName{Name: pod.Name, Namespace: namespace}, pod)).To(Succeed())
+					Expect(pod.Annotations).NotTo(HaveKey(decommissionedAnnotation))
+				}
 				if !wantMaintenance && wantRmUserData == nil {
 					Expect(recorder.Events).To(Receive(ContainSubstring("Warning " + EventReasonWaiting)))
 				} else {
@@ -527,6 +601,12 @@ var _ = Describe("scaleDownMode", func() {
 			Expect(k8sClient.Create(ctx, pod)).To(Succeed())
 			setTargetPodStatus(idx, status)
 		}
+		markTargetPodDecommissioned := func(idx int32, nodeID string) {
+			pod := &corev1.Pod{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: target.PodName(ais, idx), Namespace: namespace}, pod)).To(Succeed())
+			pod.Annotations = map[string]string{decommissionedAnnotation: nodeID}
+			Expect(k8sClient.Update(ctx, pod)).To(Succeed())
+		}
 
 		BeforeEach(func() {
 			ais.Spec.TargetSpec.Size = apc.Ptr[int32](-1)
@@ -567,6 +647,7 @@ var _ = Describe("scaleDownMode", func() {
 			Expect(k8sClient.Status().Update(ctx, ais)).To(Succeed())
 			ais.Status.AutoScaleStatus.ExpectedTargetNodes = []string{"n0", "n1"}
 			createTargetPod(2, crashLoopStatus())
+			markTargetPodDecommissioned(2, "t3")
 
 			t1 := &aismeta.Snode{DaeID: "t1", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-0"}}
 			t2 := &aismeta.Snode{DaeID: "t2", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-1"}}
@@ -615,6 +696,7 @@ var _ = Describe("scaleDownMode", func() {
 			Expect(k8sClient.Get(ctx, target.StatefulSetNSName(ais), ss)).To(Succeed())
 			createTargetPod(2, readyStatus())
 			createTargetPod(3, crashLoopStatus())
+			markTargetPodDecommissioned(3, "t4")
 
 			t1 := &aismeta.Snode{DaeID: "t1", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-0"}}
 			t2 := &aismeta.Snode{DaeID: "t2", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-1"}}

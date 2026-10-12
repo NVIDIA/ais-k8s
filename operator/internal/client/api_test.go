@@ -266,6 +266,20 @@ var _ = Describe("K8sClient", func() {
 		})
 	})
 
+	Describe("AnnotatePod", func() {
+		It("should set the annotation and keep existing ones", func(ctx context.Context) {
+			pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "pod", Namespace: "ns", Annotations: map[string]string{"existing": "value"}}}
+			c := newFakeClient([]runtime.Object{pod})
+			k8sClient := NewClient(c, c.Scheme())
+
+			Expect(k8sClient.AnnotatePod(ctx, types.NamespacedName{Name: "pod", Namespace: "ns"}, "key", "new")).To(Succeed())
+
+			got := &corev1.Pod{}
+			Expect(c.Get(ctx, types.NamespacedName{Name: "pod", Namespace: "ns"}, got)).To(Succeed())
+			Expect(got.Annotations).To(Equal(map[string]string{"existing": "value", "key": "new"}))
+		})
+	})
+
 	Describe("CreateServiceAccountToken", func() {
 		const (
 			saNamespace = "ais-operator-system"

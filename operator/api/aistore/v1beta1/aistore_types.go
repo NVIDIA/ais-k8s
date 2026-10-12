@@ -674,6 +674,7 @@ type TargetSpec struct {
 	// "safe_decommission" (default) and "decommission" put each target into maintenance mode, which rebalances data off
 	// the node, and remove the target only after the rebalance succeeds. "safe_decommission" keeps the on-disk data of
 	// the target, and "decommission" deletes it. While the spec disables rebalance, both modes wait to remove targets.
+	// Both modes also wait on a target with a bound data PVC that leaves the cluster before the operator decommissions it.
 	// "retain" leaves data on the node by putting the target into maintenance mode. This is useful when you expect
 	// another pod to be immediately scheduled on the node. Note that if this is not the case then any data on the node
 	// will become inaccessible.
@@ -1027,6 +1028,15 @@ func (s *AIStoreSpec) UsesStateHostPath() bool {
 
 func (s *AIStoreSpec) UsesStateEmptyDir() bool {
 	return s.StateStorage != nil && s.StateStorage.EmptyDir != nil
+}
+
+func (ais *AIStore) HasTargetHostPathMount() bool {
+	for i := range ais.Spec.TargetSpec.Mounts {
+		if ais.Spec.TargetSpec.Mounts[i].IsHostPath() {
+			return true
+		}
+	}
+	return false
 }
 
 func (m *Mount) IsHostPath() bool {

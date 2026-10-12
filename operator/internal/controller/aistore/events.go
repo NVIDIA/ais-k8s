@@ -16,6 +16,7 @@ const (
 	EventReasonDecommissionCompleted = "DecommissionCompleted"
 	EventReasonDeleted               = "CRDeleted"
 	EventReasonUpdated               = "CRUpdated"
+	EventReasonUnconfirmedRemoval    = "UnconfirmedRemoval"
 )
 
 // Actions to be used in events

@@ -179,7 +179,7 @@ func createPodAntiAffinity(labels map[string]string) *corev1.PodAntiAffinity {
 }
 
 // Generate PVC claim ref for a specific namespace and cluster
-func getStatePVCName(ais *aisv1.AIStore) string {
+func StatePVCName(ais *aisv1.AIStore) string {
 	return fmt.Sprintf("%s-%s-%s", ais.Namespace, ais.Name, "state")
 }
 
@@ -187,7 +187,7 @@ func getStatePVCName(ais *aisv1.AIStore) string {
 func DefineStatePVC(ais *aisv1.AIStore, storageClass *string) *corev1.PersistentVolumeClaim {
 	return &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: getStatePVCName(ais),
+			Name: StatePVCName(ais),
 		},
 		Spec: corev1.PersistentVolumeClaimSpec{
 			AccessModes: []corev1.PersistentVolumeAccessMode{

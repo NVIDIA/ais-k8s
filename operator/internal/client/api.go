@@ -6,6 +6,7 @@ package client
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -354,6 +355,16 @@ func (c *K8sClient) IsStatefulSetSize(ctx context.Context, name types.Namespaced
 
 func (c *K8sClient) Patch(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
 	return c.client.Patch(ctx, obj, patch, opts...)
+}
+
+// AnnotatePod sets an annotation on the named pod.
+func (c *K8sClient) AnnotatePod(ctx context.Context, name types.NamespacedName, key, value string) error {
+	patch, err := json.Marshal(map[string]any{"metadata": map[string]any{"annotations": map[string]string{key: value}}})
+	if err != nil {
+		return err
+	}
+	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: name.Name, Namespace: name.Namespace}}
+	return c.client.Patch(ctx, pod, client.RawPatch(types.MergePatchType, patch))
 }
 
 func (c *K8sClient) PatchIfExists(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {

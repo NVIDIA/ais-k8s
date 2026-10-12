@@ -289,7 +289,7 @@ func NewAISVolumeMounts(ais *v1beta1.AIStore, daeType string) []corev1.VolumeMou
 	case spec.UsesStatePVC():
 		// PVC: the volume name matches the PVC template name
 		volumeMounts = append(volumeMounts, corev1.VolumeMount{
-			Name:      getStatePVCName(ais),
+			Name:      StatePVCName(ais),
 			MountPath: StateDir,
 		})
 	case spec.UsesStateHostPath():

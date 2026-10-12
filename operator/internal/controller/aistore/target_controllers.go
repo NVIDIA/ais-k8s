@@ -26,6 +26,13 @@ import (
 const targetLongRequeueDelay = 10 * time.Second
 const targetShortRequeueDelay = 2 * time.Second
 
+const (
+	// decommissionedAnnotation marks a target pod whose AIS node the operator decommissioned. The value is the node ID.
+	decommissionedAnnotation      = "aistore.nvidia.com/decommissioned"
+	reasonLeftWithoutDecommission = "target left the cluster map before the operator decommissioned it"
+	msgDeferTargetRemoval         = "Deferring target removal"
+)
+
 func (r *Reconciler) ensureTargetPrereqs(ctx context.Context, ais *aisv1.AIStore) (err error) {
 	// 1. Deploy required ConfigMap
 	cm, err := target.NewTargetCM(ais)
@@ -332,7 +339,7 @@ func (r *Reconciler) outgoingTargetsSettled(ctx context.Context, ais *aisv1.AISt
 		podName := target.PodName(ais, idx-1)
 		pod, err := r.k8sClient.GetPod(ctx, types.NamespacedName{Name: podName, Namespace: ais.Namespace})
 		if k8serrors.IsNotFound(err) {
-			logger.Info("Deferring target removal", "podName", podName, "reason", "pod is missing")
+			logger.Info(msgDeferTargetRemoval, "podName", podName, "reason", "pod is missing")
 			return false, nil
 		} else if err != nil {
 			return false, fmt.Errorf("failed to get pod %s: %w", podName, err)
@@ -341,10 +348,27 @@ func (r *Reconciler) outgoingTargetsSettled(ctx context.Context, ais *aisv1.AISt
 		if node, nodeErr := findAISNodeByPodName(smap.Tmap, podName); nodeErr == nil {
 			reason = memberWaitReason(ais, node, pod)
 		} else {
-			reason = nonMemberWaitReason(pod)
+			reason = nonMemberWaitReason(ais, pod)
+		}
+		if reason == reasonLeftWithoutDecommission {
+			bound, pvcErr := r.hasBoundDataPVC(ctx, ais, pod)
+			if pvcErr != nil {
+				return false, pvcErr
+			}
+			if !bound {
+				// Without a bound data PVC, only hostPath mounts can hold the data of the target.
+				if ais.HasTargetHostPathMount() {
+					r.recorder.Eventf(ais, pod, corev1.EventTypeWarning, EventReasonUnconfirmedRemoval, ActionScaleDownTargets,
+						"Removing target pod %s that left the cluster map before the operator decommissioned it; its hostPath mounts can still hold data", podName)
+				}
+				continue
+			}
+			r.recorder.Eventf(ais, pod, corev1.EventTypeWarning, EventReasonWaiting, ActionScaleDownTargets,
+				msgDeferTargetRemoval+"; pod %s left the cluster map before the operator decommissioned it, and its data PVCs are bound. "+
+					"Bring the target back into the cluster, or set scaleDownMode to retain to remove it without moving its data", podName)
 		}
 		if reason != "" {
-			logger.Info("Deferring target removal", "podName", podName, "reason", reason)
+			logger.Info(msgDeferTargetRemoval, "podName", podName, "reason", reason)
 			return false, nil
 		}
 	}
@@ -374,14 +398,40 @@ func memberWaitReason(ais *aisv1.AIStore, node *aismeta.Snode, pod *corev1.Pod) 
 
 // nonMemberWaitReason returns why an outgoing target absent from the cluster map is not ready to
 // be removed, or "" if it is.
-func nonMemberWaitReason(pod *corev1.Pod) string {
+func nonMemberWaitReason(ais *aisv1.AIStore, pod *corev1.Pod) string {
 	switch {
-	case isPodUnrecoverable(pod):
+	// The operator decommissions a target only after its data has moved off.
+	case pod.Annotations[decommissionedAnnotation] != "":
 		return ""
+	case isPodUnrecoverable(pod) && ais.Spec.TargetSpec.RetainOnScaleDown():
+		return ""
+	case isPodUnrecoverable(pod):
+		return reasonLeftWithoutDecommission
 	case !isAISContainerStarted(pod):
 		return "pod is still starting"
 	}
 	return "target is still joining the cluster map"
+}
+
+// hasBoundDataPVC reports whether any PVC that the pod mounts, other than the state PVC, is bound.
+func (r *Reconciler) hasBoundDataPVC(ctx context.Context, ais *aisv1.AIStore, pod *corev1.Pod) (bool, error) {
+	for i := range pod.Spec.Volumes {
+		claim := pod.Spec.Volumes[i].PersistentVolumeClaim
+		if claim == nil || pod.Spec.Volumes[i].Name == cmn.StatePVCName(ais) {
+			continue
+		}
+		pvc := &corev1.PersistentVolumeClaim{}
+		err := r.k8sClient.Get(ctx, types.NamespacedName{Name: claim.ClaimName, Namespace: pod.Namespace}, pvc)
+		if k8serrors.IsNotFound(err) {
+			continue
+		} else if err != nil {
+			return false, fmt.Errorf("failed to get PVC %s: %w", claim.ClaimName, err)
+		}
+		if pvc.Status.Phase == corev1.ClaimBound {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // setTargetReplicas writes the target StatefulSet replica count.
@@ -522,6 +572,10 @@ func (r *Reconciler) prepareTargetsForScaleDown(ctx context.Context, ais *aisv1.
 				logger.Error(err, "Failed to put node in maintenance", "nodeID", node.ID())
 			}
 			return err
+		}
+		podNSName := types.NamespacedName{Name: podName, Namespace: ais.Namespace}
+		if err = r.k8sClient.AnnotatePod(ctx, podNSName, decommissionedAnnotation, node.ID()); err != nil {
+			return fmt.Errorf("failed to annotate pod %s: %w", podName, err)
 		}
 		rmUserData := !ais.Spec.TargetSpec.SafeDecommissionOnScaleDown()
 		logger.Info("Decommissioning target", "nodeID", node.ID(), "rmUserData", rmUserData)
