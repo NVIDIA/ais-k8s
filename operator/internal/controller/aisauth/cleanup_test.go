@@ -43,15 +43,6 @@ var _ = Describe("AIStoreAuth cleanup", Label("short"), func() {
 		return err
 	}
 
-	// deleteCR removes the CR, which only stamps a deletion timestamp while the finalizer is held.
-	deleteCR := func(ctx context.Context) {
-		GinkgoHelper()
-		stored := &authv1alpha1.AIStoreAuth{}
-		Expect(reconciler.client.Get(ctx, authnNSName(authn), stored)).To(Succeed())
-		_, err := reconciler.client.DeleteResourceIfExists(ctx, stored)
-		Expect(err).NotTo(HaveOccurred())
-	}
-
 	It("adds the finalizer on first reconcile", func(ctx context.Context) {
 		Expect(reconcileOnce(ctx)).To(Succeed())
 
@@ -63,7 +54,7 @@ var _ = Describe("AIStoreAuth cleanup", Label("short"), func() {
 	It("releases the finalizer on deletion, leaving the ConfigMap to garbage collection", func(ctx context.Context) {
 		Expect(reconcileOnce(ctx)).To(Succeed())
 
-		deleteCR(ctx)
+		deleteAuthN(ctx, reconciler, authn)
 		Expect(reconcileOnce(ctx)).To(Succeed())
 
 		stored := &authv1alpha1.AIStoreAuth{}
@@ -82,7 +73,7 @@ var _ = Describe("AIStoreAuth cleanup", Label("short"), func() {
 		reconciler, _ = newTestReconciler(scheme, authn)
 		Expect(reconcileOnce(ctx)).To(Succeed())
 
-		deleteCR(ctx)
+		deleteAuthN(ctx, reconciler, authn)
 		Expect(reconcileOnce(ctx)).To(Succeed())
 
 		certificate := &certmanagerv1.Certificate{}
@@ -105,7 +96,7 @@ var _ = Describe("AIStoreAuth cleanup", Label("short"), func() {
 		})
 		Expect(reconcileOnce(ctx)).To(Succeed())
 
-		deleteCR(ctx)
+		deleteAuthN(ctx, reconciler, authn)
 		Expect(reconcileOnce(ctx)).To(HaveOccurred())
 
 		stored := &authv1alpha1.AIStoreAuth{}
@@ -129,7 +120,7 @@ var _ = Describe("AIStoreAuth cleanup", Label("short"), func() {
 			stored.Spec.Persistence.DeletionPolicy = policy
 			Expect(reconciler.client.Update(ctx, stored)).To(Succeed())
 
-			deleteCR(ctx)
+			deleteAuthN(ctx, reconciler, authn)
 			Expect(reconcileOnce(ctx)).To(Succeed())
 
 			pvc := &corev1.PersistentVolumeClaim{}

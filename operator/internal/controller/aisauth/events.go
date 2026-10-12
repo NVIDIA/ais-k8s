@@ -10,14 +10,16 @@ const (
 	EventReasonRolloutStalled   = "RolloutStalled"
 	EventReasonCleanupCompleted = "CleanupCompleted"
 
-	EventReasonConfigMapFailed        = "ConfigMapFailed"
-	EventReasonPVCFailed              = "PVCFailed"
-	EventReasonServicesFailed         = "ServicesFailed"
-	EventReasonCertificateFailed      = "CertificateFailed"
-	EventReasonDeploymentFailed       = "DeploymentFailed"
-	EventReasonPVCRetentionFailed     = "PVCRetentionFailed"
-	EventReasonFinalizerRemovalFailed = "FinalizerRemovalFailed"
-	EventReasonFinalizerFailed        = "FinalizerFailed"
+	EventReasonConfigMapFailed         = "ConfigMapFailed"
+	EventReasonPVCFailed               = "PVCFailed"
+	EventReasonServicesFailed          = "ServicesFailed"
+	EventReasonCertificateFailed       = "CertificateFailed"
+	EventReasonDeploymentFailed        = "DeploymentFailed"
+	EventReasonAuthProfileFailed       = "AuthProfileFailed"
+	EventReasonAuthProfileDeleteFailed = "AuthProfileDeleteFailed"
+	EventReasonPVCRetentionFailed      = "PVCRetentionFailed"
+	EventReasonFinalizerRemovalFailed  = "FinalizerRemovalFailed"
+	EventReasonFinalizerFailed         = "FinalizerFailed"
 )
 
 // Actions to be used in events.

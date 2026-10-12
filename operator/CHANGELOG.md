@@ -20,6 +20,8 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 - `spec.tls.public` to configure a separate TLS certificate for the public interface on which AIStore listens. Requires `serverName` and one of `secretName` or `certificate`.
   - The operator verifies the public certificate against `spec.tls.public.serverName`. This must be set to a SAN contained in a user-provided public certificate.
   - If using `spec.tls.public.certificate`, the operator includes `spec.tls.public.serverName` in the provisioned certificate's SAN list.
+- `AIStoreAuth`
+  - Operator creates the admin `AIStoreAuthProfile` `<namespace>.<name>-admin` when `spec.adminSecret` is set. Deletion of the `AIStoreAuth` waits until no `AIStore` references the profile in `spec.auth.profileRef`.
 
 ### Changed
 

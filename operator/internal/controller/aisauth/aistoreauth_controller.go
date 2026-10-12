@@ -20,6 +20,7 @@ import (
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -52,6 +53,7 @@ func NewReconcilerFromMgr(mgr manager.Manager, logger logr.Logger) *Reconciler {
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch
 // +kubebuilder:rbac:groups=cert-manager.io,resources=certificates,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=auth.ais.nvidia.com,resources=aistoreauthprofiles,verbs=get;list;watch;create;patch;delete
 
 func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := r.log.WithValues("namespace", req.Namespace, "name", req.Name)
@@ -132,6 +134,12 @@ func (r *Reconciler) reconcileResources(ctx context.Context, authn *authv1alpha1
 		r.recordError(authn, EventReasonDeploymentFailed, msg)
 		return err
 	}
+	if err := r.reconcileAuthProfile(ctx, authn); err != nil {
+		msg := "Failed to reconcile AIStoreAuthProfile"
+		logger.Error(err, msg)
+		r.recordError(authn, EventReasonAuthProfileFailed, msg)
+		return err
+	}
 	return nil
 }
 
@@ -180,6 +188,7 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&appsv1.Deployment{}).
 		Owns(&corev1.Service{}).
 		Owns(&certmanagerv1.Certificate{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+		Watches(&authv1alpha1.AIStoreAuthProfile{}, handler.EnqueueRequestsFromMapFunc(r.findAIStoreAuthForProfile)).
 		Named("aistoreauth").
 		Complete(r)
 }

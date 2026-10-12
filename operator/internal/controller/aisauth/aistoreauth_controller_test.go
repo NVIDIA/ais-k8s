@@ -284,6 +284,15 @@ func authnNSName(authn *authv1alpha1.AIStoreAuth) types.NamespacedName {
 	return types.NamespacedName{Name: authn.Name, Namespace: authn.Namespace}
 }
 
+// deleteAuthN removes the AuthN CR.
+func deleteAuthN(ctx context.Context, r *Reconciler, authn *authv1alpha1.AIStoreAuth) {
+	GinkgoHelper()
+	stored := &authv1alpha1.AIStoreAuth{}
+	Expect(r.client.Get(ctx, authnNSName(authn), stored)).To(Succeed())
+	_, err := r.client.DeleteResourceIfExists(ctx, stored)
+	Expect(err).NotTo(HaveOccurred())
+}
+
 // newTestScheme registers every API the AuthN controller touches.
 func newTestScheme() *runtime.Scheme {
 	GinkgoHelper()

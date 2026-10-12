@@ -270,6 +270,10 @@ func (c *K8sClient) ApplyCertificate(ctx context.Context, cert *cmapiv1ac.Certif
 	return c.applyOwned(ctx, &certmanagerv1.Certificate{}, cert, cert.ObjectMetaApplyConfiguration)
 }
 
+func (c *K8sClient) ApplyAuthProfile(ctx context.Context, profile runtime.ApplyConfiguration) error {
+	return c.client.Apply(ctx, profile, client.FieldOwner(FieldOwner), client.ForceOwnership)
+}
+
 // applyOwned performs a Server-Side Apply under the operator's field manager.
 // ForceOwnership lets reconciles overwrite external changes (e.g. a kubectl
 // edit) to fields we declare. applyOwned fails for an existing object whose

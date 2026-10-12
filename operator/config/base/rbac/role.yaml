@@ -95,6 +95,17 @@ rules:
 - apiGroups:
   - auth.ais.nvidia.com
   resources:
+  - aistoreauthprofiles
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups:
+  - auth.ais.nvidia.com
+  resources:
   - aistoreauths
   verbs:
   - create
