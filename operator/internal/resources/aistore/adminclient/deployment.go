@@ -13,6 +13,7 @@ import (
 	aisenv "github.com/NVIDIA/aistore/api/env"
 	aisv1 "github.com/ais-operator/api/aistore/v1beta1"
 	"github.com/ais-operator/internal/resources/aistore/cmn"
+	"github.com/ais-operator/internal/resources/ownerref"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -53,7 +54,7 @@ func DeploymentNSName(ais *aisv1.AIStore) types.NamespacedName {
 func ServiceAccount(ais *aisv1.AIStore) *corev1.ServiceAccount {
 	nsName := DeploymentNSName(ais)
 	labels := selectorLabels(ais)
-	labels[cmn.LabelManagedBy] = cmn.LabelManagedByValue
+	labels[ownerref.ManagedByLabel] = ownerref.ManagedByValue
 	return &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{
 		Name: nsName.Name, Namespace: nsName.Namespace, Labels: labels,
 	}}

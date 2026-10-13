@@ -11,6 +11,7 @@ import (
 	aisenv "github.com/NVIDIA/aistore/api/env"
 	aisv1 "github.com/ais-operator/api/aistore/v1beta1"
 	"github.com/ais-operator/internal/resources/aistore/cmn"
+	"github.com/ais-operator/internal/resources/ownerref"
 	apiv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -48,7 +49,7 @@ func DefaultPrimaryNSName(ais *aisv1.AIStore) types.NamespacedName {
 
 func NewProxyStatefulSet(ais *aisv1.AIStore, size int32) *apiv1.StatefulSet {
 	basicLabels := BasicLabels(ais)
-	basicLabels[cmn.LabelManagedBy] = cmn.LabelManagedByValue
+	basicLabels[ownerref.ManagedByLabel] = ownerref.ManagedByValue
 	podLabels := cmn.MergePodLabels(ais.Spec.ProxySpec.Labels, basicLabels)
 
 	ss := &apiv1.StatefulSet{

@@ -17,9 +17,7 @@ import (
 const (
 	appNameLabel     = "app.kubernetes.io/name"
 	appInstanceLabel = "app.kubernetes.io/instance"
-	managedByLabel   = "app.kubernetes.io/managed-by"
 	appNameValue     = "authn"
-	managedByValue   = "ais-operator"
 )
 
 // AuthnJSONKey is the ConfigMap data key for the rendered AuthN config.
@@ -40,9 +38,9 @@ func ConfigMapName(authn *authv1alpha1.AIStoreAuth) string {
 
 func resourceLabels(authn *authv1alpha1.AIStoreAuth) map[string]string {
 	return map[string]string{
-		appNameLabel:     appNameValue,
-		appInstanceLabel: authn.Name,
-		managedByLabel:   managedByValue,
+		appNameLabel:            appNameValue,
+		appInstanceLabel:        authn.Name,
+		ownerref.ManagedByLabel: ownerref.ManagedByValue,
 	}
 }
 

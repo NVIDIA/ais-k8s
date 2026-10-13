@@ -13,6 +13,7 @@ import (
 
 	authv1alpha1 "github.com/ais-operator/api/aisauth/v1alpha1"
 	aisv1 "github.com/ais-operator/api/aistore/v1beta1"
+	"github.com/ais-operator/internal/resources/ownerref"
 	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	cmapiv1ac "github.com/cert-manager/cert-manager/pkg/client/applyconfigurations/certmanager/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -26,13 +27,13 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	appsv1ac "k8s.io/client-go/applyconfigurations/apps/v1"
 	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
-	metav1ac "k8s.io/client-go/applyconfigurations/meta/v1"
 	rbacv1ac "k8s.io/client-go/applyconfigurations/rbac/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -270,42 +271,37 @@ func (c *K8sClient) ApplyCertificate(ctx context.Context, cert *cmapiv1ac.Certif
 	return c.applyOwned(ctx, &certmanagerv1.Certificate{}, cert, cert.ObjectMetaApplyConfiguration)
 }
 
-func (c *K8sClient) ApplyAuthProfile(ctx context.Context, profile runtime.ApplyConfiguration) error {
-	return c.client.Apply(ctx, profile, client.FieldOwner(FieldOwner), client.ForceOwnership)
-}
-
-// applyOwned performs a Server-Side Apply under the operator's field manager.
-// ForceOwnership lets reconciles overwrite external changes (e.g. a kubectl
-// edit) to fields we declare. applyOwned fails for an existing object whose
-// controller is not the controller in objMeta.
-func (c *K8sClient) applyOwned(ctx context.Context, existing client.Object, ac runtime.ApplyConfiguration, objMeta *metav1ac.ObjectMetaApplyConfiguration) error {
-	key := types.NamespacedName{Name: *objMeta.Name, Namespace: *objMeta.Namespace}
-	err := c.client.Get(ctx, key, existing)
-	switch {
-	case apierrors.IsNotFound(err):
-	case err != nil:
-		return err
-	case !isControlledBy(existing, objMeta.OwnerReferences):
-		return fmt.Errorf("%s exists but is not controlled by its declared controller", key)
-	default:
-		// The API server rejects the apply if the object changed after the check.
-		objMeta.WithResourceVersion(existing.GetResourceVersion())
+// ApplyAuthProfile performs a Server-Side Apply of profile under the operator's field manager.
+// It fails for an existing profile that does not match the ownership labels defined in the provided profile.
+func (c *K8sClient) ApplyAuthProfile(ctx context.Context, profile *authv1alpha1.AIStoreAuthProfile) error {
+	recorded, _ := ownerref.GetLabeledOwner(profile)
+	owner := &metav1.PartialObjectMetadata{
+		Kind:      recorded.Kind,
+		Namespace: recorded.Namespace, Name: recorded.Name,
 	}
+	rv, err := c.ownedResourceVersion(ctx, client.ObjectKeyFromObject(profile), &authv1alpha1.AIStoreAuthProfile{}, owner)
+	if err != nil {
+		return err
+	}
+	profile.ResourceVersion = rv
+	content, err := runtime.DefaultUnstructuredConverter.ToUnstructured(profile)
+	if err != nil {
+		return fmt.Errorf("convert AIStoreAuthProfile %q to unstructured: %w", profile.Name, err)
+	}
+	ac := client.ApplyConfigurationFromUnstructured(&unstructured.Unstructured{Object: content})
+	// Ownership is checked above. Kubernetes does not resolve an OwnerReference
+	// from the cluster-scoped profile to its namespaced AIStoreAuth, so applyOwned cannot check it.
 	return c.client.Apply(ctx, ac, client.FieldOwner(FieldOwner), client.ForceOwnership)
 }
 
-// isControlledBy reports whether the controller of obj is the controller in refs.
-func isControlledBy(obj metav1.Object, refs []metav1ac.OwnerReferenceApplyConfiguration) bool {
-	controller := metav1.GetControllerOfNoCopy(obj)
-	if controller == nil {
-		return false
-	}
-	for i := range refs {
-		if refs[i].Controller != nil && *refs[i].Controller && refs[i].UID != nil && *refs[i].UID == controller.UID {
-			return true
-		}
-	}
-	return false
+// DeleteAuthProfile deletes the named AIStoreAuthProfile if owner owns it.
+func (c *K8sClient) DeleteAuthProfile(ctx context.Context, name string, owner client.Object) error {
+	return c.deleteOwned(ctx, types.NamespacedName{Name: name}, &authv1alpha1.AIStoreAuthProfile{}, owner)
+}
+
+// DeleteOwnedService deletes the named Service if owner owns it.
+func (c *K8sClient) DeleteOwnedService(ctx context.Context, name types.NamespacedName, owner client.Object) error {
+	return c.deleteOwned(ctx, name, &corev1.Service{}, owner)
 }
 
 func (c *K8sClient) Update(ctx context.Context, obj client.Object, opts ...client.UpdateOption) error {

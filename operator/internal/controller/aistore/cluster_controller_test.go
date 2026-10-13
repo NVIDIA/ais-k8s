@@ -18,6 +18,7 @@ import (
 	"github.com/ais-operator/internal/resources/aistore/cmn"
 	"github.com/ais-operator/internal/resources/aistore/proxy"
 	"github.com/ais-operator/internal/resources/aistore/target"
+	"github.com/ais-operator/internal/resources/ownerref"
 	mocks "github.com/ais-operator/internal/services/mocks"
 	"github.com/ais-operator/tests/tutils"
 	jsoniter "github.com/json-iterator/go"
@@ -1226,7 +1227,7 @@ var _ = Describe("AIStoreController", func() {
 
 			updated := &corev1.ServiceAccount{}
 			Expect(r.k8sClient.Get(ctx, adminclient.DeploymentNSName(ais), updated)).To(Succeed())
-			Expect(updated.Labels).To(HaveKeyWithValue(cmn.LabelManagedBy, cmn.LabelManagedByValue))
+			Expect(updated.Labels).To(HaveKeyWithValue(ownerref.ManagedByLabel, ownerref.ManagedByValue))
 			Expect(updated.Labels).To(HaveKeyWithValue(cmn.LabelComponentPrefixed, adminclient.ComponentLabelValue))
 		})
 

@@ -20,6 +20,7 @@ import (
 	"github.com/ais-operator/internal/resources/aistore/proxy"
 	"github.com/ais-operator/internal/resources/aistore/target"
 	certres "github.com/ais-operator/internal/resources/certificates"
+	"github.com/ais-operator/internal/resources/ownerref"
 	"github.com/ais-operator/internal/services"
 	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/go-logr/logr"
@@ -1275,7 +1276,7 @@ func (r *Reconciler) listNodesRunningDaemonPods(ctx context.Context, ais *aisv1.
 
 	// We add this label here so that the behavior change in https://github.com/NVIDIA/ais-k8s/pull/62 is fully backwards-compatible.
 	// That is, the autoscaling behavior won't change until a proxy + target statefulset rollout happens.
-	modifiedPodLabels[cmn.LabelManagedBy] = cmn.LabelManagedByValue
+	modifiedPodLabels[ownerref.ManagedByLabel] = ownerref.ManagedByValue
 
 	podList, err := r.k8sClient.ListPods(ctx, ais, modifiedPodLabels)
 	if err != nil {

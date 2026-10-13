@@ -20,7 +20,7 @@ import (
 	authcontroller "github.com/ais-operator/internal/controller/aisauth"
 	aiscontroller "github.com/ais-operator/internal/controller/aistore"
 	"github.com/ais-operator/internal/opinfo"
-	"github.com/ais-operator/internal/resources/aistore/cmn"
+	"github.com/ais-operator/internal/resources/ownerref"
 	"github.com/ais-operator/internal/services"
 	authwebhookv1alpha1 "github.com/ais-operator/internal/webhook/aisauth/v1alpha1"
 	aiswebhookv1beta1 "github.com/ais-operator/internal/webhook/aistore/v1beta1"
@@ -176,7 +176,7 @@ func main() {
 		Cache: cache.Options{
 			ByObject: map[client.Object]cache.ByObject{
 				&corev1.Pod{}: {
-					Label: labels.SelectorFromSet(labels.Set{cmn.LabelManagedBy: cmn.LabelManagedByValue}),
+					Label: labels.SelectorFromSet(labels.Set{ownerref.ManagedByLabel: ownerref.ManagedByValue}),
 				},
 			},
 		},

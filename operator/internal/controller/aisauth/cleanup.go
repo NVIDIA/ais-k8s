@@ -83,7 +83,7 @@ func hasReadyFailure(authn *authv1alpha1.AIStoreAuth, msg string) bool {
 // cleanup handles the operator-created resources that garbage collection cannot resolve on
 // its own.
 func (r *Reconciler) cleanup(ctx context.Context, authn *authv1alpha1.AIStoreAuth) error {
-	if err := r.deleteAuthProfile(ctx, authn); err != nil {
+	if err := r.client.DeleteAuthProfile(ctx, authnres.AuthProfileName(authn), authn); err != nil {
 		msg := "Failed to delete AIStoreAuthProfile"
 		logf.FromContext(ctx).Error(err, msg)
 		r.recordCleanupFailure(ctx, authn, EventReasonAuthProfileDeleteFailed, msg)

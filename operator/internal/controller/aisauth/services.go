@@ -10,12 +10,8 @@ import (
 
 	authv1alpha1 "github.com/ais-operator/api/aisauth/v1alpha1"
 	authnres "github.com/ais-operator/internal/resources/aisauth"
-	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -49,27 +45,5 @@ func (r *Reconciler) applyOrDeleteService(
 	if service != nil {
 		return r.client.ApplyService(ctx, service)
 	}
-	return r.deleteOwnedService(ctx, authn, name)
-}
-
-// deleteOwnedService removes a disabled optional Service only when this CR controls it.
-func (r *Reconciler) deleteOwnedService(
-	ctx context.Context,
-	authn *authv1alpha1.AIStoreAuth,
-	name types.NamespacedName,
-) error {
-	service := &corev1.Service{}
-	if err := r.client.Get(ctx, name, service); err != nil {
-		if k8serrors.IsNotFound(err) {
-			return nil
-		}
-		return err
-	}
-	if !metav1.IsControlledBy(service, authn) {
-		logf.FromContext(ctx).V(1).Info("Leaving non-owned disabled Service unchanged", "service", name)
-		return nil
-	}
-	uid := service.UID
-	_, err := r.client.DeleteResourceIfExists(ctx, service, client.Preconditions{UID: &uid})
-	return err
+	return r.client.DeleteOwnedService(ctx, name, authn)
 }
