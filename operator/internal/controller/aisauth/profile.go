@@ -69,13 +69,19 @@ func isAuthProfileOf(profile *authv1alpha1.AIStoreAuthProfile, authn *authv1alph
 }
 
 // findAIStoreAuthForProfile maps an AIStoreAuthProfile event to the AIStoreAuth that manages the profile.
-func (*Reconciler) findAIStoreAuthForProfile(_ context.Context, obj client.Object) []reconcile.Request {
+func (r *Reconciler) findAIStoreAuthForProfile(ctx context.Context, obj client.Object) []reconcile.Request {
 	profile, ok := obj.(*authv1alpha1.AIStoreAuthProfile)
 	if !ok {
 		return nil
 	}
 	owner, managed := authnres.AuthProfileOwner(profile)
 	if !managed {
+		return nil
+	}
+	if err := r.client.Get(ctx, owner, &authv1alpha1.AIStoreAuth{}); err != nil {
+		if !k8serrors.IsNotFound(err) {
+			logf.FromContext(ctx).Info("Skipping profile event for an AIStoreAuth outside the cache", "owner", owner, "error", err.Error())
+		}
 		return nil
 	}
 	return []reconcile.Request{{NamespacedName: owner}}

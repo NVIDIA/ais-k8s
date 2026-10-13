@@ -129,6 +129,9 @@ var _ = Describe("AIStoreAuth admin AIStoreAuthProfile", Label("short"), func() 
 			{NamespacedName: types.NamespacedName{Namespace: "ais", Name: "ais-authn"}},
 		}))
 
+		profile.Labels["app.kubernetes.io/instance"] = "missing"
+		Expect(reconciler.findAIStoreAuthForProfile(ctx, profile)).To(BeEmpty())
+
 		profile.Labels = nil
 		Expect(reconciler.findAIStoreAuthForProfile(ctx, profile)).To(BeEmpty())
 	})
