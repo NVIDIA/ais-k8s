@@ -7,6 +7,7 @@ package aistore
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -112,7 +113,7 @@ func shouldUpdateContainerSpec(desired, current *corev1.Container, c containerCh
 	if desired.Image != current.Image {
 		return true, reason("updating image")
 	}
-	if c.env && !equality.Semantic.DeepEqual(desired.Env, current.Env) {
+	if c.env && !envEqual(desired.Env, current.Env) {
 		return true, reason("updating env variables")
 	}
 	if c.resources && !equality.Semantic.DeepEqual(desired.Resources, current.Resources) {
@@ -125,6 +126,32 @@ func shouldUpdateContainerSpec(desired, current *corev1.Container, c containerCh
 		return true, reason("updating security context")
 	}
 	return false, ""
+}
+
+// envEqual reports whether two env lists give a container the same environment.
+func envEqual(a, b []corev1.EnvVar) bool {
+	// $(VAR) expands from earlier entries only, so a reorder of referential env vars
+	// can legitimately change the values the pod gets.
+	if hasEnvReference(a) || hasEnvReference(b) {
+		return equality.Semantic.DeepEqual(a, b)
+	}
+	return equality.Semantic.DeepEqual(effectiveEnv(a), effectiveEnv(b))
+}
+
+func hasEnvReference(env []corev1.EnvVar) bool {
+	return slices.ContainsFunc(env, func(e corev1.EnvVar) bool {
+		// "$$" escapes "$", so "$$(A)" is a literal.
+		return strings.Contains(strings.ReplaceAll(e.Value, "$$", ""), "$(")
+	})
+}
+
+// effectiveEnv maps each name to its last entry, which is the one Kubernetes applies.
+func effectiveEnv(env []corev1.EnvVar) map[string]corev1.EnvVar {
+	m := make(map[string]corev1.EnvVar, len(env))
+	for _, e := range env {
+		m[e.Name] = e
+	}
+	return m
 }
 
 func shouldUpdateProbes(desired, current *corev1.Container) bool {

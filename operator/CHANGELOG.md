@@ -26,6 +26,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ### Changed
 
+- A change in the order of `ais-node` container env vars no longer triggers a rollout unless an env var references another.
 - Updated the `github.com/NVIDIA/aistore` dependency to v1.5.1 ([AIStore v5.1.0](https://github.com/NVIDIA/aistore/releases/tag/v1.5.1)).
 - `spec.tls.certificate.additionalDNSNames` and `spec.tls.public.certificate.additionalDNSNames`
   - Webhook rejects newly added entries that are not valid DNS names, including IP addresses. A leading `*.` wildcard is allowed.

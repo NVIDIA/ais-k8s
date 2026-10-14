@@ -464,6 +464,29 @@ var _ = Describe("shouldUpdateContainers", func() {
 			Expect(reason).To(Equal(`container "ais-node": updating env variables`))
 		})
 
+		DescribeTable("env order", func(desiredEnv, currentEnv []corev1.EnvVar, want bool) {
+			desired := makePodTemplate([]corev1.Container{{Name: cmn.AISContainerName, Env: desiredEnv}})
+			current := makePodTemplate([]corev1.Container{{Name: cmn.AISContainerName, Env: currentEnv}})
+			update, _ := shouldUpdateContainers(desired, current)
+			Expect(update).To(Equal(want))
+		},
+			Entry("ignores a reorder",
+				[]corev1.EnvVar{{Name: "A", Value: "1"}, {Name: "B", Value: "2"}},
+				[]corev1.EnvVar{{Name: "B", Value: "2"}, {Name: "A", Value: "1"}}, false),
+			Entry("detects a reorder when a value references another var",
+				[]corev1.EnvVar{{Name: "A", Value: "1"}, {Name: "B", Value: "$(A)"}},
+				[]corev1.EnvVar{{Name: "B", Value: "$(A)"}, {Name: "A", Value: "1"}}, true),
+			Entry("ignores a reorder when a reference is escaped",
+				[]corev1.EnvVar{{Name: "A", Value: "1"}, {Name: "B", Value: "$$(A)"}},
+				[]corev1.EnvVar{{Name: "B", Value: "$$(A)"}, {Name: "A", Value: "1"}}, false),
+			Entry("detects a reorder of duplicate names",
+				[]corev1.EnvVar{{Name: "A", Value: "1"}, {Name: "A", Value: "2"}},
+				[]corev1.EnvVar{{Name: "A", Value: "2"}, {Name: "A", Value: "1"}}, true),
+			Entry("ignores dropping a shadowed duplicate",
+				[]corev1.EnvVar{{Name: "A", Value: "2"}},
+				[]corev1.EnvVar{{Name: "A", Value: "1"}, {Name: "A", Value: "2"}}, false),
+		)
+
 		It("returns true when resources differ", func() {
 			desired := makePodTemplate([]corev1.Container{{Name: cmn.AISContainerName, Resources: resources("200m")}})
 			current := makePodTemplate([]corev1.Container{{Name: cmn.AISContainerName, Resources: resources("100m")}})
