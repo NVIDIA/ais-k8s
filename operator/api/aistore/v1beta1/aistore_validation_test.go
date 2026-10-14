@@ -222,13 +222,26 @@ func TestValidateExternalAccess(t *testing.T) {
 	lbPort := func(port int32) *ExternalAccessSpec {
 		return &ExternalAccessSpec{LoadBalancer: &LoadBalancerSpec{Port: aisapc.Ptr(port)}}
 	}
+	dns := func(domain string) *ExternalAccessSpec {
+		return &ExternalAccessSpec{DNS: &ExternalDNSSpec{Domain: domain}}
+	}
+	internalTLS := &TLSSpec{SecretName: aisapc.Ptr("tls")}
 	tests := []struct {
 		name   string
 		proxy  *ExternalAccessSpec
 		target *ExternalAccessSpec
+		tls    *TLSSpec
 		// wantErrMsgs are substrings the rejection must name
 		wantErrMsgs []string
 	}{
+		{
+			name:   "target DNS with public TLS and an unrelated annotation",
+			target: &ExternalAccessSpec{Annotations: map[string]string{"a": "b"}, DNS: &ExternalDNSSpec{Domain: "ais.example.com", ExternalDNSAnnotation: true}},
+			tls:    &TLSSpec{SecretName: aisapc.Ptr("tls"), Public: &PublicTLSSpec{SecretName: aisapc.Ptr("pub"), ServerName: "ais.example.com"}},
+		},
+		{name: "proxy DNS", proxy: dns("ais.example.com"), wantErrMsgs: []string{"spec.proxySpec.externalAccess.dns", "targets only"}},
+		{name: "invalid domain", target: dns("Not_A_Domain"), wantErrMsgs: []string{"spec.targetSpec.externalAccess.dns.domain"}},
+		{name: "target DNS with TLS but no public TLS", target: dns("ais.example.com"), tls: internalTLS, wantErrMsgs: []string{"spec.tls.public"}},
 		{name: "no external access"},
 		{name: "target external access without a LoadBalancer", target: &ExternalAccessSpec{}},
 		{name: "target LoadBalancer without a port", target: &ExternalAccessSpec{LoadBalancer: &LoadBalancerSpec{}}},
@@ -251,6 +264,7 @@ func TestValidateExternalAccess(t *testing.T) {
 			ais := &AIStore{}
 			ais.Spec.ProxySpec.ExternalAccess = tt.proxy
 			ais.Spec.TargetSpec.ExternalAccess = tt.target
+			ais.Spec.TLS = tt.tls
 			warnings, err := ais.validateExternalAccess()
 			g.Expect(warnings).To(BeEmpty())
 			if len(tt.wantErrMsgs) == 0 {

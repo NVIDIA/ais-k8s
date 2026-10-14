@@ -33,32 +33,12 @@ var _ = Describe("Env", Label("short"), func() {
 		})
 	})
 	Describe("CommonInitEnv", func() {
-		It("includes the cluster name var", func() {
-			ais := &aisv1.AIStore{ObjectMeta: metav1.ObjectMeta{Name: "cluster-name"}}
-			env := CommonInitEnv(ais, false)
-			Expect(env).To(ContainElement(corev1.EnvVar{Name: EnvCluster, Value: "cluster-name"}))
-		})
-
-		It("includes the host IPs var", func() {
-			Expect(CommonInitEnv(&aisv1.AIStore{}, false)).To(
-				ContainElement(EnvFromFieldPath(EnvHostIPS, "status.hostIPs")))
-		})
-
-		It("includes the cluster domain", func() {
-			Expect(CommonInitEnv(&aisv1.AIStore{}, false)).To(
-				ContainElement(EnvFromValue(EnvClusterDomain, opinfo.ClusterDomain())))
-		})
-
-		It("sets the public DNS mode from the spec", func() {
-			mode := aisv1.PubNetDNSModeNode
-			ais := &aisv1.AIStore{Spec: aisv1.AIStoreSpec{PublicNetDNSMode: &mode}}
-
-			Expect(CommonInitEnv(ais, false)).To(ContainElement(EnvFromValue(EnvPublicDNSMode, string(mode))))
-		})
-
-		It("omits the public DNS mode when unset", func() {
-			Expect(CommonInitEnv(&aisv1.AIStore{}, false)).NotTo(
-				ContainElement(HaveField("Name", EnvPublicDNSMode)))
+		It("returns the host IPs and cluster domain vars and the common vars", func() {
+			ais := &aisv1.AIStore{ObjectMeta: metav1.ObjectMeta{Name: "test-cluster"}}
+			Expect(CommonInitEnv(ais)).To(Equal(append([]corev1.EnvVar{
+				EnvFromFieldPath(EnvHostIPS, "status.hostIPs"),
+				EnvFromValue(EnvClusterDomain, opinfo.ClusterDomain()),
+			}, CommonEnv(ais)...)))
 		})
 	})
 

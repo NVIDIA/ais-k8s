@@ -1171,6 +1171,12 @@ var _ = Describe("AIStoreController", func() {
 					a.Spec.TargetSpec.HostNetwork = apc.Ptr(true)
 					a.Spec.TargetSpec.ExternalAccess = &aisv1.ExternalAccessSpec{}
 				}, nodeIP, targetLBIP),
+			Entry("target host networking with a public domain in IP mode", aisv1.PubNetDNSModeIP,
+				func(a *aisv1.AIStore) {
+					a.Spec.TargetSpec.HostNetwork = apc.Ptr(true)
+					a.Spec.TargetSpec.ExternalAccess = &aisv1.ExternalAccessSpec{DNS: &aisv1.ExternalDNSSpec{Domain: "ais.example.com"}}
+					a.Spec.TLS = publicTLS()
+				}),
 			Entry("target host port with public TLS", aisv1.PubNetDNSModeIP,
 				func(a *aisv1.AIStore) {
 					a.Spec.TargetSpec.HostPort = apc.Ptr[int32](51081)

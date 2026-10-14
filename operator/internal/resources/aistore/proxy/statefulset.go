@@ -6,6 +6,7 @@ package proxy
 
 import (
 	"fmt"
+	"strconv"
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
 	aisenv "github.com/NVIDIA/aistore/api/env"
@@ -133,19 +134,17 @@ func proxyPodSpec(ais *aisv1.AIStore) *corev1.PodSpec {
 	return spec
 }
 
-func NewInitContainerEnv(ais *aisv1.AIStore) (initEnv []corev1.EnvVar) {
-	initEnv = cmn.CommonInitEnv(ais, ais.ProxyExternalAccessEnabled())
-	initEnv = append(initEnv, cmn.EnvFromValue(cmn.EnvServiceName, ais.ProxyHeadlessSVCNSName().Name))
-	// Set AIS_PUBLIC_HOSTNAME if listening on hostPort
-	// Without this set, the proxy will resolve its public hostname to the pod IP
+func NewInitContainerEnv(ais *aisv1.AIStore) []corev1.EnvVar {
+	initEnv := append(cmn.CommonInitEnv(ais),
+		cmn.EnvFromValue(cmn.EnvServiceName, ais.ProxyHeadlessSVCNSName().Name),
+		cmn.EnvFromValue(cmn.EnvEnableExternalAccess, strconv.FormatBool(ais.ProxyExternalAccessEnabled())),
+	)
+	initEnv = append(initEnv, cmn.PublicDNSModeEnv(ais)...)
+	// Without a public hostname, the proxy advertises the pod IP.
 	if ais.Spec.ProxySpec.HostPort != nil {
-		if ais.UseNodeNameForPublicNet() {
-			initEnv = append(initEnv, cmn.EnvFromFieldPath(cmn.EnvPublicHostname, "spec.nodeName"))
-		} else {
-			initEnv = append(initEnv, cmn.EnvFromFieldPath(cmn.EnvPublicHostname, "status.hostIP"))
-		}
+		initEnv = append(initEnv, cmn.HostPortHostnameEnv(ais))
 	}
-	return
+	return initEnv
 }
 
 func NewAISContainerEnv(ais *aisv1.AIStore) []corev1.EnvVar {

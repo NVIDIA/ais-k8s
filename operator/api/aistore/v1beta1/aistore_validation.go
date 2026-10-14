@@ -190,17 +190,46 @@ func (ais *AIStore) validateServiceSpec() (admission.Warnings, error) {
 }
 
 func (ais *AIStore) validateExternalAccess() (admission.Warnings, error) {
-	ea := ais.Spec.TargetSpec.ExternalAccess
-	if ea == nil || ea.LoadBalancer == nil || ea.LoadBalancer.Port == nil {
-		return nil, nil
+	var allErrs field.ErrorList
+	if ea := ais.Spec.ProxySpec.ExternalAccess; ea != nil && ea.DNS != nil {
+		// Proxies share one LoadBalancer, so there is no per-proxy name to publish.
+		allErrs = append(allErrs, field.Forbidden(
+			field.NewPath("spec", "proxySpec", "externalAccess", "dns"),
+			"supported on targets only; set the proxy LoadBalancer hostname through annotations",
+		))
 	}
-	// Reject a LoadBalancer port on targets.
-	// Proxies redirect clients to the target address AIS advertises, which is always portPublic.
-	return nil, field.Invalid(
-		field.NewPath("spec", "targetSpec", "externalAccess", "loadBalancer", "port"),
-		*ea.LoadBalancer.Port,
-		"not supported; target LoadBalancers must listen on spec.targetSpec.portPublic",
-	)
+	ea := ais.Spec.TargetSpec.ExternalAccess
+	if ea == nil {
+		return nil, allErrs.ToAggregate()
+	}
+	eaPath := field.NewPath("spec", "targetSpec", "externalAccess")
+	if ea.LoadBalancer != nil && ea.LoadBalancer.Port != nil {
+		// Proxies redirect clients to the target address AIS advertises, which is always portPublic.
+		allErrs = append(allErrs, field.Invalid(
+			eaPath.Child("loadBalancer", "port"),
+			*ea.LoadBalancer.Port,
+			"not supported; target LoadBalancers must listen on spec.targetSpec.portPublic",
+		))
+	}
+	if ea.DNS != nil {
+		allErrs = append(allErrs, ais.validateTargetPublicDNS(ea, eaPath)...)
+	}
+	return nil, allErrs.ToAggregate()
+}
+
+func (ais *AIStore) validateTargetPublicDNS(ea *ExternalAccessSpec, eaPath *field.Path) field.ErrorList {
+	var allErrs field.ErrorList
+	path := eaPath.Child("dns")
+	for _, msg := range validation.IsDNS1123Subdomain(ea.DNS.Domain) {
+		allErrs = append(allErrs, field.Invalid(path.Child("domain"), ea.DNS.Domain, msg))
+	}
+	if ais.Spec.TLS != nil && ais.Spec.TLS.Public == nil {
+		allErrs = append(allErrs, field.Required(
+			field.NewPath("spec", "tls", "public"),
+			"required with spec.targetSpec.externalAccess.dns when TLS is enabled",
+		))
+	}
+	return allErrs
 }
 
 func (ais *AIStore) validateHostPort() (admission.Warnings, error) {

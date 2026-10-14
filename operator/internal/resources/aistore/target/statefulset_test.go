@@ -7,6 +7,7 @@ package target
 import (
 	"fmt"
 	"path"
+	"slices"
 
 	"github.com/NVIDIA/aistore/api/apc"
 	aisv1 "github.com/ais-operator/api/aistore/v1beta1"
@@ -256,5 +257,66 @@ var _ = Describe("Statefulset Target Volumes and Mounts", Label("short"), func()
 			Expect(pvcSize.Value()).To(Equal(int64(1073741824)),
 				"1Gi (whole bytes) should be unchanged")
 		})
+	})
+})
+
+var _ = Describe("Target NewInitContainerEnv", Label("short"), func() {
+	newAIS := func(ea *aisv1.ExternalAccessSpec) *aisv1.AIStore {
+		return &aisv1.AIStore{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-ais", Namespace: "test-ns"},
+			Spec: aisv1.AIStoreSpec{
+				PublicNetDNSMode: apc.Ptr(aisv1.PubNetDNSModePod),
+				TargetSpec:       aisv1.TargetSpec{DaemonSpec: aisv1.DaemonSpec{ExternalAccess: ea}},
+			},
+		}
+	}
+	envNames := func(env []v1.EnvVar) []string {
+		names := make([]string, len(env))
+		for i := range env {
+			names[i] = env[i].Name
+		}
+		return names
+	}
+
+	It("should advertise <pod>.<domain> instead of the LoadBalancer IP when a domain is set, even with hostNetwork", func() {
+		ais := newAIS(&aisv1.ExternalAccessSpec{DNS: &aisv1.ExternalDNSSpec{Domain: "ais.example.com"}})
+		ais.Spec.TargetSpec.HostNetwork = apc.Ptr(true)
+		env := NewInitContainerEnv(ais)
+		Expect(env).To(ContainElements(
+			cmn.EnvFromValue(cmn.EnvEnableExternalAccess, "false"),
+			cmn.EnvFromValue(cmn.EnvPublicDNSMode, string(aisv1.PubNetDNSModeIP)),
+			cmn.EnvFromValue(cmn.EnvPublicHostname, "$(MY_POD).ais.example.com"),
+		))
+		names := envNames(env)
+		Expect(slices.Index(names, cmn.EnvPodName)).To(And(BeNumerically(">=", 0), BeNumerically("<", slices.Index(names, cmn.EnvPublicHostname))))
+		// aisinit discards the public hostname of targets on the host network in IP mode.
+		Expect(names).NotTo(ContainElement(cmn.EnvHostNetwork))
+	})
+
+	It("should keep LoadBalancer IP discovery and the spec DNS mode without a domain", func() {
+		env := NewInitContainerEnv(newAIS(&aisv1.ExternalAccessSpec{}))
+		Expect(env).To(ContainElements(
+			cmn.EnvFromValue(cmn.EnvEnableExternalAccess, "true"),
+			cmn.EnvFromValue(cmn.EnvPublicDNSMode, string(aisv1.PubNetDNSModePod)),
+		))
+		Expect(envNames(env)).NotTo(ContainElement(cmn.EnvPublicHostname))
+	})
+
+	It("should advertise the host IP for hostPort without external access", func() {
+		ais := newAIS(nil)
+		ais.Spec.TargetSpec.HostPort = apc.Ptr(int32(51080))
+		Expect(NewInitContainerEnv(ais)).To(ContainElements(
+			cmn.EnvFromValue(cmn.EnvEnableExternalAccess, "false"),
+			cmn.EnvFromFieldPath(cmn.EnvPublicHostname, "status.hostIP"),
+		))
+	})
+
+	It("should pass hostNetwork to aisinit without a domain", func() {
+		ais := newAIS(nil)
+		ais.Spec.TargetSpec.HostNetwork = apc.Ptr(true)
+		Expect(NewInitContainerEnv(ais)).To(ContainElements(
+			cmn.EnvFromValue(cmn.EnvEnableExternalAccess, "false"),
+			cmn.EnvFromValue(cmn.EnvHostNetwork, "true"),
+		))
 	})
 })

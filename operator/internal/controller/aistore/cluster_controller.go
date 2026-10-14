@@ -813,8 +813,8 @@ func (r *Reconciler) externalAccessHosts(ctx context.Context, ais *aisv1.AIStore
 // targetCertNeedsNodeHosts reports whether the cluster certificate must cover the hosts of the target nodes.
 func targetCertNeedsNodeHosts(ais *aisv1.AIStore) bool {
 	mode := ais.GetPublicNetDNSMode()
-	// Pod mode advertises the pod DNS name that the wildcard SAN covers.
-	if mode == aisv1.PubNetDNSModePod {
+	// Pod mode and a public domain both advertise the pod DNS name that the wildcard SAN covers on the intra-cluster networks.
+	if mode == aisv1.PubNetDNSModePod || ais.TargetPublicDomain() != "" {
 		return false
 	}
 	// Targets must include host IPs even for intra-cluster if using hostNetwork with IP mode.

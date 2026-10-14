@@ -21,7 +21,7 @@ const (
 )
 
 func loadBalancerSVCName(ais *aisv1.AIStore, index int32) string {
-	return fmt.Sprintf("%s-%d", ais.TargetStatefulSetName(), index)
+	return PodName(ais, index)
 }
 
 func LoadBalancerSVCNSName(ais *aisv1.AIStore, index int32) types.NamespacedName {
@@ -75,9 +75,14 @@ func NewTargetLoadBalancerSVC(ais *aisv1.AIStore, targetIndex int32) *corev1ac.S
 	publicNetPort := ais.TargetPublicPort()
 	selectors := SelectorLabels(ais)
 	selectors["statefulset.kubernetes.io/pod-name"] = PodName(ais, targetIndex)
-	return corev1ac.Service(loadBalancerSVCName(ais, targetIndex), ais.Namespace).
+	svcName := loadBalancerSVCName(ais, targetIndex)
+	annotations := cmn.ExternalAccessLBAnnotations(ais.Spec.TargetSpec.ExternalAccess)
+	if dns := ais.TargetPublicDNS(); dns != nil && dns.ExternalDNSAnnotation {
+		annotations[aisv1.ExternalDNSHostnameAnnotation] = svcName + "." + dns.Domain
+	}
+	return corev1ac.Service(svcName, ais.Namespace).
 		WithOwnerReferences(ownerref.NewControllerRef(ais)).
-		WithAnnotations(cmn.ExternalAccessLBAnnotations(ais.Spec.TargetSpec.ExternalAccess)).
+		WithAnnotations(annotations).
 		WithLabels(cmn.NewServiceLabels(ais.Name, ServiceLabelLB)).
 		WithSpec(corev1ac.ServiceSpec().
 			WithType(corev1.ServiceTypeLoadBalancer).

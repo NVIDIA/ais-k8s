@@ -89,6 +89,9 @@ func buildPublicCertificateSANs(ais *aisv1.AIStore) []string {
 		return nil
 	}
 	dnsNames := append(slices.Clone(certConfig.AdditionalDNSNames), ais.GetPublicTLSServerName())
+	if domain := ais.TargetPublicDomain(); domain != "" {
+		dnsNames = append(dnsNames, "*."+domain)
+	}
 	dnsNames, _ = certres.NormalizeSANs(dnsNames, nil)
 	return dnsNames
 }

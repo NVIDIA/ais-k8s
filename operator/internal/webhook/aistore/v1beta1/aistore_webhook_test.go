@@ -438,6 +438,38 @@ func TestValidateProxyUpdateExternalAccess(t *testing.T) {
 	})
 }
 
+func TestValidateTargetUpdateExternalDNS(t *testing.T) {
+	target := func(dns *aisv1.ExternalDNSSpec) *aisv1.AIStore {
+		ea := &aisv1.ExternalAccessSpec{DNS: dns}
+		return &aisv1.AIStore{Spec: aisv1.AIStoreSpec{TargetSpec: aisv1.TargetSpec{DaemonSpec: aisv1.DaemonSpec{ExternalAccess: ea}}}}
+	}
+	dns := func(domain string, annotate bool) *aisv1.ExternalDNSSpec {
+		return &aisv1.ExternalDNSSpec{Domain: domain, ExternalDNSAnnotation: annotate}
+	}
+
+	tests := []struct {
+		name      string
+		prev, new *aisv1.ExternalDNSSpec
+		wantErr   bool
+	}{
+		{name: "toggling the annotation is allowed", prev: dns("a.example.com", false), new: dns("a.example.com", true)},
+		{name: "adding dns is rejected", prev: nil, new: dns("a.example.com", false), wantErr: true},
+		{name: "removing dns is rejected", prev: dns("a.example.com", false), new: nil, wantErr: true},
+		{name: "changing the domain is rejected", prev: dns("a.example.com", false), new: dns("b.example.com", false), wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(subT *testing.T) {
+			g := NewWithT(subT)
+			err := validateTargetUpdate(target(tt.prev), target(tt.new))
+			if tt.wantErr {
+				g.Expect(err).To(HaveOccurred())
+				return
+			}
+			g.Expect(err).ToNot(HaveOccurred())
+		})
+	}
+}
+
 func TestValidateStateStorageUpdate(t *testing.T) {
 	legacyClass := func(class string) *aisv1.AIStore {
 		return &aisv1.AIStore{Spec: aisv1.AIStoreSpec{StateStorageClass: aisapc.Ptr(class)}}

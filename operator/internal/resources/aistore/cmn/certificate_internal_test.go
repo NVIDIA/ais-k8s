@@ -66,6 +66,9 @@ var _ = Describe("NewPublicCertificate", func() {
 			ObjectMeta: metav1.ObjectMeta{Name: "test-cluster", Namespace: "test-ns"},
 			Spec: aisv1.AIStoreSpec{
 				HostnameMap: map[string]string{"test-worker-1": "test-worker-1, 127.0.0.1"},
+				TargetSpec: aisv1.TargetSpec{DaemonSpec: aisv1.DaemonSpec{
+					ExternalAccess: &aisv1.ExternalAccessSpec{DNS: &aisv1.ExternalDNSSpec{Domain: "targets.example.com"}},
+				}},
 				TLS: &aisv1.TLSSpec{
 					SecretName: aisapc.Ptr("my-tls-secret"),
 					Public: &aisv1.PublicTLSSpec{
@@ -82,7 +85,7 @@ var _ = Describe("NewPublicCertificate", func() {
 		cert := NewPublicCertificate(ais)
 
 		Expect(*cert.Name).To(Equal("test-cluster-tls-pub-cert"))
-		Expect(cert.Spec.DNSNames).To(Equal([]string{"ais.example.com", "alt.example.com"}))
+		Expect(cert.Spec.DNSNames).To(Equal([]string{"*.targets.example.com", "ais.example.com", "alt.example.com"}))
 		Expect(cert.Spec.IPAddresses).To(BeEmpty())
 		Expect(*cert.Spec.SecretName).To(Equal("test-cluster-tls-pub"))
 		Expect(*cert.Spec.IssuerRef.Name).To(Equal("test-issuer"))

@@ -212,7 +212,7 @@ Or, run a one-off command:
 $ kubectl exec -it -n ais deploy/aistore-sample-client -- ais show cluster
 ```
 
-### Enabling external access
+### Enabling External Access
 
 This section discusses AIStore accessibility by external clients - the clients **outside the Kubernetes cluster**.
 
@@ -224,7 +224,7 @@ External access relies on the K8s cluster assigning an external IP or hostname t
 > **NOTE**: Currently, enabling external access for an existing cluster is not yet supported.
 > See the [redeployment](../docs/redeployment.md) guide for redeploying an existing cluster.
 
-**Setting up external IPs**
+#### Setting up External IPs
 
 The cluster must support provisioning enough external IPs to enable the external LoadBalancers.
 
@@ -237,6 +237,39 @@ The cluster must support provisioning enough external IPs to enable the external
 
 External access can be tested locally on `minikube` using the `minikube tunnel` command; for more details, see [this link](https://minikube.sigs.k8s.io/docs/commands/tunnel/).
 For testing with KinD, see [cloud-provider-kind](https://github.com/kubernetes-sigs/cloud-provider-kind).
+
+#### Publishing Targets Under a DNS Domain
+
+By default, each target advertises the external IP of its LoadBalancer, and proxies redirect clients to that IP.
+Set `targetSpec.externalAccess.dns.domain` to make each target advertise `<pod-name>.<domain>` instead:
+
+```yaml
+spec:
+  targetSpec:
+    externalAccess:
+      dns:
+        domain: ais.example.com
+        externalDNSAnnotation: true
+```
+
+- This option is for targets only. For the proxy LoadBalancer, set a DNS name through `proxySpec.externalAccess.annotations`.
+- Each `<pod-name>.<domain>` name must resolve to that target's external endpoint, both inside and outside the K8s cluster. Proxies redirect in-cluster clients to the same names.
+- `externalDNSAnnotation: true` adds the [external-dns](https://github.com/kubernetes-sigs/external-dns) annotation `external-dns.kubernetes.io/hostname: <pod-name>.<domain>` to each target's external Service. Without it, you must create the DNS records yourself.
+  - Note this annotation is supported starting with [external-dns v0.22.0](https://kubernetes-sigs.github.io/external-dns/latest/docs/annotations/annotations/#annotation-prefix).
+- `publicNetDNSMode` does not apply to targets with this option.
+- The provided `dns.domain` cannot be added, removed, or changed on an existing cluster.
+- With `spec.tls`, this option also requires `spec.tls.public`. With `spec.tls.public.certificate`, the operator includes `*.<domain>` in the public certificate. With `spec.tls.public.secretName`, the certificate must cover `*.<domain>`.
+
+#### Waiting for External Services
+
+A target with external access enabled cannot join the cluster until its external service has a resolved external IP or DNS record.
+- When using an external service with an external IP only, AIS targets will wait for the IP to resolve before attempting to start.
+- When using a published DNS record, versions prior to AIS v5.2 will restart if they fail to join the cluster due to an unresolved DNS record.
+  - Starting with AIS v5.2, each target waits for its DNS record before it starts.
+
+On a new cluster, the primary proxy also restarts if no target joins within `timeout.startup_time`.
+The cluster recovers without intervention after the records resolve, but users will see restarted containers and potentially `CrashLoopBackOff` errors.
+To reduce restarts, increase `spec.configToUpdate.timeout.startup_time`, and set `join_startup_time` to at least twice that value.
 
 ### Deploying cluster with shared or no disks
 

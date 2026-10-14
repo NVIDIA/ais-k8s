@@ -6,6 +6,7 @@ package target
 
 import (
 	"path/filepath"
+	"strconv"
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
 	aisv1 "github.com/ais-operator/api/aistore/v1beta1"
@@ -123,20 +124,39 @@ func targetPodSpec(ais *aisv1.AIStore) *corev1.PodSpec {
 	return spec
 }
 
-func NewInitContainerEnv(ais *aisv1.AIStore) (initEnv []corev1.EnvVar) {
-	initEnv = cmn.CommonInitEnv(ais, ais.TargetExternalAccessEnabled())
-	initEnv = append(initEnv, cmn.EnvFromValue(cmn.EnvServiceName, ais.TargetHeadlessSVCNSName().Name))
-	if ais.Spec.TargetSpec.HostPort != nil && !ais.TargetExternalAccessEnabled() {
-		if ais.UseNodeNameForPublicNet() {
-			initEnv = append(initEnv, cmn.EnvFromFieldPath(cmn.EnvPublicHostname, "spec.nodeName"))
-		} else {
-			initEnv = append(initEnv, cmn.EnvFromFieldPath(cmn.EnvPublicHostname, "status.hostIP"))
-		}
+func NewInitContainerEnv(ais *aisv1.AIStore) []corev1.EnvVar {
+	initEnv := append(cmn.CommonInitEnv(ais), cmn.EnvFromValue(cmn.EnvServiceName, ais.TargetHeadlessSVCNSName().Name))
+	if domain := ais.TargetPublicDomain(); domain != "" {
+		return append(initEnv, publicDomainEnv(domain)...)
+	}
+	return append(initEnv, publicNetEnv(ais)...)
+}
+
+// publicDomainEnv makes aisinit advertise <pod>.<domain> as the target's public hostname.
+func publicDomainEnv(domain string) []corev1.EnvVar {
+	return []corev1.EnvVar{
+		// If the public domain option is set, this tells AIS to use public domain DNS for target redirects.
+		// aisinit replaces the public hostname with the LoadBalancer IP if `ENABLE_EXTERNAL_ACCESS` is true.
+		// Instead, force AIS_PUBLIC_HOSTNAME to the pod under the public DNS domain and skip that override.
+		cmn.EnvFromValue(cmn.EnvEnableExternalAccess, "false"),
+		cmn.EnvFromValue(cmn.EnvPublicDNSMode, string(aisv1.PubNetDNSModeIP)),
+		cmn.EnvFromValue(cmn.EnvPublicHostname, "$("+cmn.EnvPodName+")."+domain),
+	}
+}
+
+// publicNetEnv makes aisinit advertise the public hostname that the spec networking selects.
+func publicNetEnv(ais *aisv1.AIStore) []corev1.EnvVar {
+	externalAccess := ais.TargetExternalAccessEnabled()
+	env := append([]corev1.EnvVar{cmn.EnvFromValue(cmn.EnvEnableExternalAccess, strconv.FormatBool(externalAccess))},
+		cmn.PublicDNSModeEnv(ais)...)
+	// With external access, aisinit advertises the LoadBalancer IP instead.
+	if ais.Spec.TargetSpec.HostPort != nil && !externalAccess {
+		env = append(env, cmn.HostPortHostnameEnv(ais))
 	}
 	if ais.UseHostNetwork() {
-		initEnv = append(initEnv, cmn.EnvFromValue(cmn.EnvHostNetwork, "true"))
+		env = append(env, cmn.EnvFromValue(cmn.EnvHostNetwork, "true"))
 	}
-	return
+	return env
 }
 
 func NewAISContainerEnv(ais *aisv1.AIStore) []corev1.EnvVar {

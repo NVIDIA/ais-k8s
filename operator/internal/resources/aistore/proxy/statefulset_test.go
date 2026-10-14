@@ -5,6 +5,8 @@
 package proxy
 
 import (
+	"slices"
+
 	aisapc "github.com/NVIDIA/aistore/api/apc"
 	aisv1 "github.com/ais-operator/api/aistore/v1beta1"
 	"github.com/ais-operator/internal/resources/aistore/cmn"
@@ -95,13 +97,14 @@ var _ = Describe("Proxy NewInitContainerEnv", func() {
 		})
 	})
 
-	Describe("service name", func() {
-		It("should set MY_SERVICE to the proxy headless service", func() {
-			ais := newAIS(aisv1.AIStoreSpec{ProxySpec: aisv1.DaemonSpec{}})
-			env := NewInitContainerEnv(ais)
-			ev, ok := envByName(env, cmn.EnvServiceName)
-			Expect(ok).To(BeTrue())
-			Expect(ev.Value).To(Equal(ais.Name + "-" + aisapc.Proxy))
-		})
-	})
+	DescribeTable("public DNS mode", func(mode *aisv1.PubNetDNSMode, roleEnv ...corev1.EnvVar) {
+		ais := newAIS(aisv1.AIStoreSpec{PublicNetDNSMode: mode})
+		Expect(NewInitContainerEnv(ais)).To(ConsistOf(slices.Concat(cmn.CommonInitEnv(ais), []corev1.EnvVar{
+			cmn.EnvFromValue(cmn.EnvServiceName, "test-ais-proxy"),
+			cmn.EnvFromValue(cmn.EnvEnableExternalAccess, "false"),
+		}, roleEnv)))
+	},
+		Entry("mode set", aisapc.Ptr(aisv1.PubNetDNSModeNode), cmn.EnvFromValue(cmn.EnvPublicDNSMode, string(aisv1.PubNetDNSModeNode))),
+		Entry("mode unset", nil),
+	)
 })

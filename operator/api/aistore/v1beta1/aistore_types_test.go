@@ -266,6 +266,40 @@ var _ = Describe("AIStore", func() {
 					"public requires secretName or certificate",
 				),
 			)
+
+			DescribeTable("target externalAccess", func(ea *ExternalAccessSpec, expectedMessage string) {
+				spec := minimalSpec()
+				spec.TargetSpec.ExternalAccess = ea
+				ais := &AIStore{
+					ObjectMeta: metav1.ObjectMeta{Name: "ais", Namespace: namespace},
+					Spec:       spec,
+				}
+
+				err := k8sClient.Create(context.Background(), ais)
+				if expectedMessage == "" {
+					Expect(err).ToNot(HaveOccurred())
+					return
+				}
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring(expectedMessage))
+			},
+				Entry(
+					"accepts the external-dns hostname annotation without dns.externalDNSAnnotation",
+					&ExternalAccessSpec{
+						Annotations: map[string]string{ExternalDNSHostnameAnnotation: "x.example.com"},
+						DNS:         &ExternalDNSSpec{Domain: "ais.example.com"},
+					},
+					"",
+				),
+				Entry(
+					"rejects the external-dns hostname annotation with dns.externalDNSAnnotation",
+					&ExternalAccessSpec{
+						Annotations: map[string]string{ExternalDNSHostnameAnnotation: "x.example.com"},
+						DNS:         &ExternalDNSSpec{Domain: "ais.example.com", ExternalDNSAnnotation: true},
+					},
+					"annotations cannot set "+ExternalDNSHostnameAnnotation,
+				),
+			)
 		})
 
 		Describe("Custom validation", func() {

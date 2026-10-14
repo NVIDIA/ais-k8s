@@ -3354,6 +3354,22 @@ spec:
                           Annotations are merged onto the created service(s)
                           (for example cloud provider or external-dns annotations).
                         type: object
+                      dns:
+                        description: DNS sets a public DNS name for each externally
+                          accessible target service. Supported on targets only.
+                        properties:
+                          domain:
+                            description: Domain is the DNS domain under which each target
+                              is published as <pod-name>.<domain>.
+                            minLength: 1
+                            type: string
+                          externalDNSAnnotation:
+                            description: ExternalDNSAnnotation adds the external-dns
+                              hostname annotation to each target's external Service.
+                            type: boolean
+                        required:
+                        - domain
+                        type: object
                       loadBalancer:
                         description: LoadBalancer tunes the LoadBalancer services. Omit
                           it to accept the defaults.
@@ -3370,6 +3386,11 @@ spec:
                             type: integer
                         type: object
                     type: object
+                    x-kubernetes-validations:
+                    - message: annotations cannot set external-dns.kubernetes.io/hostname
+                        when dns.externalDNSAnnotation is true
+                      rule: '!(self.?dns.?externalDNSAnnotation.orValue(false) && ''external-dns.kubernetes.io/hostname''
+                        in self.?annotations.orValue({}))'
                   hostPort:
                     description: HostPort - Port to bind directly to a specific port
                       on the host
@@ -3856,6 +3877,7 @@ spec:
                 default: IP
                 description: |-
                   PublicNetDNSMode Defines the public network DNS name to use with hostPort or hostNetwork.
+                  It does not apply to targets with targetSpec.externalAccess.dns.
                   Defaults to 'IP' to use the host IP.
                   Other options include:
                    'Node' to use the K8s node DNS name
@@ -5231,6 +5253,22 @@ spec:
                           Annotations are merged onto the created service(s)
                           (for example cloud provider or external-dns annotations).
                         type: object
+                      dns:
+                        description: DNS sets a public DNS name for each externally
+                          accessible target service. Supported on targets only.
+                        properties:
+                          domain:
+                            description: Domain is the DNS domain under which each target
+                              is published as <pod-name>.<domain>.
+                            minLength: 1
+                            type: string
+                          externalDNSAnnotation:
+                            description: ExternalDNSAnnotation adds the external-dns
+                              hostname annotation to each target's external Service.
+                            type: boolean
+                        required:
+                        - domain
+                        type: object
                       loadBalancer:
                         description: LoadBalancer tunes the LoadBalancer services. Omit
                           it to accept the defaults.
@@ -5247,6 +5285,11 @@ spec:
                             type: integer
                         type: object
                     type: object
+                    x-kubernetes-validations:
+                    - message: annotations cannot set external-dns.kubernetes.io/hostname
+                        when dns.externalDNSAnnotation is true
+                      rule: '!(self.?dns.?externalDNSAnnotation.orValue(false) && ''external-dns.kubernetes.io/hostname''
+                        in self.?annotations.orValue({}))'
                   hostNetwork:
                     description: hostNetwork - if set to true, the AIS Daemon pods for
                       target are created in the host's network namespace (used for multihoming)

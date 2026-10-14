@@ -87,6 +87,7 @@ const (
 
 // ExternalAccessSpec configures services for external client access.
 // On proxies this creates one shared LoadBalancer; on targets one LoadBalancer per pod ordinal.
+// +kubebuilder:validation:XValidation:rule="!(self.?dns.?externalDNSAnnotation.orValue(false) && 'external-dns.kubernetes.io/hostname' in self.?annotations.orValue({}))",message="annotations cannot set external-dns.kubernetes.io/hostname when dns.externalDNSAnnotation is true"
 type ExternalAccessSpec struct {
 	// Annotations are merged onto the created service(s)
 	// (for example cloud provider or external-dns annotations).
@@ -96,6 +97,24 @@ type ExternalAccessSpec struct {
 	// LoadBalancer tunes the LoadBalancer services. Omit it to accept the defaults.
 	// +optional
 	LoadBalancer *LoadBalancerSpec `json:"loadBalancer,omitempty"`
+
+	// DNS sets a public DNS name for each externally accessible target service. Supported on targets only.
+	// +optional
+	DNS *ExternalDNSSpec `json:"dns,omitempty"`
+}
+
+// ExternalDNSHostnameAnnotation is the Service annotation external-dns reads the DNS name from.
+const ExternalDNSHostnameAnnotation = "external-dns.kubernetes.io/hostname"
+
+// ExternalDNSSpec configures the public DNS names targets advertise to clients.
+type ExternalDNSSpec struct {
+	// Domain is the DNS domain under which each target is published as <pod-name>.<domain>.
+	// +kubebuilder:validation:MinLength=1
+	Domain string `json:"domain"`
+
+	// ExternalDNSAnnotation adds the external-dns hostname annotation to each target's external Service.
+	// +optional
+	ExternalDNSAnnotation bool `json:"externalDNSAnnotation,omitempty"`
 }
 
 // LoadBalancerSpec configures external access through a LoadBalancer service.
@@ -459,6 +478,7 @@ type AIStoreSpec struct {
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 
 	// PublicNetDNSMode Defines the public network DNS name to use with hostPort or hostNetwork.
+	// It does not apply to targets with targetSpec.externalAccess.dns.
 	// Defaults to 'IP' to use the host IP.
 	// Other options include:
 	//  'Node' to use the K8s node DNS name
@@ -914,6 +934,22 @@ func (ais *AIStore) ProxyExternalAccessEnabled() bool {
 
 func (ais *AIStore) TargetExternalAccessEnabled() bool {
 	return ais.Spec.TargetSpec.ExternalAccess != nil
+}
+
+// TargetPublicDNS returns the target public DNS configuration, or nil when unset.
+func (ais *AIStore) TargetPublicDNS() *ExternalDNSSpec {
+	if ais.Spec.TargetSpec.ExternalAccess == nil {
+		return nil
+	}
+	return ais.Spec.TargetSpec.ExternalAccess.DNS
+}
+
+// TargetPublicDomain returns the domain targets publish their public hostnames under, or "" when unset.
+func (ais *AIStore) TargetPublicDomain() string {
+	if dns := ais.TargetPublicDNS(); dns != nil {
+		return dns.Domain
+	}
+	return ""
 }
 
 func (ais *AIStore) ShouldStartShutdown() bool {

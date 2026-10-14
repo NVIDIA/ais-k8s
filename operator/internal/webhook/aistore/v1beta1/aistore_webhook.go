@@ -354,8 +354,21 @@ func allowDaemonSpecUpdates(prev, spec *aisv1.DaemonSpec) {
 	}
 	// Retuning an existing LoadBalancer is safe; toggling external access on or off is not.
 	if prev.ExternalAccess != nil && spec.ExternalAccess != nil {
-		prev.ExternalAccess = spec.ExternalAccess
+		ea := *spec.ExternalAccess
+		ea.DNS = allowExternalDNSUpdates(prev.ExternalAccess.DNS, spec.ExternalAccess.DNS)
+		prev.ExternalAccess = &ea
 	}
+}
+
+// allowExternalDNSUpdates keeps the published domain fixed, since running targets only pick up a new
+// public hostname on restart.
+func allowExternalDNSUpdates(prev, spec *aisv1.ExternalDNSSpec) *aisv1.ExternalDNSSpec {
+	if prev == nil || spec == nil {
+		return prev
+	}
+	dns := *prev
+	dns.ExternalDNSAnnotation = spec.ExternalDNSAnnotation
+	return &dns
 }
 
 // allowProxyPortUpdates copies proxy port fields whose port number is unchanged once defaults are

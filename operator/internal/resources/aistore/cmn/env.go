@@ -5,8 +5,6 @@
 package cmn
 
 import (
-	"strconv"
-
 	aisv1 "github.com/ais-operator/api/aistore/v1beta1"
 	"github.com/ais-operator/internal/opinfo"
 	corev1 "k8s.io/api/core/v1"
@@ -48,14 +46,25 @@ func CommonEnv(ais *aisv1.AIStore) []corev1.EnvVar {
 }
 
 // CommonInitEnv provides environment variables used by init containers for both proxy and target pods.
-func CommonInitEnv(ais *aisv1.AIStore, externalAccessEnabled bool) []corev1.EnvVar {
-	initEnv := []corev1.EnvVar{
+func CommonInitEnv(ais *aisv1.AIStore) []corev1.EnvVar {
+	return append([]corev1.EnvVar{
 		EnvFromFieldPath(EnvHostIPS, "status.hostIPs"),
 		EnvFromValue(EnvClusterDomain, opinfo.ClusterDomain()),
-		EnvFromValue(EnvEnableExternalAccess, strconv.FormatBool(externalAccessEnabled)),
+	}, CommonEnv(ais)...)
+}
+
+// PublicDNSModeEnv provides the init container variable for the spec publicNetDNSMode, if set.
+func PublicDNSModeEnv(ais *aisv1.AIStore) []corev1.EnvVar {
+	if ais.Spec.PublicNetDNSMode == nil {
+		return nil
 	}
-	if ais.Spec.PublicNetDNSMode != nil {
-		initEnv = append(initEnv, EnvFromValue(EnvPublicDNSMode, string(*ais.Spec.PublicNetDNSMode)))
+	return []corev1.EnvVar{EnvFromValue(EnvPublicDNSMode, string(*ais.Spec.PublicNetDNSMode))}
+}
+
+// HostPortHostnameEnv provides the public hostname variable for a daemon that listens on hostPort.
+func HostPortHostnameEnv(ais *aisv1.AIStore) corev1.EnvVar {
+	if ais.UseNodeNameForPublicNet() {
+		return EnvFromFieldPath(EnvPublicHostname, "spec.nodeName")
 	}
-	return append(initEnv, CommonEnv(ais)...)
+	return EnvFromFieldPath(EnvPublicHostname, "status.hostIP")
 }

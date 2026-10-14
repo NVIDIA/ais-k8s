@@ -22,8 +22,15 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
   - If using `spec.tls.public.certificate`, the operator includes `spec.tls.public.serverName` in the provisioned certificate's SAN list.
   - If provided, no node or LoadBalancer host SANs will be included in the cluster certificate, except for target hosts in `hostNetwork` mode with `publicNetDNSMode: IP`.
 - `spec.configToUpdate.net.l4.sndrcv_buf_size`. A change to it restarts the cluster pods. Requires AIStore v5.1.0 or later.
+- `targetSpec.externalAccess.dns` to make each target advertise `<pod-name>.<domain>` instead of its LoadBalancer IP.
+  - `externalDNSAnnotation: true` adds the external-dns hostname annotation to each target's external Service.
+  - Webhook rejects the option on `proxySpec` and with `spec.tls` unless `spec.tls.public` is set.
+  - If using `spec.tls.public.certificate`, the operator includes `*.<domain>` in the provisioned certificate's SAN list.
+
+
 - `AIStoreAuth`
-  - Operator creates the admin `AIStoreAuthProfile` `<namespace>.<name>-admin` when `spec.adminSecret` is set. Deletion of the `AIStoreAuth` waits until no `AIStore` references the profile in `spec.auth.profileRef`.
+  - Operator creates the admin `AIStoreAuthProfile` `<namespace>.<name>-admin` when `spec.adminSecret` is set.
+    - Deletion of the `AIStoreAuth` waits until no `AIStore` references the profile in `spec.auth.profileRef`.
 
 ### Changed
 
