@@ -88,6 +88,21 @@ func (mr *MockAIStoreClientInterfaceMockRecorder) GetClusterMap() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetClusterMap", reflect.TypeOf((*MockAIStoreClientInterface)(nil).GetClusterMap))
 }
 
+// GetSoftwareVersion mocks base method.
+func (m *MockAIStoreClientInterface) GetSoftwareVersion(node *meta.Snode) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSoftwareVersion", node)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSoftwareVersion indicates an expected call of GetSoftwareVersion.
+func (mr *MockAIStoreClientInterfaceMockRecorder) GetSoftwareVersion(node any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSoftwareVersion", reflect.TypeOf((*MockAIStoreClientInterface)(nil).GetSoftwareVersion), node)
+}
+
 // HasValidBaseParams mocks base method.
 func (m *MockAIStoreClientInterface) HasValidBaseParams(arg0 context.Context, ais *v1beta1.AIStore, expectedURL string) bool {
 	m.ctrl.T.Helper()

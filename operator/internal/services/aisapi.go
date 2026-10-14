@@ -37,6 +37,7 @@ type (
 		DecommissionCluster(rmUserData bool) error
 		DecommissionNode(actValue *apc.ActValRmNode) (xid string, err error)
 		GetClusterMap() (smap *meta.Smap, err error)
+		GetSoftwareVersion(node *meta.Snode) (version string, err error)
 		Health(readyToRebalance bool) error
 		IsRebalancing() (running bool, err error)
 		SetClusterConfigUsingMsg(config jsoniter.RawMessage) error
@@ -211,6 +212,10 @@ func (c *AIStoreClient) DecommissionNode(actValue *apc.ActValRmNode) (string, er
 
 func (c *AIStoreClient) GetClusterMap() (smap *meta.Smap, err error) {
 	return api.GetClusterMap(*c.params)
+}
+
+func (c *AIStoreClient) GetSoftwareVersion(node *meta.Snode) (string, error) {
+	return api.GetSoftwareVersion(*c.params, node)
 }
 
 func (c *AIStoreClient) Health(readyToRebalance bool) error {

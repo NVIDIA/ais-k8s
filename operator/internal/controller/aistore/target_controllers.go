@@ -10,10 +10,12 @@ import (
 	"time"
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
+	aiscos "github.com/NVIDIA/aistore/cmn/cos"
 	aismeta "github.com/NVIDIA/aistore/core/meta"
 	aisv1 "github.com/ais-operator/api/aistore/v1beta1"
 	"github.com/ais-operator/internal/resources/aistore/cmn"
 	"github.com/ais-operator/internal/resources/aistore/target"
+	"github.com/ais-operator/internal/services"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -516,6 +518,10 @@ func (r *Reconciler) prepareTargetsForScaleDown(ctx context.Context, ais *aisv1.
 		return err
 	}
 	logger.Info("Preparing targets for scale-down", "Smap version", smap.Version)
+	var (
+		podNames []string
+		nodes    []*aismeta.Snode
+	)
 	for idx := specReplicas; idx > ais.GetTargetSize(); idx-- {
 		podName := target.PodName(ais, idx-1)
 		logger.Info("Attempting to prepare target for scale-down", "podName", podName)
@@ -556,36 +562,82 @@ func (r *Reconciler) prepareTargetsForScaleDown(ctx context.Context, ais *aisv1.
 				"Deferring removal of target %s; rebalance is disabled in the spec", node.ID())
 			return nil
 		}
-		rebalancing, err := apiClient.IsRebalancing()
-		if err != nil {
-			return err
-		}
-		if rebalancing {
-			logger.V(1).Info("Deferring decommission; a rebalance is running", "nodeID", node.ID())
-			return nil
-		}
-		// Maintenance sets SnodeMaintPostReb only after its rebalance succeeds.
+		podNames = append(podNames, podName)
+		nodes = append(nodes, node)
+	}
+	if len(nodes) == 0 {
+		return nil
+	}
+	rebalancing, err := apiClient.IsRebalancing()
+	if err != nil {
+		return err
+	}
+	if rebalancing {
+		logger.V(1).Info("Deferring decommission; a rebalance is running", "podNames", podNames)
+		return nil
+	}
+	if len(nodes) > 1 && !primarySupportsBatchedRemoval(ctx, apiClient, smap) {
+		podNames, nodes = podNames[:1], nodes[:1]
+	}
+	nodeIDs := make([]string, 0, len(nodes))
+	var maintNodeIDs []string
+	for _, node := range nodes {
+		nodeIDs = append(nodeIDs, node.ID())
 		if !node.InMaint() {
-			logger.Info("Putting target in maintenance mode", "nodeID", node.ID())
-			_, err = apiClient.StartMaintenance(&aisapc.ActValRmNode{DaemonID: node.ID()})
-			if err != nil {
-				logger.Error(err, "Failed to put node in maintenance", "nodeID", node.ID())
-			}
-			return err
+			maintNodeIDs = append(maintNodeIDs, node.ID())
 		}
-		podNSName := types.NamespacedName{Name: podName, Namespace: ais.Namespace}
-		if err = r.k8sClient.AnnotatePod(ctx, podNSName, decommissionedAnnotation, node.ID()); err != nil {
-			return fmt.Errorf("failed to annotate pod %s: %w", podName, err)
-		}
-		rmUserData := !ais.Spec.TargetSpec.SafeDecommissionOnScaleDown()
-		logger.Info("Decommissioning target", "nodeID", node.ID(), "rmUserData", rmUserData)
-		_, err = apiClient.DecommissionNode(&aisapc.ActValRmNode{DaemonID: node.ID(), RmUserData: rmUserData})
+	}
+	// Maintenance sets SnodeMaintPostReb only after its rebalance succeeds.
+	if len(maintNodeIDs) > 0 {
+		logger.Info("Putting targets in maintenance mode", "nodeIDs", maintNodeIDs)
+		_, err = apiClient.StartMaintenance(rmNodeAction(maintNodeIDs))
 		if err != nil {
-			logger.Error(err, "Failed to decommission node", "nodeID", node.ID())
+			logger.Error(err, "Failed to put nodes in maintenance", "nodeIDs", maintNodeIDs)
 		}
 		return err
 	}
-	return nil
+	for i, podName := range podNames {
+		podNSName := types.NamespacedName{Name: podName, Namespace: ais.Namespace}
+		if err = r.k8sClient.AnnotatePod(ctx, podNSName, decommissionedAnnotation, nodeIDs[i]); err != nil {
+			return fmt.Errorf("failed to annotate pod %s: %w", podName, err)
+		}
+	}
+	act := rmNodeAction(nodeIDs)
+	act.RmUserData = !ais.Spec.TargetSpec.SafeDecommissionOnScaleDown()
+	logger.Info("Decommissioning targets", "nodeIDs", nodeIDs, "rmUserData", act.RmUserData)
+	_, err = apiClient.DecommissionNode(act)
+	if err != nil {
+		logger.Error(err, "Failed to decommission nodes", "nodeIDs", nodeIDs)
+	}
+	return err
+}
+
+// minBatchedRemovalVersion is the first AIS version that accepts several nodes in one membership change.
+var minBatchedRemovalVersion = aiscos.Version{Major: 5, Minor: 0}
+
+// primarySupportsBatchedRemoval reports whether the primary accepts several nodes in one membership change.
+func primarySupportsBatchedRemoval(ctx context.Context, apiClient services.AIStoreClientInterface, smap *aismeta.Smap) bool {
+	if smap.Primary == nil {
+		return false
+	}
+	version, err := apiClient.GetSoftwareVersion(smap.Primary)
+	if err != nil {
+		logf.FromContext(ctx).V(1).Info("Failed to get the AIS version of the primary", "error", err)
+		return false
+	}
+	return aiscos.SupportsVersionAtLeast(version, minBatchedRemovalVersion)
+}
+
+// rmNodeAction names nodeIDs in a membership change.
+func rmNodeAction(nodeIDs []string) *aisapc.ActValRmNode {
+	act := &aisapc.ActValRmNode{}
+	// AIS before v5.0 reads only DaemonID.
+	if len(nodeIDs) == 1 {
+		act.DaemonID = nodeIDs[0]
+	} else {
+		act.SetIDs(nodeIDs...)
+	}
+	return act
 }
 
 func (r *Reconciler) syncTargetPodSpec(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) (updated bool, err error) {

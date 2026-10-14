@@ -517,11 +517,13 @@ var _ = Describe("scaleDownMode", func() {
 				apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any()).Return(nil)
 				t3 := &aismeta.Snode{DaeID: "t3", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-2"}}
 				t4 := &aismeta.Snode{DaeID: "t4", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-3"}, Flags: highestFlags}
-				smap := &aismeta.Smap{Tmap: aismeta.NodeMap{"t3": t3, "t4": t4}}
+				primary := &aismeta.Snode{DaeID: "p1", DaeType: apc.Proxy}
+				smap := &aismeta.Smap{Tmap: aismeta.NodeMap{"t3": t3, "t4": t4}, Primary: primary}
 				if rebalancing != nil {
 					apiClient.EXPECT().IsRebalancing().Return(*rebalancing, rebalancingErr)
 				}
 				if wantMaintenance != "" {
+					apiClient.EXPECT().GetSoftwareVersion(primary).Return("4.4", nil)
 					apiClient.EXPECT().StartMaintenance(gomock.Any()).DoAndReturn(func(act *apc.ActValRmNode) (string, error) {
 						Expect(act.DaemonID).To(Equal(wantMaintenance))
 						return "xid", nil
@@ -534,11 +536,78 @@ var _ = Describe("scaleDownMode", func() {
 					Expect(err).NotTo(HaveOccurred())
 				}
 			},
-			Entry("puts only the highest target in maintenance", cos.BitFlags(0), apc.Ptr(false), nil, "t4"),
+			Entry("puts only the highest target in maintenance before AIS v5.0", cos.BitFlags(0), apc.Ptr(false), nil, "t4"),
 			Entry("defers while the highest target is still decommissioning", aismeta.SnodeDecomm, nil, nil, ""),
 			Entry("defers while the highest target has maintenance and decommission flags", aismeta.SnodeMaint|aismeta.SnodeDecomm, nil, nil, ""),
 			Entry("defers while a rebalance is running", cos.BitFlags(0), apc.Ptr(true), nil, ""),
 			Entry("returns the error when the rebalance status is unavailable", cos.BitFlags(0), apc.Ptr(false), errUnavailable, ""),
+		)
+
+		postReb := aismeta.SnodeMaint | aismeta.SnodeMaintPostReb
+		DescribeTable("with two outgoing targets and a reachable primary",
+			func(version string, versionErr error, t3Flags, t4Flags cos.BitFlags, wantMaintenance, wantDecommission []string, wantErr string) {
+				ais.Spec.TargetSpec.ScaleDownMode = aisv1.ScaleDownModeDecommission
+				Expect(k8sClient.Update(ctx, ais)).To(Succeed())
+				apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any()).Return(nil)
+				primary := &aismeta.Snode{DaeID: "p1", DaeType: apc.Proxy}
+				t3 := &aismeta.Snode{DaeID: "t3", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-2"}, Flags: t3Flags}
+				t4 := &aismeta.Snode{DaeID: "t4", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-3"}, Flags: t4Flags}
+				smap := &aismeta.Smap{Tmap: aismeta.NodeMap{"t3": t3, "t4": t4}, Primary: primary}
+				for _, name := range []string{"ais-target-2", "ais-target-3"} {
+					Expect(k8sClient.Create(ctx, &corev1.Pod{
+						ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+						Spec:       corev1.PodSpec{Containers: []corev1.Container{{Name: cmn.AISContainerName, Image: "aisnode:test"}}},
+					})).To(Succeed())
+				}
+				if wantErr == "" {
+					apiClient.EXPECT().IsRebalancing().Return(false, nil)
+					apiClient.EXPECT().GetSoftwareVersion(primary).Return(version, versionErr)
+				}
+				// AIS before v5.0 reads only DaemonID, so one node must not use DaemonIDs.
+				removedIDs := func(act *apc.ActValRmNode) []string {
+					if act.DaemonID != "" {
+						Expect(act.DaemonIDs).To(BeEmpty())
+						return []string{act.DaemonID}
+					}
+					Expect(len(act.DaemonIDs)).To(BeNumerically(">", 1))
+					return act.DaemonIDs
+				}
+				if wantMaintenance != nil {
+					apiClient.EXPECT().StartMaintenance(gomock.Any()).DoAndReturn(func(act *apc.ActValRmNode) (string, error) {
+						Expect(removedIDs(act)).To(ConsistOf(wantMaintenance))
+						Expect(act.SkipRebalance).To(BeFalse())
+						return "xid", nil
+					})
+				}
+				if wantDecommission != nil {
+					apiClient.EXPECT().DecommissionNode(gomock.Any()).DoAndReturn(func(act *apc.ActValRmNode) (string, error) {
+						Expect(removedIDs(act)).To(ConsistOf(wantDecommission))
+						Expect(act.RmUserData).To(BeTrue())
+						for name, id := range map[string]string{"ais-target-2": "t3", "ais-target-3": "t4"} {
+							pod := &corev1.Pod{}
+							Expect(k8sClient.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, pod)).To(Succeed())
+							Expect(pod.Annotations).To(HaveKeyWithValue(decommissionedAnnotation, id))
+						}
+						return "xid", nil
+					})
+				}
+				err := r.prepareTargetsForScaleDown(ctx, ais, smap, 4)
+				if wantErr != "" {
+					Expect(err).To(MatchError(ContainSubstring(wantErr)))
+				} else {
+					Expect(err).NotTo(HaveOccurred())
+				}
+			},
+			Entry("puts every active target in maintenance in one request on AIS v5.0+",
+				"5.0.abc", nil, cos.BitFlags(0), cos.BitFlags(0), []string{"t3", "t4"}, nil, ""),
+			Entry("puts only the active target in maintenance on AIS v5.0+",
+				"5.1", nil, cos.BitFlags(0), postReb, []string{"t3"}, nil, ""),
+			Entry("decommissions every target in one request once all finish maintenance rebalance on AIS v5.0+",
+				"5.0", nil, postReb, postReb, nil, []string{"t3", "t4"}, ""),
+			Entry("refuses to decommission while a target in maintenance lacks the post-rebalance flag on AIS v5.0+",
+				"5.0", nil, aismeta.SnodeMaint, postReb, nil, nil, "post-rebalance"),
+			Entry("puts only the highest target in maintenance when the primary version is unavailable",
+				"", errors.New("unavailable"), cos.BitFlags(0), cos.BitFlags(0), []string{"t4"}, nil, ""),
 		)
 
 		Context("when scaleDownMode is retain", func() {

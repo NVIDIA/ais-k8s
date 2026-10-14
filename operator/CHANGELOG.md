@@ -40,6 +40,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 - Target scale-down with `scaleDownMode` `decommission` or `safe_decommission` puts each target in maintenance and decommissions it only after the maintenance rebalance finishes.
 - Target scale-down with `scaleDownMode` `decommission` or `safe_decommission` waits while `spec.configToUpdate.rebalance.enabled` is `false`, instead of removing targets without migrating their data.
 - Target scale-down with `scaleDownMode` `decommission` or `safe_decommission` waits on a target with a bound data PVC that left the cluster map before the operator decommissioned it, and marks each pod it decommissions with the `aistore.nvidia.com/decommissioned` annotation.
+- Target scale-down with `scaleDownMode` `decommission` or `safe_decommission` on AIS v5.0 or later moves all outgoing targets through maintenance and decommission together, with one request for each step.
 - Operator caps auth service response reads (OAuth login and token exchange) at 1MiB.
 - Operator always calls the AIS API through the proxy headless Service, even when `proxySpec.externalAccess` is set.
 - Operator no longer overwrites an existing object that its `AIStore` or `AIStoreAuth` CR does not control, and fails the reconcile instead.
