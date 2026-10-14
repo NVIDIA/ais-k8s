@@ -221,13 +221,20 @@ func HashGlobalConfig(conf []byte) string {
 
 // HashRestartConfigs generates a hash of ONLY configs that should trigger cluster restart upon change
 func HashRestartConfigs(c *aiscmn.ConfigToSet) (string, error) {
-	checksum := sha256.Sum256([]byte{})
+	h := sha256.New()
 	if c.Net != nil && c.Net.HTTP != nil {
 		confNetHTTP, err := configJSON.Marshal(*c.Net.HTTP)
 		if err != nil {
 			return "", err
 		}
-		checksum = sha256.Sum256(confNetHTTP)
+		h.Write(confNetHTTP)
 	}
-	return hex.EncodeToString(checksum[:]), nil
+	if c.Net != nil && c.Net.L4 != nil {
+		confNetL4, err := configJSON.Marshal(*c.Net.L4)
+		if err != nil {
+			return "", err
+		}
+		h.Write(confNetL4)
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
 }

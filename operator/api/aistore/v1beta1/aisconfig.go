@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2025, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2026, NVIDIA CORPORATION. All rights reserved.
  */
 
 package v1beta1
@@ -178,8 +178,12 @@ type (
 		Sync            *bool `json:"synchronize,omitempty"`
 	}
 	NetConfToUpdate struct {
+		L4      *L4ConfToUpdate   `json:"l4,omitempty"`
 		HTTP    *HTTPConfToUpdate `json:"http,omitempty"`
 		UseIPv6 *bool             `json:"use_ipv6,omitempty"`
+	}
+	L4ConfToUpdate struct {
+		SndRcvBufSize *int `json:"sndrcv_buf_size,omitempty"`
 	}
 
 	TLSConfToUpdate struct {

@@ -122,6 +122,18 @@ var _ = Describe("Config", Label("short"), func() {
 			Expect(*toSet.Chunks.Flags).To(BeEquivalentTo(1))
 		})
 
+		It("should convert the config options added in AIS v5.1", func() {
+			toUpdate := &aisv1.ConfigToUpdate{
+				Net: &aisv1.NetConfToUpdate{
+					L4: &aisv1.L4ConfToUpdate{SndRcvBufSize: aisapc.Ptr(aiscmn.SndRcvBufAuto)},
+				},
+			}
+
+			toSet, err := toUpdate.Convert()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(*toSet.Net.L4.SndRcvBufSize).To(Equal(aiscmn.SndRcvBufAuto))
+		})
+
 		It("should map the deprecated auth options onto their replacements", func() {
 			toUpdate := &aisv1.ConfigToUpdate{
 				Auth: &aisv1.AuthConfToUpdate{
@@ -551,5 +563,24 @@ var _ = Describe("Config", Label("short"), func() {
 				Signature:          &aisv1.AuthSignatureConfToUpdate{Method: aisapc.Ptr("HS256")},
 			}}),
 		)
+	})
+
+	Describe("Hash restart configs", func() {
+		httpConf := &aiscmn.HTTPConfToSet{UseHTTPS: aisapc.Ptr(true)}
+		hashOf := func(net *aiscmn.NetConfToSet) string {
+			hash, err := HashRestartConfigs(&aiscmn.ConfigToSet{Net: net})
+			Expect(err).ToNot(HaveOccurred())
+			return hash
+		}
+
+		// A new hash restarts existing clusters on operator upgrade.
+		It("should keep the hash of a spec without net.l4", func() {
+			Expect(hashOf(&aiscmn.NetConfToSet{HTTP: httpConf})).To(Equal("ba428d2a8c5448855613b1566e2ed6bf94fcc81bda559e6c1991cae425a172a4"))
+		})
+
+		It("should change the hash when net.l4 is set", func() {
+			withL4 := &aiscmn.NetConfToSet{HTTP: httpConf, L4: &aiscmn.L4ConfToSet{SndRcvBufSize: aisapc.Ptr(aiscmn.SndRcvBufAuto)}}
+			Expect(hashOf(withL4)).ToNot(Equal(hashOf(&aiscmn.NetConfToSet{HTTP: httpConf})))
+		})
 	})
 })

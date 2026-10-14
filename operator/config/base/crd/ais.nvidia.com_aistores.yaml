@@ -1687,6 +1687,11 @@ spec:
                           write_buffer_size:
                             type: integer
                         type: object
+                      l4:
+                        properties:
+                          sndrcv_buf_size:
+                            type: integer
+                        type: object
                       use_ipv6:
                         type: boolean
                     type: object
