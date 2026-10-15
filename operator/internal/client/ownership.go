@@ -33,6 +33,11 @@ func (c *K8sClient) applyOwned(ctx context.Context, existing client.Object, ac r
 	if err != nil {
 		return err
 	}
+	return c.applyAtVersion(ctx, ac, objMeta, rv)
+}
+
+// applyAtVersion applies ac with an optional resourceVersion precondition.
+func (c *K8sClient) applyAtVersion(ctx context.Context, ac runtime.ApplyConfiguration, objMeta *metav1ac.ObjectMetaApplyConfiguration, rv string) error {
 	if rv != "" {
 		objMeta.WithResourceVersion(rv)
 	}

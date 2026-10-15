@@ -236,9 +236,20 @@ var _ = Describe("Run AIStoreAuth Controller", func() {
 					By("Verifying the surviving PVC was released, so garbage collection cannot claim it later")
 					Eventually(as.pvcOwnerReferences, authnDestroyTimeout, authnDestroyInterval).
 						WithContext(ctx).Should(BeEmpty())
+					released := &corev1.PersistentVolumeClaim{}
+					Expect(as.k8sClient.Get(ctx, authnres.PVCNSName(as.authn), released)).To(Succeed())
+
+					By("Verifying a new AIStoreAuth with the same name adopts the released PVC")
+					as.authn = tutils.NewAIStoreAuth(authnArgs)
+					Expect(as.k8sClient.Create(ctx, as.authn)).To(Succeed())
+					as.waitForReady(ctx)
+					pvc := &corev1.PersistentVolumeClaim{}
+					Expect(as.k8sClient.Get(ctx, authnres.PVCNSName(as.authn), pvc)).To(Succeed())
+					Expect(pvc.UID).To(Equal(released.UID))
+					Expect(metav1.IsControlledBy(pvc, as.authn)).To(BeTrue())
 				}
 			},
-			Entry("is retained and released by default", authv1alpha1.PersistenceRetain, true),
+			Entry("is retained, released, and adopted by a new AIStoreAuth by default", authv1alpha1.PersistenceRetain, true),
 			Entry("is deleted when deletionPolicy is Delete", authv1alpha1.PersistenceDelete, false),
 		)
 	})

@@ -44,6 +44,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 - Operator always calls the AIS API through the proxy headless Service, even when `proxySpec.externalAccess` is set.
 - Operator no longer overwrites an existing object that its `AIStore` or `AIStoreAuth` CR does not control, and fails the reconcile instead.
   - Upgrades from an operator older than v2.18.0 must first go through a version from v2.18.0 to v4.1.0, which adds the missing controller reference to existing resources.
+  - An `AIStoreAuth` adopts an existing AuthN data PVC that has no controller. A new `AIStoreAuth` with the same name reuses the PVC that an earlier one retained.
 
 
 - `AIStoreAuth`

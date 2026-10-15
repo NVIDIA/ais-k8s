@@ -252,8 +252,13 @@ func (c *K8sClient) ApplyServiceAccount(ctx context.Context, sa *corev1ac.Servic
 	return c.applyOwned(ctx, &corev1.ServiceAccount{}, sa, sa.ObjectMetaApplyConfiguration)
 }
 
-func (c *K8sClient) ApplyPVC(ctx context.Context, pvc *corev1ac.PersistentVolumeClaimApplyConfiguration) error {
-	return c.applyOwned(ctx, &corev1.PersistentVolumeClaim{}, pvc, pvc.ObjectMetaApplyConfiguration)
+func (c *K8sClient) ApplyOrAdoptPVC(ctx context.Context, pvc *corev1ac.PersistentVolumeClaimApplyConfiguration) error {
+	existing := &corev1.PersistentVolumeClaim{}
+	err := c.applyOwned(ctx, existing, pvc, pvc.ObjectMetaApplyConfiguration)
+	if errors.Is(err, errNotOwned) && metav1.GetControllerOfNoCopy(existing) == nil {
+		return c.applyAtVersion(ctx, pvc, pvc.ObjectMetaApplyConfiguration, existing.GetResourceVersion())
+	}
+	return err
 }
 
 func (c *K8sClient) ApplyRole(ctx context.Context, role *rbacv1ac.RoleApplyConfiguration) error {

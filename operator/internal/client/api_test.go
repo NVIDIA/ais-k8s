@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2024-2026, NVIDIA CORPORATION. All rights reserved.
  */
 
 package client
@@ -25,6 +25,12 @@ import (
 )
 
 var _ = Describe("K8sClient", func() {
+	owner := &aisv1.AIStore{ObjectMeta: metav1.ObjectMeta{Name: "ais", Namespace: "apply-ns", UID: "ais-uid"}}
+	otherController := []metav1.OwnerReference{{
+		APIVersion: aisv1.GroupVersion.String(), Kind: "AIStore", Name: "other", UID: "other-uid",
+		Controller: apc.Ptr(true),
+	}}
+
 	Describe("CreateOrUpdateResource", func() {
 		var (
 			c         client.Client
@@ -161,7 +167,6 @@ var _ = Describe("K8sClient", func() {
 			k8sClient *K8sClient
 			cmKey     = client.ObjectKey{Namespace: nsName, Name: cmName}
 			ctx       = context.TODO()
-			ais       = &aisv1.AIStore{ObjectMeta: metav1.ObjectMeta{Name: "ais", Namespace: nsName, UID: "ais-uid"}}
 		)
 
 		BeforeEach(func() {
@@ -173,7 +178,7 @@ var _ = Describe("K8sClient", func() {
 
 		newCM := func() *corev1ac.ConfigMapApplyConfiguration {
 			return corev1ac.ConfigMap(cmName, nsName).
-				WithOwnerReferences(ownerref.NewControllerRef(ais)).
+				WithOwnerReferences(ownerref.NewControllerRef(owner)).
 				WithData(map[string]string{"test-key": "test-value"})
 		}
 
@@ -238,10 +243,7 @@ var _ = Describe("K8sClient", func() {
 				Expect(fetchCM.OwnerReferences).To(Equal(ownerRefs))
 			},
 			Entry("without a controller", nil),
-			Entry("with another controller", []metav1.OwnerReference{{
-				APIVersion: aisv1.GroupVersion.String(), Kind: "AIStore", Name: "other", UID: "other-uid",
-				Controller: apc.Ptr(true),
-			}}),
+			Entry("with another controller", otherController),
 		)
 
 		It("should not modify an object that changed after the check", func() {
@@ -279,6 +281,25 @@ var _ = Describe("K8sClient", func() {
 			Expect(got.Annotations).To(Equal(map[string]string{"existing": "value", "key": "new"}))
 		})
 	})
+
+	DescribeTable("ApplyOrAdoptPVC should adopt an existing PVC only if it has no controller",
+		func(ctx context.Context, ownerRefs []metav1.OwnerReference, adopted bool) {
+			existing := &corev1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-pvc", Namespace: owner.Namespace, OwnerReferences: ownerRefs},
+			}
+			c := newFakeClient([]runtime.Object{existing})
+			pvc := corev1ac.PersistentVolumeClaim(existing.Name, existing.Namespace).
+				WithOwnerReferences(ownerref.NewControllerRef(owner))
+
+			err := NewClient(c, c.Scheme()).ApplyOrAdoptPVC(ctx, pvc)
+			Expect(err == nil).To(Equal(adopted), "ApplyOrAdoptPVC error: %v", err)
+
+			Expect(c.Get(ctx, client.ObjectKeyFromObject(existing), existing)).To(Succeed())
+			Expect(metav1.IsControlledBy(existing, owner)).To(Equal(adopted))
+		},
+		Entry("without a controller", nil, true),
+		Entry("with another controller", otherController, false),
+	)
 
 	Describe("CreateServiceAccountToken", func() {
 		const (

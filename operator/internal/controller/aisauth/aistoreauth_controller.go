@@ -172,7 +172,7 @@ func (r *Reconciler) reconcilePersistence(ctx context.Context, authn *authv1alph
 	if err != nil {
 		return err
 	}
-	if err := r.client.ApplyPVC(ctx, pvc); err != nil {
+	if err := r.client.ApplyOrAdoptPVC(ctx, pvc); err != nil {
 		return err
 	}
 	logf.FromContext(ctx).V(1).Info("AuthN PVC applied", "name", authnres.PVCName(authn))
