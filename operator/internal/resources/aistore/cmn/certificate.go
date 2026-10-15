@@ -36,13 +36,13 @@ func CertificateNSName(ais *aisv1.AIStore) types.NamespacedName {
 	}
 }
 
-func NewCertificate(ais *aisv1.AIStore, publicHosts []string) *cmapiv1ac.CertificateApplyConfiguration {
+func NewCertificate(ais *aisv1.AIStore, hosts []string) *cmapiv1ac.CertificateApplyConfiguration {
 	certConfig := ais.GetTLSCertificate()
 	if certConfig == nil {
 		return nil
 	}
 
-	dnsNames, ipAddresses := buildCertificateSANs(ais, publicHosts)
+	dnsNames, ipAddresses := buildCertificateSANs(ais, hosts)
 	spec := certres.NewSpec(&certres.SpecConfig{
 		SecretName:  CertificateSecretName(ais),
 		IssuerName:  certConfig.IssuerRef.Name,
@@ -137,7 +137,7 @@ func addServiceDNSNames(names []string, svc types.NamespacedName) []string {
 	)
 }
 
-func buildCertificateSANs(ais *aisv1.AIStore, publicHosts []string) (dnsNames, ipAddresses []string) {
+func buildCertificateSANs(ais *aisv1.AIStore, hosts []string) (dnsNames, ipAddresses []string) {
 	// Add DNS names for proxy service
 	proxySvc := ais.ProxyHeadlessSVCNSName()
 	dnsNames = addServiceDNSNames(dnsNames, proxySvc)
@@ -162,7 +162,7 @@ func buildCertificateSANs(ais *aisv1.AIStore, publicHosts []string) (dnsNames, i
 		}
 	}
 
-	dnsNames, ipAddresses = certres.AppendHosts(dnsNames, ipAddresses, publicHosts...)
+	dnsNames, ipAddresses = certres.AppendHosts(dnsNames, ipAddresses, hosts...)
 
 	// Add user-specified additional DNS names
 	if certConfig := ais.GetTLSCertificate(); certConfig != nil {

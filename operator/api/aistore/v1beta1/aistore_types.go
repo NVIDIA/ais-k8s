@@ -458,7 +458,7 @@ type AIStoreSpec struct {
 	// +optional
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 
-	// PublicNetDNSMode Defines the public network DNS name to use with hostPort.
+	// PublicNetDNSMode Defines the public network DNS name to use with hostPort or hostNetwork.
 	// Defaults to 'IP' to use the host IP.
 	// Other options include:
 	//  'Node' to use the K8s node DNS name

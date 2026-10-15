@@ -20,6 +20,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 - `spec.tls.public` to configure a separate TLS certificate for the public interface on which AIStore listens. Requires `serverName` and one of `secretName` or `certificate`.
   - The operator verifies the public certificate against `spec.tls.public.serverName`. This must be set to a SAN contained in a user-provided public certificate.
   - If using `spec.tls.public.certificate`, the operator includes `spec.tls.public.serverName` in the provisioned certificate's SAN list.
+  - If provided, no node or LoadBalancer host SANs will be included in the cluster certificate, except for target hosts in `hostNetwork` mode with `publicNetDNSMode: IP`.
 - `spec.configToUpdate.net.l4.sndrcv_buf_size`. A change to it restarts the cluster pods. Requires AIStore v5.1.0 or later.
 - `AIStoreAuth`
   - Operator creates the admin `AIStoreAuthProfile` `<namespace>.<name>-admin` when `spec.adminSecret` is set. Deletion of the `AIStoreAuth` waits until no `AIStore` references the profile in `spec.auth.profileRef`.
@@ -27,6 +28,10 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 ### Changed
 
 - A change in the order of `ais-node` container env vars no longer triggers a rollout unless an env var references another.
+- Removed unused SANs from cluster TLS certificate when `spec.tls.public` is omitted. See `spec.tls.public` above for behavior when set.
+  - Hosts of target pods are added to the SAN list only with `hostPort` or `hostNetwork`, and with `externalAccess` only for `hostNetwork` in `publicNetDNSMode: IP`.
+  - Hosts of proxy pods are added to the SAN list only when `hostPort` is set.
+- Cluster TLS certificate includes LoadBalancer endpoints for `externalAccess` with `publicNetDNSMode: Pod`, unless `spec.tls.public` is set.
 - Updated the `github.com/NVIDIA/aistore` dependency to v1.5.1 ([AIStore v5.1.0](https://github.com/NVIDIA/aistore/releases/tag/v1.5.1)).
 - `spec.tls.certificate.additionalDNSNames` and `spec.tls.public.certificate.additionalDNSNames`
   - Webhook rejects newly added entries that are not valid DNS names, including IP addresses. A leading `*.` wildcard is allowed.

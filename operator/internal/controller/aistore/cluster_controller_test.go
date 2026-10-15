@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"slices"
 	"time"
 
 	"github.com/NVIDIA/aistore/api/apc"
@@ -1085,74 +1086,119 @@ var _ = Describe("AIStoreController", func() {
 			),
 		)
 	})
-	Describe("external access host discovery", func() {
+	Describe("cluster certificate hosts", func() {
 		const (
-			aisName    = "ais"
-			namespace  = "ais-ns"
-			lbIP       = "203.0.113.10"
-			lbHostname = "lb.example.com"
+			aisName     = "ais"
+			namespace   = "ais-ns"
+			nodeName    = "node-1"
+			nodeIP      = "10.0.0.1"
+			targetLBIP  = "203.0.113.10"
+			proxyLBHost = "proxy-lb.example.com"
+			autoNode    = "auto-node"
 		)
 
-		// reconcilerWithLB returns a reconciler backed by a fake client holding a
-		// single LoadBalancer Service with the given component LB label, plus a
-		// fresh AIStore CR. No envtest/API server is involved.
-		reconcilerWithLB := func(lbLabel string) (*Reconciler, *aisv1.AIStore) {
-			lbSvc := &corev1.Service{
+		lbService := func(lbLabel string, ingress corev1.LoadBalancerIngress) *corev1.Service {
+			return &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      aisName + "-" + lbLabel,
 					Namespace: namespace,
 					Labels:    cmn.NewServiceLabels(aisName, lbLabel),
 				},
 				Status: corev1.ServiceStatus{LoadBalancer: corev1.LoadBalancerStatus{
-					Ingress: []corev1.LoadBalancerIngress{{IP: lbIP}, {Hostname: lbHostname}},
+					Ingress: []corev1.LoadBalancerIngress{ingress},
 				}},
 			}
-			c := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(lbSvc).Build()
-			r := &Reconciler{k8sClient: aisclient.NewClient(c, scheme.Scheme)}
-			ais := &aisv1.AIStore{ObjectMeta: metav1.ObjectMeta{Name: aisName, Namespace: namespace}}
-			return r, ais
+		}
+		publicTLS := func() *aisv1.TLSSpec {
+			return &aisv1.TLSSpec{Public: &aisv1.PublicTLSSpec{SecretName: apc.Ptr("pub")}}
 		}
 
-		DescribeTable("includes external endpoints iff external access is enabled for that component",
-			func(ctx SpecContext, lbLabel string, enable func(*aisv1.AIStore), publicHosts func(context.Context, *Reconciler, *aisv1.AIStore) ([]string, error)) {
-				r, ais := reconcilerWithLB(lbLabel)
+		DescribeTable("adds only the hosts that the spec advertises",
+			func(ctx SpecContext, mode aisv1.PubNetDNSMode, configure func(*aisv1.AIStore), want ...string) {
+				node := &corev1.Node{
+					ObjectMeta: metav1.ObjectMeta{Name: nodeName},
+					Status: corev1.NodeStatus{Addresses: []corev1.NodeAddress{
+						{Type: corev1.NodeInternalIP, Address: nodeIP},
+					}},
+				}
+				c := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(
+					node,
+					lbService(target.ServiceLabelLB, corev1.LoadBalancerIngress{IP: targetLBIP}),
+					lbService(proxy.ServiceLabelLB, corev1.LoadBalancerIngress{Hostname: proxyLBHost}),
+				).Build()
+				r := &Reconciler{k8sClient: aisclient.NewClient(c, scheme.Scheme)}
+				ais := &aisv1.AIStore{
+					ObjectMeta: metav1.ObjectMeta{Name: aisName, Namespace: namespace},
+					Spec:       aisv1.AIStoreSpec{PublicNetDNSMode: &mode},
+				}
+				configure(ais)
+				if ais.Spec.TLS == nil {
+					ais.Spec.TLS = &aisv1.TLSSpec{}
+				}
+				ais.Spec.TLS.Certificate = &aisv1.TLSCertificateConfig{}
 
-				By("excluding external endpoints when external access is disabled")
-				hosts, err := publicHosts(ctx, r, ais)
+				hosts, err := r.clusterCertHosts(ctx, ais)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(hosts).ToNot(ContainElements(lbIP, lbHostname))
+				slices.Sort(hosts)
+				Expect(slices.Compact(hosts)).To(ConsistOf(want))
 
-				By("including external endpoints when external access is enabled")
-				enable(ais)
-				hosts, err = publicHosts(ctx, r, ais)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(hosts).To(ContainElements(lbIP, lbHostname))
+				hasNodeHosts := slices.ContainsFunc(want, func(h string) bool { return h != targetLBIP && h != proxyLBHost })
+				Expect(r.nodeAffectsTLSCertificate(ctx, node, ais)).To(Equal(hasNodeHosts))
 			},
-			Entry("target", target.ServiceLabelLB,
-				func(a *aisv1.AIStore) { a.Spec.TargetSpec.ExternalAccess = &aisv1.ExternalAccessSpec{} },
-				func(ctx context.Context, r *Reconciler, a *aisv1.AIStore) ([]string, error) {
-					return r.targetPublicHosts(ctx, a, aisv1.PubNetDNSModeIP)
-				},
-			),
-			Entry("proxy", proxy.ServiceLabelLB,
-				func(a *aisv1.AIStore) { a.Spec.ProxySpec.ExternalAccess = &aisv1.ExternalAccessSpec{} },
-				func(ctx context.Context, r *Reconciler, a *aisv1.AIStore) ([]string, error) {
-					return r.proxyPublicHosts(ctx, a, aisv1.PubNetDNSModeIP)
-				},
-			),
+			Entry("no host networking, host port, or external access", aisv1.PubNetDNSModeIP,
+				func(*aisv1.AIStore) {}),
+			Entry("target host port in IP mode", aisv1.PubNetDNSModeIP,
+				func(a *aisv1.AIStore) { a.Spec.TargetSpec.HostPort = apc.Ptr[int32](51081) }, nodeIP),
+			Entry("target host port in Node mode", aisv1.PubNetDNSModeNode,
+				func(a *aisv1.AIStore) { a.Spec.TargetSpec.HostPort = apc.Ptr[int32](51081) }, nodeName),
+			Entry("target host port in Pod mode", aisv1.PubNetDNSModePod,
+				func(a *aisv1.AIStore) { a.Spec.TargetSpec.HostPort = apc.Ptr[int32](51081) }),
+			Entry("autoscaled target host port in Node mode", aisv1.PubNetDNSModeNode,
+				func(a *aisv1.AIStore) {
+					a.Spec.TargetSpec.HostPort = apc.Ptr[int32](51081)
+					a.Spec.TargetSpec.Size = apc.Ptr[int32](-1)
+					a.Status.AutoScaleStatus.ExpectedTargetNodes = []string{autoNode}
+				}, autoNode),
+			Entry("target host networking in IP mode", aisv1.PubNetDNSModeIP,
+				func(a *aisv1.AIStore) { a.Spec.TargetSpec.HostNetwork = apc.Ptr(true) }, nodeIP),
+			Entry("target host networking in IP mode with public TLS", aisv1.PubNetDNSModeIP,
+				func(a *aisv1.AIStore) {
+					a.Spec.TargetSpec.HostNetwork = apc.Ptr(true)
+					a.Spec.TLS = publicTLS()
+				}, nodeIP),
+			Entry("target host networking and external access in IP mode", aisv1.PubNetDNSModeIP,
+				func(a *aisv1.AIStore) {
+					a.Spec.TargetSpec.HostNetwork = apc.Ptr(true)
+					a.Spec.TargetSpec.ExternalAccess = &aisv1.ExternalAccessSpec{}
+				}, nodeIP, targetLBIP),
+			Entry("target host port with public TLS", aisv1.PubNetDNSModeIP,
+				func(a *aisv1.AIStore) {
+					a.Spec.TargetSpec.HostPort = apc.Ptr[int32](51081)
+					a.Spec.TLS = publicTLS()
+				}),
+			Entry("target external access", aisv1.PubNetDNSModeIP,
+				func(a *aisv1.AIStore) {
+					a.Spec.TargetSpec.HostPort = apc.Ptr[int32](51081)
+					a.Spec.TargetSpec.ExternalAccess = &aisv1.ExternalAccessSpec{}
+				}, targetLBIP),
+			Entry("target and proxy external access in Pod mode", aisv1.PubNetDNSModePod,
+				func(a *aisv1.AIStore) {
+					a.Spec.TargetSpec.ExternalAccess = &aisv1.ExternalAccessSpec{}
+					a.Spec.ProxySpec.ExternalAccess = &aisv1.ExternalAccessSpec{}
+				}, targetLBIP, proxyLBHost),
+			Entry("proxy host port and external access", aisv1.PubNetDNSModeIP,
+				func(a *aisv1.AIStore) {
+					a.Spec.ProxySpec.HostPort = apc.Ptr[int32](51080)
+					a.Spec.ProxySpec.ExternalAccess = &aisv1.ExternalAccessSpec{}
+				}, nodeIP, proxyLBHost),
+			Entry("proxy host port and external access with public TLS", aisv1.PubNetDNSModeIP,
+				func(a *aisv1.AIStore) {
+					a.Spec.ProxySpec.HostPort = apc.Ptr[int32](51080)
+					a.Spec.TargetSpec.ExternalAccess = &aisv1.ExternalAccessSpec{}
+					a.Spec.ProxySpec.ExternalAccess = &aisv1.ExternalAccessSpec{}
+					a.Spec.TLS = publicTLS()
+				}),
 		)
-
-		It("appends external endpoints to autoscale-discovered nodes in Node mode", func(ctx SpecContext) {
-			const nodeName = "node-1"
-			r, ais := reconcilerWithLB(target.ServiceLabelLB)
-			ais.Spec.TargetSpec.Size = apc.Ptr[int32](-1)
-			ais.Spec.TargetSpec.ExternalAccess = &aisv1.ExternalAccessSpec{}
-			ais.Status.AutoScaleStatus.ExpectedTargetNodes = []string{nodeName}
-
-			hosts, err := r.targetPublicHosts(ctx, ais, aisv1.PubNetDNSModeNode)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(hosts).To(ContainElements(nodeName, lbIP, lbHostname))
-		})
 	})
 
 	Describe("client ServiceAccount lifecycle", func() {

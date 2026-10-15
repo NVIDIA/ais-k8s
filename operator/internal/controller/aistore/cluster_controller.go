@@ -200,7 +200,7 @@ func (r *Reconciler) determineAutoScaleStatus(ctx context.Context, ais *aisv1.AI
 	logger := logf.FromContext(ctx)
 	autoScaleStatus := aisv1.AutoScaleStatus{}
 	if ais.IsTargetAutoScaling() {
-		schedulableNodes, err := r.listMatchingNodeNames(ctx, ais.Spec.TargetSpec.NodeSelector, ais.Spec.TargetSpec.Tolerations)
+		schedulableNodes, err := r.listMatchingNodeNames(ctx, &ais.Spec.TargetSpec.DaemonSpec)
 		if err != nil {
 			logger.Error(err, "Unable to fetch nodes for autoScaleStatus target")
 			return err
@@ -218,7 +218,7 @@ func (r *Reconciler) determineAutoScaleStatus(ctx context.Context, ais *aisv1.AI
 	}
 
 	if ais.IsProxyAutoScaling() {
-		schedulableNodes, err := r.listMatchingNodeNames(ctx, ais.Spec.ProxySpec.NodeSelector, ais.Spec.ProxySpec.Tolerations)
+		schedulableNodes, err := r.listMatchingNodeNames(ctx, &ais.Spec.ProxySpec)
 		if err != nil {
 			logger.Error(err, "Unable to fetch nodes for autoScaleStatus proxy")
 			return err
@@ -770,66 +770,95 @@ func (r *Reconciler) createOrUpdateRBACResources(ctx context.Context, ais *aisv1
 	return
 }
 
-// discoverPublicNetHosts returns target+proxy public network hosts per
-// publicNetDNSMode, reusing Status.AutoScaleStatus when populated.
-func (r *Reconciler) discoverPublicNetHosts(ctx context.Context, ais *aisv1.AIStore) ([]string, error) {
+// clusterCertHosts returns the node and load balancer hosts that the cluster certificate must cover.
+func (r *Reconciler) clusterCertHosts(ctx context.Context, ais *aisv1.AIStore) ([]string, error) {
+	var targetHosts, proxyHosts, lbHosts []string
+	var err error
+	if targetCertNeedsNodeHosts(ais) {
+		if targetHosts, err = r.targetNodeHosts(ctx, ais); err != nil {
+			return nil, err
+		}
+	}
+	if proxyCertNeedsNodeHosts(ais) {
+		if proxyHosts, err = r.proxyNodeHosts(ctx, ais); err != nil {
+			return nil, err
+		}
+	}
+	// Without a public certificate, the cluster certificate also serves the public network.
+	if !ais.UsePublicTLS() {
+		if lbHosts, err = r.externalAccessHosts(ctx, ais); err != nil {
+			return nil, err
+		}
+	}
+	return slices.Concat(targetHosts, proxyHosts, lbHosts), nil
+}
+
+// externalAccessHosts returns the external service endpoints for components with external access enabled.
+func (r *Reconciler) externalAccessHosts(ctx context.Context, ais *aisv1.AIStore) ([]string, error) {
+	var targetHosts, proxyHosts []string
+	var err error
+	if ais.TargetExternalAccessEnabled() {
+		if targetHosts, err = r.externalEndpoints(ctx, ais, target.ServiceLabelLB); err != nil {
+			return nil, err
+		}
+	}
+	if ais.ProxyExternalAccessEnabled() {
+		if proxyHosts, err = r.externalEndpoints(ctx, ais, proxy.ServiceLabelLB); err != nil {
+			return nil, err
+		}
+	}
+	return slices.Concat(targetHosts, proxyHosts), nil
+}
+
+// targetCertNeedsNodeHosts reports whether the cluster certificate must cover the hosts of the target nodes.
+func targetCertNeedsNodeHosts(ais *aisv1.AIStore) bool {
 	mode := ais.GetPublicNetDNSMode()
+	// Pod mode advertises the pod DNS name that the wildcard SAN covers.
 	if mode == aisv1.PubNetDNSModePod {
-		return nil, nil
+		return false
 	}
-	targetHosts, err := r.targetPublicHosts(ctx, ais, mode)
-	if err != nil {
-		return nil, err
+	// Targets must include host IPs even for intra-cluster if using hostNetwork with IP mode.
+	if ais.UseHostNetwork() && mode == aisv1.PubNetDNSModeIP {
+		return true
 	}
-	proxyHosts, err := r.proxyPublicHosts(ctx, ais, mode)
-	if err != nil {
-		return nil, err
-	}
-	hosts := slices.Concat(targetHosts, proxyHosts)
-	slices.Sort(hosts)
-	return slices.Compact(hosts), nil
+	// Targets with external access advertise the load balancer on the public network instead.
+	return !ais.UsePublicTLS() && !ais.TargetExternalAccessEnabled() &&
+		(ais.Spec.TargetSpec.HostPort != nil || ais.UseHostNetwork())
 }
 
-func (r *Reconciler) targetPublicHosts(ctx context.Context, ais *aisv1.AIStore, mode aisv1.PubNetDNSMode) (hosts []string, err error) {
-	// Use autoscale-discovered nodes if already provided, otherwise discover valid target hosts
-	if mode == aisv1.PubNetDNSModeNode && ais.IsTargetAutoScaling() && len(ais.Status.AutoScaleStatus.ExpectedTargetNodes) > 0 {
-		hosts = slices.Clone(ais.Status.AutoScaleStatus.ExpectedTargetNodes)
-	} else {
-		nodes, listErr := r.listMatchingNodes(ctx, ais.Spec.TargetSpec.NodeSelector, ais.Spec.TargetSpec.Tolerations)
-		if listErr != nil {
-			return nil, listErr
-		}
-		hosts = publicHostsForNodes(nodes, mode)
-	}
-	if !ais.TargetExternalAccessEnabled() {
-		return hosts, nil
-	}
-	endpoints, err := r.externalEndpoints(ctx, ais, target.ServiceLabelLB)
-	if err != nil {
-		return nil, err
-	}
-	return append(hosts, endpoints...), nil
+// proxyCertNeedsNodeHosts reports whether the cluster certificate must cover the hosts of the proxy nodes.
+func proxyCertNeedsNodeHosts(ais *aisv1.AIStore) bool {
+	return ais.GetPublicNetDNSMode() != aisv1.PubNetDNSModePod && !ais.UsePublicTLS() && ais.Spec.ProxySpec.HostPort != nil
 }
 
-func (r *Reconciler) proxyPublicHosts(ctx context.Context, ais *aisv1.AIStore, mode aisv1.PubNetDNSMode) (hosts []string, err error) {
-	// Use autoscale-discovered nodes if already provided, otherwise discover valid proxy hosts
-	if mode == aisv1.PubNetDNSModeNode && ais.IsProxyAutoScaling() && len(ais.Status.AutoScaleStatus.ExpectedProxyNodes) > 0 {
-		hosts = slices.Clone(ais.Status.AutoScaleStatus.ExpectedProxyNodes)
-	} else {
-		nodes, listErr := r.listMatchingNodes(ctx, ais.Spec.ProxySpec.NodeSelector, ais.Spec.ProxySpec.Tolerations)
-		if listErr != nil {
-			return nil, listErr
-		}
-		hosts = publicHostsForNodes(nodes, mode)
+func (r *Reconciler) targetNodeHosts(ctx context.Context, ais *aisv1.AIStore) ([]string, error) {
+	var autoScaled []string
+	if ais.IsTargetAutoScaling() {
+		autoScaled = ais.Status.AutoScaleStatus.ExpectedTargetNodes
 	}
-	if !ais.ProxyExternalAccessEnabled() {
-		return hosts, nil
+	return r.nodeHosts(ctx, ais, &ais.Spec.TargetSpec.DaemonSpec, autoScaled)
+}
+
+func (r *Reconciler) proxyNodeHosts(ctx context.Context, ais *aisv1.AIStore) ([]string, error) {
+	var autoScaled []string
+	if ais.IsProxyAutoScaling() {
+		autoScaled = ais.Status.AutoScaleStatus.ExpectedProxyNodes
 	}
-	endpoints, err := r.externalEndpoints(ctx, ais, proxy.ServiceLabelLB)
+	return r.nodeHosts(ctx, ais, &ais.Spec.ProxySpec, autoScaled)
+}
+
+// nodeHosts returns the hosts per publicNetDNSMode of the nodes that a component can run on.
+func (r *Reconciler) nodeHosts(ctx context.Context, ais *aisv1.AIStore, spec *aisv1.DaemonSpec, autoScaled []string) ([]string, error) {
+	mode := ais.GetPublicNetDNSMode()
+	// Autoscaled node names are already known, so a node lookup is not necessary.
+	if mode == aisv1.PubNetDNSModeNode && len(autoScaled) > 0 {
+		return slices.Clone(autoScaled), nil
+	}
+	nodes, err := r.listMatchingNodes(ctx, spec)
 	if err != nil {
 		return nil, err
 	}
-	return append(hosts, endpoints...), nil
+	return publicHostsForNodes(nodes, mode), nil
 }
 
 // externalEndpoints returns the external IPs/hostnames of every LoadBalancer
@@ -856,11 +885,11 @@ func (r *Reconciler) reconcileTLSCertificate(ctx context.Context, ais *aisv1.AIS
 func (r *Reconciler) reconcileClusterTLSCertificate(ctx context.Context, ais *aisv1.AIStore) error {
 	// Create a Certificate if configured in spec (not using csi-driver or pre-existing secret)
 	if ais.UseTLSCertificate() {
-		publicHosts, err := r.discoverPublicNetHosts(ctx, ais)
+		hosts, err := r.clusterCertHosts(ctx, ais)
 		if err != nil {
 			return err
 		}
-		return r.k8sClient.ApplyCertificate(ctx, cmn.NewCertificate(ais, publicHosts))
+		return r.k8sClient.ApplyCertificate(ctx, cmn.NewCertificate(ais, hosts))
 	}
 	// Delete Certificate if it exists
 	_, err := r.k8sClient.DeleteResourceIfExists(ctx, cmn.TLSCertificate(ais))
@@ -1235,16 +1264,16 @@ func (*Reconciler) nodeMatchesSelector(node *corev1.Node, selector map[string]st
 	return selectorLabels.AsSelector().Matches(nodeLabels)
 }
 
-// listMatchingNodes returns nodes matching selector whose taints are tolerated.
-func (r *Reconciler) listMatchingNodes(ctx context.Context, selector map[string]string, tolerations []corev1.Toleration) ([]corev1.Node, error) {
-	nodes, err := r.k8sClient.ListNodesMatchingSelector(ctx, selector)
+// listMatchingNodes returns nodes matching the spec's node selector whose taints the spec tolerates.
+func (r *Reconciler) listMatchingNodes(ctx context.Context, spec *aisv1.DaemonSpec) ([]corev1.Node, error) {
+	nodes, err := r.k8sClient.ListNodesMatchingSelector(ctx, spec.NodeSelector)
 	if err != nil {
 		return nil, err
 	}
 	matching := make([]corev1.Node, 0, len(nodes.Items))
 	for i := range nodes.Items {
 		node := &nodes.Items[i]
-		if !toleratesTaints(ctx, tolerations, node) {
+		if !toleratesTaints(ctx, spec.Tolerations, node) {
 			continue
 		}
 		matching = append(matching, *node)
@@ -1252,9 +1281,9 @@ func (r *Reconciler) listMatchingNodes(ctx context.Context, selector map[string]
 	return matching, nil
 }
 
-// listMatchingNodeNames returns sorted names of nodes matching selector whose taints are tolerated.
-func (r *Reconciler) listMatchingNodeNames(ctx context.Context, selector map[string]string, tolerations []corev1.Toleration) ([]string, error) {
-	nodes, err := r.listMatchingNodes(ctx, selector, tolerations)
+// listMatchingNodeNames returns sorted names of nodes matching the spec's node selector whose taints the spec tolerates.
+func (r *Reconciler) listMatchingNodeNames(ctx context.Context, spec *aisv1.DaemonSpec) ([]string, error) {
+	nodes, err := r.listMatchingNodes(ctx, spec)
 	if err != nil {
 		return nil, err
 	}
@@ -1309,14 +1338,14 @@ func unionSorted(a, b []string) []string {
 // only if it can actually host a daemon pod (its labels match the node selector
 // and tolerates the taints).
 func (r *Reconciler) nodeAffectsTLSCertificate(ctx context.Context, node *corev1.Node, ais *aisv1.AIStore) bool {
-	if !ais.UseTLSCertificate() || ais.GetPublicNetDNSMode() == aisv1.PubNetDNSModePod {
+	if !ais.UseTLSCertificate() {
 		return false
 	}
-	if r.nodeMatchesSelector(node, ais.Spec.ProxySpec.NodeSelector) &&
+	if proxyCertNeedsNodeHosts(ais) && r.nodeMatchesSelector(node, ais.Spec.ProxySpec.NodeSelector) &&
 		toleratesTaints(ctx, ais.Spec.ProxySpec.Tolerations, node) {
 		return true
 	}
-	return r.nodeMatchesSelector(node, ais.Spec.TargetSpec.NodeSelector) &&
+	return targetCertNeedsNodeHosts(ais) && r.nodeMatchesSelector(node, ais.Spec.TargetSpec.NodeSelector) &&
 		toleratesTaints(ctx, ais.Spec.TargetSpec.Tolerations, node)
 }
 
