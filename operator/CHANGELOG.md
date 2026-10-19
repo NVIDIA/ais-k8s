@@ -44,8 +44,8 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
   - Webhook rejects newly added entries that are not valid DNS names, including IP addresses. A leading `*.` wildcard is allowed.
 - Operator now only includes the cluster's `<namespace>/<name>` in the AIStore token audience when using token exchange, if an audience is required by the AIS cluster.
 - All user-provided secret references must pass a SubjectAccessReview.
-- Target scale-down with `scaleDownMode` `decommission` or `safe_decommission` decommissions a target only after its maintenance rebalance finishes, to keep any data that has not been confirmed as migrated off the target.
-  - A target in maintenance without the post-rebalance flag blocks scale-down until it is taken out of maintenance, see [Incomplete Transitions](https://github.com/NVIDIA/aistore/blob/main/docs/lifecycle_node.md#incomplete-transitions).
+- Target scale-down with `scaleDownMode` `decommission` or `safe_decommission` decommissions a target only after its maintenance rebalance finishes, to keep any data that has not been confirmed as migrated off the target. See [Target Scale-Down](../docs/scaling.md#target-scale-down).
+  - A target in maintenance without the post-rebalance flag blocks scale-down until it is taken out of maintenance. See [Incomplete Transitions](https://github.com/NVIDIA/aistore/blob/main/docs/lifecycle_node.md#incomplete-transitions).
   - A target with bound data PVCs that left the cluster map before the operator decommissioned it blocks scale-down until it rejoins or `scaleDownMode` is set to `retain`.
 - Target scale-down with `scaleDownMode` `decommission` or `safe_decommission` batches all outgoing targets into one rebalance on AIS v5.0 or later, instead of one rebalance per target.
 - Target scale-down with `scaleDownMode` `decommission` or `safe_decommission` waits while `spec.configToUpdate.rebalance.enabled` is `false`.

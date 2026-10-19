@@ -76,7 +76,8 @@ Pods schedule only onto nodes carrying the cluster's labels, and `ais-create-tar
 Then run `helmfile sync` again.
 
 Lowering a size removes the highest-ordinal pods.
-The operator decommissions them via the AIStore cluster API first, and `targetSpec.scaleDownMode` controls what happens to a removed target's data.
+The operator takes them out of the AIStore cluster first, and `targetSpec.scaleDownMode` controls what happens to a removed target's data.
+See [Target Scale-Down](../../docs/scaling.md#target-scale-down) for each mode and what holds up a scale-down.
 
 ### Shutdown and Removal
 
