@@ -47,6 +47,11 @@ environments:
   sjc112:
     values:
       - "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/operator/config/env/sjc112.yaml?ref=main"
+
+  ais-asr-ngc-iad:
+    values:
+      - "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/operator/config/env/ais-asr-ngc-iad.yaml?ref=main"
+
 ---
 repositories:
   - name: aistore

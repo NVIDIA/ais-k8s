@@ -53,6 +53,14 @@ environments:
         valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/nvidia.yaml.gotmpl?ref=main"
         cert:
           valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/cert/sjc112.yaml?ref=main"
+
+  ais-asr-ngc-iad:
+    values:
+      - release: *authn-release
+        valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/ais-asr-ngc-iad.yaml.gotmpl?ref=main"
+        cert:
+          valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/authn/config/authn/cert/ais-asr-ngc-iad.yaml?ref=main"
+
 ---
 hooks:
   - events: ["prepare"]

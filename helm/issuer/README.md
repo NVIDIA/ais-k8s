@@ -22,6 +22,8 @@ Point a component's `issuerRef` at `ca-issuer` to have its certificate chain to 
 ## Configuration
 
 Set per-environment values under [`config/`](./config) and deploy with the [helmfile](./helmfile.yaml).
+An environment can set `valuesPath` to load values from ais-infra; otherwise the
+Helmfile uses `./config/<environment>.yaml`.
 See [`issuer-chart/values.yaml`](./issuer-chart/values.yaml) for the full list.
 Common values:
 

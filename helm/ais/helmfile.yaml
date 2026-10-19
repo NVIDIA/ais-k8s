@@ -164,6 +164,19 @@ environments:
           enabled: false
         localStaticProvisioner:
           enabled: false
+
+  ais-asr-ngc-iad:
+    values:
+      - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/ais/config/ais/ais-asr-ngc-iad.yaml?ref=main"
+        https:
+          enabled: false
+        cloudSecrets:
+          enabled: false
+        createTargetPV:
+          enabled: true
+        localStaticProvisioner:
+          enabled: false
+
 ---
 repositories:
   - name: sig-storage-local-static-provisioner
