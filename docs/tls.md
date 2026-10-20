@@ -36,7 +36,7 @@ Refer to the [issuer chart README](../helm/issuer/README.md) for its resources a
 When a self-signed CA is used, each client needs the CA certificate to verify server certificates.
 The certificate reaches a client as a ConfigMap holding `ca.crt`, mounted into the workload.
 [trust-manager](https://cert-manager.io/docs/trust/trust-manager/) is the recommended way to distribute and sync that ConfigMap across namespaces.
-Refer to its documentation to set it up for your deployment, and to the example [trust bundle](../local/manifests/trust-bundle.yaml) as a starting point.
+Enable `trustBundle.enabled` in the [issuer chart](../helm/issuer/README.md#ca-trust-bundle-distribution) to manage this distribution through Helm, or apply the example [trust bundle](../local/manifests/trust-bundle.yaml) separately. Do not use both to manage the same Bundle.
 
 The following clients need the CA:
 

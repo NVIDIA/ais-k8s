@@ -1,0 +1,16 @@
+{{- if .Values.trustBundle.enabled }}
+apiVersion: trust.cert-manager.io/v1alpha1
+kind: Bundle
+metadata:
+  name: {{ .Values.trustBundle.name | quote }}
+spec:
+  sources:
+    - secret:
+        name: {{ .Values.caCertificate.secretName | quote }}
+        key: tls.crt
+  target:
+    configMap:
+      key: ca.crt
+    namespaceSelector:
+      {{- toYaml .Values.trustBundle.namespaceSelector | nindent 6 }}
+{{- end }}

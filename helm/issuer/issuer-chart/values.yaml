@@ -29,3 +29,12 @@ caCertificate:
 # CA issuer that signs certificates using the CA certificate above
 caIssuer:
   name: ca-issuer
+
+
+# Optional public CA distribution. Requires trust-manager to be installed.
+trustBundle:
+  enabled: false
+  name: aistore.nvidia.com
+  namespaceSelector:
+    matchLabels:
+      ais-trust: "true"

@@ -32,3 +32,16 @@ Common values:
 - `caCertificate.subject`: Set an organization or country to avoid an empty issuer DN.
 
 For background on issuers, CA certificates, and trust, refer to the [cert-manager documentation](https://cert-manager.io/docs/usage/certificate/).
+
+## CA trust bundle distribution
+
+Enable `trustBundle.enabled` to let Helm manage a trust-manager Bundle. It copies
+only the public CA certificate from the CA Secret into a ConfigMap in each selected
+namespace, and updates those ConfigMaps when the certificate changes. Consumers
+such as the operator, admin client, and monitoring must mount and use the ConfigMap
+for HTTPS verification. It does not update trust on external client machines.
+
+Install trust-manager first and keep the CA Secret in its configured trust
+namespace. Use `trustBundle.namespaceSelector` to select destination namespaces,
+for example `matchLabels: {ais-trust: "true"}`. The CA private key is never copied.
+This feature is disabled by default; standalone Bundles can still be managed separately.
