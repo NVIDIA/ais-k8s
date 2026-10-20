@@ -82,7 +82,7 @@ releases:
     namespace: "{{ .Values | get \"namespace\" \"ais-operator-system\" }}"
     createNamespace: true
     chart: aistore/ais-operator
-    version: "{{ .Values | get \"version\" \"4.1.0\" }}"
+    version: "{{ .Values | get \"version\" \"4.2.0\" }}"
     values:
       - "{{ .Environment.Values.valuesPath }}"
     hooks:
