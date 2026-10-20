@@ -8,7 +8,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ---
 
-## Unreleased
+## v4.2.0
 
 >**IMPORTANT**: AIStore specs setting the optional `spec.configToUpdate.auth.required_claims.aud` must include the cluster's `<namespace>/<name>` **before** upgrading to this version. 
 > This is enforced on any changed spec in the `v4.1.0` webhook, but prior operator versions used the config field directly to determine the operator's included token audience.
@@ -28,22 +28,32 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
   - If using `spec.tls.public.certificate`, the operator includes `*.<domain>` in the provisioned certificate's SAN list.
 
 
-- `AIStoreAuth`
+#### AIStoreAuth
   - Operator creates the admin `AIStoreAuthProfile` `<namespace>.<name>-admin` when `spec.adminSecret` is set.
     - Deletion of the `AIStoreAuth` waits until no `AIStore` references the profile in `spec.auth.profileRef`.
 
 ### Changed
 
+- Updated the `github.com/NVIDIA/aistore` dependency to v1.5.1 ([AIStore v5.1.0](https://github.com/NVIDIA/aistore/releases/tag/v1.5.1)).
+- Operator now only includes the cluster's `<namespace>/<name>` in the AIStore token audience when using token exchange, if an audience is required by the AIS cluster.
+- All user-provided secret references must pass a SubjectAccessReview.
 - A change in the order of `ais-node` container env vars no longer triggers a rollout unless an env var references another.
+- Operator caps auth service response reads (OAuth login and token exchange) at 1MiB.
+- Operator always calls the AIS API through the proxy headless Service, even when `proxySpec.externalAccess` is set.
+- Operator no longer overwrites an existing object that its `AIStore` or `AIStoreAuth` CR does not control, and fails the reconcile instead.
+  - Upgrades from an operator older than v2.18.0 must first go through a version from v2.18.0 to v4.1.0, which adds the missing controller reference to existing resources.
+- Cleanup Jobs now reference a pinned `ais-operator-helper:v1.0.0` image, instead of the unversioned `latest` tag.
+
+#### TLS
+
+- Cluster TLS certificate includes LoadBalancer endpoints for `externalAccess` with `publicNetDNSMode: Pod`, unless `spec.tls.public` is set.
 - Removed unused SANs from cluster TLS certificate when `spec.tls.public` is omitted. See `spec.tls.public` above for behavior when set.
   - Hosts of target pods are added to the SAN list only with `hostPort` or `hostNetwork`, and with `externalAccess` only for `hostNetwork` in `publicNetDNSMode: IP`.
   - Hosts of proxy pods are added to the SAN list only when `hostPort` is set.
-- Cluster TLS certificate includes LoadBalancer endpoints for `externalAccess` with `publicNetDNSMode: Pod`, unless `spec.tls.public` is set.
-- Updated the `github.com/NVIDIA/aistore` dependency to v1.5.1 ([AIStore v5.1.0](https://github.com/NVIDIA/aistore/releases/tag/v1.5.1)).
 - `spec.tls.certificate.additionalDNSNames` and `spec.tls.public.certificate.additionalDNSNames`
   - Webhook rejects newly added entries that are not valid DNS names, including IP addresses. A leading `*.` wildcard is allowed.
-- Operator now only includes the cluster's `<namespace>/<name>` in the AIStore token audience when using token exchange, if an audience is required by the AIS cluster.
-- All user-provided secret references must pass a SubjectAccessReview.
+
+#### Target Scaling
 - Target scale-down with `scaleDownMode` `decommission` or `safe_decommission` decommissions a target only after its maintenance rebalance finishes, to keep any data that has not been confirmed as migrated off the target. See [Target Scale-Down](../docs/scaling.md#target-scale-down).
   - A target in maintenance without the post-rebalance flag blocks scale-down until it is taken out of maintenance. See [Incomplete Transitions](https://github.com/NVIDIA/aistore/blob/main/docs/lifecycle_node.md#incomplete-transitions).
   - A target with bound data PVCs that left the cluster map before the operator decommissioned it blocks scale-down until it rejoins or `scaleDownMode` is set to `retain`.
@@ -51,16 +61,9 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 - Target scale-down with `scaleDownMode` `decommission` or `safe_decommission` waits while `spec.configToUpdate.rebalance.enabled` is `false`.
 - Target scale-down does not start removing an outgoing target while its pod is missing, starting, not ready, or still joining the cluster map.
 - `targetSpec.autoScale.maxUnavailable` counts only the targets that the StatefulSet keeps after the scale-down.
-- Operator caps auth service response reads (OAuth login and token exchange) at 1MiB.
-- Operator always calls the AIS API through the proxy headless Service, even when `proxySpec.externalAccess` is set.
-- Operator no longer overwrites an existing object that its `AIStore` or `AIStoreAuth` CR does not control, and fails the reconcile instead.
-  - Upgrades from an operator older than v2.18.0 must first go through a version from v2.18.0 to v4.1.0, which adds the missing controller reference to existing resources.
+
+#### AIStoreAuth
   - An `AIStoreAuth` adopts an existing AuthN data PVC that has no controller. A new `AIStoreAuth` with the same name reuses the PVC that an earlier one retained.
-
-
-- `AIStoreAuth`
-  - All user-provided secret references must pass a SubjectAccessReview.
-- Cleanup Jobs now reference a pinned `ais-operator-helper:v1.0.0` image, instead of the unversioned `latest` tag.
 
 ---
 
