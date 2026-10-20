@@ -2,6 +2,9 @@ environments:
   ais-asr-ngc-iad:
     values:
       - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/issuer/config/ais-asr-ngc-iad.yaml?ref=main"
+  ais-asr-ngc-ord:
+    values:
+      - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/issuer/config/ais-asr-ngc-ord.yaml?ref=main"
   local: {}
   sjc11:
     kubeContext: sjc11

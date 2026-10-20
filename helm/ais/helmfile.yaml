@@ -177,6 +177,19 @@ environments:
         localStaticProvisioner:
           enabled: false
 
+  ais-asr-ngc-ord:
+    values:
+      - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/ais/config/ais/ais-asr-ngc-ord.yaml?ref=main"
+        # Disable the legacy TLS chart; the AIStore operator requests the certificate.
+        https:
+          enabled: false
+        cloudSecrets:
+          enabled: false
+        createTargetPV:
+          enabled: true
+        localStaticProvisioner:
+          enabled: false
+
 ---
 repositories:
   - name: sig-storage-local-static-provisioner
