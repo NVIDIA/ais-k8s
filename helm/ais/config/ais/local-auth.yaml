@@ -44,7 +44,7 @@ publicNetDNSMode: Node
 # Configure AIS to trust JWTs issued by the local authN issuer
 configToUpdate:
   auth:
-    enabled: true
+    client_auth_required: true
     oidc:
       allowed_iss: ["https://aisauth.ais.svc.cluster.local:52001"]
   # Lower than default values to allow for running without alerts on KinD docker nodes

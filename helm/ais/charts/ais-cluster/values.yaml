@@ -44,7 +44,7 @@ proxySpec:
   hostPort: 51080
   # servicePort is deprecated by operator >= 4.0.0 and required by earlier versions.
   # Set it to an empty string ("") to omit it from the spec.
-  servicePort: 51080
+  # servicePort: 51080
   portPublic: 51080
   portIntraControl: 51082
   portIntraData: 51083
@@ -62,7 +62,7 @@ targetSpec:
   hostPort: 51081
   # servicePort is deprecated by operator >= 4.0.0 and required by earlier versions.
   # Set it to an empty string ("") to omit it from the spec.
-  servicePort: 51081
+  # servicePort: 51081
   portPublic: 51081
   portIntraControl: 51082
   portIntraData: 51083
