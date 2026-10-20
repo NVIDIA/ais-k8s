@@ -19,6 +19,26 @@ Point a component's `issuerRef` at `ca-issuer` to have its certificate chain to 
 - `ClusterIssuer` (default): Cluster-wide, with the CA certificate and `ca-root-secret` in the `cert-manager` namespace.
 - `Issuer`: Namespaced to the release namespace.
 
+## CA key rotation
+
+`caCertificate.privateKey.rotationPolicy` defaults to `Never`. We distribute the
+self-signed CA's public certificate to clients, so renewal should keep the CA
+signing key stable. Automatically replacing that key can break connections for
+clients that still trust only the previous CA. This preserves cert-manager's
+pre-v1.18 behavior; v1.18 changed its default to `Always`.
+
+cert-manager renews certificates before expiry according to `renewBefore`. For
+example, the chart default `renewBefore: 720h` schedules renewal 30 days early.
+`Never` keeps the same signing key, so clients using the old, still-valid CA
+certificate can continue trusting newly issued server certificates during that
+window. It does not help after the old CA certificate expires: clients must receive
+the renewed public CA certificate before then. Use `Always` only when you intend
+to replace the signing key and have planned the client trust update.
+
+With `Never`, changing the configured key algorithm or size does not replace an
+existing key. cert-manager reports the mismatch and waits for intervention. Plan
+a deliberate key rotation and client trust update before changing these settings.
+
 ## Configuration
 
 Set per-environment values under [`config/`](./config) and deploy with the [helmfile](./helmfile.yaml).
@@ -29,6 +49,7 @@ Common values:
 
 - `caCertificate.secretName` (default `ca-root-secret`): Secret holding the CA certificate and key.
 - `caCertificate.duration` and `caCertificate.renewBefore`: CA lifetime and renewal window.
+- `caCertificate.privateKey.rotationPolicy`: Defaults to `Never`; explicitly set `Always` for planned key replacement.
 - `caCertificate.subject`: Set an organization or country to avoid an empty issuer DN.
 
 For background on issuers, CA certificates, and trust, refer to the [cert-manager documentation](https://cert-manager.io/docs/usage/certificate/).

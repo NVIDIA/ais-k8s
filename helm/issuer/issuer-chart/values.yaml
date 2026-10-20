@@ -24,6 +24,8 @@ caCertificate:
     algorithm: RSA
     encoding: PKCS1
     size: 4096
+    # Keep the CA signing key stable until client trust updates are coordinated.
+    rotationPolicy: Never
   # Set a subject in your env config to avoid an empty Issuer DN (see cert-manager docs)
 
 # CA issuer that signs certificates using the CA certificate above

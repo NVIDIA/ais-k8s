@@ -30,6 +30,7 @@ spec:
     algorithm: {{ .Values.caCertificate.privateKey.algorithm }}
     encoding: {{ .Values.caCertificate.privateKey.encoding }}
     size: {{ .Values.caCertificate.privateKey.size }}
+    rotationPolicy: {{ .Values.caCertificate.privateKey.rotationPolicy | quote }}
   {{- if .Values.caCertificate.subject }}
   {{- if or .Values.caCertificate.subject.organizations .Values.caCertificate.subject.organizationalUnits .Values.caCertificate.subject.countries }}
   subject:
