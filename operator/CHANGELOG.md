@@ -8,6 +8,14 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ---
 
+## Unreleased
+
+### Added
+
+- `targetSpec.scaleDownMode` `discard` to decommission outgoing targets without a rebalance and delete their on-disk data.
+
+---
+
 ## v4.2.0
 
 >**IMPORTANT**: AIStore specs setting the optional `spec.configToUpdate.auth.required_claims.aud` must include the cluster's `<namespace>/<name>` **before** upgrading to this version. 

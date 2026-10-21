@@ -635,6 +635,7 @@ type ScaleDownMode string
 
 const (
 	ScaleDownModeDecommission     ScaleDownMode = "decommission"
+	ScaleDownModeDiscard          ScaleDownMode = "discard"
 	ScaleDownModeRetain           ScaleDownMode = "retain"
 	ScaleDownModeSafeDecommission ScaleDownMode = "safe_decommission"
 )
@@ -698,7 +699,9 @@ type TargetSpec struct {
 	// "retain" leaves data on the node by putting the target into maintenance mode. This is useful when you expect
 	// another pod to be immediately scheduled on the node. Note that if this is not the case then any data on the node
 	// will become inaccessible.
-	// +kubebuilder:validation:Enum=decommission;retain;safe_decommission
+	// "discard" decommissions each target without a rebalance and deletes its on-disk data. Data that exists only on
+	// the target, such as objects in local AIS buckets, is lost.
+	// +kubebuilder:validation:Enum=decommission;discard;retain;safe_decommission
 	// +kubebuilder:default:=safe_decommission
 	// +optional
 	ScaleDownMode ScaleDownMode `json:"scaleDownMode,omitempty"`
@@ -1414,6 +1417,12 @@ func (s *DaemonSpec) autoScaleMaxUnavailable() int32 {
 // maintenance mode) instead of decommissioned on scale down.
 func (t *TargetSpec) RetainOnScaleDown() bool {
 	return t.ScaleDownMode == ScaleDownModeRetain
+}
+
+// RebalanceOnScaleDown reports whether target scale-down rebalances the data of each outgoing target onto the
+// remaining targets.
+func (t *TargetSpec) RebalanceOnScaleDown() bool {
+	return t.ScaleDownMode != ScaleDownModeRetain && t.ScaleDownMode != ScaleDownModeDiscard
 }
 
 // SafeDecommissionOnScaleDown reports whether targets use the safe_decommission scale-down mode.

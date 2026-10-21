@@ -5598,8 +5598,11 @@ spec:
                       "retain" leaves data on the node by putting the target into maintenance mode. This is useful when you expect
                       another pod to be immediately scheduled on the node. Note that if this is not the case then any data on the node
                       will become inaccessible.
+                      "discard" decommissions each target without a rebalance and deletes its on-disk data. Data that exists only on
+                      the target, such as objects in local AIS buckets, is lost.
                     enum:
                     - decommission
+                    - discard
                     - retain
                     - safe_decommission
                     type: string

@@ -558,6 +558,16 @@ var _ = Describe("AIStore", func() {
 			Entry("decommission", TargetSpec{ScaleDownMode: ScaleDownModeDecommission}, false),
 			Entry("retain", TargetSpec{ScaleDownMode: ScaleDownModeRetain}, true),
 		)
+
+		DescribeTable("RebalanceOnScaleDown", func(spec TargetSpec, want bool) {
+			Expect(spec.RebalanceOnScaleDown()).To(Equal(want))
+		},
+			Entry("unset", TargetSpec{}, true),
+			Entry("decommission", TargetSpec{ScaleDownMode: ScaleDownModeDecommission}, true),
+			Entry("safe_decommission", TargetSpec{ScaleDownMode: ScaleDownModeSafeDecommission}, true),
+			Entry("retain", TargetSpec{ScaleDownMode: ScaleDownModeRetain}, false),
+			Entry("discard", TargetSpec{ScaleDownMode: ScaleDownModeDiscard}, false),
+		)
 	})
 
 	DescribeTable("RebalanceEnabled", func(enabled *bool, want bool) {

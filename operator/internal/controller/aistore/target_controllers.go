@@ -367,7 +367,7 @@ func (r *Reconciler) outgoingTargetsSettled(ctx context.Context, ais *aisv1.AISt
 			}
 			r.recorder.Eventf(ais, pod, corev1.EventTypeWarning, EventReasonWaiting, ActionScaleDownTargets,
 				msgDeferTargetRemoval+"; pod %s left the cluster map before the operator decommissioned it, and its data PVCs are bound. "+
-					"Bring the target back into the cluster, or set scaleDownMode to retain to remove it without moving its data", podName)
+					"Bring the target back into the cluster, or set scaleDownMode to retain or discard to remove it without moving its data", podName)
 		}
 		if reason != "" {
 			logger.Info(msgDeferTargetRemoval, "podName", podName, "reason", reason)
@@ -384,7 +384,7 @@ func memberWaitReason(ais *aisv1.AIStore, node *aismeta.Snode, pod *corev1.Pod) 
 	// A maintenance rebalance has already moved the target's data off.
 	case node.InMaintPostReb():
 		return ""
-	case node.InMaint() && ais.Spec.TargetSpec.RetainOnScaleDown():
+	case node.InMaint() && !ais.Spec.TargetSpec.RebalanceOnScaleDown():
 		return ""
 	case node.InMaint():
 		return "target is in maintenance without post-rebalance"
@@ -402,10 +402,9 @@ func memberWaitReason(ais *aisv1.AIStore, node *aismeta.Snode, pod *corev1.Pod) 
 // be removed, or "" if it is.
 func nonMemberWaitReason(ais *aisv1.AIStore, pod *corev1.Pod) string {
 	switch {
-	// The operator decommissions a target only after its data has moved off.
 	case pod.Annotations[decommissionedAnnotation] != "":
 		return ""
-	case isPodUnrecoverable(pod) && ais.Spec.TargetSpec.RetainOnScaleDown():
+	case isPodUnrecoverable(pod) && !ais.Spec.TargetSpec.RebalanceOnScaleDown():
 		return ""
 	case isPodUnrecoverable(pod):
 		return reasonLeftWithoutDecommission
@@ -502,7 +501,8 @@ func decommissionedTargetsReadyForScaleDown(ctx context.Context, ais *aisv1.AISt
 // prepareTargetsForScaleDown starts the AIS membership transition for the targets whose
 // StatefulSet ordinal is above the desired size. It starts at most one transition per call.
 func (r *Reconciler) prepareTargetsForScaleDown(ctx context.Context, ais *aisv1.AIStore, smap *aismeta.Smap, specReplicas int32) error {
-	if !ais.Spec.TargetSpec.RetainOnScaleDown() {
+	rebalance := ais.Spec.TargetSpec.RebalanceOnScaleDown()
+	if rebalance {
 		// Ensure rebalance is enabled before decommissioning so data can migrate
 		// off the targets being decommissioned.
 		if err := r.enableRebalanceCondition(ctx, ais); err != nil {
@@ -552,11 +552,11 @@ func (r *Reconciler) prepareTargetsForScaleDown(ctx context.Context, ais *aisv1.
 		// A target already in maintenance is not an active member, so AIS will not
 		// rebalance it out: decommission only unregisters it, and wipes its data when
 		// RmUserData is set. SnodeMaintPostReb is the one signal that its data moved.
-		if node.InMaint() && !node.InMaintPostReb() {
+		if rebalance && node.InMaint() && !node.InMaintPostReb() {
 			return fmt.Errorf("waiting for target %s in maintenance to set post-rebalance", podName)
 		}
 		// Maintenance with rebalance disabled never sets SnodeMaintPostReb.
-		if !node.InMaint() && !ais.RebalanceEnabled() {
+		if rebalance && !node.InMaint() && !ais.RebalanceEnabled() {
 			logger.Info("Deferring target removal; rebalance is disabled in the spec", "nodeID", node.ID())
 			r.recorder.Eventf(ais, nil, corev1.EventTypeWarning, EventReasonWaiting, ActionScaleDownTargets,
 				"Deferring removal of target %s; rebalance is disabled in the spec", node.ID())
@@ -583,7 +583,7 @@ func (r *Reconciler) prepareTargetsForScaleDown(ctx context.Context, ais *aisv1.
 	var maintNodeIDs []string
 	for _, node := range nodes {
 		nodeIDs = append(nodeIDs, node.ID())
-		if !node.InMaint() {
+		if rebalance && !node.InMaint() {
 			maintNodeIDs = append(maintNodeIDs, node.ID())
 		}
 	}
@@ -603,8 +603,9 @@ func (r *Reconciler) prepareTargetsForScaleDown(ctx context.Context, ais *aisv1.
 		}
 	}
 	act := rmNodeAction(nodeIDs)
+	act.SkipRebalance = !rebalance
 	act.RmUserData = !ais.Spec.TargetSpec.SafeDecommissionOnScaleDown()
-	logger.Info("Decommissioning targets", "nodeIDs", nodeIDs, "rmUserData", act.RmUserData)
+	logger.Info("Decommissioning targets", "nodeIDs", nodeIDs, "skipRebalance", act.SkipRebalance, "rmUserData", act.RmUserData)
 	_, err = apiClient.DecommissionNode(act)
 	if err != nil {
 		logger.Error(err, "Failed to decommission nodes", "nodeIDs", nodeIDs)

@@ -161,6 +161,8 @@ var _ = Describe("target removal wait reasons", func() {
 		Entry("maintenance with post-rebalance and starting pod", aisv1.ScaleDownModeDecommission, aismeta.SnodeMaint|aismeta.SnodeMaintPostReb, startingPod, false),
 		Entry("retain, maintenance with starting pod", aisv1.ScaleDownModeRetain, aismeta.SnodeMaint, startingPod, false),
 		Entry("retain, not in maintenance with starting pod", aisv1.ScaleDownModeRetain, cos.BitFlags(0), startingPod, true),
+		Entry("discard, maintenance without post-rebalance", aisv1.ScaleDownModeDiscard, aismeta.SnodeMaint, readyPod, false),
+		Entry("discard, not in maintenance with starting pod", aisv1.ScaleDownModeDiscard, cos.BitFlags(0), startingPod, true),
 	)
 
 	DescribeTable("nonMemberWaitReason",
@@ -177,6 +179,9 @@ var _ = Describe("target removal wait reasons", func() {
 		Entry("retain, unschedulable pod", aisv1.ScaleDownModeRetain, unschedulablePod, false),
 		Entry("retain, CrashLoopBackOff pod", aisv1.ScaleDownModeRetain, crashLoopPod, false),
 		Entry("retain, started pod not yet in the cluster map", aisv1.ScaleDownModeRetain, startedPod, true),
+		Entry("discard, CrashLoopBackOff pod", aisv1.ScaleDownModeDiscard, crashLoopPod, false),
+		Entry("discard, started pod not yet in the cluster map", aisv1.ScaleDownModeDiscard, startedPod, true),
+		Entry("discard, decommissioned started pod", aisv1.ScaleDownModeDiscard, decommStartedPod, false),
 	)
 })
 
@@ -631,6 +636,45 @@ var _ = Describe("scaleDownMode", func() {
 				err := r.prepareTargetsForScaleDown(ctx, ais, smap, 3)
 				Expect(err).NotTo(HaveOccurred())
 			})
+		})
+
+		Context("when scaleDownMode is discard", func() {
+			BeforeEach(func() {
+				ais.Spec.TargetSpec.ScaleDownMode = aisv1.ScaleDownModeDiscard
+			})
+
+			DescribeTable("decommissions the target without a rebalance",
+				func(rebalanceEnabled *bool, flags cos.BitFlags) {
+					if rebalanceEnabled != nil {
+						ais.Spec.ConfigToUpdate = &aisv1.ConfigToUpdate{}
+						ais.Spec.ConfigToUpdate.UpdateRebalanceEnabled(rebalanceEnabled)
+					}
+					Expect(k8sClient.Update(ctx, ais)).To(Succeed())
+
+					t3 := &aismeta.Snode{DaeID: "t3", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-2"}, Flags: flags}
+					smap := &aismeta.Smap{Tmap: aismeta.NodeMap{"t3": t3}}
+					pod := &corev1.Pod{
+						ObjectMeta: metav1.ObjectMeta{Name: "ais-target-2", Namespace: namespace},
+						Spec:       corev1.PodSpec{Containers: []corev1.Container{{Name: cmn.AISContainerName, Image: "aisnode:test"}}},
+					}
+					Expect(k8sClient.Create(ctx, pod)).To(Succeed())
+					apiClient.EXPECT().IsRebalancing().Return(false, nil)
+					apiClient.EXPECT().DecommissionNode(gomock.Any()).DoAndReturn(func(act *apc.ActValRmNode) (string, error) {
+						Expect(act.DaemonID).To(Equal("t3"))
+						Expect(act.SkipRebalance).To(BeTrue())
+						Expect(act.RmUserData).To(BeTrue())
+						Expect(k8sClient.Get(ctx, types.NamespacedName{Name: pod.Name, Namespace: namespace}, pod)).To(Succeed())
+						Expect(pod.Annotations).To(HaveKeyWithValue(decommissionedAnnotation, "t3"))
+						return "xid", nil
+					})
+
+					Expect(r.prepareTargetsForScaleDown(ctx, ais, smap, 3)).To(Succeed())
+					Expect(recorder.Events).To(BeEmpty())
+				},
+				Entry("for an active target", nil, cos.BitFlags(0)),
+				Entry("while the spec disables rebalance", apc.Ptr(false), cos.BitFlags(0)),
+				Entry("for a target in maintenance without post-rebalance", nil, aismeta.SnodeMaint),
+			)
 		})
 	})
 
