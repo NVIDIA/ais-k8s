@@ -1,0 +1,6 @@
+server:
+  enabled: false
+singleNamespace: true
+workflow:
+  serviceAccount:
+    create: true

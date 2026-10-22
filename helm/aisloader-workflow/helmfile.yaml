@@ -1,0 +1,20 @@
+environments:
+  default:
+    values:
+      - argoWorkflows:
+          enabled: true
+          valuesPath: ./config/argo-workflows/default.yaml
+---
+repositories:
+  - name: argo
+    url: https://argoproj.github.io/argo-helm
+
+releases:
+  - name: argo-workflows
+    namespace: "{{ .Values | get \"namespace\" \"argo\" }}"
+    createNamespace: true
+    chart: argo-workflows/argo-workflows
+    version: 2.0.14
+    condition: argoWorkflows.enabled
+    values:
+      - "{{ .Environment.Values.argoWorkflows | get \"valuesPath\" \"\" }}"
