@@ -13,6 +13,23 @@ environments:
       - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git//helm/monitoring/alloy/config/@oci-iad.yaml?ref=main"
         container_runtime: crio
         host_network: true
+  ais-asr-ngc-iad:
+    values:
+      - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git//helm/monitoring/alloy/config/@ais-asr-ngc-iad.yaml?ref=main"
+        container_runtime: crio
+        host_network: true
+  ais-asr-ngc-ord:
+    values:
+      - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git//helm/monitoring/alloy/config/@ais-asr-ngc-ord.yaml?ref=main"
+        container_runtime: crio
+        host_network: true
+        alloyConfigOverrides:
+          scrape:
+            tls:
+              caConfigMap: aistore.nvidia.com
+              caNamespace: monitoring
+              caKey: ca.crt
+              serverName: ais-target.ais
   oci-nrt:
     values:
       - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git//helm/monitoring/alloy/config/@oci-nrt.yaml?ref=main"
