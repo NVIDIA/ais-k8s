@@ -37,10 +37,11 @@ releases:
   - name: alloy-config
     namespace: monitoring
     chart: charts/alloy-config  # Local chart for configmap
-    version: 0.1.0
+    version: 0.2.0
     createNamespace: true
     values:
       - "{{ .Environment.Values.valuesPath }}"
+      - ./config/alloy-config/overrides.yaml.gotmpl
 
   - name: alloy
     namespace: monitoring

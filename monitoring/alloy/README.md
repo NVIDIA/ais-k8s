@@ -66,3 +66,31 @@ kubectl get configmap alloy-config \
   -n monitoring \
   -o "jsonpath={.data['config\\.alloy']}" > alloy-config.yaml
 ```
+
+## Verified HTTPS scraping
+
+Set `scrape.https: true` and provide the public CA certificate through a ConfigMap:
+
+```yaml
+scrape:
+  https: true
+  tls:
+    caConfigMap: aistore.nvidia.com
+    caNamespace: monitoring
+    caKey: ca.crt
+    serverName: ais-target.ais
+```
+
+The ConfigMap must exist and contain the CA certificate under the specified key; no CA private key is needed.
+`serverName` is optional when the discovered scrape address is covered by the server certificate.
+Discovery currently uses pod IPs, so set it to a DNS name covered by every scraped server certificate when those IPs are not in the certificate.
+It changes the TLS verification name and SNI, not the scrape destination.
+
+For a public certificate served on the scraped port, use its public DNS name (matching `spec.tls.public.serverName`), not an internal service name.
+This chart still requires a ConfigMap containing the trusted CA certificates; system-trust-only configuration is not added here.
+Changing discovery to per-pod DNS names is separate from this setting and is not implemented here.
+
+For compatibility, setting `scrape.https: true` without `scrape.tls` keeps the previous `insecure_skip_verify = true` behavior: traffic is encrypted, but the server certificate and hostname are not verified.
+Providing `scrape.tls` enables certificate verification; use this for production HTTPS scraping.
+Helmfile environments can supply the `scrape` block under `alloyConfigOverrides` without changing the remote values file.
+See [Grafana's scrape TLS reference](https://grafana.com/docs/alloy/latest/reference/components/prometheus/prometheus.scrape/#tls_config) for the underlying settings.

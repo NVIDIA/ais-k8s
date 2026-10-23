@@ -138,6 +138,14 @@ prometheus.relabel "cadvisor" {
   forward_to = [otelcol.receiver.prometheus.all_metrics.receiver]
 }
 
+{{- $scrapeTLS := dig "scrape" "tls" (dict) .Values.AsMap }}
+{{- if and .Values.scrape (eq (printf "%v" .Values.scrape.https) "true") $scrapeTLS }}
+remote.kubernetes.configmap "ais_ca" {
+  namespace = {{ required "scrape.tls.caNamespace is required" $scrapeTLS.caNamespace | quote }}
+  name = {{ required "scrape.tls.caConfigMap is required" $scrapeTLS.caConfigMap | quote }}
+}
+{{- end }}
+
 prometheus.scrape "aistore" {
   targets = discovery.relabel.all_aisnode.output
   forward_to = [prometheus.relabel.aistore.receiver]
@@ -147,7 +155,15 @@ prometheus.scrape "aistore" {
   {{- if and .Values.scrape (eq (printf "%v" .Values.scrape.https) "true") }}
   scheme = "https"
   tls_config {
+    {{- if $scrapeTLS }}
+    ca_pem = remote.kubernetes.configmap.ais_ca.data[{{ required "scrape.tls.caKey is required" $scrapeTLS.caKey | quote }}]
+    {{- if $scrapeTLS.serverName }}
+    server_name = {{ $scrapeTLS.serverName | quote }}
+    {{- end }}
+    insecure_skip_verify = false
+    {{- else }}
     insecure_skip_verify = true
+    {{- end }}
   }
   {{- end }}
 }

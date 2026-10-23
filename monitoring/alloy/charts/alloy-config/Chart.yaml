@@ -1,4 +1,4 @@
 apiVersion: v2
 name: alloy-config
 description: ConfigMap for Alloy configuration
-version: 0.1.0
+version: 0.2.0
