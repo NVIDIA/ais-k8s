@@ -15,6 +15,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 - Allow enabling `spec.proxySpec.externalAccess` on an existing cluster when its LoadBalancer Service is absent or controlled by that AIStore resource.
 - Target scale-down with `scaleDownMode` `retain` puts all outgoing targets in maintenance in one request on AIS v5.0 or later, instead of one request per target.
   - On AIS older than v5.0, it puts outgoing targets in maintenance one at a time.
+- Target autoscale scale-down keeps up to `targetSpec.autoScale.maxUnavailable` targets above the desired size while a target within the desired size is unavailable, instead of waiting or shrinking to the desired size.
 
 #### AIStoreAuth
 

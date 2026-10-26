@@ -389,6 +389,15 @@ func scaleDownBudgetAllows(unavailable, maxUnavailable int32) bool {
 	return unavailable == 0 || unavailable > maxUnavailable
 }
 
+// outgoingOrdinals returns the StatefulSet ordinals in [size, specReplicas), highest first.
+func outgoingOrdinals(specReplicas, size int32) []int32 {
+	ordinals := make([]int32, 0, specReplicas-size)
+	for idx := specReplicas - 1; idx >= size; idx-- {
+		ordinals = append(ordinals, idx)
+	}
+	return ordinals
+}
+
 // statefulsetScalingNeeded determines whether a proxy or target StatefulSet should be scaled.
 func statefulsetScalingNeeded(ss *appsv1.StatefulSet, desired, maxUnavailable int32, autoScaling bool) bool {
 	if desired == *ss.Spec.Replicas {

@@ -247,72 +247,106 @@ func (r *Reconciler) scaleDownTargets(ctx context.Context, ais *aisv1.AIStore, s
 	logger := logf.FromContext(ctx)
 	specReplicas := *ss.Spec.Replicas
 	expectedSize := ais.GetTargetSize()
-	removalAllowed, err := r.targetRemovalAllowed(ctx, ais)
+	size, reason, err := r.targetScaleDownSize(ctx, ais, expectedSize, specReplicas)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	if removalAllowed {
-		started, startErr := r.startTargetRemoval(ctx, ais, specReplicas)
-		if startErr != nil {
-			return ctrl.Result{}, startErr
-		}
-		if !started {
-			return ctrl.Result{RequeueAfter: targetLongRequeueDelay}, nil
-		}
+	if size > expectedSize {
+		logger.V(1).Info("Keeping targets above the desired size", "size", size, "desiredSize", expectedSize, "reason", reason)
+		r.recorder.Eventf(ais, ss, corev1.EventTypeNormal, EventReasonWaiting, ActionScaleDownTargets,
+			"Keeping %d targets above the desired size of %d; %s", size-expectedSize, expectedSize, reason)
 	}
-	ready, err := r.targetsReadyForScaleDown(ctx, ais, specReplicas)
+	if size == specReplicas {
+		// Nothing was started, so there is no transition to come back for. Report an empty
+		// result to keep the cluster Ready rather than Upgrading.
+		return ctrl.Result{}, nil
+	}
+	outgoing := outgoingOrdinals(specReplicas, size)
+	started, err := r.startTargetRemoval(ctx, ais, outgoing)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if !started {
+		return ctrl.Result{RequeueAfter: targetLongRequeueDelay}, nil
+	}
+	ready, err := r.targetsReadyForScaleDown(ctx, ais, outgoing)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 	if !ready {
-		// Nothing was started, so there is no transition to come back for. Report an empty
-		// result to keep the cluster Ready rather than Upgrading.
-		if !removalAllowed {
-			logger.Info("Deferring target removal; unavailable targets that the StatefulSet keeps are within maxUnavailable")
-			return ctrl.Result{}, nil
-		}
 		return ctrl.Result{RequeueAfter: targetLongRequeueDelay}, nil
 	}
-	if err = r.removeTargetLoadBalancers(ctx, ais, ss); err != nil {
+	if err = r.removeTargetLoadBalancers(ctx, ais, outgoing); err != nil {
 		return ctrl.Result{}, err
 	}
-	logger.Info("Scaling down target statefulset to match AIS cluster spec size", "desiredSize", expectedSize)
-	if err = r.setTargetReplicas(ctx, ais, expectedSize); err != nil {
+	logger.Info("Scaling down target statefulset", "size", size)
+	if err = r.setTargetReplicas(ctx, ais, size); err != nil {
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{RequeueAfter: targetLongRequeueDelay}, nil
 }
 
-// targetRemovalAllowed reports whether a target scale-down can start to remove targets. Only the
-// targets that the StatefulSet keeps count against maxUnavailable.
-func (r *Reconciler) targetRemovalAllowed(ctx context.Context, ais *aisv1.AIStore) (bool, error) {
+// targetScaleDownSize returns the size that a target scale-down shrinks the StatefulSet to, and
+// why it keeps targets above expectedSize. While a target within the desired size is unavailable,
+// autoscaling keeps up to maxUnavailable targets above it, but never a target that the operator
+// started to remove.
+func (r *Reconciler) targetScaleDownSize(ctx context.Context, ais *aisv1.AIStore, expectedSize, specReplicas int32) (size int32, reason string, err error) {
 	if !ais.IsTargetAutoScaling() {
-		return true, nil
+		return expectedSize, "", nil
 	}
 	// The informer cache can show a pod as ready after the pod becomes unready.
 	ss, err := r.k8sClient.GetStatefulSetDirect(ctx, target.StatefulSetNSName(ais))
 	if err != nil {
-		return false, err
-	}
-	if isRolloutInProgress(ss) || replicasSettling(ss) {
-		return false, nil
+		return 0, "", err
 	}
 	podList, err := r.k8sClient.ListPodsDirect(ctx, ais, target.SelectorLabels(ais))
 	if err != nil {
-		return false, err
+		return 0, "", err
 	}
 	podMap := make(map[string]*corev1.Pod, len(podList.Items))
 	for i := range podList.Items {
 		pod := &podList.Items[i]
 		podMap[pod.Name] = pod
 	}
-	var unavailable int32
-	for idx := range ais.GetTargetSize() {
-		if !isPodReady(podMap[target.PodName(ais, idx)]) {
-			unavailable++
+	ceiling, reason := scaleDownCeiling(ais, ss, podMap, expectedSize, specReplicas)
+	return capAtStartedRemoval(ais, podMap, expectedSize, ceiling), reason, nil
+}
+
+// scaleDownCeiling returns the largest size that a target scale-down keeps, and why it keeps
+// targets above the desired size.
+func scaleDownCeiling(ais *aisv1.AIStore, ss *appsv1.StatefulSet, pods map[string]*corev1.Pod, expectedSize, specReplicas int32) (ceiling int32, reason string) {
+	switch {
+	case isRolloutInProgress(ss):
+		return specReplicas, "the target StatefulSet is rolling out"
+	case replicasSettling(ss):
+		return specReplicas, "the target StatefulSet replica count is settling"
+	case anyTargetUnready(ais, pods, expectedSize):
+		return min(specReplicas, expectedSize+ais.GetTargetMaxUnavailable()), "a target within the desired size is unavailable"
+	}
+	return expectedSize, ""
+}
+
+// anyTargetUnready reports whether any of the first n target pods is not ready.
+func anyTargetUnready(ais *aisv1.AIStore, pods map[string]*corev1.Pod, n int32) bool {
+	for idx := range n {
+		if !isPodReady(pods[target.PodName(ais, idx)]) {
+			return true
 		}
 	}
-	return scaleDownBudgetAllows(unavailable, ais.GetTargetMaxUnavailable()), nil
+	return false
+}
+
+// capAtStartedRemoval lowers ceiling to the lowest ordinal in [expectedSize, ceiling) whose pod has
+// maintenanceAnnotation or decommissionedAnnotation. The operator already started removing that
+// target, so its removal must finish.
+func capAtStartedRemoval(ais *aisv1.AIStore, pods map[string]*corev1.Pod, expectedSize, ceiling int32) int32 {
+	for idx := expectedSize; idx < ceiling; idx++ {
+		pod := pods[target.PodName(ais, idx)]
+		if pod != nil && (pod.Annotations[maintenanceAnnotation] != "" || pod.Annotations[decommissionedAnnotation] != "") {
+			return idx
+		}
+	}
+	return ceiling
 }
 
 func isTargetScalingNeeded(ais *aisv1.AIStore, ss *appsv1.StatefulSet) bool {
@@ -325,7 +359,7 @@ func (r *Reconciler) isTargetStatefulSetReady(ais *aisv1.AIStore, ss *appsv1.Sta
 
 // startTargetRemoval takes each outgoing target out of the AIS cluster. It reports false when an
 // outgoing pod is in a state that makes its cluster map entry unreliable.
-func (r *Reconciler) startTargetRemoval(ctx context.Context, ais *aisv1.AIStore, specReplicas int32) (bool, error) {
+func (r *Reconciler) startTargetRemoval(ctx context.Context, ais *aisv1.AIStore, outgoing []int32) (bool, error) {
 	apiClient, err := r.clientManager.GetClient(ctx, ais)
 	if err != nil {
 		return false, err
@@ -334,19 +368,19 @@ func (r *Reconciler) startTargetRemoval(ctx context.Context, ais *aisv1.AIStore,
 	if err != nil {
 		return false, err
 	}
-	settled, err := r.outgoingTargetsSettled(ctx, ais, smap, specReplicas)
+	settled, err := r.outgoingTargetsSettled(ctx, ais, smap, outgoing)
 	if err != nil || !settled {
 		return false, err
 	}
-	return true, r.prepareTargetsForScaleDown(ctx, ais, smap, specReplicas)
+	return true, r.prepareTargetsForScaleDown(ctx, ais, smap, outgoing)
 }
 
 // outgoingTargetsSettled reports whether every outgoing target is in a state where its cluster
 // map entry, or its absence from the map, can be acted on.
-func (r *Reconciler) outgoingTargetsSettled(ctx context.Context, ais *aisv1.AIStore, smap *aismeta.Smap, specReplicas int32) (bool, error) {
+func (r *Reconciler) outgoingTargetsSettled(ctx context.Context, ais *aisv1.AIStore, smap *aismeta.Smap, outgoing []int32) (bool, error) {
 	logger := logf.FromContext(ctx)
-	for idx := specReplicas; idx > ais.GetTargetSize(); idx-- {
-		podName := target.PodName(ais, idx-1)
+	for _, idx := range outgoing {
+		podName := target.PodName(ais, idx)
 		pod, err := r.k8sClient.GetPod(ctx, types.NamespacedName{Name: podName, Namespace: ais.Namespace})
 		if k8serrors.IsNotFound(err) {
 			logger.Info(msgDeferTargetRemoval, "podName", podName, "reason", "pod is missing")
@@ -454,7 +488,7 @@ func (r *Reconciler) setTargetReplicas(ctx context.Context, ais *aisv1.AIStore, 
 
 // targetsReadyForScaleDown reports whether AIS has completed the membership transition for every
 // target that the StatefulSet will remove.
-func (r *Reconciler) targetsReadyForScaleDown(ctx context.Context, ais *aisv1.AIStore, specReplicas int32) (ready bool, err error) {
+func (r *Reconciler) targetsReadyForScaleDown(ctx context.Context, ais *aisv1.AIStore, outgoing []int32) (ready bool, err error) {
 	apiClient, err := r.clientManager.GetClient(ctx, ais)
 	if err != nil {
 		return
@@ -464,17 +498,17 @@ func (r *Reconciler) targetsReadyForScaleDown(ctx context.Context, ais *aisv1.AI
 		return
 	}
 	if ais.Spec.TargetSpec.RetainOnScaleDown() {
-		return retainedTargetsReadyForScaleDown(ctx, ais, smap, specReplicas), nil
+		return retainedTargetsReadyForScaleDown(ctx, ais, smap, outgoing), nil
 	}
-	return decommissionedTargetsReadyForScaleDown(ctx, ais, smap, specReplicas), nil
+	return decommissionedTargetsReadyForScaleDown(ctx, ais, smap, outgoing), nil
 }
 
 // retainedTargetsReadyForScaleDown reports whether every outgoing target is in maintenance.
 // Maintenance keeps the target in the cluster map, so readiness is checked per target.
-func retainedTargetsReadyForScaleDown(ctx context.Context, ais *aisv1.AIStore, smap *aismeta.Smap, specReplicas int32) bool {
+func retainedTargetsReadyForScaleDown(ctx context.Context, ais *aisv1.AIStore, smap *aismeta.Smap, outgoing []int32) bool {
 	logger := logf.FromContext(ctx)
-	for idx := specReplicas; idx > ais.GetTargetSize(); idx-- {
-		podName := target.PodName(ais, idx-1)
+	for _, idx := range outgoing {
+		podName := target.PodName(ais, idx)
 		node, nodeErr := findAISNodeByPodName(smap.Tmap, podName)
 		if nodeErr != nil {
 			// Target isn't a cluster member, so there's nothing to gate on.
@@ -490,12 +524,12 @@ func retainedTargetsReadyForScaleDown(ctx context.Context, ais *aisv1.AIStore, s
 }
 
 // decommissionedTargetsReadyForScaleDown reports whether a decommission-path scale-down can proceed.
-func decommissionedTargetsReadyForScaleDown(ctx context.Context, ais *aisv1.AIStore, smap *aismeta.Smap, specReplicas int32) bool {
+func decommissionedTargetsReadyForScaleDown(ctx context.Context, ais *aisv1.AIStore, smap *aismeta.Smap, outgoing []int32) bool {
 	logger := logf.FromContext(ctx)
 	// A decommissioned target leaves the cluster map, so check the outgoing targets by pod name.
 	// Counting members instead would stall on unrelated nodes that linger in the map.
-	for idx := specReplicas; idx > ais.GetTargetSize(); idx-- {
-		podName := target.PodName(ais, idx-1)
+	for _, idx := range outgoing {
+		podName := target.PodName(ais, idx)
 		node, nodeErr := findAISNodeByPodName(smap.Tmap, podName)
 		if nodeErr != nil {
 			continue
@@ -506,9 +540,8 @@ func decommissionedTargetsReadyForScaleDown(ctx context.Context, ais *aisv1.AISt
 	return true
 }
 
-// prepareTargetsForScaleDown starts the AIS membership transition for the targets whose
-// StatefulSet ordinal is above the desired size.
-func (r *Reconciler) prepareTargetsForScaleDown(ctx context.Context, ais *aisv1.AIStore, smap *aismeta.Smap, specReplicas int32) error {
+// prepareTargetsForScaleDown starts the AIS membership transition for the outgoing targets.
+func (r *Reconciler) prepareTargetsForScaleDown(ctx context.Context, ais *aisv1.AIStore, smap *aismeta.Smap, outgoing []int32) error {
 	retain := ais.Spec.TargetSpec.RetainOnScaleDown()
 	rebalance := ais.Spec.TargetSpec.RebalanceOnScaleDown()
 	if rebalance {
@@ -531,8 +564,8 @@ func (r *Reconciler) prepareTargetsForScaleDown(ctx context.Context, ais *aisv1.
 		podNames []string
 		nodes    []*aismeta.Snode
 	)
-	for idx := specReplicas; idx > ais.GetTargetSize(); idx-- {
-		podName := target.PodName(ais, idx-1)
+	for _, idx := range outgoing {
+		podName := target.PodName(ais, idx)
 		logger.Info("Attempting to prepare target for scale-down", "podName", podName)
 		node, err := findAISNodeByPodName(smap.Tmap, podName)
 		if err != nil {
@@ -800,12 +833,12 @@ func (r *Reconciler) addTargetLoadBalancers(ctx context.Context, ais *aisv1.AISt
 	return r.createTargetExternalServices(ctx, ais)
 }
 
-func (r *Reconciler) removeTargetLoadBalancers(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) error {
+func (r *Reconciler) removeTargetLoadBalancers(ctx context.Context, ais *aisv1.AIStore, outgoing []int32) error {
 	if !ais.TargetExternalAccessEnabled() {
 		return nil
 	}
-	for idx := *ss.Spec.Replicas; idx > ais.GetTargetSize(); idx-- {
-		svcName := target.LoadBalancerSVCNSName(ais, idx-1)
+	for _, idx := range outgoing {
+		svcName := target.LoadBalancerSVCNSName(ais, idx)
 		_, err := r.k8sClient.DeleteServiceIfExists(ctx, svcName)
 		if err != nil {
 			return err

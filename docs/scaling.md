@@ -39,8 +39,10 @@ In this mode, scale-down is faster, but those re-fetches can be slower than in-c
 In every mode, the operator does not start removing targets while an outgoing pod is missing, still starting, not ready, or still joining the cluster map.
 A pod being replaced during a rollout looks the same as a target that has left, so the operator waits for the pod to settle.
 
-With autoscaling, the operator starts removing targets only while the unready targets that the StatefulSet keeps are within `targetSpec.autoScale.maxUnavailable`.
-Outgoing targets do not count against it.
+With autoscaling, while a target within the desired size is unavailable, the operator keeps up to `targetSpec.autoScale.maxUnavailable` targets above the desired size.
+With `0`, the default, scale-down goes to the desired size.
+The operator does not keep a target that it already started to put in maintenance or decommission.
+Outgoing targets do not count as unavailable.
 
 With `decommission` or `safe_decommission`, scale-down also waits while a rebalance is running, and while `spec.configToUpdate.rebalance.enabled` is `false`.
 For the latter, the operator emits a `Waiting` event on the `AIStore`.
