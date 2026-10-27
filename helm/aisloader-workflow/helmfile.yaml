@@ -13,8 +13,15 @@ releases:
   - name: argo-workflows
     namespace: "{{ .Values | get \"namespace\" \"argo\" }}"
     createNamespace: true
-    chart: argo-workflows/argo-workflows
+    chart: argo/argo-workflows
     version: 2.0.14
     condition: argoWorkflows.enabled
     values:
       - "{{ .Environment.Values.argoWorkflows | get \"valuesPath\" \"\" }}"
+
+  - name: aisloader-workflow-templates
+    namespace: "{{ .Values | get \"namespace\" \"argo\" }}"
+    createNamespace: true
+    chart: ./charts/workflow-templates
+    needs:
+      - "{{ .Values | get \"namespace\" \"argo\" }}/argo-workflows"

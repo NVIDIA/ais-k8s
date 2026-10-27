@@ -1,0 +1,22 @@
+serviceAccountName: argo-workflow
+
+ttlStrategy:
+  secondsAfterCompletion: 86400 # 24 hours
+
+images:
+  ais-util: docker.io/aistorage/ais-util:latest
+
+ais:
+  endpoint: https://ais-proxy.ais.svc.cluster.local:51080
+
+tls:
+  enabled: true
+  # ConfigMap holding the AIS CA in the workflow namespace. Leave empty for a
+  # publicly trusted certificate.
+  caConfigMap: aistore.nvidia.com
+  bundleFile: ca.crt
+
+authn:
+  enabled: true
+  serviceURL: https://aisauth.ais.svc.cluster.local:52001
+  secretName: aisloader-authn-creds

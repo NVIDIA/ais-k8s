@@ -1,0 +1,50 @@
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: aisloader-bench
+  labels:
+    app.kubernetes.io/name: aisloader-workflow
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  serviceAccountName: {{ .Values.serviceAccountName }}
+  entrypoint: main
+  {{- with .Values.ttlStrategy }}
+  ttlStrategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  arguments:
+    parameters:
+      # aisloader config file, passed to `-config`. Use
+      # `-p config="$(cat conf.yaml)"` to set it as a parameter.
+      - name: config
+      # Object URI to write the object name list to, e.g. ais://lists/run-1.txt.
+      # The list step only runs when this is set, and overwrites an existing
+      # object. To reuse a list, leave this unset and set `filelist-obj` in config.
+      - name: listOut
+        value: ""
+  {{- with include "aisloader-workflow-templates.volumes" . }}
+  volumes:
+    {{- . | trim | nindent 4 }}
+  {{- end }}
+  templateDefaults:
+    {{- include "aisloader-workflow-templates.templateDefaults" . | trim | nindent 4 }}
+  templates:
+    - name: main
+      steps:
+        - - name: list
+            template: list
+            when: "{{ "{{=workflow.parameters.listOut != ''}}" }}"
+
+    - name: list
+      inputs:
+        artifacts:
+          - name: config
+            path: /etc/aisloader/config.yaml
+            raw:
+              data: "{{ "{{workflow.parameters.config}}" }}"
+      container:
+        image: {{ index .Values.images "ais-util" }}
+        command: [aisloader]
+        args:
+          - "-config=/etc/aisloader/config.yaml"
+          - "-list-out={{ "{{workflow.parameters.listOut}}" }}"
