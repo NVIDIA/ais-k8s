@@ -1408,3 +1408,28 @@ func reconcileProxy(ctx context.Context, ais *aisv1.AIStore, r *Reconciler) {
 	Expect(err).ToNot(HaveOccurred())
 	Expect(result.RequeueAfter).To(Not(BeNil()))
 }
+
+func expectOnDeleteBeforeTemplateUpdate(ctx context.Context, ais *aisv1.AIStore, r *Reconciler, ssName string,
+	reconcile func(context.Context, *aisv1.AIStore, *Reconciler),
+) {
+	reconcile(ctx, ais, r)
+	oldImg := ais.Spec.NodeImage
+
+	By("Set the statefulset to RollingUpdate")
+	ss := getStatefulSet(ctx, ais, k8sClient, ssName)
+	ss.Spec.UpdateStrategy = appsv1.StatefulSetUpdateStrategy{Type: appsv1.RollingUpdateStatefulSetStrategyType}
+	Expect(k8sClient.Update(ctx, &ss)).To(Succeed())
+	ss.Status.Replicas = *ss.Spec.Replicas
+	ss.Status.ObservedGeneration = ss.Generation
+	Expect(k8sClient.Status().Update(ctx, &ss)).To(Succeed())
+
+	By("Update node image in spec and reconcile")
+	ais.Spec.NodeImage = "testNodeImage"
+	Expect(k8sClient.Update(ctx, ais)).To(Succeed())
+	reconcile(ctx, ais, r)
+
+	By("Expect the update strategy to change before the pod template")
+	ss = getStatefulSet(ctx, ais, k8sClient, ssName)
+	Expect(ss.Spec.UpdateStrategy.Type).To(Equal(appsv1.OnDeleteStatefulSetStrategyType))
+	Expect(ss.Spec.Template.Spec.Containers[0].Image).To(Equal(oldImg))
+}

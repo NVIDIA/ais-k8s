@@ -144,28 +144,7 @@ var _ = Describe("isRolloutInProgress", func() {
 		Expect(isRolloutInProgress(ss)).To(Equal(expected))
 	}
 
-	Context("RollingUpdate (proxy)", func() {
-		DescribeTable("should correctly detect rollout state", check,
-			Entry("fresh SS with no revisions",
-				makeSS(3, 3, 0, 3, "", "", appsv1.RollingUpdateStatefulSetStrategyType),
-				false,
-			),
-			Entry("revisions match and rollout complete",
-				makeSS(3, 3, 3, 3, "rev-1", "rev-1", appsv1.RollingUpdateStatefulSetStrategyType),
-				false,
-			),
-			Entry("revisions differ, partial update",
-				makeSS(3, 3, 1, 3, "rev-1", "rev-2", appsv1.RollingUpdateStatefulSetStrategyType),
-				true,
-			),
-			Entry("revisions differ, all pods updated",
-				makeSS(3, 3, 3, 3, "rev-1", "rev-2", appsv1.RollingUpdateStatefulSetStrategyType),
-				true,
-			),
-		)
-	})
-
-	Context("OnDelete (target)", func() {
+	Context("OnDelete", func() {
 		DescribeTable("should correctly detect rollout state", check,
 			Entry("fresh SS with no revisions",
 				makeSS(3, 3, 0, 3, "", "", appsv1.OnDeleteStatefulSetStrategyType),

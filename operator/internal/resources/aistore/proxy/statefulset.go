@@ -63,9 +63,12 @@ func NewProxyStatefulSet(ais *aisv1.AIStore, size int32) *apiv1.StatefulSet {
 			Selector: &metav1.LabelSelector{
 				MatchLabels: SelectorLabels(ais),
 			},
-			ServiceName:          ais.ProxyHeadlessSVCNSName().Name,
-			PodManagementPolicy:  apiv1.ParallelPodManagement,
-			Replicas:             &size,
+			ServiceName:         ais.ProxyHeadlessSVCNSName().Name,
+			PodManagementPolicy: apiv1.ParallelPodManagement,
+			Replicas:            &size,
+			UpdateStrategy: apiv1.StatefulSetUpdateStrategy{
+				Type: apiv1.OnDeleteStatefulSetStrategyType,
+			},
 			VolumeClaimTemplates: proxyVC(ais),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{

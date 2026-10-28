@@ -872,25 +872,6 @@ var _ = Describe("handleTargetState", func() {
 	})
 
 	It("should switch a RollingUpdate target statefulset to OnDelete before it updates the pod template", func() {
-		reconcileTarget(ctx, ais, r)
-		oldImg := ais.Spec.NodeImage
-
-		By("Set the target statefulset to RollingUpdate")
-		ss := getStatefulSet(ctx, ais, k8sClient, "ais-target")
-		ss.Spec.UpdateStrategy = appsv1.StatefulSetUpdateStrategy{Type: appsv1.RollingUpdateStatefulSetStrategyType}
-		Expect(k8sClient.Update(ctx, &ss)).To(Succeed())
-		ss.Status.Replicas = *ss.Spec.Replicas
-		ss.Status.ObservedGeneration = ss.Generation
-		Expect(k8sClient.Status().Update(ctx, &ss)).To(Succeed())
-
-		By("Update node image in spec and reconcile targets")
-		ais.Spec.NodeImage = "testNodeImage"
-		Expect(k8sClient.Update(ctx, ais)).To(Succeed())
-		reconcileTarget(ctx, ais, r)
-
-		By("Expect the update strategy to change before the pod template")
-		ss = getStatefulSet(ctx, ais, k8sClient, "ais-target")
-		Expect(ss.Spec.UpdateStrategy.Type).To(Equal(appsv1.OnDeleteStatefulSetStrategyType))
-		Expect(ss.Spec.Template.Spec.Containers[0].Image).To(Equal(oldImg))
+		expectOnDeleteBeforeTemplateUpdate(ctx, ais, r, "ais-target", reconcileTarget)
 	})
 })

@@ -21,7 +21,11 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/tools/events"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -36,12 +40,12 @@ const scaleDownSize = 3
 
 // settledSS returns a proxy StatefulSet with no rollout in progress.
 func settledSS() *appsv1.StatefulSet {
-	return makeSS(scaleDownSize, scaleDownSize, scaleDownSize, scaleDownSize, currentRevision, currentRevision, appsv1.RollingUpdateStatefulSetStrategyType)
+	return makeSS(scaleDownSize, scaleDownSize, scaleDownSize, scaleDownSize, currentRevision, currentRevision, appsv1.OnDeleteStatefulSetStrategyType)
 }
 
 // rollingSS returns a proxy StatefulSet mid-rollout to updateRevision.
 func rollingSS() *appsv1.StatefulSet {
-	return makeSS(scaleDownSize, scaleDownSize, scaleDownSize-1, scaleDownSize, currentRevision, updateRevision, appsv1.RollingUpdateStatefulSetStrategyType)
+	return makeSS(scaleDownSize, scaleDownSize, scaleDownSize-1, scaleDownSize, currentRevision, updateRevision, appsv1.OnDeleteStatefulSetStrategyType)
 }
 
 // unsizedAIS returns an AIStore with no desired proxy count, for helpers that are handed the
@@ -292,5 +296,193 @@ var _ = Describe("prepareProxyScaleDown", func() {
 
 		err := reconcilerWithReadyPods(2).prepareProxyScaleDown(ctx, ais, settledSS())
 		Expect(err).To(MatchError(ContainSubstring("no pod found to set as primary")))
+	})
+})
+
+var _ = Describe("handleProxyRollout", func() {
+	type podState int
+	const (
+		ready podState = iota
+		notReady
+		unschedulable
+	)
+	type podSpec struct {
+		state    podState
+		revision string
+	}
+
+	var (
+		ais           = unsizedAIS()
+		mockCtrl      *gomock.Controller
+		apiClient     *mocks.MockAIStoreClientInterface
+		clientManager *mocks.MockAISClientManagerInterface
+		ctx           = context.TODO()
+	)
+
+	BeforeEach(func() {
+		mockCtrl = gomock.NewController(GinkgoT())
+		apiClient = mocks.NewMockAIStoreClientInterface(mockCtrl)
+		clientManager = mocks.NewMockAISClientManagerInterface(mockCtrl)
+		clientManager.EXPECT().GetClient(gomock.Any(), gomock.Any()).Return(apiClient, nil).AnyTimes()
+	})
+
+	AfterEach(func() {
+		mockCtrl.Finish()
+	})
+
+	// rolloutPod builds a proxy pod at the given index, selectable by the proxy labels.
+	rolloutPod := func(idx int32, spec podSpec) *corev1.Pod {
+		labels := proxy.SelectorLabels(ais)
+		labels[appsv1.ControllerRevisionHashLabelKey] = spec.revision
+		status := corev1.PodStatus{Phase: corev1.PodRunning}
+		switch spec.state {
+		case ready:
+			status.Conditions = []corev1.PodCondition{{Type: corev1.PodReady, Status: corev1.ConditionTrue}}
+		case unschedulable:
+			status.Phase = corev1.PodPending
+			status.Conditions = []corev1.PodCondition{{
+				Type:   corev1.PodScheduled,
+				Status: corev1.ConditionFalse,
+				Reason: corev1.PodReasonUnschedulable,
+			}}
+		}
+		return &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{Name: proxy.PodName(ais, idx), Namespace: ais.Namespace, Labels: labels},
+			Status:     status,
+		}
+	}
+
+	// rolloutSS builds an OnDelete proxy StatefulSet with a pending update to updateRevision.
+	rolloutSS := func(size int32) *appsv1.StatefulSet {
+		ss := makeSS(size, size, 0, size, currentRevision, updateRevision, appsv1.OnDeleteStatefulSetStrategyType)
+		ss.Name = ais.ProxyStatefulSetName()
+		ss.Spec.Selector = &metav1.LabelSelector{MatchLabels: proxy.SelectorLabels(ais)}
+		return ss
+	}
+
+	// expectRemaining checks that the proxy pods left are exactly those at the given indices.
+	expectRemaining := func(r *Reconciler, wantRemaining []int32) {
+		podList, err := r.k8sClient.ListPods(ctx, ais, proxy.SelectorLabels(ais))
+		Expect(err).NotTo(HaveOccurred())
+		remaining := make([]string, 0, len(podList.Items))
+		for i := range podList.Items {
+			remaining = append(remaining, podList.Items[i].Name)
+		}
+		want := make([]string, 0, len(wantRemaining))
+		for _, idx := range wantRemaining {
+			want = append(want, proxy.PodName(ais, idx))
+		}
+		Expect(remaining).To(ConsistOf(want))
+	}
+
+	DescribeTable("replaces the next outdated proxy",
+		func(primaryIdx int32, specs []podSpec, newPrimary string, wantRemaining []int32, wantWarning bool) {
+			size := int32(len(specs))
+			apiClient.EXPECT().GetClusterMap().Return(proxySmap(ais, size, primaryIdx), nil).AnyTimes()
+			// Without this expectation, the mock fails the test if the primary is reassigned.
+			if newPrimary != "" {
+				apiClient.EXPECT().SetPrimaryProxy(newPrimary, gomock.Any(), true).Return(nil)
+			}
+			builder := fake.NewClientBuilder().WithScheme(scheme.Scheme)
+			for idx, spec := range specs {
+				builder = builder.WithObjects(rolloutPod(int32(idx), spec))
+			}
+			recorder := events.NewFakeRecorder(8)
+			r := &Reconciler{k8sClient: aisclient.NewClient(builder.Build(), scheme.Scheme), clientManager: clientManager, recorder: recorder}
+			ss := rolloutSS(size)
+
+			Expect(r.handleProxyRollout(ctx, ais, ss)).To(Succeed())
+
+			expectRemaining(r, wantRemaining)
+			if wantWarning {
+				Expect(recorder.Events).To(Receive(ContainSubstring("Warning " + EventReasonNoPrimaryCandidate)))
+			} else {
+				Expect(recorder.Events).To(BeEmpty())
+			}
+		},
+		Entry("replaces the lowest outdated proxy",
+			int32(2), []podSpec{{ready, currentRevision}, {ready, currentRevision}, {ready, currentRevision}},
+			"", []int32{1, 2}, false),
+		Entry("waits while an updated proxy is not ready",
+			int32(2), []podSpec{{notReady, updateRevision}, {ready, currentRevision}, {ready, currentRevision}},
+			"", []int32{0, 1, 2}, false),
+		Entry("does not wait on an unschedulable proxy",
+			int32(2), []podSpec{{ready, updateRevision}, {unschedulable, updateRevision}, {ready, currentRevision}},
+			"p0", []int32{0, 1, 2}, false),
+		Entry("hands off the primary to the lowest ready proxy when the rollout reaches the primary",
+			int32(0), []podSpec{{ready, currentRevision}, {ready, currentRevision}, {ready, currentRevision}},
+			"p1", []int32{0, 1, 2}, false),
+		Entry("replaces the primary without a handoff when no other proxy is ready",
+			int32(0), []podSpec{{ready, currentRevision}, {unschedulable, updateRevision}},
+			"", []int32{1}, true),
+		Entry("replaces a single proxy",
+			int32(0), []podSpec{{ready, currentRevision}},
+			"", []int32{}, false),
+	)
+
+	DescribeTable("replaces an unready proxy without calling the AIS API",
+		func(specs []podSpec, wantRemaining []int32) {
+			// No GetClusterMap expectation: the mock fails the test if the AIS API is called.
+			builder := fake.NewClientBuilder().WithScheme(scheme.Scheme)
+			for idx, spec := range specs {
+				builder = builder.WithObjects(rolloutPod(int32(idx), spec))
+			}
+			r := &Reconciler{k8sClient: aisclient.NewClient(builder.Build(), scheme.Scheme), clientManager: clientManager}
+			ss := rolloutSS(int32(len(specs)))
+
+			Expect(r.handleProxyRollout(ctx, ais, ss)).To(Succeed())
+
+			expectRemaining(r, wantRemaining)
+		},
+		Entry("unschedulable proxy",
+			[]podSpec{{unschedulable, currentRevision}, {ready, currentRevision}}, []int32{1}),
+		Entry("single crashing proxy",
+			[]podSpec{{notReady, currentRevision}}, []int32{}),
+	)
+})
+
+var _ = Describe("handleProxyState", func() {
+	var (
+		r         *Reconciler
+		ais       *aisv1.AIStore
+		namespace string
+		ctx       = context.TODO()
+	)
+
+	BeforeEach(func() {
+		namespace = "ais-test-" + rand.String(10)
+		Expect(k8sClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace}})).To(Succeed())
+
+		ais = &aisv1.AIStore{
+			ObjectMeta: metav1.ObjectMeta{Name: "ais", Namespace: namespace},
+			Spec: aisv1.AIStoreSpec{
+				InitImage: "init:latest",
+				NodeImage: "node:latest",
+				ProxySpec: aisv1.DaemonSpec{
+					Size: apc.Ptr[int32](1),
+					ServiceSpec: aisv1.ServiceSpec{
+						PublicPort:       apc.Ptr(intstr.FromInt32(51080)),
+						IntraControlPort: apc.Ptr(intstr.FromInt32(51082)),
+						IntraDataPort:    apc.Ptr(intstr.FromInt32(51083)),
+					},
+				},
+				TargetSpec: aisv1.TargetSpec{
+					DaemonSpec: aisv1.DaemonSpec{Size: apc.Ptr[int32](1)},
+					Mounts:     []aisv1.Mount{{Path: "/data"}},
+				},
+				StateStorage: &aisv1.StateStorage{
+					HostPath: &aisv1.StateHostPathConfig{Prefix: "/ais"},
+				},
+			},
+		}
+		Expect(k8sClient.Create(ctx, ais)).To(Succeed())
+
+		mockCtrl := gomock.NewController(GinkgoT())
+		clientManager := mocks.NewMockAISClientManagerInterface(mockCtrl)
+		r = NewReconciler(aisclient.NewClient(k8sClient, k8sClient.Scheme()), events.NewFakeRecorder(8), ctrl.Log, clientManager)
+	})
+
+	It("should switch a RollingUpdate proxy statefulset to OnDelete before it updates the pod template", func() {
+		expectOnDeleteBeforeTemplateUpdate(ctx, ais, r, "ais-proxy", reconcileProxy)
 	})
 })

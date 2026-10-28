@@ -7,7 +7,6 @@ package e2e
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"time"
 
 	aisapi "github.com/NVIDIA/aistore/api"
@@ -17,6 +16,7 @@ import (
 	aistutils "github.com/NVIDIA/aistore/tools"
 	aisxact "github.com/NVIDIA/aistore/xact"
 	aisv1 "github.com/ais-operator/api/aistore/v1beta1"
+	"github.com/ais-operator/internal/resources/aistore/proxy"
 	"github.com/ais-operator/internal/resources/aistore/target"
 	"github.com/ais-operator/tests/tutils"
 	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
@@ -240,8 +240,8 @@ var _ = Describe("Run Controller", func() {
 			By("Upgrade w/ non-existent images")
 			cc.patchImagesToBroken(ctx)
 
-			By("Wait for highest index proxy pod to be stuck in ImagePullBackOff")
-			stuckPodName := cc.cluster.ProxyStatefulSetName() + "-" + strconv.Itoa(int(cc.cluster.GetProxySize()-1))
+			By("Wait for lowest index proxy pod to be stuck in ImagePullBackOff")
+			stuckPodName := proxy.PodName(cc.cluster, 0)
 			Eventually(func(ctx context.Context) bool {
 				return cc.podHasImagePullError(ctx, stuckPodName)
 			}, 60*time.Second, 2*time.Second).WithContext(ctx).Should(BeTrue(), "Pod %s should be stuck in ImagePullBackOff", stuckPodName)

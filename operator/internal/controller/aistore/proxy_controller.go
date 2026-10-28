@@ -7,6 +7,7 @@ package aistore
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
@@ -152,6 +153,12 @@ func (r *Reconciler) handleProxyState(ctx context.Context, ais *aisv1.AIStore) (
 		"rolloutNeeded", rolloutNeeded, "scalingNeeded", scalingNeeded,
 	)
 
+	if strategyUpdated, strategyErr := r.setOnDeleteUpdateStrategy(ctx, ss); strategyErr != nil {
+		return result, strategyErr
+	} else if strategyUpdated {
+		return ctrl.Result{RequeueAfter: statefulsetRequeueDelay}, nil
+	}
+
 	// Apply template update (blocked by scaling in progress)
 	if rolloutNeeded && !settling {
 		if updated, err := r.syncProxyPodSpec(ctx, ais, ss); err != nil {
@@ -241,23 +248,6 @@ func (r *Reconciler) syncProxyPodSpec(ctx context.Context, ais *aisv1.AIStore, s
 	}
 
 	updatedSS := ss.DeepCopy()
-	// Any change to pod template will trigger a new rollout, so any changes to the SS should happen here
-	// If we have an active cluster, set primary to 0 before triggering rollout
-	if updatedSS.Status.ReadyReplicas > 0 {
-		err = r.setPrimaryTo(ctx, ais, 0)
-		if err != nil {
-			logger.Error(err, "failed to set primary proxy", "podIndex", 0)
-			return
-		}
-		logger.Info("Updated primary to pod", "pod", proxy.PodName(ais, 0), "reason", reason)
-		// Block updating the primary
-		updatedSS.Spec.UpdateStrategy = appsv1.StatefulSetUpdateStrategy{
-			Type: appsv1.RollingUpdateStatefulSetStrategyType,
-			RollingUpdate: &appsv1.RollingUpdateStatefulSetStrategy{
-				Partition: aisapc.Ptr(int32(1)),
-			},
-		}
-	}
 	syncPodTemplate(desiredTemplate, &updatedSS.Spec.Template)
 	updated = true
 	logger.Info("Proxy pod template spec modified", "reason", reason)
@@ -286,69 +276,63 @@ func (r *Reconciler) syncProxyPVCRetentionPolicy(ctx context.Context, ais *aisv1
 	return true, nil
 }
 
+// handleProxyRollout deletes at most one outdated proxy pod per call. It moves the primary role off
+// a pod before it deletes that pod.
 func (r *Reconciler) handleProxyRollout(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) error {
-	// If rollout is complete, current revision will match update revision
-	if ss.Status.UpdateRevision == ss.Status.CurrentRevision {
+	podName := r.findPodNeedingUpdate(ctx, ais, ss)
+	if podName == "" {
 		return nil
 	}
-
-	// Reset partition to update last pod
-	if shouldResetPartition(ss) {
-		err := r.setHighestPodAsPrimary(ctx, ais, ss)
-		if err != nil {
-			return err
-		}
-		err = r.resetSSPartition(ctx, ss)
-		if err != nil {
-			return err
-		}
+	handedOff, err := r.handOffPrimary(ctx, ais, podName, *ss.Spec.Replicas)
+	if err != nil {
+		return err
 	}
+	if handedOff {
+		return nil
+	}
+	if _, err = r.k8sClient.DeletePodIfExists(ctx, types.NamespacedName{Name: podName, Namespace: ais.Namespace}); err != nil {
+		return fmt.Errorf("failed to delete pod %s: %w", podName, err)
+	}
+	logf.FromContext(ctx).Info("Deleted pod for rollout", "pod", podName)
 	return nil
 }
 
-// With statefulset rolling update strategy, pods are updated in descending order of their pod index.
-// This implies the pod with the largest index is the oldest proxy, and we set it as primary.
-func (r *Reconciler) setHighestPodAsPrimary(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) (err error) {
-	logger := logf.FromContext(ctx).WithValues("statefulset", ss.Name)
-	podIndex := *ss.Spec.Replicas - 1
-	logger.Info("Setting highest pod as primary", "podIndex", podIndex)
-	err = r.setPrimaryTo(ctx, ais, podIndex)
+// handOffPrimary moves the primary role off podName when podName is a ready primary. It reports whether
+// it moved the primary role.
+func (r *Reconciler) handOffPrimary(ctx context.Context, ais *aisv1.AIStore, podName string, size int32) (bool, error) {
+	logger := logf.FromContext(ctx)
+	pod, err := r.k8sClient.GetPod(ctx, types.NamespacedName{Name: podName, Namespace: ais.Namespace})
 	if err != nil {
-		logger.Error(err, "failed to set primary proxy", "podIndex", podIndex)
+		return false, fmt.Errorf("failed to get pod %s: %w", podName, err)
 	}
-	return
-}
-
-func shouldResetPartition(ss *appsv1.StatefulSet) bool {
-	// Not using rolling update
-	if ss.Spec.UpdateStrategy.RollingUpdate == nil {
-		return false
+	// If the pod is not ready it's not a valid primary. Either this pod was not primary or AIS will
+	// have already elected a new one. No need to reassign the primary role.
+	if !isPodReady(pod) {
+		logger.V(1).Info("Skipping primary handoff for unready pod", "pod", podName)
+		return false, nil
 	}
-	// Already reset
-	if *ss.Spec.UpdateStrategy.RollingUpdate.Partition == int32(0) {
-		return false
-	}
-	// Reset to allow updating the last pod (lowest ordinal)
-	return ss.Status.CurrentReplicas == 1
-}
-
-func (r *Reconciler) resetSSPartition(ctx context.Context, ss *appsv1.StatefulSet) (err error) {
-	logger := logf.FromContext(ctx).WithValues("statefulset", ss.Name)
-	logger.Info("Removing partition from rolling update strategy")
-	// Revert statefulset partition spec
-	updatedSS := ss.DeepCopy()
-	updatedSS.Spec.UpdateStrategy = appsv1.StatefulSetUpdateStrategy{
-		Type: appsv1.RollingUpdateStatefulSetStrategyType,
-		RollingUpdate: &appsv1.RollingUpdateStatefulSetStrategy{
-			Partition: aisapc.Ptr(int32(0)),
-		},
-	}
-	patch := client.MergeFrom(ss)
-	err = r.k8sClient.Patch(ctx, updatedSS, patch)
+	apiClient, err := r.clientManager.GetClient(ctx, ais)
 	if err != nil {
-		logger.Error(err, "failed to patch statefulset update strategy")
+		return false, err
 	}
-	return
+	smap, err := apiClient.GetClusterMap()
+	if err != nil {
+		return false, err
+	}
+	if smap.Primary == nil || !hostnameMatchesPod(smap.Primary.ControlNet.Hostname, podName) {
+		return false, nil
+	}
+	for idx := range size {
+		if proxy.PodName(ais, idx) != podName && r.isIndexValidNewPrimary(ctx, ais, smap, idx, "") {
+			return true, r.setPrimaryTo(ctx, ais, idx)
+		}
+	}
+	logger.Info("No proxy can take over as primary", "pod", podName)
+	if size > 1 {
+		r.recorder.Eventf(ais, pod, corev1.EventTypeWarning, EventReasonNoPrimaryCandidate, ActionRolloutProxies,
+			"No other proxy can take over as primary from %s", podName)
+	}
+	return false, nil
 }
 
 func (r *Reconciler) setPrimaryTo(ctx context.Context, ais *aisv1.AIStore, podIdx int32) error {
@@ -426,8 +410,8 @@ func (r *Reconciler) ensurePrimarySurvivesScaleDown(ctx context.Context, ais *ai
 }
 
 // isIndexValidNewPrimary reports whether a proxy at the given index is valid for primary assignment
-// It must be a ready pod, active in the AIStore cluster map, and not planned for rollout upgrade
-func (r *Reconciler) isIndexValidNewPrimary(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet, smap *aismeta.Smap, idx int32) bool {
+// It must be a ready pod, active in the AIStore cluster map, and on revision when revision is not empty
+func (r *Reconciler) isIndexValidNewPrimary(ctx context.Context, ais *aisv1.AIStore, smap *aismeta.Smap, idx int32, revision string) bool {
 	logger := logf.FromContext(ctx)
 	podName := proxy.PodName(ais, idx)
 	node, err := findAISNodeByPodName(smap.Pmap, podName)
@@ -438,11 +422,11 @@ func (r *Reconciler) isIndexValidNewPrimary(ctx context.Context, ais *aisv1.AISt
 	if smap.InMaintOrDecomm(node.ID()) {
 		return false
 	}
-	return r.isPodValidNewPrimary(ctx, types.NamespacedName{Name: podName, Namespace: ais.Namespace}, ss)
+	return r.isPodValidNewPrimary(ctx, types.NamespacedName{Name: podName, Namespace: ais.Namespace}, revision)
 }
 
-// isPodValidNewPrimary reports whether a pod is ready and on the update revision when one is available.
-func (r *Reconciler) isPodValidNewPrimary(ctx context.Context, name types.NamespacedName, ss *appsv1.StatefulSet) bool {
+// isPodValidNewPrimary reports whether a pod is ready and on revision when revision is not empty.
+func (r *Reconciler) isPodValidNewPrimary(ctx context.Context, name types.NamespacedName, revision string) bool {
 	logger := logf.FromContext(ctx)
 	pod, err := r.k8sClient.GetPod(ctx, name)
 	if err != nil {
@@ -453,11 +437,11 @@ func (r *Reconciler) isPodValidNewPrimary(ctx context.Context, name types.Namesp
 		logger.Info("Pod is not ready: invalid as new primary", "podName", name.Name)
 		return false
 	}
-	if ss.Status.UpdateRevision != "" && !isPodOnRevision(pod, ss.Status.UpdateRevision) {
+	if revision != "" && !isPodOnRevision(pod, revision) {
 		logger.Info("Pod is not on the latest revision: invalid as new primary",
 			"podName", name.Name,
 			"podRevision", pod.Labels[appsv1.ControllerRevisionHashLabelKey],
-			"updateRevision", ss.Status.UpdateRevision,
+			"updateRevision", revision,
 		)
 		return false
 	}
@@ -468,7 +452,7 @@ func (r *Reconciler) isPodValidNewPrimary(ctx context.Context, name types.Namesp
 func (r *Reconciler) setLowestEligiblePodAsPrimary(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet, smap *aismeta.Smap, desiredSize int32) error {
 	logger := logf.FromContext(ctx)
 	for idx := range desiredSize {
-		if !r.isIndexValidNewPrimary(ctx, ais, ss, smap, idx) {
+		if !r.isIndexValidNewPrimary(ctx, ais, smap, idx, ss.Status.UpdateRevision) {
 			continue
 		}
 		err := r.setPrimaryTo(ctx, ais, idx)

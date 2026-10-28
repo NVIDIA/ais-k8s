@@ -20,6 +20,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
   - Only read by AIStore v5.2.0 or later.
 - Fixed a bug where a recreated StatefulSet in OnDelete mode, or one updated to OnDelete mode, would not re-trigger pod rollout on a reverted upgrade.
 - Fixed a bug where target StatefulSets created before v2.7.0 kept the `RollingUpdate` update strategy, letting target rollouts skip maintenance.
+- Proxy StatefulSet uses the `OnDelete` update strategy, so an unschedulable proxy pod no longer stalls a proxy rollout.
 
 ---
 

@@ -423,24 +423,19 @@ func isStatusCurrent(ss *appsv1.StatefulSet) bool {
 	return ss.Status.ObservedGeneration >= ss.Generation
 }
 
-// isRolloutInProgress returns true if a StatefulSet has an active rollout.
-//   - RollingUpdate: K8s only bumps CurrentRevision when all pods are updated AND ready,
-//     so CurrentRevision != UpdateRevision naturally gates on readiness.
-//   - OnDelete: K8s never bumps CurrentRevision. Fall back to checking whether any
-//     existing pods still carry a stale revision via UpdatedReplicas (no readiness guarantee).
-//     Compare against min(Spec, Status) because UpdatedReplicas excludes terminating pods
-//     while Status.Replicas includes them. Using Status.Replicas alone would false-positive
-//     during scale-down (e.g. Updated=2, Status=3 with a terminating pod looks like a rollout).
-//     Using Spec.Replicas alone would false-positive during scale-up (e.g. Updated=2, Spec=4
-//     with new pods starting looks like a rollout).
+// isRolloutInProgress returns true if any existing pod of the StatefulSet is not on the update
+// revision. With OnDelete, K8s never bumps CurrentRevision, so this relies on UpdatedReplicas
+// (no readiness guarantee).
+// Compare against min(Spec, Status) because UpdatedReplicas excludes terminating pods
+// while Status.Replicas includes them. Using Status.Replicas alone would false-positive
+// during scale-down (e.g. Updated=2, Status=3 with a terminating pod looks like a rollout).
+// Using Spec.Replicas alone would false-positive during scale-up (e.g. Updated=2, Spec=4
+// with new pods starting looks like a rollout).
 func isRolloutInProgress(ss *appsv1.StatefulSet) bool {
 	if ss.Status.UpdateRevision == "" {
 		return false
 	}
-	if ss.Spec.UpdateStrategy.Type == appsv1.OnDeleteStatefulSetStrategyType {
-		return ss.Status.UpdatedReplicas < min(*ss.Spec.Replicas, ss.Status.Replicas)
-	}
-	return ss.Status.CurrentRevision != ss.Status.UpdateRevision
+	return ss.Status.UpdatedReplicas < min(*ss.Spec.Replicas, ss.Status.Replicas)
 }
 
 // replicasSettling returns true if pods are actively being created or terminated

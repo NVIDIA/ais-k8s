@@ -17,6 +17,7 @@ const (
 	EventReasonDeleted               = "CRDeleted"
 	EventReasonUpdated               = "CRUpdated"
 	EventReasonUnconfirmedRemoval    = "UnconfirmedRemoval"
+	EventReasonNoPrimaryCandidate    = "NoPrimaryCandidate"
 )
 
 // Actions to be used in events
@@ -31,4 +32,5 @@ const (
 	ActionInitTargets       = "InitTargets"
 	ActionInitProxies       = "InitProxies"
 	ActionScaleDownTargets  = "ScaleDownTargets"
+	ActionRolloutProxies    = "RolloutProxies"
 )
