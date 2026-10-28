@@ -286,9 +286,11 @@ var _ = Describe("Target NewInitContainerEnv", Label("short"), func() {
 			cmn.EnvFromValue(cmn.EnvEnableExternalAccess, "false"),
 			cmn.EnvFromValue(cmn.EnvPublicDNSMode, string(aisv1.PubNetDNSModeIP)),
 			cmn.EnvFromValue(cmn.EnvPublicHostname, "$(MY_POD).ais.example.com"),
+			cmn.EnvFromValue(cmn.EnvPublicHostnameOverride, "$(MY_POD).ais.example.com"),
 		))
 		names := envNames(env)
-		Expect(slices.Index(names, cmn.EnvPodName)).To(And(BeNumerically(">=", 0), BeNumerically("<", slices.Index(names, cmn.EnvPublicHostname))))
+		podIdx := slices.Index(names, cmn.EnvPodName)
+		Expect(podIdx).To(And(BeNumerically(">=", 0), BeNumerically("<", slices.Index(names, cmn.EnvPublicHostname)), BeNumerically("<", slices.Index(names, cmn.EnvPublicHostnameOverride))))
 		// aisinit discards the public hostname of targets on the host network in IP mode.
 		Expect(names).NotTo(ContainElement(cmn.EnvHostNetwork))
 	})
@@ -299,7 +301,9 @@ var _ = Describe("Target NewInitContainerEnv", Label("short"), func() {
 			cmn.EnvFromValue(cmn.EnvEnableExternalAccess, "true"),
 			cmn.EnvFromValue(cmn.EnvPublicDNSMode, string(aisv1.PubNetDNSModePod)),
 		))
-		Expect(envNames(env)).NotTo(ContainElement(cmn.EnvPublicHostname))
+		names := envNames(env)
+		Expect(names).NotTo(ContainElement(cmn.EnvPublicHostname))
+		Expect(names).NotTo(ContainElement(cmn.EnvPublicHostnameOverride))
 	})
 
 	It("should advertise the host IP for hostPort without external access", func() {

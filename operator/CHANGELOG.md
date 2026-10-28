@@ -14,6 +14,11 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 - `targetSpec.scaleDownMode` `discard` to decommission outgoing targets without a rebalance and delete their on-disk data.
 
+### Changed
+
+- Targets with `targetSpec.externalAccess.dns` now also set `AIS_PUBLIC_HOSTNAME_OVERRIDE` to `<pod-name>.<domain>`.
+  - Only read by AIStore v5.2.0 or later.
+
 ---
 
 ## v4.2.0

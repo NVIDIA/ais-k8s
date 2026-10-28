@@ -18,11 +18,12 @@ const (
 	EnvNS          = "K8S_NS"     // K8s Namespace where `pod` is deployed
 	EnvServiceName = "MY_SERVICE" // K8s service associated with Pod
 
-	EnvCluster              = "AIS_CLUSTER_NAME" // Name of the AIStore resource
-	EnvPublicHostname       = "AIS_PUBLIC_HOSTNAME"
-	EnvPublicDNSMode        = "AIS_PUBLIC_DNS_MODE"    // Determines what DNS name to use for the public network
-	EnvClusterDomain        = "AIS_K8S_CLUSTER_DOMAIN" // K8s cluster DNS domain
-	EnvEnableExternalAccess = "ENABLE_EXTERNAL_ACCESS" // Bool flag to indicate AIS is exposed using LoadBalancer
+	EnvCluster                = "AIS_CLUSTER_NAME" // Name of the AIStore resource
+	EnvPublicHostname         = "AIS_PUBLIC_HOSTNAME"
+	EnvPublicHostnameOverride = "AIS_PUBLIC_HOSTNAME_OVERRIDE" // Public hostname that aisinit sets in the config, taking precedence over other networking variables
+	EnvPublicDNSMode          = "AIS_PUBLIC_DNS_MODE"          // Determines what DNS name to use for the public network
+	EnvClusterDomain          = "AIS_K8S_CLUSTER_DOMAIN"       // K8s cluster DNS domain
+	EnvEnableExternalAccess   = "ENABLE_EXTERNAL_ACCESS"       // Bool flag to indicate AIS is exposed using LoadBalancer
 
 	EnvHostNetwork = "HOST_NETWORK" // Bool flag to indicate if host network is enabled for target
 

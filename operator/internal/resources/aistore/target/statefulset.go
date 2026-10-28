@@ -134,13 +134,16 @@ func NewInitContainerEnv(ais *aisv1.AIStore) []corev1.EnvVar {
 
 // publicDomainEnv makes aisinit advertise <pod>.<domain> as the target's public hostname.
 func publicDomainEnv(domain string) []corev1.EnvVar {
+	hostname := "$(" + cmn.EnvPodName + ")." + domain
 	return []corev1.EnvVar{
 		// If the public domain option is set, this tells AIS to use public domain DNS for target redirects.
-		// aisinit replaces the public hostname with the LoadBalancer IP if `ENABLE_EXTERNAL_ACCESS` is true.
-		// Instead, force AIS_PUBLIC_HOSTNAME to the pod under the public DNS domain and skip that override.
+		// AIS versions before 5.2 ignore AIS_PUBLIC_HOSTNAME_OVERRIDE. For them, aisinit replaces the public
+		// hostname with the LoadBalancer IP if `ENABLE_EXTERNAL_ACCESS` is true, so force the pod hostname
+		// through AIS_PUBLIC_HOSTNAME and skip that replacement.
 		cmn.EnvFromValue(cmn.EnvEnableExternalAccess, "false"),
 		cmn.EnvFromValue(cmn.EnvPublicDNSMode, string(aisv1.PubNetDNSModeIP)),
-		cmn.EnvFromValue(cmn.EnvPublicHostname, "$("+cmn.EnvPodName+")."+domain),
+		cmn.EnvFromValue(cmn.EnvPublicHostname, hostname),
+		cmn.EnvFromValue(cmn.EnvPublicHostnameOverride, hostname),
 	}
 }
 
