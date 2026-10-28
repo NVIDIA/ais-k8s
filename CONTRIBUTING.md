@@ -13,9 +13,10 @@ To contribute to AIStore:
 3. [Test changes](#testing-changes)
 4. [Format changes](#formatting-operator-changes)
 5. [Update changelog](#update-changelog)
-6. [Commit changes (w/ sign-off)](#signing-off-commits)
-7. [Squash commits](#squashing-commits)
-8. [Create a pull request](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request-from-a-fork)
+6. [Update documentation](#documentation) in the same commit as a behavior change
+7. [Commit changes (w/ sign-off)](#signing-off-commits)
+8. [Squash commits](#squashing-commits)
+9. [Create a pull request](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request-from-a-fork)
 
 ### Formatting Operator Changes
 
@@ -40,6 +41,41 @@ $ make fmt-fix
 
 Before committing any changes, run the following tests to verify any added changes to the codebase.
 Refer to operator [Development](operator/README.md#development) and [Test](operator/README.md#testing) sections for more details.
+
+### Documentation
+
+These rules apply to all documentation in the repository, including `docs/` and component READMEs.
+
+**Scope**
+
+- Explain operator and AIS behavior: what the operator creates or reconciles, and how AIS responds to each setting.
+- Do not explain Kubernetes internals. When a Kubernetes concept is needed, link to the [Kubernetes documentation](https://kubernetes.io/docs/).
+- Do not restate content from the [AIStore documentation](https://github.com/NVIDIA/aistore/tree/main/docs). Link to it.
+- Do not document internals that change often, such as precedence or fallback order, unless the reader needs them to configure the feature.
+
+**Structure**
+
+- Give each fact one home. Before writing, search the existing documentation for it. If it exists, link to its heading instead of copying it.
+- Give each feature that spans several settings, resources, or components its own document. Examples are `docs/tls.md`, `docs/authn.md`, `docs/multihome.md`, and `docs/node_replacement.md`. Other documents summarize it in one or two sentences and link to it.
+- Link every new document from [`docs/README.md`](./docs/README.md). Update the links when a document moves or is removed.
+- Keep long manifests out of the text and link to them instead.
+  - Put custom resource examples, such as `AIStore` and `AIStoreAuth`, in `operator/config/samples/`.
+  - Put other resource or configuration samples in `docs/samples/`.
+- Keep documented config fields and values that are still supported. Do not remove a deprecated one. Mark it with a `> **Deprecated:**` note that links to its replacement.
+
+**Style**
+
+- Explain what each setting or action does. An imperative is acceptable when the same sentence states the result, such as "Set `spec.targetSpec.disablePodAntiAffinity: true` to allow the operator to place several targets on one node".
+- Do not write a sequence of instructions or a list of settings to configure, unless the document is a guide for one task or mode. Write other documents so that a new option does not require a change to them.
+- A guide covers the main path of its task only. Link to the feature document for options and variants. Do not enumerate every option, variant, or edge case.
+- Do not write verification checklists, "stop if" conditions, or "do not assume" statements. Warn about a risk when an action has a significant negative effect, such as data loss, an outage, or a change that cannot be undone. State the warning as the consequence.
+- Show commands and manifests in code blocks. Introduce each with a sentence that states the result.
+- Name config fields by their full path in backticks, such as `spec.targetSpec.disablePodAntiAffinity`.
+- Write in plain, direct English, following the spirit of [ASD-STE100 Simplified Technical English](https://www.asd-ste100.org/). Prefer the active voice, and use the same word for the same thing.
+- Write each sentence of regular prose on its own line. Bulleted text is exempt.
+- Write complete sentences, not run-on sentences. Split a sentence that states more than one idea. Use semicolons and em dashes sparingly.
+- Be concise. Include only what the reader needs to act.
+- Match the style, heading structure, and level of detail of the surrounding file.
 
 ### Signing-Off Commits
 

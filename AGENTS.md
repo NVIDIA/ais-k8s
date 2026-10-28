@@ -12,7 +12,7 @@ Key subprojects:
 - `auth/keycloak/` — sample local deployment of Keycloak, one alternative AuthN provider AIStore can be configured to use.
 - `ais-operator-helper/` — Go image holding `cleanup-helper`, which the operator runs as a cleanup job.
 - `log-sidecar/` — distroless `tail` image the operator can attach to AIS pods as a log sidecar.
-- `docs/` — documentation covering deployment, auth, storage, networking, and troubleshooting (see `docs/README.md`).
+- `docs/` — documentation covering deployment, auth, storage, networking, and troubleshooting (see `docs/README.md`). Follow the [documentation rules](CONTRIBUTING.md#documentation).
 - `local/` — `kind`-based local development cluster. `test-cluster.sh` is the entry point; `start-kind.sh`, `cluster-setup.sh`, and `delete-cluster.sh` cover the individual steps.
 - `monitoring/` — Helm charts for the observability stack (kube-prometheus, Loki, Alloy, kube-state-metrics).
 - `manifests/` — standalone manifests for cloud providers and Multus networking.
