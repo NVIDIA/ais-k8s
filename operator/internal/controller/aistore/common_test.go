@@ -5,15 +5,22 @@
 package aistore
 
 import (
+	"context"
+
 	"github.com/NVIDIA/aistore/api/apc"
 	aismeta "github.com/NVIDIA/aistore/core/meta"
+	aisv1 "github.com/ais-operator/api/aistore/v1beta1"
+	aisclient "github.com/ais-operator/internal/client"
 	"github.com/ais-operator/internal/resources/aistore/cmn"
+	"github.com/ais-operator/internal/resources/aistore/target"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 var _ = Describe("compareEnvWithIgnored", func() {
@@ -983,5 +990,83 @@ var _ = Describe("statefulsetReady", func() {
 			makeSS(3, 2, 2, 2, "rev-1", "rev-1", appsv1.RollingUpdateStatefulSetStrategyType),
 			int32(3), int32(2), true, false,
 		),
+	)
+})
+
+var _ = Describe("isPodRolloutCompleted", func() {
+	podWithCondition := func(condType corev1.PodConditionType, status corev1.ConditionStatus, reason string) *corev1.Pod {
+		return &corev1.Pod{Status: corev1.PodStatus{
+			Conditions: []corev1.PodCondition{{Type: condType, Status: status, Reason: reason}},
+		}}
+	}
+
+	DescribeTable("reports whether a pod has finished rolling out",
+		func(pod *corev1.Pod, expected bool) {
+			Expect(isPodRolloutCompleted(pod)).To(Equal(expected))
+		},
+		Entry("ready pod", podWithCondition(corev1.PodReady, corev1.ConditionTrue, ""), true),
+		Entry("unschedulable pod", podWithCondition(corev1.PodScheduled, corev1.ConditionFalse, corev1.PodReasonUnschedulable), true),
+		Entry("not-ready pod", podWithCondition(corev1.PodReady, corev1.ConditionFalse, ""), false),
+		Entry("nil pod", nil, false),
+	)
+})
+
+var _ = Describe("findPodNeedingUpdate", func() {
+	type podState int
+	const (
+		ready podState = iota
+		notReady
+		unschedulable
+	)
+	type podSpec struct {
+		state    podState
+		revision string
+	}
+
+	ais := &aisv1.AIStore{ObjectMeta: metav1.ObjectMeta{Name: "ais", Namespace: "ais-test"}}
+
+	newPod := func(idx int32, spec podSpec) *corev1.Pod {
+		labels := target.SelectorLabels(ais)
+		labels[appsv1.ControllerRevisionHashLabelKey] = spec.revision
+		status := corev1.PodStatus{Phase: corev1.PodRunning}
+		switch spec.state {
+		case ready:
+			status.Conditions = []corev1.PodCondition{{Type: corev1.PodReady, Status: corev1.ConditionTrue}}
+		case unschedulable:
+			status.Phase = corev1.PodPending
+			status.Conditions = []corev1.PodCondition{{
+				Type:   corev1.PodScheduled,
+				Status: corev1.ConditionFalse,
+				Reason: corev1.PodReasonUnschedulable,
+			}}
+		}
+		return &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{Name: target.PodName(ais, idx), Namespace: ais.Namespace, Labels: labels},
+			Status:     status,
+		}
+	}
+
+	DescribeTable("returns the next pod to update",
+		func(specs []podSpec, expected string) {
+			builder := fake.NewClientBuilder().WithScheme(scheme.Scheme)
+			for idx, spec := range specs {
+				builder = builder.WithObjects(newPod(int32(idx), spec))
+			}
+			r := &Reconciler{k8sClient: aisclient.NewClient(builder.Build(), scheme.Scheme)}
+			size := int32(len(specs))
+			ss := makeSS(size, size, 0, size, "rev-1", "rev-2", appsv1.OnDeleteStatefulSetStrategyType)
+			ss.Name = ais.TargetStatefulSetName()
+			ss.Spec.Selector = &metav1.LabelSelector{MatchLabels: target.SelectorLabels(ais)}
+
+			Expect(r.findPodNeedingUpdate(context.TODO(), ais, ss)).To(Equal(expected))
+		},
+		Entry("returns the lowest outdated pod",
+			[]podSpec{{ready, "rev-2"}, {ready, "rev-1"}, {ready, "rev-1"}}, "ais-target-1"),
+		Entry("waits while the previous pod is not ready",
+			[]podSpec{{notReady, "rev-2"}, {ready, "rev-1"}}, ""),
+		Entry("does not wait on an unschedulable previous pod",
+			[]podSpec{{unschedulable, "rev-2"}, {ready, "rev-1"}}, "ais-target-1"),
+		Entry("returns an empty string when all pods are updated",
+			[]podSpec{{ready, "rev-2"}, {ready, "rev-2"}}, ""),
 	)
 })

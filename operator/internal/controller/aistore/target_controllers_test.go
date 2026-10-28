@@ -31,58 +31,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-var _ = Describe("isPodRolloutCompleted", func() {
-	It("returns true when pod has a Ready condition", func() {
-		pod := &corev1.Pod{
-			Status: corev1.PodStatus{
-				Conditions: []corev1.PodCondition{
-					{
-						Type:   corev1.PodReady,
-						Status: corev1.ConditionTrue,
-					},
-				},
-			},
-		}
-
-		Expect(isPodRolloutCompleted(pod)).To(BeTrue())
-	})
-
-	It("returns true for an unschedulable pod so rollout can continue", func() {
-		pod := &corev1.Pod{
-			Status: corev1.PodStatus{
-				Conditions: []corev1.PodCondition{
-					{
-						Type:   corev1.PodScheduled,
-						Status: corev1.ConditionFalse,
-						Reason: corev1.PodReasonUnschedulable,
-					},
-				},
-			},
-		}
-
-		Expect(isPodRolloutCompleted(pod)).To(BeTrue())
-	})
-
-	It("returns false for a generic not-ready pod", func() {
-		pod := &corev1.Pod{
-			Status: corev1.PodStatus{
-				Conditions: []corev1.PodCondition{
-					{
-						Type:   corev1.PodReady,
-						Status: corev1.ConditionFalse,
-					},
-				},
-			},
-		}
-
-		Expect(isPodRolloutCompleted(pod)).To(BeFalse())
-	})
-
-	It("returns false when pod is nil", func() {
-		Expect(isPodRolloutCompleted(nil)).To(BeFalse())
-	})
-})
-
 var _ = Describe("prepareTargetForRollout", func() {
 	var (
 		r         *Reconciler

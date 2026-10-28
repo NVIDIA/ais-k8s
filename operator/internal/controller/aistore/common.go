@@ -455,6 +455,80 @@ func replicasSettling(ss *appsv1.StatefulSet) bool {
 	return ss.Status.Replicas != *ss.Spec.Replicas
 }
 
+func isPodActive(pod *corev1.Pod) bool {
+	return pod != nil && pod.DeletionTimestamp == nil
+}
+
+func isPodRolloutCompleted(pod *corev1.Pod) bool {
+	if !isPodActive(pod) {
+		return false
+	}
+	// An unschedulable pod can't become Ready on its own. A new spec (affinity, tolerations,
+	// mounts) may let it schedule once recreated; if it doesn't, we still treat its rollout as
+	// complete so later ordinals can advance instead of stalling.
+	if isPodUnschedulable(pod) {
+		return true
+	}
+	return isPodReady(pod)
+}
+
+// podName returns the name of the pod of ss with the given ordinal.
+func podName(ss *appsv1.StatefulSet, ordinal int32) string {
+	return fmt.Sprintf("%s-%d", ss.Name, ordinal)
+}
+
+// findPodNeedingUpdate returns the first pod of ss that is not on the update revision. It returns an
+// empty string when no pod can be updated now.
+func (r *Reconciler) findPodNeedingUpdate(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) string {
+	logger := logf.FromContext(ctx).WithValues("statefulset", ss.Name)
+	podList, err := r.k8sClient.ListPods(ctx, ais, ss.Spec.Selector.MatchLabels)
+	if err != nil {
+		logger.Error(err, "Failed to list pods")
+		return ""
+	}
+	podMap := make(map[string]*corev1.Pod, len(podList.Items))
+	for i := range podList.Items {
+		pod := &podList.Items[i]
+		podMap[pod.Name] = pod
+	}
+
+	for idx := range *ss.Spec.Replicas {
+		// For HA, previous pod MUST be ready before proceeding
+		if idx > 0 {
+			prevName := podName(ss, idx-1)
+			if !isPodRolloutCompleted(podMap[prevName]) {
+				logger.Info("Waiting for previous pod to be ready before proceeding with rollout", "pod", prevName)
+				return ""
+			}
+		}
+
+		name := podName(ss, idx)
+		pod := podMap[name]
+		// Do not block on current pod being ready (need to be able to rollback/fix a bad upgrade)
+		if !isPodActive(pod) {
+			logger.Info("Pod doesn't exist or is being deleted, waiting", "pod", name)
+			return ""
+		}
+
+		// Proceed to checking next pod if current pod is up-to-date
+		podRevision := pod.Labels[appsv1.ControllerRevisionHashLabelKey]
+		if podRevision == ss.Status.UpdateRevision {
+			continue
+		}
+
+		logger.Info(
+			"Found pod needing update",
+			"pod", name,
+			"currentRevision", podRevision,
+			"targetRevision", ss.Status.UpdateRevision,
+		)
+
+		return name
+	}
+
+	return ""
+}
+
 // isPodReady reports whether a pod is present, not terminating, and passing its readiness probes.
 func isPodReady(pod *corev1.Pod) bool {
 	if !isPodActive(pod) {
