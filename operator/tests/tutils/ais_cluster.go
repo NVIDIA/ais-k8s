@@ -9,6 +9,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"time"
 
 	aisapc "github.com/NVIDIA/aistore/api/apc"
 	aiscos "github.com/NVIDIA/aistore/cmn/cos"
@@ -216,6 +217,16 @@ func newAISClusterCR(args *ClusterSpecArgs, mounts []aisv1.Mount) *aisv1.AIStore
 	}
 	if args.TargetExternalAccess {
 		spec.TargetSpec.ExternalAccess = &aisv1.ExternalAccessSpec{}
+		// With a proxying LB (e.g. cloud-provider-kind), AIS < v5.2 targets exit on every restart
+		// because the LB answers the target's own public address.
+		// Temporarily raise startup_time (and join_startup_time, which must be >= 2x) so slow targets join on the first start.
+		// Can remove once tests no longer run AIS < v5.2.
+		spec.ConfigToUpdate = &aisv1.ConfigToUpdate{
+			Timeout: &aisv1.TimeoutConfToUpdate{
+				Startup:       (*aisv1.Duration)(aisapc.Ptr(int64(2 * time.Minute))),
+				JoinAtStartup: (*aisv1.Duration)(aisapc.Ptr(int64(4 * time.Minute))),
+			},
+		}
 	}
 	// If not using an LB, use the host port to provide external access
 	if !args.ProxyExternalAccess && !args.TargetExternalAccess {
