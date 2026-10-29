@@ -28,10 +28,6 @@ environments:
     values:
       - "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/operator/config/env/oci-ord.yaml?ref=main"
 
-  oci-nrt:
-    values:
-      - "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/operator/config/env/oci-nrt.yaml?ref=main"
-
   sjc4-1000:
     values:
       - "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/operator/config/env/sjc4-1000.yaml?ref=main"

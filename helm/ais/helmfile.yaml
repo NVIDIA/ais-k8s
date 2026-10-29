@@ -153,18 +153,6 @@ environments:
         localStaticProvisioner:
           enabled: false
 
-  oci-nrt:
-    values:
-      - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/ais/config/ais/oci-nrt.yaml?ref=main"
-        https:
-          enabled: false
-        cloudSecrets:
-          enabled: false
-        createTargetPV:
-          enabled: false
-        localStaticProvisioner:
-          enabled: false
-
   ais-asr-ngc-iad:
     values:
       - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git@helm/ais/config/ais/ais-asr-ngc-iad.yaml?ref=main"
