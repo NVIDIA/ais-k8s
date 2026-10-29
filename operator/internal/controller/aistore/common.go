@@ -436,13 +436,10 @@ func isRolloutInProgress(ss *appsv1.StatefulSet) bool {
 	if ss.Status.UpdateRevision == "" {
 		return false
 	}
-	if ss.Status.CurrentRevision == ss.Status.UpdateRevision {
-		return false
-	}
 	if ss.Spec.UpdateStrategy.Type == appsv1.OnDeleteStatefulSetStrategyType {
 		return ss.Status.UpdatedReplicas < min(*ss.Spec.Replicas, ss.Status.Replicas)
 	}
-	return true
+	return ss.Status.CurrentRevision != ss.Status.UpdateRevision
 }
 
 // replicasSettling returns true if pods are actively being created or terminated

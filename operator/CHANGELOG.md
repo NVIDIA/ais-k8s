@@ -18,6 +18,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 - Targets with `targetSpec.externalAccess.dns` now also set `AIS_PUBLIC_HOSTNAME_OVERRIDE` to `<pod-name>.<domain>`.
   - Only read by AIStore v5.2.0 or later.
+- Fixed a bug where a recreated StatefulSet in OnDelete mode, or one updated to OnDelete mode, would not re-trigger pod rollout on a reverted upgrade.
 
 ---
 

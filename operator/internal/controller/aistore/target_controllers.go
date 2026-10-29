@@ -682,10 +682,6 @@ func (r *Reconciler) syncTargetPVCRetentionPolicy(ctx context.Context, ais *aisv
 
 func (r *Reconciler) handleTargetRollout(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) (ctrl.Result, error) {
 	logger := logf.FromContext(ctx)
-	// Only handle rollouts if there's a revision mismatch
-	if ss.Status.UpdateRevision == "" || ss.Status.CurrentRevision == ss.Status.UpdateRevision {
-		return ctrl.Result{}, nil
-	}
 
 	// If all pods are updated and ready, rollout is complete
 	if ss.Status.UpdatedReplicas >= *ss.Spec.Replicas && ss.Status.ReadyReplicas >= *ss.Spec.Replicas {

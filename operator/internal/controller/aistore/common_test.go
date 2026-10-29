@@ -187,6 +187,11 @@ var _ = Describe("isRolloutInProgress", func() {
 				makeSS(3, 3, 0, 3, "rev-1", "rev-2", appsv1.OnDeleteStatefulSetStrategyType),
 				true,
 			),
+			// OnDelete never advances CurrentRevision, so a revert lands back on it.
+			Entry("revisions match, pods not updated (revert to the current revision)",
+				makeSS(3, 3, 1, 3, "rev-1", "rev-1", appsv1.OnDeleteStatefulSetStrategyType),
+				true,
+			),
 			Entry("scale-down with terminating pod should not false-positive as rollout",
 				// Spec=2, Status=3 (terminating pod), Updated=2 (terminating excluded)
 				makeSS(2, 3, 2, 2, "rev-1", "rev-2", appsv1.OnDeleteStatefulSetStrategyType),
