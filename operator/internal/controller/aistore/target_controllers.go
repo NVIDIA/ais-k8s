@@ -153,6 +153,12 @@ func (r *Reconciler) handleTargetState(ctx context.Context, ais *aisv1.AIStore) 
 		"rolloutNeeded", rolloutNeeded, "scalingNeeded", scalingNeeded,
 	)
 
+	if strategyUpdated, strategyErr := r.setOnDeleteUpdateStrategy(ctx, ss); strategyErr != nil {
+		return ctrl.Result{}, strategyErr
+	} else if strategyUpdated {
+		return ctrl.Result{RequeueAfter: statefulsetRequeueDelay}, nil
+	}
+
 	if policyUpdated, policyErr := r.syncTargetPVCRetentionPolicy(ctx, ais, ss); policyErr != nil {
 		return ctrl.Result{}, policyErr
 	} else if policyUpdated {

@@ -19,6 +19,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -588,6 +589,22 @@ func shouldUpdatePVCRetentionPolicy(desired, current *appsv1.StatefulSetPersiste
 	}
 
 	return !equality.Semantic.DeepEqual(desired, current)
+}
+
+// setOnDeleteUpdateStrategy sets the update strategy of the StatefulSet to OnDelete.
+func (r *Reconciler) setOnDeleteUpdateStrategy(ctx context.Context, ss *appsv1.StatefulSet) (updated bool, err error) {
+	if ss.Spec.UpdateStrategy.Type == appsv1.OnDeleteStatefulSetStrategyType {
+		return false, nil
+	}
+	logger := logf.FromContext(ctx).WithValues("statefulset", ss.Name)
+	updatedSS := ss.DeepCopy()
+	updatedSS.Spec.UpdateStrategy = appsv1.StatefulSetUpdateStrategy{Type: appsv1.OnDeleteStatefulSetStrategyType}
+	patch := client.MergeFrom(ss)
+	if err = r.k8sClient.Patch(ctx, updatedSS, patch); err != nil {
+		return false, err
+	}
+	logger.Info("Updated StatefulSet update strategy to OnDelete")
+	return true, nil
 }
 
 // isStatefulSetFullyReady reports whether the StatefulSet is at the desired size with
