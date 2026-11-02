@@ -620,7 +620,7 @@ func (r *Reconciler) prepareTargetsForScaleDown(ctx context.Context, ais *aisv1.
 }
 
 // minBatchedRemovalVersion is the first AIS version that accepts several nodes in one membership change.
-var minBatchedRemovalVersion = aiscos.Version{Major: 5, Minor: 0}
+const minBatchedRemovalVersion = "5.0"
 
 // primarySupportsBatchedRemoval reports whether the primary accepts several nodes in one membership change.
 func primarySupportsBatchedRemoval(ctx context.Context, apiClient services.AIStoreClientInterface, smap *aismeta.Smap) bool {
@@ -632,7 +632,7 @@ func primarySupportsBatchedRemoval(ctx context.Context, apiClient services.AISto
 		logf.FromContext(ctx).V(1).Info("Failed to get the AIS version of the primary", "error", err)
 		return false
 	}
-	return aiscos.SupportsVersionAtLeast(version, minBatchedRemovalVersion)
+	return aiscos.VersionAtLeast(version, minBatchedRemovalVersion)
 }
 
 // rmNodeAction names nodeIDs in a membership change.

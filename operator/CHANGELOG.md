@@ -20,6 +20,8 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ### Changed
 
+- Updated AIS library reference to [AIStore v5.2](https://github.com/NVIDIA/aistore/releases/tag/v1.5.2).
+- Updated all minor dependency versions.
 - Targets with `targetSpec.externalAccess.dns` now also set `AIS_PUBLIC_HOSTNAME_OVERRIDE` to `<pod-name>.<domain>`.
   - Only read by AIStore v5.2.0 or later.
 - Fixed a bug where a recreated StatefulSet in OnDelete mode, or one updated to OnDelete mode, would not re-trigger pod rollout on a reverted upgrade.
