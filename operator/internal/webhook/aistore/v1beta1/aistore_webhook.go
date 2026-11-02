@@ -464,25 +464,15 @@ func (aisw *AIStoreWebhook) verifyNodesAvailable(ctx context.Context, ais *aisv1
 
 // Ensure all storage classes requested by the AIS resource are available in the cluster
 func (aisw *AIStoreWebhook) verifyRequiredStorageClasses(ctx context.Context, ais *aisv1.AIStore) error {
-	scList := &storagev1.StorageClassList{}
-	err := aisw.Client.List(ctx, scList)
-	if err != nil {
-		return err
+	requiredClass := ais.Spec.StateStoragePVCStorageClass()
+	if requiredClass == nil {
+		return nil
 	}
-	scMap := make(map[string]*storagev1.StorageClass, len(scList.Items))
-	for i := range scList.Items {
-		scMap[scList.Items[i].Name] = &scList.Items[i]
+	err := aisw.Client.Get(ctx, client.ObjectKey{Name: *requiredClass}, &storagev1.StorageClass{})
+	if apierrors.IsNotFound(err) {
+		return fmt.Errorf("required storage class '%s' not found", *requiredClass)
 	}
-
-	requiredClasses := []*string{ais.Spec.StateStoragePVCStorageClass()}
-	for _, requiredClass := range requiredClasses {
-		if requiredClass != nil {
-			if _, exists := scMap[*requiredClass]; !exists {
-				return fmt.Errorf("required storage class '%s' not found", *requiredClass)
-			}
-		}
-	}
-	return nil
+	return err
 }
 
 // validateDeprecatedStateStorage rejects the state storage options that were replaced by

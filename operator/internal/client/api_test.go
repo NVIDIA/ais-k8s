@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/gomega"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -109,6 +110,19 @@ var _ = Describe("K8sClient", func() {
 			err = c.Get(ctx, client.ObjectKeyFromObject(cm), fetchCM)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(fetchCM.Data).To(Equal(updatedCM.Data))
+		})
+
+		It("should tolerate a stale cache that misses an existing object", func() {
+			cm := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "test-configmap", Namespace: ns.GetName()}}
+			staleClient := newFakeClientBuilder([]runtime.Object{cm.DeepCopy()}).WithInterceptorFuncs(interceptor.Funcs{
+				Get: func(_ context.Context, _ client.WithWatch, key client.ObjectKey, _ client.Object, _ ...client.GetOption) error {
+					return apierrors.NewNotFound(corev1.Resource("configmaps"), key.Name)
+				},
+			}).Build()
+
+			changed, err := NewClient(staleClient, staleClient.Scheme()).CreateOrUpdateResource(ctx, ais, cm)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(changed).To(BeFalse())
 		})
 
 		It("should be no-op if there is no change", func() {

@@ -425,20 +425,23 @@ func (c *K8sClient) CreateResourceIfNotExists(ctx context.Context, owner *aisv1.
 }
 
 func (c *K8sClient) CreateOrUpdateResource(ctx context.Context, owner *aisv1.AIStore, res client.Object) (changed bool, err error) {
-	exists, err := c.CreateResourceIfNotExists(ctx, owner, res)
-	if err != nil {
-		return false, err
+	if owner != nil {
+		if err = controllerutil.SetControllerReference(owner, res, c.scheme); err != nil {
+			return false, err
+		}
+		res.SetNamespace(owner.Namespace)
 	}
 
-	if !exists {
-		// resource created for first time
-		return true, nil
-	}
-
-	key := client.ObjectKeyFromObject(res)
 	existingObj := res.DeepCopyObject().(client.Object)
-	if err := c.client.Get(ctx, key, existingObj); err != nil {
-		return false, err
+	if err = c.client.Get(ctx, client.ObjectKeyFromObject(res), existingObj); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return false, err
+		}
+		// The cached Get can lag behind a recent create; the next reconcile compares the object.
+		if err = c.client.Create(ctx, res); err != nil {
+			return false, client.IgnoreAlreadyExists(err)
+		}
+		return true, nil
 	}
 	if equality.Semantic.DeepDerivative(res, existingObj) {
 		return false, nil
@@ -468,8 +471,7 @@ func allowObjNotFound(obj client.Object, err error) (bool, error) {
 		if apierrors.IsNotFound(err) || meta.IsNoMatchError(err) {
 			return false, nil
 		}
-		err = fmt.Errorf("failed to delete %s: %q (namespace %q); err %v", obj.GetObjectKind(), obj.GetName(), obj.GetNamespace(), err)
-		return false, err
+		return false, fmt.Errorf("failed to delete %T %q (namespace %q): %w", obj, obj.GetName(), obj.GetNamespace(), err)
 	}
 	return true, nil
 }

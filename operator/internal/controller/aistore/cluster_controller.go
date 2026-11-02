@@ -1180,24 +1180,25 @@ func (r *Reconciler) findAISClustersForNode(ctx context.Context, o k8sclient.Obj
 	var requests []reconcile.Request
 
 	for idx := range len(aisList.Items) {
-		ais := aisList.Items[idx]
+		ais := &aisList.Items[idx]
+		req := reconcile.Request{NamespacedName: k8sclient.ObjectKeyFromObject(ais)}
 		// the match funcs check for two things: is the node in already in the node list and does it match the node selector
 		// We check the expectedNode list, as we could be here because the node change labels.
 		// If the node change labels we queue up the reconcile and the reconcile function will handle it.
 		if ais.IsProxyAutoScaling() {
-			if r.nodeMatchesForProxy(node, &ais) {
-				requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{Namespace: ais.Namespace, Name: ais.Name}})
+			if r.nodeMatchesForProxy(node, ais) {
+				requests = append(requests, req)
 				continue
 			}
 		}
 		if ais.IsTargetAutoScaling() {
-			if r.nodeMatchesForTarget(node, &ais) {
-				requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{Namespace: ais.Namespace, Name: ais.Name}})
+			if r.nodeMatchesForTarget(node, ais) {
+				requests = append(requests, req)
 				continue
 			}
 		}
-		if r.nodeAffectsTLSCertificate(ctx, node, &ais) {
-			requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{Namespace: ais.Namespace, Name: ais.Name}})
+		if r.nodeAffectsTLSCertificate(ctx, node, ais) {
+			requests = append(requests, req)
 			continue
 		}
 
