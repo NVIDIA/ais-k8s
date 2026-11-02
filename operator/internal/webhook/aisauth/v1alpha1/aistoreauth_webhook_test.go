@@ -5,6 +5,7 @@
 package v1alpha1
 
 import (
+	"context"
 	"errors"
 	"slices"
 	"testing"
@@ -17,6 +18,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -29,6 +31,14 @@ func secretRef(name string) *corev1.LocalObjectReference {
 // newValidator builds a validator whose cached client already holds the named Secrets and
 // answers every SubjectAccessReview with the given decision.
 func newValidator(allowed bool, existing ...string) *AIStoreAuthCustomValidator {
+	objs := make([]client.Object, 0, len(existing))
+	for _, n := range existing {
+		objs = append(objs, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace, Name: n}})
+	}
+	return newValidatorWithObjects(allowed, objs...)
+}
+
+func newValidatorWithObjects(allowed bool, objs ...client.Object) *AIStoreAuthCustomValidator {
 	scheme := runtime.NewScheme()
 	if err := corev1.AddToScheme(scheme); err != nil {
 		panic(err)
@@ -36,10 +46,7 @@ func newValidator(allowed bool, existing ...string) *AIStoreAuthCustomValidator 
 	if err := authorizationv1.AddToScheme(scheme); err != nil {
 		panic(err)
 	}
-	b := fake.NewClientBuilder().WithScheme(scheme).WithInterceptorFuncs(sarInterceptor(allowed))
-	for _, n := range existing {
-		b = b.WithObjects(&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace, Name: n}})
-	}
+	b := fake.NewClientBuilder().WithScheme(scheme).WithInterceptorFuncs(sarInterceptor(allowed)).WithObjects(objs...)
 	return &AIStoreAuthCustomValidator{Client: b.Build()}
 }
 
@@ -238,6 +245,71 @@ func TestValidateNonCredentialSecretRefs(t *testing.T) {
 	}
 }
 
+func TestValidateCAConfigMapRef(t *testing.T) {
+	tests := []struct {
+		name         string
+		configMap    map[string]string // nil means the ConfigMap does not exist
+		noTLS        bool
+		denyAccess   bool
+		getFails     bool
+		wantFields   []string
+		wantWarnings int
+	}{
+		{name: "existing ConfigMap and key is admitted without warning", configMap: map[string]string{"ca.crt": "pem"}},
+		{name: "missing ConfigMap is admitted with a warning", wantWarnings: 1},
+		{name: "missing key is admitted with a warning", configMap: map[string]string{"other": "pem"}, wantWarnings: 1},
+		{name: "empty key is admitted with a warning", configMap: map[string]string{"ca.crt": ""}, wantWarnings: 1},
+		{
+			name:         "reference without AuthN TLS is admitted with a warning",
+			configMap:    map[string]string{"ca.crt": "pem"},
+			noTLS:        true,
+			wantWarnings: 1,
+		},
+		{
+			name:       "a user without get access is rejected before the ConfigMap is looked up",
+			denyAccess: true,
+			wantFields: []string{"spec.tls.caConfigMapRef"},
+		},
+		{name: "failed lookup is rejected", getFails: true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// pod annotations carry the admin credentials so that no Secret is reviewed
+			authn := newAuthN(nil, nil, nil)
+			authn.Spec.Deployment.Pod = &authv1alpha1.PodSpec{Annotations: map[string]string{"vault.hashicorp.com/agent-inject": "true"}}
+			authn.Spec.TLS = &authv1alpha1.TLSSpec{CAConfigMapRef: &authv1alpha1.CAConfigMapKeyRef{Name: "authn-ca", Key: "ca.crt"}}
+			if !tc.noTLS {
+				authn.Spec.TLS.Certificate = &authv1alpha1.TLSCertificateConfig{IssuerRef: authv1alpha1.CertIssuerRef{Name: "issuer"}}
+			}
+			var objs []client.Object
+			if tc.configMap != nil {
+				objs = append(objs, &corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace, Name: "authn-ca"},
+					Data:       tc.configMap,
+				})
+			}
+			v := newValidatorWithObjects(!tc.denyAccess, objs...)
+			if tc.getFails {
+				funcs := sarInterceptor(true)
+				funcs.Get = func(context.Context, client.WithWatch, client.ObjectKey, client.Object, ...client.GetOption) error {
+					return errors.New("boom")
+				}
+				v.Client = fake.NewClientBuilder().WithInterceptorFuncs(funcs).Build()
+			}
+			warnings, err := v.ValidateCreate(authorContext(), authn)
+			if tc.getFails != apierrors.IsInternalError(err) {
+				t.Fatalf("internal error: got %v want %t", err, tc.getFails)
+			}
+			if !tc.getFails {
+				assertResult(t, err, tc.wantFields)
+			}
+			if len(warnings) != tc.wantWarnings {
+				t.Fatalf("warnings: got %v want %d", warnings, tc.wantWarnings)
+			}
+		})
+	}
+}
+
 // A Secret that a credential field shares with a review-only field must still exist.
 func TestValidateSharedSecretMustExist(t *testing.T) {
 	authn := newAuthN(secretRef("shared"), nil, nil)
@@ -291,14 +363,23 @@ func TestValidateConfig(t *testing.T) {
 	}
 }
 
-// TestValidateUpdateAndDelete locks in that update reuses create's validation and
-// that delete is a no-op.
+// TestValidateUpdateAndDelete locks in that a spec change reuses create's validation,
+// that a write with no spec change is admitted, and that delete is a no-op.
 func TestValidateUpdateAndDelete(t *testing.T) {
 	authn := newAuthN(nil, secretRef("hmac"), nil) // referenced Secret does not exist
 	v := newValidator(true)
 	ctx := authorContext()
-	_, err := v.ValidateUpdate(ctx, authn, authn)
+
+	previous := newAuthN(nil, nil, nil)
+	previous.Spec.Deployment.Pod = &authv1alpha1.PodSpec{Annotations: map[string]string{"vault.hashicorp.com/agent-inject": "true"}}
+	_, err := v.ValidateUpdate(ctx, previous, authn)
 	assertResult(t, err, []string{"spec.adminSecret", "spec.hmacSecret"})
+
+	metadataOnly := authn.DeepCopy()
+	metadataOnly.Finalizers = []string{"example.com/finalizer"}
+	_, err = v.ValidateUpdate(ctx, authn, metadataOnly)
+	assertResult(t, err, nil)
+
 	if _, err := v.ValidateDelete(ctx, authn); err != nil {
 		t.Errorf("expected delete to be a no-op, got %v", err)
 	}

@@ -51,4 +51,16 @@ var _ = Describe("AuthProfile", func() {
 			},
 		}))
 	})
+
+	It("copies the AuthN CA ConfigMap reference into the profile TLS config", func() {
+		authn.Spec.TLS = &authv1alpha1.TLSSpec{
+			CAConfigMapRef: &authv1alpha1.CAConfigMapKeyRef{Name: "authn-ca", Key: "ca.crt"},
+		}
+
+		profile := authnres.NewAuthProfile(authn)
+
+		Expect(profile.Spec.TLS).To(Equal(&authv1alpha1.AuthProfileTLSConfig{
+			CAConfigMapRef: &authv1alpha1.AuthProfileCAConfigMapRef{Namespace: "ais", Name: "authn-ca", Key: "ca.crt"},
+		}))
+	})
 })

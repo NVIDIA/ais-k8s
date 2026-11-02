@@ -14,6 +14,10 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 - `targetSpec.scaleDownMode` `discard` to decommission outgoing targets without a rebalance and delete their on-disk data.
 
+#### AIStoreAuth
+
+- `spec.tls.caConfigMapRef` sets the CA ConfigMap in the auto-created admin `AIStoreAuthProfile`.
+
 ### Changed
 
 - Targets with `targetSpec.externalAccess.dns` now also set `AIS_PUBLIC_HOSTNAME_OVERRIDE` to `<pod-name>.<domain>`.
@@ -21,6 +25,10 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 - Fixed a bug where a recreated StatefulSet in OnDelete mode, or one updated to OnDelete mode, would not re-trigger pod rollout on a reverted upgrade.
 - Fixed a bug where target StatefulSets created before v2.7.0 kept the `RollingUpdate` update strategy, letting target rollouts skip maintenance.
 - Proxy StatefulSet uses the `OnDelete` update strategy, so an unschedulable proxy pod no longer stalls a proxy rollout.
+
+#### AIStoreAuth
+
+- Unchanged spec updates always skip validation to allow finalizer and annotation patches.
 
 ---
 

@@ -156,6 +156,20 @@ Use `additionalDNSNames` only for names the operator cannot derive.
 
 To use an existing certificate instead, point `spec.tls.secretName` at a `kubernetes.io/tls` Secret and omit `certificate`.
 
+To set the CA that the auto-created admin `AIStoreAuthProfile` references, set `spec.tls.caConfigMapRef` to a ConfigMap key in the `AIStoreAuth` namespace:
+
+```yaml
+spec:
+  tls:
+    caConfigMapRef:
+      name: aistore.nvidia.com
+      key: ca.crt
+```
+
+The submitting user must have `get` access to the ConfigMap.
+The operator copies this reference into `spec.tls.caConfigMapRef` of the admin `AIStoreAuthProfile` it creates.
+See [AIStoreAuthProfile](./auth_profile.md) for how the operator uses it.
+
 > **Note:** In `csi` mode the operator does not discover LoadBalancer endpoints. If you expose AuthN through a LoadBalancer and use `csi` mode, list the external hostname in `additionalDNSNames`.
 
 ### Chart-managed AuthN (`authn` chart)

@@ -41,6 +41,16 @@ func NewAuthProfile(authn *authv1alpha1.AIStoreAuth) *authv1alpha1.AIStoreAuthPr
 			},
 		},
 	}
+	if authn.Spec.TLS != nil && authn.Spec.TLS.CAConfigMapRef != nil {
+		ref := authn.Spec.TLS.CAConfigMapRef
+		profile.Spec.TLS = &authv1alpha1.AuthProfileTLSConfig{
+			CAConfigMapRef: &authv1alpha1.AuthProfileCAConfigMapRef{
+				Namespace: authn.Namespace,
+				Name:      ref.Name,
+				Key:       ref.Key,
+			},
+		}
+	}
 	ownerref.SetLabeledOwner(profile, ownerref.AIStoreAuthOwner(authn))
 	return profile
 }

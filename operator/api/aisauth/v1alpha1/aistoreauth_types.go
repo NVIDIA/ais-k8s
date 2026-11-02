@@ -172,6 +172,22 @@ type TLSSpec struct {
 	// Certificate configures cert-manager certificate provisioning for AuthN TLS.
 	// +optional
 	Certificate *TLSCertificateConfig `json:"certificate,omitempty"`
+
+	// CAConfigMapRef references a ConfigMap in the AIStoreAuth namespace holding the PEM CA certificate
+	// that signed the AuthN server certificate. The reference is added to the auto-generated AIStoreAuthProfile.
+	// +optional
+	CAConfigMapRef *CAConfigMapKeyRef `json:"caConfigMapRef,omitempty"`
+}
+
+// CAConfigMapKeyRef references a key of a ConfigMap in the AIStoreAuth namespace.
+type CAConfigMapKeyRef struct {
+	// Name of the ConfigMap.
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+
+	// Key within the ConfigMap data containing the PEM certificate.
+	// +kubebuilder:validation:MinLength=1
+	Key string `json:"key"`
 }
 
 // TLSCertificateMode defines how cert-manager delivers the certificate to AuthN.

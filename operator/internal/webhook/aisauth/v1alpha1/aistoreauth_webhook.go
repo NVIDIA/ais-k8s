@@ -14,6 +14,7 @@ import (
 	webhookcmn "github.com/ais-operator/internal/webhook"
 	authorizationv1 "k8s.io/api/authorization/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -33,7 +34,7 @@ type AIStoreAuthCustomValidator struct {
 }
 
 // +kubebuilder:webhook:path=/validate-auth-ais-nvidia-com-v1alpha1-aistoreauth,mutating=false,failurePolicy=fail,sideEffects=None,groups=auth.ais.nvidia.com,resources=aistoreauths,verbs=create;update,versions=v1alpha1,name=vaistoreauth.kb.io,admissionReviewVersions={v1,v1beta1}
-// +kubebuilder:rbac:groups="",resources=secrets,verbs=get
+// +kubebuilder:rbac:groups="",resources=configmaps;secrets,verbs=get
 // +kubebuilder:rbac:groups=authorization.k8s.io,resources=subjectaccessreviews,verbs=create
 
 var _ admission.Validator[*authv1alpha1.AIStoreAuth] = &AIStoreAuthCustomValidator{}
@@ -41,13 +42,17 @@ var _ admission.Validator[*authv1alpha1.AIStoreAuth] = &AIStoreAuthCustomValidat
 // ValidateCreate implements admission.Validator.
 func (v *AIStoreAuthCustomValidator) ValidateCreate(ctx context.Context, authn *authv1alpha1.AIStoreAuth) (admission.Warnings, error) {
 	webhooklog.WithValues("name", authn.Name, "namespace", authn.Namespace).Info("Validate create")
-	return nil, v.validate(ctx, authn)
+	return v.validate(ctx, authn)
 }
 
 // ValidateUpdate implements admission.Validator.
-func (v *AIStoreAuthCustomValidator) ValidateUpdate(ctx context.Context, _, authn *authv1alpha1.AIStoreAuth) (admission.Warnings, error) {
+func (v *AIStoreAuthCustomValidator) ValidateUpdate(ctx context.Context, previous, authn *authv1alpha1.AIStoreAuth) (admission.Warnings, error) {
 	webhooklog.WithValues("name", authn.Name, "namespace", authn.Namespace).Info("Validate update")
-	return nil, v.validate(ctx, authn)
+	// Writes with no spec changes must not be invalidated so finalizers and annotations can still be patched.
+	if equality.Semantic.DeepEqual(&previous.Spec, &authn.Spec) {
+		return nil, nil
+	}
+	return v.validate(ctx, authn)
 }
 
 // ValidateDelete implements admission.Validator.
@@ -56,8 +61,9 @@ func (*AIStoreAuthCustomValidator) ValidateDelete(_ context.Context, authn *auth
 	return nil, nil
 }
 
-func (v *AIStoreAuthCustomValidator) validate(ctx context.Context, authn *authv1alpha1.AIStoreAuth) error {
+func (v *AIStoreAuthCustomValidator) validate(ctx context.Context, authn *authv1alpha1.AIStoreAuth) (admission.Warnings, error) {
 	var allErrs field.ErrorList
+	var warnings admission.Warnings
 	specPath := field.NewPath("spec")
 
 	if secretRefName(authn.Spec.AdminSecret) == "" && !hasPodAnnotations(authn) {
@@ -75,10 +81,31 @@ func (v *AIStoreAuthCustomValidator) validate(ctx context.Context, authn *authv1
 	for _, ref := range userSecretRefs(authn) {
 		fieldErr, err := v.reviewSecret(ctx, authn.Namespace, ref)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if fieldErr != nil {
 			allErrs = append(allErrs, fieldErr)
+		}
+	}
+
+	if tls := authn.Spec.TLS; tls != nil && tls.CAConfigMapRef != nil {
+		if !authn.HasTLSEnabled() {
+			warnings = append(warnings, "spec.tls.caConfigMapRef is set but AuthN is not configured to serve TLS")
+		}
+		path := specPath.Child("tls", "caConfigMapRef")
+		// Review access first so admission cannot be used to probe which ConfigMaps and keys exist.
+		fieldErr, err := v.reviewConfigMap(ctx, path, authn.Namespace, tls.CAConfigMapRef.Name)
+		if err != nil {
+			return nil, err
+		}
+		if fieldErr != nil {
+			allErrs = append(allErrs, fieldErr)
+		} else if warning, err := v.validateCAConfigMap(ctx, authn.Namespace, tls.CAConfigMapRef); err != nil {
+			return nil, err
+		} else if warning != "" {
+			// Missing CA configMap only warns to allow it to be created asynchronously.
+			// Reconciling the AIStoreAuthProfile fails until it exists.
+			warnings = append(warnings, warning)
 		}
 	}
 
@@ -87,10 +114,44 @@ func (v *AIStoreAuthCustomValidator) validate(ctx context.Context, authn *authv1
 	}
 
 	if len(allErrs) == 0 {
-		return nil
+		return warnings, nil
 	}
-	return apierrors.NewInvalid(
+	return warnings, apierrors.NewInvalid(
 		authv1alpha1.GroupVersion.WithKind("AIStoreAuth").GroupKind(), authn.Name, allErrs)
+}
+
+// validateCAConfigMap returns warning text when the ConfigMap is missing or holds no value for the key.
+// It returns an error when the lookup fails for any other reason.
+func (v *AIStoreAuthCustomValidator) validateCAConfigMap(
+	ctx context.Context,
+	namespace string,
+	ref *authv1alpha1.CAConfigMapKeyRef,
+) (string, error) {
+	configMap := &corev1.ConfigMap{}
+	err := v.Client.Get(ctx, client.ObjectKey{Namespace: namespace, Name: ref.Name}, configMap)
+	switch {
+	case apierrors.IsNotFound(err):
+		return fmt.Sprintf("spec.tls.caConfigMapRef: ConfigMap %q does not exist in namespace %q", ref.Name, namespace), nil
+	case err != nil:
+		return "", apierrors.NewInternalError(
+			fmt.Errorf("checking ConfigMap %q in namespace %q: %w", ref.Name, namespace, err))
+	case configMap.Data[ref.Key] == "":
+		return fmt.Sprintf("spec.tls.caConfigMapRef: ConfigMap %q has no value for key %q", ref.Name, ref.Key), nil
+	}
+	return "", nil
+}
+
+// reviewConfigMap checks that the submitting user may get the named ConfigMap.
+func (v *AIStoreAuthCustomValidator) reviewConfigMap(
+	ctx context.Context,
+	path *field.Path,
+	namespace, name string,
+) (*field.Error, error) {
+	return webhookcmn.AuthorizeGet(ctx, v.Client, path, &authorizationv1.ResourceAttributes{
+		Resource:  "configmaps",
+		Namespace: namespace,
+		Name:      name,
+	})
 }
 
 // userSecretRef pairs a referenced Secret name with the spec field that names it.
