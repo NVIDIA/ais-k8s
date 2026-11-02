@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	DefaultAuthNImage = "docker.io/aistorage/authn:v5.1"
+	DefaultAuthNImage = "docker.io/aistorage/authn:v5.2"
 
 	authNAdminNameKey = "SU-NAME"
 	authNAdminPassKey = "SU-PASS"
