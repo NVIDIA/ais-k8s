@@ -110,17 +110,14 @@ var _ = Describe("Deployment", func() {
 		container := newContainer(authn)
 
 		Expect(container.Resources).To(BeNil())
-		Expect(container.SecurityContext).To(BeNil())
 		Expect(container.LivenessProbe).To(BeNil())
 		Expect(container.ReadinessProbe).To(BeNil())
 	})
 
 	It("renders optional container fields from spec.deployment.container", func() {
-		runAsNonRoot := true
 		authn.Spec.Deployment.Container.Resources = &corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("100m")},
 		}
-		authn.Spec.Deployment.Container.SecurityContext = &corev1.SecurityContext{RunAsNonRoot: &runAsNonRoot}
 		authn.Spec.Deployment.Container.LivenessProbe = &corev1.Probe{
 			ProbeHandler: corev1.ProbeHandler{TCPSocket: &corev1.TCPSocketAction{Port: intstr.FromString("http")}},
 		}
@@ -133,7 +130,6 @@ var _ = Describe("Deployment", func() {
 		container := newContainer(authn)
 
 		Expect(container.Resources.Requests.Cpu().String()).To(Equal("100m"))
-		Expect(container.SecurityContext.RunAsNonRoot).To(HaveValue(BeTrue()))
 		Expect(container.LivenessProbe.TCPSocket.Port).To(HaveValue(Equal(intstr.FromString("http"))))
 		Expect(container.ReadinessProbe.HTTPGet.Scheme).To(HaveValue(Equal(corev1.URISchemeHTTPS)))
 	})
@@ -143,7 +139,6 @@ var _ = Describe("Deployment", func() {
 		Expect(err).NotTo(HaveOccurred())
 		podSpec := deployment.Spec.Template.Spec
 
-		Expect(podSpec.SecurityContext).To(BeNil())
 		Expect(podSpec.NodeSelector).To(BeEmpty())
 		Expect(podSpec.Tolerations).To(BeEmpty())
 		Expect(podSpec.Affinity).To(BeNil())
@@ -174,11 +169,40 @@ var _ = Describe("Deployment", func() {
 		Expect(deployment.Spec.Template.Annotations[authnres.ConfigChecksumAnnotation]).NotTo(Equal("tampered"))
 	})
 
+	DescribeTable("applies the fixed restricted security context",
+		func(setSpec func(*authv1alpha1.AIStoreAuth)) {
+			setSpec(authn)
+			deployment, err := authnres.NewDeployment(context.Background(), authn)
+			Expect(err).NotTo(HaveOccurred())
+			podSpec := deployment.Spec.Template.Spec
+
+			podSC := podSpec.SecurityContext
+			Expect(podSC.RunAsNonRoot).To(HaveValue(BeTrue()))
+			Expect(podSC.RunAsUser).To(HaveValue(Equal(int64(65532))))
+			Expect(podSC.RunAsGroup).To(HaveValue(Equal(int64(65532))))
+			Expect(podSC.FSGroup).To(HaveValue(Equal(int64(65532))))
+			Expect(podSC.SeccompProfile.Type).To(HaveValue(Equal(corev1.SeccompProfileTypeRuntimeDefault)))
+
+			containerSC := podSpec.Containers[0].SecurityContext
+			Expect(containerSC.Privileged).To(HaveValue(BeFalse()))
+			Expect(containerSC.AllowPrivilegeEscalation).To(HaveValue(BeFalse()))
+			Expect(containerSC.RunAsNonRoot).To(HaveValue(BeTrue()))
+			Expect(containerSC.ReadOnlyRootFilesystem).To(HaveValue(BeTrue()))
+			Expect(containerSC.Capabilities.Drop).To(ConsistOf(corev1.Capability("ALL")))
+		},
+		Entry("with no securityContext in the spec", func(*authv1alpha1.AIStoreAuth) {}),
+		Entry("with securityContext values in the spec", func(authn *authv1alpha1.AIStoreAuth) {
+			privileged, rootUser := true, int64(0)
+			authn.Spec.Deployment.Container.SecurityContext = &corev1.SecurityContext{Privileged: &privileged}
+			authn.Spec.Deployment.Pod = &authv1alpha1.PodSpec{
+				SecurityContext: &corev1.PodSecurityContext{RunAsUser: &rootUser, FSGroup: &rootUser},
+			}
+		}),
+	)
+
 	It("renders optional pod fields from spec.deployment.pod", func() {
-		fsGroup := int64(2000)
 		authn.Spec.Deployment.Pod = &authv1alpha1.PodSpec{
-			SecurityContext: &corev1.PodSecurityContext{FSGroup: &fsGroup},
-			NodeSelector:    map[string]string{"node-pool": "authn"},
+			NodeSelector: map[string]string{"node-pool": "authn"},
 			Tolerations: []corev1.Toleration{{
 				Key: "dedicated", Operator: corev1.TolerationOpExists, Effect: corev1.TaintEffectNoSchedule,
 			}},
@@ -200,7 +224,6 @@ var _ = Describe("Deployment", func() {
 		Expect(err).NotTo(HaveOccurred())
 		podSpec := deployment.Spec.Template.Spec
 
-		Expect(podSpec.SecurityContext.FSGroup).To(HaveValue(Equal(int64(2000))))
 		Expect(podSpec.NodeSelector).To(Equal(map[string]string{"node-pool": "authn"}))
 		Expect(podSpec.Tolerations).To(HaveLen(1))
 		Expect(podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution).NotTo(BeNil())

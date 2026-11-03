@@ -567,10 +567,8 @@ spec:
                             type: object
                         type: object
                       securityContext:
-                        description: |-
-                          SecurityContext holds security configuration that will be applied to a container.
-                          Some fields are present in both SecurityContext and PodSecurityContext.  When both
-                          are set, the values in SecurityContext take precedence.
+                        description: 'Deprecated: ignored. The operator always applies
+                          a fixed restricted security context.'
                         properties:
                           allowPrivilegeEscalation:
                             description: |-
@@ -764,7 +762,7 @@ spec:
                     - image
                     type: object
                   pod:
-                    description: Pod configures pod-level security and scheduling.
+                    description: Pod configures the AuthN pod.
                     properties:
                       affinity:
                         description: Affinity is a group of affinity scheduling rules.
@@ -1715,10 +1713,8 @@ spec:
                           type: string
                         type: object
                       securityContext:
-                        description: |-
-                          PodSecurityContext holds pod-level security attributes and common container settings.
-                          Some fields are also present in container.securityContext.  Field values of
-                          container.securityContext take precedence over field values of PodSecurityContext.
+                        description: 'Deprecated: ignored. The operator always applies
+                          a fixed restricted security context.'
                         properties:
                           appArmorProfile:
                             description: |-

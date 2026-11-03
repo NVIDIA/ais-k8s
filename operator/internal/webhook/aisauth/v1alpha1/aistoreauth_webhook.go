@@ -63,7 +63,7 @@ func (*AIStoreAuthCustomValidator) ValidateDelete(_ context.Context, authn *auth
 
 func (v *AIStoreAuthCustomValidator) validate(ctx context.Context, authn *authv1alpha1.AIStoreAuth) (admission.Warnings, error) {
 	var allErrs field.ErrorList
-	var warnings admission.Warnings
+	warnings := admission.Warnings(authn.Spec.DeprecatedSecurityContextMessages())
 	specPath := field.NewPath("spec")
 
 	if secretRefName(authn.Spec.AdminSecret) == "" && !hasPodAnnotations(authn) {

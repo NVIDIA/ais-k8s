@@ -78,9 +78,7 @@ spec:
           port: 52001
         initialDelaySeconds: 5
         periodSeconds: 10
-    # Pod-level security and scheduling options are optional.
+    # Pod-level scheduling options are optional.
     # pod:
-    #   securityContext:
-    #     runAsNonRoot: true
     #   nodeSelector:
     #     kubernetes.io/os: linux

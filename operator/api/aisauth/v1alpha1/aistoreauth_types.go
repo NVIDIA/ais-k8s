@@ -343,6 +343,7 @@ type ContainerSpec struct {
 	// +optional
 	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 
+	// Deprecated: ignored. The operator always applies a fixed restricted security context.
 	// +optional
 	SecurityContext *corev1.SecurityContext `json:"securityContext,omitempty"`
 
@@ -361,6 +362,7 @@ type PodSpec struct {
 	// +optional
 	Annotations map[string]string `json:"annotations,omitempty"`
 
+	// Deprecated: ignored. The operator always applies a fixed restricted security context.
 	// +optional
 	SecurityContext *corev1.PodSecurityContext `json:"securityContext,omitempty"`
 
@@ -383,7 +385,7 @@ type DeploymentSpec struct {
 	// +kubebuilder:validation:Required
 	Container ContainerSpec `json:"container"`
 
-	// Pod configures pod-level security and scheduling.
+	// Pod configures the AuthN pod.
 	// +optional
 	Pod *PodSpec `json:"pod,omitempty"`
 }
@@ -512,6 +514,18 @@ func (authn *AIStoreAuth) ListenPort() int32 {
 		return defaultListenPort
 	}
 	return *cfg.Net.HTTP.Port
+}
+
+// DeprecatedSecurityContextMessages returns a message for each deprecated security context field set.
+func (s *AIStoreAuthSpec) DeprecatedSecurityContextMessages() []string {
+	var msgs []string
+	if s.Deployment.Container.SecurityContext != nil {
+		msgs = append(msgs, "spec.deployment.container.securityContext is deprecated and ignored")
+	}
+	if pod := s.Deployment.Pod; pod != nil && pod.SecurityContext != nil {
+		msgs = append(msgs, "spec.deployment.pod.securityContext is deprecated and ignored")
+	}
+	return msgs
 }
 
 // +kubebuilder:object:root=true

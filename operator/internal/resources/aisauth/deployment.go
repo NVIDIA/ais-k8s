@@ -23,6 +23,9 @@ const (
 	containerName = "authn"
 	portName      = "http"
 
+	// nonRootID is the user and group of the distroless nonroot AuthN image.
+	nonRootID int64 = 65532
+
 	// DeploymentReplicas is the fixed AuthN Deployment size.
 	DeploymentReplicas int32 = 1
 
@@ -97,7 +100,13 @@ func newContainer(
 			WithContainerPort(authn.ListenPort()).
 			WithProtocol(corev1.ProtocolTCP)).
 		WithEnv(secretEnvVars(authn)...).
-		WithVolumeMounts(volumeMounts(authn)...)
+		WithVolumeMounts(volumeMounts(authn)...).
+		WithSecurityContext(corev1ac.SecurityContext().
+			WithPrivileged(false).
+			WithAllowPrivilegeEscalation(false).
+			WithRunAsNonRoot(true).
+			WithReadOnlyRootFilesystem(true).
+			WithCapabilities(corev1ac.Capabilities().WithDrop("ALL")))
 	if spec.ImagePullPolicy != "" {
 		container.WithImagePullPolicy(spec.ImagePullPolicy)
 	}
@@ -107,13 +116,6 @@ func newContainer(
 			return nil, err
 		}
 		container.WithResources(resources)
-	}
-	if spec.SecurityContext != nil {
-		securityContext, err := toApplyConfiguration[*corev1ac.SecurityContextApplyConfiguration](spec.SecurityContext)
-		if err != nil {
-			return nil, err
-		}
-		container.WithSecurityContext(securityContext)
 	}
 	if spec.LivenessProbe != nil {
 		livenessProbe, err := toApplyConfiguration[*corev1ac.ProbeApplyConfiguration](spec.LivenessProbe)
@@ -141,17 +143,16 @@ func newPodSpec(ctx context.Context, authn *authv1alpha1.AIStoreAuth) (*corev1ac
 	pod := corev1ac.PodSpec().
 		WithContainers(container).
 		WithVolumes(volumes(ctx, authn)...).
-		WithEnableServiceLinks(false)
+		WithEnableServiceLinks(false).
+		WithSecurityContext(corev1ac.PodSecurityContext().
+			WithRunAsNonRoot(true).
+			WithRunAsUser(nonRootID).
+			WithRunAsGroup(nonRootID).
+			WithFSGroup(nonRootID).
+			WithSeccompProfile(corev1ac.SeccompProfile().WithType(corev1.SeccompProfileTypeRuntimeDefault)))
 	podSpec := spec.Pod
 	if podSpec == nil {
 		return pod, nil
-	}
-	if podSpec.SecurityContext != nil {
-		securityContext, err := toApplyConfiguration[*corev1ac.PodSecurityContextApplyConfiguration](podSpec.SecurityContext)
-		if err != nil {
-			return nil, err
-		}
-		pod.WithSecurityContext(securityContext)
 	}
 	if len(podSpec.NodeSelector) > 0 {
 		pod.WithNodeSelector(podSpec.NodeSelector)

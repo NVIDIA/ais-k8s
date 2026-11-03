@@ -310,6 +310,41 @@ func TestValidateCAConfigMapRef(t *testing.T) {
 	}
 }
 
+func TestWarnIgnoredSecurityContext(t *testing.T) {
+	tests := []struct {
+		name         string
+		container    *corev1.SecurityContext
+		pod          *corev1.PodSecurityContext
+		wantWarnings int
+	}{
+		{name: "no securityContext is admitted without warning"},
+		{name: "container securityContext warns", container: &corev1.SecurityContext{}, wantWarnings: 1},
+		{name: "pod securityContext warns", pod: &corev1.PodSecurityContext{}, wantWarnings: 1},
+		{
+			name: "both securityContext fields warn", container: &corev1.SecurityContext{},
+			pod: &corev1.PodSecurityContext{}, wantWarnings: 2,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// pod annotations carry the admin credentials so that no Secret is reviewed
+			authn := newAuthN(nil, nil, nil)
+			authn.Spec.Deployment.Container.SecurityContext = tc.container
+			authn.Spec.Deployment.Pod = &authv1alpha1.PodSpec{
+				Annotations:     map[string]string{"vault.hashicorp.com/agent-inject": "true"},
+				SecurityContext: tc.pod,
+			}
+			warnings, err := newValidator(true).ValidateCreate(authorContext(), authn)
+			if err != nil {
+				t.Fatalf("expected admission, got error: %v", err)
+			}
+			if len(warnings) != tc.wantWarnings {
+				t.Fatalf("warnings: got %v want %d", warnings, tc.wantWarnings)
+			}
+		})
+	}
+}
+
 // A Secret that a credential field shares with a review-only field must still exist.
 func TestValidateSharedSecretMustExist(t *testing.T) {
 	authn := newAuthN(secretRef("shared"), nil, nil)

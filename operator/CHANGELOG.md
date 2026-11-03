@@ -16,6 +16,18 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 - Target scale-down with `scaleDownMode` `retain` puts all outgoing targets in maintenance in one request on AIS v5.0 or later, instead of one request per target.
   - On AIS older than v5.0, it puts outgoing targets in maintenance one at a time.
 
+#### AIStoreAuth
+
+- The AuthN pod and container always use a fixed restricted security context, see [AuthN](../docs/authn.md#security-context).
+  - Existing AuthN pods roll out with the new context. The `aistorage/authn` image must be `v4.3` or later, which runs as user `65532`.
+  - The AuthN container root filesystem is read-only.
+
+### Deprecated
+
+#### AIStoreAuth
+
+- `spec.deployment.container.securityContext` and `spec.deployment.pod.securityContext` are ignored.
+
 ---
 
 ## v4.3.0

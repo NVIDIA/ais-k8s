@@ -59,6 +59,25 @@ The pod mounts the data volume at `/etc/ais/authn` and the TLS certificate at `/
 The operator does not create the credential Secrets or the `PersistentVolume`. 
 Create those first.
 
+### Security Context
+
+The operator always applies a fixed restricted security context to the AuthN pod and container.
+The `AIStoreAuth` spec cannot change it.
+The fields `spec.deployment.container.securityContext` and `spec.deployment.pod.securityContext` are deprecated.
+Remove both fields from existing resources.
+
+The fixed context requires an AuthN image that runs as the non-root user `65532`.
+The `aistorage/authn` image runs as that user from `v4.3` onward.
+Note that data written by an earlier pod run as root may not be writable by that user. 
+This may cause errors when upgrading from authN versions prior to `v4.3`.
+
+The container root filesystem is read-only.
+AuthN writes only to the data volume.
+
+The pod sets `fsGroup` to `65532` so that AuthN can write to the data volume.
+Some volume types ignore `fsGroup`, for example `hostPath` and NFS.
+On those volumes, make the data directory writable by user `65532` before you start the pod.
+
 ### Token Signing
 
 The AuthN server signs tokens with RSA or with HMAC. 
