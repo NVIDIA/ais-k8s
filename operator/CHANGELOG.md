@@ -8,6 +8,15 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ---
 
+## Unreleased
+
+### Changed
+
+- Target scale-down with `scaleDownMode` `retain` puts all outgoing targets in maintenance in one request on AIS v5.0 or later, instead of one request per target.
+  - On AIS older than v5.0, it puts outgoing targets in maintenance one at a time.
+
+---
+
 ## v4.3.0
 
 

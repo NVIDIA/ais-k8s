@@ -569,21 +569,39 @@ var _ = Describe("scaleDownMode", func() {
 				Expect(k8sClient.Update(ctx, ais)).To(Succeed())
 			})
 
-			It("puts targets in maintenance with SkipRebalance=true", func() {
-				t3 := &aismeta.Snode{DaeID: "t3", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-2"}}
-				smap := &aismeta.Smap{
-					Tmap: aismeta.NodeMap{"t3": t3},
-				}
-
-				apiClient.EXPECT().StartMaintenance(gomock.Any()).DoAndReturn(func(act *apc.ActValRmNode) (string, error) {
-					Expect(act.SkipRebalance).To(BeTrue())
-					Expect(act.DaemonID).To(Equal("t3"))
-					return "xid", nil
-				})
-
-				err := r.prepareTargetsForScaleDown(ctx, ais, smap, 3)
-				Expect(err).NotTo(HaveOccurred())
-			})
+			DescribeTable("puts targets in maintenance with SkipRebalance=true",
+				func(specReplicas int32, version string, t3Flags, t4Flags cos.BitFlags, wantMaintenance []string) {
+					primary := &aismeta.Snode{DaeID: "p1", DaeType: apc.Proxy}
+					t3 := &aismeta.Snode{DaeID: "t3", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-2"}, Flags: t3Flags}
+					t4 := &aismeta.Snode{DaeID: "t4", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-3"}, Flags: t4Flags}
+					smap := &aismeta.Smap{Tmap: aismeta.NodeMap{"t3": t3, "t4": t4}, Primary: primary}
+					if version != "" {
+						apiClient.EXPECT().GetSoftwareVersion(primary).Return(version, nil)
+					}
+					if wantMaintenance != nil {
+						apiClient.EXPECT().StartMaintenance(gomock.Any()).DoAndReturn(func(act *apc.ActValRmNode) (string, error) {
+							Expect(act.SkipRebalance).To(BeTrue())
+							// AIS before v5.0 reads only DaemonID, so one node must not use DaemonIDs.
+							if len(wantMaintenance) == 1 {
+								Expect(act.DaemonID).To(Equal(wantMaintenance[0]))
+								Expect(act.DaemonIDs).To(BeEmpty())
+							} else {
+								Expect(act.DaemonIDs).To(ConsistOf(wantMaintenance))
+							}
+							return "xid", nil
+						})
+					}
+					Expect(r.prepareTargetsForScaleDown(ctx, ais, smap, specReplicas)).To(Succeed())
+				},
+				Entry("puts one outgoing target in maintenance", int32(3), "", cos.BitFlags(0), cos.BitFlags(0), []string{"t3"}),
+				Entry("puts every outgoing target in maintenance in one request on AIS v5.0+",
+					int32(4), "5.0", cos.BitFlags(0), cos.BitFlags(0), []string{"t3", "t4"}),
+				Entry("puts only the highest target in maintenance before AIS v5.0",
+					int32(4), "4.4", cos.BitFlags(0), cos.BitFlags(0), []string{"t4"}),
+				Entry("skips a target already in maintenance", int32(4), "", cos.BitFlags(0), aismeta.SnodeMaint, []string{"t3"}),
+				Entry("does nothing when every outgoing target is in maintenance",
+					int32(4), "", aismeta.SnodeMaint, aismeta.SnodeMaint, nil),
+			)
 		})
 
 		Context("when scaleDownMode is discard", func() {

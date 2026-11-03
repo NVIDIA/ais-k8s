@@ -505,8 +505,9 @@ func decommissionedTargetsReadyForScaleDown(ctx context.Context, ais *aisv1.AISt
 }
 
 // prepareTargetsForScaleDown starts the AIS membership transition for the targets whose
-// StatefulSet ordinal is above the desired size. It starts at most one transition per call.
+// StatefulSet ordinal is above the desired size.
 func (r *Reconciler) prepareTargetsForScaleDown(ctx context.Context, ais *aisv1.AIStore, smap *aismeta.Smap, specReplicas int32) error {
+	retain := ais.Spec.TargetSpec.RetainOnScaleDown()
 	rebalance := ais.Spec.TargetSpec.RebalanceOnScaleDown()
 	if rebalance {
 		// Ensure rebalance is enabled before decommissioning so data can migrate
@@ -536,17 +537,13 @@ func (r *Reconciler) prepareTargetsForScaleDown(ctx context.Context, ais *aisv1.
 			logger.Info("Target is absent from cluster map, skipping scale-down preparation", "podName", podName)
 			continue
 		}
-		if ais.Spec.TargetSpec.RetainOnScaleDown() {
+		if retain {
 			if smap.InMaintOrDecomm(node.ID()) {
 				logger.Info("AIS target is already in maintenance or decommissioning state", "nodeID", node.ID())
 				continue
 			}
-			logger.Info("Putting target in maintenance mode", "nodeID", node.ID())
-			_, err = apiClient.StartMaintenance(&aisapc.ActValRmNode{DaemonID: node.ID(), SkipRebalance: true})
-			if err != nil {
-				logger.Error(err, "Failed to put node in maintenance", "nodeID", node.ID())
-				return err
-			}
+			podNames = append(podNames, podName)
+			nodes = append(nodes, node)
 			continue
 		}
 		// Before AIS v5.0, a new decommission stops a running rebalance, and AIS keeps the
@@ -574,13 +571,15 @@ func (r *Reconciler) prepareTargetsForScaleDown(ctx context.Context, ais *aisv1.
 	if len(nodes) == 0 {
 		return nil
 	}
-	rebalancing, err := apiClient.IsRebalancing()
-	if err != nil {
-		return err
-	}
-	if rebalancing {
-		logger.V(1).Info("Deferring decommission; a rebalance is running", "podNames", podNames)
-		return nil
+	if !retain {
+		rebalancing, err := apiClient.IsRebalancing()
+		if err != nil {
+			return err
+		}
+		if rebalancing {
+			logger.V(1).Info("Deferring decommission; a rebalance is running", "podNames", podNames)
+			return nil
+		}
 	}
 	if len(nodes) > 1 && !primarySupportsBatchedRemoval(ctx, apiClient, smap) {
 		podNames, nodes = podNames[:1], nodes[:1]
@@ -589,14 +588,16 @@ func (r *Reconciler) prepareTargetsForScaleDown(ctx context.Context, ais *aisv1.
 	var maintNodeIDs []string
 	for _, node := range nodes {
 		nodeIDs = append(nodeIDs, node.ID())
-		if rebalance && !node.InMaint() {
+		if retain || (rebalance && !node.InMaint()) {
 			maintNodeIDs = append(maintNodeIDs, node.ID())
 		}
 	}
 	// Maintenance sets SnodeMaintPostReb only after its rebalance succeeds.
 	if len(maintNodeIDs) > 0 {
-		logger.Info("Putting targets in maintenance mode", "nodeIDs", maintNodeIDs)
-		_, err = apiClient.StartMaintenance(rmNodeAction(maintNodeIDs))
+		act := rmNodeAction(maintNodeIDs)
+		act.SkipRebalance = !rebalance
+		logger.Info("Putting targets in maintenance mode", "nodeIDs", maintNodeIDs, "skipRebalance", act.SkipRebalance)
+		_, err = apiClient.StartMaintenance(act)
 		if err != nil {
 			logger.Error(err, "Failed to put nodes in maintenance", "nodeIDs", maintNodeIDs)
 		}
