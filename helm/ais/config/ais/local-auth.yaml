@@ -55,7 +55,7 @@ configToUpdate:
 # Client authN API config used by operator and admin client
 auth:
   profileRef:
-    name: local-admin
+    name: ais.aisauth-admin
 
 stateStorage:
   pvc:

@@ -12,6 +12,9 @@ config:
       port: 52001
 
 tls:
+  caConfigMapRef:
+    name: aistore.nvidia.com
+    key: ca.crt
   certificate:
     issuerRef:
       name: ca-issuer
