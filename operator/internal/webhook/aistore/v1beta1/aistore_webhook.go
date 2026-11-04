@@ -16,6 +16,7 @@ import (
 	aisapc "github.com/NVIDIA/aistore/api/apc"
 	authv1alpha1 "github.com/ais-operator/api/aisauth/v1alpha1"
 	aisv1 "github.com/ais-operator/api/aistore/v1beta1"
+	"github.com/ais-operator/internal/resources/aistore/proxy"
 	webhookcmn "github.com/ais-operator/internal/webhook"
 	"github.com/go-test/deep"
 	authorizationv1 "k8s.io/api/authorization/v1"
@@ -23,6 +24,7 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/validation"
@@ -60,6 +62,10 @@ func (aisw *AIStoreWebhook) ValidateUpdate(ctx context.Context, prev, ais *aisv1
 	webhooklog.WithValues("name", ais.Name, "namespace", ais.Namespace).Info("Validate update")
 	warnings, err := aisw.validateSpec(ctx, prev, ais)
 	if err != nil {
+		return warnings, err
+	}
+
+	if err := aisw.validateProxyServiceOwnership(ctx, prev, ais); err != nil {
 		return warnings, err
 	}
 
@@ -352,7 +358,7 @@ func allowDaemonSpecUpdates(prev, spec *aisv1.DaemonSpec) {
 	if spec.ServicePort == nil { //nolint:staticcheck // clearing the deprecated option must be allowed
 		prev.ServicePort = nil //nolint:staticcheck // clearing the deprecated option must be allowed
 	}
-	// Retuning an existing LoadBalancer is safe; toggling external access on or off is not.
+	// Keep transitions restricted here; proxies can enable external access separately.
 	if prev.ExternalAccess != nil && spec.ExternalAccess != nil {
 		ea := *spec.ExternalAccess
 		ea.DNS = allowExternalDNSUpdates(prev.ExternalAccess.DNS, spec.ExternalAccess.DNS)
@@ -405,8 +411,32 @@ func samePort(a, b intstr.IntOrString) bool {
 	return a.IntValue() == b.IntValue()
 }
 
+// validateProxyServiceOwnership rejects enabling external access over a non-owned Service.
+func (aisw *AIStoreWebhook) validateProxyServiceOwnership(ctx context.Context, prev, ais *aisv1.AIStore) error {
+	if prev.ProxyExternalAccessEnabled() || !ais.ProxyExternalAccessEnabled() {
+		return nil
+	}
+	name := proxy.LoadBalancerSVCNSName(ais)
+	svc := &corev1.Service{}
+	if err := aisw.Client.Get(ctx, name, svc); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+		return apierrors.NewInternalError(fmt.Errorf("checking proxy LoadBalancer Service %q: %w", name.String(), err))
+	}
+	if !metav1.IsControlledBy(svc, ais) {
+		return apiInvalidError(ais, field.Forbidden(field.NewPath("spec", "proxySpec", "externalAccess"),
+			fmt.Sprintf("Service %q exists but is not controlled by this AIStore; migrate or remove it before enabling proxy external access", name.String())))
+	}
+	return nil
+}
+
 func validateProxyUpdate(prev, ais *aisv1.AIStore) error {
 	allowDaemonSpecUpdates(&prev.Spec.ProxySpec, &ais.Spec.ProxySpec)
+	// Proxy public addresses do not depend on the shared LoadBalancer.
+	if prev.Spec.ProxySpec.ExternalAccess == nil {
+		prev.Spec.ProxySpec.ExternalAccess = ais.Spec.ProxySpec.ExternalAccess
+	}
 	allowProxyPortUpdates(prev, ais)
 	if !equality.Semantic.DeepEqual(ais.Spec.ProxySpec, prev.Spec.ProxySpec) {
 		diff := deep.Equal(ais.Spec.ProxySpec, prev.Spec.ProxySpec)

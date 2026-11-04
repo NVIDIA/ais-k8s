@@ -22,6 +22,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -427,14 +428,103 @@ func TestValidateProxyUpdateExternalAccess(t *testing.T) {
 		)).To(Succeed())
 	})
 
-	t.Run("enabling external access is rejected", func(subT *testing.T) {
+	t.Run("enabling external access is allowed", func(subT *testing.T) {
 		g := NewWithT(subT)
-		g.Expect(validateProxyUpdate(proxy(nil), proxy(&aisv1.ExternalAccessSpec{}))).To(HaveOccurred())
+		g.Expect(validateProxyUpdate(proxy(nil), proxy(&aisv1.ExternalAccessSpec{}))).To(Succeed())
+	})
+
+	t.Run("enabling with annotations and a load balancer port is allowed", func(subT *testing.T) {
+		g := NewWithT(subT)
+		g.Expect(validateProxyUpdate(proxy(nil), proxy(&aisv1.ExternalAccessSpec{
+			Annotations:  map[string]string{"example.com/internal": "true"},
+			LoadBalancer: &aisv1.LoadBalancerSpec{Port: aisapc.Ptr[int32](443)},
+		}))).To(Succeed())
+	})
+
+	t.Run("enabling does not allow changing the proxy host port", func(subT *testing.T) {
+		g := NewWithT(subT)
+		prev, ais := proxy(nil), proxy(&aisv1.ExternalAccessSpec{})
+		prev.Spec.ProxySpec.HostPort = aisapc.Ptr[int32](51080)
+		ais.Spec.ProxySpec.HostPort = aisapc.Ptr[int32](51090)
+		g.Expect(validateProxyUpdate(prev, ais)).To(HaveOccurred())
 	})
 
 	t.Run("disabling external access is rejected", func(subT *testing.T) {
 		g := NewWithT(subT)
 		g.Expect(validateProxyUpdate(proxy(&aisv1.ExternalAccessSpec{}), proxy(nil))).To(HaveOccurred())
+	})
+}
+
+func TestValidateUpdateProxyServiceOwnership(t *testing.T) {
+	base := &aisv1.AIStore{ObjectMeta: metav1.ObjectMeta{Name: "ais", Namespace: "test", UID: "ais-uid"}}
+	base.Spec.Size = aisapc.Ptr[int32](1)
+	base.Spec.StateStorage = &aisv1.StateStorage{EmptyDir: &aisv1.StateEmptyDirConfig{}}
+	for _, tt := range []struct {
+		name, ownerUID string
+		exists, apiErr bool
+		wantInvalid    bool
+	}{
+		{name: "missing service"},
+		{name: "owned service", exists: true, ownerUID: "ais-uid"},
+		{name: "Helm service", exists: true, wantInvalid: true},
+		{name: "different owner", exists: true, ownerUID: "other-uid", wantInvalid: true},
+		{name: "API error", apiErr: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
+			var objects []client.Object
+			if tt.exists {
+				svc := &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: "ais-proxy-lb", Namespace: "test"}}
+				if tt.ownerUID != "" {
+					owner := base.DeepCopy()
+					owner.UID = types.UID(tt.ownerUID)
+					svc.OwnerReferences = []metav1.OwnerReference{*metav1.NewControllerRef(owner, aisv1.GroupVersion.WithKind("AIStore"))}
+				}
+				objects = append(objects, svc)
+			}
+			webhook, _ := newSARWebhook(t, true, objects...)
+			if tt.apiErr {
+				webhook.Client = interceptor.NewClient(webhook.Client.(client.WithWatch), interceptor.Funcs{
+					Get: func(context.Context, client.WithWatch, client.ObjectKey, client.Object, ...client.GetOption) error {
+						return errors.New("apiserver unavailable")
+					},
+				})
+			}
+			ais := base.DeepCopy()
+			ais.Spec.ProxySpec.ExternalAccess = &aisv1.ExternalAccessSpec{}
+			_, err := webhook.ValidateUpdate(context.Background(), base.DeepCopy(), ais)
+			switch {
+			case tt.apiErr:
+				g.Expect(apierrors.IsInternalError(err)).To(BeTrue())
+			case tt.wantInvalid:
+				g.Expect(apierrors.IsInvalid(err)).To(BeTrue())
+			default:
+				g.Expect(err).To(Succeed())
+			}
+		})
+	}
+}
+
+func TestProxyServiceOwnershipOnlyChecksEnablement(t *testing.T) {
+	webhook := &AIStoreWebhook{} // A lookup through the nil client would panic.
+	prev, ais := &aisv1.AIStore{}, &aisv1.AIStore{}
+	g := NewWithT(t)
+	g.Expect(webhook.validateProxyServiceOwnership(context.Background(), prev, ais)).To(Succeed())
+	prev.Spec.ProxySpec.ExternalAccess = &aisv1.ExternalAccessSpec{}
+	g.Expect(webhook.validateProxyServiceOwnership(context.Background(), prev, ais)).To(Succeed())
+	ais.Spec.ProxySpec.ExternalAccess = &aisv1.ExternalAccessSpec{}
+	g.Expect(webhook.validateProxyServiceOwnership(context.Background(), prev, ais)).To(Succeed())
+}
+
+func TestValidateTargetUpdateExternalAccess(t *testing.T) {
+	target := func(ea *aisv1.ExternalAccessSpec) *aisv1.AIStore {
+		return &aisv1.AIStore{Spec: aisv1.AIStoreSpec{TargetSpec: aisv1.TargetSpec{DaemonSpec: aisv1.DaemonSpec{ExternalAccess: ea}}}}
+	}
+	t.Run("enabling is rejected", func(subT *testing.T) {
+		NewWithT(subT).Expect(validateTargetUpdate(target(nil), target(&aisv1.ExternalAccessSpec{}))).To(HaveOccurred())
+	})
+	t.Run("disabling is rejected", func(subT *testing.T) {
+		NewWithT(subT).Expect(validateTargetUpdate(target(&aisv1.ExternalAccessSpec{}), target(nil))).To(HaveOccurred())
 	})
 }
 

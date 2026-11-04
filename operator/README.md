@@ -221,7 +221,13 @@ By default, each AIS pod will deploy with a `HostPort` configuration, allowing a
 The AIStore custom resource supports per-role external access via `spec.proxySpec.externalAccess` (one shared proxy LoadBalancer) and `spec.targetSpec.externalAccess` (one LoadBalancer per target ordinal). 
 External access relies on the K8s cluster assigning an external IP or hostname to these `LoadBalancer` services.
 
-> **NOTE**: Currently, enabling external access for an existing cluster is not yet supported.
+Proxy external access can be enabled on an existing cluster without changing the proxies' advertised addresses.
+Disabling proxy external access remains unsupported.
+When migrating from Helm `proxyLB`, disable `proxyLB` first and remove or transfer ownership of its existing Service before enabling `proxySpec.externalAccess`.
+Admission rejects enablement if the same-named Service is not controlled by this AIStore resource.
+Disabling `proxyLB` normally deletes its Service; preserve it through an explicit ownership handoff if the existing LB IP must be retained.
+
+> **NOTE**: Currently, enabling target external access for an existing cluster is not yet supported.
 > See the [redeployment](../docs/redeployment.md) guide for redeploying an existing cluster.
 
 #### Setting up External IPs
