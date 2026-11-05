@@ -15,11 +15,13 @@ environments:
         host_network: true
   ais-asr-ngc-iad:
     values:
+      - chartVersion: 1.14.2
       - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git//helm/monitoring/alloy/config/@ais-asr-ngc-iad.yaml?ref=main"
         container_runtime: crio
         host_network: true
   ais-asr-ngc-ord:
     values:
+      - chartVersion: 1.14.2
       - valuesPath: "git::ssh://git@gitlab-master.nvidia.com/aistorage/ais-infra.git//helm/monitoring/alloy/config/@ais-asr-ngc-ord.yaml?ref=main"
         container_runtime: crio
         host_network: true
@@ -49,7 +51,7 @@ releases:
   - name: alloy-config
     namespace: monitoring
     chart: charts/alloy-config  # Local chart for configmap
-    version: 0.2.0
+    version: 0.2.1
     createNamespace: true
     values:
       - "{{ .Environment.Values.valuesPath }}"
@@ -59,7 +61,7 @@ releases:
     namespace: monitoring
     createNamespace: true
     chart: grafana/alloy
-    version: 1.8.0
+    version: '{{ .Values | get "chartVersion" "1.8.0" }}'
     values:
       - ./config/alloy/default.yaml.gotmpl
       - "{{ .Environment.Values.valuesPath }}"

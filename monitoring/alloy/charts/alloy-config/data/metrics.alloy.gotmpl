@@ -29,7 +29,7 @@ discovery.kubernetes "ais_target_pods" {
 }
 
 discovery.relabel "all_aisnode" {
-  targets = concat(
+  targets = array.concat(
     discovery.kubernetes.ais_target_pods.targets,
     discovery.kubernetes.ais_proxy_pods.targets,
   )

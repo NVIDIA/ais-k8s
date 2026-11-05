@@ -15,6 +15,7 @@ The full list of available helm values can be found [here](https://github.com/gr
 
 > **Note:** `container_runtime` customizes cAdvisor volume mounts (accepted values are `docker`, `crio`, and `containerd`). 
 Additional Alloy chart Helm values can be set in the Helm values file linked in each Helmfile environment's `valuesPath`.
+Set `chartVersion` in a Helmfile environment to override the upstream Alloy chart version; the default remains `1.8.0`.
 
 The alloy-config chart contains the alloy specification for a full pipeline to scrape logs and metrics depending on the values provided.
 See the values for the [default environment](./config/alloy-config/default.yaml) for explanation of some options. 
