@@ -1,3 +1,4 @@
 resources:
 - aistore_editor_role.yaml
+- aistore_privileged_role.yaml
 - aistore_viewer_role.yaml

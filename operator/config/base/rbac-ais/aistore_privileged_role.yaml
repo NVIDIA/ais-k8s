@@ -1,0 +1,18 @@
+# Permissions for users to set AIStore spec fields that grant privileged pod settings or host access,
+# such as securityContext, hostNetwork, and hostPath volumes. aistore-editor-role does not include them.
+# The validating webhook checks the "use" verb on aistores/privileged for the submitting user.
+# Any role that grants this access works. This role is a convenient way to grant it.
+#
+# Bind this ClusterRole with a RoleBinding to limit it to one namespace.
+# See docs/privileged_access.md.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: aistore-privileged-role
+rules:
+- apiGroups:
+  - ais.nvidia.com
+  resources:
+  - aistores/privileged
+  verbs:
+  - use

@@ -5,6 +5,7 @@ Each of the AIS nodes running in a K8s cluster uses a small amount of local pers
 In the past, this was **always** expected to mount to a directory on the host.
 This was done in part because [local volumes in K8s](https://kubernetes.io/docs/concepts/storage/volumes/#local) do not support [dynamic provisioning](https://kubernetes.io/docs/concepts/storage/dynamic-provisioning/), which allows for volumes to be created for each AIS node as the AIS statefulsets scale.
 The host directory is configurable with `stateStorage.hostPath.prefix` in the AIS spec.
+Setting `stateStorage.hostPath` requires the `use` verb on `aistores/privileged`. See [privileged access](privileged_access.md).
 
 There are a few drawbacks to using [hostPath volumes](https://kubernetes.io/docs/concepts/storage/volumes/#hostpath). 
 First, there are additional security risks, as detailed in the prior link, because of the access to the host filesystem. 

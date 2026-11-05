@@ -228,6 +228,7 @@ type StateEmptyDirConfig struct{}
 // +kubebuilder:validation:XValidation:rule="[has(self.hostPath), has(self.pvc), has(self.emptyDir)].filter(x, x).size() == 1",message="exactly one of hostPath, pvc, or emptyDir must be set"
 type StateStorage struct {
 	// HostPath stores AIStore state in directories on each host.
+	// Setting it requires the `use` verb on `aistores/privileged`.
 	// +optional
 	HostPath *StateHostPathConfig `json:"hostPath,omitempty"`
 	// PVC stores AIStore state in dynamically provisioned volumes.
@@ -440,7 +441,8 @@ type AIStoreSpec struct {
 	// +optional
 	OCISecretName *string `json:"ociSecretName,omitempty"`
 
-	// Logs directory on host to store AIS logs
+	// Logs directory on host to store AIS logs.
+	// Setting it requires the `use` verb on `aistores/privileged`.
 	// +optional
 	LogsDirectory string `json:"logsDir,omitempty"`
 
@@ -567,6 +569,7 @@ type ServiceSpec struct {
 type DaemonSpec struct {
 	ServiceSpec `json:",inline"`
 	// SecurityContext defines pod-level security attributes and common container settings for AIS proxy and target pods.
+	// Values that the Pod Security Standards baseline policy forbids require the `use` verb on `aistores/privileged`.
 	// +optional
 	SecurityContext *corev1.PodSecurityContext `json:"securityContext,omitempty"`
 
@@ -594,7 +597,8 @@ type DaemonSpec struct {
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 
 	// AISContainerSecurityContext defines the security context for the primary AIS container.
-	// Values defined here can override the overall SecurityContext
+	// Values defined here can override the overall SecurityContext.
+	// Values that the Pod Security Standards baseline policy forbids require the `use` verb on `aistores/privileged`.
 	AISContainerSecurityContext *corev1.SecurityContext `json:"aisContainerSecurityContext,omitempty"`
 
 	// List of additional environment variables to set in the AIS Daemon container.
@@ -683,6 +687,7 @@ type TargetSpec struct {
 	DisablePodAntiAffinity *bool `json:"disablePodAntiAffinity,omitempty"`
 
 	// hostNetwork - if set to true, the AIS Daemon pods for target are created in the host's network namespace (used for multihoming)
+	// Setting it requires the `use` verb on `aistores/privileged`.
 	// +optional
 	HostNetwork *bool `json:"hostNetwork,omitempty"`
 
@@ -745,9 +750,11 @@ type Mount struct {
 	Size *resource.Quantity `json:"size,omitempty"`
 	// +optional
 	StorageClass *string `json:"storageClass,omitempty"` // storage class for volume resource
+	// UseHostPath mounts the path directly on the host and skips PVs.
+	// Setting it requires the `use` verb on `aistores/privileged`.
 	// +optional
-	UseHostPath *bool                 `json:"useHostPath,omitempty"` // skip PVs and mount directly on the host
-	Selector    *metav1.LabelSelector `json:"selector,omitempty"`    // selector for choosing PVs
+	UseHostPath *bool                 `json:"useHostPath,omitempty"`
+	Selector    *metav1.LabelSelector `json:"selector,omitempty"` // selector for choosing PVs
 	// Mountpath labels can be used for mapping mountpaths to disks, enabling disk sharing,
 	// defining storage classes for bucket-specific storage, and allowing user-defined mountpath
 	// grouping for capacity and storage class differentiation

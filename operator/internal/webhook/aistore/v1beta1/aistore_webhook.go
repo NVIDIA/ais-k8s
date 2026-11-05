@@ -118,7 +118,13 @@ func (aisw *AIStoreWebhook) validateSpec(ctx context.Context, prev, ais *aisv1.A
 		return allWarnings, err
 	}
 
-	warnings, err := aisw.verifyNodesAvailable(ctx, ais, aisapc.Proxy)
+	warnings, err := aisw.validatePrivilegedAccess(ctx, ais)
+	if err != nil {
+		return allWarnings, err
+	}
+	allWarnings = append(allWarnings, warnings...)
+
+	warnings, err = aisw.verifyNodesAvailable(ctx, ais, aisapc.Proxy)
 	if err != nil {
 		return allWarnings, err
 	}

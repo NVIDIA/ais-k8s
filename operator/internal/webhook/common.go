@@ -79,8 +79,12 @@ func Authorize(
 
 // describeResource names the reviewed object, omitting the namespace for cluster-scoped resources.
 func describeResource(attrs *authorizationv1.ResourceAttributes) string {
-	if attrs.Namespace == "" {
-		return fmt.Sprintf("%s resource %q", attrs.Resource, attrs.Name)
+	resource := attrs.Resource
+	if attrs.Subresource != "" {
+		resource += "/" + attrs.Subresource
 	}
-	return fmt.Sprintf("%s resource %q in namespace %q", attrs.Resource, attrs.Name, attrs.Namespace)
+	if attrs.Namespace == "" {
+		return fmt.Sprintf("%s resource %q", resource, attrs.Name)
+	}
+	return fmt.Sprintf("%s resource %q in namespace %q", resource, attrs.Name, attrs.Namespace)
 }

@@ -10,12 +10,18 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ## Unreleased
 
+### Added
+
+- `aistore-privileged-role` ClusterRole that grants `use` on `aistores/privileged`. See [privileged access](../docs/privileged_access.md).
+
 ### Changed
 
 - Allow enabling `spec.proxySpec.externalAccess` on an existing cluster when its LoadBalancer Service is absent or controlled by that AIStore resource.
 - Target scale-down with `scaleDownMode` `retain` puts all outgoing targets in maintenance in one request on AIS v5.0 or later, instead of one request per target.
   - On AIS older than v5.0, it puts outgoing targets in maintenance one at a time.
 - Target autoscale scale-down keeps up to `targetSpec.autoScale.maxUnavailable` targets above the desired size while a target within the desired size is unavailable, instead of waiting or shrinking to the desired size.
+- Webhook warns when a user without `use` on `aistores/privileged` creates or updates a spec whose pods violate the baseline Pod Security Standard, for example through `hostNetwork`, `mounts[*].useHostPath`, `stateStorage.hostPath`, `logsDir`, or a privileged `securityContext`.
+  - A future release will reject these requests. Grant `aistore-privileged-role`, or any role with this access, to every user who edits such a cluster.
 
 #### AIStoreAuth
 

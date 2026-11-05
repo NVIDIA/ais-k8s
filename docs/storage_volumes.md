@@ -144,3 +144,5 @@ The following shows the mounts as templated by Helm into the AIStore custom reso
 If a mount has the `useHostPath` field set to `true`, the operator will create a host path volume at `<mount.path>/<namespace>/<cluster name>/target` and map it directly into the Pod, bypassing PVs and PVCs entirely.
 
 This can be used in deployments that wish to avoid PV management entirely and accept the [security implications of host path mounts](https://kubernetes.io/docs/concepts/storage/volumes/#hostpath).
+
+Setting `useHostPath` requires the `use` verb on `aistores/privileged`. See [privileged access](privileged_access.md).

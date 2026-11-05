@@ -2007,7 +2007,9 @@ spec:
                 - image
                 type: object
               logsDir:
-                description: Logs directory on host to store AIS logs
+                description: |-
+                  Logs directory on host to store AIS logs.
+                  Setting it requires the `use` verb on `aistores/privileged`.
                 type: string
               networkAttachment:
                 description: |-
@@ -2971,7 +2973,8 @@ spec:
                   aisContainerSecurityContext:
                     description: |-
                       AISContainerSecurityContext defines the security context for the primary AIS container.
-                      Values defined here can override the overall SecurityContext
+                      Values defined here can override the overall SecurityContext.
+                      Values that the Pod Security Standards baseline policy forbids require the `use` verb on `aistores/privileged`.
                     properties:
                       allowPrivilegeEscalation:
                         description: |-
@@ -3591,8 +3594,9 @@ spec:
                         type: object
                     type: object
                   securityContext:
-                    description: SecurityContext defines pod-level security attributes
-                      and common container settings for AIS proxy and target pods.
+                    description: |-
+                      SecurityContext defines pod-level security attributes and common container settings for AIS proxy and target pods.
+                      Values that the Pod Security Standards baseline policy forbids require the `use` verb on `aistores/privileged`.
                     properties:
                       appArmorProfile:
                         description: |-
@@ -3914,8 +3918,9 @@ spec:
                       volume.
                     type: object
                   hostPath:
-                    description: HostPath stores AIStore state in directories on each
-                      host.
+                    description: |-
+                      HostPath stores AIStore state in directories on each host.
+                      Setting it requires the `use` verb on `aistores/privileged`.
                     properties:
                       prefix:
                         description: Prefix is the path on each host used for AIStore
@@ -4871,7 +4876,8 @@ spec:
                   aisContainerSecurityContext:
                     description: |-
                       AISContainerSecurityContext defines the security context for the primary AIS container.
-                      Values defined here can override the overall SecurityContext
+                      Values defined here can override the overall SecurityContext.
+                      Values that the Pod Security Standards baseline policy forbids require the `use` verb on `aistores/privileged`.
                     properties:
                       allowPrivilegeEscalation:
                         description: |-
@@ -5299,9 +5305,9 @@ spec:
                       rule: '!(self.?dns.?externalDNSAnnotation.orValue(false) &&
                         ''external-dns.kubernetes.io/hostname'' in self.?annotations.orValue({}))'
                   hostNetwork:
-                    description: hostNetwork - if set to true, the AIS Daemon pods
-                      for target are created in the host's network namespace (used
-                      for multihoming)
+                    description: |-
+                      hostNetwork - if set to true, the AIS Daemon pods for target are created in the host's network namespace (used for multihoming)
+                      Setting it requires the `use` verb on `aistores/privileged`.
                     type: boolean
                   hostPort:
                     description: HostPort - Port to bind directly to a specific port
@@ -5383,6 +5389,9 @@ spec:
                         storageClass:
                           type: string
                         useHostPath:
+                          description: |-
+                            UseHostPath mounts the path directly on the host and skips PVs.
+                            Setting it requires the `use` verb on `aistores/privileged`.
                           type: boolean
                       required:
                       - path
@@ -5616,8 +5625,9 @@ spec:
                     - safe_decommission
                     type: string
                   securityContext:
-                    description: SecurityContext defines pod-level security attributes
-                      and common container settings for AIS proxy and target pods.
+                    description: |-
+                      SecurityContext defines pod-level security attributes and common container settings for AIS proxy and target pods.
+                      Values that the Pod Security Standards baseline policy forbids require the `use` verb on `aistores/privileged`.
                     properties:
                       appArmorProfile:
                         description: |-

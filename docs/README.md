@@ -96,6 +96,8 @@ Again, there are a few deployment options:
 
 To deploy with authentication, see the [authentication doc](./authentication.md).
 
+Specs whose pods violate the baseline Pod Security Standard, for example through host networking or host paths, need the [privileged access role](./privileged_access.md).
+
 After deployment, verify all AIS pods are ready and running:
 ```
 $ watch kubectl get pods -n <cluster-namespace>
