@@ -33,6 +33,8 @@ const (
 	decommissionedAnnotation      = "aistore.nvidia.com/decommissioned"
 	reasonLeftWithoutDecommission = "target left the cluster map before the operator decommissioned it"
 	msgDeferTargetRemoval         = "Deferring target removal"
+	// maintenanceAnnotation marks a target pod whose AIS node the operator put in maintenance for a scale-down. The value is the node ID.
+	maintenanceAnnotation = "aistore.nvidia.com/maintenance"
 )
 
 func (r *Reconciler) ensureTargetPrereqs(ctx context.Context, ais *aisv1.AIStore) (err error) {
@@ -584,24 +586,13 @@ func (r *Reconciler) prepareTargetsForScaleDown(ctx context.Context, ais *aisv1.
 	if len(nodes) > 1 && !primarySupportsBatchedRemoval(ctx, apiClient, smap) {
 		podNames, nodes = podNames[:1], nodes[:1]
 	}
+	// Maintenance sets SnodeMaintPostReb only after its rebalance succeeds.
+	if entries := maintenanceEntries(podNames, nodes, retain, rebalance); len(entries) > 0 {
+		return r.startTargetMaintenance(ctx, ais, apiClient, entries, rebalance)
+	}
 	nodeIDs := make([]string, 0, len(nodes))
-	var maintNodeIDs []string
 	for _, node := range nodes {
 		nodeIDs = append(nodeIDs, node.ID())
-		if retain || (rebalance && !node.InMaint()) {
-			maintNodeIDs = append(maintNodeIDs, node.ID())
-		}
-	}
-	// Maintenance sets SnodeMaintPostReb only after its rebalance succeeds.
-	if len(maintNodeIDs) > 0 {
-		act := rmNodeAction(maintNodeIDs)
-		act.SkipRebalance = !rebalance
-		logger.Info("Putting targets in maintenance mode", "nodeIDs", maintNodeIDs, "skipRebalance", act.SkipRebalance)
-		_, err = apiClient.StartMaintenance(act)
-		if err != nil {
-			logger.Error(err, "Failed to put nodes in maintenance", "nodeIDs", maintNodeIDs)
-		}
-		return err
 	}
 	for i, podName := range podNames {
 		podNSName := types.NamespacedName{Name: podName, Namespace: ais.Namespace}
@@ -616,6 +607,44 @@ func (r *Reconciler) prepareTargetsForScaleDown(ctx context.Context, ais *aisv1.
 	_, err = apiClient.DecommissionNode(act)
 	if err != nil {
 		logger.Error(err, "Failed to decommission nodes", "nodeIDs", nodeIDs)
+	}
+	return err
+}
+
+// podNode is a pod and the ID of its AIS node.
+type podNode struct {
+	podName string
+	nodeID  string
+}
+
+// maintenanceEntries returns the outgoing targets that need to enter maintenance.
+func maintenanceEntries(podNames []string, nodes []*aismeta.Snode, retain, rebalance bool) []podNode {
+	var entries []podNode
+	for i, node := range nodes {
+		if retain || (rebalance && !node.InMaint()) {
+			entries = append(entries, podNode{podName: podNames[i], nodeID: node.ID()})
+		}
+	}
+	return entries
+}
+
+// startTargetMaintenance annotates each entry's pod and puts the AIS nodes in maintenance.
+func (r *Reconciler) startTargetMaintenance(ctx context.Context, ais *aisv1.AIStore, apiClient services.AIStoreClientInterface, entries []podNode, rebalance bool) error {
+	logger := logf.FromContext(ctx)
+	nodeIDs := make([]string, 0, len(entries))
+	for _, e := range entries {
+		podNSName := types.NamespacedName{Name: e.podName, Namespace: ais.Namespace}
+		if err := r.k8sClient.AnnotatePod(ctx, podNSName, maintenanceAnnotation, e.nodeID); err != nil {
+			return fmt.Errorf("failed to annotate pod %s: %w", e.podName, err)
+		}
+		nodeIDs = append(nodeIDs, e.nodeID)
+	}
+	act := rmNodeAction(nodeIDs)
+	act.SkipRebalance = !rebalance
+	logger.Info("Putting targets in maintenance mode", "nodeIDs", nodeIDs, "skipRebalance", act.SkipRebalance)
+	_, err := apiClient.StartMaintenance(act)
+	if err != nil {
+		logger.Error(err, "Failed to put nodes in maintenance", "nodeIDs", nodeIDs)
 	}
 	return err
 }

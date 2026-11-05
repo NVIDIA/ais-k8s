@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/NVIDIA/aistore/api/apc"
 	"github.com/NVIDIA/aistore/cmn/cos"
@@ -389,6 +390,19 @@ var _ = Describe("scaleDownMode", func() {
 			Expect(k8sClient.Status().Update(ctx, ais)).To(Succeed())
 		})
 
+		// expectMaintenanceAnnotations asserts that, of ais-target-2 (t3) and ais-target-3 (t4), only the pods of wantIDs have the maintenance annotation.
+		expectMaintenanceAnnotations := func(wantIDs ...string) {
+			for name, id := range map[string]string{"ais-target-2": "t3", "ais-target-3": "t4"} {
+				pod := &corev1.Pod{}
+				Expect(k8sClient.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, pod)).To(Succeed())
+				if slices.Contains(wantIDs, id) {
+					Expect(pod.Annotations).To(HaveKeyWithValue(maintenanceAnnotation, id))
+				} else {
+					Expect(pod.Annotations).NotTo(HaveKey(maintenanceAnnotation))
+				}
+			}
+		}
+
 		DescribeTable("with one outgoing target",
 			func(mode aisv1.ScaleDownMode, rebalanceEnabled *bool, flags cos.BitFlags, wantMaintenance bool, wantRmUserData *bool) {
 				ais.Spec.TargetSpec.ScaleDownMode = mode
@@ -475,6 +489,12 @@ var _ = Describe("scaleDownMode", func() {
 				if rebalancing != nil {
 					apiClient.EXPECT().IsRebalancing().Return(*rebalancing, rebalancingErr)
 				}
+				for _, name := range []string{"ais-target-2", "ais-target-3"} {
+					Expect(k8sClient.Create(ctx, &corev1.Pod{
+						ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+						Spec:       corev1.PodSpec{Containers: []corev1.Container{{Name: cmn.AISContainerName, Image: "aisnode:test"}}},
+					})).To(Succeed())
+				}
 				if wantMaintenance != "" {
 					apiClient.EXPECT().GetSoftwareVersion(primary).Return("4.4", nil)
 					apiClient.EXPECT().StartMaintenance(gomock.Any()).DoAndReturn(func(act *apc.ActValRmNode) (string, error) {
@@ -529,6 +549,7 @@ var _ = Describe("scaleDownMode", func() {
 					apiClient.EXPECT().StartMaintenance(gomock.Any()).DoAndReturn(func(act *apc.ActValRmNode) (string, error) {
 						Expect(removedIDs(act)).To(ConsistOf(wantMaintenance))
 						Expect(act.SkipRebalance).To(BeFalse())
+						expectMaintenanceAnnotations(wantMaintenance...)
 						return "xid", nil
 					})
 				}
@@ -575,6 +596,12 @@ var _ = Describe("scaleDownMode", func() {
 					t3 := &aismeta.Snode{DaeID: "t3", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-2"}, Flags: t3Flags}
 					t4 := &aismeta.Snode{DaeID: "t4", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-3"}, Flags: t4Flags}
 					smap := &aismeta.Smap{Tmap: aismeta.NodeMap{"t3": t3, "t4": t4}, Primary: primary}
+					for _, name := range []string{"ais-target-2", "ais-target-3"} {
+						Expect(k8sClient.Create(ctx, &corev1.Pod{
+							ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+							Spec:       corev1.PodSpec{Containers: []corev1.Container{{Name: cmn.AISContainerName, Image: "aisnode:test"}}},
+						})).To(Succeed())
+					}
 					if version != "" {
 						apiClient.EXPECT().GetSoftwareVersion(primary).Return(version, nil)
 					}
@@ -588,6 +615,7 @@ var _ = Describe("scaleDownMode", func() {
 							} else {
 								Expect(act.DaemonIDs).To(ConsistOf(wantMaintenance))
 							}
+							expectMaintenanceAnnotations(wantMaintenance...)
 							return "xid", nil
 						})
 					}
