@@ -162,6 +162,10 @@ func (ais *AIStore) validateAuthConfig() (admission.Warnings, error) {
 func (ais *AIStore) validateDeprecatedFields() (admission.Warnings, error) {
 	warnings := ais.Spec.DeprecatedStateStorageMessages()
 	warnings = append(warnings, ais.Spec.DeprecatedPortMessages()...)
+	if ais.Spec.NetAttachment != nil {
+		warnings = append(warnings, "spec.networkAttachment is deprecated, set the k8s.v1.cni.cncf.io/networks "+
+			"annotation in spec.targetSpec.annotations")
+	}
 	return append(warnings, ais.Spec.ConfigToUpdate.DeprecatedAuthMessages()...), nil
 }
 

@@ -24,6 +24,8 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ### Deprecated
 
+- `spec.networkAttachment`. Set the `k8s.v1.cni.cncf.io/networks` annotation in `spec.targetSpec.annotations` instead.
+
 #### AIStoreAuth
 
 - `spec.deployment.container.securityContext` and `spec.deployment.pod.securityContext` are ignored.

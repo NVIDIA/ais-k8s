@@ -73,7 +73,7 @@ func NewProxyStatefulSet(ais *aisv1.AIStore, size int32) *apiv1.StatefulSet {
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels:      podLabels,
-					Annotations: cmn.PrepareAnnotations(ais.Spec.ProxySpec.Annotations, ais.Spec.NetAttachment, aisapc.Ptr(ais.Annotations[cmn.RestartConfigHashAnnotation])),
+					Annotations: cmn.PrepareAnnotations(ais.Spec.ProxySpec.Annotations, ais.Spec.NetAttachment, aisapc.Ptr(ais.Annotations[cmn.RestartConfigHashAnnotation])), //nolint:staticcheck // deprecated option still applies
 				},
 				Spec: *proxyPodSpec(ais),
 			},

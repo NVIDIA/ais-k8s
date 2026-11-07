@@ -2012,8 +2012,9 @@ spec:
                 description: Logs directory on host to store AIS logs
                 type: string
               networkAttachment:
-                description: Commma-separated list of names of additional network attachment
-                  definitions to attach to each pod
+                description: |-
+                  Deprecated: set the k8s.v1.cni.cncf.io/networks annotation in spec.targetSpec.annotations.
+                  More info: https://github.com/NVIDIA/ais-k8s/blob/main/docs/multihome.md
                 type: string
               nodeImage:
                 description: Container image used for `aisnode` container.

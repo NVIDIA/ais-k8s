@@ -523,6 +523,22 @@ var _ = Describe("AIStore", func() {
 				Expect(warnings).To(ContainElement(ContainSubstring("spec.proxySpec.servicePort is deprecated")))
 				Expect(warnings).To(ContainElement(ContainSubstring("spec.targetSpec.servicePort is deprecated")))
 			})
+
+			It("should warn when networkAttachment is set", func() {
+				ais := AIStore{
+					Spec: AIStoreSpec{
+						Size:          aisapc.Ptr[int32](1),
+						NetAttachment: aisapc.Ptr("macvlan-conf"),
+						StateStorage: &StateStorage{
+							HostPath: &StateHostPathConfig{Prefix: "/mnt"},
+						},
+					},
+				}
+
+				warnings, err := ais.ValidateSpec(context.Background())
+				Expect(err).ToNot(HaveOccurred())
+				Expect(warnings).To(ContainElement(ContainSubstring("spec.networkAttachment is deprecated")))
+			})
 		})
 	})
 

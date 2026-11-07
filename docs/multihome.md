@@ -3,7 +3,8 @@
 To take advantage of multiple network interfaces, AIS supports multi-homing to distribute traffic across all available interfaces.
 The operator currently supports using [multus](https://github.com/k8snetworkplumbingwg/multus-cni) to enable multiple IPs for each K8s pod.
 
-> **Note:** Using more than 2 network interfaces has not been tested. Refer to the multus documentation or raise an issue if you run into errors assigning multiple IPs to a pod.
+> **Note:** Using more than 2 network interfaces has not been tested.
+> Refer to the multus documentation or raise an issue if you run into errors assigning multiple IPs to a pod.
 
 ## Host Prerequisites
 
@@ -38,7 +39,8 @@ kubectl get network-attachment-definitions -n <namespace>
 
 Two spec entries connect the cluster to those definitions:
 
-1. **`spec.networkAttachment`:** Comma-separated names of the definitions to attach to every pod.
+1. **`k8s.v1.cni.cncf.io/networks` annotation:** The definitions to attach to each target, set in `spec.targetSpec.annotations`.
+   The value uses the [multus annotation format](https://github.com/k8snetworkplumbingwg/multus-cni/blob/master/docs/how-to-use.md#run-pod-with-network-annotation).
 2. **`spec.hostnameMap`:** Maps each node's primary host to a comma-separated list of all its hosts, including the primary.
 
 The operator writes `hostnameMap` to a ConfigMap and passes it to the `populate-env` init container as `-hostname_map_file`.
@@ -50,11 +52,16 @@ AIS itself never reads the map, so the primary host is only ever a lookup key.
 
 ```yaml
 spec:
-  networkAttachment: "macvlan-conf"
+  targetSpec:
+    annotations:
+      k8s.v1.cni.cncf.io/networks: "macvlan-conf"
   hostnameMap:
     10.51.248.68: "10.51.248.68,10.51.248.116"
     10.51.248.77: "10.51.248.77,10.51.248.105"
 ```
+
+> **Note:** `spec.networkAttachment` is deprecated. 
+> Use annotations as shown above.
 
 For Helm, set these under the `multihome` block in your AIS values file and refer to the [AIS Helm multihome section](../helm/ais/README.md#multihome).
 

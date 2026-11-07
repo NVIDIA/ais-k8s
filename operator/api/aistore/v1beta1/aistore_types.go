@@ -393,7 +393,8 @@ type AIStoreSpec struct {
 	// Defaults to use internal headless proxy service if not provided
 	// +optional
 	APIMode *string `json:"apiMode,omitempty"`
-	// Commma-separated list of names of additional network attachment definitions to attach to each pod
+	// Deprecated: set the k8s.v1.cni.cncf.io/networks annotation in spec.targetSpec.annotations.
+	// More info: https://github.com/NVIDIA/ais-k8s/blob/main/docs/multihome.md
 	// +optional
 	NetAttachment *string `json:"networkAttachment,omitempty"`
 
