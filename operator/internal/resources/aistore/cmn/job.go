@@ -17,7 +17,7 @@ import (
 
 const CleanupPrefix = "cleanup"
 
-const cleanupHelperImage = "docker.io/aistorage/ais-operator-helper:v1.0.0"
+const cleanupHelperImage = "docker.io/aistorage/ais-operator-helper:v1.1.0"
 
 // NewCleanupJob creates a cleanup job for a specific node
 func NewCleanupJob(ais *aisv1.AIStore, nodeName string) *batchv1.Job {
