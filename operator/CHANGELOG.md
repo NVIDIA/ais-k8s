@@ -8,7 +8,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ---
 
-## Unreleased
+## v4.4.0
 
 ### Added
 
@@ -22,6 +22,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 - Target autoscale scale-down keeps up to `targetSpec.autoScale.maxUnavailable` targets above the desired size while a target within the desired size is unavailable, instead of waiting or shrinking to the desired size.
 - Webhook warns when a user without `use` on `aistores/privileged` creates or updates a spec whose pods violate the baseline Pod Security Standard, for example through `hostNetwork`, `mounts[*].useHostPath`, `stateStorage.hostPath`, `logsDir`, or a privileged `securityContext`.
   - A future release will reject these requests. Grant `aistore-privileged-role`, or any role with this access, to every user who edits such a cluster.
+- Rebuilt `aistorage/ais-operator-helper` image on Go 1.27.3 and updated image reference for cleanup jobs to `v1.1.0`.
 
 #### AIStoreAuth
 
