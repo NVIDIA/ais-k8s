@@ -116,7 +116,7 @@
             "uid": "${metricsSource}"
           },
           "editorMode": "code",
-          "expr": "(1-sum(node_filesystem_avail_bytes{instance=~\"^${node}$\", job=\"node-exporter\", mountpoint=~\"/ais/.*\", fstype!=\"rootfs\", cluster=~\"${cluster}\"})/ sum(node_filesystem_size_bytes{instance=~\"^${node}$\", job=\"node-exporter\", mountpoint=~\"/ais/.*\", fstype!=\"rootfs\", cluster=~\"${cluster}\"})) \n* 100",
+          "expr": "(1-sum(node_filesystem_avail_bytes{instance=~\"(${node})(:[0-9]+)?\", job=\"node-exporter\", mountpoint=~\"/ais/.*\", fstype!=\"rootfs\", cluster=~\"${cluster}\"})/ sum(node_filesystem_size_bytes{instance=~\"(${node})(:[0-9]+)?\", job=\"node-exporter\", mountpoint=~\"/ais/.*\", fstype!=\"rootfs\", cluster=~\"${cluster}\"})) \n* 100",
           "format": "time_series",
           "intervalFactor": 1,
           "range": true,
@@ -194,7 +194,7 @@
             "uid": "${metricsSource}"
           },
           "editorMode": "code",
-          "expr": "sum(node_filesystem_size_bytes{instance=~\"^${node}\",mountpoint=~\"/ais/.+\",cluster=~\"${cluster}\"})",
+          "expr": "sum(node_filesystem_size_bytes{instance=~\"(${node})(:[0-9]+)?\",mountpoint=~\"/ais/.+\",cluster=~\"${cluster}\"})",
           "format": "time_series",
           "intervalFactor": 1,
           "range": true,
@@ -210,7 +210,7 @@
         "type": "prometheus",
         "uid": "${metricsSource}"
       },
-      "description": "The number of GET errors across the selected targets within the specified time interval",
+      "description": "Combined GET and PUT error rate across the selected targets, in operations per second. Unused error counters count as zero only while target uptime telemetry is available.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -230,7 +230,8 @@
                 "value": 0
               }
             ]
-          }
+          },
+          "unit": "ops"
         },
         "overrides": []
       },
@@ -266,7 +267,7 @@
             "uid": "${metricsSource}"
           },
           "editorMode": "code",
-          "expr": "sum(increase(ais_target_err_get_count{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval])) or vector(0)",
+          "expr": "sum(rate(ais_target_err_get_count{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval])) or (0 * sum(ais_target_uptime{node_id=~\"$target\", cluster=~\"${cluster}\"}))",
           "hide": true,
           "legendFormat": "__auto",
           "range": true,
@@ -278,7 +279,7 @@
             "uid": "${metricsSource}"
           },
           "editorMode": "code",
-          "expr": "sum(increase(ais_target_err_put_count{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval])) or vector(0)",
+          "expr": "sum(rate(ais_target_err_put_count{node_id=~\"$target\", cluster=~\"${cluster}\"}[$interval])) or (0 * sum(ais_target_uptime{node_id=~\"$target\", cluster=~\"${cluster}\"}))",
           "hide": true,
           "instant": false,
           "legendFormat": "__auto",
@@ -453,7 +454,7 @@
         "type": "prometheus",
         "uid": "${metricsSource}"
       },
-      "description": "Count of total unavailable proxies in the cluster",
+      "description": "Desired StatefulSet replicas minus ready replicas, summed across the selected cluster and namespace.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -509,7 +510,7 @@
             "uid": "${metricsSource}"
           },
           "editorMode": "code",
-          "expr": "kube_statefulset_status_replicas{statefulset=~\".*proxy$\", namespace=\"${namespace}\", cluster=~\"${cluster}\"}",
+          "expr": "sum(kube_statefulset_replicas{statefulset=~\".*proxy$\", namespace=\"${namespace}\", cluster=~\"${cluster}\"})",
           "format": "time_series",
           "hide": true,
           "intervalFactor": 2,
@@ -523,7 +524,7 @@
             "uid": "${metricsSource}"
           },
           "editorMode": "code",
-          "expr": "kube_statefulset_status_replicas_ready{statefulset=~\".*proxy$\", namespace=\"${namespace}\", cluster=~\"${cluster}\"}",
+          "expr": "sum(kube_statefulset_status_replicas_ready{statefulset=~\".*proxy$\", namespace=\"${namespace}\", cluster=~\"${cluster}\"})",
           "hide": true,
           "instant": false,
           "legendFormat": "__auto",
@@ -550,7 +551,7 @@
         "type": "prometheus",
         "uid": "${metricsSource}"
       },
-      "description": "Total unavailable targets count",
+      "description": "Desired StatefulSet replicas minus ready replicas, summed across the selected cluster and namespace.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -606,7 +607,7 @@
             "uid": "${metricsSource}"
           },
           "editorMode": "code",
-          "expr": "kube_statefulset_status_replicas{statefulset=~\".*target$\", namespace=\"${namespace}\", cluster=~\"${cluster}\"}",
+          "expr": "sum(kube_statefulset_replicas{statefulset=~\".*target$\", namespace=\"${namespace}\", cluster=~\"${cluster}\"})",
           "format": "time_series",
           "hide": true,
           "intervalFactor": 2,
@@ -620,7 +621,7 @@
             "uid": "${metricsSource}"
           },
           "editorMode": "code",
-          "expr": "kube_statefulset_status_replicas_ready{statefulset=~\".*target$\", namespace=\"${namespace}\", cluster=~\"${cluster}\"}",
+          "expr": "sum(kube_statefulset_status_replicas_ready{statefulset=~\".*target$\", namespace=\"${namespace}\", cluster=~\"${cluster}\"})",
           "hide": true,
           "instant": false,
           "legendFormat": "__auto",
@@ -747,7 +748,6 @@
             "mode": "thresholds"
           },
           "mappings": [],
-          "noValue": "0",
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -757,7 +757,7 @@
               },
               {
                 "color": "red",
-                "value": 100
+                "value": 100000000
               }
             ]
           },
@@ -800,8 +800,9 @@
           "expr": "sum(increase(ais_target_get_ns_total{cluster=\"$cluster\"}[$interval]))",
           "hide": true,
           "legendFormat": "__auto",
-          "range": true,
-          "refId": "ns_over_interval"
+          "range": false,
+          "refId": "ns_over_interval",
+          "instant": true
         },
         {
           "datasource": {
@@ -809,11 +810,11 @@
             "uid": "${metricsSource}"
           },
           "editorMode": "code",
-          "expr": "absent(sum(increase(ais_target_get_count{cluster=\"$cluster\"}[$interval])))",
+          "expr": "sum(increase(ais_target_get_count{cluster=\"$cluster\"}[$interval])) > 0",
           "hide": true,
-          "instant": false,
+          "instant": true,
           "legendFormat": "__auto",
-          "range": true,
+          "range": false,
           "refId": "request_over_interval"
         },
         {
@@ -1321,7 +1322,7 @@
             "uid": "${metricsSource}"
           },
           "editorMode": "code",
-          "expr": "avg(\n  sum(irate(node_cpu_seconds_total{instance=~\"$node\", mode!=\"idle\", cluster=~\"${cluster}\"}[$interval]))\n  / \n  sum(irate(node_cpu_seconds_total{instance=~\"$node\", cluster=~\"${cluster}\"}[$interval]))\n  * 100\n)",
+          "expr": "avg(\n  sum(irate(node_cpu_seconds_total{instance=~\"(${node})(:[0-9]+)?\", mode!=\"idle\", cluster=~\"${cluster}\"}[$interval]))\n  / \n  sum(irate(node_cpu_seconds_total{instance=~\"(${node})(:[0-9]+)?\", cluster=~\"${cluster}\"}[$interval]))\n  * 100\n)",
           "hide": false,
           "intervalFactor": 1,
           "legendFormat": "",
@@ -1409,7 +1410,7 @@
             "uid": "${metricsSource}"
           },
           "editorMode": "code",
-          "expr": "avg(node_load5{instance=~\"^${node}$\", cluster=~\"${cluster}\"})",
+          "expr": "avg(node_load5{instance=~\"(${node})(:[0-9]+)?\",job=\"node-exporter\",cluster=~\"${cluster}\"} / on (cluster, instance) count by (cluster, instance) (node_cpu_seconds_total{instance=~\"(${node})(:[0-9]+)?\",job=\"node-exporter\",mode=\"idle\",cluster=~\"${cluster}\"})) * 100",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 1,
@@ -1418,7 +1419,7 @@
           "step": 240
         }
       ],
-      "title": "Load (5m)",
+      "title": "Load per Core (5m)",
       "type": "gauge"
     },
     {
@@ -1487,7 +1488,7 @@
             "uid": "${metricsSource}"
           },
           "editorMode": "code",
-          "expr": "((node_memory_MemTotal_bytes{instance=~\"^${node}$\",job=\"node-exporter\", cluster=~\"${cluster}\"} - node_memory_MemFree_bytes{instance=~\"^${node}$\",job=\"node-exporter\", cluster=~\"${cluster}\"}) / (node_memory_MemTotal_bytes{instance=~\"^${node}$\",job=\"node-exporter\", cluster=~\"${cluster}\"} )) * 100",
+          "expr": "((node_memory_MemTotal_bytes{instance=~\"(${node})(:[0-9]+)?\",job=\"node-exporter\", cluster=~\"${cluster}\"} - node_memory_MemFree_bytes{instance=~\"(${node})(:[0-9]+)?\",job=\"node-exporter\", cluster=~\"${cluster}\"}) / (node_memory_MemTotal_bytes{instance=~\"(${node})(:[0-9]+)?\",job=\"node-exporter\", cluster=~\"${cluster}\"} )) * 100",
           "format": "time_series",
           "hide": true,
           "intervalFactor": 1,
@@ -1501,7 +1502,7 @@
             "uid": "${metricsSource}"
           },
           "editorMode": "code",
-          "expr": "avg((1 - (node_memory_MemAvailable_bytes{instance=~\"^${node}$\",job=\"node-exporter\", cluster=~\"${cluster}\"} / node_memory_MemTotal_bytes{instance=~\"^${node}$\",job=\"node-exporter\", cluster=~\"${cluster}\"})) * 100)",
+          "expr": "avg((1 - (node_memory_MemAvailable_bytes{instance=~\"(${node})(:[0-9]+)?\",job=\"node-exporter\", cluster=~\"${cluster}\"} / node_memory_MemTotal_bytes{instance=~\"(${node})(:[0-9]+)?\",job=\"node-exporter\", cluster=~\"${cluster}\"})) * 100)",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 1,
@@ -1585,7 +1586,7 @@
             "uid": "${metricsSource}"
           },
           "editorMode": "code",
-          "expr": "count(count(node_cpu_seconds_total{instance=~\"^${node}$\",job=\"node-exporter\", cluster=~\"${cluster}\"}) by (cpu, instance))",
+          "expr": "count(count(node_cpu_seconds_total{instance=~\"(${node})(:[0-9]+)?\",job=\"node-exporter\", cluster=~\"${cluster}\"}) by (cpu, instance))",
           "interval": "",
           "intervalFactor": 1,
           "legendFormat": "",
@@ -1755,7 +1756,7 @@
             "uid": "${metricsSource}"
           },
           "editorMode": "code",
-          "expr": "sum(node_memory_MemTotal_bytes{instance=~\"^${node}\",job=\"node-exporter\", cluster=~\"${cluster}\"})",
+          "expr": "sum(node_memory_MemTotal_bytes{instance=~\"(${node})(:[0-9]+)?\",job=\"node-exporter\", cluster=~\"${cluster}\"})",
           "intervalFactor": 1,
           "range": true,
           "refId": "A",
@@ -4731,7 +4732,7 @@
             "uid": "${metricsSource}"
           },
           "editorMode": "code",
-          "expr": "sum by (instance, mountpoint) (\n    node_filesystem_size_bytes{instance=~\"^${node}$\", mountpoint=~\"/ais/.+\", cluster=~\"${cluster}\"} - \n    node_filesystem_avail_bytes{instance=~\"^${node}$\", mountpoint=~\"/ais/.+\", cluster=~\"${cluster}\"}\n)",
+          "expr": "sum by (instance, mountpoint) (\n    node_filesystem_size_bytes{instance=~\"(${node})(:[0-9]+)?\", mountpoint=~\"/ais/.+\", cluster=~\"${cluster}\"} - \n    node_filesystem_avail_bytes{instance=~\"(${node})(:[0-9]+)?\", mountpoint=~\"/ais/.+\", cluster=~\"${cluster}\"}\n)",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "{{instance}}:{{mountpoint}}",
@@ -4832,7 +4833,7 @@
             "uid": "${metricsSource}"
           },
           "editorMode": "code",
-          "expr": "sum by (instance) (rate(node_filesystem_device_error{cluster=~\"${cluster}\",instance=~\"${node}\", mountpoint=~\"^/ais/.*$\"}[$interval]))",
+          "expr": "sum by (instance) (rate(node_filesystem_device_error{cluster=~\"${cluster}\",instance=~\"(${node})(:[0-9]+)?\", mountpoint=~\"^/ais/.*$\"}[$interval]))",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
@@ -4933,7 +4934,7 @@
             "uid": "${metricsSource}"
           },
           "editorMode": "code",
-          "expr": "topk(5, (1 - (sum by (instance, device) (node_filesystem_avail_bytes{cluster=~\"${cluster}\",instance=~\"^${node}$\",mountpoint=~\"^/ais/.*\"}) / sum by (instance, device) (node_filesystem_size_bytes{cluster=~\"${cluster}\",instance=~\"^${node}$\",mountpoint=~\"^/ais/.*\"}))) * 100)",
+          "expr": "topk(5, (1 - (sum by (instance, device) (node_filesystem_avail_bytes{cluster=~\"${cluster}\",instance=~\"(${node})(:[0-9]+)?\",mountpoint=~\"^/ais/.*\"}) / sum by (instance, device) (node_filesystem_size_bytes{cluster=~\"${cluster}\",instance=~\"(${node})(:[0-9]+)?\",mountpoint=~\"^/ais/.*\"}))) * 100)",
           "hide": false,
           "instant": false,
           "legendFormat": "__auto",
@@ -5417,7 +5418,7 @@
             "uid": "${metricsSource}"
           },
           "editorMode": "code",
-          "expr": "topk(5, sum by (instance) (irate(node_network_receive_bytes_total{cluster=~\"${cluster}\",instance=~\"$node\",device=~\"$NIC\"}[$interval])))",
+          "expr": "topk(5, sum by (instance) (irate(node_network_receive_bytes_total{cluster=~\"${cluster}\",instance=~\"(${node})(:[0-9]+)?\",device=~\"$NIC\"}[$interval])))",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "{{instance}}-rx",
@@ -5431,7 +5432,7 @@
             "uid": "${metricsSource}"
           },
           "editorMode": "code",
-          "expr": "topk(5, sum by (instance) (irate(node_network_transmit_bytes_total{cluster=~\"${cluster}\",instance=~\"$node\",device=~\"$NIC\"}[$interval])))",
+          "expr": "topk(5, sum by (instance) (irate(node_network_transmit_bytes_total{cluster=~\"${cluster}\",instance=~\"(${node})(:[0-9]+)?\",device=~\"$NIC\"}[$interval])))",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 1,
@@ -5602,7 +5603,7 @@
           "type": "prometheus",
           "uid": "${metricsSource}"
         },
-        "definition": "label_values(node_network_info{cluster=\"$cluster\"},device)",
+        "definition": "label_values(node_network_info{cluster=\"$cluster\",device!~\"lo|cni.*|veth.*|docker.*|flannel.*|cali.*\"},device)",
         "description": "Network Interface Cards",
         "includeAll": true,
         "label": "NICs",
@@ -5610,11 +5611,11 @@
         "name": "NIC",
         "options": [],
         "query": {
-          "query": "label_values(node_network_info{cluster=\"$cluster\"},device)",
+          "query": "label_values(node_network_info{cluster=\"$cluster\",device!~\"lo|cni.*|veth.*|docker.*|flannel.*|cali.*\"},device)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 1,
-        "regex": "^ens.*",
+        "regex": "",
         "type": "query"
       },
       {
@@ -5692,5 +5693,5 @@
   "timezone": "",
   "title": "AIStore Dashboard",
   "uid": null,
-  "version": 19
+  "version": 20
 }
