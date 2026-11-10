@@ -784,6 +784,7 @@ type AutoScaleConf struct {
 	SizeLimit *int32 `json:"sizeLimit,omitempty"`
 
 	// Maximum number of pods that can be unavailable when auto-scaling is enabled (defaults to 0 if not specified).
+	// A scale-down also keeps up to this many pods above the desired size while a pod within the desired size is unavailable.
 	// +kubebuilder:validation:Minimum=0
 	// +optional
 	MaxUnavailable *int32 `json:"maxUnavailable,omitempty"`

@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/NVIDIA/aistore/api/apc"
 	aismeta "github.com/NVIDIA/aistore/core/meta"
@@ -226,7 +227,7 @@ var _ = Describe("prepareProxyScaleDown", func() {
 		expectDecommission(apiClient, "p2", nil)
 
 		// No SetPrimaryProxy expectation: the mock fails the test if the primary is reassigned.
-		Expect(reconcilerWithReadyPods(0, 1, 2).prepareProxyScaleDown(ctx, ais, settledSS())).To(Succeed())
+		Expect(reconcilerWithReadyPods(0, 1, 2).prepareProxyScaleDown(ctx, ais, settledSS(), 2)).To(Succeed())
 	})
 
 	It("reassigns a primary that is being removed to the lowest ready pod", func() {
@@ -234,7 +235,7 @@ var _ = Describe("prepareProxyScaleDown", func() {
 		apiClient.EXPECT().SetPrimaryProxy("p0", gomock.Any(), true).Return(nil)
 		expectDecommission(apiClient, "p2", nil)
 
-		Expect(reconcilerWithReadyPods(0, 1, 2).prepareProxyScaleDown(ctx, ais, settledSS())).To(Succeed())
+		Expect(reconcilerWithReadyPods(0, 1, 2).prepareProxyScaleDown(ctx, ais, settledSS(), 2)).To(Succeed())
 	})
 
 	It("skips pods that are not ready when choosing a new primary", func() {
@@ -248,7 +249,7 @@ var _ = Describe("prepareProxyScaleDown", func() {
 			proxyPod(1, true, currentRevision),
 			proxyPod(2, true, currentRevision),
 		)
-		Expect(r.prepareProxyScaleDown(ctx, ais, settledSS())).To(Succeed())
+		Expect(r.prepareProxyScaleDown(ctx, ais, settledSS(), 2)).To(Succeed())
 	})
 
 	It("skips pods on the outgoing revision while a rollout is in progress", func() {
@@ -261,7 +262,7 @@ var _ = Describe("prepareProxyScaleDown", func() {
 			proxyPod(1, true, updateRevision),
 			proxyPod(2, true, updateRevision),
 		)
-		Expect(r.prepareProxyScaleDown(ctx, ais, rollingSS())).To(Succeed())
+		Expect(r.prepareProxyScaleDown(ctx, ais, rollingSS(), 2)).To(Succeed())
 	})
 
 	It("skips pods in maintenance or decommission when choosing a new primary", func() {
@@ -271,7 +272,7 @@ var _ = Describe("prepareProxyScaleDown", func() {
 		apiClient.EXPECT().SetPrimaryProxy("p1", gomock.Any(), true).Return(nil)
 		expectDecommission(apiClient, "p2", nil)
 
-		Expect(reconcilerWithReadyPods(0, 1, 2).prepareProxyScaleDown(ctx, ais, settledSS())).To(Succeed())
+		Expect(reconcilerWithReadyPods(0, 1, 2).prepareProxyScaleDown(ctx, ais, settledSS(), 2)).To(Succeed())
 	})
 
 	It("tries the next eligible pod when SetPrimaryProxy fails", func() {
@@ -280,7 +281,7 @@ var _ = Describe("prepareProxyScaleDown", func() {
 		apiClient.EXPECT().SetPrimaryProxy("p1", gomock.Any(), true).Return(nil)
 		expectDecommission(apiClient, "p2", nil)
 
-		Expect(reconcilerWithReadyPods(0, 1, 2).prepareProxyScaleDown(ctx, ais, settledSS())).To(Succeed())
+		Expect(reconcilerWithReadyPods(0, 1, 2).prepareProxyScaleDown(ctx, ais, settledSS(), 2)).To(Succeed())
 	})
 
 	It("reassigns a primary that matches none of the cluster's pods", func() {
@@ -288,15 +289,102 @@ var _ = Describe("prepareProxyScaleDown", func() {
 		apiClient.EXPECT().SetPrimaryProxy("p0", gomock.Any(), true).Return(nil)
 		expectDecommission(apiClient, "p2", nil)
 
-		Expect(reconcilerWithReadyPods(0, 1, 2).prepareProxyScaleDown(ctx, ais, settledSS())).To(Succeed())
+		Expect(reconcilerWithReadyPods(0, 1, 2).prepareProxyScaleDown(ctx, ais, settledSS(), 2)).To(Succeed())
 	})
 
 	It("decommissions nothing when no pod can take over as primary", func() {
 		apiClient.EXPECT().GetClusterMap().Return(proxySmap(ais, 3, 2), nil)
 
-		err := reconcilerWithReadyPods(2).prepareProxyScaleDown(ctx, ais, settledSS())
+		err := reconcilerWithReadyPods(2).prepareProxyScaleDown(ctx, ais, settledSS(), 2)
 		Expect(err).To(MatchError(ContainSubstring("no pod found to set as primary")))
 	})
+})
+
+var _ = Describe("scaleDownProxies", func() {
+	var (
+		ais       *aisv1.AIStore
+		mockCtrl  *gomock.Controller
+		apiClient *mocks.MockAIStoreClientInterface
+		recorder  *events.FakeRecorder
+		ctx       = context.TODO()
+	)
+
+	BeforeEach(func() {
+		// The desired size is 2 and the maxUnavailable budget is 1.
+		ais = unsizedAIS()
+		ais.Spec.ProxySpec.AutoScaleConf = &aisv1.AutoScaleConf{MaxUnavailable: apc.Ptr[int32](1)}
+		ais.Status.AutoScaleStatus.ExpectedProxyNodes = []string{"n0", "n1"}
+		mockCtrl = gomock.NewController(GinkgoT())
+		apiClient = mocks.NewMockAIStoreClientInterface(mockCtrl)
+		recorder = events.NewFakeRecorder(8)
+	})
+
+	AfterEach(func() {
+		mockCtrl.Finish()
+	})
+
+	DescribeTable("shrinks the StatefulSet",
+		func(size, specReplicas int32, unready []int32, decommissioned []string, wantReplicas int32, wantWaiting, settling bool) {
+			ais.Spec.ProxySpec.Size = apc.Ptr(size)
+			ss := makeSS(specReplicas, specReplicas, specReplicas, specReplicas-int32(len(unready)),
+				currentRevision, currentRevision, appsv1.OnDeleteStatefulSetStrategyType)
+			if settling {
+				ss.Status.Replicas = specReplicas + 1
+			}
+			ss.ObjectMeta = metav1.ObjectMeta{Name: ais.ProxyStatefulSetName(), Namespace: ais.Namespace}
+			objs := make([]client.Object, 0, specReplicas+1)
+			objs = append(objs, ss)
+			for idx := range specReplicas {
+				pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{
+					Name:      proxy.PodName(ais, idx),
+					Namespace: ais.Namespace,
+					Labels:    proxy.SelectorLabels(ais),
+				}}
+				if !slices.Contains(unready, idx) {
+					pod.Status.Conditions = []corev1.PodCondition{{Type: corev1.PodReady, Status: corev1.ConditionTrue}}
+				}
+				objs = append(objs, pod)
+			}
+			c := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(objs...).WithStatusSubresource(ss).Build()
+			clientManager := mocks.NewMockAISClientManagerInterface(mockCtrl)
+			clientManager.EXPECT().GetClient(gomock.Any(), gomock.Any()).Return(apiClient, nil).AnyTimes()
+			r := &Reconciler{
+				k8sClient:     aisclient.NewClient(c, scheme.Scheme),
+				clientManager: clientManager,
+				recorder:      recorder,
+			}
+			// The primary is proxy 1, which every case keeps. The mock fails the test on any other
+			// decommission.
+			if len(decommissioned) > 0 {
+				apiClient.EXPECT().GetClusterMap().Return(proxySmap(ais, specReplicas, 1), nil)
+			}
+			for _, daemonID := range decommissioned {
+				expectDecommission(apiClient, daemonID, nil)
+			}
+
+			result, err := r.scaleDownProxies(ctx, ais, ss)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.IsZero()).To(Equal(wantReplicas == specReplicas && !settling))
+			updated := &appsv1.StatefulSet{}
+			Expect(c.Get(ctx, proxy.StatefulSetNSName(ais), updated)).To(Succeed())
+			Expect(*updated.Spec.Replicas).To(Equal(wantReplicas))
+			if wantWaiting {
+				Expect(recorder.Events).To(Receive(ContainSubstring("Normal " + EventReasonWaiting)))
+			} else {
+				Expect(recorder.Events).To(BeEmpty())
+			}
+		},
+		Entry("to the maxUnavailable budget while a proxy within the desired size is unavailable",
+			int32(-1), int32(4), []int32{0}, []string{"p3"}, int32(3), true, false),
+		Entry("not at all when the maxUnavailable budget covers all proxies above the desired size",
+			int32(-1), int32(3), []int32{0}, nil, int32(3), true, false),
+		Entry("to the desired size when only an outgoing proxy is unavailable",
+			int32(-1), int32(3), []int32{2}, []string{"p2"}, int32(2), false, false),
+		Entry("to the desired size without autoscaling while a proxy within the desired size is unavailable",
+			int32(2), int32(3), []int32{0}, []string{"p2"}, int32(2), false, false),
+		Entry("not at all while the replica count is settling",
+			int32(-1), int32(3), nil, nil, int32(3), true, true),
+	)
 })
 
 var _ = Describe("handleProxyRollout", func() {

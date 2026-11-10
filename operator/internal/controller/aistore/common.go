@@ -18,7 +18,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -370,25 +369,6 @@ func findAISNodeByPodName(nodeMap aismeta.NodeMap, podName string) (*aismeta.Sno
 	return nil, fmt.Errorf("no matching AIS node found for pod %q", podName)
 }
 
-// statefulSetScaleDownAllowed reports whether a proxy or target StatefulSet may begin scaling down.
-// A fixed-size cluster scales to exactly the requested size. Autoscaling holds off while unavailable
-// pods are within the budget, and while pod counts are settling, so the decision is never made on
-// stale or churning status (e.g. while a pod is being recreated).
-func statefulSetScaleDownAllowed(ss *appsv1.StatefulSet, maxUnavailable int32, autoScaling bool) bool {
-	if !autoScaling {
-		return true
-	}
-	if isRolloutInProgress(ss) || replicasSettling(ss) {
-		return false
-	}
-	return scaleDownBudgetAllows(*ss.Spec.Replicas-ss.Status.ReadyReplicas, maxUnavailable)
-}
-
-// scaleDownBudgetAllows reports whether a number of unavailable pods lets a scale-down start.
-func scaleDownBudgetAllows(unavailable, maxUnavailable int32) bool {
-	return unavailable == 0 || unavailable > maxUnavailable
-}
-
 // outgoingOrdinals returns the StatefulSet ordinals in [size, specReplicas), highest first.
 func outgoingOrdinals(specReplicas, size int32) []int32 {
 	ordinals := make([]int32, 0, specReplicas-size)
@@ -398,31 +378,41 @@ func outgoingOrdinals(specReplicas, size int32) []int32 {
 	return ordinals
 }
 
-// statefulsetScalingNeeded determines whether a proxy or target StatefulSet should be scaled.
-func statefulsetScalingNeeded(ss *appsv1.StatefulSet, desired, maxUnavailable int32, autoScaling bool) bool {
-	if desired == *ss.Spec.Replicas {
-		return false
+// scaleDownCeiling returns the largest size that an autoscale scale-down keeps, and why it keeps
+// pods above the desired size. podName maps an ordinal to its pod name.
+func scaleDownCeiling(ss *appsv1.StatefulSet, pods map[string]*corev1.Pod, podName func(int32) string, expectedSize, specReplicas, maxUnavailable int32) (ceiling int32, reason string) {
+	switch {
+	case isRolloutInProgress(ss):
+		return specReplicas, "the StatefulSet is rolling out"
+	case replicasSettling(ss):
+		return specReplicas, "the StatefulSet replica count is settling"
+	case anyPodUnready(pods, podName, expectedSize):
+		return min(specReplicas, expectedSize+maxUnavailable), "a pod within the desired size is unavailable"
 	}
-	// Scale-up is not subject to the scale-down availability policy.
-	if desired > *ss.Spec.Replicas {
-		return true
-	}
-	return statefulSetScaleDownAllowed(ss, maxUnavailable, autoScaling)
+	return expectedSize, ""
 }
 
-// confirmScaleDownAllowed re-checks an autoscale scale-down against a non-cached read of the
-// StatefulSet. The informer can lag a disruption (a pod going unready) and still show full
-// readiness, which would let statefulsetScalingNeeded green-light a scale-down that
-// decommissions a healthy proxy or target.
-func (r *Reconciler) confirmScaleDownAllowed(ctx context.Context, key types.NamespacedName, cached *appsv1.StatefulSet, desired, maxUnavailable int32, autoScaling bool) (bool, error) {
-	if !autoScaling || desired >= *cached.Spec.Replicas {
-		return true, nil
+// anyPodUnready reports whether any of the first n pods is not ready.
+func anyPodUnready(pods map[string]*corev1.Pod, podName func(int32) string, n int32) bool {
+	for idx := range n {
+		if !isPodReady(pods[podName(idx)]) {
+			return true
+		}
 	}
-	fresh, err := r.k8sClient.GetStatefulSetDirect(ctx, key)
+	return false
+}
+
+// podsByNameDirect lists the pods matching labels, bypassing the informer cache, keyed by name.
+func (r *Reconciler) podsByNameDirect(ctx context.Context, ais *aisv1.AIStore, labels map[string]string) (map[string]*corev1.Pod, error) {
+	podList, err := r.k8sClient.ListPodsDirect(ctx, ais, labels)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
-	return statefulsetScalingNeeded(fresh, desired, maxUnavailable, autoScaling), nil
+	pods := make(map[string]*corev1.Pod, len(podList.Items))
+	for i := range podList.Items {
+		pods[podList.Items[i].Name] = &podList.Items[i]
+	}
+	return pods, nil
 }
 
 // isStatusCurrent returns true if the StatefulSet controller has processed the latest spec change.

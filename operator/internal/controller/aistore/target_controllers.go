@@ -299,41 +299,13 @@ func (r *Reconciler) targetScaleDownSize(ctx context.Context, ais *aisv1.AIStore
 	if err != nil {
 		return 0, "", err
 	}
-	podList, err := r.k8sClient.ListPodsDirect(ctx, ais, target.SelectorLabels(ais))
+	pods, err := r.podsByNameDirect(ctx, ais, target.SelectorLabels(ais))
 	if err != nil {
 		return 0, "", err
 	}
-	podMap := make(map[string]*corev1.Pod, len(podList.Items))
-	for i := range podList.Items {
-		pod := &podList.Items[i]
-		podMap[pod.Name] = pod
-	}
-	ceiling, reason := scaleDownCeiling(ais, ss, podMap, expectedSize, specReplicas)
-	return capAtStartedRemoval(ais, podMap, expectedSize, ceiling), reason, nil
-}
-
-// scaleDownCeiling returns the largest size that a target scale-down keeps, and why it keeps
-// targets above the desired size.
-func scaleDownCeiling(ais *aisv1.AIStore, ss *appsv1.StatefulSet, pods map[string]*corev1.Pod, expectedSize, specReplicas int32) (ceiling int32, reason string) {
-	switch {
-	case isRolloutInProgress(ss):
-		return specReplicas, "the target StatefulSet is rolling out"
-	case replicasSettling(ss):
-		return specReplicas, "the target StatefulSet replica count is settling"
-	case anyTargetUnready(ais, pods, expectedSize):
-		return min(specReplicas, expectedSize+ais.GetTargetMaxUnavailable()), "a target within the desired size is unavailable"
-	}
-	return expectedSize, ""
-}
-
-// anyTargetUnready reports whether any of the first n target pods is not ready.
-func anyTargetUnready(ais *aisv1.AIStore, pods map[string]*corev1.Pod, n int32) bool {
-	for idx := range n {
-		if !isPodReady(pods[target.PodName(ais, idx)]) {
-			return true
-		}
-	}
-	return false
+	podName := func(idx int32) string { return target.PodName(ais, idx) }
+	ceiling, reason := scaleDownCeiling(ss, pods, podName, expectedSize, specReplicas, ais.GetTargetMaxUnavailable())
+	return capAtStartedRemoval(ais, pods, expectedSize, ceiling), reason, nil
 }
 
 // capAtStartedRemoval lowers ceiling to the lowest ordinal in [expectedSize, ceiling) whose pod has

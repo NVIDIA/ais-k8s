@@ -32,5 +32,6 @@ const (
 	ActionInitTargets       = "InitTargets"
 	ActionInitProxies       = "InitProxies"
 	ActionScaleDownTargets  = "ScaleDownTargets"
+	ActionScaleDownProxies  = "ScaleDownProxies"
 	ActionRolloutProxies    = "RolloutProxies"
 )

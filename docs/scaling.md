@@ -3,6 +3,14 @@
 The operator continuously reconciles the AIS cluster toward its spec.
 For scaling, this means keeping the number of proxies and targets equal to the requested size, or, with autoscaling, to the number of nodes that meet the `nodeSelector` and tolerations requirements.
 
+## Proxy Scale-Down
+
+The operator moves the primary off the outgoing proxies, decommissions them, and shrinks the StatefulSet.
+
+With autoscaling, while a proxy within the desired size is unavailable, the operator keeps up to `proxySpec.autoScale.maxUnavailable` proxies above the desired size.
+With `0`, the default, scale-down goes to the desired size.
+Outgoing proxies do not count as unavailable.
+
 ## Target Scale-Down
 
 The target count drops when `size` or `targetSpec.size` is lowered.

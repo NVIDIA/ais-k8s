@@ -928,7 +928,6 @@ var _ = Describe("scaleDownMode", func() {
 				Spec:   appsv1.StatefulSetSpec{Replicas: apc.Ptr[int32](3)},
 				Status: appsv1.StatefulSetStatus{Replicas: 3, ReadyReplicas: 2},
 			}
-			Expect(statefulsetScalingNeeded(ss, ais.GetTargetSize(), ais.GetTargetMaxUnavailable(), true)).To(BeFalse())
 			Expect(isTargetScalingNeeded(ais, ss)).To(BeTrue())
 		})
 	})

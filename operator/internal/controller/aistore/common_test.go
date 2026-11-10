@@ -6,6 +6,8 @@ package aistore
 
 import (
 	"context"
+	"fmt"
+	"slices"
 
 	"github.com/NVIDIA/aistore/api/apc"
 	aismeta "github.com/NVIDIA/aistore/core/meta"
@@ -868,79 +870,41 @@ var _ = Describe("isStatefulSetFullyReady", func() {
 	)
 })
 
-var _ = Describe("statefulsetScalingNeeded", func() {
-	DescribeTable("should decide whether scaling is needed",
-		func(ss *appsv1.StatefulSet, desired, maxUnavailable int32, autoScaling, expected bool) {
-			Expect(statefulsetScalingNeeded(ss, desired, maxUnavailable, autoScaling)).To(Equal(expected))
-		},
-		Entry("fixed: scale up to desired",
-			makeSS(1, 1, 1, 1, "rev-1", "rev-1", appsv1.RollingUpdateStatefulSetStrategyType),
-			int32(3), int32(0), false, true,
-		),
-		Entry("fixed: scale down to desired",
-			makeSS(3, 3, 3, 3, "rev-1", "rev-1", appsv1.RollingUpdateStatefulSetStrategyType),
-			int32(1), int32(0), false, true,
-		),
-		Entry("fixed: already at desired",
-			makeSS(3, 3, 3, 3, "rev-1", "rev-1", appsv1.RollingUpdateStatefulSetStrategyType),
-			int32(3), int32(0), false, false,
-		),
-		Entry("auto: always scale up to desired",
-			makeSS(3, 3, 3, 3, "rev-1", "rev-1", appsv1.RollingUpdateStatefulSetStrategyType),
-			int32(5), int32(1), true, true,
-		),
-		Entry("auto: unavailable within tolerance, no scale down",
-			makeSS(3, 3, 3, 2, "rev-1", "rev-1", appsv1.RollingUpdateStatefulSetStrategyType),
-			int32(2), int32(1), true, false,
-		),
-		Entry("auto: unavailable exceeds tolerance, scale down",
-			makeSS(3, 3, 3, 1, "rev-1", "rev-1", appsv1.RollingUpdateStatefulSetStrategyType),
-			int32(2), int32(1), true, true,
-		),
-		Entry("auto: healthy cluster scales down to desired",
-			makeSS(3, 3, 3, 3, "rev-1", "rev-1", appsv1.RollingUpdateStatefulSetStrategyType),
-			int32(2), int32(1), true, true,
-		),
-		Entry("auto: scaling in flight defers scale down",
-			makeSS(3, 2, 2, 2, "rev-1", "rev-1", appsv1.RollingUpdateStatefulSetStrategyType),
-			int32(2), int32(1), true, false,
-		),
-		Entry("auto: rollout in flight defers scale down",
-			makeSS(3, 3, 2, 3, "rev-1", "rev-2", appsv1.RollingUpdateStatefulSetStrategyType),
-			int32(2), int32(1), true, false,
-		),
-	)
-})
+var _ = Describe("scaleDownCeiling", func() {
+	podName := func(idx int32) string { return fmt.Sprintf("ais-proxy-%d", idx) }
 
-var _ = Describe("statefulSetScaleDownAllowed", func() {
-	DescribeTable("should decide whether a StatefulSet may begin scaling down",
-		func(ss *appsv1.StatefulSet, maxUnavailable int32, autoScaling, expected bool) {
-			Expect(statefulSetScaleDownAllowed(ss, maxUnavailable, autoScaling)).To(Equal(expected))
+	// readyPods returns four pods, ready except those at the unready ordinals.
+	readyPods := func(unready ...int32) map[string]*corev1.Pod {
+		pods := make(map[string]*corev1.Pod, 4)
+		for idx := range int32(4) {
+			pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: podName(idx)}}
+			if !slices.Contains(unready, idx) {
+				pod.Status.Conditions = []corev1.PodCondition{{Type: corev1.PodReady, Status: corev1.ConditionTrue}}
+			}
+			pods[pod.Name] = pod
+		}
+		return pods
+	}
+
+	DescribeTable("returns the largest size that an autoscale scale-down keeps",
+		func(ss *appsv1.StatefulSet, pods map[string]*corev1.Pod, maxUnavailable, expected int32) {
+			ceiling, _ := scaleDownCeiling(ss, pods, podName, 2, *ss.Spec.Replicas, maxUnavailable)
+			Expect(ceiling).To(Equal(expected))
 		},
-		Entry("fixed: always allowed",
-			makeSS(3, 3, 3, 1, "rev-1", "rev-1", appsv1.RollingUpdateStatefulSetStrategyType),
-			int32(0), false, true,
-		),
-		Entry("auto: all replicas ready",
-			makeSS(3, 3, 3, 3, "rev-1", "rev-1", appsv1.RollingUpdateStatefulSetStrategyType),
-			int32(1), true, true,
-		),
-		Entry("auto: unavailable within the budget",
-			makeSS(3, 3, 3, 2, "rev-1", "rev-1", appsv1.RollingUpdateStatefulSetStrategyType),
-			int32(1), true, false,
-		),
-		Entry("auto: unavailable exceeds the budget",
-			makeSS(3, 3, 3, 1, "rev-1", "rev-1", appsv1.RollingUpdateStatefulSetStrategyType),
-			int32(1), true, true,
-		),
-		Entry("auto: replicas still settling",
-			makeSS(3, 2, 2, 2, "rev-1", "rev-1", appsv1.RollingUpdateStatefulSetStrategyType),
-			int32(1), true, false,
-		),
-		Entry("auto: rollout in flight",
-			makeSS(3, 3, 2, 3, "rev-1", "rev-2", appsv1.RollingUpdateStatefulSetStrategyType),
-			int32(1), true, false,
-		),
+		Entry("all pods ready",
+			makeSS(4, 4, 4, 4, "rev-1", "rev-1", appsv1.OnDeleteStatefulSetStrategyType), readyPods(), int32(1), int32(2)),
+		Entry("only an outgoing pod is unavailable",
+			makeSS(4, 4, 4, 3, "rev-1", "rev-1", appsv1.OnDeleteStatefulSetStrategyType), readyPods(3), int32(1), int32(2)),
+		Entry("a pod within the desired size is unavailable",
+			makeSS(4, 4, 4, 3, "rev-1", "rev-1", appsv1.OnDeleteStatefulSetStrategyType), readyPods(0), int32(1), int32(3)),
+		Entry("the budget covers every outgoing pod",
+			makeSS(4, 4, 4, 3, "rev-1", "rev-1", appsv1.OnDeleteStatefulSetStrategyType), readyPods(0), int32(3), int32(4)),
+		Entry("maxUnavailable is 0",
+			makeSS(4, 4, 4, 3, "rev-1", "rev-1", appsv1.OnDeleteStatefulSetStrategyType), readyPods(0), int32(0), int32(2)),
+		Entry("replica counts settling",
+			makeSS(4, 3, 3, 3, "rev-1", "rev-1", appsv1.OnDeleteStatefulSetStrategyType), readyPods(), int32(1), int32(4)),
+		Entry("rollout in flight",
+			makeSS(4, 4, 2, 4, "rev-1", "rev-2", appsv1.OnDeleteStatefulSetStrategyType), readyPods(), int32(1), int32(4)),
 	)
 })
 

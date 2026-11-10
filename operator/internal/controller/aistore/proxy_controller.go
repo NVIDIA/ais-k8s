@@ -176,19 +176,7 @@ func (r *Reconciler) handleProxyState(ctx context.Context, ais *aisv1.AIStore) (
 
 	// Apply scaling (blocked by rollout in progress)
 	if scalingNeeded && !rolling {
-		scaleDownAllowed, cErr := r.confirmScaleDownAllowed(ctx, proxy.StatefulSetNSName(ais), ss,
-			ais.GetProxySize(), ais.GetProxyMaxUnavailable(), ais.IsProxyAutoScaling())
-		if cErr != nil {
-			return ctrl.Result{}, cErr
-		}
-		if !scaleDownAllowed {
-			logger.Info("Deferring proxy scale-down; fresh status shows unavailable replicas within maxUnavailable budget")
-			return ctrl.Result{RequeueAfter: proxyStartupInterval}, nil
-		}
-		if err = r.handleProxyScale(ctx, ais, ss); err != nil {
-			return ctrl.Result{}, err
-		}
-		return ctrl.Result{RequeueAfter: proxyStartupInterval}, nil
+		return r.handleProxyScale(ctx, ais, ss)
 	}
 	// Drive ongoing rollout
 	if rolling {
@@ -210,32 +198,75 @@ func (r *Reconciler) handleProxyState(ctx context.Context, ais *aisv1.AIStore) (
 }
 
 func isProxyScalingNeeded(ais *aisv1.AIStore, ss *appsv1.StatefulSet) bool {
-	return statefulsetScalingNeeded(ss, ais.GetProxySize(), ais.GetProxyMaxUnavailable(), ais.IsProxyAutoScaling())
+	return ais.GetProxySize() != *ss.Spec.Replicas
 }
 
 func (r *Reconciler) isProxyStatefulSetReady(ais *aisv1.AIStore, ss *appsv1.StatefulSet) bool {
 	return r.isStatefulSetReady(ss, ais.GetProxySize(), ais.GetMinReadyProxies(), ais.IsProxyAutoScaling())
 }
 
-func (r *Reconciler) handleProxyScale(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) error {
-	currentReplicas := *ss.Spec.Replicas
-	desiredReplicas := ais.GetProxySize()
-
-	// If the current replicas match the desired replicas, no scaling is needed
-	if currentReplicas == desiredReplicas {
-		return nil
-	}
-
-	// If the current replicas are greater than the desired replicas, decommission
-	// proxies to be scaled down and move primary to the lowest ready pod if needed
-	if currentReplicas > desiredReplicas {
-		if err := r.prepareProxyScaleDown(ctx, ais, ss); err != nil {
-			return err
+// handleProxyScale applies a pending proxy scale-up or scale-down.
+func (r *Reconciler) handleProxyScale(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) (ctrl.Result, error) {
+	if *ss.Spec.Replicas < ais.GetProxySize() {
+		if _, err := r.k8sClient.UpdateStatefulSetReplicas(ctx, proxy.StatefulSetNSName(ais), ais.GetProxySize()); err != nil {
+			return ctrl.Result{}, err
 		}
+		return ctrl.Result{RequeueAfter: proxyStartupInterval}, nil
 	}
+	return r.scaleDownProxies(ctx, ais, ss)
+}
 
-	_, err := r.k8sClient.UpdateStatefulSetReplicas(ctx, proxy.StatefulSetNSName(ais), desiredReplicas)
-	return err
+// scaleDownProxies decommissions the outgoing proxies, moving the primary off them first, and
+// shrinks the StatefulSet.
+func (r *Reconciler) scaleDownProxies(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) (ctrl.Result, error) {
+	logger := logf.FromContext(ctx)
+	specReplicas := *ss.Spec.Replicas
+	expectedSize := ais.GetProxySize()
+	size, reason, err := r.proxyScaleDownSize(ctx, ais, expectedSize, specReplicas)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if size > expectedSize {
+		logger.V(1).Info("Keeping proxies above the desired size", "size", size, "desiredSize", expectedSize, "reason", reason)
+		r.recorder.Eventf(ais, ss, corev1.EventTypeNormal, EventReasonWaiting, ActionScaleDownProxies,
+			"Keeping %d proxies above the desired size of %d; %s", size-expectedSize, expectedSize, reason)
+	}
+	if size == specReplicas {
+		if replicasSettling(ss) {
+			return ctrl.Result{RequeueAfter: proxyStartupInterval}, nil
+		}
+		// Nothing was started, so there is no transition to come back for. Report an empty
+		// result to keep the cluster Ready rather than Upgrading.
+		return ctrl.Result{}, nil
+	}
+	if err = r.prepareProxyScaleDown(ctx, ais, ss, size); err != nil {
+		return ctrl.Result{}, err
+	}
+	if _, err = r.k8sClient.UpdateStatefulSetReplicas(ctx, proxy.StatefulSetNSName(ais), size); err != nil {
+		return ctrl.Result{}, err
+	}
+	return ctrl.Result{RequeueAfter: proxyStartupInterval}, nil
+}
+
+// proxyScaleDownSize returns the size that a proxy scale-down shrinks the StatefulSet to, and why
+// it keeps proxies above expectedSize. While a proxy within the desired size is unavailable,
+// autoscaling keeps up to maxUnavailable proxies above it.
+func (r *Reconciler) proxyScaleDownSize(ctx context.Context, ais *aisv1.AIStore, expectedSize, specReplicas int32) (size int32, reason string, err error) {
+	if !ais.IsProxyAutoScaling() {
+		return expectedSize, "", nil
+	}
+	// The informer cache can show a pod as ready after the pod becomes unready.
+	ss, err := r.k8sClient.GetStatefulSetDirect(ctx, proxy.StatefulSetNSName(ais))
+	if err != nil {
+		return 0, "", err
+	}
+	pods, err := r.podsByNameDirect(ctx, ais, proxy.SelectorLabels(ais))
+	if err != nil {
+		return 0, "", err
+	}
+	podName := func(idx int32) string { return proxy.PodName(ais, idx) }
+	ceiling, reason := scaleDownCeiling(ss, pods, podName, expectedSize, specReplicas, ais.GetProxyMaxUnavailable())
+	return ceiling, reason, nil
 }
 
 func (r *Reconciler) syncProxyPodSpec(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) (updated bool, err error) {
@@ -360,10 +391,8 @@ func (r *Reconciler) setPrimaryTo(ctx context.Context, ais *aisv1.AIStore, podId
 
 // prepareProxyScaleDown decommissions all the proxy nodes that will be deleted due to scale down.
 // If the node being deleted is a primary, a new primary is designated before decommissioning.
-func (r *Reconciler) prepareProxyScaleDown(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet) error {
+func (r *Reconciler) prepareProxyScaleDown(ctx context.Context, ais *aisv1.AIStore, ss *appsv1.StatefulSet, size int32) error {
 	logger := logf.FromContext(ctx)
-	currentSize := *ss.Spec.Replicas
-	desiredSize := ais.GetProxySize()
 	apiClient, err := r.clientManager.GetClient(ctx, ais)
 	if err != nil {
 		logger.Error(err, "failed to get API client")
@@ -374,12 +403,12 @@ func (r *Reconciler) prepareProxyScaleDown(ctx context.Context, ais *aisv1.AISto
 		logger.Error(err, "failed to get cluster map")
 		return err
 	}
-	err = r.ensurePrimarySurvivesScaleDown(ctx, ais, ss, smap, desiredSize)
+	err = r.ensurePrimarySurvivesScaleDown(ctx, ais, ss, smap, size)
 	if err != nil {
 		return err
 	}
 
-	decommissionProxies(ctx, ais, smap, apiClient, currentSize, desiredSize)
+	decommissionProxies(ctx, ais, smap, apiClient, *ss.Spec.Replicas, size)
 	return nil
 }
 

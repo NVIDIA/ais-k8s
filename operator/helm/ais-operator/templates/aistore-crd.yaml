@@ -3188,8 +3188,9 @@ spec:
                       auto-scaling (size == -1)
                     properties:
                       maxUnavailable:
-                        description: Maximum number of pods that can be unavailable
-                          when auto-scaling is enabled (defaults to 0 if not specified).
+                        description: |-
+                          Maximum number of pods that can be unavailable when auto-scaling is enabled (defaults to 0 if not specified).
+                          A scale-down also keeps up to this many pods above the desired size while a pod within the desired size is unavailable.
                         format: int32
                         minimum: 0
                         type: integer
@@ -5086,8 +5087,9 @@ spec:
                       auto-scaling (size == -1)
                     properties:
                       maxUnavailable:
-                        description: Maximum number of pods that can be unavailable
-                          when auto-scaling is enabled (defaults to 0 if not specified).
+                        description: |-
+                          Maximum number of pods that can be unavailable when auto-scaling is enabled (defaults to 0 if not specified).
+                          A scale-down also keeps up to this many pods above the desired size while a pod within the desired size is unavailable.
                         format: int32
                         minimum: 0
                         type: integer
