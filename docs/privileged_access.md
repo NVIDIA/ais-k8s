@@ -31,6 +31,9 @@ The operator pins the standard to Kubernetes v1.35, so a newer operator build do
 
 The `hostPort` fields are exempt, because a host port gives no access to the host beyond what the `aistore-editor-role` already grants.
 
+The webhook also requires privileged access while `spec.etl.enabled` is `true`, because the pod token can then create pods.
+See [ETL access](./etl.md).
+
 The check applies to every spec change on such a cluster, not only to a change of these fields.
 This stops an editor from combining a different image with the host access that the cluster already has.
 Writes that leave the spec unchanged, such as a finalizer or annotation patch, do not require this access.

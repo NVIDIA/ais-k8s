@@ -45,17 +45,31 @@ func RoleBinding(ais *aisv1.AIStore) *rbacv1.RoleBinding {
 }
 
 func NewAISRBACRole(ais *aisv1.AIStore) *rbacv1ac.RoleApplyConfiguration {
-	allRule := rbacv1ac.PolicyRule().
-		WithAPIGroups("").
-		WithResources("pods", "services").
-		WithVerbs("get", "list", "watch", "create", "update", "delete")
-	getRule := rbacv1ac.PolicyRule().
-		WithAPIGroups("").
-		WithResources("pods/log").
-		WithVerbs("get")
 	return rbacv1ac.Role(roleName(ais), ais.Namespace).
 		WithOwnerReferences(ownerref.NewControllerRef(ais)).
-		WithRules(allRule, getRule)
+		WithRules(roleRules(ais)...)
+}
+
+func roleRules(ais *aisv1.AIStore) []*rbacv1ac.PolicyRuleApplyConfiguration {
+	if !ais.ETLEnabled() {
+		// aisinit reads the LoadBalancer Service, and aisnode before v5.0 reads its own pod at startup.
+		return []*rbacv1ac.PolicyRuleApplyConfiguration{
+			rbacv1ac.PolicyRule().
+				WithAPIGroups("").
+				WithResources("pods", "services").
+				WithVerbs("get"),
+		}
+	}
+	return []*rbacv1ac.PolicyRuleApplyConfiguration{
+		rbacv1ac.PolicyRule().
+			WithAPIGroups("").
+			WithResources("pods", "services").
+			WithVerbs("get", "list", "watch", "create", "update", "delete"),
+		rbacv1ac.PolicyRule().
+			WithAPIGroups("").
+			WithResources("pods/log").
+			WithVerbs("get"),
+	}
 }
 
 func NewAISRBACRoleBinding(ais *aisv1.AIStore) *rbacv1ac.RoleBindingApplyConfiguration {

@@ -501,6 +501,22 @@ type AIStoreSpec struct {
 	// See: https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/
 	// +optional
 	PriorityClassName *string `json:"priorityClassName,omitempty"`
+
+	// ETL configures access for AIS-managed ETL.
+	// More info: https://github.com/NVIDIA/ais-k8s/blob/main/docs/etl.md
+	// +optional
+	ETL *ETLSpec `json:"etl,omitempty"`
+}
+
+// ETLSpec configures the Kubernetes access that AIS-managed ETL needs.
+type ETLSpec struct {
+	// Enabled controls whether the cluster ServiceAccount can create, update, and delete pods and services
+	// in the cluster namespace, which AIS-managed ETL requires.
+	// Defaults to false.
+	// Setting true requires the `use` verb on `aistores/privileged`.
+	// More info: https://github.com/NVIDIA/ais-k8s/blob/main/docs/etl.md
+	// +optional
+	Enabled bool `json:"enabled,omitempty"`
 }
 
 // AIStoreStatus defines the observed state of AIStore
@@ -1213,6 +1229,11 @@ func (ais *AIStore) AdminClientEnabled() bool {
 	}
 	// Enabled defaults to true when AdminClient is specified
 	return ais.Spec.AdminClient.Enabled == nil || *ais.Spec.AdminClient.Enabled
+}
+
+// ETLEnabled returns true if the cluster ServiceAccount should get ETL access.
+func (ais *AIStore) ETLEnabled() bool {
+	return ais.Spec.ETL != nil && ais.Spec.ETL.Enabled
 }
 
 // AdminClientName returns the name for the admin client deployment

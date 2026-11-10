@@ -28,6 +28,7 @@ import (
 	"go.uber.org/mock/gomock"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -1287,6 +1288,41 @@ var _ = Describe("AIStoreController", func() {
 			deleted, err := reconcilerWithSA(nil).removeClientServiceAccount(ctx, newAIS())
 			Expect(err).ToNot(HaveOccurred())
 			Expect(deleted).To(BeFalse())
+		})
+	})
+
+	Describe("ETL RBAC", func() {
+		It("grants only read access to the Role until ETL is enabled", func(ctx SpecContext) {
+			ais := &aisv1.AIStore{ObjectMeta: metav1.ObjectMeta{Name: "ais", Namespace: "ais-ns", UID: "ais-uid"}}
+			r := &Reconciler{k8sClient: aisclient.NewClient(fake.NewClientBuilder().WithScheme(scheme.Scheme).Build(), scheme.Scheme)}
+			rules := func() []rbacv1.PolicyRule {
+				role := cmn.Role(ais)
+				Expect(r.k8sClient.Get(ctx, client.ObjectKeyFromObject(role), role)).To(Succeed())
+				return role.Rules
+			}
+			readOnly := []rbacv1.PolicyRule{
+				{APIGroups: []string{""}, Resources: []string{"pods", "services"}, Verbs: []string{"get"}},
+			}
+			etl := []rbacv1.PolicyRule{
+				{
+					APIGroups: []string{""},
+					Resources: []string{"pods", "services"},
+					Verbs:     []string{"get", "list", "watch", "create", "update", "delete"},
+				},
+				{APIGroups: []string{""}, Resources: []string{"pods/log"}, Verbs: []string{"get"}},
+			}
+
+			Expect(r.createOrUpdateRBACResources(ctx, ais)).To(Succeed())
+			Expect(r.k8sClient.Get(ctx, client.ObjectKeyFromObject(cmn.RoleBinding(ais)), cmn.RoleBinding(ais))).To(Succeed())
+			Expect(rules()).To(Equal(readOnly))
+
+			ais.Spec.ETL = &aisv1.ETLSpec{Enabled: true}
+			Expect(r.createOrUpdateRBACResources(ctx, ais)).To(Succeed())
+			Expect(rules()).To(Equal(etl))
+
+			ais.Spec.ETL.Enabled = false
+			Expect(r.createOrUpdateRBACResources(ctx, ais)).To(Succeed())
+			Expect(rules()).To(Equal(readOnly))
 		})
 	})
 

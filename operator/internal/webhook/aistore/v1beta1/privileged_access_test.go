@@ -70,6 +70,11 @@ func TestValidatePrivilegedAccess(t *testing.T) {
 			set:  func(s *aisv1.AIStoreSpec) { s.LogsDirectory = "/var/log/ais" },
 			want: []string{"proxy pods:", "target pods:", "hostPath volumes"},
 		},
+		{
+			name: "ETL enabled",
+			set:  func(s *aisv1.AIStoreSpec) { s.ETL = &aisv1.ETLSpec{Enabled: true} },
+			want: []string{"ETL access"},
+		},
 	} {
 		t.Run(tt.name+" is reviewed and rejected when unauthorized", func(t *testing.T) {
 			g := NewWithT(t)

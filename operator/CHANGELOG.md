@@ -10,9 +10,17 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ## Unreleased
 
+### Added 
+
+- `spec.etl.enabled` controls whether the cluster ServiceAccount Role allows the elevated K8s access needed for AIS-managed ETL. See [ETL access](../docs/etl.md).
+  - Defaults to `false`. The Role then only allows `get` on pods and services.
+  - Setting `true` requires `use` on `aistores/privileged`.
+  - **Migration:** Clusters that run AIS-managed ETL must set `spec.etl.enabled: true`. ETL fails until the field is set.
+
 ### Changed
 
 - Webhook rejects a create or update by a user without `use` on `aistores/privileged` when the spec's pods violate the baseline Pod Security Standard. Previously it only warned. See [privileged access](../docs/privileged_access.md).
+  - Editors of specs with `spec.etl.enabled: true` must also hold this privilege. See [ETL access](../docs/etl.md).
 
 ## v4.4.0
 

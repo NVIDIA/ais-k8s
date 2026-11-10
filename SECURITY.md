@@ -27,7 +27,7 @@ The AIS K8s Operator is the only supported component in this repository. Helm ch
 ### Threat Model
 
 - **Unauthorized cluster changes:** The Operator reconciles `AIStore` and `AIStoreAuth` custom resources into workloads, services, storage, and RBAC resources. Access to create or update those resources must be restricted.
-  - The Operator creates a `<cluster-name>-sa` ServiceAccount with a K8s RoleBinding granting pod and service management access for the ETL feature. This SA is scoped to the minimal required K8s privileges to support ETL and will be restricted in a future update when no longer required for AIS-managed ETL pods. Consider this access when granting `aistore-editor-role` to trusted users. 
+  - The Operator creates a `<cluster-name>-sa` ServiceAccount for AIS pods. The Operator binds it to a Role that only allows reading pods and services in the cluster namespace. While `spec.etl.enabled` is `true`, which is not the default, the Role also allows creating, updating, and deleting pods and services for AIS-managed ETL. By default, the ServiceAccount cannot create pods. See [ETL access](docs/etl.md). Consider this access when granting `aistore-editor-role` and `aistores/privileged` use to trusted users.
 - **Credential or data exposure:** TLS, AuthN, external services, and Secret references are deployment-configurable. Unsafe settings can expose credentials, management endpoints, or stored data.
 - **Privileged administrative actions:** The playbooks and `tools/state-manager` can change hosts, storage, and cluster state. Incorrect or untrusted inputs can damage or delete data. 
 - **Untrusted deployment artifacts:** Container images, charts, manifests, and dependencies execute with cluster privileges and must come from trusted sources. 

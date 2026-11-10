@@ -30,6 +30,8 @@ const (
 	privilegedAccessDocURL      = "https://github.com/NVIDIA/ais-k8s/blob/main/docs/privileged_access.md"
 )
 
+const etlViolation = "ETL access (spec.etl.enabled): generated cluster service account token allows bearers to create, update, and delete pods and services"
+
 // The version is pinned so a library upgrade does not change who needs `aistores/privileged`.
 var privilegedPolicy = api.LevelVersion{Level: api.LevelBaseline, Version: api.MajorMinorVersion(1, 35)}
 
@@ -62,9 +64,12 @@ func podViolations(ais *aisv1.AIStore) []string {
 }
 
 // validatePrivilegedAccess rejects the spec when the user may not use `aistores/privileged` and the pods that
-// the spec creates violate the Pod Security Standards baseline policy.
+// the spec creates violate the Pod Security Standards baseline policy or have extended roles for AIS-managed ETL.
 func (aisw *AIStoreWebhook) validatePrivilegedAccess(ctx context.Context, ais *aisv1.AIStore) error {
 	violations := podViolations(ais)
+	if ais.ETLEnabled() {
+		violations = append(violations, etlViolation)
+	}
 	if len(violations) == 0 {
 		return nil
 	}
@@ -83,6 +88,6 @@ func (aisw *AIStoreWebhook) validatePrivilegedAccess(ctx context.Context, ais *a
 	req, _ := admission.RequestFromContext(ctx)
 	webhooklog.Info("Rejected spec: it requires aistores/privileged access and the user does not have it",
 		"name", ais.Name, "namespace", ais.Namespace, "user", req.UserInfo.Username, "groups", req.UserInfo.Groups, "violations", violations)
-	fieldErr.Detail += ". Violates Pod Security Standards baseline policy: " + strings.Join(violations, "; ") + ". See " + privilegedAccessDocURL
+	fieldErr.Detail += ". Requires privileged access: " + strings.Join(violations, "; ") + ". See " + privilegedAccessDocURL
 	return apiInvalidError(ais, fieldErr)
 }

@@ -998,7 +998,6 @@ func TestValidateSpecReviewsSecretRefs(t *testing.T) {
 	ais := secretAIS()
 	ais.Spec.Size = aisapc.Ptr[int32](1)
 	ais.Spec.StateStorage = &aisv1.StateStorage{EmptyDir: &aisv1.StateEmptyDirConfig{}}
-
 	webhook, reviews := newSARWebhook(t, false)
 	_, err := webhook.validateSpec(admissionCtx(), nil, ais)
 

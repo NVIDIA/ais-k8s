@@ -1884,6 +1884,20 @@ spec:
                         type: string
                     type: object
                 type: object
+              etl:
+                description: |-
+                  ETL configures access for AIS-managed ETL.
+                  More info: https://github.com/NVIDIA/ais-k8s/blob/main/docs/etl.md
+                properties:
+                  enabled:
+                    description: |-
+                      Enabled controls whether the cluster ServiceAccount can create, update, and delete pods and services
+                      in the cluster namespace, which AIS-managed ETL requires.
+                      Defaults to false.
+                      Setting true requires the `use` verb on `aistores/privileged`.
+                      More info: https://github.com/NVIDIA/ais-k8s/blob/main/docs/etl.md
+                    type: boolean
+                type: object
               gcpSecretName:
                 description: Secret name containing GCP config and credentials
                 type: string
