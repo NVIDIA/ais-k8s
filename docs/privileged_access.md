@@ -9,7 +9,7 @@ AIS still needs some of these settings, for example `hostPath` mounts, `hostNetw
 The operator therefore keeps these fields available but restricts who can set them.
 The `aistore-editor-role` does not grant this access.
 To modify any AIStore spec that creates such pods, users must also have the `use` verb on the `aistores/privileged` virtual subresource.
-Currently, the webhook only warns when a user lacks this access. A future release will reject the request.
+The webhook rejects the request when a user lacks this access.
 The operator ships the `aistore-privileged-role` ClusterRole as an easy way to grant exactly this access.
 
 ## Restricted pods
@@ -17,7 +17,7 @@ The operator ships the `aistore-privileged-role` ClusterRole as an easy way to g
 The validating webhook builds the proxy and target pods that the spec describes.
 It evaluates them against the [baseline Pod Security Standard](https://kubernetes.io/docs/concepts/security/pod-security-standards/#baseline).
 On every create and update where a pod violates the standard, the webhook checks that the user has `use` on `aistores/privileged`.
-The warning and the operator log name the violations that the standard reports, for example `host namespaces (hostNetwork=true)`.
+The rejection message and the operator log name the violations that the standard reports, for example `host namespaces (hostNetwork=true)`.
 
 These fields always violate the standard when they are set (and not false):
 
@@ -42,6 +42,9 @@ Any RBAC rule that grants this access satisfies the check, for example a custom 
 
 The operator ships the [aistore-privileged-role](../operator/config/base/rbac-ais/aistore_privileged_role.yaml) ClusterRole, which grants only this access.
 Bind it in addition to the `aistore-editor-role`.
+Operator v4.4.0 only warns when a user lacks this access.
+Later releases reject the request.
+Before you upgrade, bind the role, or any role with this access, to every user who edits a cluster with restricted pods.
 
 To allow a user to edit clusters with restricted pods in one namespace, bind the role with a RoleBinding:
 

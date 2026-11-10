@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/gomega"
 	authorizationv1 "k8s.io/api/authorization/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 // podAIS returns a cluster whose pods meet the baseline policy.
@@ -23,7 +24,7 @@ func podAIS() *aisv1.AIStore {
 	return ais
 }
 
-func TestValidatePrivilegedFields(t *testing.T) {
+func TestValidatePrivilegedAccess(t *testing.T) {
 	unsafeSysctl := func() *corev1.PodSecurityContext {
 		return &corev1.PodSecurityContext{Sysctls: []corev1.Sysctl{{Name: "net.core.somaxconn", Value: "4096"}}}
 	}
@@ -70,21 +71,20 @@ func TestValidatePrivilegedFields(t *testing.T) {
 			want: []string{"proxy pods:", "target pods:", "hostPath volumes"},
 		},
 	} {
-		t.Run(tt.name+" is reviewed and warns when unauthorized", func(t *testing.T) {
+		t.Run(tt.name+" is reviewed and rejected when unauthorized", func(t *testing.T) {
 			g := NewWithT(t)
 			ais := podAIS()
 			tt.set(&ais.Spec)
 
 			webhook, reviews := newSARWebhook(t, false)
-			warnings, err := webhook.validatePrivilegedAccess(admissionCtx(), ais)
+			err := webhook.validatePrivilegedAccess(admissionCtx(), ais)
 
-			g.Expect(err).To(Succeed())
-			g.Expect(warnings).To(HaveLen(1))
+			g.Expect(apierrors.IsInvalid(err)).To(BeTrue())
 			for _, want := range tt.want {
-				g.Expect(warnings[0]).To(ContainSubstring(want))
+				g.Expect(err).To(MatchError(ContainSubstring(want)))
 			}
-			g.Expect(warnings[0]).To(ContainSubstring(
-				`is not authorized to use aistores/privileged resource "cluster" in namespace "tenant"`))
+			g.Expect(err).To(MatchError(ContainSubstring(
+				`is not authorized to use aistores/privileged resource "cluster" in namespace "tenant"`)))
 			g.Expect(*reviews).To(HaveLen(1))
 			g.Expect((*reviews)[0].Spec.ResourceAttributes).To(Equal(&authorizationv1.ResourceAttributes{
 				Verb:        "use",
@@ -97,13 +97,11 @@ func TestValidatePrivilegedFields(t *testing.T) {
 			}))
 
 			allowed, _ := newSARWebhook(t, true)
-			warnings, err = allowed.validatePrivilegedAccess(admissionCtx(), ais)
-			g.Expect(err).To(Succeed())
-			g.Expect(warnings).To(BeEmpty())
+			g.Expect(allowed.validatePrivilegedAccess(admissionCtx(), ais)).To(Succeed())
 		})
 	}
 
-	t.Run("one review covers every violation and the warning names each", func(t *testing.T) {
+	t.Run("one review covers every violation and the error names each", func(t *testing.T) {
 		g := NewWithT(t)
 		ais := podAIS()
 		ais.Spec.ProxySpec.SecurityContext = unsafeSysctl()
@@ -111,15 +109,13 @@ func TestValidatePrivilegedFields(t *testing.T) {
 		ais.Spec.LogsDirectory = "/var/log/ais"
 
 		webhook, reviews := newSARWebhook(t, false)
-		warnings, err := webhook.validatePrivilegedAccess(admissionCtx(), ais)
+		err := webhook.validatePrivilegedAccess(admissionCtx(), ais)
 
-		g.Expect(err).To(Succeed())
 		g.Expect(*reviews).To(HaveLen(1))
-		g.Expect(warnings).To(HaveLen(1))
-		g.Expect(warnings[0]).To(ContainSubstring("net.core.somaxconn"))
-		g.Expect(warnings[0]).To(ContainSubstring("host namespaces"))
-		g.Expect(warnings[0]).To(ContainSubstring("hostPath volumes"))
-		g.Expect(strings.Count(warnings[0], privilegedAccessDocURL)).To(Equal(1))
+		g.Expect(err).To(MatchError(ContainSubstring("net.core.somaxconn")))
+		g.Expect(err).To(MatchError(ContainSubstring("host namespaces")))
+		g.Expect(err).To(MatchError(ContainSubstring("hostPath volumes")))
+		g.Expect(strings.Count(err.Error(), privilegedAccessDocURL)).To(Equal(1))
 	})
 
 	t.Run("pods that meet the baseline policy are not reviewed", func(t *testing.T) {
@@ -135,15 +131,13 @@ func TestValidatePrivilegedFields(t *testing.T) {
 		}
 
 		webhook, reviews := newSARWebhook(t, false)
-		warnings, err := webhook.validatePrivilegedAccess(admissionCtx(), ais)
-		g.Expect(err).To(Succeed())
-		g.Expect(warnings).To(BeEmpty())
+		g.Expect(webhook.validatePrivilegedAccess(admissionCtx(), ais)).To(Succeed())
 		g.Expect(*reviews).To(BeEmpty())
 	})
 }
 
-// The review must run on admission, not only when validatePrivilegedFields is called directly.
-func TestValidateSpecReviewsPrivilegedFields(t *testing.T) {
+// The review must run on admission, not only when validatePrivilegedAccess is called directly.
+func TestValidateSpecReviewsPrivilegedAccess(t *testing.T) {
 	newAIS := func() *aisv1.AIStore {
 		ais := podAIS()
 		ais.Spec.Auth = nil
@@ -154,10 +148,9 @@ func TestValidateSpecReviewsPrivilegedFields(t *testing.T) {
 	t.Run("create", func(t *testing.T) {
 		g := NewWithT(t)
 		webhook, reviews := newSARWebhook(t, false)
-		warnings, err := webhook.validateSpec(admissionCtx(), nil, newAIS())
+		_, err := webhook.validateSpec(admissionCtx(), nil, newAIS())
 
-		g.Expect(err).To(Succeed())
-		g.Expect(warnings).To(ContainElement(ContainSubstring("host namespaces")))
+		g.Expect(err).To(MatchError(ContainSubstring("host namespaces")))
 		g.Expect(*reviews).To(HaveLen(1))
 	})
 
@@ -166,20 +159,18 @@ func TestValidateSpecReviewsPrivilegedFields(t *testing.T) {
 		prev, ais := newAIS(), newAIS()
 		ais.Spec.Size = aisapc.Ptr[int32](2)
 		webhook, reviews := newSARWebhook(t, false)
-		warnings, err := webhook.validateSpec(admissionCtx(), prev, ais)
+		_, err := webhook.validateSpec(admissionCtx(), prev, ais)
 
-		g.Expect(err).To(Succeed())
-		g.Expect(warnings).To(ContainElement(ContainSubstring("host namespaces")))
+		g.Expect(err).To(MatchError(ContainSubstring("host namespaces")))
 		g.Expect(*reviews).To(HaveLen(1))
 	})
 
 	t.Run("a write that leaves the spec unchanged is not reviewed", func(t *testing.T) {
 		g := NewWithT(t)
 		webhook, reviews := newSARWebhook(t, false)
-		warnings, err := webhook.validateSpec(admissionCtx(), newAIS(), newAIS())
+		_, err := webhook.validateSpec(admissionCtx(), newAIS(), newAIS())
 
 		g.Expect(err).To(Succeed())
-		g.Expect(warnings).NotTo(ContainElement(ContainSubstring("privileged")))
 		g.Expect(*reviews).To(BeEmpty())
 	})
 }

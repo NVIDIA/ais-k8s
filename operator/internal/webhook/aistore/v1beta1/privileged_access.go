@@ -61,12 +61,12 @@ func podViolations(ais *aisv1.AIStore) []string {
 	return violations
 }
 
-// validatePrivilegedAccess warns when the user may not use `aistores/privileged` and the pods that the spec
-// creates violate the Pod Security Standards baseline policy.
-func (aisw *AIStoreWebhook) validatePrivilegedAccess(ctx context.Context, ais *aisv1.AIStore) (admission.Warnings, error) {
+// validatePrivilegedAccess rejects the spec when the user may not use `aistores/privileged` and the pods that
+// the spec creates violate the Pod Security Standards baseline policy.
+func (aisw *AIStoreWebhook) validatePrivilegedAccess(ctx context.Context, ais *aisv1.AIStore) error {
 	violations := podViolations(ais)
 	if len(violations) == 0 {
-		return nil, nil
+		return nil
 	}
 
 	fieldErr, err := webhookcmn.Authorize(ctx, aisw.Client, privilegedAccessVerb, field.NewPath("spec"), &authorizationv1.ResourceAttributes{
@@ -78,12 +78,11 @@ func (aisw *AIStoreWebhook) validatePrivilegedAccess(ctx context.Context, ais *a
 		Name:        ais.Name,
 	})
 	if err != nil || fieldErr == nil {
-		return nil, err
+		return err
 	}
 	req, _ := admission.RequestFromContext(ctx)
-	webhooklog.Info("Spec requires aistores/privileged access, but the user does not have it",
+	webhooklog.Info("Rejected spec: it requires aistores/privileged access and the user does not have it",
 		"name", ais.Name, "namespace", ais.Namespace, "user", req.UserInfo.Username, "groups", req.UserInfo.Groups, "violations", violations)
-	return admission.Warnings{fieldErr.Detail + ". Violates Pod Security Standards baseline policy: " + strings.Join(violations, "; ") +
-		". A future release will require this access for any spec change to an AIStore that violates it, see " +
-		privilegedAccessDocURL}, nil
+	fieldErr.Detail += ". Violates Pod Security Standards baseline policy: " + strings.Join(violations, "; ") + ". See " + privilegedAccessDocURL
+	return apiInvalidError(ais, fieldErr)
 }
