@@ -277,6 +277,31 @@ On a new cluster, the primary proxy also restarts if no target joins within `tim
 The cluster recovers without intervention after the records resolve, but users will see restarted containers and potentially `CrashLoopBackOff` errors.
 To reduce restarts, increase `spec.configToUpdate.timeout.startup_time`, and set `join_startup_time` to at least twice that value.
 
+### Stable Node IDs
+
+For a new AIStore, the operator sets `AIS_DAEMON_ID_SOURCE=k8s-pod` on all pods, so each AIS node derives its ID from the pod name and namespace.
+This means a pod rescheduled to a new K8s node without its old state rejoins the cluster with the same ID.
+This requires AIStore v5.3 or later to take effect.
+Older versions ignore the variable.
+See [Node ID sources](https://github.com/NVIDIA/aistore/blob/main/docs/lifecycle_node.md#node-id-sources) and [Pod Derived IDs](https://github.com/NVIDIA/aistore/blob/main/docs/lifecycle_node.md#pod-derived-ids) for more information.
+
+The operator records the choice in the `aistore.nvidia.com/pod-derived-node-ids: "true"` annotation when it first reconciles an AIStore.
+The webhook rejects any other value and any later change to the annotation.
+An AIStore that exists before this annotation was introduced does not receive the new annotation or environment variable.
+
+#### Updating From v5.2
+
+For clusters created with the annotation and variable on versions prior to AIStore v5.3, pods contain `AIS_DAEMON_ID_SOURCE=k8s-pod` but do not actively update their IDs.
+This section covers how these clusters handle an update to v5.3 or later.
+
+Targets always store persisted state on their data volumes, even when `stateStorage.emptyDir` is used.
+Only new targets with no existing state will use pod-derived IDs.
+All existing targets will load their persisted ID.
+
+Existing proxies also continue to use their persisted IDs if state is preserved.
+However, proxies do not always maintain state (e.g. `stateStorage.emptyDir` or `stateStorage.hostPath` on a fresh node).
+If no state exists, a new proxy pod will use a new pod-derived ID.
+
 ### Deploying cluster with shared or no disks
 
 In a development/testing K8s setup, the `mountpaths` attached to storage target pods may either be block devices (no disks) or share a disk. 

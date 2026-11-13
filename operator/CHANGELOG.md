@@ -16,6 +16,10 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
   - Defaults to `false`. The Role then only allows `get` on pods and services.
   - Setting `true` requires `use` on `aistores/privileged`.
   - **Migration:** Clusters that run AIS-managed ETL must set `spec.etl.enabled: true`. ETL fails until the field is set.
+- New AIStores get `AIS_DAEMON_ID_SOURCE=k8s-pod` on all pods, so a rescheduled pod rejoins with its original node ID. This needs AIS v5.3 or later.
+  - See the following links for more details:
+    - [Operator Stable Node IDs](README.md#stable-node-ids).
+    - [AIStore Node ID Sources](https://github.com/NVIDIA/aistore/blob/main/docs/lifecycle_node.md#node-id-sources).
 
 ### Changed
 

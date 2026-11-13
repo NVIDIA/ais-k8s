@@ -16,6 +16,7 @@ import (
 	aisapc "github.com/NVIDIA/aistore/api/apc"
 	authv1alpha1 "github.com/ais-operator/api/aisauth/v1alpha1"
 	aisv1 "github.com/ais-operator/api/aistore/v1beta1"
+	"github.com/ais-operator/internal/resources/aistore/cmn"
 	"github.com/ais-operator/internal/resources/aistore/proxy"
 	webhookcmn "github.com/ais-operator/internal/webhook"
 	"github.com/go-test/deep"
@@ -54,12 +55,18 @@ var _ admission.Validator[*aisv1.AIStore] = &AIStoreWebhook{}
 // ValidateCreate implements admission.Validator.
 func (aisw *AIStoreWebhook) ValidateCreate(ctx context.Context, ais *aisv1.AIStore) (admission.Warnings, error) {
 	webhooklog.WithValues("name", ais.Name, "namespace", ais.Namespace).Info("Validate create")
+	if err := validatePodDerivedNodeIDsValue(ais); err != nil {
+		return nil, err
+	}
 	return aisw.validateSpec(ctx, nil, ais)
 }
 
 // ValidateUpdate implements admission.Validator.
 func (aisw *AIStoreWebhook) ValidateUpdate(ctx context.Context, prev, ais *aisv1.AIStore) (admission.Warnings, error) {
 	webhooklog.WithValues("name", ais.Name, "namespace", ais.Namespace).Info("Validate update")
+	if err := validatePodDerivedNodeIDsValue(ais); err != nil {
+		return nil, err
+	}
 	warnings, err := aisw.validateSpec(ctx, prev, ais)
 	if err != nil {
 		return warnings, err
@@ -82,6 +89,10 @@ func (aisw *AIStoreWebhook) ValidateUpdate(ctx context.Context, prev, ais *aisv1
 
 	if storageErr := validateStateStorageUpdate(prev, ais); storageErr != nil {
 		return warnings, storageErr
+	}
+
+	if idErr := validatePodDerivedNodeIDsUpdate(prev, ais); idErr != nil {
+		return warnings, idErr
 	}
 	return warnings, nil
 }
@@ -591,6 +602,23 @@ func validateStateStorageUpdate(prev, ais *aisv1.AIStore) error {
 		return errCannotUpdateSpec("stateStorage.pvc.storageClass")
 	}
 	return nil
+}
+
+func validatePodDerivedNodeIDsValue(ais *aisv1.AIStore) error {
+	value, ok := ais.Annotations[cmn.PodDerivedNodeIDsAnnotation]
+	if !ok || value == "true" {
+		return nil
+	}
+	return fmt.Errorf("annotation %q must be \"true\" when set, got %q", cmn.PodDerivedNodeIDsAnnotation, value)
+}
+
+// validatePodDerivedNodeIDsUpdate rejects a change of the node ID source after the operator first reconciles the AIStore.
+func validatePodDerivedNodeIDsUpdate(prev, ais *aisv1.AIStore) error {
+	// The operator records the annotation while the state is still empty.
+	if prev.HasState("") || cmn.PodDerivedNodeIDs(prev) == cmn.PodDerivedNodeIDs(ais) {
+		return nil
+	}
+	return fmt.Errorf("cannot change annotation %q for an existing cluster", cmn.PodDerivedNodeIDsAnnotation)
 }
 
 // SetupAIStoreWebhookWithManager registers the AIStore validating webhook with the manager.

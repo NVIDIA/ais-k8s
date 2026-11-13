@@ -22,6 +22,9 @@ const (
 	ConfigHashAnnotation        = "config.aistore.nvidia.com/hash"
 	RestartConfigHashAnnotation = "config.aistore.nvidia.com/restart-hash"
 	RestartConfigHashInitial    = ".initial"
+
+	// PodDerivedNodeIDsAnnotation records on the AIStore whether its nodes derive their IDs from pod names.
+	PodDerivedNodeIDsAnnotation = "aistore.nvidia.com/pod-derived-node-ids"
 )
 
 // Map keys are sorted so that a given spec always renders byte-identical config.

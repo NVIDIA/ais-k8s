@@ -31,6 +31,26 @@ var _ = Describe("Env", Label("short"), func() {
 			env := CommonEnv(ais)
 			Expect(env).To(ContainElement(corev1.EnvVar{Name: EnvCluster, Value: "cluster-name"}))
 		})
+
+		It("sets the pod ID source only when annotated", func() {
+			annotated := &aisv1.AIStore{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{PodDerivedNodeIDsAnnotation: "true"}}}
+			Expect(CommonEnv(annotated)).To(ContainElement(EnvFromValue(EnvDaemonIDSource, "k8s-pod")))
+			Expect(CommonEnv(&aisv1.AIStore{})).NotTo(ContainElement(HaveField("Name", EnvDaemonIDSource)))
+		})
+	})
+	Describe("MergeEnvVars", func() {
+		It("keeps the default node ID source over an override", func() {
+			merged := MergeEnvVars(
+				[]corev1.EnvVar{EnvFromValue(EnvDaemonIDSource, "k8s-pod")},
+				[]corev1.EnvVar{EnvFromValue(EnvDaemonIDSource, "random")},
+			)
+			Expect(merged).To(ConsistOf(EnvFromValue(EnvDaemonIDSource, "k8s-pod")))
+		})
+
+		It("keeps an override of the node ID source when no default sets it", func() {
+			override := EnvFromValue(EnvDaemonIDSource, "random")
+			Expect(MergeEnvVars(nil, []corev1.EnvVar{override})).To(ConsistOf(override))
+		})
 	})
 	Describe("CommonInitEnv", func() {
 		It("returns the host IPs and cluster domain vars and the common vars", func() {

@@ -13,6 +13,7 @@ import (
 	aisapc "github.com/NVIDIA/aistore/api/apc"
 	authv1alpha1 "github.com/ais-operator/api/aisauth/v1alpha1"
 	aisv1 "github.com/ais-operator/api/aistore/v1beta1"
+	"github.com/ais-operator/internal/resources/aistore/cmn"
 	. "github.com/onsi/gomega"
 	admissionv1 "k8s.io/api/admission/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
@@ -623,6 +624,31 @@ func TestValidateStateStorageUpdate(t *testing.T) {
 			}
 		})
 	}
+}
+
+func newAISWithNodeIDs(state aisv1.ClusterState, value string) *aisv1.AIStore {
+	ais := &aisv1.AIStore{Status: aisv1.AIStoreStatus{State: state}}
+	if value != "" {
+		ais.Annotations = map[string]string{cmn.PodDerivedNodeIDsAnnotation: value}
+	}
+	return ais
+}
+
+func TestValidatePodDerivedNodeIDsValue(t *testing.T) {
+	g := NewWithT(t)
+	g.Expect(validatePodDerivedNodeIDsValue(newAISWithNodeIDs("", ""))).To(Succeed())
+	g.Expect(validatePodDerivedNodeIDsValue(newAISWithNodeIDs("", "true"))).To(Succeed())
+	g.Expect(validatePodDerivedNodeIDsValue(newAISWithNodeIDs("", "false"))).ToNot(Succeed())
+}
+
+func TestValidatePodDerivedNodeIDsUpdate(t *testing.T) {
+	g := NewWithT(t)
+	ready := aisv1.ClusterReady
+	// The operator records the annotation while the state is still empty.
+	g.Expect(validatePodDerivedNodeIDsUpdate(newAISWithNodeIDs("", ""), newAISWithNodeIDs("", "true"))).To(Succeed())
+	g.Expect(validatePodDerivedNodeIDsUpdate(newAISWithNodeIDs(ready, "true"), newAISWithNodeIDs(ready, "true"))).To(Succeed())
+	g.Expect(validatePodDerivedNodeIDsUpdate(newAISWithNodeIDs(ready, ""), newAISWithNodeIDs(ready, "true"))).ToNot(Succeed())
+	g.Expect(validatePodDerivedNodeIDsUpdate(newAISWithNodeIDs(ready, "true"), newAISWithNodeIDs(ready, ""))).ToNot(Succeed())
 }
 
 func TestValidateTargetUpdateToScaleDownMode(t *testing.T) {

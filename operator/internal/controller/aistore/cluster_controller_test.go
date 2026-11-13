@@ -131,6 +131,12 @@ var _ = Describe("AIStoreController", func() {
 					_, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: "ais", Namespace: namespace}})
 					Expect(err).ToNot(HaveOccurred())
 
+					By("Ensure that the node ID source annotation has been set")
+					var reconciled aisv1.AIStore
+					err = c.Get(ctx, types.NamespacedName{Name: "ais", Namespace: namespace}, &reconciled)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(reconciled.Annotations).To(HaveKeyWithValue(cmn.PodDerivedNodeIDsAnnotation, "true"))
+
 					By("Ensure that proxy Service has been created")
 					var proxyService corev1.Service
 					err = c.Get(ctx, types.NamespacedName{Name: "ais-proxy", Namespace: namespace}, &proxyService)
@@ -445,6 +451,7 @@ var _ = Describe("AIStoreController", func() {
 					err = c.Get(ctx, types.NamespacedName{Name: "ais", Namespace: namespace}, &ais)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(ais.GetFinalizers()).To(HaveLen(1))
+					Expect(ais.Annotations).To(HaveKeyWithValue(cmn.PodDerivedNodeIDsAnnotation, "true"))
 					Expect(ais.Status.State).To(Equal(aisv1.ClusterInitialized))
 
 					By("Ensure that proxy Service has been created")

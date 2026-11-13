@@ -251,6 +251,12 @@ func (r *Reconciler) initializeCR(ctx context.Context, ais *aisv1.AIStore) (err 
 		logger.Info("Successfully updated finalizer")
 	}
 
+	err = r.setNodeAnnotation(ctx, ais)
+	if err != nil {
+		logger.Error(err, "Failed to set annotation for pod-derived node IDs")
+		return err
+	}
+
 	logger.Info("Updating state and setting condition", "state", aisv1.ConditionInitialized)
 	ais.SetCondition(aisv1.ConditionInitialized)
 	err = r.updateStatusWithState(ctx, ais, aisv1.ClusterInitialized)
@@ -261,6 +267,19 @@ func (r *Reconciler) initializeCR(ctx context.Context, ais *aisv1.AIStore) (err 
 	logger.Info("Successfully updated state")
 
 	return
+}
+
+func (r *Reconciler) setNodeAnnotation(ctx context.Context, ais *aisv1.AIStore) error {
+	// Node IDs must never change on a running cluster, so only a new AIStore opts in.
+	if _, ok := ais.Annotations[cmn.PodDerivedNodeIDsAnnotation]; ok {
+		return nil
+	}
+	original := ais.DeepCopy()
+	if ais.Annotations == nil {
+		ais.Annotations = map[string]string{}
+	}
+	ais.Annotations[cmn.PodDerivedNodeIDsAnnotation] = "true"
+	return r.k8sClient.Patch(ctx, ais, k8sclient.MergeFrom(original))
 }
 
 func (r *Reconciler) shutdownCluster(ctx context.Context, ais *aisv1.AIStore) (result reconcile.Result, err error) {

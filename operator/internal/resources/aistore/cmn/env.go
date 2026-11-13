@@ -27,6 +27,9 @@ const (
 
 	EnvHostNetwork = "HOST_NETWORK" // Bool flag to indicate if host network is enabled for target
 
+	EnvDaemonIDSource = "AIS_DAEMON_ID_SOURCE" // Selects how aisnode derives its node ID
+	daemonIDSourcePod = "k8s-pod"              // Derives the node ID from MY_POD and K8S_NS
+
 	// AuthN related environment variables
 	EnvAuthNSecretKey = "SIGNING-KEY" // Key for secret signing key in the K8s secret
 
@@ -38,12 +41,21 @@ const (
 
 // CommonEnv provides environment variables for all containers (target/proxy, init/aisnode)
 func CommonEnv(ais *aisv1.AIStore) []corev1.EnvVar {
-	return []corev1.EnvVar{
+	env := []corev1.EnvVar{
 		EnvFromFieldPath(EnvNodeName, "spec.nodeName"),
 		EnvFromFieldPath(EnvPodName, "metadata.name"),
 		EnvFromFieldPath(EnvNS, "metadata.namespace"),
 		EnvFromValue(EnvCluster, ais.Name),
 	}
+	if PodDerivedNodeIDs(ais) {
+		env = append(env, EnvFromValue(EnvDaemonIDSource, daemonIDSourcePod))
+	}
+	return env
+}
+
+// PodDerivedNodeIDs reports whether the AIStore is annotated for pod-derived node IDs.
+func PodDerivedNodeIDs(ais *aisv1.AIStore) bool {
+	return ais.Annotations[PodDerivedNodeIDsAnnotation] == "true"
 }
 
 // CommonInitEnv provides environment variables used by init containers for both proxy and target pods.

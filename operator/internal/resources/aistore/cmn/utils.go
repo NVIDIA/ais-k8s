@@ -6,6 +6,7 @@ package cmn
 
 import (
 	"iter"
+	"slices"
 
 	"github.com/NVIDIA/aistore/cmn/cos"
 	corev1 "k8s.io/api/core/v1"
@@ -45,11 +46,16 @@ func EnvFromSecret(envName, secret, key string) corev1.EnvVar {
 }
 
 // MergeEnvVars merges defaults and overrides envvars.
-// For duplicate `Name` entries, overrides will take precedence.
+// For duplicate `Name` entries, overrides will take precedence, except EnvDaemonIDSource when defaults set it.
 func MergeEnvVars(defaults, overrides []corev1.EnvVar) []corev1.EnvVar {
 	envVars := []corev1.EnvVar{}
 	exists := cos.StrSet{}
+	// The operator owns the node ID source, so a user override must not replace it.
+	idSourceSet := slices.ContainsFunc(defaults, func(v corev1.EnvVar) bool { return v.Name == EnvDaemonIDSource })
 	for _, v := range overrides {
+		if idSourceSet && v.Name == EnvDaemonIDSource {
+			continue
+		}
 		exists.Add(v.Name)
 		envVars = append(envVars, v)
 	}
