@@ -12,6 +12,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 
 ### Changed
 
+- With `spec.nodeJoin.secretName` set, the operator writes `auth.intra_cluster.node_join_secret_path` to the AIS config. Previously, when `configToUpdate.auth.intra_cluster` was not set, the config carried an empty `auth.cluster_key` section instead, and options set under the deprecated `auth.cluster_key` were dropped. They now move to `auth.intra_cluster`.
 - Webhook rejects a create or update by a user without `use` on `aistores/privileged` when the spec's pods violate the baseline Pod Security Standard. Previously it only warned. See [privileged access](../docs/privileged_access.md).
 
 ## v4.4.0

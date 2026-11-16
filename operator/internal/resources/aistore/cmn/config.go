@@ -145,8 +145,10 @@ func MarshalGlobalConfig(ais *aisv1.AIStore, conf *aiscmn.ConfigToSet) ([]byte, 
 	if conf == nil || conf.Auth == nil {
 		return configJSON.Marshal(conf)
 	}
+	// Node join needs AIS v5.0.0 or later, which reads auth.intra_cluster, so keep that name.
+	keepIntraCluster := spec.IntraClusterSet() || ais.Spec.NodeJoinSecretName() != nil
 	// Marshal legacy options for compatibility with AIS releases before v5.0.0
-	auth, err := useLegacyAuthConf(conf.Auth, spec)
+	auth, err := useLegacyAuthConf(conf.Auth, spec, keepIntraCluster)
 	if err != nil {
 		return nil, err
 	}
@@ -154,8 +156,9 @@ func MarshalGlobalConfig(ais *aisv1.AIStore, conf *aiscmn.ConfigToSet) ([]byte, 
 }
 
 // useLegacyAuthConf renders conf under the auth option names AIS used before v5.0.0, keeping the
-// new name for each option the spec set that way. Options it does not rename are passed through.
-func useLegacyAuthConf(conf *aiscmn.AuthConfToSet, specConf *aisv1.ConfigToUpdate) (jsoniter.RawMessage, error) {
+// new name for each option the spec set that way, and for intra_cluster when keepIntraCluster is
+// set. Options it does not rename are passed through.
+func useLegacyAuthConf(conf *aiscmn.AuthConfToSet, specConf *aisv1.ConfigToUpdate, keepIntraCluster bool) (jsoniter.RawMessage, error) {
 	data, err := configJSON.Marshal(conf)
 	if err != nil {
 		return nil, err
@@ -168,7 +171,7 @@ func useLegacyAuthConf(conf *aiscmn.AuthConfToSet, specConf *aisv1.ConfigToUpdat
 	if !specConf.ClientAuthRequiredSet() {
 		renameKey(auth, "client_auth_required", "enabled")
 	}
-	if !specConf.IntraClusterSet() {
+	if !keepIntraCluster {
 		err = useLegacyClusterKey(auth, conf.IntraCluster)
 		if err != nil {
 			return nil, err
