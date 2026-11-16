@@ -473,6 +473,14 @@ func (c *ConfigToUpdate) ConfigureNodeJoin(secretPath string) {
 	}
 	if c.Auth.IntraCluster == nil {
 		c.Auth.IntraCluster = &IntraClusterConfToUpdate{}
+		// AIS ignores the deprecated cluster_key once intra_cluster is set, so move its options over.
+		if ck := c.Auth.ClusterKey; ck != nil {
+			c.Auth.IntraCluster.RequestAuth = ck.Enabled
+			c.Auth.IntraCluster.TTL = ck.TTL
+			c.Auth.IntraCluster.NonceWindow = ck.NonceWindow
+			c.Auth.IntraCluster.RotationGrace = ck.RotationGrace
+			c.Auth.ClusterKey = nil
+		}
 	}
 	c.Auth.IntraCluster.NodeJoinSecretPath = &secretPath
 }

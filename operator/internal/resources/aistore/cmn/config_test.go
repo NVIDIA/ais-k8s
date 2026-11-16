@@ -484,6 +484,44 @@ var _ = Describe("Config", Label("short"), func() {
 			),
 		)
 
+		DescribeTable("should keep auth.intra_cluster when node join is configured",
+			func(conf *aisv1.ConfigToUpdate, expected string) {
+				ais := &aisv1.AIStore{
+					ObjectMeta: metav1.ObjectMeta{Name: "test-cluster", Namespace: "test-ns"},
+					Spec: aisv1.AIStoreSpec{
+						ConfigToUpdate: conf,
+						NodeJoin:       &aisv1.NodeJoinSpec{SecretName: aisapc.Ptr("node-join-creds")},
+					},
+				}
+				toSet, err := GenerateConfigToSet(ais)
+				Expect(err).ToNot(HaveOccurred())
+				data, err := MarshalGlobalConfig(ais, toSet)
+				Expect(err).ToNot(HaveOccurred())
+				var root map[string]jsoniter.RawMessage
+				Expect(jsoniter.Unmarshal(data, &root)).To(Succeed())
+				Expect(string(root["auth"])).To(Equal(expected))
+			},
+			Entry("node join alone",
+				nil,
+				`{"intra_cluster":{"node_join_secret_path":"/var/node_join_secret/node_join_secret"}}`,
+			),
+			Entry("node join with deprecated auth.cluster_key",
+				&aisv1.ConfigToUpdate{Auth: &aisv1.AuthConfToUpdate{
+					ClusterKey: &aisv1.ClusterKeyConfToUpdate{
+						Enabled: aisapc.Ptr(true),
+						TTL:     (*aisv1.Duration)(aisapc.Ptr(int64(time.Hour))),
+					},
+				}},
+				`{"intra_cluster":{"node_join_secret_path":"/var/node_join_secret/node_join_secret","ttl":"1h0m","request_auth":true}}`,
+			),
+			Entry("node join with auth.intra_cluster",
+				&aisv1.ConfigToUpdate{Auth: &aisv1.AuthConfToUpdate{
+					IntraCluster: &aisv1.IntraClusterConfToUpdate{RequestAuth: aisapc.Ptr(true)},
+				}},
+				`{"intra_cluster":{"node_join_secret_path":"/var/node_join_secret/node_join_secret","request_auth":true}}`,
+			),
+		)
+
 		It("should not let spec.auth influence the emitted config", func() {
 			ais := &aisv1.AIStore{
 				ObjectMeta: metav1.ObjectMeta{Name: "test-cluster", Namespace: "test-ns"},
