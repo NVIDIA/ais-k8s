@@ -27,6 +27,7 @@ We structure this changelog in accordance with [Keep a Changelog](https://keepac
 - Webhook rejects a create or update by a user without `use` on `aistores/privileged` when the spec's pods violate the baseline Pod Security Standard. Previously it only warned. See [privileged access](../docs/privileged_access.md).
   - Editors of specs with `spec.etl.enabled: true` must also hold this privilege. See [ETL access](../docs/etl.md).
 - Proxy autoscale scale-down keeps up to `proxySpec.autoScale.maxUnavailable` proxies above the desired size while a proxy within the desired size is unavailable, instead of waiting or shrinking to the desired size.
+- Target scale-down finishes removing a target that AIS already started to remove when the desired size grows back, instead of leaving it in maintenance or decommissioned.
 
 ## v4.4.0
 

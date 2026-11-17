@@ -908,6 +908,38 @@ var _ = Describe("scaleDownCeiling", func() {
 	)
 })
 
+var _ = Describe("capAtStartedRemoval", func() {
+	ss := &appsv1.StatefulSet{ObjectMeta: metav1.ObjectMeta{Name: "ais-target"}}
+
+	// pods returns four pods, with the annotation on the pod at each annotated ordinal.
+	pods := func(annotation string, terminating bool, annotated ...int32) map[string]*corev1.Pod {
+		pods := make(map[string]*corev1.Pod, 4)
+		for idx := range int32(4) {
+			pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: podName(ss, idx)}}
+			if slices.Contains(annotated, idx) {
+				pod.Annotations = map[string]string{annotation: "node"}
+				if terminating {
+					pod.DeletionTimestamp = &metav1.Time{}
+				}
+			}
+			pods[pod.Name] = pod
+		}
+		return pods
+	}
+
+	DescribeTable("returns the lowest ordinal below the ceiling whose removal started",
+		func(pods map[string]*corev1.Pod, ceiling, expected int32) {
+			Expect(capAtStartedRemoval(pods, ss, ceiling)).To(Equal(expected))
+		},
+		Entry("no pod has a removal annotation", pods("", false), int32(4), int32(4)),
+		Entry("decommissioned pods", pods(decommissionedAnnotation, false, 2, 3), int32(4), int32(2)),
+		Entry("a pod in maintenance", pods(maintenanceAnnotation, false, 3), int32(4), int32(3)),
+		Entry("an annotated pod at or above the ceiling", pods(decommissionedAnnotation, false, 3), int32(3), int32(3)),
+		Entry("a terminating annotated pod", pods(decommissionedAnnotation, true, 2, 3), int32(4), int32(4)),
+		Entry("an unrelated annotation", pods("other", false, 2), int32(4), int32(4)),
+	)
+})
+
 var _ = Describe("statefulsetReady", func() {
 	r := &Reconciler{}
 	DescribeTable("should decide readiness with autoscaling tolerance",

@@ -402,6 +402,24 @@ func anyPodUnready(pods map[string]*corev1.Pod, podName func(int32) string, n in
 	return false
 }
 
+// capAtStartedRemoval lowers ceiling to the lowest ordinal below it whose pod of ss the operator
+// started to remove. The removal of that pod must finish.
+func capAtStartedRemoval(pods map[string]*corev1.Pod, ss *appsv1.StatefulSet, ceiling int32) int32 {
+	for idx := range ceiling {
+		if hasRemovalAnnotation(pods[podName(ss, idx)]) {
+			return idx
+		}
+	}
+	return ceiling
+}
+
+// hasRemovalAnnotation reports whether the operator started to remove pod.
+func hasRemovalAnnotation(pod *corev1.Pod) bool {
+	// The StatefulSet replaces a terminating pod with a pod that has no annotations.
+	return pod != nil && pod.DeletionTimestamp == nil &&
+		(pod.Annotations[maintenanceAnnotation] != "" || pod.Annotations[decommissionedAnnotation] != "")
+}
+
 // podsByNameDirect lists the pods matching labels, bypassing the informer cache, keyed by name.
 func (r *Reconciler) podsByNameDirect(ctx context.Context, ais *aisv1.AIStore, labels map[string]string) (map[string]*corev1.Pod, error) {
 	podList, err := r.k8sClient.ListPodsDirect(ctx, ais, labels)

@@ -372,6 +372,20 @@ func (c *K8sClient) AnnotatePod(ctx context.Context, name types.NamespacedName, 
 	return c.client.Patch(ctx, pod, client.RawPatch(types.MergePatchType, patch))
 }
 
+// RemovePodAnnotations removes keys from the annotations of the pod.
+func (c *K8sClient) RemovePodAnnotations(ctx context.Context, name types.NamespacedName, keys ...string) error {
+	annotations := make(map[string]any, len(keys))
+	for _, key := range keys {
+		annotations[key] = nil
+	}
+	patch, err := json.Marshal(map[string]any{"metadata": map[string]any{"annotations": annotations}})
+	if err != nil {
+		return err
+	}
+	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: name.Name, Namespace: name.Namespace}}
+	return c.client.Patch(ctx, pod, client.RawPatch(types.MergePatchType, patch))
+}
+
 func (c *K8sClient) PatchIfExists(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
 	err := c.client.Patch(ctx, obj, patch, opts...)
 	if apierrors.IsNotFound(err) {

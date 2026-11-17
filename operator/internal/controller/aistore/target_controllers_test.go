@@ -20,6 +20,7 @@ import (
 	mocks "github.com/ais-operator/internal/services/mocks"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	gomegatypes "github.com/onsi/gomega/types"
 	"go.uber.org/mock/gomock"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -704,9 +705,9 @@ var _ = Describe("scaleDownMode", func() {
 				Spec: appsv1.StatefulSetSpec{
 					Replicas:    apc.Ptr[int32](3),
 					ServiceName: ais.TargetStatefulSetName(),
-					Selector:    &metav1.LabelSelector{MatchLabels: map[string]string{"app": "ais"}},
+					Selector:    &metav1.LabelSelector{MatchLabels: target.SelectorLabels(ais)},
 					Template: corev1.PodTemplateSpec{
-						ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"app": "ais"}},
+						ObjectMeta: metav1.ObjectMeta{Labels: target.SelectorLabels(ais)},
 						Spec: corev1.PodSpec{
 							Containers: []corev1.Container{{Name: "aisnode", Image: "node:latest"}},
 						},
@@ -736,7 +737,7 @@ var _ = Describe("scaleDownMode", func() {
 			apiClient.EXPECT().GetClusterMap().Return(&aismeta.Smap{Tmap: aismeta.NodeMap{"t1": t1, "t2": t2}}, nil).Times(2)
 			apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any()).Return(nil)
 
-			result, err := r.scaleDownTargets(ctx, ais, ss)
+			result, err := r.handleTargetScaling(ctx, ais, ss)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result.RequeueAfter).NotTo(BeZero())
 
@@ -767,7 +768,7 @@ var _ = Describe("scaleDownMode", func() {
 					apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any()).Return(nil)
 				}
 
-				result, err := r.scaleDownTargets(ctx, ais, ss)
+				result, err := r.handleTargetScaling(ctx, ais, ss)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(result.RequeueAfter).NotTo(BeZero())
 
@@ -790,7 +791,7 @@ var _ = Describe("scaleDownMode", func() {
 				}
 				createTargetPod(2, readyStatus())
 
-				result, err := r.scaleDownTargets(ctx, ais, ss)
+				result, err := r.handleTargetScaling(ctx, ais, ss)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(result.IsZero()).To(BeTrue())
 
@@ -808,7 +809,9 @@ var _ = Describe("scaleDownMode", func() {
 			setTargetPodStatus(1, unreadyStatus())
 			createTargetPod(2, readyStatus())
 
-			size, _, err := r.targetScaleDownSize(ctx, ais, 2, 3)
+			pods, err := r.podsByNameDirect(ctx, ais, target.SelectorLabels(ais))
+			Expect(err).NotTo(HaveOccurred())
+			size, _, err := r.targetScaleDownSize(ctx, ais, ss, pods, 2)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(size).To(Equal(int32(2)))
 		})
@@ -837,7 +840,7 @@ var _ = Describe("scaleDownMode", func() {
 			apiClient.EXPECT().GetClusterMap().Return(&aismeta.Smap{Tmap: aismeta.NodeMap{"t1": t1, "t2": t2, "t3": t3}}, nil).Times(2)
 			apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any()).Return(nil)
 
-			result, err := r.scaleDownTargets(ctx, ais, ss)
+			result, err := r.handleTargetScaling(ctx, ais, ss)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result.RequeueAfter).NotTo(BeZero())
 
@@ -874,7 +877,7 @@ var _ = Describe("scaleDownMode", func() {
 				return "xid", nil
 			})
 
-			result, err := r.scaleDownTargets(ctx, ais, ss)
+			result, err := r.handleTargetScaling(ctx, ais, ss)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result.RequeueAfter).NotTo(BeZero())
 		})
@@ -907,12 +910,96 @@ var _ = Describe("scaleDownMode", func() {
 				apiClient.EXPECT().GetClusterMap().Return(&aismeta.Smap{Tmap: aismeta.NodeMap{"t1": t1, "t2": t2, "t3": t3Maint}}, nil),
 			)
 
-			_, err := r.scaleDownTargets(ctx, ais, ss)
+			_, err := r.handleTargetScaling(ctx, ais, ss)
 			Expect(err).NotTo(HaveOccurred())
 
 			updated := &appsv1.StatefulSet{}
 			Expect(k8sClient.Get(ctx, target.StatefulSetNSName(ais), updated)).To(Succeed())
 			Expect(*updated.Spec.Replicas).To(Equal(int32(2)))
+		})
+
+		Context("when the desired size grows back during a scale-down", func() {
+			var t1, t2 *aismeta.Snode
+
+			BeforeEach(func() {
+				ais.Spec.TargetSpec.Size = apc.Ptr[int32](3)
+				ais.Spec.TargetSpec.AutoScaleConf = nil
+				Expect(k8sClient.Update(ctx, ais)).To(Succeed())
+				ais.SetCondition(aisv1.ConditionReadyRebalance)
+				Expect(k8sClient.Status().Update(ctx, ais)).To(Succeed())
+				t1 = &aismeta.Snode{DaeID: "t1", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-0"}}
+				t2 = &aismeta.Snode{DaeID: "t2", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-1"}}
+			})
+
+			DescribeTable("finishes the removal of a decommissioned target before it scales up",
+				func(size int32) {
+					ais.Spec.TargetSpec.Size = apc.Ptr(size)
+					ais.Spec.TargetSpec.ExternalAccess = &aisv1.ExternalAccessSpec{}
+					Expect(k8sClient.Update(ctx, ais)).To(Succeed())
+					Expect(r.addTargetLoadBalancers(ctx, ais)).To(Succeed())
+					createTargetPod(2, crashLoopStatus())
+					annotateTargetPod(2, decommissionedAnnotation, "t3")
+					apiClient.EXPECT().GetClusterMap().Return(&aismeta.Smap{Tmap: aismeta.NodeMap{"t1": t1, "t2": t2}}, nil).AnyTimes()
+					apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any()).Return(nil)
+
+					result, err := r.handleTargetScaling(ctx, ais, ss)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(result.RequeueAfter).NotTo(BeZero())
+
+					updated := &appsv1.StatefulSet{}
+					Expect(k8sClient.Get(ctx, target.StatefulSetNSName(ais), updated)).To(Succeed())
+					Expect(*updated.Spec.Replicas).To(Equal(int32(2)))
+					Expect(recorder.Events).To(Receive(ContainSubstring("Normal " + EventReasonWaiting)))
+					// The scale-up reuses the load balancer of each target that the desired size includes.
+					Expect(k8sClient.Get(ctx, target.LoadBalancerSVCNSName(ais, 2), &corev1.Service{})).To(Succeed())
+				},
+				Entry("when the desired size equals the replica count", int32(3)),
+				Entry("when the desired size is above the replica count", int32(4)),
+			)
+
+			DescribeTable("drops the removal annotation of a target only while AIS lists the target as active",
+				func(status corev1.PodStatus, flags cos.BitFlags, matcher gomegatypes.GomegaMatcher) {
+					createTargetPod(2, status)
+					annotateTargetPod(2, maintenanceAnnotation, "t3")
+					t3 := &aismeta.Snode{DaeID: "t3", DaeType: apc.Target, Flags: flags, ControlNet: aismeta.NetInfo{Hostname: "ais-target-2"}}
+					apiClient.EXPECT().GetClusterMap().Return(&aismeta.Smap{Tmap: aismeta.NodeMap{"t1": t1, "t2": t2, "t3": t3}}, nil).AnyTimes()
+
+					_, err := r.handleTargetScaling(ctx, ais, ss)
+					Expect(err).NotTo(HaveOccurred())
+
+					pod := &corev1.Pod{}
+					Expect(k8sClient.Get(ctx, types.NamespacedName{Name: target.PodName(ais, 2), Namespace: namespace}, pod)).To(Succeed())
+					Expect(pod.Annotations).To(matcher)
+				},
+				Entry("an active target", readyStatus(), cos.BitFlags(0), Not(HaveKey(maintenanceAnnotation))),
+				Entry("a target in maintenance", unreadyStatus(), aismeta.SnodeMaint, HaveKey(maintenanceAnnotation)),
+			)
+
+			It("scales up past an active target that has a removal annotation", func() {
+				ais.Spec.TargetSpec.Size = apc.Ptr[int32](4)
+				createTargetPod(2, readyStatus())
+				annotateTargetPod(2, maintenanceAnnotation, "t3")
+				t3 := &aismeta.Snode{DaeID: "t3", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-2"}}
+				apiClient.EXPECT().GetClusterMap().Return(&aismeta.Smap{Tmap: aismeta.NodeMap{"t1": t1, "t2": t2, "t3": t3}}, nil)
+
+				_, err := r.handleTargetScaling(ctx, ais, ss)
+				Expect(err).NotTo(HaveOccurred())
+
+				updated := &appsv1.StatefulSet{}
+				Expect(k8sClient.Get(ctx, target.StatefulSetNSName(ais), updated)).To(Succeed())
+				Expect(*updated.Spec.Replicas).To(Equal(int32(4)))
+			})
+
+			DescribeTable("reports a pending removal only while a target is unready",
+				func(status corev1.PodStatus, readyReplicas int32, expected bool) {
+					createTargetPod(2, status)
+					annotateTargetPod(2, maintenanceAnnotation, "t3")
+					ss.Status.ReadyReplicas = readyReplicas
+					Expect(r.targetRemovalPending(ctx, ais, ss)).To(Equal(expected))
+				},
+				Entry("when every target is ready", readyStatus(), int32(3), false),
+				Entry("when a target is unready", unreadyStatus(), int32(2), true),
+			)
 		})
 	})
 
@@ -976,5 +1063,40 @@ var _ = Describe("handleTargetState", func() {
 
 	It("should switch a RollingUpdate target statefulset to OnDelete before it updates the pod template", func() {
 		expectOnDeleteBeforeTemplateUpdate(ctx, ais, r, "ais-target", reconcileTarget)
+	})
+
+	It("should finish a started target removal when the desired size equals the replica count", func() {
+		ais.Spec.TargetSpec.Size = apc.Ptr[int32](2)
+		Expect(k8sClient.Update(ctx, ais)).To(Succeed())
+		mockCtrl := gomock.NewController(GinkgoT())
+		apiClient := mocks.NewMockAIStoreClientInterface(mockCtrl)
+		clientManager := mocks.NewMockAISClientManagerInterface(mockCtrl)
+		clientManager.EXPECT().GetClient(gomock.Any(), gomock.Any()).Return(apiClient, nil).AnyTimes()
+		r = NewReconciler(aisclient.NewClient(k8sClient, k8sClient.Scheme()), events.NewFakeRecorder(8), ctrl.Log, clientManager)
+		reconcileTarget(ctx, ais, r)
+
+		ss := getStatefulSet(ctx, ais, k8sClient, "ais-target")
+		ss.Status.Replicas = 2
+		ss.Status.ObservedGeneration = ss.Generation
+		Expect(k8sClient.Status().Update(ctx, &ss)).To(Succeed())
+		for idx := range int32(2) {
+			pod := &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{Name: target.PodName(ais, idx), Namespace: namespace, Labels: target.SelectorLabels(ais)},
+				Spec:       corev1.PodSpec{Containers: []corev1.Container{{Name: cmn.AISContainerName, Image: "aisnode:test"}}},
+			}
+			if idx == 1 {
+				pod.Annotations = map[string]string{decommissionedAnnotation: "t2"}
+			}
+			Expect(k8sClient.Create(ctx, pod)).To(Succeed())
+		}
+		t1 := &aismeta.Snode{DaeID: "t1", DaeType: apc.Target, ControlNet: aismeta.NetInfo{Hostname: "ais-target-0"}}
+		apiClient.EXPECT().GetClusterMap().Return(&aismeta.Smap{Tmap: aismeta.NodeMap{"t1": t1}}, nil).AnyTimes()
+		apiClient.EXPECT().SetClusterConfigUsingMsg(gomock.Any()).Return(nil)
+
+		_, err := r.handleTargetState(ctx, ais)
+		Expect(err).NotTo(HaveOccurred())
+
+		ss = getStatefulSet(ctx, ais, k8sClient, "ais-target")
+		Expect(*ss.Spec.Replicas).To(Equal(int32(1)))
 	})
 })
