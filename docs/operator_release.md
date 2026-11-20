@@ -18,6 +18,7 @@ To override the default image, also set `IMG`, e.g. `VERSION=2.11.0 IMG=aistorag
 This command:
 - Generates all required manifests, combined into `operator/dist/ais-operator.yaml`.
 - Updates the default image in Kustomize overlays.
+- Updates `DEFAULT_VERSION` in the operator `Makefile`.
 - Builds a Helm chart, packages it into [pages/charts](../pages/charts), and updates the Helm repo index for GitHub Pages.
 - Automatically creates a corresponding Git commit.
 

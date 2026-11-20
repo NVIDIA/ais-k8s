@@ -1,4 +1,4 @@
-DEFAULT_VERSION = 3.2.0
+DEFAULT_VERSION = 4.5.0
 DEFAULT_IMG_REPOSITORY = docker.io/aistorage/ais-operator
 # Strip optional leading v; empty when VERSION is unset
 VERSION_BASE = $(patsubst v%,%,$(VERSION))
@@ -266,7 +266,8 @@ package-chart: require-helm-chart-version build-installer-helm helm
 
 .PHONY: release
 release: package-chart
-	git add ../pages/charts config/overlays/default/kustomization.yaml helm/ais-operator CHANGELOG.md
+	sed -i.bak 's/^DEFAULT_VERSION = .*/DEFAULT_VERSION = $(VERSION_BASE)/' Makefile && rm Makefile.bak
+	git add Makefile ../pages/charts config/overlays/default/kustomization.yaml helm/ais-operator CHANGELOG.md
 	git commit -s -m "operator: Release version $(VERSION)"
 
 .PHONY: operator-sdk-generate ## Use the operator-sdk CLI to generate kustomize manifests
